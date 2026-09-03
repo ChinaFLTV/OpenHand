@@ -1,3 +1,5 @@
+import { parseJsonSafely } from './value';
+
 function getBrowserStorage(): Storage | null {
   try {
     if (typeof window !== 'undefined') {
@@ -31,12 +33,12 @@ export function readBrowserStorage(key: string): string | null {
 export function readBrowserJsonStorage(key: string): unknown | null {
   const raw = readBrowserStorage(key);
   if (raw == null) return null;
-  try {
-    return JSON.parse(raw) as unknown;
-  } catch {
+  const parsed = parseJsonSafely(raw);
+  if (parsed == null) {
     removeBrowserStorage(key);
     return null;
   }
+  return parsed;
 }
 
 export function writeBrowserStorage(key: string, value: string): boolean {

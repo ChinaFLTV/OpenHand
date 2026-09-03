@@ -3,7 +3,18 @@
 import { ensureDeviceId, readToken } from '../state/storage';
 import type { SessionMessage, SessionSummary } from './sessions';
 import { collectClientEnvironment } from '../utils/client_env';
+import {
+  parseJsonBounded,
+  type JsonParseBounds,
+} from '../shared/util/bounded_json';
 import { runIgnoringErrors } from '../shared/util/errors';
+
+const SESSION_EVENT_JSON_BOUNDS: JsonParseBounds = {
+  maxCharacters: 16 * 1024 * 1024,
+  maxDepth: 64,
+  maxContainerItems: 50_000,
+  maxNodes: 250_000,
+};
 
 export interface PendingWriteApproval {
   id: string;
@@ -62,13 +73,40 @@ interface SessionEventsHandlers {
   onOpen?(): void;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isSessionEventSnapshot(value: unknown): value is SessionEventSnapshot {
+  if (!isRecord(value)) return false;
+  return (
+    isRecord(value['session']) &&
+    Array.isArray(value['messages']) &&
+    typeof value['send_phase'] === 'string' &&
+    (typeof value['last_error'] === 'string' || value['last_error'] == null) &&
+    typeof value['can_stop'] === 'boolean' &&
+    typeof value['served_at'] === 'string'
+  );
+}
+
+function isSessionDeletedEvent(value: unknown): value is SessionDeletedEvent {
+  if (!isRecord(value)) return false;
+  return (
+    value['error'] === 'session_deleted_or_not_found' &&
+    typeof value['session_id'] === 'string' &&
+    typeof value['served_at'] === 'string'
+  );
+}
+
 function dispatchParsedEvent<T>(
   event: Event,
   onParsed: (data: T) => void,
   onError: (err: Event) => void,
 ): void {
   try {
-    const data = JSON.parse((event as MessageEvent).data) as T;
+    const raw = (event as MessageEvent<unknown>).data;
+    if (typeof raw !== 'string') throw new TypeError('SSE 事件数据必须是字符串。');
+    const data = parseJsonBounded(raw, SESSION_EVENT_JSON_BOUNDS) as T;
     onParsed(data);
   } catch (error) {
     onError(new ErrorEvent('parse_error', { error }));
@@ -95,14 +133,24 @@ export function subscribeSessionEvents(
   const es = new EventSource(url, { withCredentials: false });
   let closed = false;
 
-  const handleSnapshot = (ev: Event) => dispatchParsedEvent<SessionEventSnapshot>(
+  const handleSnapshot = (ev: Event) => dispatchParsedEvent<unknown>(
     ev,
-    handlers.onSnapshot,
+    (data) => {
+      if (!isSessionEventSnapshot(data)) {
+        throw new TypeError('SSE 会话快照结构无效。');
+      }
+      handlers.onSnapshot(data);
+    },
     handlers.onError,
   );
-  const handleDeleted = (ev: Event) => dispatchParsedEvent<SessionDeletedEvent>(
+  const handleDeleted = (ev: Event) => dispatchParsedEvent<unknown>(
     ev,
-    (data) => handlers.onDeleted?.(data),
+    (data) => {
+      if (!isSessionDeletedEvent(data) || data.session_id !== sessionId) {
+        throw new TypeError('SSE 会话删除事件结构无效。');
+      }
+      handlers.onDeleted?.(data);
+    },
     handlers.onError,
   );
   const handleOpen = () => handlers.onOpen?.();

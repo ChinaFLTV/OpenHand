@@ -258,6 +258,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
   }
 
   Future<void> _initializeLocked() async {
+    if (_disposed) return;
     _isLoading = true;
     _hasTrustedSnapshot = false;
     _errorMessage = null;
@@ -265,7 +266,9 @@ class MessageGatewayController extends ManagedChangeNotifier {
     try {
       try {
         await _service.loadPersistedOpsData();
+        if (_disposed) return;
         final loaded = await _store.load();
+        if (_disposed) return;
         _config = _normalizeAgainstRuntimeOptions(loaded);
         _hasTrustedSnapshot = true;
         _hasPendingRuntimeConfig = false;
@@ -276,15 +279,19 @@ class MessageGatewayController extends ManagedChangeNotifier {
       }
       try {
         await _dingtalkController.initialize();
+        if (_disposed) return;
       } catch (error, stack) {
+        if (_disposed) return;
         silentLog('message_gateway', '初始化钉钉消息网关', error, stack);
       }
       if (_config.autoStartOnLaunch && !_service.isRunning) {
         final startupConfig = _config.copyWith(enabled: true);
         try {
           await _service.start(startupConfig);
+          if (_disposed) return;
           _config = startupConfig;
         } catch (error, stack) {
+          if (_disposed) return;
           _hasPendingRuntimeConfig = true;
           _errorMessage = _reportMessageGatewayFailure(
             '自动启动消息网关',

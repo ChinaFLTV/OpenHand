@@ -454,6 +454,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool _eventRestartQueued = false;
   Future<void>? _periodicReconcileFuture;
   Future<void>? _pollingStopInFlight;
+  Future<void>? _initializeInFlight;
   Completer<void>? _activePollCancellation;
   Future<void>? _persistInFlight;
   Future<void>? _shutdownInFlight;
@@ -1985,10 +1986,26 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
   }
 
-  Future<void> initialize() async {
-    if (_initialized || _disposed) return;
+  Future<void> initialize() {
+    if (_initialized || _disposed || _shutdownRequested) {
+      return Future<void>.value();
+    }
+    final active = _initializeInFlight;
+    if (active != null) return active;
+    late final Future<void> initializing;
+    initializing = _initialize().whenComplete(() {
+      if (identical(_initializeInFlight, initializing)) {
+        _initializeInFlight = null;
+      }
+    });
+    _initializeInFlight = initializing;
+    return initializing;
+  }
+
+  Future<void> _initialize() async {
     try {
       final snapshot = await _store.loadSnapshot();
+      if (_disposed || _shutdownRequested) return;
       _settings = _normalizeSettings(snapshot.settings);
       _conversations
         ..clear()
@@ -2028,7 +2045,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _remember(message.id);
       }
       final repairedEchoContent = await _restorePersistedAiEchoContent();
+      if (_disposed || _shutdownRequested) return;
       await refreshAuthStatus();
+      if (_disposed || _shutdownRequested) return;
       var repairedOutgoingEchoes = false;
       for (final conversation in _conversations.values) {
         repairedOutgoingEchoes =
@@ -2042,9 +2061,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _queuePersist();
       }
     } catch (error, stack) {
+      if (_disposed || _shutdownRequested) return;
       _setError('初始化钉钉消息网关', error, stack);
     } finally {
-      _initialized = true;
+      if (!_disposed && !_shutdownRequested) _initialized = true;
       _notify();
     }
   }
@@ -2117,6 +2137,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           silentLog('dingtalk_gateway', '恢复钉钉 AI 回显正文', error, stack);
           return false;
         }
+        if (_disposed || _shutdownRequested) return false;
         if (source == null ||
             source.kind == AiSessionMessageKind.toolCall ||
             source.kind == AiSessionMessageKind.hook ||
@@ -2156,8 +2177,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> refreshAuthStatus({Future<void>? cancelSignal}) async {
+    if (_disposed || _shutdownRequested) return;
     try {
       final next = await _service.authStatus(cancelSignal: cancelSignal);
+      if (_disposed || _shutdownRequested) return;
       final previousIdentity = _authStatus.identity;
       final nextIdentity = next.identity;
       if (previousIdentity.userId != nextIdentity.userId ||
@@ -2173,6 +2196,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
       _clearError();
     } catch (error, stack) {
+      if (_disposed || _shutdownRequested) return;
       if (error is DingTalkGatewayCommandException && error.isCancelled) {
         return;
       }
@@ -7590,6 +7614,15 @@ ${_markdownStructuredFields(response)}''';
       );
     }
     final persist = _persistInFlight;
+    final initializing = _initializeInFlight;
+    if (initializing != null) {
+      await runAsyncCleanupBounded(
+        () => initializing,
+        timeout: _shutdownCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('dingtalk_gateway', '等待钉钉网关初始化结束', error, stack),
+      );
+    }
     if (persist != null) {
       await runAsyncCleanupBounded(
         () => persist,

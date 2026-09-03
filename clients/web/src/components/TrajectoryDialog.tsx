@@ -9,6 +9,7 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { useTransientFlag } from '../hooks/useTransientFlag';
 import { t, tFmt } from '../i18n';
 import { ignoreError } from '../shared/util/errors';
+import { parseJsonSafely } from '../shared/util/value';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { Markdown } from './Markdown';
 import {
@@ -565,11 +566,8 @@ function prettyValue(value: unknown): string {
   if (typeof value === 'string') {
     const trimmed = value.trim();
     if (!trimmed) return '';
-    try {
-      return JSON.stringify(JSON.parse(trimmed), null, 2);
-    } catch {
-      return trimmed;
-    }
+    const parsed = parseJsonSafely(trimmed);
+    return parsed == null ? trimmed : JSON.stringify(parsed, null, 2);
   }
   try {
     return JSON.stringify(value, null, 2);
@@ -585,12 +583,7 @@ function jsonDocument(text: string): JsonDocument | null {
     || trimmed.length > JSON_TREE_MAX_CHARACTERS
     || !((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))
   ) return null;
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(trimmed) as unknown;
-  } catch {
-    return null;
-  }
+  const decoded = parseJsonSafely(trimmed);
   if (decoded == null || typeof decoded !== 'object') return null;
 
   const containerPaths = new Set<string>(['$']);
@@ -627,11 +620,7 @@ function jsonDocument(text: string): JsonDocument | null {
 function requestPayload(metadata: Record<string, unknown>): Record<string, unknown> {
   const raw = metadata.request_payload;
   if (typeof raw === 'string') {
-    try {
-      return recordOf(JSON.parse(raw));
-    } catch {
-      return {};
-    }
+    return recordOf(parseJsonSafely(raw));
   }
   return recordOf(raw);
 }

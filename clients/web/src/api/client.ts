@@ -3,6 +3,11 @@
 // JSON 请求 / 响应自动序列化；非 2xx 抛 ApiError(status, body)。
 
 import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
+import {
+  JsonStructureLimitError,
+  parseJsonBounded,
+  type JsonParseBounds,
+} from '../shared/util/bounded_json';
 import { isAbortError } from '../shared/util/errors';
 import { normalizeDurationMs } from '../shared/util/number';
 import { clientEnvironmentHeaders } from '../utils/client_env';
@@ -22,6 +27,18 @@ const MIN_API_REQUEST_TIMEOUT_MS = 1_000;
 const MAX_API_REQUEST_TIMEOUT_MS = 60 * 60 * 1_000;
 const MAX_API_RESPONSE_BYTES = 64 * 1024 * 1024;
 const MAX_API_ERROR_RESPONSE_BYTES = 1024 * 1024;
+const API_JSON_BOUNDS: JsonParseBounds = {
+  maxCharacters: MAX_API_RESPONSE_BYTES,
+  maxDepth: 64,
+  maxContainerItems: 100_000,
+  maxNodes: 1_000_000,
+};
+const API_ERROR_JSON_BOUNDS: JsonParseBounds = {
+  maxCharacters: MAX_API_ERROR_RESPONSE_BYTES,
+  maxDepth: 32,
+  maxContainerItems: 10_000,
+  maxNodes: 50_000,
+};
 export const LONG_API_REQUEST_TIMEOUT_MS = 300_000;
 
 export class ApiError extends Error {
@@ -107,7 +124,7 @@ async function readApiErrorBody(
     });
     if (!text) return null;
     try {
-      return JSON.parse(text);
+      return parseJsonBounded(text, API_ERROR_JSON_BOUNDS);
     } catch {
       return text;
     }
@@ -202,8 +219,9 @@ export async function apiRequest<T = unknown>(
     });
     if (!text) return null as T;
     try {
-      return JSON.parse(text) as T;
-    } catch {
+      return parseJsonBounded(text, API_JSON_BOUNDS) as T;
+    } catch (error) {
+      if (error instanceof JsonStructureLimitError) throw error;
       return text as T;
     }
   });

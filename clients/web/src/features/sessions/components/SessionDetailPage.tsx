@@ -5646,11 +5646,11 @@ export function SessionDetailPage() {
     const close = subscribeSessionEvents(eventSessionId, {
       onOpen: () => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
-        sseFailRef.current = 0;
         setSseLive(true);
       },
       onSnapshot: (snap) => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
+        sseFailRef.current = 0;
         // Token 统计纳入指纹，确保统计变化能刷新弹窗。
         const stats = (snap.session.statistics ?? {}) as Record<string, unknown>;
         const tokenSig = `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
@@ -5705,6 +5705,10 @@ export function SessionDetailPage() {
         sseFailRef.current += 1;
         if (sseFailRef.current >= SSE_FAIL_THRESHOLD) {
           setSseLive(false);
+          if (sseCloseRef.current === close) {
+            close();
+            sseCloseRef.current = null;
+          }
         }
       },
     });

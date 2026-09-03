@@ -1,4 +1,5 @@
 import { normalizeInteger } from './number';
+import { parseJsonBounded, type JsonParseBounds } from './bounded_json';
 
 interface StringFromUnknownOptions {
   coerce?: boolean;
@@ -6,6 +7,12 @@ interface StringFromUnknownOptions {
 
 const BOOLEAN_TRUE_TEXT = new Set(['true', '1', 'yes', 'y', 'on', 'enabled']);
 const BOOLEAN_FALSE_TEXT = new Set(['false', '0', 'no', 'n', 'off', 'disabled']);
+const SAFE_INLINE_JSON_BOUNDS: JsonParseBounds = {
+  maxCharacters: 4 * 1024 * 1024,
+  maxDepth: 64,
+  maxContainerItems: 50_000,
+  maxNodes: 100_000,
+};
 
 export function stringFromUnknown(
   value: unknown,
@@ -99,7 +106,7 @@ export function stringifyJsonSafely(value: unknown, space?: number): string | nu
 
 export function parseJsonSafely(value: string): unknown | null {
   try {
-    return JSON.parse(value) as unknown;
+    return parseJsonBounded(value, SAFE_INLINE_JSON_BOUNDS);
   } catch {
     return null;
   }

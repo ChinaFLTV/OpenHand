@@ -12,6 +12,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -238,6 +239,7 @@ class DingTalkMessageGatewayService {
   static const Duration _sentMessageStatusTimeout = Duration(seconds: 10);
   static const int _sentMessageLookupLimit = 50;
   static const int _messageQueryPageSize = 50;
+  static const int _maxParsedMessagesPerPayload = 500;
   static const Duration _minimumMessageQueryWindow = Duration(seconds: 1);
   // 轮询窗口只取有限页数，避免两个并行查询在慢 dws 环境下拖住轮询回调；
   // 更早消息由会话对账和用户主动加载历史补齐。
@@ -256,6 +258,24 @@ class DingTalkMessageGatewayService {
       '钉钉消息搜索能力暂不可用，已依赖实时事件和会话对账。';
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
+  static const int _maxDetailIdentifierCount = 2048;
+  static const int _maxDetailTraversalNodes = 262144;
+  static const int _maxFollowingMatchCount = 128;
+  static const int _maxGroupMemberPages = 100;
+  static const int _maxGroupMemberEnrichmentCount = 512;
+  static const int _maxGroupMemberRoleQueryCount = 128;
+  static const int _maxGroupMemberAggregateNodes = 524288;
+  static const int _maxGroupMemberAggregateTextCodeUnits = 8 * kBytesPerMiB;
+  static const int _maxDwsCatalogCommandCount = 4096;
+  static const int _maxDwsCatalogScannedToolCount = 8192;
+  static const int _maxDwsJsonDepth = 64;
+  static const int _maxDwsJsonContainerItems = 65536;
+  static const int _maxDwsJsonNodes = 262144;
+  static const int _maxDwsSchemaJsonNodes = 1048576;
+  static const int _maxDwsJsonStringCodeUnits = 512 * kBytesPerKiB;
+  static const int _maxDwsSchemaJsonStringCodeUnits = kBytesPerMiB;
+  static const int _maxDwsJsonOutputCharacters = 4 * kBytesPerMiB;
+  static const int _maxDwsSchemaJsonOutputCharacters = 16 * kBytesPerMiB;
   static const int _maxMediaCacheFiles = 512;
   static const int _maxMediaCacheScanEntries = _maxMediaCacheFiles + 128;
   static const int _maxPendingMediaDownloads = 64;
@@ -286,6 +306,23 @@ class DingTalkMessageGatewayService {
     'user_im_message_recall_group',
     'user_im_message_reaction_group',
   ];
+  static const Set<String> _userIdKeys = <String>{
+    'userId',
+    'user_id',
+    'orgUserId',
+    'org_user_id',
+    'memberUserId',
+    'member_user_id',
+  };
+  static const Set<String> _contactIdKeys = <String>{
+    'userId',
+    'user_id',
+    'openDingTalkId',
+    'openDingtalkId',
+    'open_dingtalk_id',
+    'unionId',
+    'union_id',
+  };
   Process? _authProcess;
   final List<_DingTalkEventProcessHandle> _eventProcesses =
       <_DingTalkEventProcessHandle>[];
@@ -359,6 +396,9 @@ class DingTalkMessageGatewayService {
         throw const FormatException('DWS 返回的命令目录缺少 products 字段。');
       }
       final result = <AiDingTalkDwsCommand>[];
+      var scannedToolCount = 0;
+      var catalogTruncated = false;
+      catalogScan:
       for (final productValue in products) {
         if (productValue is! Map) continue;
         final product = _asMap(productValue);
@@ -374,6 +414,12 @@ class DingTalkMessageGatewayService {
         final tools = product['tools'];
         if (tools is! List) continue;
         for (final toolValue in tools) {
+          scannedToolCount += 1;
+          if (scannedToolCount > _maxDwsCatalogScannedToolCount ||
+              result.length >= _maxDwsCatalogCommandCount) {
+            catalogTruncated = true;
+            break catalogScan;
+          }
           if (toolValue is! Map) continue;
           final tool = _asMap(toolValue);
           final cliPath = _first(tool, const <String>[
@@ -409,6 +455,9 @@ class DingTalkMessageGatewayService {
       }
       if (products.isNotEmpty && result.isEmpty) {
         throw const FormatException('DWS 命令目录未包含可用命令。');
+      }
+      if (catalogTruncated) {
+        _logRuntime('WARN', 'DWS 命令目录超过处理上限，仅保留已解析的有效命令。');
       }
       final deduped = <String, AiDingTalkDwsCommand>{
         for (final command in result) command.cliPath: command,
@@ -1612,6 +1661,7 @@ class DingTalkMessageGatewayService {
     }
     final pages = <Object?>[];
     var cursor = '0';
+    final seenCursors = <String>{cursor};
     for (var pageIndex = 0; pageIndex < _messageQueryMaxPages; pageIndex++) {
       late final Object? page;
       try {
@@ -1676,6 +1726,10 @@ class DingTalkMessageGatewayService {
       final nextCursor = _nextPageCursor(page);
       if (nextCursor.isEmpty || nextCursor == cursor) break;
       if (!_hasMorePages(page)) break;
+      if (!seenCursors.add(nextCursor)) {
+        _logRuntime('WARN', '钉钉$label分页游标出现循环，已停止继续查询。');
+        break;
+      }
       if (pageIndex + 1 == _messageQueryMaxPages) {
         _logRuntime('WARN', '钉钉$label分页达到上限，较早消息将在后续对账中补齐。');
         break;
@@ -2183,7 +2237,9 @@ class DingTalkMessageGatewayService {
       }
 
       final members = result['群成员'];
-      final memberUserIds = _extractUserIds(members);
+      final memberUserIds = _extractUserIds(
+        members,
+      ).take(_maxGroupMemberEnrichmentCount).toList(growable: false);
       Object? memberProfiles;
       if (memberUserIds.isNotEmpty) {
         final profileEntry = await _loadDetail(
@@ -2198,7 +2254,7 @@ class DingTalkMessageGatewayService {
       final memberOpenIds = <String>{
         ..._extractOpenDingTalkIds(members),
         ..._extractOpenDingTalkIds(memberProfiles),
-      }.toList(growable: false);
+      }.take(_maxGroupMemberEnrichmentCount).toList(growable: false);
       final enrichmentDetails =
           await Future.wait(<Future<MapEntry<String, Object?>?>>[
             if (memberOpenIds.isNotEmpty)
@@ -2212,7 +2268,9 @@ class DingTalkMessageGatewayService {
                 '群成员身份',
                 () => _loadGroupMemberRoles(
                   conversation.id,
-                  memberUserIds.isNotEmpty ? memberUserIds : memberOpenIds,
+                  (memberUserIds.isNotEmpty ? memberUserIds : memberOpenIds)
+                      .take(_maxGroupMemberRoleQueryCount)
+                      .toList(growable: false),
                 ),
               ),
           ]);
@@ -2590,35 +2648,7 @@ class DingTalkMessageGatewayService {
   }
 
   List<String> _extractUserIds(Object? value) {
-    final ids = <String>{};
-    void visit(Object? current) {
-      if (current is Map) {
-        final map = _asMap(current);
-        for (final key in const <String>[
-          'userId',
-          'user_id',
-          'orgUserId',
-          'org_user_id',
-          'memberUserId',
-          'member_user_id',
-        ]) {
-          final raw = map[key];
-          if (raw is Map || raw is List) continue;
-          final id = '$raw'.trim();
-          if (id.isNotEmpty && id != 'null') ids.add(id);
-        }
-        for (final item in map.values) {
-          visit(item);
-        }
-      } else if (current is List) {
-        for (final item in current) {
-          visit(item);
-        }
-      }
-    }
-
-    visit(value);
-    return ids.toList(growable: false);
+    return _extractValuesByKeys(value, _userIdKeys);
   }
 
   List<String> _extractOpenDingTalkIds(Object? value) {
@@ -2630,15 +2660,7 @@ class DingTalkMessageGatewayService {
   }
 
   List<String> _extractContactIds(Object? value) {
-    return _extractValuesByKeys(value, const <String>{
-      'userId',
-      'user_id',
-      'openDingTalkId',
-      'openDingtalkId',
-      'open_dingtalk_id',
-      'unionId',
-      'union_id',
-    });
+    return _extractValuesByKeys(value, _contactIdKeys);
   }
 
   List<String> _extractDepartmentIds(Object? value) {
@@ -2659,9 +2681,19 @@ class DingTalkMessageGatewayService {
     });
   }
 
-  List<String> _extractValuesByKeys(Object? value, Set<String> keys) {
+  List<String> _extractValuesByKeys(
+    Object? value,
+    Set<String> keys, {
+    int maxValues = _maxDetailIdentifierCount,
+  }) {
     final values = <String>{};
-    void visit(Object? current) {
+    final pending = <Object?>[value];
+    var visitedNodes = 0;
+    while (pending.isNotEmpty &&
+        values.length < maxValues &&
+        visitedNodes < _maxDetailTraversalNodes) {
+      final current = pending.removeLast();
+      visitedNodes += 1;
       if (current is Map) {
         final map = _asMap(current);
         for (final key in keys) {
@@ -2670,40 +2702,49 @@ class DingTalkMessageGatewayService {
           final candidate = '$raw'.trim();
           if (candidate.isNotEmpty && candidate != 'null') {
             values.add(candidate);
+            if (values.length >= maxValues) break;
           }
         }
-        for (final item in map.values) {
-          visit(item);
+        final children = map.values.toList(growable: false);
+        for (var index = children.length - 1; index >= 0; index--) {
+          pending.add(children[index]);
         }
       } else if (current is List) {
-        for (final item in current) {
-          visit(item);
+        for (var index = current.length - 1; index >= 0; index--) {
+          pending.add(current[index]);
         }
       }
     }
-
-    visit(value);
     return values.toList(growable: false);
   }
 
   Object _matchFollowingContact(Object? following, Set<String> contactIds) {
     final matches = <Object?>[];
-    void visit(Object? current) {
+    final pending = <Object?>[following];
+    var visitedNodes = 0;
+    while (pending.isNotEmpty &&
+        matches.length < _maxFollowingMatchCount &&
+        visitedNodes < _maxDetailTraversalNodes) {
+      final current = pending.removeLast();
+      visitedNodes += 1;
       if (current is Map) {
         final map = _asMap(current);
-        final ids = _extractContactIds(map);
-        if (ids.any(contactIds.contains)) matches.add(current);
-        for (final item in map.values) {
-          visit(item);
+        final matched = _contactIdKeys.any((key) {
+          final raw = map[key];
+          if (raw == null || raw is Map || raw is List) return false;
+          return contactIds.contains('$raw'.trim());
+        });
+        if (matched) matches.add(current);
+        final children = map.values.toList(growable: false);
+        for (var index = children.length - 1; index >= 0; index--) {
+          pending.add(children[index]);
         }
       } else if (current is List) {
-        for (final item in current) {
-          visit(item);
+        for (var index = current.length - 1; index >= 0; index--) {
+          pending.add(current[index]);
         }
       }
     }
-
-    visit(following);
     return <String, Object?>{
       'isFollowing': matches.isNotEmpty,
       if (matches.isNotEmpty) 'details': matches,
@@ -2715,39 +2756,20 @@ class DingTalkMessageGatewayService {
   }
 
   String _extractFirstStaffId(Object? value) {
-    String? found;
-    void visit(Object? current) {
-      if (found != null) return;
-      if (current is Map) {
-        final map = _asMap(current);
-        for (final key in const <String>['staffId', 'staff_id']) {
-          final raw = map[key];
-          if (raw is Map || raw is List) continue;
-          final candidate = '$raw'.trim();
-          if (candidate.isNotEmpty && candidate != 'null') {
-            found = candidate;
-            return;
-          }
-        }
-        for (final item in map.values) {
-          visit(item);
-        }
-      } else if (current is List) {
-        for (final item in current) {
-          visit(item);
-        }
-      }
-    }
-
-    visit(value);
-    return found ?? _extractFirstUserId(value);
+    return _extractValuesByKeys(value, const <String>{
+          'staffId',
+          'staff_id',
+        }, maxValues: 1).firstOrNull ??
+        _extractFirstUserId(value);
   }
 
   Future<Object?> _loadAllGroupMembers(String conversationId) async {
-    const maxPages = 100;
     final pages = <Object?>[];
     var cursor = '0';
-    for (var pageIndex = 0; pageIndex < maxPages; pageIndex++) {
+    final seenCursors = <String>{cursor};
+    var totalNodes = 0;
+    var totalTextCodeUnits = 0;
+    for (var pageIndex = 0; pageIndex < _maxGroupMemberPages; pageIndex++) {
       final page = await _runJson(<String>[
         'chat',
         'group',
@@ -2759,6 +2781,27 @@ class DingTalkMessageGatewayService {
         '--format',
         'json',
       ]);
+      final remainingNodes = _maxGroupMemberAggregateNodes - totalNodes;
+      final remainingText =
+          _maxGroupMemberAggregateTextCodeUnits - totalTextCodeUnits;
+      if (remainingNodes <= 0 || remainingText <= 0) {
+        _logRuntime('WARN', '钉钉群成员数据达到处理上限，已停止继续分页。');
+        break;
+      }
+      final metrics = measureJsonValueWithinBounds(
+        page,
+        maxDepth: _maxDwsJsonDepth,
+        maxContainerItems: _maxDwsJsonContainerItems,
+        maxTotalNodes: remainingNodes,
+        maxStringCodeUnits: _maxDwsJsonStringCodeUnits,
+        maxTotalStringCodeUnits: remainingText,
+      );
+      if (metrics == null) {
+        _logRuntime('WARN', '钉钉群成员数据超过累计结构上限，已停止继续分页。');
+        break;
+      }
+      totalNodes += metrics.nodeCount;
+      totalTextCodeUnits += metrics.stringCodeUnits;
       pages.add(page);
       final map = _asMap(page);
       final data = _asMap(map['data']);
@@ -2776,8 +2819,17 @@ class DingTalkMessageGatewayService {
         result['next_cursor'],
       ]);
       if (!hasMore || nextCursor.isEmpty || nextCursor == cursor) break;
+      if (!seenCursors.add(nextCursor)) {
+        _logRuntime('WARN', '钉钉群成员分页游标出现循环，已停止继续查询。');
+        break;
+      }
+      if (pageIndex + 1 == _maxGroupMemberPages) {
+        _logRuntime('WARN', '钉钉群成员分页达到上限，已停止继续查询。');
+        break;
+      }
       cursor = nextCursor;
     }
+    if (pages.isEmpty) return const <String, Object?>{};
     return pages.length == 1 ? pages.first : <String, Object?>{'pages': pages};
   }
 
@@ -2798,6 +2850,13 @@ class DingTalkMessageGatewayService {
     final operation = arguments.take(3).join(' ');
     final effectiveTimeout = timeout ?? _commandTimeout;
     final commandArguments = List<String>.of(arguments);
+    final isSchemaCatalog =
+        commandArguments.length >= 2 &&
+        commandArguments[0] == 'schema' &&
+        commandArguments[1] == '--all';
+    final maxOutputCharacters = isSchemaCatalog
+        ? _maxDwsSchemaJsonOutputCharacters
+        : _maxDwsJsonOutputCharacters;
     if (!commandArguments.contains('--timeout')) {
       final dwsTimeoutSeconds = math.max(
         1,
@@ -2824,6 +2883,7 @@ class DingTalkMessageGatewayService {
         // Schema 是多行 JSON，命令目录可能超过四万行，且描述行可能超过
         // 默认 4,000 字符；截断行或丢弃前面的行都会破坏整体 JSON。
         maxCapturedLinesPerStream: 65536,
+        maxCapturedCharactersPerStream: maxOutputCharacters,
         maxLineCharacters: 64 * kBytesPerKiB,
         cancelSignal: cancelSignal,
         onStderrLine: (line) =>
@@ -2852,10 +2912,49 @@ class DingTalkMessageGatewayService {
         retryable: true,
       );
     }
+    final useStdout = result.stdout.trim().isNotEmpty;
+    final structuredOutputTruncated = useStdout
+        ? result.stdoutTruncated
+        : result.stderrTruncated;
+    if (structuredOutputTruncated) {
+      final message =
+          'dws 返回 JSON 超过 ${formatByteSize(maxOutputCharacters)} 处理上限：$operation。';
+      _logRuntime('ERROR', message);
+      throw DingTalkGatewayCommandException(
+        message: message,
+        reason: 'output_limit',
+        operation: operation,
+      );
+    }
     final structuredOutput = result.stdout.trim().isNotEmpty
         ? result.stdout
         : result.stderr;
-    final decoded = _decodeJson(structuredOutput);
+    late final Object? decoded;
+    try {
+      if (structuredOutput.trim().isEmpty) {
+        throw const FormatException('dws 未返回 JSON。');
+      }
+      decoded = _decodeRequiredJson(
+        structuredOutput,
+        allowLargeStructure: isSchemaCatalog,
+      );
+    } on FormatException catch (error) {
+      final message = result.exitCode == 0
+          ? error.message
+          : nonBlankStringOr(
+              result.stderr,
+              'dws 执行失败（退出码 ${result.exitCode}）。',
+            );
+      _logRuntime(
+        isMessageQuery ? 'WARN' : 'ERROR',
+        'dws 返回无法处理：${_safeProcessLogLine(message)}',
+      );
+      throw DingTalkGatewayCommandException(
+        message: message,
+        reason: result.exitCode == 0 ? 'invalid_output' : 'process_exit',
+        operation: operation,
+      );
+    }
     final payload = _asMap(decoded);
     final error = _asMap(payload['error']);
     final explicitFailure =
@@ -2870,9 +2969,6 @@ class DingTalkMessageGatewayService {
           : 'SUCCESS',
       'dws 执行结束：$operation，退出码 ${result.exitCode}。',
     );
-    if (result.stdout.trim().isNotEmpty && decoded is Map && payload.isEmpty) {
-      _logRuntime('WARN', 'dws 返回内容无法解析为有效 JSON。');
-    }
     if (result.exitCode != 0 || error.isNotEmpty || explicitFailure) {
       var fallbackMessage = result.exitCode == 0
           ? 'dws 执行失败。'
@@ -2911,22 +3007,92 @@ class DingTalkMessageGatewayService {
   }
 
   Object? _decodeJson(String raw) {
+    try {
+      return _decodeRequiredJson(raw);
+    } on FormatException {
+      return const <String, Object?>{};
+    }
+  }
+
+  Object? _decodeRequiredJson(String raw, {bool allowLargeStructure = false}) {
     final text = raw.trim();
     if (text.isEmpty) return const <String, Object?>{};
+    final maxNodes = allowLargeStructure
+        ? _maxDwsSchemaJsonNodes
+        : _maxDwsJsonNodes;
+    final maxStringCodeUnits = allowLargeStructure
+        ? _maxDwsSchemaJsonStringCodeUnits
+        : _maxDwsJsonStringCodeUnits;
+    final maxTotalStringCodeUnits = allowLargeStructure
+        ? _maxDwsSchemaJsonOutputCharacters
+        : _maxDwsJsonOutputCharacters;
+
+    Object? decodeCandidate(String candidate) {
+      if (!_hasBoundedJsonNesting(candidate)) {
+        throw const FormatException('JSON 嵌套层级超过处理上限。');
+      }
+      final decoded = jsonDecode(candidate);
+      if (measureJsonValueWithinBounds(
+            decoded,
+            maxDepth: _maxDwsJsonDepth,
+            maxContainerItems: _maxDwsJsonContainerItems,
+            maxTotalNodes: maxNodes,
+            maxStringCodeUnits: maxStringCodeUnits,
+            maxTotalStringCodeUnits: maxTotalStringCodeUnits,
+          ) ==
+          null) {
+        throw const FormatException('JSON 结构超过处理上限。');
+      }
+      return decoded;
+    }
+
+    FormatException? decodeError;
     try {
-      return jsonDecode(text);
-    } on FormatException {
+      return decodeCandidate(text);
+    } on FormatException catch (error) {
+      decodeError = error;
       for (final line in text.split(RegExp(r'\r?\n')).reversed) {
         final candidate = line.trim();
         if (!(candidate.startsWith('{') || candidate.startsWith('['))) continue;
         try {
-          return jsonDecode(candidate);
-        } on FormatException {
+          return decodeCandidate(candidate);
+        } on FormatException catch (error) {
+          decodeError = error;
           continue;
         }
       }
     }
-    return const <String, Object?>{};
+    throw FormatException(
+      'dws 返回内容不是有效 JSON：${decodeError?.message ?? '未知格式错误'}',
+    );
+  }
+
+  bool _hasBoundedJsonNesting(String text) {
+    var depth = 0;
+    var inString = false;
+    var escaped = false;
+    for (var index = 0; index < text.length; index++) {
+      final codeUnit = text.codeUnitAt(index);
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (codeUnit == 0x5c) {
+          escaped = true;
+        } else if (codeUnit == 0x22) {
+          inString = false;
+        }
+        continue;
+      }
+      if (codeUnit == 0x22) {
+        inString = true;
+      } else if (codeUnit == 0x7b || codeUnit == 0x5b) {
+        depth += 1;
+        if (depth > _maxDwsJsonDepth) return false;
+      } else if (codeUnit == 0x7d || codeUnit == 0x5d) {
+        depth -= 1;
+      }
+    }
+    return true;
   }
 
   List<DingTalkGatewayMessage> _parseMessages(
@@ -2969,6 +3135,7 @@ class DingTalkMessageGatewayService {
       DingTalkConversationType? inheritedConversationType,
       String inheritedConversationTitle = '',
     }) {
+      if (values.length >= _maxParsedMessagesPerPayload) return;
       if (value is List) {
         for (final item in value) {
           collect(
@@ -2977,6 +3144,7 @@ class DingTalkMessageGatewayService {
             inheritedConversationType: inheritedConversationType,
             inheritedConversationTitle: inheritedConversationTitle,
           );
+          if (values.length >= _maxParsedMessagesPerPayload) return;
         }
         return;
       }
@@ -3068,6 +3236,7 @@ class DingTalkMessageGatewayService {
                   ? inheritedConversationTitle
                   : nextConversationTitle,
             );
+            if (values.length >= _maxParsedMessagesPerPayload) return;
           }
         }
       }
@@ -3450,9 +3619,9 @@ class DingTalkMessageGatewayService {
     }
     Object? decoded;
     try {
-      decoded = jsonDecode(text);
-    } catch (_) {
-      _logRuntime('WARN', '实时事件输出不是有效 JSON，已忽略。');
+      decoded = _decodeRequiredJson(text);
+    } on FormatException {
+      _logRuntime('WARN', '实时事件输出不是有效或安全的 JSON，已忽略。');
       return;
     }
     final event = _parseEvent(decoded);

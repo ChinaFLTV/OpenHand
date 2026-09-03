@@ -1547,7 +1547,8 @@ typedef ProcessLogLineHandler = void Function(String line);
 // DWS Schema 目录可能包含数万行 JSON；仍以字符数上限控制内存，允许完整保留
 // 大型结构化输出，避免按行截断后无法解析。
 const int _maxCapturedProcessLinesPerStream = 64 * kBytesPerKiB;
-const int _maxCapturedProcessCharactersPerStream = 4 * kBytesPerMiB;
+const int _defaultCapturedProcessCharactersPerStream = 4 * kBytesPerMiB;
+const int _maxCapturedProcessCharactersPerStream = 16 * kBytesPerMiB;
 const int _maxProcessLineCharacters = 64 * kBytesPerKiB;
 
 class TrackedProcessLineLogResult {
@@ -1558,6 +1559,8 @@ class TrackedProcessLineLogResult {
     required this.cancelled,
     required this.stdout,
     required this.stderr,
+    required this.stdoutTruncated,
+    required this.stderrTruncated,
   });
 
   final int pid;
@@ -1566,24 +1569,49 @@ class TrackedProcessLineLogResult {
   final bool cancelled;
   final String stdout;
   final String stderr;
+  final bool stdoutTruncated;
+  final bool stderrTruncated;
 }
 
 class _BoundedProcessLineCapture {
-  _BoundedProcessLineCapture({required int maxLines})
-    : _buffer = maxLines < 1
-          ? null
-          : BoundedLogBuffer(
-              maxLines: maxLines
-                  .clamp(1, _maxCapturedProcessLinesPerStream)
-                  .toInt(),
-              maxCharacters: _maxCapturedProcessCharactersPerStream,
-            );
+  _BoundedProcessLineCapture({
+    required int maxLines,
+    required int maxCharacters,
+  }) : _maxLines = maxLines.clamp(0, _maxCapturedProcessLinesPerStream).toInt(),
+       _maxCharacters = maxCharacters
+           .clamp(1, _maxCapturedProcessCharactersPerStream)
+           .toInt(),
+       _buffer = maxLines < 1
+           ? null
+           : BoundedLogBuffer(
+               maxLines: maxLines
+                   .clamp(1, _maxCapturedProcessLinesPerStream)
+                   .toInt(),
+               maxCharacters: maxCharacters
+                   .clamp(1, _maxCapturedProcessCharactersPerStream)
+                   .toInt(),
+             );
 
+  final int _maxLines;
+  final int _maxCharacters;
   final BoundedLogBuffer? _buffer;
+  bool _truncated = false;
 
-  void add(String line) => _buffer?.add(line);
+  void add(String line) {
+    final buffer = _buffer;
+    if (buffer == null) return;
+    if (line.length > _maxCharacters ||
+        buffer.length >= _maxLines ||
+        buffer.characterCount + line.length > _maxCharacters) {
+      _truncated = true;
+    }
+    buffer.add(line);
+  }
+
+  void markTruncated() => _truncated = true;
 
   String get text => _buffer?.snapshot().join('\n') ?? '';
+  bool get truncated => _truncated;
 }
 
 /// 增量解析进程文本流，并限制单行 UTF-16 代码单元，避免无换行输出无限增长。
@@ -1592,11 +1620,13 @@ class BoundedProcessLineDecoder {
   BoundedProcessLineDecoder({
     required int maxCharacters,
     required this.onLine,
+    this.onTruncated,
     this.splitOnCarriageReturn = false,
   }) : _maxCharacters = maxCharacters < 1 ? 1 : maxCharacters;
 
   final int _maxCharacters;
   final void Function(String line) onLine;
+  final void Function()? onTruncated;
   final bool splitOnCarriageReturn;
   final StringBuffer _buffer = StringBuffer();
   bool _truncated = false;
@@ -1654,6 +1684,7 @@ class BoundedProcessLineDecoder {
       _buffer.write(clipTextByCodeUnits(segment, remaining, suffix: ''));
     }
     _truncated = true;
+    onTruncated?.call();
   }
 
   void _emit() {
@@ -1694,6 +1725,8 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   bool trimStdoutLines = false,
   bool trimStderrLines = true,
   int maxCapturedLinesPerStream = 0,
+  int maxCapturedCharactersPerStream =
+      _defaultCapturedProcessCharactersPerStream,
   int maxLineCharacters = 4000,
 }) async {
   final effectiveMaxLineCharacters = maxLineCharacters
@@ -1723,9 +1756,11 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   final stderrDone = Completer<void>();
   final stdoutCapture = _BoundedProcessLineCapture(
     maxLines: maxCapturedLinesPerStream,
+    maxCharacters: maxCapturedCharactersPerStream,
   );
   final stderrCapture = _BoundedProcessLineCapture(
     maxLines: maxCapturedLinesPerStream,
+    maxCharacters: maxCapturedCharactersPerStream,
   );
   StreamSubscription<String>? stdoutSub;
   StreamSubscription<String>? stderrSub;
@@ -1793,6 +1828,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       maxCharacters: effectiveMaxLineCharacters,
       onLine: (line) =>
           handleLine(handler, capture, trimLine ? line.trim() : line),
+      onTruncated: capture.markTruncated,
     );
     return stream
         .transform(const SystemEncoding().decoder)
@@ -1864,6 +1900,8 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
           cancelled: true,
           stdout: stdoutCapture.text,
           stderr: stderrCapture.text,
+          stdoutTruncated: stdoutCapture.truncated,
+          stderrTruncated: stderrCapture.truncated,
         );
       }
     } on TimeoutException {
@@ -1877,6 +1915,8 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
         cancelled: false,
         stdout: stdoutCapture.text,
         stderr: stderrCapture.text,
+        stdoutTruncated: stdoutCapture.truncated,
+        stderrTruncated: stderrCapture.truncated,
       );
     }
     stdoutSub = listenLines(
@@ -1939,6 +1979,8 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       cancelled: cancelled,
       stdout: stdoutCapture.text,
       stderr: stderrCapture.text,
+      stdoutTruncated: stdoutCapture.truncated,
+      stderrTruncated: stderrCapture.truncated,
     );
   } catch (_) {
     if (process != null) {
