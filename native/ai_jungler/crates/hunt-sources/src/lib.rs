@@ -294,19 +294,15 @@ impl ObservedHttpClient {
             self.observer.begin_external(target)?
         };
         Ok(ObservedExternalRequest {
-            observer: self.observer.clone(),
-            ticket: route.ticket,
             proxy: route.proxy,
-            started: Instant::now(),
+            completion: HttpRequestCompletion::new(self.observer.clone(), route.ticket),
         })
     }
 }
 
 pub struct ObservedExternalRequest {
-    observer: Arc<dyn HttpRequestObserver>,
-    ticket: Option<u64>,
     proxy: Option<Url>,
-    started: Instant,
+    completion: HttpRequestCompletion,
 }
 
 impl ObservedExternalRequest {
@@ -314,22 +310,8 @@ impl ObservedExternalRequest {
         self.proxy.as_ref()
     }
 
-    pub fn complete(mut self, outcome: HttpRequestOutcome) {
-        let ticket = self.ticket.take();
-        self.observer
-            .complete(ticket, self.started.elapsed(), outcome);
-    }
-}
-
-impl Drop for ObservedExternalRequest {
-    fn drop(&mut self) {
-        if let Some(ticket) = self.ticket.take() {
-            self.observer.complete(
-                Some(ticket),
-                self.started.elapsed(),
-                HttpRequestOutcome::TransportFailure,
-            );
-        }
+    pub fn complete(self, outcome: HttpRequestOutcome) {
+        self.completion.complete(outcome);
     }
 }
 
@@ -3214,20 +3196,7 @@ impl AssetSource for GithubSource {
             async move { github_item_candidates(client, kind, token, item).await }
         }))
         .buffer_unordered(GITHUB_CONTENT_CONCURRENCY);
-        futures::pin_mut!(batches);
-        let mut candidates = Vec::new();
-        let mut fetch_failures = 0_usize;
-        'collect: while let Some((batch, fetch_failed)) = batches.next().await {
-            if fetch_failed {
-                fetch_failures += 1;
-            }
-            for candidate in batch {
-                candidates.push(candidate);
-                if candidates.len() >= MAX_SOURCE_RESULTS {
-                    break 'collect;
-                }
-            }
-        }
+        let (candidates, fetch_failures) = collect_candidate_batches(batches).await;
         let mut discovery = SourceDiscovery::new(candidates);
         if skipped_private > 0 {
             discovery.warnings.push(format!(
@@ -3394,20 +3363,7 @@ impl AssetSource for GitPlatformSource {
             },
         ))
         .buffer_unordered(GIT_REPOSITORY_CONCURRENCY);
-        futures::pin_mut!(batches);
-        let mut candidates = Vec::new();
-        let mut repository_failures = 0_usize;
-        'collect: while let Some((batch, fetch_failed)) = batches.next().await {
-            if fetch_failed {
-                repository_failures += 1;
-            }
-            for candidate in batch {
-                candidates.push(candidate);
-                if candidates.len() >= MAX_SOURCE_RESULTS {
-                    break 'collect;
-                }
-            }
-        }
+        let (candidates, repository_failures) = collect_candidate_batches(batches).await;
         let mut discovery = SourceDiscovery::new(candidates);
         if repository_failures > 0 {
             discovery.warnings.push(format!(
@@ -4155,31 +4111,29 @@ async fn github_item_candidates(
     (candidates, false)
 }
 
+async fn collect_candidate_batches(
+    batches: impl futures::Stream<Item = (Vec<Candidate>, bool)>,
+) -> (Vec<Candidate>, usize) {
+    futures::pin_mut!(batches);
+    let mut candidates = Vec::new();
+    let mut failures = 0_usize;
+    'collect: while let Some((batch, failed)) = batches.next().await {
+        failures += usize::from(failed);
+        for candidate in batch {
+            candidates.push(candidate);
+            if candidates.len() >= MAX_SOURCE_RESULTS {
+                break 'collect;
+            }
+        }
+    }
+    (candidates, failures)
+}
+
 async fn parse_json_limited<T: DeserializeOwned>(
     platform: &'static str,
     response: Response,
 ) -> Result<T, SourceError> {
-    if response
-        .content_length()
-        .is_some_and(|length| length > MAX_SOURCE_RESPONSE_BYTES as u64)
-    {
-        return Err(SourceError::ResponseTooLarge {
-            platform,
-            limit: MAX_SOURCE_RESPONSE_BYTES,
-        });
-    }
-    let mut body = Vec::new();
-    let mut stream = response.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|_| SourceError::Transport(platform))?;
-        if body.len().saturating_add(chunk.len()) > MAX_SOURCE_RESPONSE_BYTES {
-            return Err(SourceError::ResponseTooLarge {
-                platform,
-                limit: MAX_SOURCE_RESPONSE_BYTES,
-            });
-        }
-        body.extend_from_slice(&chunk);
-    }
+    let body = read_response_limited(platform, response).await?;
     serde_json::from_slice(&body).map_err(|_| SourceError::InvalidResponse(platform))
 }
 
@@ -4187,6 +4141,14 @@ async fn parse_text_limited(
     platform: &'static str,
     response: Response,
 ) -> Result<String, SourceError> {
+    let body = read_response_limited(platform, response).await?;
+    String::from_utf8(body).map_err(|_| SourceError::InvalidResponse(platform))
+}
+
+async fn read_response_limited(
+    platform: &'static str,
+    response: Response,
+) -> Result<Vec<u8>, SourceError> {
     if response
         .content_length()
         .is_some_and(|length| length > MAX_SOURCE_RESPONSE_BYTES as u64)
@@ -4208,7 +4170,7 @@ async fn parse_text_limited(
         }
         body.extend_from_slice(&chunk);
     }
-    String::from_utf8(body).map_err(|_| SourceError::InvalidResponse(platform))
+    Ok(body)
 }
 
 async fn parse_jina_content(
