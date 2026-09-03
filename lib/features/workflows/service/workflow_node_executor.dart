@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_methods.dart';
+import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart'
     show
@@ -1651,23 +1653,34 @@ class WorkflowNodeExecutor {
         );
         cancellation?.throwIfCancelled();
       }
-      final response = await closeHttpClientRequestBounded(
-        request,
-        timeout: Duration(seconds: responseSeconds),
-        timeoutMessage: 'HTTP 响应超时。',
+      final responseTimeout = Duration(seconds: responseSeconds);
+      final responseDeadline = MonotonicDeadline(
+        responseTimeout,
+        timeoutMessage: 'HTTP 响应超过总时限。',
       );
-      cancellation?.throwIfCancelled();
-      final bytes = BytesBuilder(copy: false);
-      await for (final chunk in response.timeout(
-        Duration(seconds: responseSeconds),
-      )) {
+      late final HttpClientResponse response;
+      late final Uint8List responseBytes;
+      try {
+        response = await closeHttpClientRequestBounded(
+          request,
+          timeout: responseDeadline.remaining(),
+        );
         cancellation?.throwIfCancelled();
-        if (bytes.length + chunk.length > _maxWorkflowHttpResponseBytes) {
-          throw const WorkflowNodeExecutionException('HTTP 响应超过 4 MiB 上限。');
-        }
-        bytes.add(chunk);
+        final remaining = responseDeadline.remaining();
+        responseBytes = await readBoundedHttpResponseBytes(
+          response,
+          maxBytes: _maxWorkflowHttpResponseBytes,
+          idleTimeout: remaining < responseTimeout
+              ? remaining
+              : responseTimeout,
+          totalTimeout: remaining,
+        );
+      } on ByteStreamSizeLimitException {
+        throw const WorkflowNodeExecutionException('HTTP 响应超过 4 MiB 上限。');
+      } finally {
+        responseDeadline.stop();
       }
-      final responseBytes = bytes.takeBytes();
+      cancellation?.throwIfCancelled();
       final body = utf8.decode(responseBytes, allowMalformed: true);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final preview = body.length > 500 ? '${body.substring(0, 500)}…' : body;

@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/net/bounded_server_bind.dart';
+import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
@@ -276,23 +276,16 @@ class WebReverseMitmproxyBridge {
   }
 
   static Future<String?> _readCallbackBody(HttpRequest req) async {
-    final builder = BytesBuilder(copy: false);
-    var total = 0;
-    final deadline = MonotonicDeadline(_kCallbackBodyTotalTimeout);
     try {
-      await for (final chunk in req.timeout(_kCallbackBodyIdleTimeout)) {
-        if (deadline.isExpired) {
-          throw TimeoutException('mitmproxy 回调请求体超过总时限。');
-        }
-        total += chunk.length;
-        if (total > _kMaxCallbackPayloadBytes) {
-          return null;
-        }
-        builder.add(chunk);
-      }
-      return utf8.decode(builder.takeBytes(), allowMalformed: true);
-    } finally {
-      deadline.stop();
+      return await readBoundedByteStreamText(
+        req,
+        maxBytes: _kMaxCallbackPayloadBytes,
+        idleTimeout: _kCallbackBodyIdleTimeout,
+        totalTimeout: _kCallbackBodyTotalTimeout,
+        allowMalformed: true,
+      );
+    } on ByteStreamSizeLimitException {
+      return null;
     }
   }
 
