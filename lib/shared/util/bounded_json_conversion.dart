@@ -7,6 +7,92 @@ enum JsonNonFiniteNumberBehavior { stringify, zero }
 
 typedef JsonMapValueTransformer = Object? Function(String key, Object? value);
 
+typedef JsonValueMetrics = ({int nodeCount, int stringCodeUnits});
+
+/// 非递归校验 JSON 值的结构预算；超限、循环引用或非 JSON 类型返回 null。
+JsonValueMetrics? measureJsonValueWithinBounds(
+  Object? value, {
+  required int maxDepth,
+  required int maxContainerItems,
+  required int maxTotalNodes,
+  required int maxStringCodeUnits,
+  required int maxTotalStringCodeUnits,
+}) {
+  requireNonNegativeInt(maxDepth, 'maxDepth');
+  requirePositiveInt(maxContainerItems, 'maxContainerItems');
+  requirePositiveInt(maxTotalNodes, 'maxTotalNodes');
+  requirePositiveInt(maxStringCodeUnits, 'maxStringCodeUnits');
+  requirePositiveInt(maxTotalStringCodeUnits, 'maxTotalStringCodeUnits');
+
+  final pending = <({Object? value, int depth, bool exiting})>[
+    (value: value, depth: 0, exiting: false),
+  ];
+  final activeContainers = HashSet<Object>.identity();
+  var nodeCount = 0;
+  var stringCodeUnits = 0;
+
+  bool addString(String text) {
+    if (text.length > maxStringCodeUnits ||
+        text.length > maxTotalStringCodeUnits - stringCodeUnits) {
+      return false;
+    }
+    stringCodeUnits += text.length;
+    return true;
+  }
+
+  while (pending.isNotEmpty) {
+    final current = pending.removeLast();
+    if (current.exiting) {
+      activeContainers.remove(current.value);
+      continue;
+    }
+    nodeCount += 1;
+    if (nodeCount > maxTotalNodes || current.depth > maxDepth) return null;
+
+    final currentValue = current.value;
+    if (currentValue == null || currentValue is bool) continue;
+    if (currentValue is num) {
+      if (!currentValue.isFinite) return null;
+      continue;
+    }
+    if (currentValue is String) {
+      if (!addString(currentValue)) return null;
+      continue;
+    }
+    if (currentValue is Map) {
+      if (currentValue.length > maxContainerItems ||
+          !activeContainers.add(currentValue)) {
+        return null;
+      }
+      pending.add((value: currentValue, depth: current.depth, exiting: true));
+      for (final entry in currentValue.entries) {
+        final key = entry.key;
+        if (key is! String || !addString(key)) return null;
+        pending.add((
+          value: entry.value,
+          depth: current.depth + 1,
+          exiting: false,
+        ));
+      }
+      continue;
+    }
+    if (currentValue is List) {
+      if (currentValue.length > maxContainerItems ||
+          !activeContainers.add(currentValue)) {
+        return null;
+      }
+      pending.add((value: currentValue, depth: current.depth, exiting: true));
+      for (final item in currentValue) {
+        pending.add((value: item, depth: current.depth + 1, exiting: false));
+      }
+      continue;
+    }
+    return null;
+  }
+
+  return (nodeCount: nodeCount, stringCodeUnits: stringCodeUnits);
+}
+
 /// JSON 安全转换的资源与兼容策略。
 final class BoundedJsonConversionConfig {
   const BoundedJsonConversionConfig({

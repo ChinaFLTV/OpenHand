@@ -1034,6 +1034,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }) async {
     final tools = <McpTool>[];
     final warnings = <String>[];
+    final boundedServerInstructions = clipTextByCodeUnits(
+      serverInstructions,
+      kMcpMaxServerInstructionsCodeUnits,
+      suffix: '',
+    );
+    if (boundedServerInstructions.length != serverInstructions.length) {
+      warnings.add('服务端说明超过安全上限，已截断。');
+    }
     final seenToolIds = <String>{};
     final seenCursors = <String>{};
     var cursor = '';
@@ -1041,6 +1049,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     var invalidTools = 0;
     var duplicateTools = 0;
     var metadataWarnings = 0;
+    var scannedEntries = 0;
+    var catalogMetadataNodes = 0;
+    var catalogTextCodeUnits = 0;
+    String? catalogLimitWarning;
     Map<String, Object?>? warningResponse;
     Map<String, Object?>? lastEnvelope;
 
@@ -1059,25 +1071,50 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       final duplicateBefore = duplicateTools;
       final metadataBefore = metadataWarnings;
       for (final rawTool in rawTools) {
-        final parsedTool = _parseTool(rawTool);
-        if (parsedTool == null) {
+        if (scannedEntries >= kMcpMaxCatalogScannedEntryCount) {
+          catalogLimitWarning =
+              '工具扫描达到 $kMcpMaxCatalogScannedEntryCount 个条目后停止，工具列表可能不完整。';
+          warningResponse = envelope;
+          break;
+        }
+        scannedEntries += 1;
+        final parsed = _parseTool(rawTool);
+        if (parsed == null) {
           invalidTools += 1;
           continue;
         }
+        final parsedTool = parsed.tool;
         if (!seenToolIds.add(parsedTool.id)) {
           duplicateTools += 1;
           continue;
+        }
+        if (tools.length >= kMcpMaxCatalogToolCount) {
+          catalogLimitWarning =
+              '工具扫描达到 $kMcpMaxCatalogToolCount 个工具后停止，工具列表可能不完整。';
+          warningResponse = envelope;
+          break;
+        }
+        if (parsed.nodeCount >
+                kMcpMaxCatalogMetadataNodeCount - catalogMetadataNodes ||
+            parsed.stringCodeUnits >
+                kMcpMaxCatalogTextCodeUnits - catalogTextCodeUnits) {
+          catalogLimitWarning = '工具目录元数据达到安全上限后停止，工具列表可能不完整。';
+          warningResponse = envelope;
+          break;
         }
         if (parsedTool.hasMetadataWarning) {
           metadataWarnings += 1;
         }
         tools.add(parsedTool);
+        catalogMetadataNodes += parsed.nodeCount;
+        catalogTextCodeUnits += parsed.stringCodeUnits;
       }
       if (invalidTools != invalidBefore ||
           duplicateTools != duplicateBefore ||
           metadataWarnings != metadataBefore) {
         warningResponse = envelope;
       }
+      if (catalogLimitWarning != null) break;
       final nextCursor = _readText(result['nextCursor']);
       if (nextCursor.isEmpty) {
         cursor = '';
@@ -1098,6 +1135,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       warnings.add('工具扫描达到 $_maxToolPages 页后停止，工具列表可能不完整。');
       warningResponse = lastEnvelope;
     }
+    if (catalogLimitWarning != null) warnings.add(catalogLimitWarning);
     if (invalidTools > 0) {
       warnings.add('已忽略 $invalidTools 个无效工具条目。');
     }
@@ -1110,22 +1148,29 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
     return _DiscoveredTools(
       tools: tools,
-      isComplete: cursor.isEmpty && invalidTools == 0,
+      isComplete:
+          cursor.isEmpty && invalidTools == 0 && catalogLimitWarning == null,
       warningMessage: warnings.isEmpty
           ? null
           : '${warnings.join(' ')}${_mcpServerResponseDetail(warningResponse)}',
-      serverInstructions: serverInstructions,
+      serverInstructions: boundedServerInstructions,
     );
   }
 
-  McpTool? _parseTool(Object? rawTool) {
+  ({McpTool tool, int nodeCount, int stringCodeUnits})? _parseTool(
+    Object? rawTool,
+  ) {
     final rawMap = optionalStringKeyedMapFromValue(rawTool);
     if (rawMap == null) {
       return null;
     }
+    final metrics = measureMcpToolMetadata(rawMap);
+    if (metrics == null) return null;
 
-    final id = _readText(rawMap['name']);
-    if (id.isEmpty) {
+    final rawId = rawMap['name'];
+    if (rawId is! String) return null;
+    final id = rawId.trim();
+    if (id.isEmpty || id.length > kMcpMaxToolIdCodeUnits) {
       return null;
     }
 
@@ -1175,22 +1220,27 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       metadataWarnings.add('输出架构不是结构化对象，已改为显示原始元数据。');
     }
 
-    return McpTool(
-      id: id,
-      name: displayName,
-      description: description,
-      inputSchema: resolvedInputSchema,
-      outputSchema: outputSchema,
-      outputDescription: resolvedOutputMetadata.description,
-      outputDescriptionIsInferred: resolvedOutputMetadata.descriptionIsInferred,
-      annotations: annotations,
-      execution: execution,
-      rawInputSchema: rawInputSchema,
-      rawOutputSchema: rawOutputSchema,
-      rawMetadata: rawMap,
-      metadataWarning: metadataWarnings.isEmpty
-          ? null
-          : metadataWarnings.join(' '),
+    return (
+      tool: McpTool(
+        id: id,
+        name: displayName,
+        description: description,
+        inputSchema: resolvedInputSchema,
+        outputSchema: outputSchema,
+        outputDescription: resolvedOutputMetadata.description,
+        outputDescriptionIsInferred:
+            resolvedOutputMetadata.descriptionIsInferred,
+        annotations: annotations,
+        execution: execution,
+        rawInputSchema: rawInputSchema,
+        rawOutputSchema: rawOutputSchema,
+        rawMetadata: rawMap,
+        metadataWarning: metadataWarnings.isEmpty
+            ? null
+            : metadataWarnings.join(' '),
+      ),
+      nodeCount: metrics.nodeCount,
+      stringCodeUnits: metrics.stringCodeUnits,
     );
   }
 

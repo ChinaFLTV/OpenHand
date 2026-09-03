@@ -134,6 +134,9 @@ class McpToolCatalogCacheService {
       if (decoded is! Map) return <String, McpCachedToolCatalog>{};
       final root = stringKeyedMapFromValue(decoded);
       final entries = stringKeyedMapFromValue(root['catalogs']);
+      if (entries.length > kMcpMaxServerCount) {
+        throw const FormatException('MCP 工具目录缓存的服务数量超过安全上限。');
+      }
       final result = <String, McpCachedToolCatalog>{};
       for (final entry in entries.entries) {
         final parsed = _entryFromJson(entry.value);
@@ -147,6 +150,12 @@ class McpToolCatalogCacheService {
   }
 
   Future<void> _persist(Map<String, McpCachedToolCatalog> entries) async {
+    if (entries.length > kMcpMaxServerCount ||
+        entries.values.any(
+          (entry) => entry.catalog.tools.length > kMcpMaxCatalogToolCount,
+        )) {
+      throw StateError('MCP 工具目录缓存超过条目上限。');
+    }
     final content = jsonEncode(<String, Object?>{
       'version': 1,
       'catalogs': <String, Object?>{
@@ -184,7 +193,12 @@ McpCachedToolCatalog? _entryFromJson(Object? raw) {
   final map = stringKeyedMapFromValue(raw);
   final signature = '${map['connection_signature'] ?? ''}'.trim();
   if (signature.isEmpty || map['tools'] is! List) return null;
+  final serverInstructions = '${map['server_instructions'] ?? ''}';
+  if (serverInstructions.length > kMcpMaxServerInstructionsCodeUnits) {
+    return null;
+  }
   final rawTools = map['tools'] as List;
+  if (rawTools.length > kMcpMaxCatalogToolCount) return null;
   final tools = <McpTool>[];
   final toolIds = <String>{};
   for (final rawTool in rawTools) {
@@ -198,7 +212,7 @@ McpCachedToolCatalog? _entryFromJson(Object? raw) {
       status: McpToolCatalogStatus.ready,
       tools: List<McpTool>.unmodifiable(tools),
       warningMessage: nullIfBlank('${map['warning_message'] ?? ''}'),
-      serverInstructions: '${map['server_instructions'] ?? ''}',
+      serverInstructions: serverInstructions,
       lastScannedAt: dateTimeFromValue(map['last_scanned_at'])?.toUtc(),
     ),
   );
@@ -223,9 +237,17 @@ Map<String, Object?> _toolToJson(McpTool tool) => <String, Object?>{
 
 McpTool? _toolFromJson(Object? raw) {
   final map = stringKeyedMapFromValue(raw);
-  final id = '${map['id'] ?? ''}'.trim();
-  final name = '${map['name'] ?? ''}'.trim();
-  if (id.isEmpty || name.isEmpty) return null;
+  final rawId = map['id'];
+  final rawName = map['name'];
+  if (rawId is! String || rawName is! String) return null;
+  final id = rawId.trim();
+  final name = rawName.trim();
+  if (id.isEmpty ||
+      id.length > kMcpMaxToolIdCodeUnits ||
+      name.isEmpty ||
+      measureMcpToolMetadata(map) == null) {
+    return null;
+  }
   final outputSchema = map['output_schema'] is Map
       ? stringKeyedMapFromValue(map['output_schema'])
       : null;

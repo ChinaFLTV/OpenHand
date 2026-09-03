@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren, JSX } from 'preact';
 import { useRoute } from 'preact-iso';
-import { FitAddon } from '@xterm/addon-fit';
-import { Terminal } from '@xterm/xterm';
+import type { FitAddon } from '@xterm/addon-fit';
+import type { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import {
   GOAL_DEFAULT_MAX_AUTO_TURNS,
@@ -1577,6 +1577,28 @@ const MACHINE_TERMINAL_XTERM_THEME = {
 } as const;
 const MACHINE_TERMINAL_POLL_INTERVAL_MS = 1200;
 const MACHINE_TERMINAL_POLL_TIMEOUT_MS = 15_000;
+let machineTerminalRuntimePromise: Promise<{
+  TerminalConstructor: typeof Terminal;
+  FitAddonConstructor: typeof FitAddon;
+}> | null = null;
+
+function loadMachineTerminalRuntime() {
+  if (machineTerminalRuntimePromise) return machineTerminalRuntimePromise;
+  const loading = Promise.all([
+    import('@xterm/xterm'),
+    import('@xterm/addon-fit'),
+  ])
+    .then(([terminalModule, fitModule]) => ({
+      TerminalConstructor: terminalModule.Terminal,
+      FitAddonConstructor: fitModule.FitAddon,
+    }))
+    .catch((error) => {
+      machineTerminalRuntimePromise = null;
+      throw error;
+    });
+  machineTerminalRuntimePromise = loading;
+  return loading;
+}
 
 function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -1617,93 +1639,111 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     const root = shellRef.current;
     if (!root) return;
-    const terminal = new Terminal({
-      allowProposedApi: false,
-      convertEol: true,
-      cursorBlink: true,
-      cursorStyle: 'block',
-      fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-      fontSize: 13,
-      lineHeight: 1.18,
-      scrollback: 5000,
-      theme: MACHINE_TERMINAL_XTERM_THEME,
-    });
-    const fit = new FitAddon();
-    terminal.loadAddon(fit);
-    terminal.open(root);
-    try {
-      fit.fit();
-    } catch {
-      // 布局稳定后由下方定时调整重试。
-    }
-    terminal.focus();
-    terminalRef.current = terminal;
-    fitRef.current = fit;
-    const dataDisposable = terminal.onData((data) => {
-      void writeMachineTerminal(sessionId, { data })
-        .then((res) => {
-          writeErrorShownRef.current = false;
-          if (res.terminal) setWorkspace(res.terminal);
-        })
-        .catch((error) => {
-          if (writeErrorShownRef.current) return;
-          writeErrorShownRef.current = true;
-          const message = error instanceof Error ? error.message : String(error);
-          showSnackbar(`${t('terminal.write.failed', '终端写入失败')}：${message}`, { tone: 'error' });
-        });
-    });
-    const publishResize = () => {
-      if (root.clientWidth <= 0 || root.clientHeight <= 0) return;
-      try {
-        fit.fit();
-      } catch {
-        return;
-      }
-      const columns = terminal.cols;
-      const rows = terminal.rows;
-      if (!Number.isFinite(columns) || !Number.isFinite(rows) || columns <= 0 || rows <= 0) return;
-      const key = `${activeTerminalIdRef.current || ''}:${columns}x${rows}`;
-      if (lastResizeRef.current === key) return;
-      lastResizeRef.current = key;
-      void controlMachineTerminal(sessionId, {
-        action: 'resize',
-        terminalId: activeTerminalIdRef.current,
-        columns,
-        rows,
-      }).catch(() => {
-        lastResizeRef.current = '';
-      });
-    };
+    let disposed = false;
+    let terminal: Terminal | null = null;
+    let dataDisposable: { dispose: () => void } | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let scheduleResize: (() => void) | null = null;
 
-    const scheduleResize = () => {
-      if (resizeFrameRef.current != null) {
-        window.cancelAnimationFrame(resizeFrameRef.current);
-      }
-      resizeFrameRef.current = window.requestAnimationFrame(() => {
-        resizeFrameRef.current = window.requestAnimationFrame(() => {
-          resizeFrameRef.current = null;
-          publishResize();
+    void loadMachineTerminalRuntime()
+      .then(({ TerminalConstructor, FitAddonConstructor }) => {
+        if (disposed) return;
+        terminal = new TerminalConstructor({
+          allowProposedApi: false,
+          convertEol: true,
+          cursorBlink: true,
+          cursorStyle: 'block',
+          fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+          fontSize: 13,
+          lineHeight: 1.18,
+          scrollback: 5000,
+          theme: MACHINE_TERMINAL_XTERM_THEME,
         });
-      });
-    };
+        const fit = new FitAddonConstructor();
+        terminal.loadAddon(fit);
+        terminal.open(root);
+        try {
+          fit.fit();
+        } catch {
+          // 布局稳定后由下方定时调整重试。
+        }
+        terminal.focus();
+        terminalRef.current = terminal;
+        fitRef.current = fit;
+        dataDisposable = terminal.onData((data) => {
+          void writeMachineTerminal(sessionId, { data })
+            .then((res) => {
+              if (disposed) return;
+              writeErrorShownRef.current = false;
+              if (res.terminal) setWorkspace(res.terminal);
+            })
+            .catch((error) => {
+              if (disposed || writeErrorShownRef.current) return;
+              writeErrorShownRef.current = true;
+              const message = error instanceof Error ? error.message : String(error);
+              showSnackbar(`${t('terminal.write.failed', '终端写入失败')}：${message}`, { tone: 'error' });
+            });
+        });
+        const publishResize = () => {
+          if (disposed || !terminal || root.clientWidth <= 0 || root.clientHeight <= 0) return;
+          try {
+            fit.fit();
+          } catch {
+            return;
+          }
+          const columns = terminal.cols;
+          const rows = terminal.rows;
+          if (!Number.isFinite(columns) || !Number.isFinite(rows) || columns <= 0 || rows <= 0) return;
+          const key = `${activeTerminalIdRef.current || ''}:${columns}x${rows}`;
+          if (lastResizeRef.current === key) return;
+          lastResizeRef.current = key;
+          void controlMachineTerminal(sessionId, {
+            action: 'resize',
+            terminalId: activeTerminalIdRef.current,
+            columns,
+            rows,
+          }).catch(() => {
+            lastResizeRef.current = '';
+          });
+        };
 
-    const resizeObserver = typeof ResizeObserver === 'undefined'
-      ? null
-      : new ResizeObserver(scheduleResize);
-    requestTerminalFitRef.current = scheduleResize;
-    resizeObserver?.observe(root);
-    if (root.parentElement) resizeObserver?.observe(root.parentElement);
-    window.addEventListener('resize', scheduleResize);
-    scheduleResize();
+        scheduleResize = () => {
+          if (resizeFrameRef.current != null) {
+            window.cancelAnimationFrame(resizeFrameRef.current);
+          }
+          resizeFrameRef.current = window.requestAnimationFrame(() => {
+            resizeFrameRef.current = window.requestAnimationFrame(() => {
+              resizeFrameRef.current = null;
+              publishResize();
+            });
+          });
+        };
+
+        resizeObserver = typeof ResizeObserver === 'undefined'
+          ? null
+          : new ResizeObserver(scheduleResize);
+        requestTerminalFitRef.current = scheduleResize;
+        resizeObserver?.observe(root);
+        if (root.parentElement) resizeObserver?.observe(root.parentElement);
+        window.addEventListener('resize', scheduleResize);
+        scheduleResize();
+      })
+      .catch((error) => {
+        if (disposed) return;
+        const message = error instanceof Error ? error.message : String(error);
+        showSnackbar(`${t('terminal.load.failed', '终端组件加载失败')}：${message}`, { tone: 'error' });
+      });
+
     return () => {
-      dataDisposable.dispose();
+      disposed = true;
+      dataDisposable?.dispose();
       resizeObserver?.disconnect();
-      window.removeEventListener('resize', scheduleResize);
+      if (scheduleResize) window.removeEventListener('resize', scheduleResize);
       if (resizeFrameRef.current != null) {
         window.cancelAnimationFrame(resizeFrameRef.current);
         resizeFrameRef.current = null;
       }
-      terminal.dispose();
+      terminal?.dispose();
       terminalRef.current = null;
       fitRef.current = null;
       requestTerminalFitRef.current = null;
@@ -2285,58 +2325,71 @@ function MachineTerminalReplayViewport({ terminal }: { terminal: MachineTerminal
     const root = shellRef.current;
     if (!root) return;
     const replayOutput = terminalReplayAnsiOutput(terminal);
-    const replay = new Terminal({
-      allowProposedApi: false,
-      convertEol: true,
-      cursorBlink: false,
-      disableStdin: true,
-      fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-      fontSize: 13,
-      lineHeight: 1.18,
-      scrollback: 10000,
-      theme: MACHINE_TERMINAL_XTERM_THEME,
-    });
-    const fit = new FitAddon();
     let disposed = false;
+    let replay: Terminal | null = null;
     let renderFrame = 0;
-    let renderedSize = '';
-    replay.loadAddon(fit);
-    replay.open(root);
+    let resizeObserver: ResizeObserver | null = null;
 
-    const renderReplay = () => {
-      if (disposed) return;
-      fit.fit();
-      if (replay.cols <= 0 || replay.rows <= 0) return;
-      const sizeKey = `${replay.cols}x${replay.rows}`;
-      if (renderedSize === sizeKey) return;
-      renderedSize = sizeKey;
-      replay.reset();
-      fit.fit();
-      replay.write(replayOutput, () => {
-        if (!disposed) replay.scrollToTop();
-      });
-    };
-
-    const scheduleRender = () => {
-      if (renderFrame) cancelAnimationFrame(renderFrame);
-      renderFrame = requestAnimationFrame(() => {
-        renderFrame = requestAnimationFrame(() => {
-          renderFrame = 0;
-          renderReplay();
+    void loadMachineTerminalRuntime()
+      .then(({ TerminalConstructor, FitAddonConstructor }) => {
+        if (disposed) return;
+        replay = new TerminalConstructor({
+          allowProposedApi: false,
+          convertEol: true,
+          cursorBlink: false,
+          disableStdin: true,
+          fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+          fontSize: 13,
+          lineHeight: 1.18,
+          scrollback: 10000,
+          theme: MACHINE_TERMINAL_XTERM_THEME,
         });
-      });
-    };
+        const fit = new FitAddonConstructor();
+        let renderedSize = '';
+        replay.loadAddon(fit);
+        replay.open(root);
 
-    const resizeObserver = typeof ResizeObserver === 'undefined'
-      ? null
-      : new ResizeObserver(scheduleRender);
-    resizeObserver?.observe(root);
-    scheduleRender();
+        const renderReplay = () => {
+          if (disposed || !replay) return;
+          fit.fit();
+          if (replay.cols <= 0 || replay.rows <= 0) return;
+          const sizeKey = `${replay.cols}x${replay.rows}`;
+          if (renderedSize === sizeKey) return;
+          renderedSize = sizeKey;
+          replay.reset();
+          fit.fit();
+          replay.write(replayOutput, () => {
+            if (!disposed) replay?.scrollToTop();
+          });
+        };
+
+        const scheduleRender = () => {
+          if (renderFrame) cancelAnimationFrame(renderFrame);
+          renderFrame = requestAnimationFrame(() => {
+            renderFrame = requestAnimationFrame(() => {
+              renderFrame = 0;
+              renderReplay();
+            });
+          });
+        };
+
+        resizeObserver = typeof ResizeObserver === 'undefined'
+          ? null
+          : new ResizeObserver(scheduleRender);
+        resizeObserver?.observe(root);
+        scheduleRender();
+      })
+      .catch((error) => {
+        if (disposed) return;
+        const message = error instanceof Error ? error.message : String(error);
+        showSnackbar(`${t('terminal.load.failed', '终端组件加载失败')}：${message}`, { tone: 'error' });
+      });
+
     return () => {
       disposed = true;
       if (renderFrame) cancelAnimationFrame(renderFrame);
       resizeObserver?.disconnect();
-      replay.dispose();
+      replay?.dispose();
     };
   }, [terminal]);
 

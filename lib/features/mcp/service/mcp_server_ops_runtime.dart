@@ -241,6 +241,7 @@ class McpServerOpsRuntime {
   /// 前就断开，回收槽位。
   static const Duration _sseReservationGrace = Duration(seconds: 30);
   static const int _maxSessionIds = 1024;
+  static const int _identifierRandomUpperBound = 1 << 32;
   static const int _latencyWindow = 512;
   static const int _rateWindowSeconds = 60;
   static const String _connectionInfoContextKey = 'shelf.io.connection_info';
@@ -295,6 +296,7 @@ class McpServerOpsRuntime {
   final Map<String, int> _requestDistribution = <String, int>{};
   final Map<String, int> _protocolDistribution = <String, int>{};
   final Set<String> _sessionIds = <String>{};
+  final math.Random _identifierRandom = math.Random.secure();
   bool _isShuttingDown = false;
   // 按 UTC 分钟汇总所有请求，为趋势和延迟图提供完整数据。
   final Map<DateTime, _McpOpsMinuteBucket> _trafficBuckets =
@@ -2029,8 +2031,10 @@ class McpServerOpsRuntime {
       _trackSessionId(provided);
       return provided;
     }
-    final generated =
-        'openhand-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(1 << 20)}';
+    final generated = _randomizedTimestampId(
+      DateTime.now(),
+      prefix: 'openhand',
+    );
     _trackSessionId(generated);
     return generated;
   }
@@ -2088,7 +2092,13 @@ class McpServerOpsRuntime {
   }
 
   String _auditId(DateTime time) {
-    return '${time.microsecondsSinceEpoch}-${math.Random().nextInt(1 << 20)}';
+    return _randomizedTimestampId(time);
+  }
+
+  String _randomizedTimestampId(DateTime time, {String? prefix}) {
+    final value =
+        '${time.microsecondsSinceEpoch}-${_identifierRandom.nextInt(_identifierRandomUpperBound)}';
+    return prefix == null ? value : '$prefix-$value';
   }
 
   int _averageLatency() {

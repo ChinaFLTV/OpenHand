@@ -1,4 +1,28 @@
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/input_value_parsing.dart';
+
+const int kMcpMaxCatalogToolCount = 4096;
+const int kMcpMaxCatalogScannedEntryCount = 8192;
+const int kMcpMaxCatalogMetadataNodeCount = 262144;
+const int kMcpMaxCatalogTextCodeUnits = 16 * 1024 * 1024;
+const int kMcpMaxServerInstructionsCodeUnits = 256 * 1024;
+const int kMcpMaxToolIdCodeUnits = 1024;
+const int kMcpMaxToolMetadataDepth = 64;
+const int kMcpMaxToolMetadataContainerItems = 8192;
+const int kMcpMaxToolMetadataNodeCount = 32768;
+const int kMcpMaxToolMetadataStringCodeUnits = 256 * 1024;
+const int kMcpMaxToolMetadataTextCodeUnits = 1024 * 1024;
+
+JsonValueMetrics? measureMcpToolMetadata(Object? value) {
+  return measureJsonValueWithinBounds(
+    value,
+    maxDepth: kMcpMaxToolMetadataDepth,
+    maxContainerItems: kMcpMaxToolMetadataContainerItems,
+    maxTotalNodes: kMcpMaxToolMetadataNodeCount,
+    maxStringCodeUnits: kMcpMaxToolMetadataStringCodeUnits,
+    maxTotalStringCodeUnits: kMcpMaxToolMetadataTextCodeUnits,
+  );
+}
 
 enum McpToolCatalogStatus { idle, loading, ready, failed }
 

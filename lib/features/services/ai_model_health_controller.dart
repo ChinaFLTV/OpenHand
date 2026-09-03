@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
+import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/timer_safety.dart';
@@ -43,7 +43,7 @@ class AiModelHealthCancellation {
   }
 }
 
-class AiModelHealthController extends ChangeNotifier {
+class AiModelHealthController extends ManagedChangeNotifier {
   AiModelHealthController({AiModelHealthStore? store})
     : _store = store ?? AiModelHealthStore();
 
@@ -59,7 +59,6 @@ class AiModelHealthController extends ChangeNotifier {
   bool _manualChecking = false;
   AiModelHealthCancellation? _activeCancellation;
   final Set<String> _checkingProviderIds = <String>{};
-  bool _disposed = false;
 
   AiModelHealthSettings get settings => _settings;
   List<AiModelHealthRecord> get records =>
@@ -77,24 +76,30 @@ class AiModelHealthController extends ChangeNotifier {
   }
 
   Future<void> load() async {
+    if (isDisposed) return;
     final loaded = await _store.loadSettings();
+    if (isDisposed) return;
+    final recent = await _store.loadRecent();
+    if (isDisposed) return;
     _settings = loaded.copyWith(
       useSystemProxy:
           loaded.requestMode == AiModelHealthRequestMode.systemProxy,
     );
     _records
       ..clear()
-      ..addAll(await _store.loadRecent());
+      ..addAll(recent);
     _restartTimer();
     notifyListeners();
   }
 
   void attachModelsProvider(List<AiModelConfig> Function() provider) {
+    if (isDisposed) return;
     _modelsProvider = provider;
     _restartTimer();
   }
 
   void attachProxyResolver(AiModelHealthProxyResolver resolver) {
+    if (isDisposed) return;
     _proxyResolver = resolver;
   }
 
@@ -106,6 +111,7 @@ class AiModelHealthController extends ChangeNotifier {
     AiModelHealthRequestMode? requestMode,
     int? retentionDays,
   }) async {
+    if (isDisposed) return false;
     var next = _settings.copyWith(
       enabled: enabled,
       intervalMinutes: intervalMinutes,
@@ -129,6 +135,7 @@ class AiModelHealthController extends ChangeNotifier {
     if (next == _settings) return true;
     try {
       await _store.saveSettings(next);
+      if (isDisposed) return true;
       _settings = next;
       _restartTimer();
       notifyListeners();
@@ -163,14 +170,14 @@ class AiModelHealthController extends ChangeNotifier {
   }
 
   Future<void> checkAll({bool manual = true}) async {
-    if (_checking || _disposed) return;
+    if (_checking || isDisposed) return;
     final models = _modelsProvider?.call() ?? const <AiModelConfig>[];
     if (models.isEmpty) return;
     await _checkProviders(models, manual: manual);
   }
 
   Future<void> checkProvider(AiModelConfig provider) async {
-    if (_checking || _disposed) return;
+    if (_checking || isDisposed) return;
     await _checkProviders(<AiModelConfig>[provider], manual: true);
   }
 
@@ -178,7 +185,7 @@ class AiModelHealthController extends ChangeNotifier {
     Iterable<AiModelConfig> providers, {
     required bool manual,
   }) async {
-    if (_checking || _disposed) return;
+    if (_checking || isDisposed) return;
     final providerList = providers.toList(growable: false);
     final cancellation = AiModelHealthCancellation();
     _activeCancellation = cancellation;
@@ -193,7 +200,7 @@ class AiModelHealthController extends ChangeNotifier {
       final pending = <Future<AiModelHealthRecord?>>[];
       for (final provider in providerList) {
         for (final modelId in _healthModelIds(provider)) {
-          if (_disposed || cancellation.cancelled) return;
+          if (isDisposed || cancellation.cancelled) return;
           pending.add(
             checkModel(provider, modelId: modelId, cancellation: cancellation),
           );
@@ -213,13 +220,13 @@ class AiModelHealthController extends ChangeNotifier {
         _activeCancellation = null;
       }
       _checkingProviderIds.clear();
-      if (!_disposed) notifyListeners();
+      notifyListeners();
     }
   }
 
   /// 停止当前显式触发的批量或提供商巡检。
   void cancelCheck() {
-    if (!_checking || _cancelling || _disposed) return;
+    if (!_checking || _cancelling || isDisposed) return;
     _cancelling = true;
     _activeCancellation?.cancel();
     notifyListeners();
@@ -231,7 +238,7 @@ class AiModelHealthController extends ChangeNotifier {
     bool notify = true,
     AiModelHealthCancellation? cancellation,
   }) async {
-    if (_disposed || cancellation?.cancelled == true) return null;
+    if (isDisposed || cancellation?.cancelled == true) return null;
     final selectedModelId = (modelId ?? provider.modelId).trim();
     if (selectedModelId.isEmpty) return null;
     final model = provider.copyWith(modelId: selectedModelId);
@@ -389,7 +396,7 @@ class AiModelHealthController extends ChangeNotifier {
       status = 'error';
     }
     stopwatch.stop();
-    if (_disposed || cancellation?.cancelled == true) return null;
+    if (isDisposed || cancellation?.cancelled == true) return null;
     requestDurationMs ??= stopwatch.elapsedMilliseconds;
     final checkedAt = DateTime.now().toUtc();
     final record = AiModelHealthRecord(
@@ -438,7 +445,7 @@ class AiModelHealthController extends ChangeNotifier {
       // 网络结果仍保留在当前会话，数据库异常不阻断巡检队列。
       silentLog('ai_model_health_controller', '保存模型巡检记录', error, stack);
     }
-    if (notify && !_disposed) notifyListeners();
+    if (notify) notifyListeners();
     return record;
   }
 
@@ -559,7 +566,7 @@ class AiModelHealthController extends ChangeNotifier {
     String host, {
     AiModelHealthCancellation? cancellation,
   }) {
-    if (_disposed) throw StateError('模型健康巡检控制器已释放。');
+    if (isDisposed) throw StateError('模型健康巡检控制器已释放。');
     final http.Client client;
     if (mode == AiModelHealthRequestMode.systemProxy) {
       client = SystemProxyResolver.instance.createHttpClient();
@@ -667,7 +674,7 @@ class AiModelHealthController extends ChangeNotifier {
   void _restartTimer() {
     _timer?.cancel();
     _timer = null;
-    if (_settings.enabled && _modelsProvider != null) {
+    if (!isDisposed && _settings.enabled && _modelsProvider != null) {
       _timer = startSafePeriodicTimer(
         Duration(minutes: _settings.intervalMinutes),
         (_) => checkAll(manual: false),
@@ -677,8 +684,9 @@ class AiModelHealthController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _disposed = true;
+    if (isDisposed) return;
     _timer?.cancel();
+    _timer = null;
     for (final client in _activeClients.toList(growable: false)) {
       client.close();
     }

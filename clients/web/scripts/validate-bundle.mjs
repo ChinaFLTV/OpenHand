@@ -8,6 +8,9 @@ const errors = [];
 const exportCache = new Map();
 const MAX_EAGER_JS_BYTES = 512 * 1024;
 const MAX_SESSIONS_LIST_ROUTE_BYTES = 128 * 1024;
+const MAX_SESSION_DETAIL_ROUTE_BYTES = 768 * 1024;
+const MAX_LOGO_BYTES = 256 * 1024;
+const EXPECTED_LOGO_SIZE = 512;
 
 function walkJsFiles(dir) {
   const files = [];
@@ -158,6 +161,45 @@ if (!existsSync(indexFile) || !existsSync(entryFile)) {
         `会话列表路由共 ${sessionListBytes} 字节，超过 ${MAX_SESSIONS_LIST_ROUTE_BYTES} 字节上限`,
       );
     }
+  }
+
+  // 终端运行库仅用于机器专家会话，禁止再次合入所有会话共用的详情路由。
+  const sessionDetailChunks = new Set(
+    [...entrySource.matchAll(/chunks\/(detail-[A-Za-z0-9_-]+\.js)/g)]
+      .map((match) => path.join(outDir, 'chunks', match[1])),
+  );
+  if (sessionDetailChunks.size !== 1) {
+    errors.push(`无法唯一识别会话详情路由产物：${sessionDetailChunks.size} 个`);
+  } else {
+    const [sessionDetailChunk] = sessionDetailChunks;
+    const sessionDetailBytes = existsSync(sessionDetailChunk)
+      ? statSync(sessionDetailChunk).size
+      : 0;
+    if (sessionDetailBytes > MAX_SESSION_DETAIL_ROUTE_BYTES) {
+      errors.push(
+        `会话详情路由共 ${sessionDetailBytes} 字节，超过 ${MAX_SESSION_DETAIL_ROUTE_BYTES} 字节上限`,
+      );
+    }
+  }
+}
+
+const logoFile = path.join(outDir, 'openhand_logo.png');
+if (!existsSync(logoFile)) {
+  errors.push('缺少 Web Logo 产物 openhand_logo.png');
+} else {
+  const logo = readFileSync(logoFile);
+  const isPng = logo.length >= 24 && logo.subarray(1, 4).toString('ascii') === 'PNG';
+  if (!isPng) {
+    errors.push('Web Logo 不是有效的 PNG 文件');
+  } else {
+    const width = logo.readUInt32BE(16);
+    const height = logo.readUInt32BE(20);
+    if (width !== EXPECTED_LOGO_SIZE || height !== EXPECTED_LOGO_SIZE) {
+      errors.push(`Web Logo 尺寸为 ${width}×${height}，必须保持 512×512`);
+    }
+  }
+  if (logo.length > MAX_LOGO_BYTES) {
+    errors.push(`Web Logo 共 ${logo.length} 字节，超过 ${MAX_LOGO_BYTES} 字节上限`);
   }
 }
 
