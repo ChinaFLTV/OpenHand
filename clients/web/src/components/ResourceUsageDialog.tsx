@@ -1,5 +1,5 @@
 import type { JSX } from 'preact';
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   getResourceUsage,
   type ResourceUsageKind,
@@ -29,6 +29,21 @@ const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
 const DONUT_SEGMENT_GAP = 4;
 const LIVE_REFRESH_INTERVAL_MS = 2000;
 const RESOURCE_USAGE_REQUEST_TIMEOUT_MS = 10000;
+const TREND_INITIAL_POINT_COUNT = 16;
+const TREND_MIN_POINT_COUNT = 3;
+
+type ResourceUsageTrendPoint = ResourceUsageLevelSnapshot['trend'][number];
+
+interface TrendWindow {
+  start: number;
+  end: number;
+}
+
+interface TrendScaleGesture {
+  distance: number;
+  visibleCount: number;
+  anchorIndex: number;
+}
 
 interface ResourceUsageDialogProps {
   kind: ResourceUsageKind;
@@ -93,7 +108,6 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
   const level = snapshot?.levels?.[levelKey] ?? null;
   const entries = useMemo(() => level ? sortedEntries(level) : [], [level]);
   const top = entries[0];
-  const topShare = top && level?.total ? top[1] / level.total : 0;
 
   return (
     <DialogFrame
@@ -149,16 +163,16 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
           <>
             <section class="oh-resource-usage-summary">
               <SummaryCard icon="↗" label={t('resourceUsage.total', '调用总量')} value={String(level.total ?? 0)} />
-              <SummaryCard icon="✓" label={t('resourceUsage.success', '成功调用')} value={String(level.successes ?? 0)} detail={level.success_rate == null ? '—' : `${(level.success_rate * 100).toFixed(1)}%`} />
+              <SummaryCard icon="✓" label={t('resourceUsage.success', '成功调用')} value={String(level.successes ?? 0)} />
               <SummaryCard icon="!" label={t('resourceUsage.failure', '失败调用')} value={String(level.failures ?? 0)} tone={level.failures > 0 ? 'error' : 'normal'} />
-              <SummaryCard icon="◷" label={t('resourceUsage.latency', '平均 / P95 耗时')} value={formatDuration(level.average_duration_ms ?? 0)} detail={formatDuration(level.p95_duration_ms ?? 0)} />
-              <SummaryCard icon="◇" label={t('resourceUsage.sessions', '活跃会话 / 资源')} value={String(level.session_count ?? 0)} detail={String(level.resource_count ?? entries.length)} />
-              <SummaryCard icon="★" label={t('resourceUsage.top', '首位资源')} value={top ? (labels[top[0]] || top[0]) : '—'} detail={`${(topShare * 100).toFixed(1)}%`} />
+              <SummaryCard icon="◷" label={t('resourceUsage.latency', '平均耗时')} value={formatDuration(level.average_duration_ms ?? 0)} />
+              <SummaryCard icon="◇" label={t('resourceUsage.sessions', '活跃会话')} value={String(level.session_count ?? 0)} />
+              <SummaryCard icon="★" label={t('resourceUsage.top', '首位资源')} value={top ? (labels[top[0]] || top[0]) : '—'} />
             </section>
 
             <section class="oh-resource-usage-charts">
               <AnalyticsPanel title={t('resourceUsage.trend', '调用趋势')} subtitle={`${levelLabel(levelKey)}${t('resourceUsage.volumeSuffix', '级调用总量变化')}`}>
-                <TrendChart level={level} />
+                <TrendChart key={levelKey} level={level} />
               </AnalyticsPanel>
               <AnalyticsPanel title={t('resourceUsage.share', '资源占比')} subtitle={t('resourceUsage.shareSubtitle', '当前周期调用构成')}>
                 <Distribution entries={entries} labels={labels} total={level.total ?? 0} />
@@ -181,13 +195,13 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
   );
 }
 
-function SummaryCard(props: { icon: string; label: string; value: string; detail?: string; tone?: 'normal' | 'error' }) {
+function SummaryCard(props: { icon: string; label: string; value: string; tone?: 'normal' | 'error' }) {
   return (
     <article class={`oh-resource-usage-summary-card${props.tone === 'error' ? ' is-error' : ''}`}>
       <span aria-hidden="true">{props.icon}</span>
       <div>
         <p>{props.label}</p>
-        <div><strong title={props.value}>{props.value}</strong>{props.detail ? <em>{props.detail}</em> : null}</div>
+        <strong title={props.value}>{props.value}</strong>
       </div>
     </article>
   );
@@ -208,9 +222,29 @@ function EmptyChart({ label }: { label: string }) {
 }
 
 function TrendChart({ level }: { level: ResourceUsageLevelSnapshot }) {
-  const points = (level.trend ?? []).slice(-16);
+  const allPoints = level.trend ?? [];
+  const [window, setWindow] = useState<TrendWindow>(() => defaultTrendWindow(allPoints.length));
+  const [tooltip, setTooltip] = useState<{ sourceIndex: number; visible: boolean } | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const scaleGesture = useRef<TrendScaleGesture | null>(null);
+  const previousPointCount = useRef(allPoints.length);
+
+  useEffect(() => {
+    const previousCount = previousPointCount.current;
+    previousPointCount.current = allPoints.length;
+    setWindow((current) => {
+      const visibleCount = Math.max(1, current.end - current.start);
+      const pinnedToEnd = current.end >= previousCount;
+      const end = pinnedToEnd ? allPoints.length : Math.min(current.end, allPoints.length);
+      return normalizeTrendWindow(allPoints.length, end - visibleCount, visibleCount);
+    });
+  }, [allPoints.length]);
+
+  useEffect(() => setTooltip(null), [window.start, window.end]);
+
+  const points = allPoints.slice(window.start, window.end);
   const max = Math.max(1, ...points.map((point) => point.total));
-  if (points.length === 0 || points.every((point) => point.total <= 0)) {
+  if (points.length === 0 || allPoints.every((point) => point.total <= 0)) {
     return <EmptyChart label={t('resourceUsage.emptyTrend', '暂无趋势数据')} />;
   }
   const width = 640;
@@ -221,23 +255,146 @@ function TrendChart({ level }: { level: ResourceUsageLevelSnapshot }) {
   const coordinates = points.map((point, index) => {
     const x = points.length === 1 ? width / 2 : insetX + (width - insetX * 2) * index / (points.length - 1);
     const y = insetY + chartHeight * (1 - point.total / max);
-    return { x, y, point };
+    return { x, y, point, sourceIndex: window.start + index };
   });
   const line = smoothPath(coordinates);
   const first = coordinates[0];
   const last = coordinates.at(-1) ?? first;
   const area = `${line} L ${last.x} ${insetY + chartHeight} L ${first.x} ${insetY + chartHeight} Z`;
+  const activeCoordinate = tooltip == null
+    ? null
+    : coordinates.find((coordinate) => coordinate.sourceIndex === tooltip.sourceIndex) ?? null;
+  const activePoint = activeCoordinate?.point ?? null;
+  const isDefaultWindow = window.start === Math.max(0, allPoints.length - TREND_INITIAL_POINT_COUNT)
+    && window.end === allPoints.length;
+
+  const resetWindow = () => setWindow(defaultTrendWindow(allPoints.length));
+  const updateScaleWindow = (gesture: TrendScaleGesture, scale: number, ratio: number) => {
+    setWindow(trendWindowFromScale(allPoints.length, gesture, scale, ratio));
+  };
+  const onPointerDown = (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'touch') return;
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (pointers.current.size !== 2) return;
+    const [left, right] = [...pointers.current.values()];
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = ((left.x + right.x) / 2 - rect.left) / Math.max(1, rect.width);
+    scaleGesture.current = {
+      distance: Math.max(1, Math.hypot(left.x - right.x, left.y - right.y)),
+      visibleCount: window.end - window.start,
+      anchorIndex: window.start + clamp(ratio, 0, 1) * Math.max(0, window.end - window.start - 1),
+    };
+  };
+  const onPointerMove = (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    if (!pointers.current.has(event.pointerId)) return;
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const gesture = scaleGesture.current;
+    if (gesture == null || pointers.current.size !== 2) return;
+    const [left, right] = [...pointers.current.values()];
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = clamp(((left.x + right.x) / 2 - rect.left) / Math.max(1, rect.width), 0, 1);
+    updateScaleWindow(gesture, Math.hypot(left.x - right.x, left.y - right.y) / gesture.distance, ratio);
+    event.preventDefault();
+  };
+  const endPointer = (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    pointers.current.delete(event.pointerId);
+    if (pointers.current.size < 2) scaleGesture.current = null;
+  };
+  const onWheel = (event: JSX.TargetedWheelEvent<HTMLDivElement>) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
+    const scale = Math.exp(-event.deltaY * 0.01);
+    setWindow((current) => trendWindowFromScale(allPoints.length, {
+      distance: 1,
+      visibleCount: current.end - current.start,
+      anchorIndex: current.start + ratio * Math.max(0, current.end - current.start - 1),
+    }, scale, ratio));
+  };
   return (
-    <div class="oh-resource-usage-trend">
+    <div
+      class="oh-resource-usage-trend"
+      onDblClick={resetWindow}
+      onMouseLeave={() => setTooltip((current) => current == null ? null : { ...current, visible: false })}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endPointer}
+      onPointerCancel={endPointer}
+      onWheel={onWheel}
+    >
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={t('resourceUsage.trend', '调用趋势')}>
         {[0, 1, 2, 3, 4].map((row) => <line key={row} x1={insetX} x2={width - insetX} y1={insetY + chartHeight * row / 4} y2={insetY + chartHeight * row / 4} class="oh-resource-usage-gridline" />)}
         <path d={area} class="oh-resource-usage-area" />
         <path d={line} class="oh-resource-usage-line" />
-        {coordinates.map(({ x, y, point }) => <circle key={point.bucket} cx={x} cy={y} r="4" class="oh-resource-usage-dot"><title>{point.bucket}: {point.total}</title></circle>)}
+        {coordinates.map(({ x, y, point, sourceIndex }) => (
+          <g key={`${point.bucket}-${sourceIndex}`}>
+            <circle cx={x} cy={y} r="4" class={`oh-resource-usage-dot${tooltip?.sourceIndex === sourceIndex && tooltip.visible ? ' is-active' : ''}`} />
+            <circle
+              cx={x}
+              cy={y}
+              r="15"
+              class="oh-resource-usage-dot-hit"
+              tabIndex={0}
+              role="button"
+              aria-label={trendPointLabel(point)}
+              onMouseEnter={() => setTooltip({ sourceIndex, visible: true })}
+              onFocus={() => setTooltip({ sourceIndex, visible: true })}
+              onBlur={() => setTooltip({ sourceIndex, visible: false })}
+              onClick={() => setTooltip({ sourceIndex, visible: true })}
+            />
+          </g>
+        ))}
       </svg>
-      <div><span>{shortBucket(points[0].bucket)}</span><span>{shortBucket(points.at(-1)?.bucket ?? '')}</span></div>
+      {activeCoordinate && activePoint ? (
+        <div
+          role="tooltip"
+          aria-hidden={!tooltip?.visible}
+          class={`oh-resource-usage-trend-tooltip${tooltip?.visible ? ' is-visible' : ''}${activeCoordinate.y < 72 ? ' is-below' : ''}${activeCoordinate.x < 150 ? ' is-left' : activeCoordinate.x > 490 ? ' is-right' : ''}`}
+          style={{ left: `${activeCoordinate.x * 100 / width}%`, top: `${activeCoordinate.y * 100 / height}%` }}
+        >
+          <strong>{shortBucket(activePoint.bucket)}</strong>
+          <span><b>{t('resourceUsage.total', '调用总量')}</b>{activePoint.total}</span>
+          <span><b>{t('resourceUsage.success', '成功')}</b>{activePoint.successes}</span>
+          <span><b>{t('resourceUsage.failure', '失败')}</b>{activePoint.failures}</span>
+        </div>
+      ) : null}
+      <div class="oh-resource-usage-trend-range">
+        <span>{shortBucket(points[0].bucket)}</span>
+        <button type="button" disabled={isDefaultWindow} onClick={resetWindow} title={t('resourceUsage.resetTrend', '恢复默认时间窗口')} aria-label={t('resourceUsage.resetTrend', '恢复默认时间窗口')}>↺</button>
+        <span>{shortBucket(points.at(-1)?.bucket ?? '')}</span>
+      </div>
     </div>
   );
+}
+
+function defaultTrendWindow(total: number): TrendWindow {
+  const count = Math.min(total, TREND_INITIAL_POINT_COUNT);
+  return { start: Math.max(0, total - count), end: total };
+}
+
+function normalizeTrendWindow(total: number, start: number, visibleCount: number): TrendWindow {
+  if (total <= 0) return { start: 0, end: 0 };
+  const minimum = Math.min(TREND_MIN_POINT_COUNT, total);
+  const count = clamp(Math.round(visibleCount), minimum, total);
+  const normalizedStart = clamp(Math.round(start), 0, total - count);
+  return { start: normalizedStart, end: normalizedStart + count };
+}
+
+function trendWindowFromScale(total: number, gesture: TrendScaleGesture, scale: number, ratio: number): TrendWindow {
+  const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  const visibleCount = gesture.visibleCount / safeScale;
+  const normalizedCount = clamp(Math.round(visibleCount), Math.min(TREND_MIN_POINT_COUNT, total), total);
+  return normalizeTrendWindow(total, gesture.anchorIndex - ratio * Math.max(0, normalizedCount - 1), normalizedCount);
+}
+
+function trendPointLabel(point: ResourceUsageTrendPoint): string {
+  return `${point.bucket}，${t('resourceUsage.total', '调用总量')} ${point.total}，${t('resourceUsage.success', '成功')} ${point.successes}，${t('resourceUsage.failure', '失败')} ${point.failures}`;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
 }
 
 function smoothPath(points: Array<{ x: number; y: number }>): string {
@@ -305,7 +462,7 @@ function Distribution(props: { entries: Array<[string, number]>; labels: Record<
 
 function Ranking(props: { entries: Array<[string, number]>; labels: Record<string, string> }) {
   if (props.entries.length === 0) return <EmptyChart label={t('resourceUsage.emptyMap', '当前周期尚无调用记录')} />;
-  const visible = props.entries.slice(0, 20);
+  const visible = props.entries;
   const max = Math.max(1, visible[0][1]);
   return (
     <ol class="oh-resource-usage-ranking">
@@ -317,7 +474,6 @@ function Ranking(props: { entries: Array<[string, number]>; labels: Record<strin
           <b>{entry[1]}</b>
         </li>
       ))}
-      {props.entries.length > visible.length ? <p>{t('resourceUsage.more', '另有 {count} 项低频资源').replace('{count}', String(props.entries.length - visible.length))}</p> : null}
     </ol>
   );
 }
@@ -326,7 +482,7 @@ function ResourceDetails(props: { resources: ResourceUsageResourceSnapshot[]; la
   if (props.resources.length === 0) return <EmptyChart label={t('resourceUsage.emptyDetails', '当前周期暂无资源明细')} />;
   return (
     <div class="oh-resource-usage-details">
-      {props.resources.slice(0, 30).map((resource) => {
+      {props.resources.map((resource) => {
         const label = props.labels[resource.resource_id] || resource.resource_id;
         return (
           <article key={resource.resource_id} class="oh-resource-usage-detail-card">
@@ -344,7 +500,7 @@ function ResourceDetails(props: { resources: ResourceUsageResourceSnapshot[]; la
             </div>
             {resource.sub_resources.length > 0 ? (
               <div class="oh-resource-usage-subresources">
-                {resource.sub_resources.slice(0, 16).map((subResource) => (
+                {resource.sub_resources.map((subResource) => (
                   <div key={subResource.resource_id}>
                     <span title={subResource.resource_id}>↳ {subResource.resource_id}</span>
                     <small>{subResource.successes} / {subResource.failures}</small>

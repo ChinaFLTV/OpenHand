@@ -1441,6 +1441,9 @@ class OpenHandOperationalTrendSelection {
   final String? xLabel;
 }
 
+typedef OpenHandTrendTooltipLabelBuilder =
+    String Function(OpenHandOperationalTrendSelection selection);
+
 /// 带实际绘图区命中测试、键盘和语义支持的运维趋势图。
 class OpenHandOperationalTrendChart extends StatefulWidget {
   const OpenHandOperationalTrendChart({
@@ -1458,6 +1461,7 @@ class OpenHandOperationalTrendChart extends StatefulWidget {
     this.externalLegendProvided = false,
     this.fixedMaximum,
     this.formatValue,
+    this.tooltipLabelBuilder,
     this.semanticLabel = '运维趋势图',
   });
 
@@ -1476,6 +1480,7 @@ class OpenHandOperationalTrendChart extends StatefulWidget {
   final bool externalLegendProvided;
   final double? fixedMaximum;
   final String Function(double value)? formatValue;
+  final OpenHandTrendTooltipLabelBuilder? tooltipLabelBuilder;
   final String semanticLabel;
 
   @override
@@ -1486,6 +1491,7 @@ class OpenHandOperationalTrendChart extends StatefulWidget {
 class _OpenHandOperationalTrendChartState
     extends State<OpenHandOperationalTrendChart> {
   OpenHandOperationalTrendSelection? _selection;
+  Offset? _lastTooltipAnchor;
 
   double get _drawableMaximum => math.max(
     _seriesMaximum(widget.series),
@@ -1628,6 +1634,8 @@ class _OpenHandOperationalTrendChartState
 
   String _selectionText(OpenHandOperationalTrendSelection? selection) {
     if (selection == null) return '未选择数据点';
+    final tooltipLabel = widget.tooltipLabelBuilder?.call(selection).trim();
+    if (tooltipLabel?.isNotEmpty == true) return tooltipLabel!;
     final value =
         widget.formatValue?.call(selection.value) ??
         '${selection.value.toStringAsFixed(1)}${widget.valueSuffix}';
@@ -1638,6 +1646,10 @@ class _OpenHandOperationalTrendChartState
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final tooltipMotion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     final resolvedHeight = widget.height.isFinite && widget.height > 0
         ? widget.height
         : 224.0;
@@ -1680,10 +1692,17 @@ class _OpenHandOperationalTrendChartState
                             ? constraints.maxHeight
                             : 0,
                       );
+                      final tooltipAnchor = _selectionOffset(size);
+                      if (tooltipAnchor != null) {
+                        _lastTooltipAnchor = tooltipAnchor;
+                      }
                       return MouseRegion(
                         cursor: hasDrawableData
                             ? SystemMouseCursors.precise
                             : MouseCursor.defer,
+                        onExit: hasDrawableData
+                            ? (_) => _setSelection(null)
+                            : null,
                         onHover: hasDrawableData
                             ? (event) => _setSelection(
                                 _selectionFromOffset(event.localPosition, size),
@@ -1725,15 +1744,48 @@ class _OpenHandOperationalTrendChartState
                                   ),
                                 ),
                               ),
-                              if (_selection != null)
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: _ChartTooltip(
-                                    label: _selectionText(_selection),
-                                    color: _selection!.series.color,
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: CustomSingleChildLayout(
+                                    delegate: _TrendTooltipLayoutDelegate(
+                                      anchor:
+                                          tooltipAnchor ?? _lastTooltipAnchor,
+                                    ),
+                                    child: AnimatedSwitcher(
+                                      duration: tooltipMotion.entranceDuration,
+                                      reverseDuration:
+                                          tooltipMotion.exitDuration,
+                                      transitionBuilder: (child, animation) =>
+                                          buildAnimationStyleTransition(
+                                            animation: animation,
+                                            settings: tooltipMotion,
+                                            profile:
+                                                const OpenHandAnimationTransitionProfile(
+                                                  alignment:
+                                                      Alignment.bottomCenter,
+                                                  fadeScaleBegin: 0.9,
+                                                  elasticScaleBegin: 0.9,
+                                                  springScaleBegin: 0.9,
+                                                ),
+                                            child: child,
+                                          ),
+                                      child: _selection == null
+                                          ? const SizedBox.shrink(
+                                              key: ValueKey<String>(
+                                                'trend-tooltip-hidden',
+                                              ),
+                                            )
+                                          : _ChartTooltip(
+                                              key: const ValueKey<String>(
+                                                'trend-tooltip-visible',
+                                              ),
+                                              label: _selectionText(_selection),
+                                              color: _selection!.series.color,
+                                            ),
+                                    ),
                                   ),
                                 ),
+                              ),
                             ],
                           ),
                         ),
@@ -1772,6 +1824,25 @@ class _OpenHandOperationalTrendChartState
       ),
     );
   }
+
+  Offset? _selectionOffset(Size size) {
+    final selection = _selection;
+    if (selection == null ||
+        selection.seriesIndex < 0 ||
+        selection.seriesIndex >= widget.series.length) {
+      return null;
+    }
+    final chart = _lineChartRect(size);
+    final points = _linePoints(
+      widget.series[selection.seriesIndex].values,
+      chart,
+      _normalizedMaximum(_drawableMaximum),
+    );
+    if (selection.pointIndex < 0 || selection.pointIndex >= points.length) {
+      return null;
+    }
+    return points[selection.pointIndex];
+  }
 }
 
 /// 具备统一双指缩放、时间窗口与粒度提示的运维趋势图。
@@ -1792,6 +1863,7 @@ class OpenHandZoomableOperationalTrendChart extends StatelessWidget {
     this.externalLegendProvided = false,
     this.fixedMaximum,
     this.formatValue,
+    this.tooltipLabelBuilder,
     this.semanticLabel = '运维趋势图',
     this.initialVisibleItemCount,
     this.minVisibleItemCount = 3,
@@ -1812,6 +1884,7 @@ class OpenHandZoomableOperationalTrendChart extends StatelessWidget {
   final bool externalLegendProvided;
   final double? fixedMaximum;
   final String Function(double value)? formatValue;
+  final OpenHandTrendTooltipLabelBuilder? tooltipLabelBuilder;
   final String semanticLabel;
   final int? initialVisibleItemCount;
   final int minVisibleItemCount;
@@ -1885,6 +1958,11 @@ class OpenHandZoomableOperationalTrendChart extends StatelessWidget {
               externalLegendProvided: externalLegendProvided,
               fixedMaximum: fixedMaximum,
               formatValue: formatValue,
+              tooltipLabelBuilder: tooltipLabelBuilder == null
+                  ? null
+                  : (selection) => tooltipLabelBuilder!(
+                      _sourceSelection(selection, viewport) ?? selection,
+                    ),
               semanticLabel: semanticLabel,
               onSelectionChanged: onSelectionChanged == null
                   ? null
@@ -2323,8 +2401,39 @@ class _DonutSelectionPainter extends CustomPainter {
   }
 }
 
+class _TrendTooltipLayoutDelegate extends SingleChildLayoutDelegate {
+  const _TrendTooltipLayoutDelegate({required this.anchor});
+
+  final Offset? anchor;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    return BoxConstraints(
+      maxWidth: math.max(0, math.min(300, constraints.maxWidth - 16)),
+      maxHeight: math.max(0, constraints.maxHeight - 16),
+    );
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final point = anchor ?? Offset(size.width / 2, 8);
+    final left = (point.dx - childSize.width / 2)
+        .clamp(8.0, math.max(8.0, size.width - childSize.width - 8))
+        .toDouble();
+    final preferredTop = point.dy - childSize.height - 14;
+    final top = preferredTop >= 8
+        ? preferredTop
+        : math.min(size.height - childSize.height - 8, point.dy + 14);
+    return Offset(left, math.max(8.0, top).toDouble());
+  }
+
+  @override
+  bool shouldRelayout(covariant _TrendTooltipLayoutDelegate oldDelegate) =>
+      oldDelegate.anchor != anchor;
+}
+
 class _ChartTooltip extends StatelessWidget {
-  const _ChartTooltip({required this.label, required this.color});
+  const _ChartTooltip({super.key, required this.label, required this.color});
 
   final String label;
   final Color color;
@@ -2340,14 +2449,37 @@ class _ChartTooltip extends StatelessWidget {
           color: colors.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(kOpenHandRadius8),
           border: Border.all(color: color.withValues(alpha: 0.72)),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.18),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              kOpenHandHGap8,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    height: 1.35,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

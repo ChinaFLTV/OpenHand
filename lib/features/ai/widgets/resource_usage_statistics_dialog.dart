@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
@@ -15,6 +17,8 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 import '../ai_session_controller.dart';
 import '../service/runtime/ai_tool_usage_promotion_store.dart';
+
+const double _kUsageListMaxHeight = 420;
 
 Future<void> showResourceUsageStatisticsDialog(
   BuildContext context, {
@@ -288,9 +292,6 @@ class _ResourceUsageStatisticsDialogState
         _SummaryGrid(
           level: level,
           topLabel: top == null ? '—' : _labelFor(top.key),
-          topShare: top == null || level.totalCount <= 0
-              ? 0
-              : top.value / level.totalCount,
         ),
         kOpenHandGap18,
         LayoutBuilder(
@@ -461,15 +462,10 @@ class _PeriodSelector extends StatelessWidget {
 }
 
 class _SummaryGrid extends StatelessWidget {
-  const _SummaryGrid({
-    required this.level,
-    required this.topLabel,
-    required this.topShare,
-  });
+  const _SummaryGrid({required this.level, required this.topLabel});
 
   final AiResourceUsageLevelSnapshot level;
   final String topLabel;
-  final double topShare;
 
   @override
   Widget build(BuildContext context) {
@@ -499,9 +495,6 @@ class _SummaryGrid extends StatelessWidget {
           ja: '成功',
         ),
         value: '${level.successCount}',
-        detail: level.successRate == null
-            ? '—'
-            : '${(level.successRate! * 100).toStringAsFixed(1)}%',
       ),
       _SummaryCard(
         icon: Icons.error_outline_rounded,
@@ -520,29 +513,27 @@ class _SummaryGrid extends StatelessWidget {
         icon: Icons.timer_outlined,
         label: openHandLocalizedText(
           context,
-          zh: '平均 / P95 耗时',
-          zhHant: '平均 / P95 耗時',
-          en: 'Average / P95',
-          fr: 'Moyenne / P95',
-          de: 'Mittel / P95',
-          ja: '平均 / P95',
+          zh: '平均耗时',
+          zhHant: '平均耗時',
+          en: 'Average latency',
+          fr: 'Latence moyenne',
+          de: 'Mittlere Latenz',
+          ja: '平均所要時間',
         ),
         value: _formatDuration(level.averageDurationMs.round()),
-        detail: _formatDuration(level.p95DurationMs),
       ),
       _SummaryCard(
         icon: Icons.forum_outlined,
         label: openHandLocalizedText(
           context,
-          zh: '活跃会话 / 资源',
-          zhHant: '活躍會話 / 資源',
-          en: 'Sessions / resources',
-          fr: 'Sessions / ressources',
-          de: 'Sitzungen / Ressourcen',
-          ja: 'セッション / リソース',
+          zh: '活跃会话',
+          zhHant: '活躍會話',
+          en: 'Active sessions',
+          fr: 'Sessions actives',
+          de: 'Aktive Sitzungen',
+          ja: 'アクティブセッション',
         ),
         value: '${level.sessionCount}',
-        detail: '${level.resourceCount}',
       ),
       _SummaryCard(
         icon: Icons.workspace_premium_outlined,
@@ -556,7 +547,6 @@ class _SummaryGrid extends StatelessWidget {
           ja: 'トップ',
         ),
         value: topLabel,
-        detail: '${(topShare * 100).toStringAsFixed(1)}%',
       ),
     ];
     return LayoutBuilder(
@@ -585,13 +575,11 @@ class _SummaryCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    this.detail,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final String? detail;
 
   @override
   Widget build(BuildContext context) {
@@ -628,27 +616,13 @@ class _SummaryCard extends StatelessWidget {
                   ),
                 ),
                 kOpenHandGap5,
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        value,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    if (detail != null)
-                      Text(
-                        detail!,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                  ],
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ],
             ),
@@ -727,117 +701,52 @@ class _TrendChart extends StatelessWidget {
         ),
       );
     }
-    final visible = points.length <= 16
-        ? points
-        : points.sublist(points.length - 16);
-    return SizedBox(
-      height: 232,
-      child: CustomPaint(
-        painter: _TrendPainter(
-          points: visible,
-          colorScheme: Theme.of(context).colorScheme,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(_shortBucket(visible.first.bucketKey)),
-                Text(_shortBucket(visible.last.bucketKey)),
-              ],
-            ),
+    final colors = Theme.of(context).colorScheme;
+    return OpenHandZoomableOperationalTrendChart(
+      series: <OpenHandChartSeries>[
+        OpenHandChartSeries(
+          label: openHandLocalizedText(
+            context,
+            zh: '调用总量',
+            zhHant: '呼叫總量',
+            en: 'Total calls',
+            fr: 'Total des appels',
+            de: 'Aufrufe gesamt',
+            ja: '総呼び出し数',
           ),
+          values: points
+              .map((point) => point.totalCount.toDouble())
+              .toList(growable: false),
+          color: colors.primary,
+          aggregation: OpenHandTrendAggregation.sum,
         ),
+      ],
+      xLabels: points.map((point) => point.bucketKey).toList(growable: false),
+      valueSuffix: '',
+      height: 232,
+      area: true,
+      showLegend: false,
+      initialVisibleItemCount: math.min(16, points.length),
+      showZoomToolbar: false,
+      formatValue: (value) => value.round().toString(),
+      tooltipLabelBuilder: (selection) {
+        final point = points[selection.pointIndex];
+        return '${_shortBucket(point.bucketKey)}  ·  '
+            '${openHandLocalizedText(context, zh: '调用', en: 'Calls')} ${point.totalCount}  ·  '
+            '${openHandLocalizedText(context, zh: '成功', en: 'Success')} ${point.successCount}  ·  '
+            '${openHandLocalizedText(context, zh: '失败', en: 'Failed')} ${point.failureCount}';
+      },
+      semanticLabel: openHandLocalizedText(
+        context,
+        zh: '调用趋势图',
+        zhHant: '呼叫趨勢圖',
+        en: 'Call trend chart',
+        fr: 'Graphique de tendance des appels',
+        de: 'Aufruftrenddiagramm',
+        ja: '呼び出し推移グラフ',
       ),
+      onSelectionChanged: null,
     );
-  }
-}
-
-class _TrendPainter extends CustomPainter {
-  const _TrendPainter({required this.points, required this.colorScheme});
-
-  final List<AiResourceUsageTrendPoint> points;
-  final ColorScheme colorScheme;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const left = 8.0;
-    const top = 12.0;
-    const bottom = 30.0;
-    final width = math.max(1.0, size.width - left * 2);
-    final height = math.max(1.0, size.height - top - bottom);
-    final gridPaint = Paint()
-      ..color = colorScheme.outlineVariant.withValues(alpha: 0.58)
-      ..strokeWidth = 1;
-    for (var row = 0; row <= 4; row++) {
-      final y = top + height * row / 4;
-      canvas.drawLine(Offset(left, y), Offset(left + width, y), gridPaint);
-    }
-    final maxValue = points.fold<int>(
-      1,
-      (current, point) => math.max(current, point.totalCount),
-    );
-    final offsets = <Offset>[];
-    for (var index = 0; index < points.length; index++) {
-      final x = points.length == 1
-          ? left + width / 2
-          : left + width * index / (points.length - 1);
-      final y = top + height * (1 - points[index].totalCount / maxValue);
-      final point = Offset(x, y);
-      offsets.add(point);
-    }
-    final line = Path()..moveTo(offsets.first.dx, offsets.first.dy);
-    for (var index = 0; index < offsets.length - 1; index++) {
-      final previous = index == 0 ? offsets[index] : offsets[index - 1];
-      final current = offsets[index];
-      final next = offsets[index + 1];
-      final afterNext = index + 2 < offsets.length ? offsets[index + 2] : next;
-      final control1 = current + (next - previous) / 6;
-      final control2 = next - (afterNext - current) / 6;
-      line.cubicTo(
-        control1.dx,
-        control1.dy,
-        control2.dx,
-        control2.dy,
-        next.dx,
-        next.dy,
-      );
-    }
-    final area = Path.from(line);
-    area
-      ..lineTo(offsets.last.dx, top + height)
-      ..lineTo(offsets.first.dx, top + height)
-      ..close();
-    canvas.drawPath(
-      area,
-      Paint()..color = colorScheme.primaryContainer.withValues(alpha: 0.48),
-    );
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = colorScheme.primary
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke,
-    );
-    final pointPaint = Paint()..color = colorScheme.primary;
-    for (final point in offsets) {
-      canvas.drawCircle(point, 3.5, pointPaint);
-      canvas.drawCircle(
-        point,
-        2,
-        Paint()..color = colorScheme.surfaceContainerLowest,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TrendPainter oldDelegate) {
-    return oldDelegate.points != points ||
-        oldDelegate.colorScheme != colorScheme;
   }
 }
 
@@ -1064,78 +973,86 @@ class _ResourceRanking extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return OpenHandClientPager<MapEntry<String, int>>(
       items: visible,
-      builder: (context, pageItems) => Column(
-        children: [
-          for (var index = 0; index < pageItems.length; index++) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 30,
-                    child: Text(
-                      '${index + 1}'.padLeft(2, '0'),
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+      builder: (context, pageItems) => _BoundedAnalyticsList(
+        child: Column(
+          children: [
+            for (var index = 0; index < pageItems.length; index++) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 30,
+                      child: Text(
+                        '${index + 1}'.padLeft(2, '0'),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    flex: 4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          labels[pageItems[index].key] ?? pageItems[index].key,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        if ((labels[pageItems[index].key] ?? '').isNotEmpty)
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            pageItems[index].key,
+                            labels[pageItems[index].key] ??
+                                pageItems[index].key,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
-                      ],
-                    ),
-                  ),
-                  kOpenHandHGap14,
-                  Expanded(
-                    flex: 5,
-                    child: ClipRRect(
-                      borderRadius: kOpenHandPillBorderRadius,
-                      child: LinearProgressIndicator(
-                        value: unitRatio(pageItems[index].value, maxValue),
-                        minHeight: 9,
-                        color: colorScheme.primary,
-                        backgroundColor: colorScheme.surfaceContainerHigh,
+                          if ((labels[pageItems[index].key] ?? '').isNotEmpty)
+                            Text(
+                              pageItems[index].key,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                  kOpenHandHGap14,
-                  SizedBox(
-                    width: 48,
-                    child: Text(
-                      '${pageItems[index].value}',
-                      textAlign: TextAlign.end,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    kOpenHandHGap14,
+                    Expanded(
+                      flex: 5,
+                      child: ClipRRect(
+                        borderRadius: kOpenHandPillBorderRadius,
+                        child: LinearProgressIndicator(
+                          value: unitRatio(pageItems[index].value, maxValue),
+                          minHeight: 9,
+                          color: colorScheme.primary,
+                          backgroundColor: colorScheme.surfaceContainerHigh,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    kOpenHandHGap14,
+                    SizedBox(
+                      width: 48,
+                      child: Text(
+                        '${pageItems[index].value}',
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (index != pageItems.length - 1)
-              Divider(height: 1, color: colorScheme.outlineVariant),
+              if (index != pageItems.length - 1)
+                Divider(height: 1, color: colorScheme.outlineVariant),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1165,16 +1082,18 @@ class _ResourceDetails extends StatelessWidget {
     }
     return OpenHandClientPager<AiResourceUsageResourceSnapshot>(
       items: resources,
-      builder: (context, visible) => Column(
-        children: [
-          for (var index = 0; index < visible.length; index++) ...[
-            _ResourceDetailCard(
-              resource: visible[index],
-              label: labels[visible[index].resourceId],
-            ),
-            if (index != visible.length - 1) kOpenHandGap10,
+      builder: (context, visible) => _BoundedAnalyticsList(
+        child: Column(
+          children: [
+            for (var index = 0; index < visible.length; index++) ...[
+              _ResourceDetailCard(
+                resource: visible[index],
+                label: labels[visible[index].resourceId],
+              ),
+              if (index != visible.length - 1) kOpenHandGap10,
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1192,7 +1111,7 @@ class _ResourceDetailCard extends StatelessWidget {
     final displayLabel = label?.trim().isNotEmpty == true
         ? label!.trim()
         : resource.resourceId;
-    final children = resource.subResources.take(16).toList(growable: false);
+    final children = resource.subResources;
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -1448,10 +1367,17 @@ class _RecentUsageEventsState extends State<_RecentUsageEvents> {
     final pageEvents = window.slice(events);
     return Column(
       children: [
-        for (var index = 0; index < pageEvents.length; index++) ...[
-          _UsageEventCard(event: pageEvents[index]),
-          if (index != pageEvents.length - 1) kOpenHandGap9,
-        ],
+        _BoundedAnalyticsList(
+          key: ValueKey<(int, int)>((window.page, window.pageSize)),
+          child: Column(
+            children: [
+              for (var index = 0; index < pageEvents.length; index++) ...[
+                _UsageEventCard(event: pageEvents[index]),
+                if (index != pageEvents.length - 1) kOpenHandGap9,
+              ],
+            ],
+          ),
+        ),
         if (events.length > 1) ...[
           kOpenHandGap12,
           OpenHandTablePagination(
@@ -1467,6 +1393,46 @@ class _RecentUsageEventsState extends State<_RecentUsageEvents> {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _BoundedAnalyticsList extends StatefulWidget {
+  const _BoundedAnalyticsList({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_BoundedAnalyticsList> createState() => _BoundedAnalyticsListState();
+}
+
+class _BoundedAnalyticsListState extends State<_BoundedAnalyticsList> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = math.min(
+      _kUsageListMaxHeight,
+      MediaQuery.sizeOf(context).height * 0.48,
+    );
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: OpenHandSafeScrollbar(
+        controller: _controller,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _controller,
+          primary: false,
+          padding: const EdgeInsets.only(right: 8),
+          child: widget.child,
+        ),
+      ),
     );
   }
 }

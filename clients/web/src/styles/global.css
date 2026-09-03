@@ -3023,9 +3023,6 @@ button.oh-message-context-capsule {
   color: var(--m3-on-error-container);
   background: var(--m3-error-container);
 }
-.oh-resource-usage-summary-card.is-error em {
-  color: var(--m3-error);
-}
 .oh-resource-usage-summary-card {
   min-width: 0;
   min-height: 108px;
@@ -3066,27 +3063,15 @@ button.oh-message-context-capsule {
   font-size: 11px;
   font-weight: 650;
 }
-.oh-resource-usage-summary-card > div > div {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
 .oh-resource-usage-summary-card strong {
   min-width: 0;
   display: block;
   overflow: hidden;
-  flex: 1;
   color: var(--m3-on-surface);
   font-size: 20px;
   font-weight: 820;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.oh-resource-usage-summary-card em {
-  color: var(--m3-primary);
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 800;
 }
 .oh-resource-usage-charts {
   display: grid;
@@ -3123,6 +3108,8 @@ button.oh-message-context-capsule {
 }
 .oh-resource-usage-trend {
   height: 228px;
+  position: relative;
+  touch-action: pan-y;
 }
 .oh-resource-usage-trend svg {
   width: 100%;
@@ -3148,13 +3135,144 @@ button.oh-message-context-capsule {
   fill: var(--m3-surface);
   stroke: var(--m3-primary);
   stroke-width: 3;
+  transition: filter var(--oh-motion-duration-fast) var(--oh-motion-emphasized), stroke-width var(--oh-motion-duration-fast) var(--oh-motion-spring);
   vector-effect: non-scaling-stroke;
 }
-.oh-resource-usage-trend > div {
-  display: flex;
-  justify-content: space-between;
+.oh-resource-usage-dot.is-active {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--m3-primary) 72%, transparent));
+  stroke-width: 4.5;
+}
+.oh-resource-usage-dot-hit {
+  fill: transparent;
+  outline: none;
+  cursor: crosshair;
+}
+.oh-resource-usage-dot-hit:focus-visible {
+  stroke: var(--m3-primary);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.oh-resource-usage-trend-tooltip {
+  width: max-content;
+  max-width: min(300px, calc(100% - 16px));
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 4px 12px;
+  position: absolute;
+  z-index: 3;
+  padding: 9px 11px;
+  opacity: 0;
+  visibility: hidden;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 56%, var(--m3-outline-variant));
+  border-radius: 10px;
+  color: var(--m3-on-surface);
+  background: color-mix(in srgb, var(--m3-surface-container-high) 94%, transparent);
+  box-shadow: 0 18px 38px -22px color-mix(in srgb, var(--m3-shadow, #000) 54%, transparent);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 12px)) scale(.88);
+  transform-origin: bottom center;
+  transition:
+    opacity var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve),
+    transform var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve),
+    visibility 0s linear var(--oh-dialog-exit-duration);
+  will-change: opacity, transform;
+}
+.oh-resource-usage-trend-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, calc(-100% - 12px)) scale(1);
+  transition:
+    opacity var(--oh-dialog-enter-duration) var(--oh-dialog-curve),
+    transform var(--oh-dialog-enter-duration) var(--oh-dialog-curve),
+    visibility 0s;
+}
+.oh-resource-usage-trend-tooltip.is-below {
+  transform: translate(-50%, 12px) scale(.88);
+  transform-origin: top center;
+}
+.oh-resource-usage-trend-tooltip.is-below.is-visible {
+  transform: translate(-50%, 12px) scale(1);
+}
+.oh-resource-usage-trend-tooltip.is-left {
+  transform: translate(0, calc(-100% - 12px)) scale(.88);
+  transform-origin: bottom left;
+}
+.oh-resource-usage-trend-tooltip.is-left.is-visible {
+  transform: translate(0, calc(-100% - 12px)) scale(1);
+}
+.oh-resource-usage-trend-tooltip.is-left.is-below {
+  transform: translate(0, 12px) scale(.88);
+  transform-origin: top left;
+}
+.oh-resource-usage-trend-tooltip.is-left.is-below.is-visible {
+  transform: translate(0, 12px) scale(1);
+}
+.oh-resource-usage-trend-tooltip.is-right {
+  transform: translate(-100%, calc(-100% - 12px)) scale(.88);
+  transform-origin: bottom right;
+}
+.oh-resource-usage-trend-tooltip.is-right.is-visible {
+  transform: translate(-100%, calc(-100% - 12px)) scale(1);
+}
+.oh-resource-usage-trend-tooltip.is-right.is-below {
+  transform: translate(-100%, 12px) scale(.88);
+  transform-origin: top right;
+}
+.oh-resource-usage-trend-tooltip.is-right.is-below.is-visible {
+  transform: translate(-100%, 12px) scale(1);
+}
+.oh-resource-usage-trend-tooltip > strong {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-resource-usage-trend-tooltip > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--m3-on-surface);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 780;
+}
+.oh-resource-usage-trend-tooltip > span > b {
+  color: var(--m3-on-surface-variant);
+  font-size: 9px;
+  font-weight: 650;
+}
+.oh-resource-usage-trend-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+  align-items: center;
   color: var(--m3-on-surface-variant);
   font-size: 10px;
+}
+.oh-resource-usage-trend-range span:last-child {
+  text-align: right;
+}
+.oh-resource-usage-trend-range button {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--m3-primary);
+  background: var(--m3-surface-container-high);
+  font-size: 14px;
+  transition: color var(--oh-motion-duration-fast) var(--oh-motion-emphasized), background-color var(--oh-motion-duration-fast) var(--oh-motion-emphasized), transform var(--oh-motion-duration-fast) var(--oh-motion-spring);
+}
+.oh-resource-usage-trend-range button:hover:not(:disabled) {
+  background: var(--m3-primary-container);
+  transform: rotate(-12deg) scale(1.06);
+}
+.oh-resource-usage-trend-range button:disabled {
+  opacity: .34;
+  cursor: default;
 }
 .oh-resource-usage-distribution {
   min-height: 228px;
@@ -3241,7 +3359,7 @@ button.oh-message-context-capsule {
 }
 .oh-resource-usage-ranking {
   margin: 0;
-  padding: 0;
+  padding: 0 8px 0 0;
   list-style: none;
 }
 .oh-resource-usage-ranking li {
@@ -3298,16 +3416,19 @@ button.oh-message-context-capsule {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
-.oh-resource-usage-ranking > p {
-  margin: 14px 0 0;
-  color: var(--m3-on-surface-variant);
-  font-size: 11px;
-  text-align: center;
-}
 .oh-resource-usage-details,
 .oh-resource-usage-events {
   display: grid;
   gap: 10px;
+  padding-right: 8px;
+}
+.oh-resource-usage-ranking,
+.oh-resource-usage-details,
+.oh-resource-usage-events {
+  max-height: min(420px, 48dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 .oh-resource-usage-detail-card,
 .oh-resource-usage-event {
@@ -3537,13 +3658,6 @@ button.oh-message-context-capsule {
   .oh-resource-usage-summary-card strong {
     font-size: 17px;
   }
-  .oh-resource-usage-summary-card > div > div {
-    display: block;
-  }
-  .oh-resource-usage-summary-card em {
-    display: block;
-    margin-top: 2px;
-  }
   .oh-resource-usage-distribution {
     grid-template-columns: 1fr;
     justify-items: center;
@@ -3564,6 +3678,11 @@ button.oh-message-context-capsule {
   .oh-resource-usage-subresources small,
   .oh-resource-usage-subresources em {
     display: none;
+  }
+  .oh-resource-usage-ranking,
+  .oh-resource-usage-details,
+  .oh-resource-usage-events {
+    max-height: min(360px, 52dvh);
   }
 }
 
