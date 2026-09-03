@@ -1976,7 +1976,7 @@ class WebMessagePlatformService {
     final targets = <String>{...accessibleUrls}.toList(growable: false);
     addLog('发现 ${targets.length} 个当前可访问入口。');
     final timeout = Duration(
-      milliseconds: _clampMilliseconds(
+      milliseconds: clampIntToRange(
         _config.healthCheck.timeoutMs,
         min: _connectivityProbeMinTimeoutMs,
         max: _connectivityProbeMaxTimeoutMs,
@@ -7161,12 +7161,6 @@ class WebMessagePlatformService {
         optionalIntFromValue(body['timeout']) ??
         kMachineTerminalDefaultCommandTimeout.inMilliseconds;
     return clampMachineTerminalCommandTimeoutMs(raw);
-  }
-
-  int _clampMilliseconds(int value, {required int min, required int max}) {
-    if (value < min) return min;
-    if (value > max) return max;
-    return value;
   }
 
   Future<AiSessionMessage?> _loadMessageForWebOperation(

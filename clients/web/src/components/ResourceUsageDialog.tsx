@@ -13,6 +13,7 @@ import { useAsyncPolling } from '../hooks/useAsyncPolling';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
 import { formatLocalDateTimeSecond } from '../shared/util/date_time';
+import { clampNumber } from '../shared/util/number';
 import { describeApiError } from '../utils/api_error';
 import {
   DIALOG_OVERLAY_CENTER_CLASS,
@@ -318,7 +319,7 @@ function TrendChart({ level }: { level: ResourceUsageLevelSnapshot }) {
     scaleGesture.current = {
       distance: Math.max(1, Math.hypot(left.x - right.x, left.y - right.y)),
       visibleCount: window.end - window.start,
-      anchorIndex: window.start + clamp(ratio, 0, 1) * Math.max(0, window.end - window.start - 1),
+      anchorIndex: window.start + clampNumber(ratio, 0, 1) * Math.max(0, window.end - window.start - 1),
     };
   };
   const onPointerMove = (event: JSX.TargetedPointerEvent<HTMLDivElement>) => {
@@ -328,7 +329,7 @@ function TrendChart({ level }: { level: ResourceUsageLevelSnapshot }) {
     if (gesture == null || pointers.current.size !== 2) return;
     const [left, right] = [...pointers.current.values()];
     const rect = event.currentTarget.getBoundingClientRect();
-    const ratio = clamp(((left.x + right.x) / 2 - rect.left) / Math.max(1, rect.width), 0, 1);
+    const ratio = clampNumber(((left.x + right.x) / 2 - rect.left) / Math.max(1, rect.width), 0, 1);
     updateScaleWindow(gesture, Math.hypot(left.x - right.x, left.y - right.y) / gesture.distance, ratio);
     event.preventDefault();
   };
@@ -340,7 +341,7 @@ function TrendChart({ level }: { level: ResourceUsageLevelSnapshot }) {
     if (!event.ctrlKey) return;
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
-    const ratio = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
+    const ratio = clampNumber((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
     const scale = Math.exp(-event.deltaY * 0.01);
     setWindow((current) => trendWindowFromScale(allPoints.length, {
       distance: 1,
@@ -412,24 +413,20 @@ function defaultTrendWindow(total: number): TrendWindow {
 function normalizeTrendWindow(total: number, start: number, visibleCount: number): TrendWindow {
   if (total <= 0) return { start: 0, end: 0 };
   const minimum = Math.min(TREND_MIN_POINT_COUNT, total);
-  const count = clamp(Math.round(visibleCount), minimum, total);
-  const normalizedStart = clamp(Math.round(start), 0, total - count);
+  const count = clampNumber(Math.round(visibleCount), minimum, total);
+  const normalizedStart = clampNumber(Math.round(start), 0, total - count);
   return { start: normalizedStart, end: normalizedStart + count };
 }
 
 function trendWindowFromScale(total: number, gesture: TrendScaleGesture, scale: number, ratio: number): TrendWindow {
   const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
   const visibleCount = gesture.visibleCount / safeScale;
-  const normalizedCount = clamp(Math.round(visibleCount), Math.min(TREND_MIN_POINT_COUNT, total), total);
+  const normalizedCount = clampNumber(Math.round(visibleCount), Math.min(TREND_MIN_POINT_COUNT, total), total);
   return normalizeTrendWindow(total, gesture.anchorIndex - ratio * Math.max(0, normalizedCount - 1), normalizedCount);
 }
 
 function trendPointLabel(point: ResourceUsageTrendPoint): string {
   return `${point.bucket}，${t('resourceUsage.total', '调用总量')} ${point.total}，${t('resourceUsage.success', '成功')} ${point.successes}，${t('resourceUsage.failure', '失败')} ${point.failures}`;
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(maximum, Math.max(minimum, value));
 }
 
 function smoothPath(points: Array<{ x: number; y: number }>): string {

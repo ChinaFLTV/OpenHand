@@ -49,8 +49,10 @@ import { useTimeoutController } from '../hooks/useTimeoutController';
 import { useInterval } from '../hooks/useInterval';
 import { boundedFnv1aHashBase36 } from '../shared/util/hash';
 import {
-  knowledgeBaseHitTokenEstimateTotal,
-  knowledgeBaseResultsUsedByAnswer,
+  knowledgeBaseHitKey,
+  knowledgeBaseMetadataHasReferences,
+  knowledgeBaseMetadataUsedByAnswer,
+  knowledgeBaseResultRecords,
 } from '../shared/util/knowledge';
 import { messageFeedbackValue } from '../shared/util/message_feedback';
 import { isTerminalToolExecutionStatus } from '../shared/util/session_transcript_messages';
@@ -760,52 +762,6 @@ function knowledgeBaseMetadata(message: SessionMessage): Record<string, unknown>
   return recordOrNullFromUnknown(meta?.[KNOWLEDGE_BASE_MESSAGE_METADATA_KEY]);
 }
 
-function knowledgeBaseResults(kb: Record<string, unknown> | null): Record<string, unknown>[] {
-  const raw = kb?.['results'];
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((item) => recordOrNullFromUnknown(item))
-    .filter((item): item is Record<string, unknown> => item != null);
-}
-
-function knowledgeBaseHasReferences(message: SessionMessage): boolean {
-  const kb = knowledgeBaseMetadata(message);
-  return knowledgeBaseMetadataHasReferences(kb);
-}
-
-function knowledgeBaseMetadataHasReferences(kb: Record<string, unknown> | null): boolean {
-  return kb?.['enabled'] === true &&
-    kb?.['status'] === 'success' &&
-    knowledgeBaseResults(kb).length > 0;
-}
-
-function knowledgeBaseMetadataUsedByAnswer(
-  kb: Record<string, unknown> | null,
-  answerText: string,
-): Record<string, unknown> | null {
-  if (!knowledgeBaseMetadataHasReferences(kb)) return null;
-  const usedResults = knowledgeBaseResultsUsedByAnswer(
-    knowledgeBaseResults(kb),
-    answerText,
-    {
-      hitKey: (hit) =>
-        knowledgeBaseCitationKey(hit, knowledgeBaseCitationLabel(hit)),
-    },
-  );
-  if (usedResults.length === 0) return null;
-  const promptAppend = recordOrNullFromUnknown(kb?.['prompt_append']) ?? {};
-  const tokenEstimate = knowledgeBaseHitTokenEstimateTotal(usedResults);
-  return {
-    ...(kb ?? {}),
-    results: usedResults,
-    prompt_append: {
-      ...promptAppend,
-      chunk_count: usedResults.length,
-      ...(tokenEstimate > 0 ? { token_estimate: tokenEstimate } : {}),
-    },
-  };
-}
-
 function knowledgeBaseTokenEstimate(kb: Record<string, unknown> | null): number | null {
   return finiteNumberOrNullFromUnknown(recordOrNullFromUnknown(kb?.['prompt_append'])?.['token_estimate']);
 }
@@ -824,24 +780,16 @@ function knowledgeBaseCitationSources(
 ): KnowledgeBaseCitationSource[] {
   const sources: KnowledgeBaseCitationSource[] = [];
   const seen = new Set<string>();
-  for (const hit of knowledgeBaseResults(kb)) {
+  for (const hit of knowledgeBaseResultRecords(kb)) {
     const label = knowledgeBaseCitationLabel(hit);
     if (!label) continue;
-    const key = knowledgeBaseCitationKey(hit, label);
+    const key = knowledgeBaseHitKey(hit);
     if (seen.has(key)) continue;
     seen.add(key);
     sources.push({ key, label });
     if (sources.length >= limit) break;
   }
   return sources;
-}
-
-function knowledgeBaseCitationKey(hit: Record<string, unknown>, label: string): string {
-  const sourceId = strictStringFromUnknown(hit['source_id']);
-  if (sourceId) return `source:${sourceId}`;
-  const path = strictStringFromUnknown(hit['path']);
-  if (path) return `path:${path}`;
-  return `label:${label}`;
 }
 
 function knowledgeBaseCitationLabel(hit: Record<string, unknown>): string {
@@ -2446,7 +2394,7 @@ function MessageCardImpl({
   const metadata = message.metadata ?? {};
   const [knowledgeBaseDialogOpen, setKnowledgeBaseDialogOpen] = useState(false);
   const kbMetadata = knowledgeBaseMetadata(message);
-  const kbResults = knowledgeBaseResults(kbMetadata);
+  const kbResults = knowledgeBaseResultRecords(kbMetadata);
   const kbTokenEstimate = knowledgeBaseTokenEstimate(kbMetadata);
   const recentlyUpdatedContent = useRecentMessageActivity(
     content,
@@ -2770,7 +2718,7 @@ function MessageCardImpl({
       : messageBubbleMaxWidth('assistant');
   const contextChips = [
     ...messageContextChips(message),
-    ...(isUserBubble && knowledgeBaseHasReferences(message)
+    ...(isUserBubble && knowledgeBaseMetadataHasReferences(kbMetadata)
       ? [
         {
           key: 'knowledge-base',
@@ -3388,7 +3336,7 @@ function KnowledgeBaseRetrievalDialog({
 }) {
   const [selectedHit, setSelectedHit] = useState<Record<string, unknown> | null>(null);
   const { closing, requestClose } = useDialogExitMotion(onClose);
-  const results = knowledgeBaseResults(metadata);
+  const results = knowledgeBaseResultRecords(metadata);
   const embedding = recordOrNullFromUnknown(metadata['embedding']);
   const retrieval = recordOrNullFromUnknown(metadata['retrieval']);
   const promptAppend = recordOrNullFromUnknown(metadata['prompt_append']);

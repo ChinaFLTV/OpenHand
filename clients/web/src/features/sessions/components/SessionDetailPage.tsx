@@ -92,8 +92,11 @@ import {
 import { notifyIfHidden } from '../../../services/pwa';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '../../../shared/util/browser_storage';
 import {
+  knowledgeBaseHitKey,
   knowledgeBaseHitTokenEstimateTotal,
-  knowledgeBaseResultsUsedByAnswer,
+  knowledgeBaseMetadataHasReferences,
+  knowledgeBaseMetadataUsedByAnswer as selectKnowledgeBaseMetadataUsedByAnswer,
+  knowledgeBaseResultRecords,
 } from '../../../shared/util/knowledge';
 import { messageFeedbackValue } from '../../../shared/util/message_feedback';
 import { clampNumber, strictPositiveIntegerFromText } from '../../../shared/util/number';
@@ -1007,57 +1010,13 @@ function messageKnowledgeBaseMetadata(message: SessionMessage): Record<string, u
   return recordOrNullFromUnknown(metadata?.[KNOWLEDGE_BASE_MESSAGE_METADATA_KEY]);
 }
 
-function messageKnowledgeBaseHasReferences(metadata: Record<string, unknown> | null): boolean {
-  const results = metadata?.['results'];
-  return metadata?.['enabled'] === true &&
-    metadata?.['status'] === 'success' &&
-    Array.isArray(results) &&
-    results.length > 0;
-}
-
-function knowledgeBaseResultMaps(metadata: Record<string, unknown> | null): Record<string, unknown>[] {
-  const results = metadata?.['results'];
-  if (!Array.isArray(results)) return [];
-  return results
-    .map((item) => recordOrNullFromUnknown(item))
-    .filter((item): item is Record<string, unknown> => item != null);
-}
-
 function knowledgeBaseMetadataUsedByAnswer(
   metadata: Record<string, unknown> | null,
   answerText: string,
 ): Record<string, unknown> | null {
-  if (!messageKnowledgeBaseHasReferences(metadata)) return null;
-  const usedResults = knowledgeBaseResultsUsedByAnswer(
-    knowledgeBaseResultMaps(metadata),
-    answerText,
-    {
-      coerceValues: true,
-      hitKey: knowledgeBaseCitationKey,
-    },
-  );
-  if (usedResults.length === 0) return null;
-  const promptAppend = recordOrNullFromUnknown(metadata?.['prompt_append']) ?? {};
-  const tokenEstimate = knowledgeBaseHitTokenEstimateTotal(usedResults);
-  return {
-    ...(metadata ?? {}),
-    results: usedResults,
-    prompt_append: {
-      ...promptAppend,
-      chunk_count: usedResults.length,
-      ...(tokenEstimate > 0 ? { token_estimate: tokenEstimate } : {}),
-    },
-  };
-}
-
-function knowledgeBaseCitationKey(hit: Record<string, unknown>): string {
-  const sourceId = stringFromUnknown(hit['source_id']);
-  if (sourceId) return `source:${sourceId}`;
-  const path = stringFromUnknown(hit['path']) || stringFromUnknown(hit['original_path']);
-  if (path) return `path:${path}`;
-  const chunkId = stringFromUnknown(hit['chunk_id']) || stringFromUnknown(hit['id']);
-  if (chunkId) return `chunk:${chunkId}`;
-  return `label:${stringFromUnknown(hit['source_title']) || stringFromUnknown(hit['title'])}`;
+  return selectKnowledgeBaseMetadataUsedByAnswer(metadata, answerText, {
+    coerceValues: true,
+  });
 }
 
 function knowledgeBaseMetadataFromRoundToolMessages(
@@ -1072,8 +1031,8 @@ function knowledgeBaseMetadataFromRoundToolMessages(
     if (!extracted) continue;
     const query = stringFromUnknown(extracted['query']);
     if (query) queries.push(query);
-    for (const result of knowledgeBaseResultMaps(extracted)) {
-      const key = knowledgeBaseCitationKey(result);
+    for (const result of knowledgeBaseResultRecords(extracted)) {
+      const key = knowledgeBaseHitKey(result, { coerceValues: true });
       if (seen.has(key)) continue;
       seen.add(key);
       results.push(result);
@@ -1122,19 +1081,10 @@ function knowledgeBaseMetadataFromToolMessage(message: SessionMessage): Record<s
 }
 
 function knowledgeToolResultRows(metadata: Record<string, unknown>): Record<string, unknown>[] {
-  const direct = metadata['results'];
-  if (Array.isArray(direct)) {
-    return direct
-      .map((item) => recordOrNullFromUnknown(item))
-      .filter((item): item is Record<string, unknown> => item != null);
-  }
+  if (Array.isArray(metadata['results'])) return knowledgeBaseResultRecords(metadata);
   const resultText = stringFromUnknown(metadata['tool_execution_result'] ?? metadata['result_text']);
   if (!resultText) return [];
-  const results = parseJsonRecordSafely(resultText)?.['results'];
-  if (!Array.isArray(results)) return [];
-  return results
-    .map((item) => recordOrNullFromUnknown(item))
-    .filter((item): item is Record<string, unknown> => item != null);
+  return knowledgeBaseResultRecords(parseJsonRecordSafely(resultText));
 }
 
 function knowledgeToolQuery(metadata: Record<string, unknown>, isRead: boolean): string {
@@ -1223,7 +1173,7 @@ function buildAssociatedKnowledgeBaseMetadataByMessageId(
     const message = messages[index]!;
     if (message.kind === 'user') {
       const metadata = messageKnowledgeBaseMetadata(message);
-      pendingUserMetadata = messageKnowledgeBaseHasReferences(metadata) ? metadata : null;
+      pendingUserMetadata = knowledgeBaseMetadataHasReferences(metadata) ? metadata : null;
       roundCandidates = [];
       continue;
     }

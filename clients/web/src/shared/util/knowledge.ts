@@ -1,11 +1,12 @@
 import { basenameFromPath } from './path';
 import { truncateEndText } from './text';
 import {
+  recordOrNullFromUnknown,
   roundedNonNegativeIntegerFromUnknown,
   stringFromUnknown,
 } from './value';
 
-interface KnowledgeBaseUsageMatchOptions {
+export interface KnowledgeBaseUsageMatchOptions {
   hitKey?: (hit: Record<string, unknown>) => string;
   coerceValues?: boolean;
 }
@@ -47,12 +48,56 @@ export function knowledgeBaseResultsUsedByAnswer(
     if (!knowledgeBaseHitUsedByAnswer(result, normalizedAnswer, coerceValues)) {
       continue;
     }
-    const key = hitKey?.(result) ?? defaultKnowledgeBaseHitKey(result);
+    const key =
+      hitKey?.(result) ?? knowledgeBaseHitKey(result, { coerceValues });
     if (seen.has(key)) continue;
     seen.add(key);
     used.push(result);
   }
   return used;
+}
+
+export function knowledgeBaseResultRecords(
+  metadata: Record<string, unknown> | null,
+): Record<string, unknown>[] {
+  const results = metadata?.['results'];
+  if (!Array.isArray(results)) return [];
+  return results
+    .map((item) => recordOrNullFromUnknown(item))
+    .filter((item): item is Record<string, unknown> => item != null);
+}
+
+export function knowledgeBaseMetadataHasReferences(
+  metadata: Record<string, unknown> | null,
+): boolean {
+  return metadata?.['enabled'] === true &&
+    metadata?.['status'] === 'success' &&
+    knowledgeBaseResultRecords(metadata).length > 0;
+}
+
+export function knowledgeBaseMetadataUsedByAnswer(
+  metadata: Record<string, unknown> | null,
+  answerText: string,
+  options: KnowledgeBaseUsageMatchOptions = {},
+): Record<string, unknown> | null {
+  if (!knowledgeBaseMetadataHasReferences(metadata)) return null;
+  const usedResults = knowledgeBaseResultsUsedByAnswer(
+    knowledgeBaseResultRecords(metadata),
+    answerText,
+    options,
+  );
+  if (usedResults.length === 0) return null;
+  const promptAppend = recordOrNullFromUnknown(metadata?.['prompt_append']) ?? {};
+  const tokenEstimate = knowledgeBaseHitTokenEstimateTotal(usedResults);
+  return {
+    ...(metadata ?? {}),
+    results: usedResults,
+    prompt_append: {
+      ...promptAppend,
+      chunk_count: usedResults.length,
+      ...(tokenEstimate > 0 ? { token_estimate: tokenEstimate } : {}),
+    },
+  };
 }
 
 function knowledgeBaseHitTokenEstimate(hit: Record<string, unknown>): number {
@@ -136,19 +181,22 @@ function knowledgeValueString(value: unknown, coerce: boolean): string {
   return stringFromUnknown(value, { coerce });
 }
 
-function defaultKnowledgeBaseHitKey(hit: Record<string, unknown>): string {
-  const sourceId = knowledgeValueString(hit['source_id'], false);
+export function knowledgeBaseHitKey(
+  hit: Record<string, unknown>,
+  { coerceValues = false }: Pick<KnowledgeBaseUsageMatchOptions, 'coerceValues'> = {},
+): string {
+  const sourceId = knowledgeValueString(hit['source_id'], coerceValues);
   if (sourceId) return `source:${sourceId}`;
   const path =
-    knowledgeValueString(hit['path'], false) ||
-    knowledgeValueString(hit['original_path'], false);
+    knowledgeValueString(hit['path'], coerceValues) ||
+    knowledgeValueString(hit['original_path'], coerceValues);
   if (path) return `path:${path}`;
   const chunkId =
-    knowledgeValueString(hit['chunk_id'], false) ||
-    knowledgeValueString(hit['id'], false);
+    knowledgeValueString(hit['chunk_id'], coerceValues) ||
+    knowledgeValueString(hit['id'], coerceValues);
   if (chunkId) return `chunk:${chunkId}`;
   const label =
-    knowledgeValueString(hit['source_title'], false) ||
-    knowledgeValueString(hit['title'], false);
+    knowledgeValueString(hit['source_title'], coerceValues) ||
+    knowledgeValueString(hit['title'], coerceValues);
   return `label:${label}`;
 }
