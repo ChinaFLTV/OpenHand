@@ -178,10 +178,12 @@ import {
   MESSAGE_LIST_DEFAULT_PAGE_SIZE,
   MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
   MESSAGE_LIST_MAX_LOADED_MESSAGES,
+  MESSAGE_LIST_MAX_VISIBLE_ROWS,
   MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
   boundLiveMessageWindow,
   buildHeightPrefix,
   clampMessageRowHeight,
+  clampVirtualMessageRange,
   initialVirtualMessageRange,
   rebaseVirtualMessageRange,
   resolveVirtualMessageRange,
@@ -2983,6 +2985,13 @@ function VirtualMessageList({
   ) {
     renderRange = initialRange;
   }
+  if (virtualized) {
+    renderRange = clampVirtualMessageRange(
+      renderRange,
+      messages.length,
+      MESSAGE_LIST_MAX_VISIBLE_ROWS,
+    );
+  }
 
   useLayoutEffect(() => {
     previousMembershipRef.current = { key: membershipKey, messageIds, virtualized };
@@ -3121,6 +3130,7 @@ function VirtualMessageList({
       viewportTop,
       viewportBottom,
       overscanPx: MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
+      maxVisibleRows: MESSAGE_LIST_MAX_VISIBLE_ROWS,
       virtualized: true,
     }));
   }, [scrollContainerRef]);

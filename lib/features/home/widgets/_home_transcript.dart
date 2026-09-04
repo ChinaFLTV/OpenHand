@@ -470,6 +470,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int? _warmupContextSignature;
   final Set<int> _warmupSignatures = <int>{};
   final Queue<int> _warmupSignatureOrder = Queue<int>();
+  bool _isHoldingOpenFirstPaint = true;
+  int _windowExpandGeneration = 0;
 
   @override
   void initState() {
@@ -506,12 +508,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       );
       setState(() {
         if (motionSettings.exitDuration <= Duration.zero) {
-          _initialRevealPhase = motionSettings.entranceDuration <= Duration.zero
-              ? _TranscriptInitialRevealPhase.ready
-              : _TranscriptInitialRevealPhase.revealingContent;
+          _setInitialRevealPhase(
+            motionSettings.entranceDuration <= Duration.zero
+                ? _TranscriptInitialRevealPhase.ready
+                : _TranscriptInitialRevealPhase.revealingContent,
+          );
         } else {
-          _initialRevealPhase =
-              _TranscriptInitialRevealPhase.dismissingPlaceholder;
+          _setInitialRevealPhase(
+            _TranscriptInitialRevealPhase.dismissingPlaceholder,
+          );
         }
       });
     }
@@ -728,6 +733,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _scrollRequestGeneration += 1;
     _activeScrollFuture = null;
     _activeScrollTargetId = null;
+    _isHoldingOpenFirstPaint = true;
+    _windowExpandGeneration += 1;
+  }
+
+  void _setInitialRevealPhase(_TranscriptInitialRevealPhase next) {
+    if (_initialRevealPhase == next) {
+      return;
+    }
+    _initialRevealPhase = next;
+    if (next == _TranscriptInitialRevealPhase.ready) {
+      _scheduleProgressiveWindowExpansion();
+    }
   }
 
   void _handleInitialPlaceholderDismissed() {
@@ -741,9 +758,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       OpenHandMotionSettingsScope.page,
     );
     setState(() {
-      _initialRevealPhase = motionSettings.entranceDuration <= Duration.zero
-          ? _TranscriptInitialRevealPhase.ready
-          : _TranscriptInitialRevealPhase.revealingContent;
+      _setInitialRevealPhase(
+        motionSettings.entranceDuration <= Duration.zero
+            ? _TranscriptInitialRevealPhase.ready
+            : _TranscriptInitialRevealPhase.revealingContent,
+      );
     });
   }
 
@@ -753,7 +772,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
     setState(() {
-      _initialRevealPhase = _TranscriptInitialRevealPhase.ready;
+      _setInitialRevealPhase(_TranscriptInitialRevealPhase.ready);
     });
   }
 
@@ -795,41 +814,131 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return displayMessages.sublist(range.start, range.end);
   }
 
+  int _activeRenderCount() {
+    var count = 0;
+    for (final entry in _renderEntries) {
+      if (!entry.exiting) count += 1;
+    }
+    return count;
+  }
+
+  List<AiSessionMessage> _messagesToMaterialize() {
+    final window = _visibleMessagesForWindow();
+    if (!_isHoldingOpenFirstPaint) {
+      return window;
+    }
+    final painted = _activeRenderCount();
+    final cap = painted <= 0
+        ? TranscriptListWindowing.openFirstPaintCount(window.length)
+        : math.min(window.length, painted);
+    return TranscriptListWindowing.tailSlice(window, cap);
+  }
+
+  bool _transcriptIsNearBottom() {
+    if (!widget.controller.hasClients || widget.controller.positions.isEmpty) {
+      return true;
+    }
+    final position = widget.controller.positions.last;
+    return (position.maxScrollExtent - position.pixels).abs() <=
+        _autoFollowResumeDistance;
+  }
+
+  void _releaseOpenFirstPaintHold() {
+    _isHoldingOpenFirstPaint = false;
+    _windowExpandGeneration += 1;
+  }
+
   void _materializeOpenWindow({required bool progressive}) {
     final visibleMessages = _visibleMessagesForWindow();
     if (!progressive ||
         visibleMessages.length <= _transcriptOpenFirstPaintCap) {
+      _isHoldingOpenFirstPaint = false;
       _replaceRenderEntries(visibleMessages, animate: false);
       return;
     }
-    final firstPaintStart = TranscriptListWindowing.openFirstPaintStartIndex(
-      visibleMessages.length,
-    );
+    _isHoldingOpenFirstPaint = true;
     _replaceRenderEntries(
-      visibleMessages.sublist(firstPaintStart),
+      TranscriptListWindowing.tailSlice(
+        visibleMessages,
+        TranscriptListWindowing.openFirstPaintCount(visibleMessages.length),
+      ),
       animate: false,
     );
+  }
+
+  void _scheduleProgressiveWindowExpansion() {
+    if (!_isHoldingOpenFirstPaint) {
+      return;
+    }
+    final generation = ++_windowExpandGeneration;
     final sessionId = widget.session.id;
-    void expandRemaining() {
-      if (!mounted || widget.session.id != sessionId) {
+    var stepsRemaining = TranscriptListWindowing.defaultMaxMaterializedWindow;
+    void expand() {
+      if (!mounted ||
+          generation != _windowExpandGeneration ||
+          widget.session.id != sessionId ||
+          !_isHoldingOpenFirstPaint ||
+          _initialRevealPhase != _TranscriptInitialRevealPhase.ready) {
+        return;
+      }
+      if (_isTranscriptScrollActive(context)) {
         return;
       }
       final fullWindow = _visibleMessagesForWindow();
-      if (fullWindow.length <= _renderEntries.length) {
+      final currentCount = _activeRenderCount();
+      if (fullWindow.length <= currentCount) {
+        _isHoldingOpenFirstPaint = false;
         return;
       }
+      if (stepsRemaining <= 0) {
+        setState(() {
+          _replaceRenderEntries(fullWindow, animate: false);
+          _isHoldingOpenFirstPaint = false;
+        });
+        return;
+      }
+      stepsRemaining -= 1;
+      final nextCount = TranscriptListWindowing.progressiveRenderCount(
+        currentCount: currentCount,
+        targetCount: fullWindow.length,
+      );
+      if (nextCount <= currentCount) {
+        _isHoldingOpenFirstPaint = false;
+        return;
+      }
+      final nextMessages = TranscriptListWindowing.tailSlice(
+        fullWindow,
+        nextCount,
+      );
+      final pinToBottom = _transcriptIsNearBottom();
+      final anchor = pinToBottom ? null : _capturePrependAnchor();
       setState(() {
-        _replaceRenderEntries(fullWindow, animate: false);
+        _replaceRenderEntries(nextMessages, animate: false);
+        if (nextCount >= fullWindow.length) {
+          _isHoldingOpenFirstPaint = false;
+        }
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || generation != _windowExpandGeneration) {
+          return;
+        }
+        if (pinToBottom &&
+            widget.controller.hasClients &&
+            widget.controller.positions.isNotEmpty) {
+          final position = widget.controller.positions.last;
+          widget.onProgrammaticScrollCorrection(
+            () => position.jumpTo(position.maxScrollExtent),
+          );
+        } else if (anchor != null) {
+          _restorePrependAnchor(anchor);
+        }
+        if (_isHoldingOpenFirstPaint) {
+          expand();
+        }
       });
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || widget.session.id != sessionId) {
-        return;
-      }
-      // 最新尾部完成一帧布局后再展开有界窗口其余内容。
-      WidgetsBinding.instance.addPostFrameCallback((_) => expandRemaining());
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => expand());
   }
 
   void _replaceRenderEntries(
@@ -848,6 +957,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _syncRenderEntriesAfterHistoryPrepend() {
+    _releaseOpenFirstPaintHold();
     final visibleMessages = _visibleMessagesForWindow();
     if (_renderEntries.isEmpty || visibleMessages.isEmpty) {
       _replaceRenderEntries(visibleMessages, animate: false);
@@ -1224,7 +1334,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _syncRenderEntries({bool forceReset = false}) {
-    final visibleMessages = _visibleMessagesForWindow();
+    final visibleMessages = _messagesToMaterialize();
     if (forceReset || _renderEntries.isEmpty) {
       _replaceRenderEntries(visibleMessages, animate: false);
       return;
@@ -1338,6 +1448,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _warmupGeneration += 1;
     _activeRevealOlderFuture = null;
     _warmupScheduler.clear();
+    _windowExpandGeneration += 1;
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
     _bubbleRegistry.clear();
     super.dispose();
@@ -1454,6 +1565,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         );
         if (nextStart != _windowStartIndex) {
           setState(() {
+            _releaseOpenFirstPaintHold();
             _windowStartIndex = nextStart;
             _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
           });
@@ -1562,6 +1674,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (activity.value) {
       _cancelPendingViewportRestore();
       return;
+    }
+    if (_isHoldingOpenFirstPaint &&
+        _initialRevealPhase == _TranscriptInitialRevealPhase.ready) {
+      _scheduleProgressiveWindowExpansion();
     }
     if (!widget.controller.hasClients || widget.controller.positions.isEmpty) {
       return;
@@ -2147,6 +2263,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final nextStart = TranscriptListWindowing.latestWindowStart(displayCount);
     if (nextStart == _windowStartIndex) return;
     setState(() {
+      _releaseOpenFirstPaintHold();
       _windowStartIndex = nextStart;
       _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
     });
@@ -3199,6 +3316,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     padding: const EdgeInsets.only(bottom: 12),
                     physics: kOpenHandClampingPhysics,
                     primary: false,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: false,
                     itemCount: listItemCount,
                     findChildIndexCallback: (key) =>
                         _findTranscriptListChildIndex(

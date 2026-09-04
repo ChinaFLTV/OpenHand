@@ -44,8 +44,8 @@ const Duration _htmlWebViewPermitWaitTimeout = Duration(seconds: 3);
 const Duration _htmlWebViewPermitRetryDelay = Duration(milliseconds: 480);
 const Duration _htmlWebViewBootstrapTimeout = Duration(seconds: 4);
 // 平台视图创建会同时占用 UI、平台线程与 GPU 资源。长会话按顺序启动，
-// 避免多张 HTML 卡片并发初始化拖垮首屏。
-const int _htmlWebViewMaxActiveInstances = 4;
+// 避免多张 HTML 卡片并发初始化拖垮首屏。Android 上 4 个平台视图即可 ANR。
+const int _htmlWebViewMaxActiveInstances = 2;
 const int _htmlWebViewMaxConcurrentBootstraps = 1;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const int _responseVariantAnchorSettleFrameCount = 18;
@@ -119,8 +119,8 @@ const Duration _transcriptHistoryRevealCooldown = Duration(milliseconds: 120);
 const int _scrollToBottomPositionRetryLimit = 16;
 const int _scrollToBottomSettleFrameLimit = 36;
 const int _scrollToBottomSettleStableFrameLimit = 4;
-const int _transcriptInitialRevealMaxFrameCount = 72;
-const int _transcriptInitialRevealMinimumFrameCount = 14;
+const int _transcriptInitialRevealMaxFrameCount = 48;
+const int _transcriptInitialRevealMinimumFrameCount = 6;
 
 /// 首屏稳定循环的墙钟上限。纯帧预算在掉帧时会被拉到数秒，用户全程只能看到
 /// 占位符；超时后直接揭示内容，剩余的高度收敛交给常规自动跟随。
@@ -130,7 +130,7 @@ const Duration _transcriptInitialRevealMaxDuration = Duration(
 
 /// 富文本卡片逐帧挂载会持续改变 maxScrollExtent。超过该宽限帧数后，只有
 /// 「距离底部仍有偏差」才继续判定为不稳定，避免自激循环永远跑满帧预算。
-const int _transcriptInitialRevealExtentGraceFrameCount = 24;
+const int _transcriptInitialRevealExtentGraceFrameCount = 12;
 const double _scrollToBottomSettleTolerance = 0.75;
 const double _messageScrollActivityDeltaThreshold = 0.05;
 const double _messageDistanceToBottomDeltaThreshold = 0.15;

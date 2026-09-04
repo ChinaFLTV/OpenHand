@@ -4,14 +4,16 @@ import 'text_clip.dart';
 
 /// 长会话列表窗口算法，限制首帧和滚动路径的物化规模。
 abstract final class TranscriptListWindowing {
-  static const int defaultInitialWindowSize = 8;
+  static const int defaultInitialWindowSize = 6;
   static const int defaultWindowIncrement = 6;
-  static const int defaultWindowingThreshold = 12;
+  static const int defaultWindowingThreshold = 8;
 
   /// UI 同时物化的消息软上限，超出部分仍保留在数据层。
-  static const int defaultMaxMaterializedWindow = 48;
-  static const int defaultOpenFirstPaintCap = 4;
-  static const int defaultWarmupMaxMessages = 8;
+  /// 48 张 HTML/Markdown 卡会在首屏布局阶段同步拖垮 UI 线程（ANR）。
+  static const int defaultMaxMaterializedWindow = 16;
+  static const int defaultOpenFirstPaintCap = 3;
+  static const int defaultExpandPerFrame = 2;
+  static const int defaultWarmupMaxMessages = 6;
   static const int defaultHtmlWarmupMaxPerPass = 1;
 
   /// 计算最近消息窗口的起始索引。
@@ -134,11 +136,37 @@ abstract final class TranscriptListWindowing {
     int firstPaintCap = defaultOpenFirstPaintCap,
   }) {
     final count = visibleCount < 0 ? 0 : visibleCount;
-    final cap = math.max(1, firstPaintCap);
+    final cap = openFirstPaintCount(count, firstPaintCap: firstPaintCap);
     if (count <= cap) {
       return 0;
     }
     return count - cap;
+  }
+
+  static int openFirstPaintCount(
+    int visibleCount, {
+    int firstPaintCap = defaultOpenFirstPaintCap,
+  }) {
+    final count = visibleCount < 0 ? 0 : visibleCount;
+    return math.min(count, math.max(1, firstPaintCap));
+  }
+
+  /// 揭示后按帧补齐物化窗口，避免一次挂载剩余全部富文本卡。
+  static int progressiveRenderCount({
+    required int currentCount,
+    required int targetCount,
+    int expandPerFrame = defaultExpandPerFrame,
+  }) {
+    final current = math.max(0, currentCount);
+    final target = math.max(0, targetCount);
+    if (current >= target) return target;
+    return math.min(target, current + math.max(1, expandPerFrame));
+  }
+
+  static List<T> tailSlice<T>(List<T> items, int count) {
+    if (items.isEmpty || count >= items.length) return items;
+    if (count <= 0) return items.sublist(items.length);
+    return items.sublist(items.length - count);
   }
 
   static int warmupMessageBudget({

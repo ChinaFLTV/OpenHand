@@ -3,8 +3,9 @@
 export const MESSAGE_LIST_DEFAULT_PAGE_SIZE = 20;
 export const MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE = 10;
 export const MESSAGE_LIST_MAX_LOADED_MESSAGES = 200;
-const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 24;
-export const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 1000;
+export const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 6;
+export const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 480;
+export const MESSAGE_LIST_MAX_VISIBLE_ROWS = 8;
 export const MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX = 188;
 const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
 /// 仅用于拦截异常值，不截断真实行高：工具卡片带长输出时几千像素是常态，
@@ -12,8 +13,8 @@ const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
 const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 40_000;
 const MESSAGE_LIST_GAP_PX = 12;
 /** 首次打开或滚动的范围约为视口行数加预渲染行数，并始终从尾部开始。 */
-const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 8;
-const MESSAGE_LIST_INITIAL_OVERSCAN_ROWS = 4;
+const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 4;
+const MESSAGE_LIST_INITIAL_OVERSCAN_ROWS = 1;
 
 export interface VirtualMessageRange {
   start: number;
@@ -183,6 +184,27 @@ function firstVirtualMessageAfter(
   );
 }
 
+export function clampVirtualMessageRange(
+  range: VirtualMessageRange,
+  messageCount: number,
+  maxVisibleRows = MESSAGE_LIST_MAX_VISIBLE_ROWS,
+): VirtualMessageRange {
+  const count = Math.max(0, Math.floor(messageCount));
+  if (count <= 0) {
+    return { start: 0, end: 0 };
+  }
+  const start = Math.max(0, Math.min(count, Math.floor(range.start)));
+  const end = Math.max(start, Math.min(count, Math.floor(range.end)));
+  const maxRows = Math.max(1, Math.floor(maxVisibleRows));
+  if (end - start <= maxRows) {
+    return { start, end };
+  }
+  if (end >= count) {
+    return { start: Math.max(0, count - maxRows), end: count };
+  }
+  return { start, end: Math.min(count, start + maxRows) };
+}
+
 /** 首帧优先展示最新尾部，使会话贴近底部且无需挂载全部历史。 */
 export function initialVirtualMessageRange(
   messageCount: number,
@@ -190,10 +212,12 @@ export function initialVirtualMessageRange(
     estimatedVisibleRows = MESSAGE_LIST_INITIAL_VISIBLE_ROWS,
     overscanRows = MESSAGE_LIST_INITIAL_OVERSCAN_ROWS,
     virtualizationThreshold = MESSAGE_LIST_VIRTUALIZATION_THRESHOLD,
+    maxVisibleRows = MESSAGE_LIST_MAX_VISIBLE_ROWS,
   }: {
     estimatedVisibleRows?: number;
     overscanRows?: number;
     virtualizationThreshold?: number;
+    maxVisibleRows?: number;
   } = {},
 ): VirtualMessageRange {
   const count = Math.max(0, Math.floor(messageCount));
@@ -205,7 +229,10 @@ export function initialVirtualMessageRange(
   }
   const windowSize = Math.max(
     1,
-    Math.floor(estimatedVisibleRows) + Math.max(0, Math.floor(overscanRows)) * 2,
+    Math.min(
+      Math.max(1, Math.floor(maxVisibleRows)),
+      Math.floor(estimatedVisibleRows) + Math.max(0, Math.floor(overscanRows)) * 2,
+    ),
   );
   if (count <= windowSize) {
     return { start: 0, end: count };
@@ -217,10 +244,14 @@ export function virtualMessageRangeAroundIndex(
   messageCount: number,
   targetIndex: number,
   windowSize: number,
+  maxVisibleRows = MESSAGE_LIST_MAX_VISIBLE_ROWS,
 ): VirtualMessageRange {
   const count = Math.max(0, Math.floor(messageCount));
   if (count === 0) return { start: 0, end: 0 };
-  const size = Math.max(1, Math.min(count, Math.floor(windowSize)));
+  const size = Math.max(
+    1,
+    Math.min(count, Math.min(Math.floor(windowSize), Math.max(1, Math.floor(maxVisibleRows)))),
+  );
   const index = Math.max(0, Math.min(count - 1, Math.floor(targetIndex)));
   const start = Math.max(
     0,
@@ -237,6 +268,7 @@ export function resolveVirtualMessageRange(params: {
   viewportBottom: number;
   overscanPx?: number;
   virtualized?: boolean;
+  maxVisibleRows?: number;
 }): VirtualMessageRange {
   const count = Math.max(0, Math.floor(params.messageCount));
   if (count <= 0) {
@@ -262,7 +294,11 @@ export function resolveVirtualMessageRange(params: {
       firstVirtualMessageAfter(params.prefix, params.heights, bottom) + 1,
     ),
   );
-  return { start: nextStart, end: nextEnd };
+  return clampVirtualMessageRange(
+    { start: nextStart, end: nextEnd },
+    count,
+    params.maxVisibleRows ?? MESSAGE_LIST_MAX_VISIBLE_ROWS,
+  );
 }
 
 export function shouldVirtualizeMessageList(

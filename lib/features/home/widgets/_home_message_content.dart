@@ -1211,7 +1211,7 @@ class _SafeMarkdownBody extends StatefulWidget {
 }
 
 // 大型 Markdown 冷解析先显示轻量占位，再按共享帧预算构建富文本树。
-const int _markdownDeferredParseThresholdChars = 2 * kBytesPerKiB;
+const int _markdownDeferredParseThresholdChars = 768;
 
 // 流式追加时更早进入 deferred 路径，并把富文本树重建合并到稳定节奏；
 // 小公式 / 列表仍能尽快渲染，长回答不会按 token 频率反复解析整棵树。

@@ -3060,7 +3060,7 @@ function MessageCardImpl({
                     : effectiveFormat
               }
               htmlFallback={contentHtmlFallback}
-              deferInitialRender={!shouldAnimate}
+              deferInitialRender={!activelyStreaming}
             />
           )
         )}
