@@ -1093,7 +1093,7 @@ class _AiTranslationProviderCardState
   Future<void> _testProvider() async {
     if (_testing) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await Future<void>.delayed(kOpenHandFocusSettleDelay);
     if (!mounted) return;
 
     final current = _effectiveProviderSettings;
@@ -2618,7 +2618,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   Future<void> _testProvider() async {
     if (_testing) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await Future<void>.delayed(kOpenHandFocusSettleDelay);
     if (!mounted) return;
     final settingsController = context.read<SettingsController>();
     final fallbackModel = _ttsFallbackAudioModel(settingsController);

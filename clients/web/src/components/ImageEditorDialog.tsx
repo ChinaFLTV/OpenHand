@@ -7,6 +7,8 @@ import {
   readBlobAsDataUrl,
 } from '../utils/blob_data_url';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
+import { describeApiError } from '../utils/api_error';
+import { runWithTimeout } from '../utils/timed_abort';
 import {
   DIALOG_OVERLAY_MEDIA_Z_INDEX,
   DialogFrame,
@@ -155,6 +157,7 @@ const ASPECTS: { key: CropAspect; label: string }[] = [
 ];
 
 const IMAGE_ENCODE_TIMEOUT_MS = 15_000;
+const IMAGE_CLIPBOARD_FETCH_TIMEOUT_MS = 10_000;
 
 export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialogProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -264,7 +267,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
       requestCloseWithReason('save');
     } catch (err: unknown) {
       pendingSaveResultRef.current = null;
-      if (mountedRef.current) setError(err instanceof Error ? err.message : String(err));
+      if (mountedRef.current) setError(describeApiError(err));
     } finally {
       if (mountedRef.current) setBusy(false);
     }
@@ -278,7 +281,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
       await makeResult(true);
       if (mountedRef.current) setStatus(t('imageEditor.savedLocal', '已另存到本地'));
     } catch (err: unknown) {
-      if (mountedRef.current) setError(err instanceof Error ? err.message : String(err));
+      if (mountedRef.current) setError(describeApiError(err));
     } finally {
       if (mountedRef.current) setBusy(false);
     }
@@ -290,7 +293,10 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     setError(null);
     try {
       const result = await makeResult(false);
-      const blob = await (await fetch(result.dataUrl)).blob();
+      const blob = await runWithTimeout(
+        async () => (await fetch(result.dataUrl)).blob(),
+        { timeoutMs: IMAGE_CLIPBOARD_FETCH_TIMEOUT_MS },
+      );
       if (!mountedRef.current) return;
       if (await copyBlobToClipboard(blob)) {
         if (!mountedRef.current) return;
@@ -302,7 +308,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
         setError(t('imageEditor.copyFailed', '复制图片失败，请检查浏览器剪贴板权限'));
       }
     } catch (err: unknown) {
-      if (mountedRef.current) setError(err instanceof Error ? err.message : String(err));
+      if (mountedRef.current) setError(describeApiError(err));
     } finally {
       if (mountedRef.current) setBusy(false);
     }

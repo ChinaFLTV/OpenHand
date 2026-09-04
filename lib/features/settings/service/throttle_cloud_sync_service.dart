@@ -213,9 +213,8 @@ class ThrottleCloudSyncService {
   static const Duration _responseIdleTimeout = Duration(seconds: 5);
   static const int _maxRequestBytes = kBytesPerMiB;
   static const int _maxResponseBytes = 2 * kBytesPerMiB;
-  static const int _maxJsonDepth = 32;
-  static const int _maxJsonContainerItems = 4096;
-  static const int _maxJsonNodes = 65536;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      kOpenHandCompactJsonConversionConfig;
   static const int _httpErrorPreviewLength = 256;
   static const String _payloadKind = 'openhand.throttle_config';
   static const String _gistFileName = 'openhand_throttle.json';
@@ -791,14 +790,10 @@ class ThrottleCloudSyncService {
   }
 
   static Object? _decodeCloudJson(String text) {
-    return decodeJsonTextWithinBounds(
+    return decodeJsonTextUsingConfig(
       text,
       maxTextCodeUnits: _maxResponseBytes,
-      maxDepth: _maxJsonDepth,
-      maxContainerItems: _maxJsonContainerItems,
-      maxTotalNodes: _maxJsonNodes,
-      maxStringCodeUnits: _maxResponseBytes,
-      maxTotalStringCodeUnits: _maxResponseBytes,
+      config: _jsonConversionConfig,
     );
   }
 }

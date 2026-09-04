@@ -50,6 +50,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/first_frame_pulse_box.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/key_tweakable_slider.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/micro_press_feedback.dart';

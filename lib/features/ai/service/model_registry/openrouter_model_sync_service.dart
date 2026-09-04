@@ -69,9 +69,11 @@ class OpenRouterModelSyncService {
 
   static const int _batchSize = 400;
   static const int _maxResponseBytes = 128 * 1024 * 1024;
-  static const int _maxJsonDepth = 64;
-  static const int _maxJsonContainerItems = 524288;
-  static const int _maxJsonNodes = 4194304;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxContainerItems: 524288,
+        maxTotalNodes: 4194304,
+      );
   static const Duration _requestTimeout = Duration(minutes: 2);
 
   final AiTransportClient _transport;
@@ -143,14 +145,10 @@ class OpenRouterModelSyncService {
         );
       }
       report(phase: OpenRouterSyncPhase.decoding, detail: '正在解析模型目录数据');
-      final decoded = decodeJsonTextWithinBounds(
+      final decoded = decodeJsonTextUsingConfig(
         response.body,
         maxTextCodeUnits: _maxResponseBytes,
-        maxDepth: _maxJsonDepth,
-        maxContainerItems: _maxJsonContainerItems,
-        maxTotalNodes: _maxJsonNodes,
-        maxStringCodeUnits: _maxResponseBytes,
-        maxTotalStringCodeUnits: _maxResponseBytes,
+        config: _jsonConversionConfig,
       );
       if (decoded is! Map) {
         throw const FormatException('OpenRouter 响应不是 JSON 对象。');

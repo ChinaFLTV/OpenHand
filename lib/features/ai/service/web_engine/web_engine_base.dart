@@ -4,6 +4,9 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/exponential_backoff.dart';
 import '../../model/ai_web_engine_resilience.dart';
 
+const int kWebEngineRetryBaseMs = 250;
+const int kWebEngineRetryCapMs = 4000;
+
 /// WebSearch / WebFetch 引擎共用的请求基类。
 ///
 /// 两个领域的请求 (query / url+prompt) 长得不一样，但都需要可选的
@@ -18,7 +21,7 @@ abstract class WebEngineRequest {
 /// WebSearch / WebFetch 引擎共用的执行壳：
 ///
 /// * 失败重试（最多 `maxRetries+1` 次，受统一执行上限约束）
-/// * 指数退避 250ms·2^attempt（上限 4s）
+/// * 指数退避：第 1 次重试等待 [kWebEngineRetryBaseMs]，之后倍增，上限 [kWebEngineRetryCapMs]
 /// * 单次 fetch 硬超时 [fetchTimeout]
 /// * 每次重试前检查 `cancelSignal`
 /// * `Stopwatch` 计时透传给结果
@@ -95,8 +98,8 @@ abstract class WebEngineBase<
         final backoff = Duration(
           milliseconds: exponentialBackoffMs(
             attempt: attempt,
-            baseMs: 250,
-            capMs: 4000,
+            baseMs: kWebEngineRetryBaseMs,
+            capMs: kWebEngineRetryCapMs,
           ),
         );
         final cancelled = await delayUntilCancelled(

@@ -5,6 +5,7 @@ import {
   MAX_BROWSER_TIMEOUT_MS,
   normalizeDurationMs,
 } from '../shared/util/number';
+import { copyTextToClipboard } from '../utils/clipboard';
 import { OverlayPortal } from './OverlayPortal';
 
 type SnackbarTone = 'default' | 'success' | 'warning' | 'error';
@@ -53,6 +54,18 @@ function normalizeSnackbarDurationMs(value: number | undefined): number {
     fallback: DEFAULT_SNACKBAR_DURATION_MS,
     max: MAX_SNACKBAR_DURATION_MS,
   });
+}
+
+export async function copyTextWithFeedback(
+  text: string,
+  okMessage: string,
+  failMessage: string,
+): Promise<boolean> {
+  const ok = await copyTextToClipboard(text);
+  showSnackbar(ok ? okMessage : failMessage, {
+    tone: ok ? 'success' : 'error',
+  });
+  return ok;
 }
 
 export function showSnackbar(message: string, options: SnackbarOptions = {}): void {

@@ -16448,6 +16448,9 @@ typedef _DingTalkMediaSaveCallback =
 
 const double _dingtalkTextBubbleBottomSpacing = 6;
 const double _dingtalkMediaRailBottomSpacing = 4;
+const double _dingtalkActionToggleMaxDistance = 8;
+const Duration _dingtalkActionToggleMaxDuration = Duration(milliseconds: 350);
+const Duration _dingtalkActionToggleDelay = Duration(milliseconds: 80);
 const EdgeInsets _dingtalkQuotedCardMotionClearance = EdgeInsets.symmetric(
   horizontal: 4,
 );
@@ -16562,9 +16565,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const int _maxRenderedTextLines = 160;
   static const int _maxRenderedToolTextCharacters = 1600;
   static const int _maxRenderedToolTextLines = 28;
-  static const double _actionToggleMaxDistance = 8;
-  static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
-  static const Duration _actionToggleDelay = Duration(milliseconds: 80);
+  static const double _actionToggleMaxDistance =
+      _dingtalkActionToggleMaxDistance;
+  static const Duration _actionToggleMaxDuration =
+      _dingtalkActionToggleMaxDuration;
+  static const Duration _actionToggleDelay = _dingtalkActionToggleDelay;
   static final RegExp _forwardedPreviewWhitespacePattern = RegExp(r'\s+');
   Offset? _pointerDownPosition;
   DateTime? _pointerDownAt;
@@ -19280,9 +19285,11 @@ class _DingTalkForwardedChatDialog extends StatefulWidget {
 
 class _DingTalkForwardedChatDialogState
     extends State<_DingTalkForwardedChatDialog> {
-  static const double _actionToggleMaxDistance = 8;
-  static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
-  static const Duration _actionToggleDelay = Duration(milliseconds: 80);
+  static const double _actionToggleMaxDistance =
+      _dingtalkActionToggleMaxDistance;
+  static const Duration _actionToggleMaxDuration =
+      _dingtalkActionToggleMaxDuration;
+  static const Duration _actionToggleDelay = _dingtalkActionToggleDelay;
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
   final _DingTalkTranslationManager _translationManager =
       _DingTalkTranslationManager();

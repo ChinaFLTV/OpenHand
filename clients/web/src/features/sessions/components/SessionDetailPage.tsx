@@ -145,7 +145,7 @@ import { useDismissibleOverlay } from '../../../hooks/useDismissibleOverlay';
 import { useEventCallback } from '../../../hooks/useEventCallback';
 import { useTimeoutController } from '../../../hooks/useTimeoutController';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
-import { showSnackbar } from '../../../components/Snackbar';
+import { copyTextWithFeedback, showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
 import {
   DIALOG_OVERLAY_CENTER_CLASS,
@@ -493,10 +493,11 @@ function persistComposerCollapsed(value: boolean): void {
 }
 
 async function copyJsonWithFeedback(json: string): Promise<void> {
-  const ok = await copyTextToClipboard(json);
-  showSnackbar(ok ? t('common.copied', '已复制') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
-    tone: ok ? 'success' : 'error',
-  });
+  await copyTextWithFeedback(
+    json,
+    t('common.copied', '已复制'),
+    t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'),
+  );
 }
 
 function JsonDialogActions({

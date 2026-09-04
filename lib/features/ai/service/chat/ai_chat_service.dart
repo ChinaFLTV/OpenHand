@@ -1086,14 +1086,11 @@ class AiChatService implements AiChatClient {
         );
       }
       try {
-        final decodedResponse = decodeJsonTextWithinBounds(
+        final decodedResponse = decodeJsonTextUsingConfig(
           response.body,
           maxTextCodeUnits: _maxChatHttpResponseBytes,
-          maxDepth: _maxChatJsonDepth,
-          maxContainerItems: _maxChatJsonContainerItems,
-          maxTotalNodes: _maxChatJsonNodes,
+          config: _chatJsonConversionConfig,
           maxStringCodeUnits: _maxChatJsonStringCodeUnits,
-          maxTotalStringCodeUnits: _maxChatHttpResponseBytes,
         );
         final parsedReply = await adapter.parseAssistantMessage(
           decodedResponse,
@@ -3803,9 +3800,11 @@ class _MutableToolCall {
 const int _maxAiChatRedirects = 4;
 const int _maxChatHttpErrorBytes = kBytesPerMiB;
 const int _maxChatHttpResponseBytes = 16 * kBytesPerMiB;
-const int _maxChatJsonDepth = 64;
-const int _maxChatJsonContainerItems = 1000000;
-const int _maxChatJsonNodes = 2000000;
+const BoundedJsonConversionConfig _chatJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxContainerItems: 1000000,
+      maxTotalNodes: 2000000,
+    );
 const int _maxChatJsonStringCodeUnits = 16 * kBytesPerMiB;
 const int _maxRetainedStreamResponseCharacters = 16 * kBytesPerMiB;
 const int _maxRetainedStreamToolCalls =

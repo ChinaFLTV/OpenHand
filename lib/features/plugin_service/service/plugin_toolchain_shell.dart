@@ -217,10 +217,28 @@ command -v $command
 ''';
 }
 
+String pluginPyenvShellPrefix() {
+  final pyenvRoot = posixShellQuote(pluginPyenvRootDirectoryPath());
+  return '''
+export PYENV_ROOT=$pyenvRoot
+export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
+if command -v pyenv >/dev/null 2>&1; then
+  eval "\$(pyenv init -)"
+fi
+''';
+}
+
+String pluginNvmShellPrefix() {
+  final nvmDirectory = posixShellQuote(pluginNvmDirectoryPath());
+  return '''
+export NVM_DIR=$nvmDirectory
+[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+''';
+}
+
 String pluginToolchainShellPrefix() {
   final voltaHome = posixShellQuote(pluginVoltaHomeDirectoryPath());
   final pyenvRoot = posixShellQuote(pluginPyenvRootDirectoryPath());
-  final nvmDirectory = posixShellQuote(pluginNvmDirectoryPath());
   return '''
 export VOLTA_HOME=$voltaHome
 export PYENV_ROOT=$pyenvRoot
@@ -231,8 +249,7 @@ fi
 if command -v fnm >/dev/null 2>&1; then
   eval "\$(fnm env)"
 fi
-export NVM_DIR=$nvmDirectory
-[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+${pluginNvmShellPrefix()}
 ''';
 }
 

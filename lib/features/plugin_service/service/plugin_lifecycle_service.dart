@@ -1088,32 +1088,12 @@ echo "$label 健康检查超时" >&2
 exit 4''';
   }
 
-  /// nvm 是 shell 函数而非可执行文件，需要先 source 初始化脚本。
-  static String _nvmSourcePrefix() {
-    final nvmDirectory = posixShellQuote(pluginNvmDirectoryPath());
-    return '''
-export NVM_DIR=$nvmDirectory
-[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
-''';
-  }
-
-  static String _pythonShellPrefix() {
-    final pyenvRoot = posixShellQuote(pluginPyenvRootDirectoryPath());
-    return '''
-export PYENV_ROOT=$pyenvRoot
-export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
-if command -v pyenv >/dev/null 2>&1; then
-  eval "\$(pyenv init -)"
-fi
-''';
-  }
-
   Future<_SimpleProcessResult> _runNvmCommand(
     String nvmCommand, {
     void Function(String line)? onProgress,
     Duration timeout = const Duration(minutes: 5),
   }) {
-    final script = '${_nvmSourcePrefix()}$nvmCommand';
+    final script = '${pluginNvmShellPrefix()}$nvmCommand';
     return _runWithProgress(
       pluginShellExecutable(),
       ['-c', script],
@@ -1128,7 +1108,7 @@ fi
     void Function(String line)? onProgress,
     Duration timeout = const Duration(minutes: 5),
   }) {
-    final script = '${_pythonShellPrefix()}$command';
+    final script = '${pluginPyenvShellPrefix()}$command';
     return _runWithProgress(
       pluginShellExecutable(),
       ['-c', script],
@@ -1162,7 +1142,7 @@ fi
     if (await pluginPyenvInstallationExists()) return true;
     final result = await _runProcessOrFailed(
       pluginShellExecutable(),
-      ['-c', '${_pythonShellPrefix()}command -v pyenv'],
+      ['-c', '${pluginPyenvShellPrefix()}command -v pyenv'],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.pyenv_check',
     );
@@ -1189,7 +1169,7 @@ fi
     if (!await _isPyenvAvailable()) return null;
     final versionNameResult = await _runProcessOrFailed(
       pluginShellExecutable(),
-      ['-c', '${_pythonShellPrefix()}pyenv version-name'],
+      ['-c', '${pluginPyenvShellPrefix()}pyenv version-name'],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.pyenv_version_name',
     );
@@ -1233,7 +1213,7 @@ fi
   Future<String?> _resolveActivePythonPath() async {
     final result = await _runProcessOrFailed(
       pluginShellExecutable(),
-      ['-c', '${_pythonShellPrefix()}command -v python3 || command -v python'],
+      ['-c', '${pluginPyenvShellPrefix()}command -v python3 || command -v python'],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.python_path',
     );
@@ -1249,7 +1229,7 @@ fi
     for (final command in const ['python3', 'python']) {
       final result = await _runProcessOrFailed(
         pluginShellExecutable(),
-        ['-c', '${_pythonShellPrefix()}pyenv which $command'],
+        ['-c', '${pluginPyenvShellPrefix()}pyenv which $command'],
         timeout: _pluginLifecycleProbeTimeout,
         tag: 'plugin_lifecycle.pyenv_which',
       );
@@ -1312,7 +1292,7 @@ fi
       pluginShellExecutable(),
       [
         '-c',
-        '${_pythonShellPrefix()}pyenv latest -k $majorMinor 2>/dev/null || true',
+        '${pluginPyenvShellPrefix()}pyenv latest -k $majorMinor 2>/dev/null || true',
       ],
       timeout: _pluginLifecycleVerifyTimeout,
       tag: 'plugin_lifecycle.pyenv_latest',
@@ -1326,7 +1306,7 @@ fi
 
     final listResult = await _runProcessOrFailed(
       pluginShellExecutable(),
-      ['-c', '${_pythonShellPrefix()}pyenv install --list'],
+      ['-c', '${pluginPyenvShellPrefix()}pyenv install --list'],
       timeout: const Duration(seconds: 15),
       tag: 'plugin_lifecycle.pyenv_list',
       environment: proxyEnv,
@@ -1344,7 +1324,7 @@ fi
   Future<String?> _queryLatestHomebrewVersion(String formula) async {
     final result = await _runProcessOrFailed(
       pluginShellExecutable(),
-      ['-c', '${_pythonShellPrefix()}brew info --json=v2 $formula'],
+      ['-c', '${pluginPyenvShellPrefix()}brew info --json=v2 $formula'],
       timeout: const Duration(seconds: 10),
       tag: 'plugin_lifecycle.brew_info',
       environment: pluginProxyEnvironment(),
@@ -1481,7 +1461,7 @@ fi
       if (result.exitCode == 0) {
         final versionResult = await _runProcessOrFailed(
           pluginShellExecutable(),
-          ['-c', '${_pythonShellPrefix()}python3 --version'],
+          ['-c', '${pluginPyenvShellPrefix()}python3 --version'],
           timeout: _pluginLifecycleVerifyTimeout,
           tag: 'plugin_lifecycle.python_install_verify',
         );
@@ -1773,7 +1753,7 @@ fi
     }
     final verify = await _runProcessOrFailed(
       pluginShellExecutable(),
-      ['-c', '${_pythonShellPrefix()}command -v $verifyCommand'],
+      ['-c', '${pluginPyenvShellPrefix()}command -v $verifyCommand'],
       timeout: _pluginLifecycleVerifyTimeout,
       tag: 'plugin_lifecycle.verify.$verifyCommand',
     );
@@ -3983,7 +3963,7 @@ echo "已保留 ${spec.label} 数据目录：${posixShellQuote(dataDir)}"
   }) async {
     final result = await _runProcessOrFailed(
       pluginShellExecutable(),
-      ['-c', '${_pythonShellPrefix()}pyenv versions --bare'],
+      ['-c', '${pluginPyenvShellPrefix()}pyenv versions --bare'],
       timeout: _pluginLifecycleVerifyTimeout,
       tag: 'plugin_lifecycle.pyenv_versions',
     );

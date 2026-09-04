@@ -37,9 +37,11 @@ class SkillMarketClient {
   static const int maxPageSize = 200;
   static const int _maxDownloadBytes = 48 * kBytesPerMiB;
   static const int _maxJsonResponseBytes = 4 * kBytesPerMiB;
-  static const int _maxJsonDepth = 64;
-  static const int _maxJsonContainerItems = 65536;
-  static const int _maxJsonNodes = 524288;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxContainerItems: 65536,
+        maxTotalNodes: 524288,
+      );
   static const int _maxTextResponseBytes = 4 * kBytesPerMiB;
   static const int _maxSearchCacheEntries = 32;
   static const int _maxMetadataCacheEntries = 128;
@@ -467,14 +469,10 @@ class SkillMarketClient {
       } on ByteStreamSizeLimitException {
         throw const SkillMarketException('技能市场响应超过大小上限。');
       }
-      final decoded = decodeJsonTextWithinBounds(
+      final decoded = decodeJsonTextUsingConfig(
         utf8.decode(body),
         maxTextCodeUnits: _maxJsonResponseBytes,
-        maxDepth: _maxJsonDepth,
-        maxContainerItems: _maxJsonContainerItems,
-        maxTotalNodes: _maxJsonNodes,
-        maxStringCodeUnits: _maxJsonResponseBytes,
-        maxTotalStringCodeUnits: _maxJsonResponseBytes,
+        config: _jsonConversionConfig,
       );
       if (decoded is Map<String, Object?>) {
         return decoded;

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import '../../shared/net/loopback_hosts.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -14,28 +15,8 @@ import '../model/app_proxy_settings.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
 
-/// 本机回环地址集合：代理例外判定中始终直连。
-const Set<String> kLoopbackHosts = <String>{'localhost', '127.0.0.1', '::1'};
-
-/// 判断 host 是否为本机回环地址。
-bool isLoopbackHost(String host) {
-  var normalized = host.trim().toLowerCase();
-  if (normalized.length >= 2 &&
-      normalized.startsWith('[') &&
-      normalized.endsWith(']')) {
-    normalized = normalized.substring(1, normalized.length - 1);
-  }
-  if (normalized == 'localhost' ||
-      normalized == 'localhost.localdomain' ||
-      normalized.endsWith('.localhost')) {
-    return true;
-  }
-  const mappedIpv4Prefix = '::ffff:';
-  if (normalized.startsWith(mappedIpv4Prefix)) {
-    normalized = normalized.substring(mappedIpv4Prefix.length);
-  }
-  return InternetAddress.tryParse(normalized)?.isLoopback ?? false;
-}
+export '../../shared/net/loopback_hosts.dart'
+    show isLoopbackHost, kLoopbackHosts;
 
 /// 解析系统 HTTP/HTTPS 代理，供内部网络客户端透明复用。
 ///

@@ -31,9 +31,8 @@ const Duration _kUpdateCheckTotalTimeout = Duration(seconds: 45);
 const Duration _kUpdateDownloadTotalTimeout = Duration(minutes: 30);
 const Duration _kUpdateFileIoTimeout = Duration(seconds: 30);
 const int _kUpdateMetadataMaxBytes = 2 * kBytesPerMiB;
-const int _kUpdateMetadataMaxJsonDepth = 32;
-const int _kUpdateMetadataMaxJsonContainerItems = 4096;
-const int _kUpdateMetadataMaxJsonNodes = 65536;
+const BoundedJsonConversionConfig _kUpdateMetadataJsonConversionConfig =
+    kOpenHandCompactJsonConversionConfig;
 const int _kUpdateMaxDownloadBytes = 2 * kBytesPerGiB;
 const int _kUpdateMaxReleaseAssets = 256;
 const int _kUpdateTagMaxCharacters = 128;
@@ -169,14 +168,10 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         );
       }
       final release = _parseGitHubReleaseInfo(
-        decodeJsonTextWithinBounds(
+        decodeJsonTextUsingConfig(
           body,
           maxTextCodeUnits: _kUpdateMetadataMaxBytes,
-          maxDepth: _kUpdateMetadataMaxJsonDepth,
-          maxContainerItems: _kUpdateMetadataMaxJsonContainerItems,
-          maxTotalNodes: _kUpdateMetadataMaxJsonNodes,
-          maxStringCodeUnits: _kUpdateMetadataMaxBytes,
-          maxTotalStringCodeUnits: _kUpdateMetadataMaxBytes,
+          config: _kUpdateMetadataJsonConversionConfig,
         ),
         platformAssetSuffix: _platformAssetSuffix(),
       );

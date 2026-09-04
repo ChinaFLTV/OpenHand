@@ -10,22 +10,16 @@ const BoundedJsonConversionConfig _webEngineJsonConversionConfig =
     );
 
 Object? decodeWebEngineJsonText(String text, {required int maxTextCodeUnits}) {
-  return decodeJsonTextWithinBounds(
+  return decodeJsonTextUsingConfig(
     text,
     maxTextCodeUnits: maxTextCodeUnits,
-    maxDepth: _webEngineJsonConversionConfig.maxDepth,
-    maxContainerItems: _webEngineJsonConversionConfig.maxContainerItems,
-    maxTotalNodes: _webEngineJsonConversionConfig.maxTotalNodes,
-    maxStringCodeUnits: maxTextCodeUnits,
-    maxTotalStringCodeUnits: maxTextCodeUnits,
+    config: _webEngineJsonConversionConfig,
   );
 }
 
 /// JSON 解析容错：忽略空值、自动 trim，统一返回 String。
 String stringOf(Object? raw, {String fallback = ''}) {
-  if (raw == null) return fallback;
-  if (raw is String) return raw.trim();
-  return '$raw'.trim();
+  return stringFromValue(raw, fallback: fallback);
 }
 
 /// 把 JSON Map 统一收敛为 String key，非 Map 输入返回空 Map。

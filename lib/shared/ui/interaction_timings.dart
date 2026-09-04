@@ -18,3 +18,6 @@ const Duration kOpenHandTooltipWait = Duration(milliseconds: 400);
 /// 这类区域相邻命中目标很多，用户会连续横扫查看；沿用常规时长会让每次移动
 /// 都要等待，因此单独给一档更短的延迟。
 const Duration kOpenHandDenseTooltipWait = Duration(milliseconds: 250);
+
+/// 关闭输入焦点后，等 IME / 焦点链落稳再做校验或发请求。
+const Duration kOpenHandFocusSettleDelay = Duration(milliseconds: 80);

@@ -18,9 +18,11 @@ final class AiOperationHttp {
   static const String _xApiKeyHeader = 'x-api-key';
   static const String _apiKeyHeader = 'api-key';
   static const String _xGoogApiKeyHeader = 'x-goog-api-key';
-  static const int _maxJsonDepth = 64;
-  static const int _maxJsonContainerItems = 1048576;
-  static const int _maxJsonNodes = 4194304;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxContainerItems: 1048576,
+        maxTotalNodes: 4194304,
+      );
   static const Duration defaultRequestTimeout = Duration(seconds: 60);
 
   static const String extrasGlobalKey = 'global';
@@ -119,14 +121,10 @@ final class AiOperationHttp {
     required String contextHint,
   }) {
     try {
-      return decodeJsonTextWithinBounds(
+      return decodeJsonTextUsingConfig(
         body,
         maxTextCodeUnits: defaultAiTransportResponseMaxBytes,
-        maxDepth: _maxJsonDepth,
-        maxContainerItems: _maxJsonContainerItems,
-        maxTotalNodes: _maxJsonNodes,
-        maxStringCodeUnits: defaultAiTransportResponseMaxBytes,
-        maxTotalStringCodeUnits: defaultAiTransportResponseMaxBytes,
+        config: _jsonConversionConfig,
       );
     } on FormatException catch (error) {
       throw FormatException(

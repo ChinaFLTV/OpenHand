@@ -14,7 +14,7 @@ import 'package:flutter/services.dart';
 ///   min: 1, max: 64,
 ///   onChanged: (next) async {
 ///     final saved = await controller.updateX(next);
-///     if (!saved) showSnackBar(...);
+///     if (!saved) showOpenHandErrorSnack(context, '...');
 ///   },
 ///   buildSlider: (context, current) => Slider(
 ///     value: current.toDouble(),

@@ -7,6 +7,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/util/argument_guards.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
+import '../../shared/util/exponential_backoff.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 /// CDP（Chrome DevTools Protocol）轻量客户端：连 WebSocket、发命令、订阅事件。
@@ -435,10 +436,20 @@ class WebReverseCdpClient {
     try {
       await _disposeCurrentConnection();
       if (!_ownsReconnect(generation)) return;
-      var delay = _reconnectInitialDelay;
       for (var attempt = 1; attempt <= reconnectMaxAttempts; attempt += 1) {
-        if (delay > Duration.zero) await Future<void>.delayed(delay);
-        if (!_ownsReconnect(generation)) return;
+        if (_reconnectInitialDelay > Duration.zero) {
+          final stillOwned = await delayWhileContinuing(
+            Duration(
+              milliseconds: exponentialBackoffMs(
+                attempt: attempt,
+                baseMs: _reconnectInitialDelay.inMilliseconds,
+                capMs: _reconnectMaxDelay.inMilliseconds,
+              ),
+            ),
+            () => _ownsReconnect(generation),
+          );
+          if (!stillOwned) return;
+        }
         try {
           await _openTransport(generation);
           final transport = _transport;
@@ -458,7 +469,6 @@ class WebReverseCdpClient {
         } catch (error, stack) {
           if (!_ownsReconnect(generation)) return;
           silentLog('web_reverse_cdp_client', '第 $attempt 次重连', error, stack);
-          delay = _nextReconnectDelay(delay);
         }
       }
 
@@ -471,16 +481,6 @@ class WebReverseCdpClient {
         _reconnectGeneration = null;
       }
     }
-  }
-
-  Duration _nextReconnectDelay(Duration current) {
-    final doubled = current.inMicroseconds * 2;
-    return Duration(
-      microseconds: doubled.clamp(
-        _reconnectInitialDelay.inMicroseconds,
-        _reconnectMaxDelay.inMicroseconds,
-      ),
-    );
   }
 
   bool _ownsConnectingTransport(

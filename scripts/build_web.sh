@@ -318,5 +318,10 @@ if ! dart run scripts/check_imports.dart; then
   fail "架构检查失败：请修复上方边界违规"
 fi
 
+log "跑 check_shared_helpers.dart"
+if ! dart run scripts/check_shared_helpers.dart; then
+  fail "共享辅助检查失败：请修复上方断言"
+fi
+
 BUILD_OK=1
 log "构建与架构检查通过 → $OUT_DIR/{index.html,app.js,app.css}"

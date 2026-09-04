@@ -29,18 +29,13 @@ enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
 const int _kMaxLspFrameBytes = 8 * kBytesPerMiB;
 const int _kMaxLspHeaderBytes = 64 * kBytesPerKiB;
 const int _kMaxLspBufferedBytes = _kMaxLspFrameBytes + _kMaxLspHeaderBytes;
-const int _kMaxLspJsonDepth = 64;
-const int _kMaxLspJsonContainerItems = 262144;
-const int _kMaxLspJsonNodes = 1048576;
+const BoundedJsonConversionConfig _kLspJsonConversionConfig =
+    kOpenHandProtocolJsonConversionConfig;
 const int _kMaxLspStderrCharacters = 256;
 const Duration _kDefaultLspRequestTimeout = Duration(seconds: 8);
 const Duration _kDefaultLspStartupTimeout = Duration(seconds: 8);
 const Duration _kLspTerminationTimeout = Duration(seconds: 4);
 const Duration _kLspStreamCancellationTimeout = Duration(seconds: 1);
-final RegExp _lspContentLengthPattern = RegExp(
-  r'Content-Length:\s*(\d+)',
-  caseSensitive: false,
-);
 const int _kMaxPendingLspRequests = 256;
 const int _kMaxOpenLspDocuments = 256;
 const int _kMaxLspMessagesPerDrain = 64;
@@ -651,18 +646,17 @@ class WebReverseLspClient {
         _buf.sublist(0, frame.headerEnd),
         allowMalformed: true,
       );
-      final m = _lspContentLengthPattern.firstMatch(header);
-      if (m == null) {
-        // 不识别头，丢掉之前数据避免死循环。
+      final parsedContentLength = parseHttpContentLengthHeader(
+        header,
+        maxDigits: _maxLspContentLengthDigits,
+      );
+      if (!parsedContentLength.found) {
         _failProtocol('LSP 消息缺少 Content-Length 头');
         return;
       }
-      final lengthText = m.group(1)!;
-      final clen = lengthText.length <= _maxLspContentLengthDigits
-          ? int.tryParse(lengthText)
-          : null;
+      final clen = parsedContentLength.value;
       if (clen == null || clen <= 0 || clen > _kMaxLspFrameBytes) {
-        _failProtocol('无效的 Content-Length：$lengthText');
+        _failProtocol('无效的 Content-Length');
         return;
       }
       final bodyStart = frame.bodyStart;
@@ -671,14 +665,10 @@ class WebReverseLspClient {
       final body = _buf.sublist(bodyStart, bodyEnd);
       _buf.removeRange(0, bodyEnd);
       try {
-        final decoded = decodeJsonTextWithinBounds(
+        final decoded = decodeJsonTextUsingConfig(
           utf8.decode(body),
           maxTextCodeUnits: _kMaxLspFrameBytes,
-          maxDepth: _kMaxLspJsonDepth,
-          maxContainerItems: _kMaxLspJsonContainerItems,
-          maxTotalNodes: _kMaxLspJsonNodes,
-          maxStringCodeUnits: _kMaxLspFrameBytes,
-          maxTotalStringCodeUnits: _kMaxLspFrameBytes,
+          config: _kLspJsonConversionConfig,
         );
         if (decoded is Map && decoded['id'] is num) {
           final id = (decoded['id'] as num).toInt();

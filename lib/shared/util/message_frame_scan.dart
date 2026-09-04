@@ -4,6 +4,8 @@
 /// 帧格式统一为单遍最早匹配。
 library;
 
+import 'argument_guards.dart';
+
 /// 定位字节缓冲中消息头的空行终止符。
 ///
 /// 返回 `headerEnd`（头部字节长度，不含终止符）与 `bodyStart`（终止符后
@@ -41,4 +43,42 @@ library;
     }
   }
   return null;
+}
+
+const String kHttpContentLengthHeaderName = 'content-length';
+const int _asciiDigitZero = 48;
+const int _asciiDigitNine = 57;
+
+/// 从 HTTP / LSP / MCP 消息头中解析 `Content-Length`。
+///
+/// 返回值：
+/// - `found: false`：没有该字段
+/// - `found: true, value: null`：字段重复、空值、非十进制数字或超过 [maxDigits]
+/// - `found: true, value: n`：合法长度
+({bool found, int? value}) parseHttpContentLengthHeader(
+  String headers, {
+  required int maxDigits,
+}) {
+  requirePositiveInt(maxDigits, 'maxDigits');
+  final normalized = headers.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  int? contentLength;
+  var found = false;
+  for (final line in normalized.split('\n')) {
+    final separatorIndex = line.indexOf(':');
+    if (separatorIndex <= 0) continue;
+    final name = line.substring(0, separatorIndex).trim().toLowerCase();
+    if (name != kHttpContentLengthHeaderName) continue;
+    if (found) return (found: true, value: null);
+    found = true;
+    final value = line.substring(separatorIndex + 1).trim();
+    if (value.isEmpty ||
+        value.length > maxDigits ||
+        value.codeUnits.any(
+          (unit) => unit < _asciiDigitZero || unit > _asciiDigitNine,
+        )) {
+      return (found: true, value: null);
+    }
+    contentLength = int.tryParse(value);
+  }
+  return (found: found, value: contentLength);
 }

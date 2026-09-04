@@ -3032,14 +3032,15 @@ class DingTalkMessageGatewayService {
         : _maxDwsJsonOutputCharacters;
 
     Object? decodeCandidate(String candidate) {
-      return decodeJsonTextWithinBounds(
+      return decodeJsonTextUsingConfig(
         candidate,
         maxTextCodeUnits: maxTotalStringCodeUnits,
-        maxDepth: _maxDwsJsonDepth,
-        maxContainerItems: _maxDwsJsonContainerItems,
-        maxTotalNodes: maxNodes,
-        maxStringCodeUnits: maxStringCodeUnits,
-        maxTotalStringCodeUnits: maxTotalStringCodeUnits,
+        config: BoundedJsonConversionConfig(
+          maxContainerItems: _maxDwsJsonContainerItems,
+          maxTotalNodes: maxNodes,
+          maxStringCodeUnits: maxStringCodeUnits,
+          maxTotalStringCodeUnits: maxTotalStringCodeUnits,
+        ),
       );
     }
 

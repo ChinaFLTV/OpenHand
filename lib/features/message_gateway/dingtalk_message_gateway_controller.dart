@@ -20,6 +20,7 @@ import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
+import '../../shared/util/exponential_backoff.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/physical_path_safety.dart';
 import '../../shared/util/stable_hash.dart';
@@ -4103,10 +4104,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             ? error
             : null;
         final retryAfterSeconds = commandError?.retryAfterSeconds;
-        final exponentialSeconds = math.min(
-          _conversationReconcileInitialBackoff.inSeconds *
-              (1 << (failureCount - 1)),
-          _conversationReconcileMaxBackoff.inSeconds,
+        final exponentialSeconds = exponentialBackoffSeconds(
+          attempt: failureCount,
+          baseSeconds: _conversationReconcileInitialBackoff.inSeconds,
+          capSeconds: _conversationReconcileMaxBackoff.inSeconds,
         );
         final backoffSeconds =
             retryAfterSeconds != null && retryAfterSeconds > 0

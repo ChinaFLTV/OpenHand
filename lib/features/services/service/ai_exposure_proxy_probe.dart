@@ -16,9 +16,12 @@ const Duration _kProxyIdentityTimeout = Duration(seconds: 8);
 const int _kMaxProxyResponseLineBytes = 2048;
 const int _kMaxProxyResponseHeaderBytes = 16 * kBytesPerKiB;
 const int _kMaxProxyIdentityResponseBytes = 64 * kBytesPerKiB;
-const int _kMaxProxyIdentityJsonDepth = 16;
-const int _kMaxProxyIdentityJsonContainerItems = 1024;
-const int _kMaxProxyIdentityJsonNodes = 8192;
+const BoundedJsonConversionConfig _kMaxProxyIdentityJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 16,
+      maxContainerItems: 1024,
+      maxTotalNodes: 8192,
+    );
 const List<({String host, int port})> _kProxyProbeTargets = [
   (host: 'cp.cloudflare.com', port: 443),
   (host: 'connectivitycheck.gstatic.com', port: 443),
@@ -559,14 +562,10 @@ Future<Uint8List> _readRawIdentityResponse(Socket socket) async {
 }
 
 AiExposureProxyIdentity _parseIdentity(Uint8List body) {
-  final decoded = decodeJsonTextWithinBounds(
+  final decoded = decodeJsonTextUsingConfig(
     utf8.decode(body),
     maxTextCodeUnits: _kMaxProxyIdentityResponseBytes,
-    maxDepth: _kMaxProxyIdentityJsonDepth,
-    maxContainerItems: _kMaxProxyIdentityJsonContainerItems,
-    maxTotalNodes: _kMaxProxyIdentityJsonNodes,
-    maxStringCodeUnits: _kMaxProxyIdentityResponseBytes,
-    maxTotalStringCodeUnits: _kMaxProxyIdentityResponseBytes,
+    config: _kMaxProxyIdentityJsonConversionConfig,
   );
   if (decoded is! Map || decoded['success'] == false) {
     final message = decoded is Map ? '${decoded['message'] ?? ''}'.trim() : '';

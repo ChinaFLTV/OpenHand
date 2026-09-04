@@ -22,7 +22,7 @@ type DialogPanelBorder =
   | 'none';
 
 export const DIALOG_OVERLAY_LOW_Z_INDEX = 2400;
-const DIALOG_OVERLAY_BASE_Z_INDEX = 2600;
+export const DIALOG_OVERLAY_BASE_Z_INDEX = 2600;
 export const DIALOG_OVERLAY_MEDIA_Z_INDEX = 2700;
 export const DIALOG_OVERLAY_PRIORITY_Z_INDEX = 2800;
 export const DIALOG_OVERLAY_FOCUSED_Z_INDEX = 2900;

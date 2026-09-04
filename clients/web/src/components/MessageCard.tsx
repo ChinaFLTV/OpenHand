@@ -20,13 +20,15 @@ import {
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
 import {
+  DIALOG_OVERLAY_BASE_Z_INDEX,
+  DIALOG_OVERLAY_MEDIA_Z_INDEX,
   DialogCloseButton,
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
 import { memo } from 'preact/compat';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { showSnackbar } from './Snackbar';
+import { copyTextWithFeedback, showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useMessageContentFormat, type MessageContentFormat } from '../hooks/useMessageContentFormat';
@@ -163,12 +165,11 @@ function ToolLiveElapsedChip({
 }
 
 async function copyPathWithFeedback(path: string): Promise<void> {
-  const ok = await copyTextToClipboard(path);
-  showSnackbar(ok
-    ? t('detail.fileMutation.copyPath.ok', '已复制文件路径')
-    : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
-      tone: ok ? 'success' : 'error',
-    });
+  await copyTextWithFeedback(
+    path,
+    t('detail.fileMutation.copyPath.ok', '已复制文件路径'),
+    t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'),
+  );
 }
 
 function roleLabel(role: string): string {
@@ -3297,8 +3298,8 @@ function KnowledgeBaseCitationRail({
   );
 }
 
-const KNOWLEDGE_DIALOG_OVERLAY_Z_INDEX = 1400;
-const KNOWLEDGE_DETAIL_DIALOG_OVERLAY_Z_INDEX = 1460;
+const KNOWLEDGE_DIALOG_OVERLAY_Z_INDEX = DIALOG_OVERLAY_BASE_Z_INDEX;
+const KNOWLEDGE_DETAIL_DIALOG_OVERLAY_Z_INDEX = DIALOG_OVERLAY_MEDIA_Z_INDEX;
 const KNOWLEDGE_DIALOG_OVERLAY_BLUR_PX = 10;
 const KNOWLEDGE_DIALOG_OVERLAY_BACKGROUND =
   'color-mix(in srgb, #000 42%, transparent)';

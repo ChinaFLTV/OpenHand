@@ -72,6 +72,36 @@ Object? decodeJsonTextWithinBounds(
   return decoded;
 }
 
+/// 用 [BoundedJsonConversionConfig] 的结构预算解码 JSON。
+///
+/// 字符串预算默认跟 [maxTextCodeUnits] 对齐；配置里显式给出的
+/// [BoundedJsonConversionConfig.maxStringCodeUnits] /
+/// [BoundedJsonConversionConfig.maxTotalStringCodeUnits] 优先。
+Object? decodeJsonTextUsingConfig(
+  String text, {
+  required int maxTextCodeUnits,
+  BoundedJsonConversionConfig config = const BoundedJsonConversionConfig(),
+  int? maxStringCodeUnits,
+  int? maxTotalStringCodeUnits,
+}) {
+  config.validate();
+  final perString =
+      maxStringCodeUnits ?? config.maxStringCodeUnits ?? maxTextCodeUnits;
+  final totalString =
+      maxTotalStringCodeUnits ??
+      config.maxTotalStringCodeUnits ??
+      maxTextCodeUnits;
+  return decodeJsonTextWithinBounds(
+    text,
+    maxTextCodeUnits: maxTextCodeUnits,
+    maxDepth: config.maxDepth,
+    maxContainerItems: config.maxContainerItems,
+    maxTotalNodes: config.maxTotalNodes,
+    maxStringCodeUnits: perString < 1 ? maxTextCodeUnits : perString,
+    maxTotalStringCodeUnits: totalString < 1 ? maxTextCodeUnits : totalString,
+  );
+}
+
 /// 非递归校验 JSON 值的结构预算；超限、循环引用或非 JSON 类型返回 null。
 JsonValueMetrics? measureJsonValueWithinBounds(
   Object? value, {
@@ -200,6 +230,21 @@ final class BoundedJsonConversionConfig {
     }
   }
 }
+
+/// LSP / MCP stdio / 本地代理请求体共用的协议级 JSON 预算。
+const BoundedJsonConversionConfig kOpenHandProtocolJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxContainerItems: 262144,
+      maxTotalNodes: 1048576,
+    );
+
+/// 更新检查、云同步等小型元数据 JSON 预算。
+const BoundedJsonConversionConfig kOpenHandCompactJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 32,
+      maxContainerItems: 4096,
+      maxTotalNodes: 65536,
+    );
 
 Object? convertToJsonSafeValue(
   Object? value, {

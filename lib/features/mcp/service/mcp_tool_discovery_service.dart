@@ -53,9 +53,8 @@ const int _mcpServerResponseDisplayMaxCharacters = 64 * kBytesPerKiB;
 const int _mcpLegacySseMaxLineBytes = 4 * kBytesPerMiB;
 const int _mcpLegacySseMaxEventBytes = 4 * kBytesPerMiB;
 const int _mcpStdioStderrMaxCharacters = 4 * kBytesPerKiB;
-const int _mcpMaxJsonDepth = 64;
-const int _mcpMaxJsonContainerItems = 262144;
-const int _mcpMaxJsonNodes = 1048576;
+const BoundedJsonConversionConfig _mcpJsonConversionConfig =
+    kOpenHandProtocolJsonConversionConfig;
 const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
 const Duration _mcpStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _mcpSessionCloseTimeout = Duration(seconds: 2);
@@ -125,14 +124,10 @@ Future<void> _drainMcpHttpResponse(
 }
 
 Object? _decodeMcpJson(String text, {required int maxTextCodeUnits}) {
-  return decodeJsonTextWithinBounds(
+  return decodeJsonTextUsingConfig(
     text,
     maxTextCodeUnits: maxTextCodeUnits,
-    maxDepth: _mcpMaxJsonDepth,
-    maxContainerItems: _mcpMaxJsonContainerItems,
-    maxTotalNodes: _mcpMaxJsonNodes,
-    maxStringCodeUnits: maxTextCodeUnits,
-    maxTotalStringCodeUnits: maxTextCodeUnits,
+    config: _mcpJsonConversionConfig,
   );
 }
 
@@ -2708,7 +2703,10 @@ class _StdioSession {
       _stdoutBuffer.sublist(0, headerEnd),
       allowInvalid: true,
     );
-    final parsedContentLength = _parseContentLength(headerText);
+    final parsedContentLength = parseHttpContentLengthHeader(
+      headerText,
+      maxDigits: DefaultMcpToolDiscoveryService._maxStdioContentLengthDigits,
+    );
     if (!parsedContentLength.found) {
       _stdoutBuffer.removeRange(0, frame.bodyStart);
       return '';
@@ -2838,33 +2836,6 @@ class _StdioSession {
     return prefix.isNotEmpty &&
         (HttpHeaders.contentLengthHeader.startsWith(prefix) ||
             prefix.startsWith(HttpHeaders.contentLengthHeader));
-  }
-
-  ({bool found, int? value}) _parseContentLength(String headers) {
-    final normalized = headers.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    int? contentLength;
-    var found = false;
-    for (final line in normalized.split('\n')) {
-      final separatorIndex = line.indexOf(':');
-      if (separatorIndex == -1) {
-        continue;
-      }
-      final name = line.substring(0, separatorIndex).trim().toLowerCase();
-      if (name != HttpHeaders.contentLengthHeader) {
-        continue;
-      }
-      if (found) return (found: true, value: null);
-      found = true;
-      final value = line.substring(separatorIndex + 1).trim();
-      if (value.isEmpty ||
-          value.length >
-              DefaultMcpToolDiscoveryService._maxStdioContentLengthDigits ||
-          value.codeUnits.any((unit) => unit < 48 || unit > 57)) {
-        return (found: true, value: null);
-      }
-      contentLength = int.tryParse(value);
-    }
-    return (found: found, value: contentLength);
   }
 
   Future<void> _write(Map<String, Object?> payload) async {

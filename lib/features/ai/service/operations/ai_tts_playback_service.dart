@@ -77,9 +77,12 @@ class AiTtsPlaybackService {
   static const int _maxControlResponseBytes = kBytesPerMiB;
   static const int _maxDoubaoFrameChars = 16 * kBytesPerMiB;
   static const int _maxWebSocketEventChars = 16 * kBytesPerMiB;
-  static const int _maxJsonDepth = 32;
-  static const int _maxJsonContainerItems = 65536;
-  static const int _maxJsonNodes = 262144;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 32,
+        maxContainerItems: 65536,
+        maxTotalNodes: 262144,
+      );
   static const int _mimoMaxVoiceSampleBase64Bytes = 10 * kBytesPerMiB;
   static const int _mimoMaxVoiceSampleRawBytes =
       (_mimoMaxVoiceSampleBase64Bytes ~/ 4) * 3;
@@ -2148,14 +2151,10 @@ class AiTtsPlaybackService {
   }
 
   static Object? _decodeTtsJson(String text, {required int maxTextCodeUnits}) {
-    return decodeJsonTextWithinBounds(
+    return decodeJsonTextUsingConfig(
       text,
       maxTextCodeUnits: maxTextCodeUnits,
-      maxDepth: _maxJsonDepth,
-      maxContainerItems: _maxJsonContainerItems,
-      maxTotalNodes: _maxJsonNodes,
-      maxStringCodeUnits: maxTextCodeUnits,
-      maxTotalStringCodeUnits: maxTextCodeUnits,
+      config: _jsonConversionConfig,
     );
   }
 

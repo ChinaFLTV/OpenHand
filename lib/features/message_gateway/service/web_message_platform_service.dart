@@ -365,9 +365,11 @@ class WebMessagePlatformService {
   static const Duration _localAddressesCacheTtl = Duration(seconds: 30);
   static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
   static const Duration _requestBodyTotalTimeout = Duration(minutes: 2);
-  static const int _maxRequestJsonDepth = 64;
-  static const int _maxRequestJsonContainerItems = 65536;
-  static const int _maxRequestJsonNodes = 262144;
+  static const BoundedJsonConversionConfig _requestJsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxContainerItems: 65536,
+        maxTotalNodes: 262144,
+      );
   static const int _maxInstructionIdCharacters = 256;
   static const int _maxWorkspacePathCharacters = 4096;
   static const Duration _sessionAssetReadIdleTimeout = Duration(seconds: 30);
@@ -9000,14 +9002,10 @@ class WebMessagePlatformService {
     if (bytes.isEmpty) return <String, Object?>{};
     try {
       final text = utf8.decode(bytes);
-      final decoded = decodeJsonTextWithinBounds(
+      final decoded = decodeJsonTextUsingConfig(
         text,
         maxTextCodeUnits: maxBytes,
-        maxDepth: _maxRequestJsonDepth,
-        maxContainerItems: _maxRequestJsonContainerItems,
-        maxTotalNodes: _maxRequestJsonNodes,
-        maxStringCodeUnits: maxBytes,
-        maxTotalStringCodeUnits: maxBytes,
+        config: _requestJsonConversionConfig,
       );
       if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } on FormatException {

@@ -18,9 +18,11 @@ const int _kAiJunglerMaxRequestBytes = 2 * kBytesPerMiB;
 const int _kAiJunglerMaxJsonResponseBytes = 8 * kBytesPerMiB;
 const int _kAiJunglerMaxErrorResponseBytes = 64 * kBytesPerKiB;
 const int _kAiJunglerMaxSseLineBytes = 256 * kBytesPerKiB;
-const int _kAiJunglerMaxJsonDepth = 64;
-const int _kAiJunglerMaxJsonContainerItems = 131072;
-const int _kAiJunglerMaxJsonNodes = 1048576;
+const BoundedJsonConversionConfig _kAiJunglerJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxContainerItems: 131072,
+      maxTotalNodes: 1048576,
+    );
 const int _kAiJunglerDefaultHistoryLimit = 500;
 const int _kAiJunglerDefaultLogLimit = 2000;
 const int _kAiJunglerDefaultResultLimit = 1000;
@@ -471,14 +473,10 @@ class AiJunglerClient {
 }
 
 Object? _decodeAiJunglerJson(String text, {required int maxTextCodeUnits}) {
-  return decodeJsonTextWithinBounds(
+  return decodeJsonTextUsingConfig(
     text,
     maxTextCodeUnits: maxTextCodeUnits,
-    maxDepth: _kAiJunglerMaxJsonDepth,
-    maxContainerItems: _kAiJunglerMaxJsonContainerItems,
-    maxTotalNodes: _kAiJunglerMaxJsonNodes,
-    maxStringCodeUnits: maxTextCodeUnits,
-    maxTotalStringCodeUnits: maxTextCodeUnits,
+    config: _kAiJunglerJsonConversionConfig,
   );
 }
 

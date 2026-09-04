@@ -14,10 +14,8 @@ import {
   DEFAULT_FLOATING_VIEWPORT_PADDING,
   computeAnchoredMenuPosition,
 } from '../shared/ui/floating_position';
-import { isOperationTimeoutError, runWithTimeout } from '../utils/timed_abort';
-import { copyTextToClipboard } from '../utils/clipboard';
 import { OverlayPortal } from './OverlayPortal';
-import { showSnackbar } from './Snackbar';
+import { copyTextWithFeedback, showSnackbar } from './Snackbar';
 import { RollingText } from './RollingText';
 import { AnimatedTitleText } from './AnimatedTitleText';
 import { BrowserFullscreenButton, BrowserFullscreenIcon } from './BrowserFullscreenButton';
@@ -68,8 +66,6 @@ type TopBarIconName = SessionToolbarIconName
   | 'fullscreenExit'
   | 'copy'
   | 'trash';
-
-const COPY_SESSION_ID_TIMEOUT_MS = 2500;
 
 function TopBarIcon({ name, size = 16 }: { name: TopBarIconName; size?: number }) {
   const common = svgIconProps({
@@ -229,24 +225,11 @@ export function SessionTopBar(props: SessionTopBarProps) {
 
   async function copySessionId() {
     if (!sessionId) return;
-    try {
-      const copied = await runWithTimeout(() => copyTextToClipboard(sessionId), {
-        timeoutMs: COPY_SESSION_ID_TIMEOUT_MS,
-      });
-      showSnackbar(
-        copied
-          ? t('topbar.copyId.ok', '已复制会话 ID')
-          : t('topbar.copyId.failed', '复制会话 ID 失败，请检查浏览器剪贴板权限'),
-        { tone: copied ? 'success' : 'error' },
-      );
-    } catch (error) {
-      showSnackbar(
-        isOperationTimeoutError(error)
-          ? t('topbar.copyId.timeout', '复制会话 ID 超时，请重试')
-          : t('topbar.copyId.failed', '复制会话 ID 失败，请检查浏览器剪贴板权限'),
-        { tone: 'error' },
-      );
-    }
+    await copyTextWithFeedback(
+      sessionId,
+      t('topbar.copyId.ok', '已复制会话 ID'),
+      t('topbar.copyId.failed', '复制会话 ID 失败，请检查浏览器剪贴板权限'),
+    );
   }
 
   return (

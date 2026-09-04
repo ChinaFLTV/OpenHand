@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../../../shared/net/loopback_hosts.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/exponential_backoff.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -449,11 +450,8 @@ class KnowledgeEmbeddingService {
     if (!isQwen3Embedding) return false;
     if (model.protocolType == AiProtocolType.ollama) return true;
     final uri = Uri.tryParse(model.baseUrl.trim());
-    final host = uri?.host.trim().toLowerCase() ?? '';
-    return host == 'localhost' ||
-        host == '127.0.0.1' ||
-        host == '::1' ||
-        host.endsWith('.local');
+    final host = uri?.host ?? '';
+    return isLoopbackHost(host) || host.trim().toLowerCase().endsWith('.local');
   }
 
   Duration _retryBackoff(KnowledgeBaseSettings settings, int attempt) {

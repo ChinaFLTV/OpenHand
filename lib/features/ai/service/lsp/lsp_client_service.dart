@@ -1949,9 +1949,8 @@ class _AiLspSession {
   static const int _maxOpenDocumentBytes = 32 * kBytesPerMiB;
   static const int _maxLspFrameBytes = 8 * kBytesPerMiB;
   static const int _maxLspHeaderBytes = 64 * kBytesPerKiB;
-  static const int _maxLspJsonDepth = 64;
-  static const int _maxLspJsonContainerItems = 262144;
-  static const int _maxLspJsonNodes = 1048576;
+  static const BoundedJsonConversionConfig _lspJsonConversionConfig =
+      kOpenHandProtocolJsonConversionConfig;
   static const int _maxMessagesPerDrain = 64;
   static const int _maxQueuedServerRequests = 32;
   static const Duration _serverRequestResponseTimeout = Duration(seconds: 15);
@@ -2632,8 +2631,14 @@ class _AiLspSession {
         return;
       }
 
-      final contentLength = _parseContentLength(headerEnd);
-      if (contentLength == null ||
+      final header = latin1.decode(_responseBuffer.sublist(0, headerEnd));
+      final parsedContentLength = parseHttpContentLengthHeader(
+        header,
+        maxDigits: _maxContentLengthDigits,
+      );
+      final contentLength = parsedContentLength.value;
+      if (!parsedContentLength.found ||
+          contentLength == null ||
           contentLength <= 0 ||
           contentLength > _maxLspFrameBytes) {
         _failProtocol(const FormatException('Content-Length 消息头无效。'));
@@ -2646,14 +2651,10 @@ class _AiLspSession {
       _responseBuffer.removeRange(0, bodyEnd);
 
       try {
-        final decoded = decodeJsonTextWithinBounds(
+        final decoded = decodeJsonTextUsingConfig(
           utf8.decode(body),
           maxTextCodeUnits: _maxLspFrameBytes,
-          maxDepth: _maxLspJsonDepth,
-          maxContainerItems: _maxLspJsonContainerItems,
-          maxTotalNodes: _maxLspJsonNodes,
-          maxStringCodeUnits: _maxLspFrameBytes,
-          maxTotalStringCodeUnits: _maxLspFrameBytes,
+          config: _lspJsonConversionConfig,
         );
         if (decoded is! Map) {
           _failProtocol(const FormatException('LSP JSON-RPC 载荷必须为对象。'));
@@ -2682,28 +2683,6 @@ class _AiLspSession {
         return;
       }
     }
-  }
-
-  int? _parseContentLength(int headerEnd) {
-    final header = latin1.decode(_responseBuffer.sublist(0, headerEnd));
-    int? contentLength;
-    for (final line in header.split('\r\n')) {
-      final separator = line.indexOf(':');
-      if (separator <= 0 ||
-          line.substring(0, separator).trim().toLowerCase() !=
-              HttpHeaders.contentLengthHeader) {
-        continue;
-      }
-      if (contentLength != null) return null;
-      final value = line.substring(separator + 1).trim();
-      if (value.isEmpty ||
-          value.length > _maxContentLengthDigits ||
-          value.codeUnits.any((unit) => unit < 48 || unit > 57)) {
-        return null;
-      }
-      contentLength = int.tryParse(value);
-    }
-    return contentLength;
   }
 
   void _failProtocol(Object error, {StackTrace? stack}) {

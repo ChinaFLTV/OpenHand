@@ -43,9 +43,8 @@ class AiModelProxyHttpServer {
 
   static const int _maxRequestBodyBytes = 8 * kBytesPerMiB;
   static const int _maxNativeResponseBytes = 16 * kBytesPerMiB;
-  static const int _maxJsonDepth = 64;
-  static const int _maxJsonContainerItems = 262144;
-  static const int _maxJsonNodes = 1048576;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      kOpenHandProtocolJsonConversionConfig;
   static const Duration _bindTimeout = Duration(seconds: 10);
   static const Duration _requestReadIdleTimeout = Duration(seconds: 30);
   static const Duration _requestReadTotalTimeout = Duration(minutes: 2);
@@ -2356,14 +2355,10 @@ class AiModelProxyHttpServer {
     String text, {
     required int maxTextCodeUnits,
   }) {
-    return decodeJsonTextWithinBounds(
+    return decodeJsonTextUsingConfig(
       text,
       maxTextCodeUnits: maxTextCodeUnits,
-      maxDepth: _maxJsonDepth,
-      maxContainerItems: _maxJsonContainerItems,
-      maxTotalNodes: _maxJsonNodes,
-      maxStringCodeUnits: maxTextCodeUnits,
-      maxTotalStringCodeUnits: maxTextCodeUnits,
+      config: _jsonConversionConfig,
     );
   }
 

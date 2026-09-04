@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/exponential_backoff.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../service/runtime/ai_tool_runtime_service.dart';
@@ -256,10 +257,13 @@ class AiBuiltinToolConfig {
     if (attemptIndex <= 0) return Duration.zero;
     final base = effectiveRetryBackoffMs;
     if (base == 0) return Duration.zero;
-    final shift = attemptIndex - 1;
-    final raw = shift >= 30 ? maxRetryBackoffMs : base << shift;
-    final capped = raw > maxRetryBackoffMs ? maxRetryBackoffMs : raw;
-    return Duration(milliseconds: capped);
+    return Duration(
+      milliseconds: exponentialBackoffMs(
+        attempt: attemptIndex,
+        baseMs: base,
+        capMs: maxRetryBackoffMs,
+      ),
+    );
   }
 
   /// 是否为用户自定义的"新增"工具（非内建 kind 映射）。
