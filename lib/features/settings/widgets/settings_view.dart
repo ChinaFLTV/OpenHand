@@ -126,6 +126,7 @@ part '_settings_web_search_editor.dart';
 part '_settings_web_fetch_editor.dart';
 part '_settings_web_fetch_runtime_dialog.dart';
 part '_settings_helper_widgets.dart';
+part '_settings_offline_speech.dart';
 part '_settings_user_profile.dart';
 part '_settings_data_cleanup.dart';
 part '_settings_system_proxy.dart';
@@ -2488,6 +2489,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
     final ttsSettings = settingsController.aiTtsSettings;
     final translationSettings = settingsController.aiTranslationSettings;
+    final offlineSpeechSettings = settingsController.offlineSpeechSettings;
     final ttsEnabledControl = Align(
       alignment: Alignment.centerLeft,
       child: _SettingsSwitch(
@@ -3866,6 +3868,30 @@ class _SettingsViewState extends State<SettingsView> {
                         settingsController.recentModelSelections,
                   ),
                 ),
+              ),
+              kOpenHandGap18,
+              _OfflineSpeechModelPanel(
+                kind: OfflineSpeechKind.recognition,
+                settings: offlineSpeechSettings.recognition,
+                onChanged: (next) =>
+                    settingsController.updateOfflineSpeechSettings(
+                      settingsController.offlineSpeechSettings.update(
+                        OfflineSpeechKind.recognition,
+                        next,
+                      ),
+                    ),
+              ),
+              kOpenHandGap18,
+              _OfflineSpeechModelPanel(
+                kind: OfflineSpeechKind.synthesis,
+                settings: offlineSpeechSettings.synthesis,
+                onChanged: (next) =>
+                    settingsController.updateOfflineSpeechSettings(
+                      settingsController.offlineSpeechSettings.update(
+                        OfflineSpeechKind.synthesis,
+                        next,
+                      ),
+                    ),
               ),
             ],
           ),

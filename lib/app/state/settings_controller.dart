@@ -16,6 +16,7 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
+import '../../features/ai/model/offline_speech_model.dart';
 import '../../features/ai/service/model_registry/ai_title_model_resolver.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
@@ -159,6 +160,7 @@ class SettingsController extends ChangeNotifier {
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
        _aiTranslationSettings = snapshot.aiTranslationSettings.normalized(),
        _aiTtsSettings = snapshot.aiTtsSettings.normalized(),
+       _offlineSpeechSettings = snapshot.offlineSpeechSettings.normalized(),
        _aiWriteCommandConfirmationEnabled =
            snapshot.aiWriteCommandConfirmationEnabled,
        _aiAllowCommandRules = List<AiAllowCommandRule>.from(
@@ -313,6 +315,7 @@ class SettingsController extends ChangeNotifier {
   int _aiImageSizeLimitBytes;
   AiTranslationSettings _aiTranslationSettings;
   AiTtsSettings _aiTtsSettings;
+  OfflineSpeechSettings _offlineSpeechSettings;
   bool _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> _aiAllowCommandRules;
   List<AiDenyCommandRule> _aiDenyCommandRules;
@@ -475,6 +478,7 @@ class SettingsController extends ChangeNotifier {
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
   AiTranslationSettings get aiTranslationSettings => _aiTranslationSettings;
   AiTtsSettings get aiTtsSettings => _aiTtsSettings;
+  OfflineSpeechSettings get offlineSpeechSettings => _offlineSpeechSettings;
   bool get aiWriteCommandConfirmationEnabled =>
       _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> get aiAllowCommandRules =>
@@ -1302,6 +1306,20 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> updateAiTtsEnabled(bool value) async {
     return updateAiTtsSettings(_aiTtsSettings.copyWith(enabled: value));
+  }
+
+  Future<bool> updateOfflineSpeechSettings(OfflineSpeechSettings value) async {
+    final normalized = value.normalized();
+    return _commitMutation(() {
+      if (stableJsonEquals(
+        _offlineSpeechSettings.toJson(),
+        normalized.toJson(),
+      )) {
+        return _MutationDisposition.successNoChange;
+      }
+      _offlineSpeechSettings = normalized;
+      return _MutationDisposition.apply;
+    });
   }
 
   Future<bool> updateAiWriteCommandConfirmationEnabled(bool value) async {
@@ -2500,6 +2518,7 @@ class SettingsController extends ChangeNotifier {
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
       aiTranslationSettings: _aiTranslationSettings,
       aiTtsSettings: _aiTtsSettings,
+      offlineSpeechSettings: _offlineSpeechSettings,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: List<AiAllowCommandRule>.from(_aiAllowCommandRules),
       aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
@@ -2631,6 +2650,7 @@ class SettingsController extends ChangeNotifier {
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
     _aiTranslationSettings = snapshot.aiTranslationSettings.normalized();
     _aiTtsSettings = snapshot.aiTtsSettings.normalized();
+    _offlineSpeechSettings = snapshot.offlineSpeechSettings.normalized();
     _aiWriteCommandConfirmationEnabled =
         snapshot.aiWriteCommandConfirmationEnabled;
     _aiAllowCommandRules = List<AiAllowCommandRule>.from(

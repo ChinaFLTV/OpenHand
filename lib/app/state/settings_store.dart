@@ -13,6 +13,7 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
+import '../../features/ai/model/offline_speech_model.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -408,6 +409,7 @@ class SettingsStore {
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
       'ai_translation': snapshot.aiTranslationSettings.toJson(),
       'ai_tts': snapshot.aiTtsSettings.toJson(),
+      'offline_speech': snapshot.offlineSpeechSettings.toJson(),
       'ai_write_command_confirmation_enabled':
           snapshot.aiWriteCommandConfirmationEnabled,
       'ai_allow_command_rules': snapshot.aiAllowCommandRules
@@ -866,6 +868,9 @@ class SettingsStore {
       json['ai_translation'],
     );
     final aiTtsSettings = AiTtsSettings.fromJson(json['ai_tts']);
+    final offlineSpeechSettings = OfflineSpeechSettings.fromJson(
+      json['offline_speech'],
+    );
     final aiWriteCommandConfirmationEnabled = boolFromValue(
       json['ai_write_command_confirmation_enabled'],
       defaultValue: true,
@@ -1263,6 +1268,7 @@ class SettingsStore {
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,
       aiTranslationSettings: aiTranslationSettings,
       aiTtsSettings: aiTtsSettings,
+      offlineSpeechSettings: offlineSpeechSettings,
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,
       aiDenyCommandRules: aiDenyCommandRules,

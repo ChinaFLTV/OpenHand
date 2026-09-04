@@ -14,6 +14,7 @@ import '../../features/ai/model/ai_tool_call_limit_policy.dart';
 import '../../features/ai/model/ai_tool_execution_limit_policy.dart';
 import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
+import '../../features/ai/model/offline_speech_model.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -101,6 +102,7 @@ class AppSettingsSnapshot {
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
       aiTranslationSettings: AiTranslationSettings.defaults(),
       aiTtsSettings: AiTtsSettings.defaults(),
+      offlineSpeechSettings: OfflineSpeechSettings.defaults(),
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
       aiDenyCommandRules: const <AiDenyCommandRule>[],
@@ -207,6 +209,7 @@ class AppSettingsSnapshot {
     required this.aiImageSizeLimitBytes,
     AiTranslationSettings? aiTranslationSettings,
     AiTtsSettings? aiTtsSettings,
+    OfflineSpeechSettings? offlineSpeechSettings,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
     required this.aiDenyCommandRules,
@@ -304,6 +307,9 @@ class AppSettingsSnapshot {
            ),
        aiTranslationSettings =
            aiTranslationSettings ?? AiTranslationSettings.defaults(),
+       offlineSpeechSettings =
+           (offlineSpeechSettings ?? OfflineSpeechSettings.defaults())
+               .normalized(),
        proxySettings = proxySettings ?? AppProxySettings.defaults(),
        nativeAudioPlaybackSettings =
            (nativeAudioPlaybackSettings ??
@@ -934,6 +940,7 @@ class AppSettingsSnapshot {
   final int aiImageSizeLimitBytes;
   final AiTranslationSettings aiTranslationSettings;
   final AiTtsSettings aiTtsSettings;
+  final OfflineSpeechSettings offlineSpeechSettings;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
   final List<AiDenyCommandRule> aiDenyCommandRules;
@@ -1116,6 +1123,7 @@ class AppSettingsSnapshot {
     int? aiImageSizeLimitBytes,
     AiTranslationSettings? aiTranslationSettings,
     AiTtsSettings? aiTtsSettings,
+    OfflineSpeechSettings? offlineSpeechSettings,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
     List<AiDenyCommandRule>? aiDenyCommandRules,
@@ -1286,6 +1294,8 @@ class AppSettingsSnapshot {
       aiTranslationSettings:
           aiTranslationSettings ?? this.aiTranslationSettings,
       aiTtsSettings: aiTtsSettings ?? this.aiTtsSettings,
+      offlineSpeechSettings:
+          offlineSpeechSettings ?? this.offlineSpeechSettings,
       aiWriteCommandConfirmationEnabled:
           aiWriteCommandConfirmationEnabled ??
           this.aiWriteCommandConfirmationEnabled,

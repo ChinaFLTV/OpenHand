@@ -46,6 +46,7 @@ export 'model/ai_usage_analytics.dart';
 export 'model/ai_web_engine_resilience.dart';
 export 'model/ai_web_fetch_settings.dart';
 export 'model/ai_web_search_settings.dart';
+export 'model/offline_speech_model.dart';
 
 // 服务
 export 'service/bash/ai_bash_tool_service.dart';
@@ -72,6 +73,7 @@ export 'service/operations/ai_operation_http.dart';
 export 'service/operations/ai_rerank_service.dart';
 export 'service/operations/ai_translation_service.dart';
 export 'service/operations/ai_tts_playback_service.dart';
+export 'service/operations/offline_speech_model_service.dart';
 export 'service/prompt/ai_output_format_prompts.dart';
 export 'service/prompt/ai_prompt_builder.dart';
 export 'service/prompt/ai_prompt_template_assembly.dart';
