@@ -18,6 +18,7 @@ void main() {
   failures += _checkBackoff();
   failures += _checkLoopback();
   failures += _checkStringFromValue();
+  failures += _checkGrowableStringKeyedMap();
   failures += _checkHttpRetryableStatus();
   failures += _checkRgbHex();
   failures += _checkXmlEscape();
@@ -155,6 +156,38 @@ int _checkStringFromValue() {
   final map = stringKeyedMapFromValue(<Object?, Object?>{1: 'a'});
   if (map['1'] != 'a') {
     stderr.writeln('stringKeyedMapFromValue 未把键转为字符串');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkGrowableStringKeyedMap() {
+  final global = growableStringKeyedMapFromValue(null);
+  global['body'] = <String, Object?>{'n': 1};
+  global['headers'] = <String, String>{'x': 'y'};
+  final body = optionalStringKeyedMapFromValue(global['body']);
+  if (body == null || body['n'] != 1) {
+    stderr.writeln('growableStringKeyedMapFromValue(null) 写入 body 失败');
+    return 1;
+  }
+  final headers = global['headers'];
+  if (headers is! Map || headers['x'] != 'y') {
+    stderr.writeln('growableStringKeyedMapFromValue(null) 写入 headers 失败');
+    return 1;
+  }
+
+  const writtenTemperature = 0.4;
+  final source = <String, Object?>{'topK': 8};
+  final generationConfig = growableStringKeyedMapFromValue(source);
+  generationConfig['temperature'] = writtenTemperature;
+  if (identical(generationConfig, source) ||
+      source.containsKey('temperature')) {
+    stderr.writeln('growableStringKeyedMapFromValue 别名或回写了源映射');
+    return 1;
+  }
+  if (generationConfig['topK'] != source['topK'] ||
+      generationConfig['temperature'] != writtenTemperature) {
+    stderr.writeln('growableStringKeyedMapFromValue 未保留源字段或写入失败');
     return 1;
   }
   return 0;

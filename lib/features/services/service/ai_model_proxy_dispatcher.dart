@@ -765,7 +765,7 @@ class AiModelProxyDispatcher {
     );
     if (extras.isEmpty && forwardedHeaders.isEmpty) return model;
     final operationExtras = <String, Object?>{...model.operationExtras};
-    final global = stringKeyedMapFromValue(operationExtras['global']);
+    final global = growableStringKeyedMapFromValue(operationExtras['global']);
     final existingBody = stringKeyedMapFromValue(global['body']);
     global['body'] = <String, Object?>{...existingBody, ...extras};
     if (forwardedHeaders.isNotEmpty) {
@@ -819,7 +819,7 @@ class AiModelProxyDispatcher {
     final extras = <String, Object?>{};
     final style = controller.settings.apiStyle;
     if (style == AiModelProxyApiStyle.gemini) {
-      final generationConfig = stringKeyedMapFromValue(
+      final generationConfig = growableStringKeyedMapFromValue(
         request['generationConfig'],
       );
       if (generationConfig.isNotEmpty) {
@@ -917,7 +917,7 @@ class AiModelProxyDispatcher {
         }
       case AiApiDialect.geminiNative:
         extras.remove('tool_choice');
-        final generationConfig = stringKeyedMapFromValue(
+        final generationConfig = growableStringKeyedMapFromValue(
           extras['generationConfig'],
         );
         final temperature = request['temperature'];

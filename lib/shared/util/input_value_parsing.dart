@@ -367,6 +367,11 @@ Map<String, Object?> stringKeyedMapFromValue(Object? value) {
   return value.map((key, item) => MapEntry('$key', item));
 }
 
+/// 始终返回可增长拷贝，供后续写入字段。空输入也不会落成 const 映射。
+Map<String, Object?> growableStringKeyedMapFromValue(Object? value) {
+  return Map<String, Object?>.of(stringKeyedMapFromValue(value));
+}
+
 Map<String, Object?>? optionalStringKeyedMapFromValue(Object? value) {
   return value is Map ? stringKeyedMapFromValue(value) : null;
 }
