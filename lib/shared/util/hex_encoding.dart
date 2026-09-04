@@ -3,6 +3,11 @@ String byteToHex(int value) {
   return (value & 0xff).toRadixString(16).padLeft(2, '0');
 }
 
+/// 从 ARGB32 取出 RRGGBB 小写十六进制（不含 `#`）。
+String rgbHexFromArgb32(int argb) {
+  return (argb & 0x00FFFFFF).toRadixString(16).padLeft(6, '0');
+}
+
 /// 将字节序列编码为小写十六进制，并以 [separator] 连接。
 String bytesToHex(Iterable<int> bytes, {String separator = ''}) {
   return bytes.map(byteToHex).join(separator);

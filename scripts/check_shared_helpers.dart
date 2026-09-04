@@ -1,10 +1,14 @@
 import 'dart:io';
 
+import 'package:openhand/shared/net/http_status_utils.dart';
 import 'package:openhand/shared/net/loopback_hosts.dart';
 import 'package:openhand/shared/util/bounded_json_conversion.dart';
+import 'package:openhand/shared/util/date_time_format.dart';
 import 'package:openhand/shared/util/exponential_backoff.dart';
+import 'package:openhand/shared/util/hex_encoding.dart';
 import 'package:openhand/shared/util/input_value_parsing.dart';
 import 'package:openhand/shared/util/message_frame_scan.dart';
+import 'package:openhand/shared/util/xml_escape.dart';
 
 /// 直接驱动抽出的共享实现：代表输入进、真实返回值出。
 void main() {
@@ -14,6 +18,10 @@ void main() {
   failures += _checkBackoff();
   failures += _checkLoopback();
   failures += _checkStringFromValue();
+  failures += _checkHttpRetryableStatus();
+  failures += _checkRgbHex();
+  failures += _checkXmlEscape();
+  failures += _checkCompactDuration();
   if (failures > 0) {
     stderr.writeln('[共享辅助检查] 失败 $failures 项。');
     exit(1);
@@ -95,6 +103,16 @@ int _checkBackoff() {
     stderr.writeln('秒级退避 attempt=3 应为 8');
     return 1;
   }
+  final durationBackoff = exponentialBackoffDuration(
+    attempt: 5,
+    base: const Duration(milliseconds: 250),
+    cap: const Duration(seconds: 4),
+  );
+  if (durationBackoff.inMilliseconds !=
+      exponentialBackoffMs(attempt: 5, baseMs: 250, capMs: 4000)) {
+    stderr.writeln('Duration 退避应与毫秒公式一致，得到 $durationBackoff');
+    return 1;
+  }
   return 0;
 }
 
@@ -115,6 +133,13 @@ int _checkLoopback() {
     stderr.writeln('kLoopbackHosts 缺少 127.0.0.1');
     return 1;
   }
+  if (!isLoopbackHostname('LOCALHOST.localdomain') ||
+      !isLoopbackHostname('api.localhost') ||
+      isLoopbackHostname('127.0.0.1') ||
+      isLoopbackHostname('example.com')) {
+    stderr.writeln('isLoopbackHostname 主机名判定错误');
+    return 1;
+  }
   return 0;
 }
 
@@ -130,6 +155,76 @@ int _checkStringFromValue() {
   final map = stringKeyedMapFromValue(<Object?, Object?>{1: 'a'});
   if (map['1'] != 'a') {
     stderr.writeln('stringKeyedMapFromValue 未把键转为字符串');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkHttpRetryableStatus() {
+  if (!isHttpTransientRetryableStatus(kHttpRequestTimeoutStatusCode) ||
+      !isHttpTransientRetryableStatus(kHttpTooEarlyStatusCode) ||
+      !isHttpTransientRetryableStatus(kHttpTooManyRequestsStatusCode) ||
+      !isHttpTransientRetryableStatus(kHttpInternalServerErrorStatusCode) ||
+      !isHttpTransientRetryableStatus(kHttpBadGatewayStatusCode) ||
+      !isHttpTransientRetryableStatus(kHttpServiceUnavailableStatusCode) ||
+      !isHttpTransientRetryableStatus(kHttpGatewayTimeoutStatusCode)) {
+    stderr.writeln('isHttpTransientRetryableStatus 未识别瞬时失败状态码');
+    return 1;
+  }
+  if (isHttpTransientRetryableStatus(kHttpConflictStatusCode) ||
+      isHttpTransientRetryableStatus(404) ||
+      isHttpTransientRetryableStatus(kHttpSuccessStatusMin)) {
+    stderr.writeln('isHttpTransientRetryableStatus 误判了非瞬时状态码');
+    return 1;
+  }
+  if (!isHttpServerErrorStatus(501) || isHttpServerErrorStatus(499)) {
+    stderr.writeln('isHttpServerErrorStatus 判定错误');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkRgbHex() {
+  if (rgbHexFromArgb32(0xFF1E1E24) != '1e1e24') {
+    stderr.writeln('rgbHexFromArgb32(0xFF1E1E24) 应为 1e1e24');
+    return 1;
+  }
+  if (rgbHexFromArgb32(0x000000FF) != '0000ff') {
+    stderr.writeln('rgbHexFromArgb32 未补齐 6 位');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkXmlEscape() {
+  final escaped = escapeXmlAttribute(r'''a&b<"c">'d''');
+  if (!escaped.contains('&amp;') ||
+      !escaped.contains('&lt;') ||
+      !escaped.contains('&quot;') ||
+      !escaped.contains('&gt;') ||
+      !escaped.contains('&apos;')) {
+    stderr.writeln('escapeXmlAttribute 未转义全部 XML 属性字符，得到 $escaped');
+    return 1;
+  }
+  if (escapeXmlAttribute('plain') != 'plain') {
+    stderr.writeln('escapeXmlAttribute 不应改写无特殊字符的文本');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkCompactDuration() {
+  if (formatCompactDuration(const Duration(seconds: 5)) != '5s') {
+    stderr.writeln('formatCompactDuration(5s) 应为 5s');
+    return 1;
+  }
+  if (formatCompactDuration(const Duration(seconds: 65)) != '1m 5s') {
+    stderr.writeln('formatCompactDuration(65s) 应为 1m 5s');
+    return 1;
+  }
+  if (formatCompactDurationMs(250) !=
+      formatCompactDuration(const Duration(milliseconds: 250))) {
+    stderr.writeln('formatCompactDurationMs 应与 Duration 形式一致');
     return 1;
   }
   return 0;

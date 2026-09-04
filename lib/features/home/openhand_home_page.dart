@@ -148,6 +148,7 @@ import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
 import '../../shared/util/user_failure_message.dart';
 import '../../shared/util/workspace_root_resolver.dart';
+import '../../shared/util/xml_escape.dart';
 import '../ai/index.dart';
 import '../android_reverse/index.dart';
 import '../crons/index.dart';

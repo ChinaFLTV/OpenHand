@@ -3,6 +3,7 @@ import 'dart:io';
 import '../../../../app/model/app_info.dart';
 import '../../../../app/state/settings_controller.dart';
 import '../../../../shared/util/date_time_format.dart';
+import '../../../../shared/util/hex_encoding.dart';
 import '../../../instructions/index.dart';
 import '../../../mcp/index.dart';
 import '../../../memory/index.dart';
@@ -83,7 +84,7 @@ AiSessionRuntimeContext buildAiSessionRuntimeContext({
     appThemeBrightness: appThemeBrightness,
     appThemePresetName: settingsController.themePreset.storageValue,
     appThemePrimaryColor:
-        '#${settingsController.themePreset.seedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
+        '#${rgbHexFromArgb32(settingsController.themePreset.seedColor.toARGB32()).toUpperCase()}',
     writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
     aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
     aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,

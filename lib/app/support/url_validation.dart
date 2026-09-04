@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../../shared/net/loopback_hosts.dart';
 import '../../shared/net/network_limits.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/argument_guards.dart';
@@ -179,9 +180,7 @@ String? agentFetchBlockReasonForHost(String rawHost) {
   if (host.isEmpty) {
     return '主机缺失或无效';
   }
-  if (host == 'localhost' ||
-      host == 'localhost.localdomain' ||
-      host.endsWith('.localhost')) {
+  if (isLoopbackHostname(host)) {
     return '本机地址';
   }
   final address = InternetAddress.tryParse(host);

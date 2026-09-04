@@ -59,15 +59,15 @@ class KnowledgeChunker {
         final index = chunks.length;
         final content = window.text.trim();
         if (content.isEmpty) continue;
-        final startOffset = _clampInt(
+        final startOffset = clampIntToRange(
           section.start + window.start,
-          0,
-          normalized.length,
+          min: 0,
+          max: normalized.length,
         );
-        final endOffset = _clampInt(
+        final endOffset = clampIntToRange(
           section.start + window.end,
-          startOffset,
-          normalized.length,
+          min: startOffset,
+          max: normalized.length,
         );
         chunks.add(
           KnowledgeChunk(
@@ -168,20 +168,36 @@ class KnowledgeChunker {
     required int maxWindows,
   }) {
     final tuning = _tuning(settings);
-    final windowChars = _clampInt(tuning.targetChars, 1, tuning.hardMaxChars);
-    final overlapChars = _clampInt(tuning.overlapChars, 0, windowChars - 1);
+    final windowChars = clampIntToRange(
+      tuning.targetChars,
+      min: 1,
+      max: tuning.hardMaxChars,
+    );
+    final overlapChars = clampIntToRange(
+      tuning.overlapChars,
+      min: 0,
+      max: windowChars - 1,
+    );
     final windows = <_Window>[];
     var start = 0;
     while (start < text.length) {
       if (windows.length >= maxWindows) {
         throw StateError(_chunkLimitExceededMessage);
       }
-      final end = _clampInt(start + windowChars, start + 1, text.length);
+      final end = clampIntToRange(
+        start + windowChars,
+        min: start + 1,
+        max: text.length,
+      );
       windows.add(
         _Window(text: text.substring(start, end), start: start, end: end),
       );
       if (end >= text.length) break;
-      start = _clampInt(end - overlapChars, start + 1, text.length);
+      start = clampIntToRange(
+        end - overlapChars,
+        min: start + 1,
+        max: text.length,
+      );
     }
     return windows;
   }
@@ -274,7 +290,7 @@ class KnowledgeChunker {
           buffer
             ..writeln(overlap)
             ..writeln();
-          start = _clampInt(end - overlap.length, 0, end);
+          start = clampIntToRange(end - overlap.length, min: 0, max: end);
         }
       }
       buffer
@@ -352,43 +368,39 @@ class KnowledgeChunker {
 
   _ChunkTuning _tuning(KnowledgeBaseSettings settings) {
     final targetChars =
-        _clampInt(
+        clampIntToRange(
           settings.targetTokens <= 0 ? 1 : settings.targetTokens,
-          1,
-          1000000,
+          min: 1,
+          max: 1000000,
         ) *
         4;
     final hardMaxChars =
-        _clampInt(
+        clampIntToRange(
           settings.hardMaxTokens <= 0
               ? settings.targetTokens
               : settings.hardMaxTokens,
-          1,
-          1000000,
+          min: 1,
+          max: 1000000,
         ) *
         4;
     final effectiveHardMax = hardMaxChars < targetChars
         ? targetChars
         : hardMaxChars;
     final overlapChars =
-        _clampInt(
+        clampIntToRange(
           settings.overlapTokens <= 0 ? 0 : settings.overlapTokens,
-          0,
-          1000000,
+          min: 0,
+          max: 1000000,
         ) *
         4;
     return _ChunkTuning(
       targetChars: targetChars,
       hardMaxChars: effectiveHardMax,
-      overlapChars: _clampInt(overlapChars, 0, targetChars - 1),
+      overlapChars: clampIntToRange(overlapChars, min: 0, max: targetChars - 1),
     );
   }
 
   int _estimateTokens(String text) => (text.length / 4).ceil();
-
-  int _clampInt(int value, int lowerLimit, int upperLimit) {
-    return clampIntToRange(value, min: lowerLimit, max: upperLimit);
-  }
 }
 
 class _Section {

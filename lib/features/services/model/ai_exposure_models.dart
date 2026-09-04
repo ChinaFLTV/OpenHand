@@ -1488,7 +1488,7 @@ class AiExposureProxyConfiguration {
       strategy: AiExposureProxyStrategy.fromId(
         _optionalString(json['strategy']),
       ),
-      rotationEvery: _boundedInt(
+      rotationEvery: clampedIntFromValue(
         json['rotationEvery'],
         fallback: 1,
         min: 1,
@@ -1497,13 +1497,13 @@ class AiExposureProxyConfiguration {
       bypassLocal: _boolValue(json['bypassLocal'], fallback: true),
       endpoints: List<AiExposureProxyEndpoint>.unmodifiable(endpoints),
       inspectionEnabled: _boolValue(json['inspectionEnabled']),
-      inspectionIntervalMinutes: _boundedInt(
+      inspectionIntervalMinutes: clampedIntFromValue(
         json['inspectionIntervalMinutes'],
         fallback: 30,
         min: 1,
         max: kAiExposureMaxProxyInspectionIntervalMinutes,
       ),
-      inspectionConcurrency: _boundedInt(
+      inspectionConcurrency: clampedIntFromValue(
         json['inspectionConcurrency'],
         fallback: 8,
         min: 1,
@@ -1641,7 +1641,7 @@ class AiExposureProxyStatus {
   ) => AiExposureProxyStatus(
     enabled: _boolValue(json['enabled']),
     strategy: AiExposureProxyStrategy.fromId(_optionalString(json['strategy'])),
-    rotationEvery: _boundedInt(
+    rotationEvery: clampedIntFromValue(
       json['rotationEvery'],
       fallback: 1,
       min: 1,
@@ -2083,7 +2083,7 @@ class AiExposurePreferences {
       enabledSources: sources.isEmpty
           ? const <AiExposureSource>{AiExposureSource.manual}
           : sources,
-      defaultConcurrency: _boundedInt(
+      defaultConcurrency: clampedIntFromValue(
         json['defaultConcurrency'],
         fallback: 24,
         min: 1,
@@ -2218,13 +2218,4 @@ int? _optionalHttpStatus(Object? value) {
 
 int _nonNegativeInt(Object? value, {int max = 0x1fffffffffffff}) {
   return (optionalIntFromValue(value) ?? 0).clamp(0, max);
-}
-
-int _boundedInt(
-  Object? value, {
-  required int fallback,
-  required int min,
-  required int max,
-}) {
-  return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
 }

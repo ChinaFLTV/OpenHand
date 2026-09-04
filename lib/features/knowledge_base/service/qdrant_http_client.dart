@@ -16,16 +16,6 @@ const int _qdrantMaxRetryCount = 20;
 const int _qdrantMaxRetryBackoffMs = 10000;
 const int _qdrantMaxResponseBytes = 128 * kBytesPerMiB;
 const Duration _qdrantMaxRequestTimeout = Duration(hours: 24);
-const int _httpTooEarlyStatusCode = 425;
-const Set<int> _qdrantRetryableStatusCodes = <int>{
-  HttpStatus.requestTimeout,
-  _httpTooEarlyStatusCode,
-  HttpStatus.tooManyRequests,
-  HttpStatus.internalServerError,
-  HttpStatus.badGateway,
-  HttpStatus.serviceUnavailable,
-  HttpStatus.gatewayTimeout,
-};
 
 final class QdrantHttpResponse {
   const QdrantHttpResponse({required this.statusCode, required this.body});
@@ -47,7 +37,7 @@ final class QdrantHttpException extends HttpException {
 
   final int statusCode;
 
-  bool get isRetryable => _qdrantRetryableStatusCodes.contains(statusCode);
+  bool get isRetryable => isHttpTransientRetryableStatus(statusCode);
 
   static String _failureMessage(int statusCode, String responseBody) {
     final preview = clipTextWithEllipsis(

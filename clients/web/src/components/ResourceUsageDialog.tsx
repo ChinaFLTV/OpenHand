@@ -12,7 +12,7 @@ import {
 import { useAsyncPolling } from '../hooks/useAsyncPolling';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
-import { formatLocalDateTimeSecond } from '../shared/util/date_time';
+import { formatDurationMs, formatLocalDateTimeSecond } from '../shared/util/date_time';
 import { clampNumber } from '../shared/util/number';
 import { describeApiError } from '../utils/api_error';
 import {
@@ -75,23 +75,16 @@ function sortedEntries(level: ResourceUsageLevelSnapshot): Array<[string, number
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
 }
 
-function formatDuration(milliseconds: number): string {
-  if (!Number.isFinite(milliseconds) || milliseconds < 0) return '—';
-  if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
-  if (milliseconds < 60000) return `${(milliseconds / 1000).toFixed(1)} s`;
-  return `${(milliseconds / 60000).toFixed(1)} min`;
-}
-
 function formatAverageDuration(milliseconds: number, sampleCount: number): string {
   if (!Number.isFinite(sampleCount) || sampleCount <= 0) return '—';
-  return formatDuration(milliseconds);
+  return formatDurationMs(milliseconds);
 }
 
 function formatEventDuration(milliseconds: number, source: string): string {
   if ((!Number.isFinite(milliseconds) || milliseconds <= 0) && source.trim().toLowerCase() === 'prompt') {
     return '—';
   }
-  return formatDuration(milliseconds);
+  return formatDurationMs(milliseconds);
 }
 
 type MetricTone = 'neutral' | 'success' | 'error' | 'info' | 'accent';

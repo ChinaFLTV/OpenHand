@@ -15,6 +15,7 @@ import '../shared/ui/motion_durations.dart';
 import '../shared/ui/openhand_scroll_behaviors.dart';
 import '../shared/ui/openhand_snack_bar.dart';
 import '../shared/ui/openhand_tooltip_dismissal.dart';
+import '../shared/util/exponential_backoff.dart';
 import '../shared/util/timer_safety.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
@@ -427,10 +428,11 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
   }
 
   static Duration _navigatorRetryDelay(int attempt) {
-    final shift = attempt > 4 ? 4 : attempt;
-    final microseconds = _navigatorRetryBaseDelay.inMicroseconds * (1 << shift);
-    final delay = Duration(microseconds: microseconds);
-    return delay > _navigatorRetryMaxDelay ? _navigatorRetryMaxDelay : delay;
+    return exponentialBackoffDuration(
+      attempt: attempt + 1,
+      base: _navigatorRetryBaseDelay,
+      cap: _navigatorRetryMaxDelay,
+    );
   }
 
   void _rejectApprovalAfterRetry(

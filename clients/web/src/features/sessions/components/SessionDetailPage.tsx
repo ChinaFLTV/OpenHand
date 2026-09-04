@@ -2266,7 +2266,7 @@ function MachineTerminalHistoryDetailDialog({
       <div class="oh-machine-terminal-replay-meta">
         <span class={`oh-machine-terminal-history-status is-${terminal.status}`}>{terminalStatusLabel(terminal.status)}</span>
         <span>{terminal.columns}x{terminal.rows}</span>
-        <span>{formatDialogDate(terminal.updated_at)}</span>
+        <span>{formatLocalDateTimeSecond(terminal.updated_at)}</span>
       </div>
       <div class="oh-machine-terminal-detail-body">
         <div class="oh-machine-terminal-detail-tabs" role="tablist">
@@ -2332,7 +2332,7 @@ function MachineTerminalCommandHistoryList({ terminal }: { terminal: MachineTerm
             <span>#{index + 1}</span>
             <span>exit {entry.exit_code ?? '-'}</span>
             <span>{entry.duration_ms}ms</span>
-            <span>{formatDialogDate(entry.completed_at)}</span>
+            <span>{formatLocalDateTimeSecond(entry.completed_at)}</span>
             {entry.timed_out ? <span>{t('terminal.detail.command.timeout', '超时')}</span> : null}
           </div>
           <pre class="oh-machine-terminal-command-output">{terminalCommandOutput(entry)}</pre>
@@ -9036,9 +9036,9 @@ function GoalRecordSection({ goal, title, full = false }: { goal: SessionGoalRec
       <p class="oh-goal-objective">{goal.objective}</p>
       <div class="oh-goal-kv-grid">
         <GoalKv label={t('goal.details.evaluator', '评估模型')} value={goal.evaluator_model_label || goal.evaluator_model_id} />
-        <GoalKv label={t('goal.details.createdAt', '创建时间')} value={formatDialogDate(goal.created_at)} />
-        <GoalKv label={t('goal.details.updatedAt', '更新时间')} value={formatDialogDate(goal.updated_at)} />
-        <GoalKv label={t('goal.details.finishedAt', '结束时间')} value={formatDialogDate(goal.completed_at ?? goal.terminated_at)} />
+        <GoalKv label={t('goal.details.createdAt', '创建时间')} value={formatLocalDateTimeSecond(goal.created_at)} />
+        <GoalKv label={t('goal.details.updatedAt', '更新时间')} value={formatLocalDateTimeSecond(goal.updated_at)} />
+        <GoalKv label={t('goal.details.finishedAt', '结束时间')} value={formatLocalDateTimeSecond(goal.completed_at ?? goal.terminated_at)} />
       </div>
       {goal.status_reason ? (
         <p class="oh-goal-reason">{goalStatusReasonLabel(goal.status_reason)}</p>
@@ -9051,7 +9051,7 @@ function GoalRecordSection({ goal, title, full = false }: { goal: SessionGoalRec
               <div key={evaluation.id} class={`oh-goal-evaluation ${evaluation.passed ? 'is-pass' : 'is-miss'}`}>
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <strong>{evaluation.passed ? t('goal.evaluation.pass', '证据通过') : t('goal.evaluation.miss', '继续推进')}</strong>
-                  <span>{formatDialogDate(evaluation.created_at)} · #{evaluation.round_index}</span>
+                  <span>{formatLocalDateTimeSecond(evaluation.created_at)} · #{evaluation.round_index}</span>
                 </div>
                 <p>{summary}</p>
                 {evaluation.evidence?.length ? (
@@ -9933,12 +9933,7 @@ function buildSessionCacheHitDisplay(
   };
 }
 
-function formatDialogDate(value?: string | null): string {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
-}
+
 
 function mcpLazyLoadingCapsule(notices: string[]): SessionToolbarCapsule | null {
   const pattern = /MCP tool lazy loading active.*?(\d+)\s+of\s+(\d+)\s+MCP tool/i;
@@ -10679,13 +10674,13 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           <Section title="会话概览">
             <EntryRow label={metadataFieldLabel('session_id')} value={session.id} />
             <EntryRow label={metadataFieldLabel('template')} value={`${session.template_name || session.template_id} · v${session.template_internal_version ?? '—'}`} />
-            <EntryRow label={metadataFieldLabel('created_at')} value={formatDialogDate(session.created_at)} />
-            <EntryRow label={metadataFieldLabel('updated_at')} value={formatDialogDate(session.updated_at)} />
+            <EntryRow label={metadataFieldLabel('created_at')} value={formatLocalDateTimeSecond(session.created_at)} />
+            <EntryRow label={metadataFieldLabel('updated_at')} value={formatLocalDateTimeSecond(session.updated_at)} />
             <EntryRow label={metadataFieldLabel('last_model')} value={session.last_used_model_label || session.last_used_model_id || '—'} />
             <EntryRow label={metadataFieldLabel('auto_title_acquired')} value={session.auto_title_acquired ? '✓ 已获取' : '✗ 未获取'} />
             <EntryRow label={metadataFieldLabel('auto_title_retry_count')} value={`${session.auto_title_retry_count ?? 0}`} />
             <EntryRow label={metadataFieldLabel('compression_checkpoint')} value={session.latest_compression_checkpoint_message_id || '—'} />
-            <EntryRow label={metadataFieldLabel('latest_compression_at')} value={formatDialogDate(session.latest_compression_at)} />
+            <EntryRow label={metadataFieldLabel('latest_compression_at')} value={formatLocalDateTimeSecond(session.latest_compression_at)} />
           </Section>
           {session.template_id === 'harness_engineering' ? renderHarnessConfig() : null}
           {session.template_id === 'programming_expert' ? renderProgrammingConfig() : null}
@@ -10875,7 +10870,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                       计划 #{planHistory.length - index} · {plan.status || '—'}
                     </div>
                     <div class="mt-1 text-xs oh-text-muted">
-                      {formatDialogDate(plan.created_at)} → {formatDialogDate(plan.updated_at)}
+                      {formatLocalDateTimeSecond(plan.created_at)} → {formatLocalDateTimeSecond(plan.updated_at)}
                     </div>
                     {plan.plan ? <div class="mt-2 text-sm whitespace-pre-wrap">{plan.plan}</div> : null}
                     {plan.steps?.length ? (
@@ -10906,7 +10901,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                   }}
                 >
                   <div class="text-sm font-bold oh-text-error">
-                    {error.stage || 'error'} · {formatDialogDate(error.created_at)}
+                    {error.stage || 'error'} · {formatLocalDateTimeSecond(error.created_at)}
                   </div>
                   <div class="mt-2 text-sm whitespace-pre-wrap">{error.message}</div>
                   {error.detail ? <pre class="mt-2 text-xs whitespace-pre-wrap overflow-auto">{error.detail}</pre> : null}

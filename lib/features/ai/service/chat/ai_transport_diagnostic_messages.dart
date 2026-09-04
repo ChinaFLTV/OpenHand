@@ -6,20 +6,15 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 
 class AiTransportDiagnosticMessages {
   AiTransportDiagnosticMessages._();
 
-  static const Set<int> defaultRetryableStatusCodes = <int>{
-    408,
-    409,
-    425,
-    429,
-    500,
-    502,
-    503,
-    504,
+  static const Set<int> defaultRetryableStatusCodes = {
+    ...kHttpTransientRetryableStatusCodes,
+    kHttpConflictStatusCode,
   };
 
   static const Set<String> _retryableTransportMessageMarkers = <String>{

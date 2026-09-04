@@ -12,6 +12,7 @@ import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/exponential_backoff.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
@@ -69,9 +70,8 @@ const int _pollMinDelayMs = 250;
 const int _pollJitterWindowMs = 400;
 const int _pollJitterHalfWindowMs = _pollJitterWindowMs ~/ 2;
 const int _transientPollMaxFailures = 4;
-const int _transientPollBackoffBaseMs = 1500;
-const int _transientPollBackoffCapMs = 8000;
-const int _transientPollBackoffMaxShift = 3;
+const Duration _transientPollBackoffBase = Duration(milliseconds: 1500);
+const Duration _transientPollBackoffCap = Duration(milliseconds: 8000);
 const int _miniMaxFileRetrieveAttempts = 2;
 const int _miniMaxFileRetrieveRetryBaseMs = 750;
 const int _xaiVideoMinDurationSeconds = 1;
@@ -2321,7 +2321,7 @@ class AiImageGenerationService {
         );
         lastBody = response.body;
         if (isHttpFailureStatus(response.statusCode)) {
-          if (_isTransientPollStatus(response.statusCode) &&
+          if (isHttpTransientRetryableStatus(response.statusCode) &&
               transientFailures < _transientPollMaxFailures) {
             transientFailures += 1;
             final retryAfter = _parseRetryAfter(
@@ -2559,7 +2559,7 @@ class AiImageGenerationService {
           cancelSignal: cancelSignal,
         );
         if (isHttpSuccessStatus(response.statusCode)) break;
-        if (!_isTransientPollStatus(response.statusCode) ||
+        if (!isHttpTransientRetryableStatus(response.statusCode) ||
             i == _miniMaxFileRetrieveAttempts - 1) {
           return null;
         }
@@ -2606,20 +2606,6 @@ class AiImageGenerationService {
     return null;
   }
 
-  /// 异步媒体任务轮询时允许短暂退避重试的状态码。
-  static const Set<int> _transientPollStatuses = <int>{
-    408,
-    425,
-    429,
-    500,
-    502,
-    503,
-    504,
-  };
-
-  bool _isTransientPollStatus(int status) =>
-      _transientPollStatuses.contains(status);
-
   static final math.Random _pollJitter = math.Random();
 
   Duration _pollDelayForAttempt(int attempt) {
@@ -2634,17 +2620,12 @@ class AiImageGenerationService {
   }
 
   Duration _transientPollBackoffDelay(int transientFailures) {
-    final shift = math.min(
-      transientFailures - 1,
-      _transientPollBackoffMaxShift,
-    );
-    final backoffMs = math.min(
-      _transientPollBackoffCapMs,
-      _transientPollBackoffBaseMs * (1 << shift),
-    );
-    return Duration(
-      milliseconds: backoffMs + _pollJitter.nextInt(_pollJitterWindowMs),
-    );
+    return exponentialBackoffDuration(
+          attempt: transientFailures,
+          base: _transientPollBackoffBase,
+          cap: _transientPollBackoffCap,
+        ) +
+        Duration(milliseconds: _pollJitter.nextInt(_pollJitterWindowMs));
   }
 
   Duration _miniMaxFileRetrieveBackoffDelay() {

@@ -31,11 +31,26 @@ class AiModelHealthSettings {
     final json = stringKeyedMapFromValue(raw);
     return AiModelHealthSettings(
       enabled: optionalBoolFromValue(json['enabled']) ?? false,
-      intervalMinutes: _clampInt(json['interval_minutes'], 30, 1, 1440),
-      concurrency: _clampInt(json['concurrency'], 8, 1, 32),
+      intervalMinutes: clampedIntFromValue(
+        json['interval_minutes'],
+        fallback: 30,
+        min: 1,
+        max: 1440,
+      ),
+      concurrency: clampedIntFromValue(
+        json['concurrency'],
+        fallback: 8,
+        min: 1,
+        max: 32,
+      ),
       useSystemProxy: optionalBoolFromValue(json['use_system_proxy']) ?? false,
       requestMode: AiModelHealthRequestMode.fromStorage(json['request_mode']),
-      retentionDays: _clampInt(json['retention_days'], 90, 1, 3650),
+      retentionDays: clampedIntFromValue(
+        json['retention_days'],
+        fallback: 90,
+        min: 1,
+        max: 3650,
+      ),
     );
   }
 
@@ -55,11 +70,26 @@ class AiModelHealthSettings {
     int? retentionDays,
   }) => AiModelHealthSettings(
     enabled: enabled ?? this.enabled,
-    intervalMinutes: _clampInt(intervalMinutes, this.intervalMinutes, 1, 1440),
-    concurrency: _clampInt(concurrency, this.concurrency, 1, 32),
+    intervalMinutes: clampedIntFromValue(
+      intervalMinutes,
+      fallback: this.intervalMinutes,
+      min: 1,
+      max: 1440,
+    ),
+    concurrency: clampedIntFromValue(
+      concurrency,
+      fallback: this.concurrency,
+      min: 1,
+      max: 32,
+    ),
     useSystemProxy: useSystemProxy ?? this.useSystemProxy,
     requestMode: requestMode ?? this.requestMode,
-    retentionDays: _clampInt(retentionDays, this.retentionDays, 1, 3650),
+    retentionDays: clampedIntFromValue(
+      retentionDays,
+      fallback: this.retentionDays,
+      min: 1,
+      max: 3650,
+    ),
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -124,8 +154,18 @@ class AiModelHealthRecord {
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       success: optionalBoolFromValue(json['success']) ?? false,
       status: stringFromValue(json['status']),
-      latencyMs: _clampInt(json['latency_ms'], 0, 0, 1 << 31),
-      durationMs: _clampInt(json['duration_ms'], 0, 0, 1 << 31),
+      latencyMs: clampedIntFromValue(
+        json['latency_ms'],
+        fallback: 0,
+        min: 0,
+        max: 1 << 31,
+      ),
+      durationMs: clampedIntFromValue(
+        json['duration_ms'],
+        fallback: 0,
+        min: 0,
+        max: 1 << 31,
+      ),
       requestMode: AiModelHealthRequestMode.fromStorage(json['request_mode']),
       responseCode: optionalIntFromValue(json['response_code']),
       host: stringFromValue(json['host']),
@@ -171,9 +211,4 @@ class AiModelHealthRecord {
     'error_message': errorMessage,
     'metadata': metadata,
   };
-}
-
-int _clampInt(Object? raw, int fallback, int min, int max) {
-  final value = optionalIntFromValue(raw) ?? fallback;
-  return value.clamp(min, max).toInt();
 }

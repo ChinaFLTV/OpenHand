@@ -4122,13 +4122,9 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
     final rawSource = localOverride != null
         ? Uri.file(localOverride).toString()
         : widget.source.uri.toString();
-    final source = const HtmlEscape(
-      HtmlEscapeMode.attribute,
-    ).convert(rawSource);
+    final source = escapeXmlAttribute(rawSource);
     final mimeType = _mimeTypeForGeneratedMedia(widget.source);
-    final escapedMime = const HtmlEscape(
-      HtmlEscapeMode.attribute,
-    ).convert(mimeType);
+    final escapedMime = escapeXmlAttribute(mimeType);
     final durationMs = _playerMotionSettings.duration.inMilliseconds;
     final motionCurve = openHandDialogAnimationCurveCss(
       _playerMotionSettings.curve,
@@ -7443,10 +7439,8 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
     final raw = localOverride != null
         ? Uri.file(localOverride).toString()
         : widget.source.uri.toString();
-    final src = const HtmlEscape(HtmlEscapeMode.attribute).convert(raw);
-    final mime = const HtmlEscape(
-      HtmlEscapeMode.attribute,
-    ).convert(_mimeTypeForGeneratedMedia(widget.source));
+    final src = escapeXmlAttribute(raw);
+    final mime = escapeXmlAttribute(_mimeTypeForGeneratedMedia(widget.source));
     final initial = widget.initialTime > 0
         ? widget.initialTime.toStringAsFixed(3)
         : '0';

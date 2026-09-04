@@ -8,6 +8,7 @@ import {
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { useTransientFlag } from '../hooks/useTransientFlag';
 import { t, tFmt } from '../i18n';
+import { formatDurationMs } from '../shared/util/date_time';
 import { ignoreError } from '../shared/util/errors';
 import { parseJsonSafely } from '../shared/util/value';
 import { copyTextToClipboard } from '../utils/clipboard';
@@ -541,13 +542,6 @@ function projectTimeline(records: readonly TrajectoryRecord[], actualDuration: b
     start: span.start / domainEnd,
     end: span.end / domainEnd,
   }));
-}
-
-function formatDuration(milliseconds: number | null): string {
-  if (milliseconds == null) return '—';
-  if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
-  const seconds = milliseconds / 1000;
-  return `${seconds.toFixed(seconds < 10 ? 2 : 1)} s`;
 }
 
 function formatTime(timestamp: number | null): string {
@@ -1291,10 +1285,10 @@ function TimingDetail({ record, metadata }: { record: TrajectoryRecord; metadata
   return <>
     <DetailRows rows={[
     [t('trajectory.timing.started', 'Started'), formatTime(startedAt)],
-    [t('trajectory.timing.total', 'Total duration'), formatDuration(totalDuration)],
+    [t('trajectory.timing.total', 'Total duration'), formatDurationMs(totalDuration)],
     [t('trajectory.timing.firstToken', 'First response'), firstToken == null ? notRecorded : formatTime(firstToken)],
-    ['TTFT', ttft == null ? t('trajectory.notRecorded', '未记录') : formatDuration(ttft)],
-    [t('trajectory.timing.generation', 'Generation'), generation == null ? t('trajectory.notRecorded', '未记录') : formatDuration(generation)],
+    ['TTFT', ttft == null ? t('trajectory.notRecorded', '未记录') : formatDurationMs(ttft)],
+    [t('trajectory.timing.generation', 'Generation'), generation == null ? t('trajectory.notRecorded', '未记录') : formatDurationMs(generation)],
     [t('trajectory.timing.throughput', 'Throughput'), tokensPerSecond == null ? notRecorded : `${tokensPerSecond.toFixed(1)} tok/s`],
     ...(charactersPerSecond == null ? [] : [[t('trajectory.timing.characterThroughput', 'Character throughput'), `${charactersPerSecond.toFixed(1)} char/s`] as [string, string]]),
     ...(outputCharacters == null ? [] : [[t('trajectory.timing.outputCharacters', 'Output characters'), String(Math.round(outputCharacters))] as [string, string]]),
@@ -1359,7 +1353,7 @@ function DetailBody({
         ...(record.toolName ? [[t('trajectory.tool', 'Tool'), record.toolName] as [string, string]] : []),
         ...(record.callId ? [[t('trajectory.callId', '调用 ID'), record.callId] as [string, string]] : []),
         ...(record.kind === 'assistant' ? [[t('trajectory.tokens', 'Tokens'), record.usage?.completionTokens == null ? '—' : `${record.usage.completionTokens} tok`] as [string, string]] : []),
-        [t('trajectory.duration', 'Duration'), formatDuration(record.durationMs)],
+        [t('trajectory.duration', 'Duration'), formatDurationMs(record.durationMs)],
       ]} />
       {rawRecordText(record) ? (
         <section>
@@ -1669,7 +1663,7 @@ export function TrajectoryDialog({
             </i>
           ) : null}
         </span>
-        <span class="oh-trajectory-duration-cell">{formatDuration(record.durationMs)}</span>
+        <span class="oh-trajectory-duration-cell">{formatDurationMs(record.durationMs)}</span>
       </div>,
     );
     if (turnCollapsed) {
@@ -1684,7 +1678,7 @@ export function TrajectoryDialog({
         >
           <span>{tFmt('trajectory.turn', { turn: record.turn }, `轮次 ${record.turn}`)}</span>
           <strong>{hiddenRecords.length} {t('trajectory.records', '条记录')}</strong>
-          <small>{formatDuration(duration || null)}</small>
+          <small>{formatDurationMs(duration || null)}</small>
         </button>,
       );
     }

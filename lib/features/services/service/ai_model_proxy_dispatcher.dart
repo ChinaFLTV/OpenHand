@@ -6,7 +6,11 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/net/tcp_port_utils.dart';
+import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/exponential_backoff.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
@@ -18,7 +22,8 @@ const String _kAiModelProxyUserAgent = 'OpenHand-AI-Model-Proxy/1';
 const Duration _kAiModelProxyConnectionTimeout = Duration(seconds: 15);
 const Duration _kAiModelProxyFailureCooldown = Duration(minutes: 2);
 const int _kAiModelProxyFailureCooldownLimit = 256;
-const int _kAiModelProxyRetryDelayMs = 150;
+const Duration _kAiModelProxyRetryDelayBase = Duration(milliseconds: 150);
+const Duration _kAiModelProxyRetryDelayCap = Duration(seconds: 2);
 const int _kAiModelProxyDirectFallbackAttempts = 2;
 const String _kProxyRouteDirect = 'direct';
 const String _kProxyRouteSystem = 'system';
@@ -760,8 +765,8 @@ class AiModelProxyDispatcher {
     );
     if (extras.isEmpty && forwardedHeaders.isEmpty) return model;
     final operationExtras = <String, Object?>{...model.operationExtras};
-    final global = _map(operationExtras['global']);
-    final existingBody = _map(global['body']);
+    final global = stringKeyedMapFromValue(operationExtras['global']);
+    final existingBody = stringKeyedMapFromValue(global['body']);
     global['body'] = <String, Object?>{...existingBody, ...extras};
     if (forwardedHeaders.isNotEmpty) {
       global['headers'] = <String, String>{
@@ -814,7 +819,9 @@ class AiModelProxyDispatcher {
     final extras = <String, Object?>{};
     final style = controller.settings.apiStyle;
     if (style == AiModelProxyApiStyle.gemini) {
-      final generationConfig = _map(request['generationConfig']);
+      final generationConfig = stringKeyedMapFromValue(
+        request['generationConfig'],
+      );
       if (generationConfig.isNotEmpty) {
         extras['generationConfig'] = generationConfig;
       }
@@ -910,7 +917,9 @@ class AiModelProxyDispatcher {
         }
       case AiApiDialect.geminiNative:
         extras.remove('tool_choice');
-        final generationConfig = _map(extras['generationConfig']);
+        final generationConfig = stringKeyedMapFromValue(
+          extras['generationConfig'],
+        );
         final temperature = request['temperature'];
         final topP = request['top_p'];
         final maxTokens =
@@ -962,7 +971,9 @@ class AiModelProxyDispatcher {
   static String? _choiceType(Object? value) {
     if (value is String) return value.trim().toLowerCase();
     if (value is Map) {
-      return '${_map(value)['type'] ?? ''}'.trim().toLowerCase();
+      return '${stringKeyedMapFromValue(value)['type'] ?? ''}'
+          .trim()
+          .toLowerCase();
     }
     return null;
   }
@@ -983,7 +994,7 @@ class AiModelProxyDispatcher {
       'auto' => const <String, Object?>{'type': 'auto'},
       'required' || 'any' => const <String, Object?>{'type': 'any'},
       'tool' => () {
-        final map = _map(value);
+        final map = stringKeyedMapFromValue(value);
         final name = map['name'];
         return name is String && name.trim().isNotEmpty
             ? <String, Object?>{'type': 'tool', 'name': name.trim()}
@@ -1015,7 +1026,7 @@ class AiModelProxyDispatcher {
           !names.add(name)) {
         return;
       }
-      final parameters = _map(
+      final parameters = stringKeyedMapFromValue(
         function['parameters'] ??
             function['input_schema'] ??
             function['parametersJson'],
@@ -1082,13 +1093,13 @@ class AiModelProxyDispatcher {
 
   bool _isOpenAiToolList(List<Map> tools) {
     return tools.every((raw) {
-      final map = _map(raw);
+      final map = stringKeyedMapFromValue(raw);
       final type = map['type'];
       if (type is! String || type.trim().isEmpty || type.length > 64) {
         return false;
       }
       if (type == 'function') {
-        final name = _map(map['function'])['name'];
+        final name = stringKeyedMapFromValue(map['function'])['name'];
         return name is String &&
             name.trim().isNotEmpty &&
             name.trim().length <= _maxProxyToolNameLength;
@@ -1099,25 +1110,20 @@ class AiModelProxyDispatcher {
 
   bool _isClaudeToolList(List<Map> tools) {
     return tools.every((raw) {
-      final map = _map(raw);
+      final map = stringKeyedMapFromValue(raw);
       final name = map['name'];
       return name is String &&
           name.trim().isNotEmpty &&
           name.trim().length <= _maxProxyToolNameLength &&
-          _map(map['input_schema']).isNotEmpty;
+          stringKeyedMapFromValue(map['input_schema']).isNotEmpty;
     });
   }
 
   bool _isGeminiToolList(List<Map> tools) {
     return tools.every((raw) {
-      final declarations = _map(raw)['functionDeclarations'];
+      final declarations = stringKeyedMapFromValue(raw)['functionDeclarations'];
       return declarations is List && declarations.isNotEmpty;
     });
-  }
-
-  static Map<String, Object?> _map(Object? value) {
-    if (value is Map) return Map<String, Object?>.from(value);
-    return <String, Object?>{};
   }
 
   static int? _backendErrorStatusCode(Object? error) {
@@ -1167,16 +1173,19 @@ class AiModelProxyDispatcher {
   }
 
   static bool _isRetryableHttpStatus(int statusCode) =>
-      statusCode == HttpStatus.requestTimeout ||
-      statusCode == HttpStatus.conflict ||
-      statusCode == 425 ||
-      statusCode == HttpStatus.tooManyRequests ||
-      statusCode >= 500;
+      isHttpTransientRetryableStatus(statusCode) ||
+      statusCode == kHttpConflictStatusCode ||
+      isHttpServerErrorStatus(statusCode);
 
-  static Future<void> _waitBeforeBackendRetry(int attempt) =>
-      Future<void>.delayed(
-        Duration(milliseconds: _kAiModelProxyRetryDelayMs * (attempt + 1)),
-      );
+  static Future<void> _waitBeforeBackendRetry(int attempt) async {
+    await delayUntilCancelled(
+      exponentialBackoffDuration(
+        attempt: attempt + 1,
+        base: _kAiModelProxyRetryDelayBase,
+        cap: _kAiModelProxyRetryDelayCap,
+      ),
+    );
+  }
 
   static String _backendErrorMessage(Object? error) {
     if (error is AiChatException) return error.message;

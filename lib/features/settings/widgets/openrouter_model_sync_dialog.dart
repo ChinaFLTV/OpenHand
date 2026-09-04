@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 
@@ -205,7 +206,7 @@ class _OpenRouterModelSyncDialogState
       '跳过': '${_progress.skipped}',
       '失败': '${_progress.failed}',
       '速度': '${_progress.speed.toStringAsFixed(1)} 条/秒',
-      '耗时': _formatDuration(_progress.elapsed),
+      '耗时': formatCompactDuration(_progress.elapsed),
     };
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -260,11 +261,5 @@ class _OpenRouterModelSyncDialogState
         );
       },
     );
-  }
-
-  static String _formatDuration(Duration duration) {
-    final seconds = duration.inSeconds;
-    if (seconds < 60) return '${seconds}s';
-    return '${seconds ~/ 60}m ${seconds % 60}s';
   }
 }

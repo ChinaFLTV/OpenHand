@@ -38,3 +38,18 @@ int exponentialBackoffSeconds({
     capMs: capSeconds,
   );
 }
+
+/// Duration 糖：和 [exponentialBackoffMs] 同一公式。
+Duration exponentialBackoffDuration({
+  required int attempt,
+  required Duration base,
+  required Duration cap,
+}) {
+  return Duration(
+    milliseconds: exponentialBackoffMs(
+      attempt: attempt,
+      baseMs: base.inMilliseconds,
+      capMs: cap.inMilliseconds,
+    ),
+  );
+}

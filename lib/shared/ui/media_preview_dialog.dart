@@ -27,6 +27,7 @@ import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
 import '../util/localized_text.dart';
 import '../util/user_failure_message.dart';
+import '../util/xml_escape.dart';
 import 'animated_dialog.dart';
 import 'dialog_motion_css.dart';
 import 'interactive_image_preview.dart';
@@ -1262,7 +1263,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         .clamp(0, DialogAnimationSettings.maxDurationMs)
         .toInt();
     final safeCurve = openHandCssTimingFunctionOrDefault(widget.motionCurveCss);
-    final escapedSrc = const HtmlEscape(HtmlEscapeMode.attribute).convert(src);
+    final escapedSrc = escapeXmlAttribute(src);
     return '''
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>

@@ -7,6 +7,7 @@ import '../../app/state/settings_controller.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/hex_encoding.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
@@ -658,11 +659,8 @@ class MessageGatewayController extends ManagedChangeNotifier {
     super.dispose();
   }
 
-  String _hex(Color color) {
-    final value = color.toARGB32();
-    final rgb = value & 0x00FFFFFF;
-    return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
-  }
+  String _hex(Color color) =>
+      '#${rgbHexFromArgb32(color.toARGB32()).toUpperCase()}';
 }
 
 List<String> _cleanStringValues(Iterable<Object?> values) {

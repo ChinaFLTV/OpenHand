@@ -11,6 +11,7 @@ import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { rollingHash31Base36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
+import { formatClockDuration } from '../shared/util/date_time';
 import { clampNumber, finiteNumberFromText } from '../shared/util/number';
 import { basenameFromPath } from '../shared/util/path';
 import { strictStringFromUnknown } from '../shared/util/value';
@@ -957,18 +958,6 @@ function attachmentLabel(item: MediaItem): string {
   return `${t('message.context.kind.attachment', '附件')} · ${mediaKindLabel(item.kind)}`;
 }
 
-function formatAudioTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
-  const total = Math.floor(seconds);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const rest = total % 60;
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return hours > 0
-    ? `${hours}:${pad(minutes)}:${pad(rest)}`
-    : `${pad(minutes)}:${pad(rest)}`;
-}
-
 function audioTimeFromElement(audio: HTMLAudioElement): number {
   return Number.isFinite(audio.currentTime) && audio.currentTime >= 0
     ? audio.currentTime
@@ -1177,7 +1166,7 @@ function MessageAudioResultCard({ item, url, onPreview }: MessageAudioResultCard
           >
             <AudioControlIcon name="forward" />
           </button>
-          <span class="oh-audio-time">{formatAudioTime(position)}</span>
+          <span class="oh-audio-time">{formatClockDuration(position)}</span>
           <input
             type="range"
             min="0"
@@ -1190,7 +1179,7 @@ function MessageAudioResultCard({ item, url, onPreview }: MessageAudioResultCard
             style={progressStyle}
             aria-label={t('detail.media.audioProgress', '音频进度')}
           />
-          <span class="oh-audio-time">{formatAudioTime(duration)}</span>
+          <span class="oh-audio-time">{formatClockDuration(duration)}</span>
         </div>
       </div>
     </div>

@@ -2466,7 +2466,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       listenHost: _hostController.text.trim().isEmpty
           ? '0.0.0.0'
           : _hostController.text.trim(),
-      listenPort: _boundedInt(
+      listenPort: clampedIntFromText(
         _portController.text,
         fallback: kWebGatewayDefaultListenPort,
         min: kWebGatewayMinListenPort,
@@ -2480,7 +2480,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       telemetryEnabled: _telemetryEnabled,
       loggingEnabled: _loggingEnabled,
       opsEnabled: _opsEnabled,
-      maxConcurrentRequests: _boundedInt(
+      maxConcurrentRequests: clampedIntFromText(
         _maxConcurrentController.text,
         fallback: kWebGatewayDefaultMaxConcurrentRequests,
         min: kWebGatewayMinConcurrentRequests,
@@ -2503,13 +2503,13 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       translationEnabled: _translationEnabled,
       feedbackEnabled: _feedbackEnabled,
       regenerationEnabled: _regenerationEnabled,
-      singleMessageTokenLimit: _boundedInt(
+      singleMessageTokenLimit: clampedIntFromText(
         _singleMessageController.text,
         fallback: kWebGatewayDefaultSingleMessageTokenLimit,
         min: kWebGatewayMinSingleMessageTokenLimit,
         max: kWebGatewayMaxSingleMessageTokenLimit,
       ),
-      maxMessagesPerSession: _boundedInt(
+      maxMessagesPerSession: clampedIntFromText(
         _maxMessagesController.text,
         fallback: kWebGatewayDefaultMaxMessagesPerSession,
         min: kWebGatewayMinMessagesPerSession,
@@ -2527,7 +2527,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
           webGatewayNormalizeWorkspaceFileExtensions(
             _workspaceFileExtensionsController.text,
           ),
-      uploadCacheRetentionDays: _boundedInt(
+      uploadCacheRetentionDays: clampedIntFromText(
         _uploadCacheRetentionDaysController.text,
         fallback: kWebGatewayDefaultUploadCacheRetentionDays,
         min: kWebGatewayMinUploadCacheRetentionDays,
@@ -2547,13 +2547,13 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         method: _healthMethodController.text.trim().isEmpty
             ? 'GET'
             : _healthMethodController.text.trim().toUpperCase(),
-        timeoutMs: _boundedInt(
+        timeoutMs: clampedIntFromText(
           _healthTimeoutController.text,
           fallback: kWebGatewayDefaultHealthTimeoutMs,
           min: kWebGatewayMinHealthTimeoutMs,
           max: kWebGatewayMaxHealthTimeoutMs,
         ),
-        expectedStatusCode: _boundedInt(
+        expectedStatusCode: clampedIntFromText(
           _healthStatusController.text,
           fallback: kWebGatewayDefaultHealthStatusCode,
           min: kWebGatewayMinHealthStatusCode,
@@ -2570,13 +2570,13 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
           minBytes: kWebGatewayMinLogFileMaxBytes,
           maxBytes: kWebGatewayMaxLogFileMaxBytes,
         ),
-        rotationDays: _boundedInt(
+        rotationDays: clampedIntFromText(
           _logRotationDaysController.text,
           fallback: kWebGatewayDefaultLogRotationDays,
           min: kWebGatewayMinLogRotationDays,
           max: kWebGatewayMaxLogRotationDays,
         ),
-        maxFiles: _boundedInt(
+        maxFiles: clampedIntFromText(
           _logMaxFilesController.text,
           fallback: kWebGatewayDefaultLogMaxFiles,
           min: kWebGatewayMinLogMaxFiles,
@@ -11326,15 +11326,6 @@ Map<String, String> _parseQueryParameters(String raw) {
   return result;
 }
 
-int _boundedInt(
-  String value, {
-  required int fallback,
-  required int min,
-  required int max,
-}) {
-  return clampedIntFromText(value, fallback: fallback, min: min, max: max);
-}
-
 int _boundedMegabytesAsBytes(
   String value, {
   required int fallbackBytes,
@@ -11350,7 +11341,7 @@ int _boundedMegabytesAsBytes(
       .round()
       .clamp(minMegabytes, maxMegabytes)
       .toInt();
-  return _boundedInt(
+  return clampedIntFromText(
         value,
         fallback: fallbackMegabytes,
         min: minMegabytes,

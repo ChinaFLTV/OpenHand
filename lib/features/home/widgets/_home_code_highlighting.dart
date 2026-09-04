@@ -3534,16 +3534,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   }
 
   ({String bg, String fg, String border}) _computeMermaidThemeColors() {
-    String argbToCss(Color c) => c.toARGB32().toRadixString(16).padLeft(8, '0');
-    String argbToRgbHex(Color c) {
-      final hex = argbToCss(c);
-      return hex.length == 8 ? hex.substring(2) : hex;
-    }
-
+    String rgbHex(Color color) => rgbHexFromArgb32(color.toARGB32());
     return (
-      bg: argbToRgbHex(widget.palette.containerColor),
-      fg: argbToRgbHex(widget.palette.actionTextColor),
-      border: argbToRgbHex(widget.palette.borderColor),
+      bg: rgbHex(widget.palette.containerColor),
+      fg: rgbHex(widget.palette.actionTextColor),
+      border: rgbHex(widget.palette.borderColor),
     );
   }
 
@@ -3702,17 +3697,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(rawSource);
     final isDark = widget.palette.headerColor.computeLuminance() < 0.4;
     final palette = widget.palette;
-    // 关键：toARGB32() 返回 0xAARRGGBB，CSS 8位 hex 是 #RRGGBBAA，
-    // 直接 toRadixString(16) 会把 alpha(ff) 当 red 用 → #FF1E1E24
-    // 在浏览器里变成 R=FF 亮红，导致整个 Mermaid 视图背景"深红色"。
-    // 只取后 6 位 RRGGBB（颜色必定不透明，alpha 直接丢弃）。
-    String cssHex(Color c) {
-      final hex = c.toARGB32().toRadixString(16).padLeft(8, '0');
-      return hex.length >= 7 ? hex.substring(hex.length - 6) : hex;
-    }
-
-    final bgHex = cssHex(palette.bodyColor);
-    final fgHex = cssHex(palette.actionTextColor);
+    final bgHex = rgbHexFromArgb32(palette.bodyColor.toARGB32());
+    final fgHex = rgbHexFromArgb32(palette.actionTextColor.toARGB32());
     // 把渲染 IIFE 内联到模板末尾，与 mermaid.js 同一个 <script> 标签。
     final renderJs = _buildRenderJs(bgRgb, fgRgb, borderRgb);
     return '''

@@ -8,7 +8,9 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../app/theme/openhand_theme.dart';
 import '../../../app/theme/openhand_theme_preset.dart';
 import '../../../shared/ui/dialog_motion_css.dart';
+import '../../../shared/util/hex_encoding.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/xml_escape.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
 
@@ -2629,10 +2631,7 @@ String _percent(double rate) => '${(rate * 100).toStringAsFixed(1)}%';
 
 String _displayDay(DateTime value) => aiModelProxyDayKey(value);
 
-String _cssHex(Color color) {
-  final argb = color.toARGB32();
-  return '#${(argb & 0x00FFFFFF).toRadixString(16).padLeft(6, '0')}';
-}
+String _cssHex(Color color) => '#${rgbHexFromArgb32(color.toARGB32())}';
 
 String _healthCss(Color color) => _cssHex(color);
 
@@ -2640,11 +2639,4 @@ String _jsonForScript(Object value) {
   return jsonEncode(value).replaceAll('<', r'\u003c');
 }
 
-String _htmlEscape(String value) {
-  return value
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
-}
+String _htmlEscape(String value) => escapeXmlAttribute(value);

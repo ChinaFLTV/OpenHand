@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,6 +12,7 @@ import '../util/bounded_base64.dart';
 import '../util/bounded_file_io.dart';
 import '../util/byte_size_format.dart';
 import '../util/timer_safety.dart';
+import '../util/xml_escape.dart';
 
 class OpenHandVideoThumbnailManager {
   static const int _failedCacheLimit = 512;
@@ -311,12 +311,8 @@ class _OpenHandVideoThumbnailCaptureState
   }
 
   String _buildCaptureHtml() {
-    final source = const HtmlEscape(
-      HtmlEscapeMode.attribute,
-    ).convert(Uri.file(widget.videoPath).toString());
-    final mimeType = const HtmlEscape(
-      HtmlEscapeMode.attribute,
-    ).convert(widget.mimeType);
+    final source = escapeXmlAttribute(Uri.file(widget.videoPath).toString());
+    final mimeType = escapeXmlAttribute(widget.mimeType);
     return '''
 <!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden}video{position:fixed;left:0;top:0;width:32px;height:32px;opacity:0.01;pointer-events:none}canvas{display:none}</style></head><body>
 <video id="v" muted autoplay playsinline preload="auto" disableRemotePlayback><source src="$source" type="$mimeType"></video>

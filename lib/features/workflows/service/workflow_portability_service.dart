@@ -9,6 +9,8 @@ import 'package:image/image.dart' as image;
 import 'package:yaml/yaml.dart';
 
 import '../../../app/theme/openhand_theme_preset.dart';
+import '../../../shared/util/hex_encoding.dart';
+import '../../../shared/util/xml_escape.dart';
 import '../model/workflow_definition.dart';
 import '../workflow_node_presentation.dart';
 import 'workflow_auto_layout.dart';
@@ -1182,13 +1184,10 @@ List<String> _annotationSvgLines(WorkflowAnnotation annotation) {
   return visible;
 }
 
-String _escapeXml(String value) => value
-    .replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
+final RegExp _xmlIllegalControlChars = RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]');
+
+String _escapeXml(String value) =>
+    escapeXmlAttribute(value.replaceAll(_xmlIllegalControlChars, ''));
 
 String _colorHex(Color color) =>
-    '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+    '#${rgbHexFromArgb32(color.toARGB32()).toUpperCase()}';
