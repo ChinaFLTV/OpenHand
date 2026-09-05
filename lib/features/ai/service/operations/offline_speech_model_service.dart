@@ -187,7 +187,18 @@ class OfflineSpeechModelService extends ChangeNotifier {
   static const Duration _runtimeInstallTimeout = Duration(minutes: 45);
   static const Duration _downloadNotifyInterval = Duration(milliseconds: 80);
   static const Duration _downloadIdleTimeout = Duration(seconds: 60);
+  static const int _runtimeNetworkAttempts = 2;
   static const int _runtimeErrorCharacters = 8 * 1024;
+  static const List<String> _proxyEnvironmentKeys = <String>[
+    'HTTP_PROXY',
+    'HTTPS_PROXY',
+    'ALL_PROXY',
+    'http_proxy',
+    'https_proxy',
+    'all_proxy',
+    'NO_PROXY',
+    'no_proxy',
+  ];
   static const Map<OfflineSpeechRuntime, _OfflineSpeechRuntimeSpec>
   _runtimeSpecs = <OfflineSpeechRuntime, _OfflineSpeechRuntimeSpec>{
     OfflineSpeechRuntime.funAsr: _OfflineSpeechRuntimeSpec(
@@ -477,6 +488,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     Map<String, Object?> configuration,
   ) async {
     if (_downloadCancellations.containsKey(model.id)) return;
+    await SystemProxyResolver.instance.initialize();
     await _inspectHardware();
     final availability = availabilityFor(model, configuration);
     if (!availability.available) throw StateError(availability.reason);
@@ -1213,43 +1225,59 @@ class OfflineSpeechModelService extends ChangeNotifier {
     Duration timeout = _runtimeInstallTimeout,
   }) async {
     cancellation.throwIfCancelled();
-    _setState(
-      model.id,
-      OfflineSpeechModelState(
-        lifecycle: OfflineSpeechLifecycle.preparing,
-        message: message,
-      ),
-    );
-    final result = await runTrackedProcessWithLineLogging(
-      executable,
-      arguments,
-      timeout: timeout,
-      processStartTimeout: const Duration(seconds: 20),
-      tag: 'offline_speech.runtime.${model.runtime.name}',
-      workingDirectory: workingDirectory,
-      environment: environment,
-      cancelSignal: cancellation.cancelSignal,
-      maxCapturedLinesPerStream: 80,
-      maxCapturedCharactersPerStream: 32 * 1024,
-    );
-    if (result.cancelled || cancellation.cancelled) {
-      throw const OfflineSpeechDownloadCancelled();
+    var effectiveEnvironment = environment;
+    for (var attempt = 0; attempt < _runtimeNetworkAttempts; attempt++) {
+      _setState(
+        model.id,
+        OfflineSpeechModelState(
+          lifecycle: OfflineSpeechLifecycle.preparing,
+          message: attempt == 0 ? message : '网络连接不稳定，正在按当前系统代理重试…',
+        ),
+      );
+      final result = await runTrackedProcessWithLineLogging(
+        executable,
+        arguments,
+        timeout: timeout,
+        processStartTimeout: const Duration(seconds: 20),
+        tag: 'offline_speech.runtime.${model.runtime.name}',
+        workingDirectory: workingDirectory,
+        environment: effectiveEnvironment,
+        cancelSignal: cancellation.cancelSignal,
+        maxCapturedLinesPerStream: 80,
+        maxCapturedCharactersPerStream: 32 * 1024,
+      );
+      if (result.cancelled || cancellation.cancelled) {
+        throw const OfflineSpeechDownloadCancelled();
+      }
+      if (result.timedOut) {
+        throw StateError('$message超时，请检查网络后重试。');
+      }
+      if (result.exitCode == 0) return;
+      final details = _processFailureTail(
+        <String>[
+          result.stderr,
+          result.stdout,
+        ].where((value) => value.trim().isNotEmpty).join('\n'),
+      );
+      final networkFailure = _isTransientNetworkFailure(details);
+      if (attempt + 1 < _runtimeNetworkAttempts && networkFailure) {
+        await SystemProxyResolver.instance.initialize();
+        effectiveEnvironment = Map<String, String>.of(environment);
+        for (final key in _proxyEnvironmentKeys) {
+          effectiveEnvironment[key] = '';
+        }
+        effectiveEnvironment.addAll(
+          SystemProxyResolver.instance.resolveSubprocessEnvironment(),
+        );
+        continue;
+      }
+      throw StateError(
+        details.isEmpty
+            ? '$message失败（退出码 ${result.exitCode}）。'
+            : '$message失败。\n$details'
+                  '${networkFailure ? '\n请检查“设置 > 系统”的代理配置与代理服务状态。' : ''}',
+      );
     }
-    if (result.timedOut) {
-      throw StateError('$message超时，请检查网络后重试。');
-    }
-    if (result.exitCode == 0) return;
-    final details = _processFailureTail(
-      <String>[
-        result.stderr,
-        result.stdout,
-      ].where((value) => value.trim().isNotEmpty).join('\n'),
-    );
-    throw StateError(
-      details.isEmpty
-          ? '$message失败（退出码 ${result.exitCode}）。'
-          : '$message失败。\n$details',
-    );
   }
 
   String? _runtimePreparationUnavailableReason(OfflineSpeechRuntime runtime) {
@@ -1312,12 +1340,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
     OfflineSpeechRuntime runtime,
     String runtimeRoot,
   ) {
-    final route = SystemProxyResolver.instance.resolveRuntimeRoute();
     final environment = <String, String>{
       'PYTHONUNBUFFERED': '1',
       'PYTHONNOUSERSITE': '1',
       'PYTHONPATH': '',
       'PIP_DISABLE_PIP_VERSION_CHECK': '1',
+      'UV_NATIVE_TLS': 'true',
       'UV_CACHE_DIR': p.join(
         OpenHandPaths.defaultCacheDirectoryPath(),
         'offline_speech',
@@ -1327,12 +1355,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
       'UV_LINK_MODE': 'copy',
       'HF_HOME': p.join(runtimeRoot, 'cache', 'huggingface'),
       'MODELSCOPE_CACHE': p.join(runtimeRoot, 'cache', 'modelscope'),
-      'HTTP_PROXY': route.httpProxy ?? '',
-      'HTTPS_PROXY': route.httpsProxy ?? '',
-      'http_proxy': route.httpProxy ?? '',
-      'https_proxy': route.httpsProxy ?? '',
-      'NO_PROXY': route.exceptions.join(','),
-      'no_proxy': route.exceptions.join(','),
+      for (final key in _proxyEnvironmentKeys) key: '',
+      ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
     };
     if (_runtimeSpecs[runtime]!.requiresSource) {
       final source = p.join(runtimeRoot, 'source');
@@ -1382,6 +1406,21 @@ class OfflineSpeechModelService extends ChangeNotifier {
         message.contains('importerror') ||
         message.contains('library not loaded') ||
         message.contains('dll load failed');
+  }
+
+  static bool _isTransientNetworkFailure(String details) {
+    final message = details.toLowerCase();
+    return message.contains('request failed') ||
+        message.contains('failed to fetch') ||
+        message.contains('tls handshake') ||
+        message.contains('connection reset') ||
+        message.contains('connection refused') ||
+        message.contains('network is unreachable') ||
+        message.contains('could not resolve host') ||
+        message.contains('temporary failure') ||
+        message.contains('unexpected eof') ||
+        message.contains('early eof') ||
+        message.contains('rpc failed');
   }
 
   static String _runtimeStartFailureMessage(

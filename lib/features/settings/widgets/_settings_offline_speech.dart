@@ -1951,7 +1951,7 @@ class _OfflineSpeechDownloadDialogState
 
   String get _resultMessage {
     if (_cancelled) return '任务已停止，未完成的临时数据已清理，完整模型文件已保留。';
-    if (_error != null) return '$_error';
+    if (_error != null) return _settingsFullErrorText(context, _error!);
     return '${widget.model.name} 及隔离运行环境已准备完成，可以启用并运行。';
   }
 
