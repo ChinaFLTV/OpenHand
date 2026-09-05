@@ -6623,6 +6623,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final availability = _composerVoiceAvailability(
       context,
       settingsController.offlineSpeechSettings,
+      settingsController.aiModels,
     );
     if (!availability.available) {
       showOpenHandInfoSnack(

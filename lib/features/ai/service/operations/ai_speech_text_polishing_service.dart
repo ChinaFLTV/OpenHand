@@ -9,14 +9,36 @@ import '../chat/ai_chat_service.dart';
 import '../chat/ai_protocol_adapter.dart';
 import '../usage/ai_usage_tracker.dart';
 
+AiModelConfig? resolveSpeechTextPolishingModel(
+  OfflineSpeechTextPolishingSettings settings,
+  Iterable<AiModelConfig> availableModels,
+) {
+  final configId = optionalStringFromValue(settings.modelConfigId);
+  final modelId = optionalStringFromValue(settings.modelId);
+  if (configId == null || modelId == null) return null;
+  for (final candidate in availableModels) {
+    if (candidate.id == configId && candidate.allModelIds.contains(modelId)) {
+      return candidate.copyWith(modelId: modelId);
+    }
+  }
+  return null;
+}
+
 class AiSpeechTextPolishingService {
   AiSpeechTextPolishingService({AiChatClient? chatClient})
     : _chatClient = chatClient ?? AiChatService(),
       _ownsChatClient = chatClient == null;
 
-  static const Duration _timeout = Duration(seconds: 15);
+  static const Duration _timeout = Duration(seconds: 30);
   static const String _systemPrompt =
-      '整理语音识别文本。仅修正明显错字、标点和断句；保留原意、专有名词、代码、路径与数字；不要回答、解释或添加内容。只输出整理后的文本。';
+      '你是语音转写编辑器。将识别结果整理为可直接发送、自然清晰的文本：\n'
+      '- 删除语气词、口头禅、停顿、重复及已被改口否定的内容；\n'
+      '- 合并同义反复，修正错字、语序、措辞、标点和断句；\n'
+      '- 仅保留说话者最终表达的意图；无法确认的专有名词、代码、路径和数字保持原样。\n'
+      '不要回答、解释或补充事实。只输出整理后的文本。';
+  static final RegExp _responseLabelPattern = RegExp(
+    r'^(?:润色|整理|修改)(?:后的?)?文本\s*[:：]\s*',
+  );
 
   final AiChatClient _chatClient;
   final bool _ownsChatClient;
@@ -49,7 +71,7 @@ class AiSpeechTextPolishingService {
           model: model,
           messages: <AiChatTurn>[
             const AiChatTurn(role: AiChatRole.system, content: _systemPrompt),
-            AiChatTurn(role: AiChatRole.user, content: source),
+            AiChatTurn(role: AiChatRole.user, content: '请整理以下语音识别文本：\n$source'),
           ],
           creationRequest: AiCreationRequest.none,
           timeout: _timeout,
@@ -57,7 +79,8 @@ class AiSpeechTextPolishingService {
         ),
       );
       final polished = _clean(completion.reply);
-      return polished.isEmpty ? source : polished;
+      if (polished.isEmpty) throw StateError('润色模型未返回有效文本。');
+      return polished;
     } finally {
       if (!cancellation.isCompleted) cancellation.complete();
       _cancellations.remove(cancellation);
@@ -68,17 +91,9 @@ class AiSpeechTextPolishingService {
     OfflineSpeechTextPolishingSettings settings,
     List<AiModelConfig> availableModels,
   ) {
-    final configId = optionalStringFromValue(settings.modelConfigId);
-    final modelId = optionalStringFromValue(settings.modelId);
-    if (configId == null || modelId == null) return null;
-    AiModelConfig? provider;
-    for (final candidate in availableModels) {
-      if (candidate.id == configId && candidate.allModelIds.contains(modelId)) {
-        provider = candidate;
-        break;
-      }
-    }
+    final provider = resolveSpeechTextPolishingModel(settings, availableModels);
     if (provider == null) return null;
+    final modelId = provider.modelId;
     final effort = optionalStringFromValue(settings.reasoningEffort);
     final profile = provider.profileFor(modelId);
     return provider.copyWith(
@@ -100,7 +115,7 @@ class AiSpeechTextPolishingService {
     var text = raw.trim();
     final fence = RegExp(r'^```(?:text)?\s*([\s\S]*?)\s*```$').firstMatch(text);
     if (fence != null) text = (fence.group(1) ?? '').trim();
-    return text;
+    return text.replaceFirst(_responseLabelPattern, '').trim();
   }
 
   void dispose() {

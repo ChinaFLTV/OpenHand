@@ -187,17 +187,10 @@ class _OfflineSpeechTextPolishingControlsState
   }
 
   AiModelConfig? _selectedModel() {
-    final configId = widget.settings.modelConfigId;
-    final modelId = widget.settings.modelId;
-    if (configId == null || modelId == null) return null;
-    final provider = widget.availableModels
-        .where(
-          (candidate) =>
-              candidate.id == configId &&
-              candidate.allModelIds.contains(modelId),
-        )
-        .firstOrNull;
-    return provider?.copyWith(modelId: modelId);
+    return resolveSpeechTextPolishingModel(
+      widget.settings,
+      widget.availableModels,
+    );
   }
 
   List<AiReasoningEffortOption> _reasoningOptions(AiModelConfig? model) {
@@ -333,8 +326,8 @@ class _OfflineSpeechTextPolishingControlsState
           ),
           subtitle: openHandLocalizedText(
             context,
-            zh: '识别完成后使用所选模型修正错字、标点和断句。默认关闭。',
-            en: 'Use the selected model to correct words, punctuation, and sentence breaks after recognition. Off by default.',
+            zh: '识别完成后使用所选模型删除口头禅与重复内容，并修正语序、措辞、错字和标点。默认关闭。',
+            en: 'Use the selected model to remove filler and repetition, then refine wording, order, spelling, and punctuation. Off by default.',
           ),
           control: Align(
             alignment: AlignmentDirectional.centerStart,

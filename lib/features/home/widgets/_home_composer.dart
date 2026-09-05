@@ -121,6 +121,7 @@ class _AtMentionSearchScope {
 ({bool available, String reason}) _composerVoiceAvailability(
   BuildContext context,
   OfflineSpeechSettings settings,
+  Iterable<AiModelConfig> availableModels,
 ) {
   final zhIssues = <String>[];
   final enIssues = <String>[];
@@ -160,6 +161,17 @@ class _AtMentionSearchScope {
       zhIssues.add('前往“设置 → AI → $zhLabel”运行已启用模型');
       enIssues.add('start the enabled $enLabel model under Settings → AI');
     }
+  }
+  if (settings.textPolishing.enabled &&
+      resolveSpeechTextPolishingModel(
+            settings.textPolishing,
+            availableModels,
+          ) ==
+          null) {
+    zhIssues.add('前往“设置 → AI → 语音识别”选择可用的润色模型');
+    enIssues.add(
+      'select an available polishing model under Settings → AI → Speech Recognition',
+    );
   }
   if (zhIssues.isNotEmpty) {
     return (
@@ -1440,6 +1452,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final voiceAvailability = _composerVoiceAvailability(
       context,
       settings.offlineSpeechSettings,
+      settings.aiModels,
     );
     final voiceModeAvailable =
         widget.currentSession != null && voiceAvailability.available;

@@ -216,6 +216,14 @@ class AiVoiceConversationService extends ChangeNotifier {
     if (!_modelService.isRuntimeReady(synthesis)) {
       throw StateError('请先运行已启用的语音朗读模型。');
     }
+    if (settings.textPolishing.enabled &&
+        resolveSpeechTextPolishingModel(
+              settings.textPolishing,
+              availableModels,
+            ) ==
+            null) {
+      throw StateError('文本润色已启用，请先选择一个可用的润色模型。');
+    }
 
     _sessionSerial += 1;
     final sessionSerial = _sessionSerial;
@@ -663,6 +671,16 @@ class AiVoiceConversationService extends ChangeNotifier {
         );
       } catch (error, stack) {
         silentLog('voice_conversation', '润色识别文本', error, stack);
+        if (_isCurrentSession(sessionSerial)) {
+          _setSnapshot(
+            _snapshot.copyWith(
+              phase: AiVoiceConversationPhase.listening,
+              currentTranscript: text,
+              message: '文本润色失败，识别文本尚未发送：$error',
+            ),
+          );
+        }
+        return;
       }
     }
     if (!_isCurrentSession(sessionSerial) || text.trim().isEmpty) return;
