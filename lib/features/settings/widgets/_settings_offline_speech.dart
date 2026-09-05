@@ -1073,6 +1073,7 @@ enum _OfflineSpeechTestPhase {
   recording,
   recognizing,
   ready,
+  cancelled,
   failed,
 }
 
@@ -1093,9 +1094,13 @@ class _OfflineSpeechTestDialog extends StatefulWidget {
 class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
   static const String _sampleText = OfflineSpeechModelService.testSampleText;
 
+  final OfflineSpeechModelService _service = OfflineSpeechModelService.instance;
+  final Completer<void> _testCancellation = Completer<void>();
   final List<StreamSubscription<dynamic>> _subscriptions =
       <StreamSubscription<dynamic>>[];
+  late final bool _reusedRunningService;
   _OfflineSpeechTestPhase _phase = _OfflineSpeechTestPhase.preparing;
+  Future<OfflineSpeechTestResult>? _activeModelTest;
   AudioRecorder? _recorder;
   mk.Player? _player;
   StreamSubscription<Amplitude>? _amplitudeSubscription;
@@ -1109,17 +1114,21 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
   String? _error;
   bool _finishingRecording = false;
   bool _playing = false;
+  bool _terminated = false;
+  bool _terminating = false;
 
   bool get _isRecognition => widget.model.kind == OfflineSpeechKind.recognition;
 
   bool get _processing =>
       _phase == _OfflineSpeechTestPhase.preparing ||
       _phase == _OfflineSpeechTestPhase.recognizing ||
-      _finishingRecording;
+      _finishingRecording ||
+      _terminating;
 
   @override
   void initState() {
     super.initState();
+    _reusedRunningService = _service.isRunning(widget.model);
     if (_isRecognition) {
       unawaited(_startRecording());
     } else {
@@ -1129,6 +1138,8 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
 
   @override
   void dispose() {
+    _terminated = true;
+    if (!_testCancellation.isCompleted) _testCancellation.complete();
     _recordingTimer?.cancel();
     unawaited(_disposeResources());
     super.dispose();
@@ -1139,6 +1150,8 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
     final theme = Theme.of(context);
     final accent = _phase == _OfflineSpeechTestPhase.failed
         ? theme.colorScheme.error
+        : _phase == _OfflineSpeechTestPhase.cancelled
+        ? theme.colorScheme.onSurfaceVariant
         : _phase == _OfflineSpeechTestPhase.ready
         ? OpenHandStatusColors.success
         : theme.colorScheme.primary;
@@ -1332,6 +1345,15 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
         message: _error ?? '测试没有完成，请重试。',
       );
     }
+    if (_phase == _OfflineSpeechTestPhase.cancelled) {
+      return _OfflineSpeechTestStatusCard(
+        color: accent,
+        title: '测试已终止',
+        message: _reusedRunningService
+            ? '已停止等待本次测试结果，正在运行的 ${widget.model.name} 服务保持运行。'
+            : '本次测试启动的临时服务与产生的临时资源均已停止并清理。',
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1368,9 +1390,17 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
   List<Widget> _buildActions() {
     if (_processing) {
       return <Widget>[
+        OpenHandDialogActionButton.destructive(
+          onPressed: _terminating ? null : _terminateTest,
+          label: _terminating ? '正在终止' : '终止',
+          icon: Icons.stop_circle_outlined,
+          busy: _terminating,
+        ),
         OpenHandDialogActionButton.primary(
           onPressed: null,
-          label: _phase == _OfflineSpeechTestPhase.recognizing
+          label: _terminating
+              ? '正在释放资源'
+              : _phase == _OfflineSpeechTestPhase.recognizing
               ? '正在识别'
               : _finishingRecording
               ? '正在整理录音'
@@ -1381,9 +1411,10 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
     }
     if (_phase == _OfflineSpeechTestPhase.recording) {
       return <Widget>[
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(context).pop(),
-          label: '取消',
+        OpenHandDialogActionButton.destructive(
+          onPressed: _terminateTest,
+          label: '终止',
+          icon: Icons.stop_circle_outlined,
         ),
         OpenHandDialogActionButton.primary(
           onPressed:
@@ -1409,6 +1440,14 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
         ),
       ];
     }
+    if (_phase == _OfflineSpeechTestPhase.cancelled) {
+      return <Widget>[
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: '完成',
+        ),
+      ];
+    }
     return <Widget>[
       if (_isRecognition)
         OpenHandDialogActionButton.secondary(
@@ -1428,6 +1467,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
     _OfflineSpeechTestPhase.recording => Icons.mic_rounded,
     _OfflineSpeechTestPhase.recognizing => Icons.hearing_rounded,
     _OfflineSpeechTestPhase.ready => Icons.check_circle_outline_rounded,
+    _OfflineSpeechTestPhase.cancelled => Icons.stop_circle_outlined,
     _OfflineSpeechTestPhase.failed => Icons.error_outline_rounded,
   };
 
@@ -1436,18 +1476,31 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
     _OfflineSpeechTestPhase.recording => '录制测试语音',
     _OfflineSpeechTestPhase.recognizing => '正在执行语音识别',
     _OfflineSpeechTestPhase.ready => _isRecognition ? '语音识别测试' : '语音朗读测试',
+    _OfflineSpeechTestPhase.cancelled => '测试已终止',
     _OfflineSpeechTestPhase.failed => '模型测试失败',
   };
 
+  Future<OfflineSpeechTestResult> _runModelTest({String? audioPath}) async {
+    final operation = _service.test(
+      widget.model,
+      widget.configuration,
+      audioPath: audioPath,
+      cancelSignal: _testCancellation.future,
+    );
+    _activeModelTest = operation;
+    try {
+      return await operation;
+    } finally {
+      if (identical(_activeModelTest, operation)) _activeModelTest = null;
+    }
+  }
+
   Future<void> _synthesize() async {
     try {
-      final result = await OfflineSpeechModelService.instance.test(
-        widget.model,
-        widget.configuration,
-      );
+      final result = await _runModelTest();
       final path = result.audioPath;
       if (path == null) throw StateError('模型没有返回试听音频。');
-      if (!mounted) {
+      if (!mounted || _terminated) {
         await _deleteTemporaryPath(path);
         return;
       }
@@ -1470,20 +1523,24 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       await player
           .open(mk.Media(path))
           .timeout(_offlineSpeechTestOperationTimeout);
-      if (mounted) {
+      if (mounted && !_terminated) {
         setState(() {
           _phase = _OfflineSpeechTestPhase.ready;
           _playing = true;
         });
       }
     } catch (error, stack) {
-      silentLog('settings_offline_speech', '生成离线语音试听', error, stack);
+      if (error is! OfflineSpeechTestCancelled && !_terminated) {
+        silentLog('settings_offline_speech', '生成离线语音试听', error, stack);
+      }
       _setFailure(error);
     }
   }
 
   Future<void> _startRecording() async {
-    if (_phase == _OfflineSpeechTestPhase.recording ||
+    if (_terminated ||
+        _terminating ||
+        _phase == _OfflineSpeechTestPhase.recording ||
         _phase == _OfflineSpeechTestPhase.recognizing ||
         _finishingRecording) {
       return;
@@ -1506,6 +1563,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       final permitted = await recorder.hasPermission().timeout(
         _offlineSpeechTestOperationTimeout,
       );
+      if (_terminated || !identical(_recorder, recorder)) return;
       if (!permitted) {
         throw StateError('未获得麦克风权限，请在系统设置中允许 OpenHand 使用麦克风。');
       }
@@ -1563,14 +1621,19 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       );
       setState(() => _phase = _OfflineSpeechTestPhase.recording);
     } catch (error, stack) {
-      silentLog('settings_offline_speech', '启动离线语音测试录音', error, stack);
+      if (!_terminated) {
+        silentLog('settings_offline_speech', '启动离线语音测试录音', error, stack);
+      }
       await _disposeRecorder(cancel: true);
+      await _deleteTemporaryAudio();
       _setFailure(error);
     }
   }
 
   Future<void> _finishRecording() async {
-    if (_finishingRecording || _phase != _OfflineSpeechTestPhase.recording) {
+    if (_terminated ||
+        _finishingRecording ||
+        _phase != _OfflineSpeechTestPhase.recording) {
       return;
     }
     setState(() => _finishingRecording = true);
@@ -1589,23 +1652,21 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       if (!await file.exists() || await file.length() == 0) {
         throw StateError('没有录到有效语音内容，请重新录制。');
       }
-      if (!mounted) return;
+      if (!mounted || _terminated) return;
       setState(() {
         _phase = _OfflineSpeechTestPhase.recognizing;
         _finishingRecording = false;
       });
-      final result = await OfflineSpeechModelService.instance.test(
-        widget.model,
-        widget.configuration,
-        audioPath: recordedPath,
-      );
-      if (!mounted) return;
+      final result = await _runModelTest(audioPath: recordedPath);
+      if (!mounted || _terminated) return;
       setState(() {
         _transcript = result.transcript ?? '';
         _phase = _OfflineSpeechTestPhase.ready;
       });
     } catch (error, stack) {
-      silentLog('settings_offline_speech', '执行离线语音识别测试', error, stack);
+      if (error is! OfflineSpeechTestCancelled && !_terminated) {
+        silentLog('settings_offline_speech', '执行离线语音识别测试', error, stack);
+      }
       await _disposeRecorder(cancel: true);
       _setFailure(error);
     } finally {
@@ -1627,8 +1688,34 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
     }
   }
 
-  void _setFailure(Object error) {
+  Future<void> _terminateTest() async {
+    if (_terminated || _terminating) return;
+    setState(() {
+      _terminated = true;
+      _terminating = true;
+    });
+    if (!_testCancellation.isCompleted) _testCancellation.complete();
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    await _disposeResources();
+    final activeTest = _activeModelTest;
+    if (activeTest != null) {
+      try {
+        await activeTest.timeout(_offlineSpeechTestOperationTimeout);
+      } catch (_) {}
+    }
     if (!mounted) return;
+    setState(() {
+      _phase = _OfflineSpeechTestPhase.cancelled;
+      _terminating = false;
+      _finishingRecording = false;
+      _playing = false;
+      _error = null;
+    });
+  }
+
+  void _setFailure(Object error) {
+    if (!mounted || _terminated || error is OfflineSpeechTestCancelled) return;
     setState(() {
       _phase = _OfflineSpeechTestPhase.failed;
       _error = userFailureMessage(error, fallback: '模型测试失败。');

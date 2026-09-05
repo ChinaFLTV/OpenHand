@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../model/offline_speech_model.dart';
 
 enum OfflineSpeechLifecycle {
@@ -57,6 +58,13 @@ class OfflineSpeechInferenceTimeout implements Exception {
 
   @override
   String toString() => '模型推理超时，请缩短输入后重试。';
+}
+
+class OfflineSpeechTestCancelled implements Exception {
+  const OfflineSpeechTestCancelled();
+
+  @override
+  String toString() => '模型测试已终止。';
 }
 
 class OfflineSpeechHardwareProfile {
@@ -425,6 +433,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
   String modelDirectory(OfflineSpeechModelDefinition model) =>
       p.join(modelsRoot, model.id);
 
+  bool isRunning(OfflineSpeechModelDefinition model) =>
+      _processes.containsKey(model.id);
+
   OfflineSpeechModelState stateOf(OfflineSpeechModelDefinition model) {
     final current = _states[model.id];
     if (current != null) return current;
@@ -670,9 +681,16 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   Future<void> start(
     OfflineSpeechModelDefinition model,
-    Map<String, Object?> configuration,
-  ) async {
+    Map<String, Object?> configuration, {
+    Future<void>? cancelSignal,
+  }) async {
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw const OfflineSpeechTestCancelled();
+    }
     await _inspectHardware();
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw const OfflineSpeechTestCancelled();
+    }
     final availability = availabilityFor(model, configuration);
     if (!availability.available) throw StateError(availability.reason);
     if (!isInstalled(model)) throw StateError('请先下载模型。');
@@ -688,6 +706,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
     for (final candidate in runningSameKind) {
       await stop(candidate);
     }
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw const OfflineSpeechTestCancelled();
+    }
     _setState(
       model.id,
       const OfflineSpeechModelState(lifecycle: OfflineSpeechLifecycle.starting),
@@ -700,6 +721,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
         throw StateError('隔离运行环境已损坏，请点击更新按钮自动修复。');
       }
       final runner = await _writeRuntimeHost();
+      if (await isCancelSignalCompleted(cancelSignal)) {
+        throw const OfflineSpeechTestCancelled();
+      }
       process = await _runtimeAdapters[model.runtime]!.start(
         pythonExecutable: python,
         runnerPath: runner.path,
@@ -739,7 +763,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
           }
         }),
       );
-      await startedSession.ready.future.timeout(_runtimeStartTimeout);
+      final ready = await awaitWithCancelSignal<bool>(
+        startedSession.ready.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_runtimeStartTimeout);
+      if (ready != true) throw const OfflineSpeechTestCancelled();
       _setState(
         model.id,
         const OfflineSpeechModelState(
@@ -748,15 +776,20 @@ class OfflineSpeechModelService extends ChangeNotifier {
       );
     } catch (error) {
       _processes.remove(model.id);
-      process?.kill(ProcessSignal.sigkill);
-      if (_isRuntimeDependencyFailure(error)) {
+      if (process != null) {
+        await terminateTrackedProcessTree(process);
+      }
+      if (error is! OfflineSpeechTestCancelled &&
+          _isRuntimeDependencyFailure(error)) {
         await _invalidateRuntime(model.runtime);
       }
       _setState(
         model.id,
         OfflineSpeechModelState(
-          lifecycle: OfflineSpeechLifecycle.failed,
-          message: '$error',
+          lifecycle: error is OfflineSpeechTestCancelled
+              ? OfflineSpeechLifecycle.installed
+              : OfflineSpeechLifecycle.failed,
+          message: error is OfflineSpeechTestCancelled ? null : '$error',
         ),
       );
       rethrow;
@@ -781,14 +814,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       const OfflineSpeechModelState(lifecycle: OfflineSpeechLifecycle.stopping),
     );
     session.failPending(StateError('模型已停止。'));
-    final process = session.process;
-    process.kill();
-    try {
-      await process.exitCode.timeout(const Duration(seconds: 5));
-    } on TimeoutException {
-      process.kill(ProcessSignal.sigkill);
-      await process.exitCode;
-    }
+    await terminateTrackedProcessTree(session.process);
     _setState(
       model.id,
       const OfflineSpeechModelState(
@@ -802,9 +828,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
     Map<String, Object?> configuration, {
     String? audioPath,
     String sampleText = testSampleText,
+    Future<void>? cancelSignal,
   }) async {
     final wasRunning = _processes.containsKey(model.id);
-    if (!wasRunning) await start(model, configuration);
+    if (!wasRunning) {
+      await start(model, configuration, cancelSignal: cancelSignal);
+    }
     Directory? outputDirectory;
     try {
       final session = _processes[model.id];
@@ -814,10 +843,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
         if (source.isEmpty || !await File(source).exists()) {
           throw StateError('没有可识别的录音文件。');
         }
-        final response = await session.request(<String, Object?>{
-          'operation': 'recognize',
-          'audio_path': source,
-        }, timeout: _inferenceTimeout);
+        final response = await session.request(
+          <String, Object?>{'operation': 'recognize', 'audio_path': source},
+          timeout: _inferenceTimeout,
+          cancelSignal: cancelSignal,
+        );
         return OfflineSpeechTestResult.recognition(
           '${response['transcript'] ?? ''}'.trim(),
         );
@@ -826,11 +856,17 @@ class OfflineSpeechModelService extends ChangeNotifier {
         'openhand_speech_test_',
       );
       final outputPath = p.join(outputDirectory.path, 'sample.wav');
-      final response = await session.request(<String, Object?>{
-        'operation': 'synthesize',
-        'text': sampleText,
-        'output_path': outputPath,
-      }, timeout: _inferenceTimeout);
+      final response = await session.request(
+        <String, Object?>{
+          'operation': 'synthesize',
+          'text': sampleText,
+          'output_path': outputPath,
+        },
+        timeout: _inferenceTimeout,
+        cancelSignal: cancelSignal,
+        onDiscardedResponse: () =>
+            unawaited(_deleteTemporaryDirectory(outputDirectory)),
+      );
       final generatedPath = '${response['audio_path'] ?? ''}'.trim();
       final generated = File(generatedPath);
       if (generatedPath.isEmpty ||
@@ -840,16 +876,18 @@ class OfflineSpeechModelService extends ChangeNotifier {
       }
       return OfflineSpeechTestResult.synthesis(generatedPath);
     } catch (error) {
-      if (outputDirectory != null && await outputDirectory.exists()) {
-        await outputDirectory.delete(recursive: true);
-      }
-      if (wasRunning && error is OfflineSpeechInferenceTimeout) {
-        await stop(model);
-      }
+      await _deleteTemporaryDirectory(outputDirectory);
       rethrow;
     } finally {
       if (!wasRunning) await stop(model);
     }
+  }
+
+  static Future<void> _deleteTemporaryDirectory(Directory? directory) async {
+    if (directory == null) return;
+    try {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    } catch (_) {}
   }
 
   Future<List<_RemoteModelFile>> _loadRepositoryFiles(
@@ -1781,12 +1819,16 @@ class _OfflineSpeechRuntimeSession {
   final Completer<void> ready = Completer<void>();
   final Map<String, Completer<Map<String, Object?>>> _pending =
       <String, Completer<Map<String, Object?>>>{};
+  final Map<String, void Function()> _discardedResponseHandlers =
+      <String, void Function()>{};
   int _requestSequence = 0;
   String errors = '';
 
   Future<Map<String, Object?>> request(
     Map<String, Object?> request, {
     required Duration timeout,
+    Future<void>? cancelSignal,
+    void Function()? onDiscardedResponse,
   }) async {
     final id = '${++_requestSequence}';
     final completer = Completer<Map<String, Object?>>();
@@ -1797,8 +1839,17 @@ class _OfflineSpeechRuntimeSession {
       );
       process.stdin.writeln(encoded);
       await process.stdin.flush();
-      return await completer.future.timeout(timeout);
+      final response = await awaitWithCancelSignal<Map<String, Object?>>(
+        completer.future,
+        cancelSignal: cancelSignal,
+      ).timeout(timeout);
+      if (response == null) {
+        _discardResponse(id, completer, onDiscardedResponse);
+        throw const OfflineSpeechTestCancelled();
+      }
+      return response;
     } on TimeoutException {
+      _discardResponse(id, completer, onDiscardedResponse);
       throw const OfflineSpeechInferenceTimeout();
     } finally {
       _pending.remove(id);
@@ -1810,6 +1861,10 @@ class _OfflineSpeechRuntimeSession {
       if (!completer.isCompleted) completer.completeError(error);
     }
     _pending.clear();
+    for (final handler in _discardedResponseHandlers.values) {
+      handler();
+    }
+    _discardedResponseHandlers.clear();
   }
 
   void _handleOutput(String line) {
@@ -1825,6 +1880,11 @@ class _OfflineSpeechRuntimeSession {
       final payload = jsonDecode(decoded);
       if (payload is! Map) return;
       final id = '${payload['id'] ?? ''}';
+      final discardedHandler = _discardedResponseHandlers.remove(id);
+      if (discardedHandler != null) {
+        discardedHandler();
+        return;
+      }
       final completer = _pending[id];
       if (completer == null || completer.isCompleted) return;
       if (payload['ok'] == true) {
@@ -1845,6 +1905,20 @@ class _OfflineSpeechRuntimeSession {
   void _handleStreamError(Object error, StackTrace stack) {
     if (!ready.isCompleted) ready.completeError(error, stack);
     failPending(error);
+  }
+
+  void _discardResponse(
+    String id,
+    Completer<Map<String, Object?>> completer,
+    void Function()? handler,
+  ) {
+    _pending.remove(id);
+    if (handler == null) return;
+    if (completer.isCompleted) {
+      handler();
+    } else {
+      _discardedResponseHandlers[id] = handler;
+    }
   }
 }
 
