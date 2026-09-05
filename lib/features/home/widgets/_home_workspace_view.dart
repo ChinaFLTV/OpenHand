@@ -132,6 +132,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.attachments,
     required this.onSend,
     required this.onStop,
+    required this.voiceModeSelected,
     required this.voiceConversationService,
     required this.onStartVoiceConversation,
     required this.onStopVoiceConversation,
@@ -199,6 +200,7 @@ class _WorkspaceView extends StatelessWidget {
   final _ComposerAttachments attachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
+  final bool voiceModeSelected;
   final AiVoiceConversationService voiceConversationService;
   final Future<void> Function() onStartVoiceConversation;
   final Future<void> Function() onStopVoiceConversation;
@@ -369,6 +371,7 @@ class _WorkspaceView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _VoiceTeleprompter(
+                            selected: voiceModeSelected,
                             snapshot: snapshot,
                             onForceSend: voiceConversationService.forceSend,
                           ),
@@ -378,7 +381,7 @@ class _WorkspaceView extends StatelessWidget {
                               kOpenHandMotion220,
                             ),
                             curve: kOpenHandEmphasizedCurve,
-                            height: snapshot.active ? 10 : 0,
+                            height: voiceModeSelected ? 10 : 0,
                           ),
                         ],
                       );
@@ -422,6 +425,7 @@ class _WorkspaceView extends StatelessWidget {
                       attachments: attachments,
                       onSend: onSend,
                       onStop: onStop,
+                      voiceModeSelected: voiceModeSelected,
                       voiceConversationService: voiceConversationService,
                       onStartVoiceConversation: onStartVoiceConversation,
                       onStopVoiceConversation: onStopVoiceConversation,

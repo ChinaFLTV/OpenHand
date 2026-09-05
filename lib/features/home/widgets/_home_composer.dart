@@ -210,6 +210,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.attachments,
     required this.onSend,
     required this.onStop,
+    required this.voiceModeSelected,
     required this.voiceConversationService,
     required this.onStartVoiceConversation,
     required this.onStopVoiceConversation,
@@ -251,6 +252,7 @@ class _ComposerPanel extends StatefulWidget {
   final _ComposerAttachments attachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
+  final bool voiceModeSelected;
   final AiVoiceConversationService voiceConversationService;
   final Future<void> Function() onStartVoiceConversation;
   final Future<void> Function() onStopVoiceConversation;
@@ -1405,7 +1407,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
     final voiceSnapshot = widget.voiceConversationService.snapshot;
-    final voiceActive = voiceSnapshot.active;
+    final voiceActive = widget.voiceModeSelected;
+    final voiceRuntimeActive = voiceSnapshot.active;
     final effectiveCollapsed = widget.isCollapsed && !voiceActive;
     final persistedModelId = widget.currentSession?.lastUsedModelLabel?.trim();
     final selectedModelUnavailable =
@@ -1914,8 +1917,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                       ? Icons.volume_off_rounded
                       : Icons.volume_up_rounded,
                   active: !voiceSnapshot.speakerMuted,
-                  onPressed: () => widget.voiceConversationService
-                      .setSpeakerMuted(!voiceSnapshot.speakerMuted),
+                  onPressed: voiceRuntimeActive
+                      ? () => widget.voiceConversationService.setSpeakerMuted(
+                          !voiceSnapshot.speakerMuted,
+                        )
+                      : null,
                 ),
                 kOpenHandHGap10,
                 _VoiceModeActionButton(
@@ -1934,8 +1940,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                       ? Icons.mic_rounded
                       : Icons.mic_off_rounded,
                   active: voiceSnapshot.microphoneEnabled,
-                  onPressed: () => widget.voiceConversationService
-                      .setMicrophoneEnabled(!voiceSnapshot.microphoneEnabled),
+                  onPressed: voiceRuntimeActive
+                      ? () => widget.voiceConversationService
+                            .setMicrophoneEnabled(
+                              !voiceSnapshot.microphoneEnabled,
+                            )
+                      : null,
                 ),
               ],
             )
@@ -2435,8 +2445,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 }
 
 class _VoiceTeleprompter extends StatelessWidget {
-  const _VoiceTeleprompter({required this.snapshot, required this.onForceSend});
+  const _VoiceTeleprompter({
+    required this.selected,
+    required this.snapshot,
+    required this.onForceSend,
+  });
 
+  final bool selected;
   final AiVoiceConversationSnapshot snapshot;
   final Future<void> Function() onForceSend;
 
@@ -2447,41 +2462,48 @@ class _VoiceTeleprompter extends StatelessWidget {
     final current = snapshot.currentTranscript.trim();
     final previous = snapshot.previousTranscript.trim();
     final transcript = current.isEmpty ? previous : current;
-    final status = switch (snapshot.phase) {
-      AiVoiceConversationPhase.starting => openHandLocalizedText(
-        context,
-        zh: '正在启动本地语音服务…',
-        en: 'Starting local voice services…',
-      ),
-      AiVoiceConversationPhase.recognizing => openHandLocalizedText(
-        context,
-        zh: '正在识别…',
-        en: 'Recognizing…',
-      ),
-      AiVoiceConversationPhase.polishing => openHandLocalizedText(
-        context,
-        zh: '正在润色…',
-        en: 'Polishing…',
-      ),
-      AiVoiceConversationPhase.speaking => openHandLocalizedText(
-        context,
-        zh: '正在朗读回复',
-        en: 'Speaking reply',
-      ),
-      AiVoiceConversationPhase.failed => openHandLocalizedText(
-        context,
-        zh: '语音沟通异常',
-        en: 'Voice mode error',
-      ),
-      AiVoiceConversationPhase.idle || AiVoiceConversationPhase.listening =>
-        snapshot.microphoneEnabled
-            ? openHandLocalizedText(context, zh: '正在聆听', en: 'Listening')
-            : openHandLocalizedText(
-                context,
-                zh: '麦克风已关闭',
-                en: 'Microphone off',
-              ),
-    };
+    final status = !snapshot.active
+        ? openHandLocalizedText(
+            context,
+            zh: '正在恢复语音沟通…',
+            en: 'Resuming voice mode…',
+          )
+        : switch (snapshot.phase) {
+            AiVoiceConversationPhase.starting => openHandLocalizedText(
+              context,
+              zh: '正在启动本地语音服务…',
+              en: 'Starting local voice services…',
+            ),
+            AiVoiceConversationPhase.recognizing => openHandLocalizedText(
+              context,
+              zh: '正在识别…',
+              en: 'Recognizing…',
+            ),
+            AiVoiceConversationPhase.polishing => openHandLocalizedText(
+              context,
+              zh: '正在润色…',
+              en: 'Polishing…',
+            ),
+            AiVoiceConversationPhase.speaking => openHandLocalizedText(
+              context,
+              zh: '正在朗读回复',
+              en: 'Speaking reply',
+            ),
+            AiVoiceConversationPhase.failed => openHandLocalizedText(
+              context,
+              zh: '语音沟通异常',
+              en: 'Voice mode error',
+            ),
+            AiVoiceConversationPhase.idle ||
+            AiVoiceConversationPhase.listening =>
+              snapshot.microphoneEnabled
+                  ? openHandLocalizedText(context, zh: '正在聆听', en: 'Listening')
+                  : openHandLocalizedText(
+                      context,
+                      zh: '麦克风已关闭',
+                      en: 'Microphone off',
+                    ),
+          };
 
     return AnimatedSize(
       duration: openHandMotionDuration(context, kOpenHandMotion260),
@@ -2492,7 +2514,7 @@ class _VoiceTeleprompter extends StatelessWidget {
         switchInCurve: kOpenHandEntranceCurve,
         switchOutCurve: kOpenHandSwitchOutCurve,
         layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
-        child: !snapshot.active
+        child: !selected
             ? const SizedBox(key: ValueKey<String>('voice-teleprompter-hidden'))
             : Semantics(
                 key: const ValueKey<String>('voice-teleprompter-visible'),
@@ -2519,7 +2541,9 @@ class _VoiceTeleprompter extends StatelessWidget {
                               TweenAnimationBuilder<double>(
                                 tween: Tween<double>(
                                   end: snapshot.microphoneEnabled
-                                      ? snapshot.inputLevel.clamp(0.06, 1)
+                                      ? snapshot.active
+                                            ? snapshot.inputLevel.clamp(0.06, 1)
+                                            : 0
                                       : 0,
                                 ),
                                 duration: openHandMotionDuration(
@@ -2541,7 +2565,7 @@ class _VoiceTeleprompter extends StatelessWidget {
                                     ),
                               ),
                               Icon(
-                                snapshot.microphoneEnabled
+                                snapshot.active && snapshot.microphoneEnabled
                                     ? Icons.mic_rounded
                                     : Icons.mic_off_rounded,
                                 size: 17,
@@ -2609,7 +2633,7 @@ class _VoiceTeleprompter extends StatelessWidget {
                                   en: 'Send recognized text now',
                                 ),
                           child: IconButton.filled(
-                            onPressed: current.isEmpty
+                            onPressed: !snapshot.active || current.isEmpty
                                 ? null
                                 : () => unawaited(onForceSend()),
                             icon: const Icon(

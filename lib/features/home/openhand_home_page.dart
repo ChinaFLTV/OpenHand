@@ -288,8 +288,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
   final AiVoiceConversationService _voiceConversationService =
       AiVoiceConversationService();
+  // 用户选择的语音模式按会话保留；运行实例仅在该会话可见时存在。
   String? _voiceConversationSessionId;
+  String? _voiceConversationRuntimeSessionId;
   String? _voiceLastReadAssistantId;
+  Future<void> _voiceConversationTransition = Future<void>.value();
+  Future<void>? _voiceConversationPauseTask;
+  int _voiceConversationTransitionGeneration = 0;
+  bool _voiceConversationDisposed = false;
   final AiTranslationService _translationService = AiTranslationService();
   final WebReverseCdpMcpBridge _webReverseCdpMcpBridge =
       WebReverseCdpMcpBridge();
@@ -1080,10 +1086,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
-    // 窗口失焦、最小化或进入后台时继续朗读；仅在应用真正退出时停止。
-    if (state == AppLifecycleState.detached) {
-      unawaited(_ttsPlaybackService.stop());
-      unawaited(_voiceConversationService.stop());
+    // 应用不可见时释放麦克风与朗读资源，回到前台后按会话恢复语音模式。
+    if (state != AppLifecycleState.resumed) {
+      unawaited(_pauseVoiceConversationForNavigation());
     }
     // 进入后台或失活时立即保存 Harness 会话，避免系统终止进程时丢失状态。
     if (state == AppLifecycleState.paused ||
@@ -1100,6 +1105,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (state != AppLifecycleState.resumed) {
       return;
     }
+    _syncVoiceConversationVisibility(
+      _observedSessionController?.currentSessionId,
+    );
     _resumeAutoFollowSuppressionFrames =
         _resumeAutoFollowStabilizationFrameCount;
     _scheduleResumeAutoFollowSync();
@@ -1172,6 +1180,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (identical(_activeHomeState, this)) {
       _activeHomeState = null;
     }
+    _voiceConversationDisposed = true;
+    _voiceConversationTransitionGeneration += 1;
+    _voiceConversationSessionId = null;
+    _voiceConversationRuntimeSessionId = null;
     _inputRepairParticipantToken?.dispose();
     _inputRepairParticipantToken = null;
     _toolSearchReplayDispatcher.dispose();
@@ -1459,9 +1471,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     final session = controller.currentSession;
-    if (session == null) return;
-    if (session.id != _voiceConversationSessionId) {
-      unawaited(_stopVoiceConversation());
+    if (session == null ||
+        session.id != _voiceConversationRuntimeSessionId ||
+        !_voiceConversationCanRunFor(session.id)) {
+      unawaited(_pauseVoiceConversationForNavigation());
       return;
     }
     final responseInProgress = controller.canStopResponding(session.id);
@@ -1483,6 +1496,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       text: assistant.content,
       streaming: streaming,
     );
+  }
+
+  bool _voiceConversationCanRunFor(String sessionId) {
+    if (!mounted || _voiceConversationDisposed) return false;
+    final lifecycleState = _appLifecycleState;
+    return _voiceConversationSessionId == sessionId &&
+        _selectedSection == AppSection.workspace &&
+        (lifecycleState == null ||
+            lifecycleState == AppLifecycleState.resumed) &&
+        _observedSessionController?.currentSessionId == sessionId;
+  }
+
+  void _syncVoiceConversationVisibility(String? currentSessionId) {
+    final preferredSessionId = _voiceConversationSessionId;
+    if (preferredSessionId == null) return;
+    if (currentSessionId == preferredSessionId &&
+        _voiceConversationCanRunFor(preferredSessionId)) {
+      unawaited(_resumeVoiceConversationForCurrentSession());
+      return;
+    }
+    if (_voiceConversationRuntimeSessionId != null ||
+        _voiceConversationService.snapshot.active) {
+      unawaited(_pauseVoiceConversationForNavigation());
+    }
   }
 
   AiSessionMessage? _latestFormalVoiceAssistantResponse(
@@ -1733,6 +1770,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _releaseDeletedSessionState(String sessionId) {
+    if (_voiceConversationSessionId == sessionId ||
+        _voiceConversationRuntimeSessionId == sessionId) {
+      _voiceConversationSessionId = null;
+      _voiceLastReadAssistantId = null;
+      unawaited(_pauseVoiceConversationForNavigation());
+    }
     _activeSubmissionSerialsBySessionId.remove(sessionId);
     _locallyStoppedSubmissionSerialsBySessionId.remove(sessionId);
     _locallyStoppedPendingSubmissionSessionIds.remove(sessionId);
@@ -2500,6 +2543,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
     }
     _activeComposerSessionId = nextSessionId;
+    _syncVoiceConversationVisibility(nextSessionId);
 
     // 目标会话正在发送消息时不恢复草稿。
     // 草稿是在 _submitTextToSession 中保存的，用于发送失败后恢复用户输入。
@@ -2861,12 +2905,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_selectedSection == section) return;
     dismissOpenHandTooltipsSafely(debugLabel: '切换功能页面前收起工具提示');
     if (section != AppSection.workspace &&
-        _voiceConversationService.snapshot.active) {
-      unawaited(_stopVoiceConversation());
+        (_voiceConversationRuntimeSessionId != null ||
+            _voiceConversationService.snapshot.active)) {
+      unawaited(_pauseVoiceConversationForNavigation());
+    } else if (section != AppSection.workspace) {
+      unawaited(_ttsPlaybackService.stop());
     }
     setState(() {
       _selectedSection = section;
     });
+    if (section == AppSection.workspace) {
+      _syncVoiceConversationVisibility(
+        _observedSessionController?.currentSessionId,
+      );
+    }
   }
 
   /// 将 macOS 系统菜单的“设置”入口连接到应用内设置页，其他平台不执行。
@@ -3313,6 +3365,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (switchingSessions || _selectedSection != AppSection.workspace) {
       dismissOpenHandTooltipsSafely(debugLabel: '切换线程会话前收起工具提示');
     }
+    if ((switchingSessions || _selectedSection != AppSection.workspace) &&
+        (_voiceConversationRuntimeSessionId != null ||
+            _voiceConversationService.snapshot.active)) {
+      unawaited(_pauseVoiceConversationForNavigation());
+    }
     _userScrollGraceDebouncer.cancel();
     _userScrollInProgress = false;
     _lastPointerSignalScrollAt = null;
@@ -3337,6 +3394,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       await sessionController.selectSession(sessionId);
     } finally {
       if (kDebugMode) developer.Timeline.finishSync();
+      if (mounted && activationGeneration == _sessionActivationGeneration) {
+        _syncVoiceConversationVisibility(sessionController.currentSessionId);
+      }
     }
 
     unawaited(
@@ -6634,12 +6694,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  void _enqueueVoiceMessage(String value) {
-    if (value.trim().isEmpty) return;
+  void _enqueueVoiceMessage(String sessionId, String value) {
+    if (value.trim().isEmpty ||
+        sessionId != _voiceConversationRuntimeSessionId) {
+      return;
+    }
     _voiceConversationService.interruptAssistantResponse();
     final task = _voiceSubmissionPreparationQueue
         .catchError((Object _, StackTrace _) {})
-        .then((_) => _prepareVoiceMessage(value));
+        .then((_) => _prepareVoiceMessage(sessionId, value));
     _voiceSubmissionPreparationQueue = task;
     unawaited(
       task.catchError((Object error, StackTrace stack) {
@@ -6648,10 +6711,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  Future<void> _prepareVoiceMessage(String value) async {
+  Future<void> _prepareVoiceMessage(
+    String targetSessionId,
+    String value,
+  ) async {
     final prompt = value.trim();
-    final targetSessionId = _voiceConversationSessionId;
-    if (prompt.isEmpty || targetSessionId == null || !mounted) return;
+    if (prompt.isEmpty || !mounted) return;
 
     final sessionController = context.read<AiSessionController>();
     if (!_voiceConversationService.snapshot.active ||
@@ -6688,7 +6753,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
         if (!mounted ||
             !_voiceConversationService.snapshot.active ||
-            _voiceConversationSessionId != targetSessionId) {
+            _voiceConversationRuntimeSessionId != targetSessionId) {
           return;
         }
         if (!stopped) {
@@ -6705,7 +6770,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (!mounted ||
           !_voiceConversationService.snapshot.active ||
-          _voiceConversationSessionId != targetSessionId) {
+          _voiceConversationRuntimeSessionId != targetSessionId) {
         return;
       }
       final submissionStarted = Completer<void>();
@@ -6766,69 +6831,214 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _startVoiceConversation() async {
-    if (_voiceConversationService.snapshot.active) return;
-    final settingsController = context.read<SettingsController>();
     final currentSession = context.read<AiSessionController>().currentSession;
     if (currentSession == null) return;
-    final availability = _composerVoiceAvailability(
-      context,
-      settingsController.offlineSpeechSettings,
-      settingsController.aiModels,
-    );
-    if (!availability.available) {
-      showOpenHandInfoSnack(
-        context,
-        availability.reason,
-        duration: kOpenHandSnackBarDetailedDuration,
-        maxLines: 3,
-      );
-      return;
-    }
     _voiceConversationSessionId = currentSession.id;
     _voiceLastReadAssistantId = _latestFormalVoiceAssistantResponse(
       currentSession,
     )?.id;
     setState(() => _composerCollapsed = false);
-    try {
-      await _ttsPlaybackService.stop();
-      await _voiceConversationService.start(
-        settings: settingsController.offlineSpeechSettings,
-        availableModels: settingsController.aiModels,
-        onTextReady: _enqueueVoiceMessage,
-        onIssue: (message) {
-          if (!mounted || _voiceConversationSessionId != currentSession.id) {
-            return;
-          }
-          showOpenHandErrorSnack(
-            context,
-            message,
-            duration: kOpenHandSnackBarLongReadDuration,
-            maxLines: 3,
-          );
-        },
-      );
-    } catch (error) {
-      final cancelled = _voiceConversationSessionId != currentSession.id;
-      _voiceConversationSessionId = null;
-      _voiceLastReadAssistantId = null;
-      if (!mounted || cancelled) return;
-      showOpenHandErrorSnack(
-        context,
-        openHandLocalizedText(
-          context,
-          zh: '无法开始语音沟通：$error',
-          en: 'Unable to start voice mode: $error',
-        ),
-      );
-    }
+    await _resumeVoiceConversationForCurrentSession();
   }
 
   Future<void> _stopVoiceConversation() async {
     _voiceConversationSessionId = null;
     _voiceLastReadAssistantId = null;
-    await _voiceConversationService.stop();
+    if (mounted) setState(() {});
+    await _pauseVoiceConversationForNavigation();
     if (!mounted || _selectedSection != AppSection.workspace) return;
     _composerFocusNode.requestFocus();
+  }
+
+  Future<void> _ignoreVoiceTransitionError(
+    Future<void> operation,
+    String action,
+  ) async {
+    try {
+      await operation;
+    } catch (error, stack) {
+      silentLog('openhand_home_page', action, error, stack);
+    }
+  }
+
+  Future<void> _pauseVoiceConversationForNavigation() {
+    if (_voiceConversationDisposed) return Future<void>.value();
+    final pendingPause = _voiceConversationPauseTask;
+    if (pendingPause != null && _voiceConversationRuntimeSessionId == null) {
+      return pendingPause;
+    }
+    if (_voiceConversationRuntimeSessionId == null &&
+        !_voiceConversationService.snapshot.active) {
+      return _voiceConversationTransition;
+    }
+
+    _voiceConversationTransitionGeneration += 1;
+    _voiceConversationRuntimeSessionId = null;
+    _voiceConversationService.interruptAssistantResponse();
+    final stopSpeech = _ignoreVoiceTransitionError(
+      _ttsPlaybackService.stop(),
+      '暂停语音模式时停止朗读',
+    );
+    final stopConversation = _voiceConversationService.snapshot.active
+        ? _ignoreVoiceTransitionError(
+            _voiceConversationService.stop(),
+            '暂停语音模式',
+          )
+        : Future<void>.value();
+    final previousTransition = _voiceConversationTransition;
+    late final Future<void> transition;
+    transition = () async {
+      try {
+        await _ignoreVoiceTransitionError(previousTransition, '等待语音模式切换');
+        await Future.wait<void>(<Future<void>>[stopSpeech, stopConversation]);
+        if (!_voiceConversationDisposed) {
+          await _ignoreVoiceTransitionError(
+            _voiceConversationService.stop(),
+            '完成语音模式资源清理',
+          );
+        }
+      } finally {
+        if (identical(_voiceConversationPauseTask, transition)) {
+          _voiceConversationPauseTask = null;
+        }
+      }
+    }();
+    _voiceConversationPauseTask = transition;
+    _voiceConversationTransition = transition;
+    unawaited(_ignoreVoiceTransitionError(transition, '完成语音模式暂停'));
+    return transition;
+  }
+
+  Future<void> _resumeVoiceConversationForCurrentSession() {
+    final targetSessionId = _voiceConversationSessionId;
+    if (targetSessionId == null ||
+        !_voiceConversationCanRunFor(targetSessionId)) {
+      return _voiceConversationTransition;
+    }
+    if (_voiceConversationRuntimeSessionId == targetSessionId) {
+      return _voiceConversationTransition;
+    }
+
+    final generation = ++_voiceConversationTransitionGeneration;
+    _voiceConversationRuntimeSessionId = targetSessionId;
+    final previousTransition = _voiceConversationTransition;
+    final transition = () async {
+      await _ignoreVoiceTransitionError(previousTransition, '等待语音模式恢复');
+      if (!mounted ||
+          generation != _voiceConversationTransitionGeneration ||
+          !_voiceConversationCanRunFor(targetSessionId)) {
+        if (_voiceConversationRuntimeSessionId == targetSessionId) {
+          _voiceConversationRuntimeSessionId = null;
+        }
+        return;
+      }
+
+      final sessionController = context.read<AiSessionController>();
+      final currentSession = sessionController.currentSession;
+      if (currentSession == null || currentSession.id != targetSessionId) {
+        _voiceConversationRuntimeSessionId = null;
+        return;
+      }
+      final settingsController = context.read<SettingsController>();
+      final availability = _composerVoiceAvailability(
+        context,
+        settingsController.offlineSpeechSettings,
+        settingsController.aiModels,
+      );
+      if (!availability.available) {
+        _voiceConversationRuntimeSessionId = null;
+        if (_voiceConversationSessionId == targetSessionId) {
+          _voiceConversationSessionId = null;
+          _voiceLastReadAssistantId = null;
+          if (mounted) setState(() {});
+          showOpenHandInfoSnack(
+            context,
+            availability.reason,
+            duration: kOpenHandSnackBarDetailedDuration,
+            maxLines: 3,
+          );
+        }
+        return;
+      }
+
+      final responseInProgress = sessionController.canStopResponding(
+        targetSessionId,
+      );
+      final latestAssistant = _latestFormalVoiceAssistantResponse(
+        currentSession,
+        includeStreaming: true,
+        responseInProgress: responseInProgress,
+      );
+      final latestAssistantStreaming =
+          responseInProgress ||
+          latestAssistant?.metadata[aiSessionMessageMetadataStreamingKey] ==
+              true;
+      if (latestAssistant != null && !latestAssistantStreaming) {
+        _voiceLastReadAssistantId = latestAssistant.id;
+      }
+
+      try {
+        await _ttsPlaybackService.stop();
+        if (_voiceConversationService.snapshot.active) {
+          await _voiceConversationService.stop();
+        }
+        if (generation != _voiceConversationTransitionGeneration ||
+            !_voiceConversationCanRunFor(targetSessionId)) {
+          return;
+        }
+        await _voiceConversationService.start(
+          settings: settingsController.offlineSpeechSettings,
+          availableModels: settingsController.aiModels,
+          onTextReady: (text) {
+            if (generation == _voiceConversationTransitionGeneration) {
+              _enqueueVoiceMessage(targetSessionId, text);
+            }
+          },
+          onIssue: (message) {
+            if (generation != _voiceConversationTransitionGeneration ||
+                !_voiceConversationCanRunFor(targetSessionId) ||
+                _voiceConversationRuntimeSessionId != targetSessionId) {
+              return;
+            }
+            showOpenHandErrorSnack(
+              context,
+              message,
+              duration: kOpenHandSnackBarLongReadDuration,
+              maxLines: 3,
+            );
+          },
+        );
+        if (generation == _voiceConversationTransitionGeneration &&
+            _voiceConversationCanRunFor(targetSessionId)) {
+          _syncVoiceAssistantResponse(sessionController);
+        }
+      } catch (error, stack) {
+        silentLog('openhand_home_page', '恢复语音沟通', error, stack);
+        final cancelled =
+            generation != _voiceConversationTransitionGeneration ||
+            !_voiceConversationCanRunFor(targetSessionId);
+        if (_voiceConversationRuntimeSessionId == targetSessionId) {
+          _voiceConversationRuntimeSessionId = null;
+        }
+        if (!mounted || cancelled) return;
+        if (_voiceConversationSessionId == targetSessionId) {
+          _voiceConversationSessionId = null;
+          _voiceLastReadAssistantId = null;
+          setState(() {});
+        }
+        showOpenHandErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '无法开始语音沟通：$error',
+            en: 'Unable to start voice mode: $error',
+          ),
+        );
+      }
+    }();
+    _voiceConversationTransition = transition;
+    unawaited(_ignoreVoiceTransitionError(transition, '完成语音模式恢复'));
+    return transition;
   }
 
   void _beginPendingAutoStartSubmission(String sessionId) {
@@ -7090,7 +7300,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
 
     if (_voiceConversationService.snapshot.active &&
-        _voiceConversationSessionId == targetSessionId) {
+        _voiceConversationRuntimeSessionId == targetSessionId) {
       _voiceConversationService.interruptAssistantResponse();
     }
     setState(() {
@@ -10373,6 +10583,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
         onSend: _sendMessage,
         onStop: _stopResponding,
+        voiceModeSelected: currentSession?.id == _voiceConversationSessionId,
         voiceConversationService: _voiceConversationService,
         onStartVoiceConversation: _startVoiceConversation,
         onStopVoiceConversation: _stopVoiceConversation,
