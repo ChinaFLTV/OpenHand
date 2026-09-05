@@ -2483,7 +2483,7 @@ class _VoiceTeleprompter extends StatelessWidget {
             : Semantics(
                 key: const ValueKey<String>('voice-teleprompter-visible'),
                 liveRegion: true,
-                label: '$status $current',
+                label: '$status ${current.isEmpty ? previous : current}',
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: colors.surfaceContainerHighest,
@@ -2567,55 +2567,13 @@ class _VoiceTeleprompter extends StatelessWidget {
                                   ],
                                 ],
                               ),
-                              if (previous.isNotEmpty) ...[
-                                kOpenHandGap4,
-                                Text(
-                                  previous,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colors.onSurfaceVariant.withValues(
-                                      alpha: 0.48,
-                                    ),
-                                    shadows: <Shadow>[
-                                      Shadow(
-                                        color: colors.shadow.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
                               kOpenHandGap4,
-                              AnimatedSwitcher(
-                                duration: openHandMotionDuration(
+                              _VoiceTranscriptViewport(
+                                text: current.isEmpty ? previous : current,
+                                placeholder: openHandLocalizedText(
                                   context,
-                                  kOpenHandMotion180,
-                                ),
-                                layoutBuilder:
-                                    buildCollisionSafeAnimatedSwitcherLayout,
-                                child: Text(
-                                  current.isEmpty
-                                      ? openHandLocalizedText(
-                                          context,
-                                          zh: '请开始说话…',
-                                          en: 'Start speaking…',
-                                        )
-                                      : current,
-                                  key: ValueKey<String>(current),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: current.isEmpty
-                                        ? colors.onSurfaceVariant
-                                        : colors.onSurface,
-                                    fontWeight: current.isEmpty
-                                        ? FontWeight.w500
-                                        : FontWeight.w700,
-                                  ),
+                                  zh: '请开始说话…',
+                                  en: 'Start speaking…',
                                 ),
                               ),
                             ],
@@ -2658,6 +2616,164 @@ class _VoiceTeleprompter extends StatelessWidget {
               ),
       ),
     );
+  }
+}
+
+class _VoiceTranscriptViewport extends StatelessWidget {
+  const _VoiceTranscriptViewport({
+    required this.text,
+    required this.placeholder,
+  });
+
+  final String text;
+  final String placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final currentStyle = DefaultTextStyle.of(context).style
+        .merge(theme.textTheme.bodyLarge)
+        .copyWith(color: colors.onSurface, fontWeight: FontWeight.w700);
+    final fadedStyle = currentStyle.copyWith(
+      color: colors.onSurfaceVariant.withValues(alpha: 0.38),
+      fontWeight: FontWeight.w600,
+      shadows: <Shadow>[
+        Shadow(
+          color: colors.shadow.withValues(alpha: 0.18),
+          blurRadius: 5,
+          offset: const Offset(0, 1.5),
+        ),
+      ],
+    );
+    final placeholderStyle = currentStyle.copyWith(
+      color: colors.onSurfaceVariant,
+      fontWeight: FontWeight.w500,
+    );
+    final lineHeight =
+        textScaler.scale(currentStyle.fontSize ?? 16) *
+        (currentStyle.height ?? 1.25);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final page = _layoutPage(context, width, currentStyle);
+        final pageKey = ValueKey<(String, String, bool)>(page);
+        final content = SizedBox(
+          height: lineHeight * 2 + 2,
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: lineHeight,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: page.$1.isEmpty
+                      ? const SizedBox.shrink()
+                      : Text(
+                          page.$1,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: fadedStyle,
+                        ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              SizedBox(
+                height: lineHeight,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    page.$2,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: page.$3 ? placeholderStyle : currentStyle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (!openHandTickerMotionEnabled(context)) {
+          return ExcludeSemantics(child: content);
+        }
+        return SizedBox(
+          height: lineHeight * 2 + 2,
+          child: ClipRect(
+            child: AnimatedSwitcher(
+              duration: openHandMotionDuration(context, kOpenHandMotion260),
+              reverseDuration: openHandMotionDuration(
+                context,
+                kOpenHandMotion220,
+              ),
+              layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+              transitionBuilder: (child, animation) {
+                final incoming = child.key == pageKey;
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: incoming
+                      ? kOpenHandEntranceCurve
+                      : kOpenHandSwitchOutCurve,
+                );
+                return FadeTransition(
+                  opacity: curved,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: Offset(0, incoming ? 0.42 : -0.42),
+                      end: Offset.zero,
+                    ).animate(curved),
+                    child: child,
+                  ),
+                );
+              },
+              child: ExcludeSemantics(key: pageKey, child: content),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  (String, String, bool) _layoutPage(
+    BuildContext context,
+    double width,
+    TextStyle style,
+  ) {
+    final normalized = text.trim();
+    if (normalized.isEmpty || width <= 0) {
+      return ('', placeholder, true);
+    }
+    final painter = TextPainter(
+      text: TextSpan(text: normalized, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+    )..layout(maxWidth: width);
+    final lastRange = painter.getLineBoundary(
+      TextPosition(offset: normalized.length - 1),
+    );
+    final currentLine = normalized
+        .substring(lastRange.start, lastRange.end)
+        .trim();
+    var fadedLine = '';
+    if (lastRange.start > 0) {
+      final previousRange = painter.getLineBoundary(
+        TextPosition(
+          offset: lastRange.start - 1,
+          affinity: TextAffinity.upstream,
+        ),
+      );
+      fadedLine = normalized
+          .substring(previousRange.start, previousRange.end)
+          .trim();
+    }
+    painter.dispose();
+    return (fadedLine, currentLine.isEmpty ? normalized : currentLine, false);
   }
 }
 
