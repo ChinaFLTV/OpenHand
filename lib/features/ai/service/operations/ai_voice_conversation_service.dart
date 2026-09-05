@@ -112,12 +112,12 @@ class AiVoiceConversationService extends ChangeNotifier {
   );
   static const Duration _playbackTimeout = Duration(minutes: 1);
   static const Duration _playbackCompletionGrace = Duration(seconds: 15);
-  static const int _initialSpeechChunkTerminalLimit = 12;
-  static const int _initialSpeechChunkSoftLimit = 36;
-  static const int _initialSpeechChunkHardLimit = 64;
-  static const int _speechChunkTerminalLimit = 48;
-  static const int _speechChunkSoftLimit = 88;
-  static const int _speechChunkHardLimit = 136;
+  static const int _initialSpeechChunkTerminalLimit = 8;
+  static const int _initialSpeechChunkSoftLimit = 24;
+  static const int _initialSpeechChunkHardLimit = 40;
+  static const int _speechChunkTerminalLimit = 28;
+  static const int _speechChunkSoftLimit = 64;
+  static const int _speechChunkHardLimit = 104;
   static const int _speechAudioBufferLimit = 2;
   static const double _defaultSpeechVolume = 100;
 
@@ -171,7 +171,6 @@ class AiVoiceConversationService extends ChangeNotifier {
       <({int serial, String path})>[];
   bool _speechGenerationActive = false;
   bool _speechPumpActive = false;
-  bool _speechPlaybackStarted = false;
   int _speechSerial = 0;
   Completer<void> _speechCancellation = Completer<void>();
   String? _assistantMessageId;
@@ -402,7 +401,6 @@ class AiVoiceConversationService extends ChangeNotifier {
       _speechSerial += 1;
       _resetSpeechCancellation();
       _discardBufferedSpeech();
-      _speechPlaybackStarted = false;
       unawaited(_stopPlayerSafely());
     }
     _assistantText = text;
@@ -435,7 +433,6 @@ class AiVoiceConversationService extends ChangeNotifier {
     _speechSerial += 1;
     _resetSpeechCancellation();
     _discardBufferedSpeech();
-    _speechPlaybackStarted = false;
     unawaited(_stopPlayerSafely());
   }
 
@@ -771,7 +768,6 @@ class AiVoiceConversationService extends ChangeNotifier {
     if (!_speechAudioQueue.any((audio) => audio.serial == speechSerial)) {
       return;
     }
-    _speechPlaybackStarted = true;
     _speechPumpActive = true;
     try {
       while (_speechAudioQueue.any((audio) => audio.serial == speechSerial) &&
@@ -919,16 +915,13 @@ class AiVoiceConversationService extends ChangeNotifier {
   }
 
   void _startBufferedSpeechIfReady(int sessionSerial, int speechSerial) {
-    final bufferedCount = _speechAudioQueue
-        .where((audio) => audio.serial == speechSerial)
-        .length;
-    final generationCaughtUp = !_speechGenerationActive && _speechQueue.isEmpty;
-    if (bufferedCount > 0 &&
-        (_speechPlaybackStarted ||
-            bufferedCount >= _speechAudioBufferLimit ||
-            generationCaughtUp)) {
-      unawaited(_pumpSpeech(sessionSerial, speechSerial));
+    if (_speechPumpActive ||
+        !_isCurrentSession(sessionSerial) ||
+        speechSerial != _speechSerial ||
+        !_speechAudioQueue.any((audio) => audio.serial == speechSerial)) {
+      return;
     }
+    unawaited(_pumpSpeech(sessionSerial, speechSerial));
   }
 
   void _discardBufferedSpeech() {
@@ -1139,7 +1132,6 @@ class AiVoiceConversationService extends ChangeNotifier {
     _speechSerial += 1;
     _resetSpeechCancellation();
     _discardBufferedSpeech();
-    _speechPlaybackStarted = false;
     unawaited(_stopPlayerSafely());
     _setSnapshot(_snapshot.copyWith(phase: AiVoiceConversationPhase.listening));
     _notifyIssue(message);
@@ -1197,7 +1189,6 @@ class AiVoiceConversationService extends ChangeNotifier {
     _speechSerial += 1;
     _resetSpeechCancellation();
     _discardBufferedSpeech();
-    _speechPlaybackStarted = false;
     final subscription = _recordingSubscription;
     _recordingSubscription = null;
     try {

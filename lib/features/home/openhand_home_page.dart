@@ -1464,9 +1464,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       unawaited(_stopVoiceConversation());
       return;
     }
+    final responseInProgress = controller.canStopResponding(session.id);
     final assistant = _latestFormalVoiceAssistantResponse(
       session,
       includeStreaming: true,
+      responseInProgress: responseInProgress,
     );
     if (assistant == null) {
       return;
@@ -1474,7 +1476,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (assistant.id == _voiceLastReadAssistantId) return;
     final streaming =
         assistant.metadata[aiSessionMessageMetadataStreamingKey] == true ||
-        controller.canStopResponding(session.id);
+        responseInProgress;
     if (!streaming) _voiceLastReadAssistantId = assistant.id;
     _voiceConversationService.ingestAssistantResponse(
       messageId: assistant.id,
@@ -1486,6 +1488,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   AiSessionMessage? _latestFormalVoiceAssistantResponse(
     AiSession session, {
     bool includeStreaming = false,
+    bool responseInProgress = false,
   }) {
     var followedByToolCall = false;
     for (var index = session.messages.length - 1; index >= 0; index--) {
@@ -1507,9 +1510,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           .trim();
       final streaming =
           message.metadata[aiSessionMessageMetadataStreamingKey] == true;
+      final isLiveResponse =
+          includeStreaming && (streaming || responseInProgress);
       if (message.metadata['was_cancelled'] == true ||
           (!includeStreaming && streaming) ||
-          (responseStatus.isNotEmpty && responseStatus != 'completed')) {
+          (!isLiveResponse &&
+              responseStatus.isNotEmpty &&
+              responseStatus != 'completed')) {
         continue;
       }
       return message;
