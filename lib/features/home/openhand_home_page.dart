@@ -6786,6 +6786,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         settings: settingsController.offlineSpeechSettings,
         availableModels: settingsController.aiModels,
         onTextReady: _enqueueVoiceMessage,
+        onIssue: (message) {
+          if (!mounted || _voiceConversationSessionId != currentSession.id) {
+            return;
+          }
+          showOpenHandErrorSnack(
+            context,
+            message,
+            duration: kOpenHandSnackBarLongReadDuration,
+            maxLines: 3,
+          );
+        },
       );
     } catch (error) {
       final cancelled = _voiceConversationSessionId != currentSession.id;

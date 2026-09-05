@@ -12,6 +12,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/offline_speech_model.dart';
+import '../chat/ai_chat_service.dart';
 import 'ai_speech_text_polishing_service.dart';
 import 'offline_speech_model_service.dart';
 
@@ -108,7 +109,8 @@ class AiVoiceConversationService extends ChangeNotifier {
   static const Duration _partialRecognitionInterval = Duration(
     milliseconds: 950,
   );
-  static const Duration _playbackTimeout = Duration(minutes: 5);
+  static const Duration _playbackTimeout = Duration(minutes: 1);
+  static const Duration _playbackCompletionGrace = Duration(seconds: 15);
   static const int _initialSpeechChunkTerminalLimit = 28;
   static const int _initialSpeechChunkSoftLimit = 44;
   static const int _initialSpeechChunkHardLimit = 72;
@@ -136,6 +138,10 @@ class AiVoiceConversationService extends ChangeNotifier {
   List<AiModelConfig> _availableModels = const <AiModelConfig>[];
   Duration _silenceTimeout = const Duration(seconds: 3);
   void Function(String text)? _onTextReady;
+  void Function(String message)? _onIssue;
+  String? _polishingBlockMessage;
+  String? _pendingPolishingText;
+  final Set<String> _reportedIssues = <String>{};
 
   StreamSubscription<Uint8List>? _recordingSubscription;
   Timer? _silenceTimer;
@@ -170,12 +176,14 @@ class AiVoiceConversationService extends ChangeNotifier {
   String _assistantText = '';
   int _assistantSpokenOffset = 0;
   bool _assistantStreaming = false;
+  bool _assistantSpeechBlocked = false;
   bool _disposed = false;
 
   Future<void> start({
     required OfflineSpeechSettings settings,
     required List<AiModelConfig> availableModels,
     required void Function(String text) onTextReady,
+    required void Function(String message) onIssue,
   }) async {
     if (_disposed) throw StateError('语音沟通服务已关闭。');
     if (_snapshot.active) return;
@@ -246,6 +254,10 @@ class AiVoiceConversationService extends ChangeNotifier {
     _availableModels = List<AiModelConfig>.unmodifiable(availableModels);
     _silenceTimeout = Duration(seconds: settings.silenceTimeoutSeconds);
     _onTextReady = onTextReady;
+    _onIssue = onIssue;
+    _polishingBlockMessage = null;
+    _pendingPolishingText = null;
+    _reportedIssues.clear();
     _snapshot = const AiVoiceConversationSnapshot.idle().copyWith(
       active: true,
       phase: AiVoiceConversationPhase.starting,
@@ -343,7 +355,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _speechPlaybackStarted = false;
     if (muted) {
       _assistantSpokenOffset = _assistantText.length;
-      await _player?.stop();
+      await _stopPlayerSafely();
     }
     _setSnapshot(_snapshot.copyWith(speakerMuted: muted));
   }
@@ -359,7 +371,11 @@ class AiVoiceConversationService extends ChangeNotifier {
     _setSnapshot(
       _snapshot.copyWith(currentTranscript: '', previousTranscript: current),
     );
-    await _deliverText(current, _sessionSerial);
+    await _deliverText(
+      current,
+      _sessionSerial,
+      skipPolishing: _polishingBlockMessage != null,
+    );
   }
 
   void ingestAssistantResponse({
@@ -372,16 +388,17 @@ class AiVoiceConversationService extends ChangeNotifier {
       _assistantMessageId = messageId;
       _assistantText = '';
       _assistantSpokenOffset = 0;
+      _assistantSpeechBlocked = false;
       _speechQueue.clear();
       _speechSerial += 1;
       _resetSpeechCancellation();
       _discardBufferedSpeech();
       _speechPlaybackStarted = false;
-      unawaited(_player?.stop());
+      unawaited(_stopPlayerSafely());
     }
     _assistantText = text;
     _assistantStreaming = streaming;
-    if (_snapshot.speakerMuted) {
+    if (_snapshot.speakerMuted || _assistantSpeechBlocked) {
       _assistantSpokenOffset = text.length;
       return;
     }
@@ -406,12 +423,13 @@ class AiVoiceConversationService extends ChangeNotifier {
     _assistantText = '';
     _assistantSpokenOffset = 0;
     _assistantStreaming = false;
+    _assistantSpeechBlocked = false;
     _speechQueue.clear();
     _speechSerial += 1;
     _resetSpeechCancellation();
     _discardBufferedSpeech();
     _speechPlaybackStarted = false;
-    unawaited(_player?.stop());
+    unawaited(_stopPlayerSafely());
   }
 
   OfflineSpeechModelDefinition? _selectedModel(
@@ -563,7 +581,7 @@ class AiVoiceConversationService extends ChangeNotifier {
               ),
             );
           } catch (error, stack) {
-            if (_snapshot.active) {
+            if (_snapshot.active && !_isExpectedCancellation(error)) {
               silentLog('voice_conversation', '刷新实时识别文本', error, stack);
             }
           } finally {
@@ -608,18 +626,17 @@ class AiVoiceConversationService extends ChangeNotifier {
         .catchError((Object _, StackTrace _) {})
         .then((_) async {
           var text = fallback;
+          var recognitionFailed = false;
           try {
             final recognized = await _recognize(bytes, sessionSerial);
             if (recognized.isNotEmpty) text = recognized;
           } catch (error, stack) {
-            silentLog('voice_conversation', '完成语音识别', error, stack);
-            if (text.isEmpty && _isCurrentSession(sessionSerial)) {
-              _setSnapshot(
-                _snapshot.copyWith(
-                  phase: AiVoiceConversationPhase.listening,
-                  message: '识别失败：$error',
-                ),
-              );
+            if (!_isExpectedCancellation(error)) {
+              recognitionFailed = true;
+              silentLog('voice_conversation', '完成语音识别', error, stack);
+              if (text.isEmpty && _isCurrentSession(sessionSerial)) {
+                _notifyIssue('语音识别失败，请检查识别模型后重试。');
+              }
             }
           }
           if (text.isNotEmpty && _isCurrentSession(sessionSerial)) {
@@ -628,20 +645,16 @@ class AiVoiceConversationService extends ChangeNotifier {
             _setSnapshot(
               _snapshot.copyWith(
                 phase: AiVoiceConversationPhase.listening,
-                clearMessage: true,
+                clearMessage: !recognitionFailed,
               ),
             );
           }
         })
         .catchError((Object error, StackTrace stack) {
-          if (_isCurrentSession(sessionSerial)) {
+          if (_isCurrentSession(sessionSerial) &&
+              !_isExpectedCancellation(error)) {
             silentLog('voice_conversation', '提交语音识别文本', error, stack);
-            _setSnapshot(
-              _snapshot.copyWith(
-                phase: AiVoiceConversationPhase.listening,
-                message: '提交识别文本失败：$error',
-              ),
-            );
+            _notifyIssue('提交识别文本失败，请重试。');
           }
         });
   }
@@ -674,10 +687,28 @@ class AiVoiceConversationService extends ChangeNotifier {
     }
   }
 
-  Future<void> _deliverText(String source, int sessionSerial) async {
+  Future<void> _deliverText(
+    String source,
+    int sessionSerial, {
+    bool skipPolishing = false,
+  }) async {
     var text = source.trim();
     if (text.isEmpty || !_isCurrentSession(sessionSerial)) return;
-    if (_polishingSettings.enabled) {
+    final blockedMessage = _polishingBlockMessage;
+    if (_polishingSettings.enabled && !skipPolishing) {
+      if (blockedMessage != null) {
+        final pending = _pendingPolishingText?.trim() ?? '';
+        if (pending.isNotEmpty && pending != text) text = '$pending\n$text';
+        _pendingPolishingText = text;
+        _setSnapshot(
+          _snapshot.copyWith(
+            phase: AiVoiceConversationPhase.listening,
+            currentTranscript: text,
+            message: blockedMessage,
+          ),
+        );
+        return;
+      }
       _setSnapshot(
         _snapshot.copyWith(
           phase: AiVoiceConversationPhase.polishing,
@@ -692,20 +723,25 @@ class AiVoiceConversationService extends ChangeNotifier {
           cancelSignal: _sessionCancellation?.future,
         );
       } catch (error, stack) {
+        if (_isExpectedCancellation(error)) return;
         silentLog('voice_conversation', '润色识别文本', error, stack);
-        if (_isCurrentSession(sessionSerial)) {
-          _setSnapshot(
-            _snapshot.copyWith(
-              phase: AiVoiceConversationPhase.listening,
-              currentTranscript: text,
-              message: '文本润色失败，识别文本尚未发送：$error',
-            ),
-          );
-        }
+        if (!_isCurrentSession(sessionSerial)) return;
+        final message = _polishingFailureMessage(error);
+        _polishingBlockMessage = message;
+        _pendingPolishingText = text;
+        _setSnapshot(
+          _snapshot.copyWith(
+            phase: AiVoiceConversationPhase.listening,
+            currentTranscript: text,
+            message: message,
+          ),
+        );
+        _notifyIssue(message);
         return;
       }
     }
     if (!_isCurrentSession(sessionSerial) || text.trim().isEmpty) return;
+    _pendingPolishingText = null;
     _setSnapshot(
       _snapshot.copyWith(
         previousTranscript: text,
@@ -734,7 +770,9 @@ class AiVoiceConversationService extends ChangeNotifier {
         if (audioIndex == -1) break;
         final audioPath = _speechAudioQueue.removeAt(audioIndex).path;
         unawaited(_generateSpeech(sessionSerial, speechSerial));
-        final playbackCancellation = _speechCancellation.future;
+        final playbackCancellation = _speechCancellation;
+        StreamSubscription<bool>? playbackCompletionSubscription;
+        StreamSubscription<String>? playbackErrorSubscription;
         try {
           if (!_isCurrentSession(sessionSerial) ||
               speechSerial != _speechSerial ||
@@ -748,18 +786,64 @@ class AiVoiceConversationService extends ChangeNotifier {
             ),
           );
           final player = _player ??= mk.Player();
-          await player.open(mk.Media(audioPath));
+          await player.open(mk.Media(audioPath), play: false);
+          if (playbackCancellation.isCompleted ||
+              !_isCurrentSession(sessionSerial) ||
+              speechSerial != _speechSerial ||
+              _snapshot.speakerMuted) {
+            continue;
+          }
+          final playbackCompleted = Completer<void>();
+          playbackCompletionSubscription = player.stream.completed.listen(
+            (completed) {
+              if (completed && !playbackCompleted.isCompleted) {
+                playbackCompleted.complete();
+              }
+            },
+            onError: (Object error, StackTrace stack) {
+              if (!playbackCompleted.isCompleted) {
+                playbackCompleted.completeError(error, stack);
+              }
+            },
+            onDone: () {
+              if (!playbackCompleted.isCompleted) {
+                playbackCompleted.completeError(StateError('播放器完成事件流已关闭。'));
+              }
+            },
+          );
+          playbackErrorSubscription = player.stream.error.listen((message) {
+            final detail = message.trim();
+            if (detail.isNotEmpty && !playbackCompleted.isCompleted) {
+              playbackCompleted.completeError(StateError(detail));
+            }
+          });
+          await player.play();
+          final duration = player.state.duration;
+          final playbackDeadline = duration > Duration.zero
+              ? duration + _playbackCompletionGrace
+              : _playbackTimeout;
           await Future.any<void>(<Future<void>>[
-            player.stream.completed
-                .firstWhere((completed) => completed)
-                .then<void>((_) {}),
-            playbackCancellation,
-          ]).timeout(_playbackTimeout);
-        } catch (error, stack) {
+            playbackCompleted.future,
+            playbackCancellation.future,
+          ]).timeout(playbackDeadline);
+        } on TimeoutException catch (error, stack) {
           if (_isCurrentSession(sessionSerial)) {
+            silentLog('voice_conversation', '等待朗读完成', error, stack);
+            _blockAssistantSpeech('语音朗读超时，已停止本轮朗读。请检查朗读模型后重试。');
+          }
+        } catch (error, stack) {
+          if (_isCurrentSession(sessionSerial) &&
+              !_isExpectedCancellation(error)) {
             silentLog('voice_conversation', '朗读流式回复', error, stack);
+            _blockAssistantSpeech('语音朗读失败，已停止本轮朗读。请检查朗读模型后重试。');
           }
         } finally {
+          try {
+            await playbackCompletionSubscription?.cancel();
+          } catch (_) {}
+          try {
+            await playbackErrorSubscription?.cancel();
+          } catch (_) {}
           await _deleteGeneratedAudio(audioPath);
         }
       }
@@ -885,8 +969,9 @@ class AiVoiceConversationService extends ChangeNotifier {
       );
       return result.audioPath;
     } catch (error, stack) {
-      if (_isCurrentSession(sessionSerial)) {
+      if (_isCurrentSession(sessionSerial) && !_isExpectedCancellation(error)) {
         silentLog('voice_conversation', '生成流式回复语音', error, stack);
+        _blockAssistantSpeech('语音生成失败，已停止本轮朗读。请检查朗读模型后重试。');
       }
       return null;
     }
@@ -1005,8 +1090,55 @@ class AiVoiceConversationService extends ChangeNotifier {
     return !_disposed && _snapshot.active && serial == _sessionSerial;
   }
 
+  bool _isExpectedCancellation(Object error) {
+    return error is OfflineSpeechTestCancelled ||
+        error is AiChatCancelledException;
+  }
+
+  String _polishingFailureMessage(Object error) {
+    if (error is AiChatEmptyResponseException) {
+      return '文本润色模型未返回有效内容。识别文本已保留，可直接发送，或更换润色模型后重试。';
+    }
+    if (error is AiChatException) {
+      return switch (error.statusCode) {
+        401 => '文本润色模型鉴权失败。识别文本已保留，请检查密钥或更换润色模型。',
+        403 => '文本润色模型无访问权限或受地区限制。识别文本已保留，请更换模型或关闭文本润色。',
+        429 => '文本润色服务请求过于频繁或额度不足。识别文本已保留，请稍后重试。',
+        _ => '文本润色失败。识别文本已保留，可直接发送，或检查润色模型后重试。',
+      };
+    }
+    return '文本润色失败。识别文本已保留，可直接发送，或检查润色模型后重试。';
+  }
+
+  void _notifyIssue(String message) {
+    if (!_snapshot.active) return;
+    _setSnapshot(_snapshot.copyWith(message: message));
+    if (_reportedIssues.add(message)) _onIssue?.call(message);
+  }
+
+  void _blockAssistantSpeech(String message) {
+    if (!_snapshot.active || _assistantSpeechBlocked) return;
+    _assistantSpeechBlocked = true;
+    _assistantSpokenOffset = _assistantText.length;
+    _speechQueue.clear();
+    _speechSerial += 1;
+    _resetSpeechCancellation();
+    _discardBufferedSpeech();
+    _speechPlaybackStarted = false;
+    unawaited(_stopPlayerSafely());
+    _setSnapshot(_snapshot.copyWith(phase: AiVoiceConversationPhase.listening));
+    _notifyIssue(message);
+  }
+
+  Future<void> _stopPlayerSafely() async {
+    try {
+      await _player?.stop();
+    } catch (_) {}
+  }
+
   void _fail(String message) {
     if (!_snapshot.active) return;
+    _notifyIssue(message);
     _sessionSerial += 1;
     unawaited(
       _stopResources(markInactive: false).whenComplete(() {
@@ -1053,13 +1185,13 @@ class AiVoiceConversationService extends ChangeNotifier {
     _speechPlaybackStarted = false;
     final subscription = _recordingSubscription;
     _recordingSubscription = null;
-    await subscription?.cancel();
+    try {
+      await subscription?.cancel();
+    } catch (_) {}
     try {
       await _recorder.stop();
     } catch (_) {}
-    try {
-      await _player?.stop();
-    } catch (_) {}
+    await _stopPlayerSafely();
 
     _recognitionModel = null;
     _synthesisModel = null;
@@ -1067,6 +1199,10 @@ class AiVoiceConversationService extends ChangeNotifier {
     _synthesisConfiguration = const <String, Object?>{};
     _availableModels = const <AiModelConfig>[];
     _onTextReady = null;
+    _onIssue = null;
+    _polishingBlockMessage = null;
+    _pendingPolishingText = null;
+    _reportedIssues.clear();
     _preRoll = <int>[];
     _utterance = <int>[];
     _hasSpeech = false;
@@ -1081,6 +1217,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _assistantText = '';
     _assistantSpokenOffset = 0;
     _assistantStreaming = false;
+    _assistantSpeechBlocked = false;
     if (markInactive && !_disposed) {
       _setSnapshot(const AiVoiceConversationSnapshot.idle());
     }
@@ -1107,8 +1244,14 @@ class AiVoiceConversationService extends ChangeNotifier {
     final cleanup = _stopResources(markInactive: false);
     unawaited(
       cleanup.whenComplete(() async {
-        await _player?.dispose();
-        if (_ownsRecorder) await _recorder.dispose();
+        try {
+          await _player?.dispose();
+        } catch (_) {}
+        if (_ownsRecorder) {
+          try {
+            await _recorder.dispose();
+          } catch (_) {}
+        }
       }),
     );
     if (_ownsPolishingService) _polishingService.dispose();
