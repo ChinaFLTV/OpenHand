@@ -6599,6 +6599,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final settingsController = context.read<SettingsController>();
     final currentSession = context.read<AiSessionController>().currentSession;
     if (currentSession == null) return;
+    final availability = _composerVoiceAvailability(
+      context,
+      settingsController.offlineSpeechSettings,
+    );
+    if (!availability.available) {
+      showOpenHandInfoSnack(
+        context,
+        availability.reason,
+        duration: kOpenHandSnackBarDetailedDuration,
+        maxLines: 3,
+      );
+      return;
+    }
     _voiceConversationSessionId = currentSession.id;
     _voiceResponseBaselineAssistantId = currentSession.messages.reversed
         .where(

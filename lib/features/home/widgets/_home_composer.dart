@@ -119,8 +119,11 @@ class _AtMentionSearchScope {
 }
 
 ({bool available, String reason}) _composerVoiceAvailability(
+  BuildContext context,
   OfflineSpeechSettings settings,
 ) {
+  final zhIssues = <String>[];
+  final enIssues = <String>[];
   for (final entry in <(OfflineSpeechKind, OfflineSpeechModelSettings)>[
     (OfflineSpeechKind.recognition, settings.recognition),
     (OfflineSpeechKind.synthesis, settings.synthesis),
@@ -129,20 +132,44 @@ class _AtMentionSearchScope {
     final model = modelId == null
         ? null
         : OfflineSpeechModelCatalog.byId(modelId);
-    final label = entry.$1 == OfflineSpeechKind.recognition ? '语音识别' : '语音朗读';
+    final recognition = entry.$1 == OfflineSpeechKind.recognition;
+    final zhLabel = recognition ? '语音识别' : '语音朗读';
+    final enLabel = recognition ? 'speech recognition' : 'speech synthesis';
     if (model == null || model.kind != entry.$1) {
-      return (available: false, reason: '请先在设置中启用一个$label模型。');
+      zhIssues.add('前往“设置 → AI → $zhLabel”选择并启用模型');
+      enIssues.add('select and enable a $enLabel model under Settings → AI');
+      continue;
     }
     final configuration = entry.$2.configuration(model);
     final service = OfflineSpeechModelService.instance;
     final availability = service.availabilityFor(model, configuration);
     if (!availability.available) {
-      return (available: false, reason: '$label模型不可用：${availability.reason}');
+      zhIssues.add('$zhLabel模型不可用：${availability.reason}');
+      enIssues.add('the $enLabel model is unavailable: ${availability.reason}');
+      continue;
     }
     if (!service.isInstalled(model) ||
         service.requiresDownloadForConfiguration(model, configuration)) {
-      return (available: false, reason: '请先下载并准备好$label模型。');
+      zhIssues.add('前往“设置 → AI → $zhLabel”下载并准备好已启用模型');
+      enIssues.add(
+        'download and prepare the enabled $enLabel model under Settings → AI',
+      );
+      continue;
     }
+    if (!service.isRuntimeReady(model)) {
+      zhIssues.add('前往“设置 → AI → $zhLabel”运行已启用模型');
+      enIssues.add('start the enabled $enLabel model under Settings → AI');
+    }
+  }
+  if (zhIssues.isNotEmpty) {
+    return (
+      available: false,
+      reason: openHandLocalizedText(
+        context,
+        zh: '开始语音沟通前，请先${zhIssues.join('；')}。',
+        en: 'Before starting voice mode, ${enIssues.join('; ')}.',
+      ),
+    );
   }
   return (available: true, reason: '开始语音沟通');
 }
@@ -1411,6 +1438,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final isBusy = widget.sendPhase != AiSendPhase.idle;
     final settings = context.watch<SettingsController>();
     final voiceAvailability = _composerVoiceAvailability(
+      context,
       settings.offlineSpeechSettings,
     );
     final voiceModeAvailable =
@@ -1912,6 +1940,14 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               onPressed: voiceModeActionEnabled
                   ? widget.onStartVoiceConversation
                   : null,
+              onDisabledPressed: voiceModeActionEnabled
+                  ? null
+                  : () => showOpenHandInfoSnack(
+                      context,
+                      voiceModeUnavailableReason,
+                      duration: kOpenHandSnackBarDetailedDuration,
+                      maxLines: 3,
+                    ),
             ),
     );
 
@@ -2620,37 +2656,63 @@ class _VoiceModeActionButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.active = false,
+    this.onDisabledPressed,
   });
 
   final String tooltip;
   final IconData icon;
   final Future<void> Function()? onPressed;
   final bool active;
+  final VoidCallback? onDisabledPressed;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final enabled = onPressed != null;
+    final button = FilledButton(
+      onPressed: enabled ? () => unawaited(onPressed!()) : null,
+      style: FilledButton.styleFrom(
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(52, 52),
+        backgroundColor: active
+            ? colors.primary
+            : colors.surfaceContainerHighest,
+        foregroundColor: active ? colors.onPrimary : colors.onSurfaceVariant,
+        disabledBackgroundColor: colors.surfaceContainerHighest.withValues(
+          alpha: 0.62,
+        ),
+        disabledForegroundColor: colors.onSurfaceVariant.withValues(
+          alpha: 0.46,
+        ),
+        side: active ? null : BorderSide(color: colors.outlineVariant),
+      ),
+      child: Icon(icon),
+    );
     return Tooltip(
       message: tooltip,
       child: SizedBox(
         width: 52,
         height: 52,
-        child: FilledButton(
-          onPressed: enabled ? () => unawaited(onPressed!()) : null,
-          style: FilledButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(52, 52),
-            backgroundColor: active
-                ? colors.primary
-                : colors.surfaceContainerHighest,
-            foregroundColor: active
-                ? colors.onPrimary
-                : colors.onSurfaceVariant,
-            side: active ? null : BorderSide(color: colors.outlineVariant),
-          ),
-          child: Icon(icon),
-        ),
+        child: !enabled && onDisabledPressed != null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  ExcludeSemantics(child: button),
+                  Semantics(
+                    button: true,
+                    enabled: false,
+                    label: tooltip,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.forbidden,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onDisabledPressed,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : button,
       ),
     );
   }

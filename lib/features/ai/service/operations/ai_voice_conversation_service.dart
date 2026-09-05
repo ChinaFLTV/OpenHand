@@ -145,8 +145,6 @@ class AiVoiceConversationService extends ChangeNotifier {
   bool _speechPumpActive = false;
   int _speechSerial = 0;
   Completer<void> _speechCancellation = Completer<void>();
-  bool _ownsRecognitionRuntime = false;
-  bool _ownsSynthesisRuntime = false;
   String? _assistantMessageId;
   String _assistantText = '';
   int _assistantSpokenOffset = 0;
@@ -179,6 +177,9 @@ class AiVoiceConversationService extends ChangeNotifier {
         )) {
       throw StateError('语音识别模型尚未下载或运行环境尚未准备完成。');
     }
+    if (!_modelService.isRuntimeReady(recognition)) {
+      throw StateError('请先运行已启用的语音识别模型。');
+    }
     if (!await _recorder.hasPermission()) throw StateError('没有麦克风权限。');
     final synthesis = _selectedModel(
       settings.synthesis,
@@ -200,6 +201,9 @@ class AiVoiceConversationService extends ChangeNotifier {
         )) {
       throw StateError('语音朗读模型尚未下载或运行环境尚未准备完成。');
     }
+    if (!_modelService.isRuntimeReady(synthesis)) {
+      throw StateError('请先运行已启用的语音朗读模型。');
+    }
 
     _sessionSerial += 1;
     final sessionSerial = _sessionSerial;
@@ -220,20 +224,6 @@ class AiVoiceConversationService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _ownsRecognitionRuntime = !_modelService.isRunning(recognition);
-      await _modelService.start(
-        recognition,
-        recognitionConfiguration,
-        cancelSignal: _sessionCancellation!.future,
-      );
-      if (!_isCurrentSession(sessionSerial)) return;
-      _ownsSynthesisRuntime = !_modelService.isRunning(synthesis);
-      await _modelService.start(
-        synthesis,
-        synthesisConfiguration,
-        cancelSignal: _sessionCancellation!.future,
-      );
-      if (!_isCurrentSession(sessionSerial)) return;
       final stream = await _recorder.startStream(
         const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
@@ -569,6 +559,7 @@ class AiVoiceConversationService extends ChangeNotifier {
         _recognitionConfiguration,
         audioPath: path,
         cancelSignal: _sessionCancellation?.future,
+        startIfNeeded: false,
       );
       return result.transcript?.trim() ?? '';
     } finally {
@@ -704,14 +695,7 @@ class AiVoiceConversationService extends ChangeNotifier {
         _speechQueue.clear();
         return null;
       }
-      if (!_modelService.isRunning(model)) {
-        _ownsSynthesisRuntime = true;
-        await _modelService.start(
-          model,
-          _synthesisConfiguration,
-          cancelSignal: cancelSignal,
-        );
-      }
+      if (!_modelService.isRuntimeReady(model)) return null;
       if (!_isCurrentSession(sessionSerial) || speechSerial != _speechSerial) {
         return null;
       }
@@ -720,6 +704,7 @@ class AiVoiceConversationService extends ChangeNotifier {
         _synthesisConfiguration,
         sampleText: text,
         cancelSignal: cancelSignal,
+        startIfNeeded: false,
       );
       return result.audioPath;
     } catch (error, stack) {
@@ -871,20 +856,6 @@ class AiVoiceConversationService extends ChangeNotifier {
       await _player?.stop();
     } catch (_) {}
 
-    final recognition = _recognitionModel;
-    final synthesis = _synthesisModel;
-    if (_ownsRecognitionRuntime && recognition != null) {
-      try {
-        await _modelService.stop(recognition);
-      } catch (_) {}
-    }
-    if (_ownsSynthesisRuntime && synthesis != null) {
-      try {
-        await _modelService.stop(synthesis);
-      } catch (_) {}
-    }
-    _ownsRecognitionRuntime = false;
-    _ownsSynthesisRuntime = false;
     _recognitionModel = null;
     _synthesisModel = null;
     _recognitionConfiguration = const <String, Object?>{};

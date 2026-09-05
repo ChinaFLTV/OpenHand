@@ -451,6 +451,10 @@ class OfflineSpeechModelService extends ChangeNotifier {
   bool isRunning(OfflineSpeechModelDefinition model) =>
       _processes.containsKey(model.id);
 
+  bool isRuntimeReady(OfflineSpeechModelDefinition model) =>
+      isRunning(model) &&
+      stateOf(model).lifecycle == OfflineSpeechLifecycle.running;
+
   OfflineSpeechModelState stateOf(OfflineSpeechModelDefinition model) {
     final current = _states[model.id];
     if (current != null) return current;
@@ -871,6 +875,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     String? audioPath,
     String sampleText = testSampleText,
     Future<void>? cancelSignal,
+    bool startIfNeeded = true,
   }) {
     late final Future<OfflineSpeechTestResult> operation;
     operation = _test(
@@ -879,6 +884,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       audioPath: audioPath,
       sampleText: sampleText,
       cancelSignal: cancelSignal,
+      startIfNeeded: startIfNeeded,
     ).whenComplete(() => _activeTests.remove(operation));
     _activeTests.add(operation);
     return operation;
@@ -890,6 +896,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     String? audioPath,
     required String sampleText,
     Future<void>? cancelSignal,
+    required bool startIfNeeded,
   }) async {
     _throwIfShuttingDown();
     final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
@@ -898,6 +905,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     ]);
     final wasRunning = _processes.containsKey(model.id);
     if (!wasRunning) {
+      if (!startIfNeeded) throw StateError('模型尚未运行。');
       await start(model, configuration, cancelSignal: effectiveCancelSignal);
     }
     Directory? outputDirectory;
