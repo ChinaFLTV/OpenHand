@@ -85,14 +85,7 @@ class OpenHandMessageMarkdownThemeData {
       alpha: tones.isDark ? 0.92 : 0.88,
     );
     final bodyFontSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
-    final bodyStyle =
-        theme.textTheme.bodyMedium?.copyWith(
-          color: textColor,
-          fontSize: bodyFontSize * 1.04,
-          height: 1.5,
-          letterSpacing: 0.02,
-        ) ??
-        TextStyle(color: textColor, fontSize: bodyFontSize, height: 1.5);
+    final bodyStyle = openHandMessageBodyTextStyle(theme, color: textColor);
     final headingStyle = bodyStyle.copyWith(height: 1.24, letterSpacing: -0.22);
     final codeStyle =
         theme.textTheme.bodyMedium?.copyWith(

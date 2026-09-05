@@ -20,6 +20,23 @@ const String kOpenHandMonospaceFontFamily = 'monospace';
 const double kOpenHandCodeBodyFontSize = 12.5;
 const double kOpenHandCodeBodyLineHeight = 1.34;
 
+/// 正式响应消息的正文样式。
+TextStyle openHandMessageBodyTextStyle(
+  ThemeData theme, {
+  required Color color,
+}) {
+  final base = theme.textTheme.bodyMedium;
+  if (base == null) {
+    return TextStyle(color: color, fontSize: 14, height: 1.5);
+  }
+  return base.copyWith(
+    color: color,
+    fontSize: (base.fontSize ?? 14) * 1.04,
+    height: 1.5,
+    letterSpacing: 0.02,
+  );
+}
+
 /// 代码块正文样式：等宽族 + 表格数字对齐，主题缺失 bodySmall 时给出等价兜底。
 TextStyle openHandCodeBodyTextStyle(ThemeData theme, {required Color color}) {
   const features = <FontFeature>[FontFeature.tabularFigures()];

@@ -2446,6 +2446,7 @@ class _VoiceTeleprompter extends StatelessWidget {
     final colors = theme.colorScheme;
     final current = snapshot.currentTranscript.trim();
     final previous = snapshot.previousTranscript.trim();
+    final transcript = current.isEmpty ? previous : current;
     final status = switch (snapshot.phase) {
       AiVoiceConversationPhase.starting => openHandLocalizedText(
         context,
@@ -2496,7 +2497,7 @@ class _VoiceTeleprompter extends StatelessWidget {
             : Semantics(
                 key: const ValueKey<String>('voice-teleprompter-visible'),
                 liveRegion: true,
-                label: '$status ${current.isEmpty ? previous : current}',
+                label: transcript.isEmpty ? status : '$status $transcript',
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: colors.surfaceContainerHighest,
@@ -2576,14 +2577,20 @@ class _VoiceTeleprompter extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              kOpenHandGap4,
-                              _VoiceTranscriptViewport(
-                                text: current.isEmpty ? previous : current,
-                                placeholder: openHandLocalizedText(
-                                  context,
-                                  zh: '请开始说话…',
-                                  en: 'Start speaking…',
+                              OpenHandVerticalRevealSwitcher(
+                                duration: kOpenHandMotion220,
+                                reverseDuration: kOpenHandMotion180,
+                                presentKey: const ValueKey<String>(
+                                  'voice-transcript-visible',
                                 ),
+                                child: transcript.isEmpty
+                                    ? null
+                                    : Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: _VoiceTranscriptViewport(
+                                          text: transcript,
+                                        ),
+                                      ),
                               ),
                             ],
                           ),
@@ -2622,22 +2629,19 @@ class _VoiceTeleprompter extends StatelessWidget {
 }
 
 class _VoiceTranscriptViewport extends StatelessWidget {
-  const _VoiceTranscriptViewport({
-    required this.text,
-    required this.placeholder,
-  });
+  const _VoiceTranscriptViewport({required this.text});
 
   final String text;
-  final String placeholder;
 
   @override
   Widget build(BuildContext context) {
+    if (text.trim().isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final textScaler = MediaQuery.textScalerOf(context);
     final currentStyle = DefaultTextStyle.of(context).style
-        .merge(theme.textTheme.bodyLarge)
-        .copyWith(color: colors.onSurface, fontWeight: FontWeight.w400);
+        .merge(openHandMessageBodyTextStyle(theme, color: colors.onSurface))
+        .copyWith(fontWeight: FontWeight.w400);
     final fadedStyle = currentStyle.copyWith(
       color: colors.onSurfaceVariant.withValues(alpha: 0.38),
       shadows: <Shadow>[
@@ -2647,10 +2651,6 @@ class _VoiceTranscriptViewport extends StatelessWidget {
           offset: const Offset(0, 1.5),
         ),
       ],
-    );
-    final placeholderStyle = currentStyle.copyWith(
-      color: colors.onSurfaceVariant,
-      fontWeight: FontWeight.w500,
     );
     final lineHeight =
         textScaler.scale(currentStyle.fontSize ?? 16) *
@@ -2664,16 +2664,7 @@ class _VoiceTranscriptViewport extends StatelessWidget {
         final currentPage = _layoutTail(context, text, width, currentStyle);
         final fadedLine = currentPage.$1;
         final currentLine = currentPage.$2;
-        final showingPlaceholder = currentLine.isEmpty;
-        final page = (
-          fadedLine,
-          showingPlaceholder ? placeholder : currentLine,
-          showingPlaceholder,
-        );
-        final pageKey = ValueKey<(int, bool)>((
-          currentPage.$3,
-          showingPlaceholder,
-        ));
+        final pageKey = ValueKey<int>(currentPage.$3);
         final hasFadedLine = fadedLine.isNotEmpty;
         final content = SizedBox(
           height: lineHeight * (hasFadedLine ? 2 : 1) + (hasFadedLine ? 2 : 0),
@@ -2701,10 +2692,10 @@ class _VoiceTranscriptViewport extends StatelessWidget {
                 child: Align(
                   alignment: AlignmentDirectional.centerStart,
                   child: Text(
-                    page.$2,
+                    currentLine,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: page.$3 ? placeholderStyle : currentStyle,
+                    style: currentStyle,
                   ),
                 ),
               ),

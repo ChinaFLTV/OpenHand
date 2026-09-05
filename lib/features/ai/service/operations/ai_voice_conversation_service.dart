@@ -392,6 +392,13 @@ class AiVoiceConversationService extends ChangeNotifier {
     _queueRecognizedText(current, _sessionSerial);
   }
 
+  void acknowledgeSubmittedText(String text) {
+    final submitted = text.trim();
+    if (!_snapshot.active || submitted.isEmpty) return;
+    if (_snapshot.previousTranscript.trim() != submitted) return;
+    _setSnapshot(_snapshot.copyWith(previousTranscript: ''));
+  }
+
   void ingestAssistantResponse({
     required String messageId,
     required String text,

@@ -6717,6 +6717,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         restoreDraftOnLocalStop: false,
         processQueueAfterCompletion: false,
         onSubmissionStarted: () {
+          _voiceConversationService.acknowledgeSubmittedText(prompt);
           if (!submissionStarted.isCompleted) submissionStarted.complete();
         },
       );
