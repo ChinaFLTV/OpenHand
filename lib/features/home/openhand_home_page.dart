@@ -346,10 +346,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   );
   static const Duration _pointerSignalScrollActivityWindow =
       kAutoFollowPointerSignalActivityWindow;
-  static const Duration _queuedGuidanceStopSettleTimeout = Duration(
+  static const Duration _responseStopSettleTimeout = Duration(
     milliseconds: 1800,
   );
-  static const Duration _queuedGuidanceStopSettlePollInterval = Duration(
+  static const Duration _responseStopSettlePollInterval = Duration(
     milliseconds: 60,
   );
   static const Duration _queuedMessageDispatchDebounce = Duration(
@@ -388,6 +388,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       <String, List<_QueuedMessage>>{};
   final Set<String> _autoQueuedMessageDispatchSessionIds = <String>{};
   final Set<String> _queuedGuidanceSessionIds = <String>{};
+  final Map<String, int> _voiceInterruptionCountsBySessionId = <String, int>{};
+  Future<void> _voiceSubmissionPreparationQueue = Future<void>.value();
   final Set<String> _queuedGoalResumeSessionIds = <String>{};
   final Map<String, String> _failedQueuedMessageIdsBySessionId =
       <String, String>{};
@@ -821,6 +823,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (sessionId == null) {
       return false;
     }
+    return _canStopSessionResponse(sessionController, sessionId);
+  }
+
+  bool _canStopSessionResponse(
+    AiSessionController sessionController,
+    String sessionId,
+  ) {
     return sessionController.canStopResponding(sessionId) ||
         _submittingSessionId == sessionId ||
         _activeSubmissionSerialsBySessionId.containsKey(sessionId);
@@ -948,21 +957,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _hasQueuedMessageDispatchInFlight(String sessionId) {
     return _autoQueuedMessageDispatchSessionIds.contains(sessionId) ||
         _queuedGuidanceSessionIds.contains(sessionId) ||
+        _voiceInterruptionCountsBySessionId.containsKey(sessionId) ||
         _queuedGoalResumeSessionIds.contains(sessionId);
   }
 
-  Future<bool> _stopCurrentResponseBeforeQueuedGuidance(
+  Future<bool> _stopSessionResponseAndWait(
     AiSessionController sessionController,
     String sessionId,
   ) async {
-    if (!_canStopCurrentSessionResponse(sessionController) || !mounted) {
+    if (!_canStopSessionResponse(sessionController, sessionId) || !mounted) {
       return true;
     }
     final stoppedSubmissionSerial =
         _activeSubmissionSerialsBySessionId[sessionId];
-    await _stopResponding();
+    await _stopResponding(sessionId: sessionId);
 
-    final deadline = MonotonicDeadline(_queuedGuidanceStopSettleTimeout);
+    final deadline = MonotonicDeadline(_responseStopSettleTimeout);
     try {
       while (mounted && !deadline.isExpired) {
         await _awaitEndOfFrame();
@@ -986,14 +996,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             !stillStoppingLocalSubmit) {
           return true;
         }
-        await Future.delayed(_queuedGuidanceStopSettlePollInterval);
+        await Future.delayed(_responseStopSettlePollInterval);
       }
     } finally {
       deadline.stop();
     }
-    return stoppedSubmissionSerial == null ||
-        _activeSubmissionSerialsBySessionId[sessionId] !=
-            stoppedSubmissionSerial;
+    return false;
   }
 
   void _setComposerCollapsedState(
@@ -1720,6 +1728,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     _autoQueuedMessageDispatchSessionIds.remove(sessionId);
     _queuedGuidanceSessionIds.remove(sessionId);
+    _voiceInterruptionCountsBySessionId.remove(sessionId);
     _queuedGoalResumeSessionIds.remove(sessionId);
     _failedQueuedMessageIdsBySessionId.remove(sessionId);
     _pendingGoalStartOptionsBySessionId.remove(sessionId);
@@ -2055,6 +2064,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required int index,
     required bool guidance,
   }) async {
+    if (_voiceInterruptionCountsBySessionId.containsKey(sessionId)) {
+      return;
+    }
     if (guidance) {
       if (_queuedGuidanceSessionIds.contains(sessionId)) {
         return;
@@ -2095,7 +2107,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     if (guidance) {
-      final stopped = await _stopCurrentResponseBeforeQueuedGuidance(
+      final stopped = await _stopSessionResponseAndWait(
         sessionController,
         sessionId,
       );
@@ -6338,13 +6350,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  Future<void> _sendMessage({String? promptOverride}) async {
+  Future<void> _sendMessage() async {
     final l10n = AppLocalizations.of(context)!;
-    final voiceSubmission = promptOverride != null;
-    var prompt = (promptOverride ?? _composerController.text).trim();
-    final pendingAttachments = voiceSubmission
-        ? const <_ComposerAttachmentDraft>[]
-        : List<_ComposerAttachmentDraft>.from(_pendingAttachments);
+    var prompt = _composerController.text.trim();
+    final pendingAttachments = List<_ComposerAttachmentDraft>.from(
+      _pendingAttachments,
+    );
     if (prompt.isEmpty && pendingAttachments.isEmpty) {
       return;
     }
@@ -6398,7 +6409,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (existingSessionId != null &&
         _displaySendPhaseForSession(sessionController, existingSessionId) !=
             AiSendPhase.idle) {
-      final composerState = voiceSubmission ? null : _composerPanelState;
+      final composerState = _composerPanelState;
       final skillDisplayMetadata = composerState?.peekPendingSkillMetadata();
       final skillReminder = composerState?.consumePendingSkillReminder();
       final additionalSystemReminders = <String>[
@@ -6409,18 +6420,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         sessionId: existingSessionId,
         prompt: prompt,
         pendingAttachments: pendingAttachments,
-        creationRequest: voiceSubmission
-            ? AiCreationRequest.none
-            : _creationRequestFromComposer(_creationMode),
+        creationRequest: _creationRequestFromComposer(_creationMode),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: skillDisplayMetadata,
-        clearComposer: !voiceSubmission,
       );
       return;
     }
-    final slashCommand = voiceSubmission
-        ? null
-        : parseOpenHandSlashCommand(prompt);
+    final slashCommand = parseOpenHandSlashCommand(prompt);
     if (slashCommand != null) {
       if (pendingAttachments.isNotEmpty) {
         showOpenHandInfoSnack(
@@ -6536,7 +6542,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     // 技能提示词通过隐藏元数据发送，避免污染会话中展示的用户原文。
-    final composerState = voiceSubmission ? null : _composerPanelState;
+    final composerState = _composerPanelState;
     final skillDisplayMetadata = composerState?.peekPendingSkillMetadata();
     final skillReminder = composerState?.consumePendingSkillReminder();
     final additionalSystemReminders = <String>[
@@ -6551,12 +6557,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         sessionId: targetSessionId,
         prompt: prompt,
         pendingAttachments: pendingAttachments,
-        creationRequest: voiceSubmission
-            ? AiCreationRequest.none
-            : _creationRequestFromComposer(_creationMode),
+        creationRequest: _creationRequestFromComposer(_creationMode),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: skillDisplayMetadata,
-        clearComposer: !voiceSubmission,
       );
       return;
     }
@@ -6589,17 +6592,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
 
-    if (!voiceSubmission) _replaceComposerText('');
+    _replaceComposerText('');
     // 发送前捕获并重置创作模式。
-    final creationMode = voiceSubmission ? _CreationMode.none : _creationMode;
+    final creationMode = _creationMode;
     final creationRequest = _creationRequestFromComposer(creationMode);
-    if (!voiceSubmission) {
-      setState(() {
-        _pendingAttachments = const <_ComposerAttachmentDraft>[];
-        _creationMode = _CreationMode.none;
-        _creationOptions = AiCreationOptions.empty;
-      });
-    }
+    setState(() {
+      _pendingAttachments = const <_ComposerAttachmentDraft>[];
+      _creationMode = _CreationMode.none;
+      _creationOptions = AiCreationOptions.empty;
+    });
 
     await _submitTextToSession(
       targetSessionId,
@@ -6613,6 +6614,135 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       selectedSkillMetadata: skillDisplayMetadata,
       goalStartOptions: goalStartOptions,
     );
+  }
+
+  void _enqueueVoiceMessage(String value) {
+    final task = _voiceSubmissionPreparationQueue
+        .catchError((Object _, StackTrace _) {})
+        .then((_) => _prepareVoiceMessage(value));
+    _voiceSubmissionPreparationQueue = task;
+    unawaited(
+      task.catchError((Object error, StackTrace stack) {
+        silentLog('openhand_home_page', '提交语音消息', error, stack);
+      }),
+    );
+  }
+
+  Future<void> _prepareVoiceMessage(String value) async {
+    final prompt = value.trim();
+    final targetSessionId = _voiceConversationSessionId;
+    if (prompt.isEmpty || targetSessionId == null || !mounted) return;
+
+    final sessionController = context.read<AiSessionController>();
+    if (!_voiceConversationService.snapshot.active ||
+        sessionController.currentSessionId != targetSessionId) {
+      return;
+    }
+    final settingsController = context.read<SettingsController>();
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      sessionController.currentSession,
+    );
+    if (selectedModel == null) {
+      showOpenHandErrorSnack(
+        context,
+        AppLocalizations.of(context)!.aiModelSelectionRequired,
+      );
+      return;
+    }
+
+    setState(() {
+      _voiceInterruptionCountsBySessionId.update(
+        targetSessionId,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    });
+    var releaseOnExit = true;
+    try {
+      if (_displaySendPhaseForSession(sessionController, targetSessionId) !=
+          AiSendPhase.idle) {
+        _voiceConversationService.resetAssistantResponse();
+        final stopped = await _stopSessionResponseAndWait(
+          sessionController,
+          targetSessionId,
+        );
+        if (!mounted ||
+            !_voiceConversationService.snapshot.active ||
+            _voiceConversationSessionId != targetSessionId) {
+          return;
+        }
+        if (!stopped) {
+          showOpenHandErrorSnack(
+            context,
+            openHandLocalizedText(
+              context,
+              zh: '当前回复未能及时停止，请重新口述这条消息。',
+              en: 'The current response did not stop in time. Please dictate this message again.',
+            ),
+          );
+          return;
+        }
+      }
+      if (!mounted ||
+          !_voiceConversationService.snapshot.active ||
+          _voiceConversationSessionId != targetSessionId) {
+        return;
+      }
+      final submissionStarted = Completer<void>();
+      final submission = _submitTextToSession(
+        targetSessionId,
+        prompt,
+        const <_ComposerAttachmentDraft>[],
+        allowQueuedGoalInterruption: true,
+        restoreDraftOnLocalStop: false,
+        processQueueAfterCompletion: false,
+        onSubmissionStarted: () {
+          if (!submissionStarted.isCompleted) submissionStarted.complete();
+        },
+      );
+      releaseOnExit = false;
+      final submissionCompleted = submission.then<void>(
+        (_) => _releaseVoiceInterruption(targetSessionId, sessionController),
+        onError: (Object error, StackTrace stack) {
+          _releaseVoiceInterruption(targetSessionId, sessionController);
+          silentLog('openhand_home_page', '发送语音消息', error, stack);
+        },
+      );
+      await Future.any<void>(<Future<void>>[
+        submissionStarted.future,
+        submissionCompleted,
+      ]);
+    } finally {
+      if (releaseOnExit) {
+        _releaseVoiceInterruption(targetSessionId, sessionController);
+      }
+    }
+  }
+
+  void _releaseVoiceInterruption(
+    String sessionId,
+    AiSessionController sessionController,
+  ) {
+    var releasedInterruption = false;
+    void release() {
+      final count = _voiceInterruptionCountsBySessionId[sessionId];
+      if (count == null || count <= 1) {
+        releasedInterruption = true;
+        _voiceInterruptionCountsBySessionId.remove(sessionId);
+      } else {
+        _voiceInterruptionCountsBySessionId[sessionId] = count - 1;
+      }
+    }
+
+    if (mounted) {
+      setState(release);
+    } else {
+      release();
+    }
+    if (releasedInterruption && mounted) {
+      unawaited(_processMessageQueueIfNeeded(sessionController));
+    }
   }
 
   Future<void> _startVoiceConversation() async {
@@ -6644,7 +6774,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       await _voiceConversationService.start(
         settings: settingsController.offlineSpeechSettings,
         availableModels: settingsController.aiModels,
-        onTextReady: (text) => _sendMessage(promptOverride: text),
+        onTextReady: _enqueueVoiceMessage,
       );
     } catch (error) {
       final cancelled = _voiceConversationSessionId != currentSession.id;
@@ -6866,6 +6996,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     bool allowQueuedGoalInterruption = false,
     bool restoreDraftOnLocalStop = true,
     bool processQueueAfterCompletion = true,
+    void Function()? onSubmissionStarted,
   }) async {
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
@@ -6931,6 +7062,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _submittingSessionId = targetSessionId;
       _armAutoFollowToBottom(notifyPausedState: false);
     });
+    onSubmissionStarted?.call();
     _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
     bool submissionWasStopped() =>
         _locallyStoppedSubmissionSerialsBySessionId[targetSessionId] ==
@@ -7681,25 +7813,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return true;
   }
 
-  Future<void> _stopResponding() async {
+  Future<void> _stopResponding({String? sessionId}) async {
     final sessionController = context.read<AiSessionController>();
-    final sessionId =
-        sessionController.currentSessionId ?? _submittingSessionId;
-    if (sessionId == null) {
+    final targetSessionId =
+        sessionId ?? sessionController.currentSessionId ?? _submittingSessionId;
+    if (targetSessionId == null) {
       return;
     }
     final activeSubmissionSerial =
-        _activeSubmissionSerialsBySessionId[sessionId];
-    if (_submittingSessionId == sessionId || activeSubmissionSerial != null) {
+        _activeSubmissionSerialsBySessionId[targetSessionId];
+    if (_submittingSessionId == targetSessionId ||
+        activeSubmissionSerial != null) {
       if (activeSubmissionSerial != null) {
-        _locallyStoppedSubmissionSerialsBySessionId[sessionId] =
+        _locallyStoppedSubmissionSerialsBySessionId[targetSessionId] =
             activeSubmissionSerial;
       } else {
-        _locallyStoppedPendingSubmissionSessionIds.add(sessionId);
+        _locallyStoppedPendingSubmissionSessionIds.add(targetSessionId);
       }
       if (mounted) {
         setState(() {
-          if (_submittingSessionId == sessionId) {
+          if (_submittingSessionId == targetSessionId) {
             _submittingSessionId = null;
           }
         });
@@ -7707,9 +7840,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _submittingSessionId = null;
       }
     }
-    _stopReverseRuntimeForSession(sessionId);
+    _stopReverseRuntimeForSession(targetSessionId);
     unawaited(
-      sessionController.stopResponding(sessionId).catchError((
+      sessionController.stopResponding(targetSessionId).catchError((
         Object error,
         StackTrace stackTrace,
       ) {

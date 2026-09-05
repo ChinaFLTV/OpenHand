@@ -130,7 +130,7 @@ class AiVoiceConversationService extends ChangeNotifier {
       const OfflineSpeechTextPolishingSettings.disabled();
   List<AiModelConfig> _availableModels = const <AiModelConfig>[];
   Duration _silenceTimeout = const Duration(seconds: 3);
-  Future<void> Function(String text)? _onTextReady;
+  void Function(String text)? _onTextReady;
 
   StreamSubscription<Uint8List>? _recordingSubscription;
   Timer? _silenceTimer;
@@ -165,7 +165,7 @@ class AiVoiceConversationService extends ChangeNotifier {
   Future<void> start({
     required OfflineSpeechSettings settings,
     required List<AiModelConfig> availableModels,
-    required Future<void> Function(String text) onTextReady,
+    required void Function(String text) onTextReady,
   }) async {
     if (_disposed) throw StateError('语音沟通服务已关闭。');
     if (_snapshot.active) return;
@@ -691,7 +691,7 @@ class AiVoiceConversationService extends ChangeNotifier {
         clearMessage: true,
       ),
     );
-    await _onTextReady?.call(text.trim());
+    _onTextReady?.call(text.trim());
   }
 
   Future<void> _pumpSpeech(int sessionSerial, int speechSerial) async {
