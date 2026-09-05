@@ -20,6 +20,7 @@ const int _atMentionDirectoryEntryLimit = 5000;
 const int _atMentionDeepSearchEntryLimit = 20000;
 const double _composerActionControlGap = 10;
 const double _composerActionControlHeight = 52;
+const double _composerPanelVerticalInset = 14;
 const double _composerOverlayViewportMargin = 8;
 const double _composerOverlayGap = 6;
 final RegExp _composerTriggerWindowsDrivePattern = RegExp(r'^[A-Za-z]:');
@@ -1846,13 +1847,21 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ),
             switchInCurve: kOpenHandEntranceCurve,
             switchOutCurve: kOpenHandSwitchOutCurve,
-            layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+            layoutBuilder: (currentChild, previousChildren) =>
+                buildCollisionSafeAnimatedSwitcherLayout(
+                  currentChild,
+                  previousChildren,
+                  alignment: Alignment.topCenter,
+                  sizeToCurrentChild: true,
+                ),
             child: voiceActive
-                ? const SizedBox(
-                    key: ValueKey<String>('voice-composer-input-hidden'),
+                ? _VoiceTeleprompter(
+                    key: const ValueKey<String>('composer-input-voice'),
+                    snapshot: voiceSnapshot,
+                    onForceSend: widget.voiceConversationService.forceSend,
                   )
                 : SizedBox(
-                    key: const ValueKey<String>('voice-composer-input'),
+                    key: const ValueKey<String>('composer-input-text'),
                     height: widget.composerHeight,
                     child: Stack(
                       fit: StackFit.expand,
@@ -2425,7 +2434,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion260),
         curve: kOpenHandEmphasizedCurve,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: _composerPanelVerticalInset,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2436,7 +2448,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             AnimatedContainer(
               duration: openHandMotionDuration(context, kOpenHandMotion260),
               curve: kOpenHandEmphasizedCurve,
-              height: effectiveCollapsed ? 0 : 14,
+              height: effectiveCollapsed ? 0 : _composerPanelVerticalInset,
             ),
             actionRow,
           ],
@@ -2448,12 +2460,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
 class _VoiceTeleprompter extends StatelessWidget {
   const _VoiceTeleprompter({
-    required this.selected,
+    super.key,
     required this.snapshot,
     required this.onForceSend,
   });
 
-  final bool selected;
   final AiVoiceConversationSnapshot snapshot;
   final Future<void> Function() onForceSend;
 
@@ -2507,148 +2518,124 @@ class _VoiceTeleprompter extends StatelessWidget {
                     ),
           };
 
-    return AnimatedSize(
-      duration: openHandMotionDuration(context, kOpenHandMotion260),
-      curve: kOpenHandEmphasizedCurve,
-      child: AnimatedSwitcher(
-        duration: openHandMotionDuration(context, kOpenHandMotion220),
-        reverseDuration: openHandMotionDuration(context, kOpenHandMotion180),
-        switchInCurve: kOpenHandEntranceCurve,
-        switchOutCurve: kOpenHandSwitchOutCurve,
-        layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
-        child: !selected
-            ? const SizedBox(key: ValueKey<String>('voice-teleprompter-hidden'))
-            : Semantics(
-                key: const ValueKey<String>('voice-teleprompter-visible'),
-                liveRegion: true,
-                label: transcript.isEmpty ? status : '$status $transcript',
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest,
-                    borderRadius: kOpenHandBorderRadius16,
-                    border: Border.all(
-                      color: colors.outlineVariant.withValues(alpha: 0.72),
+    return Semantics(
+      liveRegion: true,
+      label: transcript.isEmpty ? status : '$status $transcript',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: kOpenHandBorderRadius16,
+          border: Border.all(
+            color: colors.outlineVariant.withValues(alpha: 0.72),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 34,
+                height: 34,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(
+                        end: snapshot.microphoneEnabled
+                            ? snapshot.active
+                                  ? snapshot.inputLevel.clamp(0.06, 1)
+                                  : 0
+                            : 0,
+                      ),
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion120,
+                      ),
+                      curve: kOpenHandEmphasizedCurve,
+                      builder: (context, value, _) => CircularProgressIndicator(
+                        value: value,
+                        strokeWidth: 3,
+                        color: snapshot.phase == AiVoiceConversationPhase.failed
+                            ? colors.error
+                            : colors.primary,
+                        backgroundColor: colors.surfaceContainerHigh,
+                      ),
                     ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 34,
-                          height: 34,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              TweenAnimationBuilder<double>(
-                                tween: Tween<double>(
-                                  end: snapshot.microphoneEnabled
-                                      ? snapshot.active
-                                            ? snapshot.inputLevel.clamp(0.06, 1)
-                                            : 0
-                                      : 0,
-                                ),
-                                duration: openHandMotionDuration(
-                                  context,
-                                  kOpenHandMotion120,
-                                ),
-                                curve: kOpenHandEmphasizedCurve,
-                                builder: (context, value, _) =>
-                                    CircularProgressIndicator(
-                                      value: value,
-                                      strokeWidth: 3,
-                                      color:
-                                          snapshot.phase ==
-                                              AiVoiceConversationPhase.failed
-                                          ? colors.error
-                                          : colors.primary,
-                                      backgroundColor:
-                                          colors.surfaceContainerHigh,
-                                    ),
-                              ),
-                              Icon(
-                                snapshot.active && snapshot.microphoneEnabled
-                                    ? Icons.mic_rounded
-                                    : Icons.mic_off_rounded,
-                                size: 17,
-                                color: colors.onSurfaceVariant,
-                              ),
-                            ],
-                          ),
-                        ),
-                        kOpenHandHGap12,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              AnimatedSwitcher(
-                                duration: openHandMotionDuration(
-                                  context,
-                                  kOpenHandMotion180,
-                                ),
-                                reverseDuration: openHandMotionDuration(
-                                  context,
-                                  kOpenHandMotion120,
-                                ),
-                                switchInCurve: kOpenHandEntranceCurve,
-                                switchOutCurve: kOpenHandSwitchOutCurve,
-                                layoutBuilder:
-                                    buildCollisionSafeAnimatedSwitcherLayout,
-                                child: Text(
-                                  status,
-                                  key: ValueKey<String>(status),
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    color: colors.primary,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              OpenHandVerticalRevealSwitcher(
-                                duration: kOpenHandMotion220,
-                                reverseDuration: kOpenHandMotion180,
-                                presentKey: const ValueKey<String>(
-                                  'voice-transcript-visible',
-                                ),
-                                child: transcript.isEmpty
-                                    ? null
-                                    : Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: _VoiceTranscriptViewport(
-                                          text: transcript,
-                                        ),
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        kOpenHandHGap8,
-                        Tooltip(
-                          message: current.isEmpty
-                              ? openHandLocalizedText(
-                                  context,
-                                  zh: '识别到文本后可立即发送',
-                                  en: 'Speak before sending now',
-                                )
-                              : openHandLocalizedText(
-                                  context,
-                                  zh: '立即发送识别文本',
-                                  en: 'Send recognized text now',
-                                ),
-                          child: IconButton.filled(
-                            onPressed: !snapshot.active || current.isEmpty
-                                ? null
-                                : () => unawaited(onForceSend()),
-                            icon: const Icon(
-                              Icons.arrow_upward_rounded,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Icon(
+                      snapshot.active && snapshot.microphoneEnabled
+                          ? Icons.mic_rounded
+                          : Icons.mic_off_rounded,
+                      size: 17,
+                      color: colors.onSurfaceVariant,
                     ),
-                  ),
+                  ],
                 ),
               ),
+              kOpenHandHGap12,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion180,
+                      ),
+                      reverseDuration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion120,
+                      ),
+                      switchInCurve: kOpenHandEntranceCurve,
+                      switchOutCurve: kOpenHandSwitchOutCurve,
+                      layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+                      child: Text(
+                        status,
+                        key: ValueKey<String>(status),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    OpenHandVerticalRevealSwitcher(
+                      duration: kOpenHandMotion220,
+                      reverseDuration: kOpenHandMotion180,
+                      presentKey: const ValueKey<String>(
+                        'voice-transcript-visible',
+                      ),
+                      child: transcript.isEmpty
+                          ? null
+                          : Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: _VoiceTranscriptViewport(text: transcript),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandHGap8,
+              Tooltip(
+                message: current.isEmpty
+                    ? openHandLocalizedText(
+                        context,
+                        zh: '识别到文本后可立即发送',
+                        en: 'Speak before sending now',
+                      )
+                    : openHandLocalizedText(
+                        context,
+                        zh: '立即发送识别文本',
+                        en: 'Send recognized text now',
+                      ),
+                child: IconButton.filled(
+                  onPressed: !snapshot.active || current.isEmpty
+                      ? null
+                      : () => unawaited(onForceSend()),
+                  icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
