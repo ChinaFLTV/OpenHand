@@ -482,11 +482,21 @@ class AiVoiceConversationService extends ChangeNotifier {
       _utterance.addAll(chunk);
     }
     if (voiced) {
-      _silenceTimer?.cancel();
-      _silenceTimer = startSafeTimer(
-        _silenceTimeout,
-        () => _finalizeUtterance(force: false),
+      if (_silenceTimer != null) {
+        _silenceTimer!.cancel();
+        _silenceTimer = null;
+        _setSnapshot(_snapshot.copyWith(message: '检测到语音，正在实时识别…'));
+      }
+    } else if (_silenceTimer == null) {
+      _setSnapshot(
+        _snapshot.copyWith(
+          message: '检测到停顿，持续 ${_silenceTimeout.inSeconds} 秒后自动发送…',
+        ),
       );
+      _silenceTimer = startSafeTimer(_silenceTimeout, () {
+        _silenceTimer = null;
+        _finalizeUtterance(force: false);
+      });
     }
     if (_utterance.length >= _maximumUtteranceBytes) {
       _finalizeUtterance(force: true);
@@ -584,7 +594,7 @@ class AiVoiceConversationService extends ChangeNotifier {
                     ? _snapshot.previousTranscript
                     : previous,
                 currentTranscript: text,
-                clearMessage: true,
+                clearMessage: _silenceTimer == null,
               ),
             );
           } catch (error, stack) {

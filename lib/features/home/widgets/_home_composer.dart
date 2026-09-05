@@ -2582,10 +2582,7 @@ class _VoiceTeleprompter extends StatelessWidget {
                               ),
                               kOpenHandGap4,
                               _VoiceTranscriptViewport(
-                                currentText: current.isEmpty
-                                    ? previous
-                                    : current,
-                                previousText: current.isEmpty ? '' : previous,
+                                text: current.isEmpty ? previous : current,
                                 placeholder: openHandLocalizedText(
                                   context,
                                   zh: '请开始说话…',
@@ -2596,34 +2593,27 @@ class _VoiceTeleprompter extends StatelessWidget {
                           ),
                         ),
                         kOpenHandHGap8,
-                        AnimatedSwitcher(
-                          duration: openHandMotionDuration(
-                            context,
-                            kOpenHandMotion180,
-                          ),
-                          child: current.isEmpty
-                              ? const SizedBox(
-                                  key: ValueKey<String>(
-                                    'voice-force-send-hidden',
-                                  ),
+                        Tooltip(
+                          message: current.isEmpty
+                              ? openHandLocalizedText(
+                                  context,
+                                  zh: '识别到文本后可立即发送',
+                                  en: 'Speak before sending now',
                                 )
-                              : Tooltip(
-                                  key: const ValueKey<String>(
-                                    'voice-force-send-visible',
-                                  ),
-                                  message: openHandLocalizedText(
-                                    context,
-                                    zh: '立即发送识别文本',
-                                    en: 'Send recognized text now',
-                                  ),
-                                  child: IconButton.filled(
-                                    onPressed: () => unawaited(onForceSend()),
-                                    icon: const Icon(
-                                      Icons.arrow_upward_rounded,
-                                      size: 18,
-                                    ),
-                                  ),
+                              : openHandLocalizedText(
+                                  context,
+                                  zh: '立即发送识别文本',
+                                  en: 'Send recognized text now',
                                 ),
+                          child: IconButton.filled(
+                            onPressed: current.isEmpty
+                                ? null
+                                : () => unawaited(onForceSend()),
+                            icon: const Icon(
+                              Icons.arrow_upward_rounded,
+                              size: 18,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -2637,13 +2627,11 @@ class _VoiceTeleprompter extends StatelessWidget {
 
 class _VoiceTranscriptViewport extends StatelessWidget {
   const _VoiceTranscriptViewport({
-    required this.currentText,
-    required this.previousText,
+    required this.text,
     required this.placeholder,
   });
 
-  final String currentText;
-  final String previousText;
+  final String text;
   final String placeholder;
 
   @override
@@ -2677,31 +2665,19 @@ class _VoiceTranscriptViewport extends StatelessWidget {
         final width = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
-        final currentPage = _layoutTail(
-          context,
-          currentText,
-          width,
-          currentStyle,
-        );
-        final previousPage = _layoutTail(
-          context,
-          previousText,
-          width,
-          currentStyle,
-        );
+        final currentPage = _layoutTail(context, text, width, currentStyle);
+        final fadedLine = currentPage.$1;
         final currentLine = currentPage.$2;
-        var fadedLine = previousPage.$2;
-        if (fadedLine.isEmpty || fadedLine == currentLine) {
-          fadedLine = currentPage.$1;
-        }
-        if (fadedLine == currentLine) fadedLine = '';
         final showingPlaceholder = currentLine.isEmpty;
         final page = (
           fadedLine,
           showingPlaceholder ? placeholder : currentLine,
           showingPlaceholder,
         );
-        final pageKey = ValueKey<(String, String, bool)>(page);
+        final pageKey = ValueKey<(int, bool)>((
+          currentPage.$3,
+          showingPlaceholder,
+        ));
         final hasFadedLine = fadedLine.isNotEmpty;
         final content = SizedBox(
           height: lineHeight * (hasFadedLine ? 2 : 1) + (hasFadedLine ? 2 : 0),
@@ -2788,7 +2764,7 @@ class _VoiceTranscriptViewport extends StatelessWidget {
     );
   }
 
-  (String, String) _layoutTail(
+  (String, String, int) _layoutTail(
     BuildContext context,
     String text,
     double width,
@@ -2796,7 +2772,7 @@ class _VoiceTranscriptViewport extends StatelessWidget {
   ) {
     final normalized = text.trim();
     if (normalized.isEmpty || width <= 0) {
-      return ('', '');
+      return ('', '', 0);
     }
     final painter = TextPainter(
       text: TextSpan(text: normalized, style: style),
@@ -2822,8 +2798,13 @@ class _VoiceTranscriptViewport extends StatelessWidget {
           .substring(previousRange.start, previousRange.end)
           .trim();
     }
+    final lineCount = painter.computeLineMetrics().length;
     painter.dispose();
-    return (fadedLine, currentLine.isEmpty ? normalized : currentLine);
+    return (
+      fadedLine,
+      currentLine.isEmpty ? normalized : currentLine,
+      lineCount,
+    );
   }
 }
 
