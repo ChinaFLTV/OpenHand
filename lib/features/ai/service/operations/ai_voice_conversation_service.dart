@@ -1053,6 +1053,8 @@ class AiVoiceConversationService extends ChangeNotifier {
     ]);
     OfflineSpeechAudioStream? speech;
     _StreamingPcmAudioSource? source;
+    mk.Player? player;
+    var realtimePlaybackConfigured = false;
     StreamSubscription<bool>? completionSubscription;
     StreamSubscription<String>? errorSubscription;
     try {
@@ -1094,7 +1096,13 @@ class AiVoiceConversationService extends ChangeNotifier {
           },
         ),
       );
-      final player = _player ??= mk.Player();
+      player = _player ??= mk.Player();
+      realtimePlaybackConfigured = true;
+      await _configureRealtimePlayback(
+        player,
+        sampleRate: speech.sampleRate,
+        channels: speech.channels,
+      );
       final completed = Completer<void>();
       completionSubscription = player.stream.completed.listen(
         (value) {
@@ -1170,6 +1178,10 @@ class AiVoiceConversationService extends ChangeNotifier {
       try {
         await errorSubscription?.cancel();
       } catch (_) {}
+      if (realtimePlaybackConfigured && player != null) {
+        await _stopPlayerSafely();
+        await _restoreBufferedPlayback(player);
+      }
       await speech?.close();
       await source?.close();
       _speechPumpActive = false;
@@ -1212,6 +1224,46 @@ class AiVoiceConversationService extends ChangeNotifier {
       if (identical(_speechQueueWaiter, waiter)) {
         _speechQueueWaiter = null;
       }
+    }
+  }
+
+  Future<void> _configureRealtimePlayback(
+    mk.Player player, {
+    required int sampleRate,
+    required int channels,
+  }) async {
+    final platform = player.platform;
+    if (kIsWeb || platform is! mk.NativePlayer) {
+      throw StateError('当前平台不支持本地实时语音播放。');
+    }
+    final dynamic backend = platform;
+    await backend.setProperty('demuxer-rawaudio-format', 's16le');
+    await backend.setProperty('demuxer-rawaudio-rate', '$sampleRate');
+    await backend.setProperty(
+      'demuxer-rawaudio-channels',
+      channels == 1
+          ? 'mono'
+          : channels == 2
+          ? 'stereo'
+          : '$channels',
+    );
+    await backend.setProperty('demuxer', 'rawaudio');
+    await backend.setProperty('cache', 'no');
+    await backend.setProperty('demuxer-readahead-secs', '0');
+    await backend.setProperty('network-timeout', '60');
+  }
+
+  Future<void> _restoreBufferedPlayback(mk.Player player) async {
+    final platform = player.platform;
+    if (kIsWeb || platform is! mk.NativePlayer) return;
+    try {
+      final dynamic backend = platform;
+      await backend.setProperty('demuxer', '');
+      await backend.setProperty('cache', 'yes');
+      await backend.setProperty('demuxer-readahead-secs', '1');
+      await backend.setProperty('network-timeout', '5');
+    } catch (error, stack) {
+      silentLog('voice_conversation', '恢复普通语音播放参数', error, stack);
     }
   }
 
@@ -1594,13 +1646,7 @@ class AiVoiceConversationService extends ChangeNotifier {
 }
 
 class _StreamingPcmAudioSource {
-  _StreamingPcmAudioSource._(
-    this._server,
-    this._audio,
-    this._token,
-    this._sampleRate,
-    this._channels,
-  ) {
+  _StreamingPcmAudioSource._(this._server, this._audio, this._token) {
     _requests = _server.listen((request) {
       unawaited(_serve(request));
     });
@@ -1621,20 +1667,12 @@ class _StreamingPcmAudioSource {
       (_) => random.nextInt(256),
       growable: false,
     ).map((value) => value.toRadixString(16).padLeft(2, '0')).join();
-    return _StreamingPcmAudioSource._(
-      server,
-      audio,
-      token,
-      sampleRate,
-      channels,
-    );
+    return _StreamingPcmAudioSource._(server, audio, token);
   }
 
   final HttpServer _server;
   final Stream<Uint8List> _audio;
   final String _token;
-  final int _sampleRate;
-  final int _channels;
   late final StreamSubscription<HttpRequest> _requests;
   HttpResponse? _activeResponse;
   bool _claimed = false;
@@ -1647,17 +1685,17 @@ class _StreamingPcmAudioSource {
     scheme: 'http',
     host: InternetAddress.loopbackIPv4.address,
     port: _server.port,
-    pathSegments: <String>['speech', _token],
+    pathSegments: <String>['speech', '$_token.pcm'],
   );
 
   Future<void> _serve(HttpRequest request) async {
     final response = request.response;
-    if (_closed || request.uri.path != '/speech/$_token') {
+    if (_closed || request.uri.path != '/speech/$_token.pcm') {
       response.statusCode = HttpStatus.notFound;
       await response.close();
       return;
     }
-    response.headers.contentType = ContentType('audio', 'wav');
+    response.headers.contentType = ContentType.binary;
     response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
     response.persistentConnection = false;
     if (request.method == 'HEAD') {
@@ -1672,7 +1710,6 @@ class _StreamingPcmAudioSource {
     _claimed = true;
     _activeResponse = response;
     try {
-      response.add(_streamingWavHeader(_sampleRate, _channels));
       await response.addStream(_audio);
     } catch (error, stack) {
       if (!_closed && !_done.isCompleted) {
@@ -1700,31 +1737,5 @@ class _StreamingPcmAudioSource {
       await _activeResponse?.close().timeout(const Duration(seconds: 1));
     } catch (_) {}
     if (!_done.isCompleted) _done.complete();
-  }
-
-  static Uint8List _streamingWavHeader(int sampleRate, int channels) {
-    const dataLength = 0x7ffff000;
-    final output = Uint8List(44);
-    final header = ByteData.sublistView(output);
-    void ascii(int offset, String value) {
-      for (var index = 0; index < value.length; index += 1) {
-        output[offset + index] = value.codeUnitAt(index);
-      }
-    }
-
-    ascii(0, 'RIFF');
-    header.setUint32(4, 36 + dataLength, Endian.little);
-    ascii(8, 'WAVE');
-    ascii(12, 'fmt ');
-    header.setUint32(16, 16, Endian.little);
-    header.setUint16(20, 1, Endian.little);
-    header.setUint16(22, channels, Endian.little);
-    header.setUint32(24, sampleRate, Endian.little);
-    header.setUint32(28, sampleRate * channels * 2, Endian.little);
-    header.setUint16(32, channels * 2, Endian.little);
-    header.setUint16(34, 16, Endian.little);
-    ascii(36, 'data');
-    header.setUint32(40, dataLength, Endian.little);
-    return output;
   }
 }

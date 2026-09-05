@@ -1091,9 +1091,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
               final sampleRate = payload['sample_rate'];
               final channels = payload['channels'];
               if (sampleRate is! num ||
-                  sampleRate <= 0 ||
+                  sampleRate < 8000 ||
+                  sampleRate > 192000 ||
                   channels is! num ||
-                  channels <= 0) {
+                  channels < 1 ||
+                  channels > 8) {
                 throw const FormatException('音频参数无效。');
               }
               if (!started.isCompleted) {
