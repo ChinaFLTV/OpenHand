@@ -119,6 +119,7 @@ class AiVoiceConversationService extends ChangeNotifier {
   static const int _speechChunkSoftLimit = 88;
   static const int _speechChunkHardLimit = 136;
   static const int _speechAudioBufferLimit = 2;
+  static const double _defaultSpeechVolume = 100;
 
   final OfflineSpeechModelService _modelService;
   final AiSpeechTextPolishingService _polishingService;
@@ -164,6 +165,7 @@ class AiVoiceConversationService extends ChangeNotifier {
   DateTime _lastLevelNotification = DateTime.fromMillisecondsSinceEpoch(0);
 
   mk.Player? _player;
+  double _speechVolumeBeforeMute = _defaultSpeechVolume;
   final List<String> _speechQueue = <String>[];
   final List<({int serial, String path})> _speechAudioQueue =
       <({int serial, String path})>[];
@@ -345,17 +347,30 @@ class AiVoiceConversationService extends ChangeNotifier {
   }
 
   Future<void> setSpeakerMuted(bool muted) async {
-    if (_snapshot.speakerMuted == muted) return;
-    _speechSerial += 1;
-    _resetSpeechCancellation();
-    _speechQueue.clear();
-    _discardBufferedSpeech();
-    _speechPlaybackStarted = false;
-    if (muted) {
-      _assistantSpokenOffset = _assistantText.length;
-      await _stopPlayerSafely();
+    if (!_snapshot.active || _snapshot.speakerMuted == muted) return;
+    final previousMuted = _snapshot.speakerMuted;
+    final player = _player;
+    if (muted && player != null && player.state.volume > 0) {
+      _speechVolumeBeforeMute = player.state.volume
+          .clamp(0.0, _defaultSpeechVolume)
+          .toDouble();
     }
     _setSnapshot(_snapshot.copyWith(speakerMuted: muted));
+    if (player == null) return;
+    try {
+      await player.setVolume(muted ? 0 : _speechVolumeBeforeMute);
+      if (_snapshot.speakerMuted != muted) {
+        await player.setVolume(
+          _snapshot.speakerMuted ? 0 : _speechVolumeBeforeMute,
+        );
+      }
+    } catch (error, stack) {
+      silentLog('voice_conversation', '切换语音朗读静音状态', error, stack);
+      if (_snapshot.speakerMuted == muted) {
+        _setSnapshot(_snapshot.copyWith(speakerMuted: previousMuted));
+        _notifyIssue('切换语音朗读静音状态失败，请重试。');
+      }
+    }
   }
 
   Future<void> forceSend() async {
@@ -391,7 +406,7 @@ class AiVoiceConversationService extends ChangeNotifier {
       unawaited(_stopPlayerSafely());
     }
     _assistantText = text;
-    if (_snapshot.speakerMuted || _assistantSpeechBlocked) {
+    if (_assistantSpeechBlocked) {
       _assistantSpokenOffset = text.length;
       return;
     }
@@ -751,8 +766,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     try {
       while (_speechAudioQueue.any((audio) => audio.serial == speechSerial) &&
           _isCurrentSession(sessionSerial) &&
-          speechSerial == _speechSerial &&
-          !_snapshot.speakerMuted) {
+          speechSerial == _speechSerial) {
         final audioIndex = _speechAudioQueue.indexWhere(
           (audio) => audio.serial == speechSerial,
         );
@@ -764,8 +778,7 @@ class AiVoiceConversationService extends ChangeNotifier {
         StreamSubscription<String>? playbackErrorSubscription;
         try {
           if (!_isCurrentSession(sessionSerial) ||
-              speechSerial != _speechSerial ||
-              _snapshot.speakerMuted) {
+              speechSerial != _speechSerial) {
             continue;
           }
           _setSnapshot(
@@ -776,10 +789,12 @@ class AiVoiceConversationService extends ChangeNotifier {
           );
           final player = _player ??= mk.Player();
           await player.open(mk.Media(audioPath), play: false);
+          await player.setVolume(
+            _snapshot.speakerMuted ? 0 : _speechVolumeBeforeMute,
+          );
           if (playbackCancellation.isCompleted ||
               !_isCurrentSession(sessionSerial) ||
-              speechSerial != _speechSerial ||
-              _snapshot.speakerMuted) {
+              speechSerial != _speechSerial) {
             continue;
           }
           final playbackCompleted = Completer<void>();
@@ -848,8 +863,7 @@ class AiVoiceConversationService extends ChangeNotifier {
         );
       }
       if (_speechAudioQueue.any((audio) => audio.serial == _speechSerial) &&
-          _snapshot.active &&
-          !_snapshot.speakerMuted) {
+          _snapshot.active) {
         unawaited(_pumpSpeech(_sessionSerial, _speechSerial));
       }
     }
@@ -865,8 +879,7 @@ class AiVoiceConversationService extends ChangeNotifier {
                   .length <
               _speechAudioBufferLimit &&
           _isCurrentSession(sessionSerial) &&
-          speechSerial == _speechSerial &&
-          !_snapshot.speakerMuted) {
+          speechSerial == _speechSerial) {
         final audioPath = await _synthesizeSpeechChunk(
           _speechQueue.removeAt(0),
           sessionSerial,
@@ -874,8 +887,7 @@ class AiVoiceConversationService extends ChangeNotifier {
         );
         if (audioPath == null) continue;
         if (!_isCurrentSession(sessionSerial) ||
-            speechSerial != _speechSerial ||
-            _snapshot.speakerMuted) {
+            speechSerial != _speechSerial) {
           await _deleteGeneratedAudio(audioPath);
           continue;
         }
@@ -890,8 +902,7 @@ class AiVoiceConversationService extends ChangeNotifier {
                   .where((audio) => audio.serial == _speechSerial)
                   .length <
               _speechAudioBufferLimit &&
-          _snapshot.active &&
-          !_snapshot.speakerMuted) {
+          _snapshot.active) {
         unawaited(_generateSpeech(_sessionSerial, _speechSerial));
       }
     }
