@@ -921,8 +921,8 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
           Text(
             openHandLocalizedText(
               context,
-              zh: '默认使用当前 Python 执行 pip install / uninstall Scrapling 运行时；仍保持现有全局弹窗与设置页动效风格。',
-              en: 'Uses the current Python to run pip install / uninstall for the Scrapling runtime while preserving the existing dialog and settings motion style.',
+              zh: '自动选择能够完整加载 Scrapling 依赖的 Python；macOS 架构不一致时会切换到兼容架构。',
+              en: 'Automatically selects a Python runtime that can load all Scrapling dependencies, including a compatible macOS architecture.',
             ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
@@ -957,7 +957,11 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
       colorScheme.onTertiaryContainer,
       openHandLocalizedText(context, zh: '缺少依赖', en: 'Missing deps'),
     ),
-    'probe_failed' || 'bridge_exception' => (
+    'probe_failed' ||
+    'bridge_exception' ||
+    'python_architecture_mismatch' ||
+    'python_runtime_incompatible' ||
+    'python_version_unsupported' => (
       colorScheme.errorContainer,
       colorScheme.onErrorContainer,
       openHandLocalizedText(context, zh: '探测失败', en: 'Probe failed'),

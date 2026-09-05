@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import platform
 import sys
 import traceback
 
@@ -34,6 +35,18 @@ def _probe():
             "error": "scrapling_fetchers_missing",
             "detail": f"缺少 Python 模块：{name}。请执行：pip install 'scrapling[fetchers]'",
         }
+    except ImportError as error:
+        detail = f"{type(error).__name__}: {error}"
+        architecture_mismatch = "incompatible architecture" in detail.lower()
+        return {
+            "ok": False,
+            "error": (
+                "python_architecture_mismatch"
+                if architecture_mismatch
+                else "scrapling_probe_failed"
+            ),
+            "detail": detail,
+        }
     except Exception as error:
         return {
             "ok": False,
@@ -43,6 +56,7 @@ def _probe():
     return {
         "ok": True,
         "python": sys.executable,
+        "python_architecture": platform.machine(),
         "runtime_installed": True,
     }
 

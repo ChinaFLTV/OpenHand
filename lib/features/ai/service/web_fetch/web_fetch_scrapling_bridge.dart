@@ -32,6 +32,7 @@ enum WebFetchScraplingRuntimeEventType {
 }
 
 const Duration _tlsBundleProbeTimeout = Duration(milliseconds: 500);
+const Duration _pythonProbeTimeout = Duration(seconds: 12);
 
 class WebFetchScraplingRuntimeEvent {
   const WebFetchScraplingRuntimeEvent({required this.type, required this.line});
@@ -93,6 +94,29 @@ class WebFetchScraplingBridge {
       AiWebFetchEngineConfig.maxTruncationChars * 2;
   static const int _maxCapturedRuntimeLinesPerStream = 400;
   static const int _maxPendingOperations = 32;
+  static const String _pythonRuntimeProbeScript = r'''
+import json
+import platform
+import sys
+
+result = {
+    "executable": sys.executable,
+    "machine": platform.machine(),
+    "version": platform.python_version(),
+    "supported": sys.version_info >= (3, 10),
+    "ready": False,
+}
+if result["supported"]:
+    try:
+        import scrapling
+        from scrapling.fetchers import Fetcher
+        result["ready"] = True
+    except ModuleNotFoundError as error:
+        result["missing"] = getattr(error, "name", "") or "unknown"
+    except Exception as error:
+        result["error"] = "%s: %s" % (type(error).__name__, error)
+print(json.dumps(result, ensure_ascii=False))
+''';
 
   _ScraplingProcessRuntime? _runtime;
   final SerialTaskQueue _operationQueue = SerialTaskQueue(
@@ -144,24 +168,33 @@ class WebFetchScraplingBridge {
       final python = await _resolvePythonExecutable(settings);
       _throwIfDisposed();
       if (python == null) {
-        return _lastProbe = _pythonNotFoundProbeStatus();
+        return _lastProbe;
       }
+      final previousProbe = _lastProbe;
       try {
         await _ensureReady(settings: settings, pythonExecutable: python);
         final response = await _sendCommand(
           command: <String, Object?>{'command': 'probe'},
           timeout: Duration(seconds: settings.startupTimeoutSeconds),
         );
-        _lastProbe = _probeFromResponse(response, fallbackPython: python);
+        _lastProbe = _probeFromResponse(
+          response,
+          fallbackPython: python.displayName,
+        );
         return _lastProbe;
       } catch (error, stack) {
-        silentLog('web_fetch_scrapling_bridge', '探测运行时', error, stack);
+        final reportedByRuntime =
+            !identical(previousProbe, _lastProbe) && !_lastProbe.ready;
+        if (!reportedByRuntime) {
+          silentLog('web_fetch_scrapling_bridge', '探测运行时', error, stack);
+        }
         await _killProcess();
+        if (reportedByRuntime) return _lastProbe;
         return _lastProbe = WebFetchScraplingProbeStatus(
           ready: false,
           code: 'probe_failed',
           detail: '$error',
-          pythonExecutable: python,
+          pythonExecutable: python.displayName,
           updatedAt: DateTime.now().toUtc(),
         );
       }
@@ -181,7 +214,6 @@ class WebFetchScraplingBridge {
       final python = await _resolvePythonExecutable(settings);
       _throwIfDisposed();
       if (python == null) {
-        _lastProbe = _pythonNotFoundProbeStatus();
         throw WebEngineHttpException(_lastProbe.code);
       }
       await _ensureReady(settings: settings, pythonExecutable: python);
@@ -206,7 +238,7 @@ class WebFetchScraplingBridge {
           ready: false,
           code: code,
           detail: detail,
-          pythonExecutable: python,
+          pythonExecutable: python.displayName,
           updatedAt: DateTime.now().toUtc(),
           runtimeInstalled:
               code != 'scrapling_not_installed' &&
@@ -221,7 +253,7 @@ class WebFetchScraplingBridge {
         ready: true,
         code: 'ready',
         detail: 'Scrapling 桥接已就绪。',
-        pythonExecutable: python,
+        pythonExecutable: python.displayName,
         updatedAt: DateTime.now().toUtc(),
         runtimeInstalled: true,
       );
@@ -295,47 +327,144 @@ class WebFetchScraplingBridge {
     if (_disposed) throw _disposedError;
   }
 
-  Future<String?> _resolvePythonExecutable(
+  Future<_PythonLaunch?> _resolvePythonExecutable(
     AiWebFetchScraplingSettings settings,
   ) async {
     final custom = nullIfBlank(settings.pythonExecutable) ?? '';
-    if (custom.isNotEmpty) {
-      final result = await runTrackedProcessOrFailed(
-        custom,
-        const <String>['--version'],
-        timeout: Duration(seconds: settings.startupTimeoutSeconds),
-        tag: 'web_fetch_scrapling.which',
-        environment: SystemProxyResolver.instance
-            .resolveSubprocessEnvironment(),
-      );
-      return result.exitCode == 0 ? custom : null;
+    final current = _runtime;
+    if (current != null &&
+        !current.stopHandlingScheduled &&
+        current.pythonExecutable.sourceKey == custom) {
+      return current.pythonExecutable;
     }
-    for (final candidate in <String>['python3', 'python']) {
-      final result = await runTrackedProcessOrFailed(
-        candidate,
-        const <String>['--version'],
-        timeout: Duration(seconds: settings.startupTimeoutSeconds),
-        tag: 'web_fetch_scrapling.which',
-        environment: SystemProxyResolver.instance
-            .resolveSubprocessEnvironment(),
-      );
-      if (result.exitCode == 0) {
-        return candidate;
+
+    final candidates = custom.isNotEmpty
+        ? <String>[custom]
+        : <String>[
+            'python3',
+            if (Platform.isMacOS) ...<String>[
+              '/Library/Frameworks/Python.framework/Versions/Current/bin/python3',
+              '/opt/homebrew/bin/python3',
+              '/usr/local/bin/python3',
+              '/usr/bin/python3',
+            ],
+            'python',
+          ];
+    final seenCandidates = <String>{};
+    final seenExecutables = <String>{};
+    _PythonLaunch? missingDependencyFallback;
+    _PythonProbeOutcome? firstFailure;
+    for (final candidate in candidates) {
+      if (!seenCandidates.add(candidate)) continue;
+      final launch = _PythonLaunch(executable: candidate, sourceKey: custom);
+      final outcome = await _probePythonRuntime(launch, settings);
+      final actualExecutable = outcome.actualExecutable;
+      if (actualExecutable != null && !seenExecutables.add(actualExecutable)) {
+        continue;
       }
+      if (outcome.ready) return outcome.launch;
+      if (outcome.missingDependency) {
+        missingDependencyFallback ??= outcome.launch;
+        continue;
+      }
+      if (outcome.pythonStarted) firstFailure ??= outcome;
+      if (Platform.isMacOS && outcome.hasArchitectureMismatch) {
+        final executable = actualExecutable ?? candidate;
+        for (final architecture in const <String>['arm64', 'x86_64']) {
+          final architectureLaunch = _PythonLaunch(
+            executable: '/usr/bin/arch',
+            prefixArguments: <String>['-$architecture', executable],
+            sourceKey: custom,
+            displayName: '$executable ($architecture)',
+          );
+          final architectureOutcome = await _probePythonRuntime(
+            architectureLaunch,
+            settings,
+          );
+          if (architectureOutcome.ready) return architectureOutcome.launch;
+          if (architectureOutcome.missingDependency) {
+            missingDependencyFallback ??= architectureOutcome.launch;
+          }
+          if (architectureOutcome.pythonStarted) {
+            firstFailure ??= architectureOutcome;
+          }
+        }
+      }
+    }
+    if (missingDependencyFallback != null) return missingDependencyFallback;
+
+    final failure = firstFailure;
+    if (failure != null && failure.pythonStarted) {
+      final unsupported = !failure.supported;
+      _lastProbe = WebFetchScraplingProbeStatus(
+        ready: false,
+        code: unsupported
+            ? 'python_version_unsupported'
+            : 'python_runtime_incompatible',
+        detail: unsupported
+            ? 'Scrapling 需要 Python 3.10 或更高版本，当前为 ${failure.version ?? '未知版本'}。'
+            : 'Python 运行时与已安装依赖不兼容：${clipTextWithEllipsis(failure.detail, _maxStderrTailLength)}',
+        pythonExecutable: failure.launch.displayName,
+        updatedAt: DateTime.now().toUtc(),
+      );
+    } else {
+      _lastProbe = _pythonNotFoundProbeStatus();
     }
     return null;
   }
 
+  Future<_PythonProbeOutcome> _probePythonRuntime(
+    _PythonLaunch launch,
+    AiWebFetchScraplingSettings settings,
+  ) async {
+    final configuredTimeout = Duration(seconds: settings.startupTimeoutSeconds);
+    final result = await runTrackedProcessOrFailed(
+      launch.executable,
+      launch.arguments(<String>['-c', _pythonRuntimeProbeScript]),
+      timeout: shorterDuration(configuredTimeout, _pythonProbeTimeout),
+      tag: 'web_fetch_scrapling.python_probe',
+      environment: _pythonEnvironment(),
+    );
+    Map<String, Object?>? payload;
+    for (final line in '${result.stdout}'.split('\n').reversed) {
+      final text = nullIfBlank(line);
+      if (text == null) continue;
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is Map) {
+          payload = stringKeyedMapFromValue(decoded);
+          break;
+        }
+      } catch (_) {
+        // 部分依赖可能向标准输出写诊断信息，仅解析最后一条 JSON 状态。
+      }
+    }
+    return _PythonProbeOutcome(
+      launch: launch,
+      exitCode: result.exitCode,
+      payload: payload,
+      stderr: '${result.stderr}',
+    );
+  }
+
+  Map<String, String> _pythonEnvironment([Map<String, String>? additions]) {
+    return <String, String>{
+      ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
+      'PIP_DISABLE_PIP_VERSION_CHECK': '1',
+      ...?additions,
+    };
+  }
+
   Future<void> _ensureReady({
     required AiWebFetchScraplingSettings settings,
-    required String pythonExecutable,
+    required _PythonLaunch pythonExecutable,
   }) async {
     _throwIfDisposed();
     final startupTimeout = Duration(seconds: settings.startupTimeoutSeconds);
     final current = _runtime;
     if (current != null &&
         !current.stopHandlingScheduled &&
-        current.pythonExecutable == pythonExecutable) {
+        current.pythonExecutable.commandKey == pythonExecutable.commandKey) {
       try {
         await current.ready.future.timeout(startupTimeout);
         _throwIfDisposed();
@@ -396,21 +525,20 @@ class WebFetchScraplingBridge {
   }
 
   Future<Process> _startBridgeProcess({
-    required String pythonExecutable,
+    required _PythonLaunch pythonExecutable,
     required String helperPath,
     required Duration timeout,
   }) async {
     if (timeout <= Duration.zero) throw _BridgeProcessStartTimeout(timeout);
     try {
       return await startTrackedProcessBounded(
-        pythonExecutable,
-        <String>[helperPath],
+        pythonExecutable.executable,
+        pythonExecutable.arguments(<String>['-u', helperPath]),
         timeout: timeout,
         tag: 'web_fetch_scrapling_bridge',
         startInNewProcessGroup: true,
         workingDirectory: OpenHandPaths.applicationDirectoryPath(),
-        environment: SystemProxyResolver.instance
-            .resolveSubprocessEnvironment(),
+        environment: _pythonEnvironment(),
       );
     } on TimeoutException {
       throw _BridgeProcessStartTimeout(timeout);
@@ -541,7 +669,7 @@ class WebFetchScraplingBridge {
     if (json['type'] == 'ready') {
       _lastProbe = _probeFromResponse(
         json,
-        fallbackPython: runtime.pythonExecutable,
+        fallbackPython: runtime.pythonExecutable.displayName,
       );
       if (_lastProbe.ready) {
         if (!runtime.ready.isCompleted) runtime.ready.complete();
@@ -645,6 +773,7 @@ class WebFetchScraplingBridge {
   bool _shouldRecycle(String code) {
     return code == 'bridge_exception' ||
         code == 'scrapling_bridge_stopped' ||
+        code == 'python_architecture_mismatch' ||
         code == 'scrapling_fetchers_missing' ||
         code == 'scrapling_not_installed';
   }
@@ -777,7 +906,6 @@ class WebFetchScraplingBridge {
     if (cancellation.isCancelled) return;
     _throwIfDisposed();
     if (python == null) {
-      _lastProbe = _pythonNotFoundProbeStatus();
       throw WebEngineHttpException(_lastProbe.code);
     }
 
@@ -790,7 +918,7 @@ class WebFetchScraplingBridge {
     );
     yield WebFetchScraplingRuntimeEvent(
       type: WebFetchScraplingRuntimeEventType.command,
-      line: '> $python ${command.join(' ')}',
+      line: '> ${python.commandDisplay(command)}',
     );
 
     var attempt = await _runRuntimeAttempt(
@@ -806,7 +934,7 @@ class WebFetchScraplingBridge {
       yield event;
     }
 
-    final tlsBundle = await _detectTlsBundle(attempt);
+    final tlsBundle = await _detectTlsBundle(attempt, python);
     if (cancellation.isCancelled) return;
     _throwIfDisposed();
     if (!attempt.succeeded && tlsBundle != null) {
@@ -821,7 +949,6 @@ class WebFetchScraplingBridge {
         tag: '$tag.ca_retry',
         cancellation: cancellation,
         environment: <String, String>{
-          ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
           'PIP_CERT': tlsBundle,
           'SSL_CERT_FILE': tlsBundle,
           'REQUESTS_CA_BUNDLE': tlsBundle,
@@ -840,7 +967,7 @@ class WebFetchScraplingBridge {
         ready: runtimeInstalledOnSuccess,
         code: successCode,
         detail: successMessage,
-        pythonExecutable: python,
+        pythonExecutable: python.displayName,
         updatedAt: DateTime.now().toUtc(),
         runtimeInstalled: runtimeInstalledOnSuccess,
       );
@@ -856,7 +983,7 @@ class WebFetchScraplingBridge {
       ready: false,
       code: failureCode,
       detail: detail,
-      pythonExecutable: python,
+      pythonExecutable: python.displayName,
       updatedAt: DateTime.now().toUtc(),
       runtimeInstalled: runtimeInstalledOnFailure,
     );
@@ -868,7 +995,7 @@ class WebFetchScraplingBridge {
   }
 
   Future<_RuntimeAttemptResult> _runRuntimeAttempt({
-    required String python,
+    required _PythonLaunch python,
     required List<String> command,
     required int timeoutSeconds,
     required String tag,
@@ -889,19 +1016,15 @@ class WebFetchScraplingBridge {
     }
 
     try {
-      final mergedEnv = <String, String>{
-        ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
-        ...?environment,
-      };
       final timeout = Duration(seconds: timeoutSeconds);
       final workingDirectory = OpenHandPaths.applicationDirectoryPath();
       final result = await runTrackedProcessWithLineLogging(
-        python,
-        command,
+        python.executable,
+        python.arguments(command),
         timeout: timeout,
         tag: tag,
         workingDirectory: workingDirectory,
-        environment: mergedEnv,
+        environment: _pythonEnvironment(environment),
         onStdoutLine: (line) =>
             recordEvent(WebFetchScraplingRuntimeEventType.stdout, line),
         onStderrLine: (line) =>
@@ -955,10 +1078,13 @@ class WebFetchScraplingBridge {
     }
   }
 
-  Future<String?> _detectTlsBundle(_RuntimeAttemptResult result) async {
+  Future<String?> _detectTlsBundle(
+    _RuntimeAttemptResult result,
+    _PythonLaunch python,
+  ) async {
     final combined = '${result.stdout}\n${result.stderr}'.toLowerCase();
     if (!combined.contains('certificate_verify_failed')) return null;
-    final certifi = await _probeCertifiBundle();
+    final certifi = await _probeCertifiBundle(python);
     if (certifi != null &&
         await isRegularFilePath(
           certifi,
@@ -984,13 +1110,17 @@ class WebFetchScraplingBridge {
     return null;
   }
 
-  Future<String?> _probeCertifiBundle() async {
+  Future<String?> _probeCertifiBundle(_PythonLaunch python) async {
     try {
       final result = await runTrackedProcessOrFailed(
-        'python3',
-        const <String>['-c', 'import certifi; print(certifi.where())'],
+        python.executable,
+        python.arguments(const <String>[
+          '-c',
+          'import certifi; print(certifi.where())',
+        ]),
         timeout: const Duration(seconds: 2),
         tag: 'web_fetch_scrapling_bridge.probe_certifi',
+        environment: _pythonEnvironment(),
       );
       if (result.exitCode == 0) {
         return optionalStringFromValue(result.stdout);
@@ -1214,7 +1344,7 @@ class _ScraplingProcessRuntime {
   });
 
   final Process process;
-  final String pythonExecutable;
+  final _PythonLaunch pythonExecutable;
   final Completer<void> ready = Completer<void>();
   final Completer<void> stderrDone = Completer<void>();
   final Map<String, Completer<Map<String, Object?>>> pending =
@@ -1224,6 +1354,67 @@ class _ScraplingProcessRuntime {
   String stderrTail = '';
   bool stopHandlingScheduled = false;
   Future<void>? cleanupFuture;
+}
+
+class _PythonLaunch {
+  const _PythonLaunch({
+    required this.executable,
+    required this.sourceKey,
+    this.prefixArguments = const <String>[],
+    this._displayName,
+  });
+
+  final String executable;
+  final String sourceKey;
+  final List<String> prefixArguments;
+  final String? _displayName;
+
+  String get displayName => _displayName ?? executable;
+  String get commandKey => <String>[executable, ...prefixArguments].join('\n');
+
+  List<String> arguments(List<String> command) => <String>[
+    ...prefixArguments,
+    '-E',
+    '-X',
+    'utf8',
+    ...command,
+  ];
+
+  String commandDisplay(List<String> command) =>
+      <String>[executable, ...arguments(command)].join(' ');
+}
+
+class _PythonProbeOutcome {
+  const _PythonProbeOutcome({
+    required this.launch,
+    required this.exitCode,
+    required this.payload,
+    required this.stderr,
+  });
+
+  final _PythonLaunch launch;
+  final int exitCode;
+  final Map<String, Object?>? payload;
+  final String stderr;
+
+  bool get pythonStarted => payload != null;
+  bool get supported => payload?['supported'] == true;
+  bool get ready => supported && payload?['ready'] == true;
+  bool get missingDependency =>
+      supported && nullIfBlank('${payload?['missing'] ?? ''}') != null;
+  String? get actualExecutable =>
+      optionalStringFromValue(payload?['executable']);
+  String? get version => optionalStringFromValue(payload?['version']);
+  String get detail =>
+      optionalStringFromValue(payload?['error']) ??
+      nullIfBlank(stderr) ??
+      'Python 探测进程退出码：$exitCode';
+  bool get hasArchitectureMismatch {
+    final text = detail.toLowerCase();
+    return text.contains('incompatible architecture') ||
+        text.contains('wrong architecture') ||
+        text.contains('mach-o');
+  }
 }
 
 class _RuntimeCommandCancellation {
