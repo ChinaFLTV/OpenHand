@@ -111,12 +111,12 @@ class AiVoiceConversationService extends ChangeNotifier {
   );
   static const Duration _playbackTimeout = Duration(minutes: 1);
   static const Duration _playbackCompletionGrace = Duration(seconds: 15);
-  static const int _initialSpeechChunkTerminalLimit = 28;
-  static const int _initialSpeechChunkSoftLimit = 44;
-  static const int _initialSpeechChunkHardLimit = 72;
-  static const int _speechChunkTerminalLimit = 96;
-  static const int _speechChunkSoftLimit = 144;
-  static const int _speechChunkHardLimit = 220;
+  static const int _initialSpeechChunkTerminalLimit = 12;
+  static const int _initialSpeechChunkSoftLimit = 36;
+  static const int _initialSpeechChunkHardLimit = 64;
+  static const int _speechChunkTerminalLimit = 48;
+  static const int _speechChunkSoftLimit = 88;
+  static const int _speechChunkHardLimit = 136;
   static const int _speechAudioBufferLimit = 2;
 
   final OfflineSpeechModelService _modelService;
@@ -174,7 +174,6 @@ class AiVoiceConversationService extends ChangeNotifier {
   String? _assistantMessageId;
   String _assistantText = '';
   int _assistantSpokenOffset = 0;
-  bool _assistantStreaming = false;
   bool _assistantSpeechBlocked = false;
   bool _disposed = false;
 
@@ -391,7 +390,6 @@ class AiVoiceConversationService extends ChangeNotifier {
       unawaited(_stopPlayerSafely());
     }
     _assistantText = text;
-    _assistantStreaming = streaming;
     if (_snapshot.speakerMuted || _assistantSpeechBlocked) {
       _assistantSpokenOffset = text.length;
       return;
@@ -416,7 +414,6 @@ class AiVoiceConversationService extends ChangeNotifier {
     _assistantMessageId = null;
     _assistantText = '';
     _assistantSpokenOffset = 0;
-    _assistantStreaming = false;
     _assistantSpeechBlocked = false;
     _speechQueue.clear();
     _speechSerial += 1;
@@ -879,14 +876,11 @@ class AiVoiceConversationService extends ChangeNotifier {
     final bufferedCount = _speechAudioQueue
         .where((audio) => audio.serial == speechSerial)
         .length;
-    final replyReady =
-        !_assistantStreaming &&
-        !_speechGenerationActive &&
-        _speechQueue.isEmpty;
+    final generationCaughtUp = !_speechGenerationActive && _speechQueue.isEmpty;
     if (bufferedCount > 0 &&
         (_speechPlaybackStarted ||
             bufferedCount >= _speechAudioBufferLimit ||
-            replyReady)) {
+            generationCaughtUp)) {
       unawaited(_pumpSpeech(sessionSerial, speechSerial));
     }
   }
@@ -920,10 +914,13 @@ class AiVoiceConversationService extends ChangeNotifier {
           !_modelService
               .availabilityFor(model, _synthesisConfiguration)
               .available) {
-        _speechQueue.clear();
+        _blockAssistantSpeech('语音朗读模型当前不可用，已停止本轮朗读。请检查模型配置。');
         return null;
       }
-      if (!_modelService.isRuntimeReady(model)) return null;
+      if (!_modelService.isRuntimeReady(model)) {
+        _blockAssistantSpeech('语音朗读模型已停止运行，已停止本轮朗读。请重新启动模型。');
+        return null;
+      }
       if (!_isCurrentSession(sessionSerial) || speechSerial != _speechSerial) {
         return null;
       }
@@ -934,7 +931,12 @@ class AiVoiceConversationService extends ChangeNotifier {
         cancelSignal: cancelSignal,
         startIfNeeded: false,
       );
-      return result.audioPath;
+      final audioPath = result.audioPath?.trim();
+      if (audioPath == null || audioPath.isEmpty) {
+        _blockAssistantSpeech('语音朗读模型未生成有效音频，已停止本轮朗读。');
+        return null;
+      }
+      return audioPath;
     } catch (error, stack) {
       if (_isCurrentSession(sessionSerial) && !_isExpectedCancellation(error)) {
         silentLog('voice_conversation', '生成流式回复语音', error, stack);
@@ -1182,7 +1184,6 @@ class AiVoiceConversationService extends ChangeNotifier {
     _assistantMessageId = null;
     _assistantText = '';
     _assistantSpokenOffset = 0;
-    _assistantStreaming = false;
     _assistantSpeechBlocked = false;
     if (markInactive && !_disposed) {
       _setSnapshot(const AiVoiceConversationSnapshot.idle());
