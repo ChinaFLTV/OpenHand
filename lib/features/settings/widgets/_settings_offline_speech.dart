@@ -1,6 +1,6 @@
 part of 'settings_view.dart';
 
-const double _offlineSpeechPanelMaxHeight = 760;
+const double _offlineSpeechModelListMaxHeight = 560;
 
 class _OfflineSpeechModelPanel extends StatefulWidget {
   const _OfflineSpeechModelPanel({
@@ -42,69 +42,67 @@ class _OfflineSpeechModelPanelState extends State<_OfflineSpeechModelPanel> {
     final models = OfflineSpeechModelCatalog.forKind(widget.kind);
     return AnimatedBuilder(
       animation: OfflineSpeechModelService.instance,
-      builder: (context, _) => ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxHeight: _offlineSpeechPanelMaxHeight,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _OfflineSpeechPanelHeader(
-              kind: widget.kind,
-              modelCount: models.length,
-            ),
-            if (widget.kind == OfflineSpeechKind.recognition &&
-                widget.textPolishingSettings != null &&
-                widget.onTextPolishingChanged != null) ...<Widget>[
-              kOpenHandGap18,
-              _OfflineSpeechTextPolishingControls(
-                settings: widget.textPolishingSettings!,
-                availableModels: widget.availableModels,
-                recentModelSelections: widget.recentModelSelections,
-                onChanged: widget.onTextPolishingChanged!,
-              ),
-            ],
-            kOpenHandGap10,
-            Flexible(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLowest.withValues(
-                    alpha: 0.72,
-                  ),
-                  borderRadius: kOpenHandBorderRadius16,
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.52,
-                    ),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: OpenHandSafeScrollbar(
-                    controller: _scrollController,
-                    child: ListView.separated(
-                      controller: _scrollController,
-                      primary: false,
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.only(right: 4),
-                      itemCount: models.length,
-                      separatorBuilder: (_, _) => kOpenHandGap12,
-                      itemBuilder: (context, index) => _OfflineSpeechModelCard(
-                        key: ValueKey<String>(
-                          'offlineSpeechModel-${models[index].id}',
-                        ),
-                        model: models[index],
-                        settings: widget.settings,
-                        onChanged: widget.onChanged,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+      builder: (context, _) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _OfflineSpeechPanelHeader(
+            kind: widget.kind,
+            modelCount: models.length,
+          ),
+          if (widget.kind == OfflineSpeechKind.recognition &&
+              widget.textPolishingSettings != null &&
+              widget.onTextPolishingChanged != null) ...<Widget>[
+            kOpenHandGap18,
+            _OfflineSpeechTextPolishingControls(
+              settings: widget.textPolishingSettings!,
+              availableModels: widget.availableModels,
+              recentModelSelections: widget.recentModelSelections,
+              onChanged: widget.onTextPolishingChanged!,
             ),
           ],
-        ),
+          kOpenHandGap10,
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxHeight: _offlineSpeechModelListMaxHeight,
+            ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLowest.withValues(
+                  alpha: 0.72,
+                ),
+                borderRadius: kOpenHandBorderRadius16,
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.52,
+                  ),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: OpenHandSafeScrollbar(
+                  controller: _scrollController,
+                  child: ListView.separated(
+                    controller: _scrollController,
+                    primary: false,
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(right: 4),
+                    itemCount: models.length,
+                    separatorBuilder: (_, _) => kOpenHandGap12,
+                    itemBuilder: (context, index) => _OfflineSpeechModelCard(
+                      key: ValueKey<String>(
+                        'offlineSpeechModel-${models[index].id}',
+                      ),
+                      model: models[index],
+                      settings: widget.settings,
+                      onChanged: widget.onChanged,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
