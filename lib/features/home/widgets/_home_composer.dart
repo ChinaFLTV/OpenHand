@@ -2554,31 +2554,27 @@ class _VoiceTeleprompter extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    status,
-                                    style: theme.textTheme.labelMedium
-                                        ?.copyWith(
-                                          color: colors.primary,
-                                          fontWeight: FontWeight.w800,
-                                        ),
+                              AnimatedSwitcher(
+                                duration: openHandMotionDuration(
+                                  context,
+                                  kOpenHandMotion180,
+                                ),
+                                reverseDuration: openHandMotionDuration(
+                                  context,
+                                  kOpenHandMotion120,
+                                ),
+                                switchInCurve: kOpenHandEntranceCurve,
+                                switchOutCurve: kOpenHandSwitchOutCurve,
+                                layoutBuilder:
+                                    buildCollisionSafeAnimatedSwitcherLayout,
+                                child: Text(
+                                  status,
+                                  key: ValueKey<String>(status),
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: colors.primary,
+                                    fontWeight: FontWeight.w800,
                                   ),
-                                  if (snapshot.message case final message?) ...[
-                                    kOpenHandHGap8,
-                                    Expanded(
-                                      child: Text(
-                                        message,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              color: colors.onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                                ),
                               ),
                               kOpenHandGap4,
                               _VoiceTranscriptViewport(
