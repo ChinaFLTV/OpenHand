@@ -1,9 +1,8 @@
 part of 'settings_view.dart';
 
 const double _offlineSpeechPanelMaxHeight = 680;
-const double _offlineSpeechCardActionSize = 40;
 
-class _OfflineSpeechModelPanel extends StatelessWidget {
+class _OfflineSpeechModelPanel extends StatefulWidget {
   const _OfflineSpeechModelPanel({
     required this.kind,
     required this.settings,
@@ -15,9 +14,23 @@ class _OfflineSpeechModelPanel extends StatelessWidget {
   final Future<bool> Function(OfflineSpeechModelSettings settings) onChanged;
 
   @override
+  State<_OfflineSpeechModelPanel> createState() =>
+      _OfflineSpeechModelPanelState();
+}
+
+class _OfflineSpeechModelPanelState extends State<_OfflineSpeechModelPanel> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final models = OfflineSpeechModelCatalog.forKind(kind);
+    final models = OfflineSpeechModelCatalog.forKind(widget.kind);
     return ConstrainedBox(
       constraints: const BoxConstraints(
         maxHeight: _offlineSpeechPanelMaxHeight,
@@ -32,36 +45,41 @@ class _OfflineSpeechModelPanel extends StatelessWidget {
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.52),
           ),
         ),
-        child: OpenHandSafeScrollbar(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: AnimatedBuilder(
-              animation: OfflineSpeechModelService.instance,
-              builder: (context, _) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  _OfflineSpeechPanelHeader(
-                    kind: kind,
-                    modelCount: models.length,
-                  ),
-                  kOpenHandGap14,
-                  for (
-                    var index = 0;
-                    index < models.length;
-                    index++
-                  ) ...<Widget>[
-                    _OfflineSpeechModelCard(
-                      key: ValueKey<String>(
-                        'offlineSpeechModel-${models[index].id}',
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: AnimatedBuilder(
+            animation: OfflineSpeechModelService.instance,
+            builder: (context, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _OfflineSpeechPanelHeader(
+                  kind: widget.kind,
+                  modelCount: models.length,
+                ),
+                kOpenHandGap14,
+                Flexible(
+                  child: OpenHandSafeScrollbar(
+                    controller: _scrollController,
+                    child: ListView.separated(
+                      controller: _scrollController,
+                      primary: false,
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.only(right: 4),
+                      itemCount: models.length,
+                      separatorBuilder: (_, _) => kOpenHandGap12,
+                      itemBuilder: (context, index) => _OfflineSpeechModelCard(
+                        key: ValueKey<String>(
+                          'offlineSpeechModel-${models[index].id}',
+                        ),
+                        model: models[index],
+                        settings: widget.settings,
+                        onChanged: widget.onChanged,
                       ),
-                      model: models[index],
-                      settings: settings,
-                      onChanged: onChanged,
                     ),
-                    if (index != models.length - 1) kOpenHandGap12,
-                  ],
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -211,6 +229,8 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
     final running = state.lifecycle == OfflineSpeechLifecycle.running;
     final busy =
         _mutating ||
+        _testing ||
+        state.lifecycle == OfflineSpeechLifecycle.downloading ||
         state.lifecycle == OfflineSpeechLifecycle.starting ||
         state.lifecycle == OfflineSpeechLifecycle.stopping;
     final accent = theme.colorScheme.primary;
@@ -292,96 +312,104 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                   ],
                 ),
               ),
-            ],
-          ),
-          kOpenHandGap12,
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              if (state.lifecycle == OfflineSpeechLifecycle.downloading)
-                FilledButton.tonalIcon(
-                  onPressed: null,
-                  icon: const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+              kOpenHandHGap8,
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: <Widget>[
+                  _OfflineSpeechActionButton(
+                    tooltip:
+                        state.lifecycle == OfflineSpeechLifecycle.downloading
+                        ? '正在下载模型'
+                        : !hardwareAvailable
+                        ? availability.reason
+                        : requiresUpdate
+                        ? '更新模型'
+                        : installed
+                        ? '移除模型'
+                        : '下载模型',
+                    onPressed:
+                        busy ||
+                            (!hardwareAvailable &&
+                                (!installed || requiresUpdate))
+                        ? null
+                        : requiresUpdate || !installed
+                        ? _showDownloadDialog
+                        : _confirmRemove,
+                    child: state.lifecycle == OfflineSpeechLifecycle.downloading
+                        ? const SizedBox.square(
+                            dimension: 17,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            requiresUpdate
+                                ? Icons.system_update_alt_rounded
+                                : installed
+                                ? Icons.delete_outline_rounded
+                                : Icons.download_rounded,
+                            size: 22,
+                          ),
                   ),
-                  label: const Text('下载中'),
-                )
-              else if (requiresUpdate)
-                FilledButton.tonalIcon(
-                  onPressed: busy || !hardwareAvailable
-                      ? null
-                      : _showDownloadDialog,
-                  icon: const Icon(Icons.system_update_alt_rounded),
-                  label: const Text('更新模型'),
-                )
-              else if (installed)
-                OutlinedButton.icon(
-                  onPressed: busy ? null : _confirmRemove,
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  label: const Text('移除'),
-                )
-              else
-                FilledButton.tonalIcon(
-                  onPressed: busy || !hardwareAvailable
-                      ? null
-                      : _showDownloadDialog,
-                  icon: const Icon(Icons.download_rounded),
-                  label: const Text('下载'),
-                ),
-              if (requiresUpdate)
-                OutlinedButton.icon(
-                  onPressed: busy ? null : _confirmRemove,
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  label: const Text('移除'),
-                ),
-              FilledButton.tonalIcon(
-                onPressed: runnable && !busy
-                    ? running
-                          ? _stop
-                          : _start
-                    : null,
-                icon: Icon(
-                  running
-                      ? Icons.stop_rounded
-                      : Icons.power_settings_new_rounded,
-                ),
-                label: Text(running ? '停止' : '运行'),
-              ),
-              _OfflineSpeechActionButton(
-                tooltip: '测试当前配置',
-                onPressed: runnable && !busy && !_testing ? _test : null,
-                child: _testing
-                    ? const SizedBox.square(
-                        dimension: 17,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.science_rounded),
-              ),
-              _AiProviderCardExpandButton(
-                expanded: _expanded,
-                enabled: _enabled && hardwareAvailable,
-                onPressed: () {
-                  setState(() => _expanded = !_expanded);
-                  HapticFeedback.selectionClick();
-                },
-              ),
-              Tooltip(
-                message: !hardwareAvailable
-                    ? _enabled
-                          ? '设备不可用，仅可禁用模型'
-                          : availability.reason
-                    : runnable
-                    ? (_enabled ? '禁用模型' : '启用模型')
-                    : '下载当前配置后可启用',
-                child: _SettingsSwitch(
-                  value: _enabled,
-                  onChanged: !busy && (_enabled || runnable)
-                      ? _setEnabled
-                      : null,
-                ),
+                  if (requiresUpdate)
+                    _OfflineSpeechActionButton(
+                      tooltip: '移除模型',
+                      onPressed: busy ? null : _confirmRemove,
+                      child: const Icon(Icons.delete_outline_rounded, size: 22),
+                    ),
+                  _OfflineSpeechActionButton(
+                    tooltip: !hardwareAvailable
+                        ? availability.reason
+                        : running
+                        ? '停止模型'
+                        : '运行模型',
+                    onPressed: runnable && !busy
+                        ? running
+                              ? _stop
+                              : _start
+                        : null,
+                    child: Icon(
+                      running
+                          ? Icons.stop_rounded
+                          : Icons.power_settings_new_rounded,
+                      size: 22,
+                    ),
+                  ),
+                  _OfflineSpeechActionButton(
+                    tooltip: hardwareAvailable ? '测试当前配置' : availability.reason,
+                    onPressed: runnable && !busy ? _test : null,
+                    child: _testing
+                        ? const SizedBox.square(
+                            dimension: 17,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.science_rounded, size: 22),
+                  ),
+                  _AiProviderCardExpandButton(
+                    expanded: _expanded,
+                    enabled: _enabled && hardwareAvailable,
+                    onPressed: () {
+                      setState(() => _expanded = !_expanded);
+                      HapticFeedback.selectionClick();
+                    },
+                  ),
+                  Tooltip(
+                    message: !hardwareAvailable
+                        ? _enabled
+                              ? '设备不可用，仅可禁用模型'
+                              : availability.reason
+                        : runnable
+                        ? (_enabled ? '禁用模型' : '启用模型')
+                        : '下载当前配置后可启用',
+                    child: _SettingsSwitch(
+                      value: _enabled,
+                      onChanged: !busy && (_enabled || runnable)
+                          ? _setEnabled
+                          : null,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -413,6 +441,19 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
   }
 
   Future<void> _showDownloadDialog() async {
+    final service = OfflineSpeechModelService.instance;
+    final updating =
+        service.isInstalled(widget.model) &&
+        service.requiresDownloadForConfiguration(widget.model, _configuration);
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: '${updating ? '更新' : '下载'} ${widget.model.name}？',
+      message: updating
+          ? '模型包约 ${widget.model.sizeLabel}。更新期间会额外占用一份模型空间，完成后自动替换旧文件。'
+          : '模型包约 ${widget.model.sizeLabel}，下载期间会占用网络和磁盘空间。',
+      confirmLabel: updating ? '确认更新' : '确认下载',
+    );
+    if (!confirmed || !mounted) return;
     await showOpenHandProfiledDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -966,7 +1007,7 @@ class _OfflineSpeechActionButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: SizedBox.square(
-        dimension: _offlineSpeechCardActionSize,
+        dimension: _aiTtsCardActionSize,
         child: IconButton.filledTonal(
           onPressed: onPressed,
           style: _aiCardActionButtonStyle(Theme.of(context)),
