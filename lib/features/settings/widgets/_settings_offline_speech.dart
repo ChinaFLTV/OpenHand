@@ -31,34 +31,36 @@ class _OfflineSpeechModelPanelState extends State<_OfflineSpeechModelPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final models = OfflineSpeechModelCatalog.forKind(widget.kind);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(
-        maxHeight: _offlineSpeechPanelMaxHeight,
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLowest.withValues(
-            alpha: 0.72,
-          ),
-          borderRadius: kOpenHandBorderRadius16,
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.52),
-          ),
+    return AnimatedBuilder(
+      animation: OfflineSpeechModelService.instance,
+      builder: (context, _) => ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxHeight: _offlineSpeechPanelMaxHeight,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: AnimatedBuilder(
-            animation: OfflineSpeechModelService.instance,
-            builder: (context, _) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                _OfflineSpeechPanelHeader(
-                  kind: widget.kind,
-                  modelCount: models.length,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _OfflineSpeechPanelHeader(
+              kind: widget.kind,
+              modelCount: models.length,
+            ),
+            kOpenHandGap10,
+            Flexible(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLowest.withValues(
+                    alpha: 0.72,
+                  ),
+                  borderRadius: kOpenHandBorderRadius16,
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.52,
+                    ),
+                  ),
                 ),
-                kOpenHandGap14,
-                Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
                   child: OpenHandSafeScrollbar(
                     controller: _scrollController,
                     child: ListView.separated(
@@ -79,9 +81,9 @@ class _OfflineSpeechModelPanelState extends State<_OfflineSpeechModelPanel> {
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -101,68 +103,43 @@ class _OfflineSpeechPanelHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isRecognition = kind == OfflineSpeechKind.recognition;
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            borderRadius: kOpenHandBorderRadius14,
-            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.68),
-            border: Border.all(
-              color: theme.colorScheme.primary.withValues(alpha: 0.18),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            Text(
+              isRecognition ? '语音识别' : '语音朗读',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
-          child: Icon(
-            isRecognition
-                ? Icons.graphic_eq_rounded
-                : Icons.record_voice_over_rounded,
-            color: theme.colorScheme.onPrimaryContainer,
+            _OfflineSpeechBadge(
+              label: '$modelCount 个本地模型',
+              color: theme.colorScheme.primary,
+            ),
+            const _OfflineSpeechBadge(
+              label: '完全离线',
+              color: OpenHandStatusColors.success,
+            ),
+          ],
+        ),
+        kOpenHandGap5,
+        Text(
+          isRecognition
+              ? '下载并管理本地 ASR／STT 模型。全程离线，当前仅可启用一个识别模型。'
+              : '下载并管理本地 TTS 模型。全程离线，当前仅可启用一个朗读模型。',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            height: 1.4,
           ),
         ),
-        kOpenHandHGap12,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: <Widget>[
-                  Text(
-                    isRecognition ? '语音识别' : '语音朗读',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  _OfflineSpeechBadge(
-                    label: '$modelCount 个本地模型',
-                    color: theme.colorScheme.primary,
-                  ),
-                  const _OfflineSpeechBadge(
-                    label: '完全离线',
-                    color: OpenHandStatusColors.success,
-                  ),
-                ],
-              ),
-              kOpenHandGap5,
-              Text(
-                isRecognition
-                    ? '下载并管理本地 ASR／STT 模型。全程离线，当前仅可启用一个识别模型。'
-                    : '下载并管理本地 TTS 模型。全程离线，当前仅可启用一个朗读模型。',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-              kOpenHandGap5,
-              _OfflineSpeechHardwareSummary(
-                profile: OfflineSpeechModelService.instance.hardwareProfile,
-              ),
-            ],
-          ),
+        kOpenHandGap5,
+        _OfflineSpeechHardwareSummary(
+          profile: OfflineSpeechModelService.instance.hardwareProfile,
         ),
       ],
     );
@@ -265,8 +242,6 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              _OfflineSpeechModelIcon(model: widget.model, running: running),
-              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -962,37 +937,6 @@ class _OfflineSpeechMetric extends StatelessWidget {
         kOpenHandHGap5,
         Text(text, style: theme.textTheme.labelMedium),
       ],
-    );
-  }
-}
-
-class _OfflineSpeechModelIcon extends StatelessWidget {
-  const _OfflineSpeechModelIcon({required this.model, required this.running});
-
-  final OfflineSpeechModelDefinition model;
-  final bool running;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion260),
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        borderRadius: kOpenHandBorderRadius12,
-        color: Theme.of(
-          context,
-        ).colorScheme.primaryContainer.withValues(alpha: running ? 0.86 : 0.68),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Icon(
-        model.kind == OfflineSpeechKind.recognition
-            ? Icons.mic_rounded
-            : Icons.spatial_audio_off_rounded,
-        color: Theme.of(context).colorScheme.onPrimaryContainer,
-      ),
     );
   }
 }
