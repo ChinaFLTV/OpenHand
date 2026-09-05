@@ -132,6 +132,23 @@ class _OfflineSpeechTextPolishingControls extends StatefulWidget {
 class _OfflineSpeechTextPolishingControlsState
     extends State<_OfflineSpeechTextPolishingControls> {
   bool _modelSelectorOpen = false;
+  late bool _enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _enabled = widget.settings.enabled;
+  }
+
+  @override
+  void didUpdateWidget(
+    covariant _OfflineSpeechTextPolishingControls oldWidget,
+  ) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings.enabled != widget.settings.enabled) {
+      _enabled = widget.settings.enabled;
+    }
+  }
 
   AiModelConfig? _selectedModel() {
     final configId = widget.settings.modelConfigId;
@@ -175,6 +192,15 @@ class _OfflineSpeechTextPolishingControlsState
 
   Future<void> _save(OfflineSpeechTextPolishingSettings next) async {
     if (await widget.onChanged(next) || !mounted) return;
+    _showOfflineSpeechPersistenceFailure(context);
+  }
+
+  Future<void> _setEnabled(bool value) async {
+    if (_enabled == value) return;
+    setState(() => _enabled = value);
+    final saved = await widget.onChanged(widget.settings.setEnabled(value));
+    if (!mounted || saved) return;
+    setState(() => _enabled = widget.settings.enabled);
     _showOfflineSpeechPersistenceFailure(context);
   }
 
@@ -276,67 +302,65 @@ class _OfflineSpeechTextPolishingControlsState
           ),
           control: Align(
             alignment: AlignmentDirectional.centerStart,
-            child: _SettingsSwitch(
-              value: widget.settings.enabled,
-              onChanged: (value) => _save(widget.settings.setEnabled(value)),
+            child: _SettingsSwitch(value: _enabled, onChanged: _setEnabled),
+          ),
+        ),
+        _AnimatedSettingReveal(
+          visible: _enabled,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '润色模型',
+                en: 'Polishing Model',
+              ),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '选择语音识别完成后用于整理文本的 AI 模型。',
+                en: 'Choose the AI model used to refine recognized text.',
+              ),
+              control: _OfflineSpeechSelectorButton(
+                label: modelLabel,
+                enabled: hasModels,
+                expanded: _modelSelectorOpen,
+                onPressed: _selectModel,
+              ),
             ),
           ),
         ),
         _AnimatedSettingReveal(
-          visible: widget.settings.enabled,
+          visible: _enabled,
           child: Padding(
             padding: const EdgeInsets.only(top: 16),
-            child: Column(
-              children: <Widget>[
-                _ResponsiveSettingRow(
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '润色模型',
-                    en: 'Polishing Model',
-                  ),
-                  subtitle: openHandLocalizedText(
-                    context,
-                    zh: '选择语音识别完成后用于整理文本的 AI 模型。',
-                    en: 'Choose the AI model used to refine recognized text.',
-                  ),
-                  control: _OfflineSpeechSelectorButton(
-                    label: modelLabel,
-                    enabled: hasModels,
-                    expanded: _modelSelectorOpen,
-                    onPressed: _selectModel,
-                  ),
-                ),
-                kOpenHandGap16,
-                _ResponsiveSettingRow(
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '润色模型推理强度',
-                    en: 'Polishing Reasoning Effort',
-                  ),
-                  subtitle: options.length > 1
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '控制润色模型处理识别文本时的推理投入。',
-                          en: 'Control how much reasoning the model uses when refining recognized text.',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: options.length == 1
-                              ? '当前模型仅支持一种推理强度，已自动固定。'
-                              : '当前模型不支持可配置的推理强度。',
-                          en: options.length == 1
-                              ? 'This model supports one fixed reasoning effort.'
-                              : 'This model does not support configurable reasoning effort.',
-                        ),
-                  control: Builder(
-                    builder: (anchorContext) => _OfflineSpeechSelectorButton(
-                      label: reasoningLabel,
-                      enabled: options.length > 1,
-                      onPressed: () => _selectReasoningEffort(anchorContext),
+            child: _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '润色模型推理强度',
+                en: 'Polishing Reasoning Effort',
+              ),
+              subtitle: options.length > 1
+                  ? openHandLocalizedText(
+                      context,
+                      zh: '控制润色模型处理识别文本时的推理投入。',
+                      en: 'Control how much reasoning the model uses when refining recognized text.',
+                    )
+                  : openHandLocalizedText(
+                      context,
+                      zh: options.length == 1
+                          ? '当前模型仅支持一种推理强度，已自动固定。'
+                          : '当前模型不支持可配置的推理强度。',
+                      en: options.length == 1
+                          ? 'This model supports one fixed reasoning effort.'
+                          : 'This model does not support configurable reasoning effort.',
                     ),
-                  ),
+              control: Builder(
+                builder: (anchorContext) => _OfflineSpeechSelectorButton(
+                  label: reasoningLabel,
+                  enabled: options.length > 1,
+                  onPressed: () => _selectReasoningEffort(anchorContext),
                 ),
-              ],
+              ),
             ),
           ),
         ),
