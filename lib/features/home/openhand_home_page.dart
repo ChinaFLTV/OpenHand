@@ -6635,6 +6635,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _enqueueVoiceMessage(String value) {
+    if (value.trim().isEmpty) return;
+    _voiceConversationService.interruptAssistantResponse();
     final task = _voiceSubmissionPreparationQueue
         .catchError((Object _, StackTrace _) {})
         .then((_) => _prepareVoiceMessage(value));
@@ -6680,7 +6682,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     try {
       if (_displaySendPhaseForSession(sessionController, targetSessionId) !=
           AiSendPhase.idle) {
-        _voiceConversationService.resetAssistantResponse();
         final stopped = await _stopSessionResponseAndWait(
           sessionController,
           targetSessionId,
@@ -7087,6 +7088,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       creationRequest: creationRequest,
     );
 
+    if (_voiceConversationService.snapshot.active &&
+        _voiceConversationSessionId == targetSessionId) {
+      _voiceConversationService.interruptAssistantResponse();
+    }
     setState(() {
       _submittingSessionId = targetSessionId;
       _armAutoFollowToBottom(notifyPausedState: false);

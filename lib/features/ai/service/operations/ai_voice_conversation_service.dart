@@ -162,6 +162,10 @@ class AiVoiceConversationService extends ChangeNotifier {
   int _sessionSerial = 0;
   int _lastPartialByteCount = 0;
   Future<void> _recognitionQueue = Future<void>.value();
+  Completer<void>? _polishingCancellation;
+  String _pendingPolishingText = '';
+  int _polishingSerial = 0;
+  bool _polishingWorkerActive = false;
   DateTime _lastLevelNotification = DateTime.fromMillisecondsSinceEpoch(0);
 
   mk.Player? _player;
@@ -256,6 +260,8 @@ class AiVoiceConversationService extends ChangeNotifier {
     _onTextReady = onTextReady;
     _onIssue = onIssue;
     _polishingUnavailable = false;
+    _pendingPolishingText = '';
+    _polishingSerial += 1;
     _reportedIssues.clear();
     _snapshot = const AiVoiceConversationSnapshot.idle().copyWith(
       active: true,
@@ -383,7 +389,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _setSnapshot(
       _snapshot.copyWith(currentTranscript: '', previousTranscript: current),
     );
-    await _deliverText(current, _sessionSerial);
+    _queueRecognizedText(current, _sessionSerial);
   }
 
   void ingestAssistantResponse({
@@ -424,16 +430,20 @@ class AiVoiceConversationService extends ChangeNotifier {
     _startBufferedSpeechIfReady(_sessionSerial, _speechSerial);
   }
 
-  void resetAssistantResponse() {
-    _assistantMessageId = null;
-    _assistantText = '';
-    _assistantSpokenOffset = 0;
-    _assistantSpeechBlocked = false;
+  void interruptAssistantResponse() {
+    if (!_snapshot.active) return;
+    _assistantSpeechBlocked = true;
+    _assistantSpokenOffset = _assistantText.length;
     _speechQueue.clear();
     _speechSerial += 1;
     _resetSpeechCancellation();
     _discardBufferedSpeech();
     unawaited(_stopPlayerSafely());
+    if (_snapshot.phase == AiVoiceConversationPhase.speaking) {
+      _setSnapshot(
+        _snapshot.copyWith(phase: AiVoiceConversationPhase.listening),
+      );
+    }
   }
 
   OfflineSpeechModelDefinition? _selectedModel(
@@ -657,12 +667,19 @@ class AiVoiceConversationService extends ChangeNotifier {
             }
           }
           if (text.isNotEmpty && _isCurrentSession(sessionSerial)) {
-            await _deliverText(text, sessionSerial);
+            _queueRecognizedText(text, sessionSerial);
           } else if (_isCurrentSession(sessionSerial)) {
+            final polishingPending = _pendingPolishingText.isNotEmpty;
             _setSnapshot(
               _snapshot.copyWith(
-                phase: AiVoiceConversationPhase.listening,
-                clearMessage: !recognitionFailed,
+                phase: polishingPending
+                    ? AiVoiceConversationPhase.polishing
+                    : AiVoiceConversationPhase.listening,
+                currentTranscript: polishingPending ? '' : null,
+                previousTranscript: polishingPending
+                    ? _pendingPolishingText
+                    : null,
+                clearMessage: !recognitionFailed && !polishingPending,
               ),
             );
           }
@@ -704,41 +721,118 @@ class AiVoiceConversationService extends ChangeNotifier {
     }
   }
 
-  Future<void> _deliverText(String source, int sessionSerial) async {
-    var text = source.trim();
+  void _queueRecognizedText(String source, int sessionSerial) {
+    final text = source.trim();
     if (!_isCurrentSession(sessionSerial)) return;
     if (!hasMeaningfulSpeechText(text)) {
-      _ignoreRecognizedText(sessionSerial);
+      if (_pendingPolishingText.isEmpty) {
+        _ignoreRecognizedText(sessionSerial);
+      } else {
+        _setSnapshot(
+          _snapshot.copyWith(
+            currentTranscript: '',
+            previousTranscript: _pendingPolishingText,
+            phase: AiVoiceConversationPhase.polishing,
+            message: '正在润色识别文本…',
+          ),
+        );
+      }
       return;
     }
-    if (_polishingSettings.enabled && !_polishingUnavailable) {
-      _setSnapshot(
-        _snapshot.copyWith(
-          phase: AiVoiceConversationPhase.polishing,
-          message: '正在润色识别文本…',
-        ),
-      );
-      try {
-        text = await _polishingService.polish(
-          text: text,
-          settings: _polishingSettings,
-          availableModels: _availableModels,
-          cancelSignal: _sessionCancellation?.future,
-        );
-      } catch (error, stack) {
-        if (_isExpectedCancellation(error)) return;
-        silentLog('voice_conversation', '润色识别文本', error, stack);
-        if (!_isCurrentSession(sessionSerial)) return;
-        final message = _polishingFailureMessage(error);
-        _polishingUnavailable = true;
-        _notifyIssue(message);
+
+    if (!_polishingSettings.enabled || _polishingUnavailable) {
+      _deliverRecognizedText(text, sessionSerial);
+      return;
+    }
+
+    final pending = _pendingPolishingText.trim();
+    _pendingPolishingText = pending.isEmpty ? text : '$pending\n$text';
+    _polishingSerial += 1;
+    final cancellation = _polishingCancellation;
+    if (cancellation != null && !cancellation.isCompleted) {
+      cancellation.complete();
+    }
+    _setSnapshot(
+      _snapshot.copyWith(
+        currentTranscript: '',
+        previousTranscript: _pendingPolishingText,
+        phase: AiVoiceConversationPhase.polishing,
+        message: pending.isEmpty ? '正在润色识别文本…' : '检测到新内容，正在重新润色…',
+      ),
+    );
+    _startPolishingWorker();
+  }
+
+  void _startPolishingWorker() {
+    if (_polishingWorkerActive || _pendingPolishingText.isEmpty) return;
+    _polishingWorkerActive = true;
+    final sessionSerial = _sessionSerial;
+    unawaited(_runPolishingWorker(sessionSerial));
+  }
+
+  Future<void> _runPolishingWorker(int sessionSerial) async {
+    try {
+      while (_isCurrentSession(sessionSerial) &&
+          _pendingPolishingText.isNotEmpty) {
+        final polishingSerial = _polishingSerial;
+        final source = _pendingPolishingText;
+        final cancellation = Completer<void>();
+        _polishingCancellation = cancellation;
+        var text = source;
+        var interrupted = false;
+        final cancelSignal = combineCancelSignals(<Future<void>?>[
+          _sessionCancellation?.future,
+          cancellation.future,
+        ]);
+        try {
+          text = await _polishingService.polish(
+            text: source,
+            settings: _polishingSettings,
+            availableModels: _availableModels,
+            cancelSignal: cancelSignal,
+          );
+        } catch (error, stack) {
+          interrupted =
+              cancellation.isCompleted ||
+              polishingSerial != _polishingSerial ||
+              _isExpectedCancellation(error);
+          if (!interrupted) {
+            silentLog('voice_conversation', '润色识别文本', error, stack);
+            if (!_isCurrentSession(sessionSerial)) return;
+            _polishingUnavailable = true;
+            _notifyIssue(_polishingFailureMessage(error));
+          }
+        } finally {
+          if (identical(_polishingCancellation, cancellation)) {
+            _polishingCancellation = null;
+          }
+          if (!cancellation.isCompleted) cancellation.complete();
+        }
+
+        if (interrupted ||
+            !_isCurrentSession(sessionSerial) ||
+            polishingSerial != _polishingSerial) {
+          continue;
+        }
+        _pendingPolishingText = '';
+        _deliverRecognizedText(text, sessionSerial);
+      }
+    } finally {
+      _polishingWorkerActive = false;
+      if (_isCurrentSession(_sessionSerial) &&
+          _pendingPolishingText.isNotEmpty) {
+        _startPolishingWorker();
       }
     }
+  }
+
+  void _deliverRecognizedText(String text, int sessionSerial) {
     if (!_isCurrentSession(sessionSerial)) return;
     if (!hasMeaningfulSpeechText(text)) {
       _ignoreRecognizedText(sessionSerial);
       return;
     }
+    _pendingPolishingText = '';
     _setSnapshot(
       _snapshot.copyWith(
         currentTranscript: '',
@@ -748,6 +842,16 @@ class AiVoiceConversationService extends ChangeNotifier {
       ),
     );
     _onTextReady?.call(text.trim());
+  }
+
+  void _cancelPolishing() {
+    _polishingSerial += 1;
+    final cancellation = _polishingCancellation;
+    if (cancellation != null && !cancellation.isCompleted) {
+      cancellation.complete();
+    }
+    _polishingCancellation = null;
+    _pendingPolishingText = '';
   }
 
   void _ignoreRecognizedText(int sessionSerial) {
@@ -1185,6 +1289,7 @@ class AiVoiceConversationService extends ChangeNotifier {
       cancellation.complete();
     }
     _sessionCancellation = null;
+    _cancelPolishing();
     _speechQueue.clear();
     _speechSerial += 1;
     _resetSpeechCancellation();
