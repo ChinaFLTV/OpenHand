@@ -15,7 +15,7 @@ import 'silent_log.dart';
 const Duration _kRelaunchDelay = Duration(milliseconds: 1800);
 const Duration _kExitRequestCleanupGrace = Duration(seconds: 5);
 final Duration _kExitRequestTimeout =
-    kOpenHandDefaultRuntimeCleanupTotalTimeout + _kExitRequestCleanupGrace;
+    kOpenHandApplicationRuntimeCleanupTotalTimeout + _kExitRequestCleanupGrace;
 const Duration _kRelaunchChmodTimeout = Duration(seconds: 2);
 const Duration _kRelaunchFileOperationTimeout = Duration(seconds: 5);
 const Duration _kRelaunchProcessStartTimeout = Duration(seconds: 5);

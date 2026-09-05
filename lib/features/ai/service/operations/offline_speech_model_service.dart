@@ -187,8 +187,17 @@ class OfflineSpeechModelService extends ChangeNotifier {
     unawaited(_inspectHardware());
   }
 
-  static final OfflineSpeechModelService instance =
-      OfflineSpeechModelService._();
+  static OfflineSpeechModelService? _sharedInstance;
+
+  static OfflineSpeechModelService get instance =>
+      _sharedInstance ??= OfflineSpeechModelService._();
+
+  static Future<void> shutdownInstance() async {
+    await _sharedInstance?.shutdown();
+  }
+
+  static const Duration runtimeCleanupTimeout =
+      kOpenHandServiceRuntimeCleanupTimeout;
   static const String testSampleText = '你好，这是一段 OpenHand 本地语音朗读测试。';
   static const Duration _runtimeStartTimeout = Duration(minutes: 5);
   static const Duration _inferenceTimeout = Duration(minutes: 5);
@@ -339,6 +348,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
       <String, _OfflineSpeechRuntimeSession>{};
   final Map<OfflineSpeechRuntime, Future<void>> _runtimePreparations =
       <OfflineSpeechRuntime, Future<void>>{};
+  final Set<Future<void>> _activeStarts = <Future<void>>{};
+  final Set<Future<OfflineSpeechTestResult>> _activeTests =
+      <Future<OfflineSpeechTestResult>>{};
+  final Completer<void> _shutdownSignal = Completer<void>();
+  final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
+  bool _shuttingDown = false;
   OfflineSpeechHardwareProfile? _hardwareProfile;
   final Map<OfflineSpeechRuntime, OfflineSpeechRuntimeAdapter>
   _runtimeAdapters = <OfflineSpeechRuntime, OfflineSpeechRuntimeAdapter>{
@@ -498,9 +513,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration,
   ) async {
+    _throwIfShuttingDown();
     if (_downloadCancellations.containsKey(model.id)) return;
     await SystemProxyResolver.instance.initialize();
+    _throwIfShuttingDown();
     await _inspectHardware();
+    _throwIfShuttingDown();
     final availability = availabilityFor(model, configuration);
     if (!availability.available) throw StateError(availability.reason);
     final target = Directory(modelDirectory(model));
@@ -658,6 +676,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     } finally {
       cancellation.close();
       _downloadCancellations.remove(model.id);
+      cancellation.finish();
     }
   }
 
@@ -683,12 +702,32 @@ class OfflineSpeechModelService extends ChangeNotifier {
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration, {
     Future<void>? cancelSignal,
+  }) {
+    late final Future<void> operation;
+    operation = _start(
+      model,
+      configuration,
+      cancelSignal: cancelSignal,
+    ).whenComplete(() => _activeStarts.remove(operation));
+    _activeStarts.add(operation);
+    return operation;
+  }
+
+  Future<void> _start(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration, {
+    Future<void>? cancelSignal,
   }) async {
-    if (await isCancelSignalCompleted(cancelSignal)) {
+    _throwIfShuttingDown();
+    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+      cancelSignal,
+      _shutdownSignal.future,
+    ]);
+    if (await isCancelSignalCompleted(effectiveCancelSignal)) {
       throw const OfflineSpeechTestCancelled();
     }
     await _inspectHardware();
-    if (await isCancelSignalCompleted(cancelSignal)) {
+    if (await isCancelSignalCompleted(effectiveCancelSignal)) {
       throw const OfflineSpeechTestCancelled();
     }
     final availability = availabilityFor(model, configuration);
@@ -706,7 +745,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     for (final candidate in runningSameKind) {
       await stop(candidate);
     }
-    if (await isCancelSignalCompleted(cancelSignal)) {
+    if (await isCancelSignalCompleted(effectiveCancelSignal)) {
       throw const OfflineSpeechTestCancelled();
     }
     _setState(
@@ -721,7 +760,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         throw StateError('隔离运行环境已损坏，请点击更新按钮自动修复。');
       }
       final runner = await _writeRuntimeHost();
-      if (await isCancelSignalCompleted(cancelSignal)) {
+      if (await isCancelSignalCompleted(effectiveCancelSignal)) {
         throw const OfflineSpeechTestCancelled();
       }
       process = await _runtimeAdapters[model.runtime]!.start(
@@ -733,6 +772,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
         workingDirectory: runtimeRoot,
         environment: _runtimeEnvironment(model.runtime, runtimeRoot),
       );
+      if (await isCancelSignalCompleted(effectiveCancelSignal)) {
+        throw const OfflineSpeechTestCancelled();
+      }
       final startedSession = _OfflineSpeechRuntimeSession(process);
       _processes[model.id] = startedSession;
       unawaited(
@@ -765,7 +807,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       );
       final ready = await awaitWithCancelSignal<bool>(
         startedSession.ready.future.then((_) => true),
-        cancelSignal: cancelSignal,
+        cancelSignal: effectiveCancelSignal,
       ).timeout(_runtimeStartTimeout);
       if (ready != true) throw const OfflineSpeechTestCancelled();
       _setState(
@@ -829,10 +871,34 @@ class OfflineSpeechModelService extends ChangeNotifier {
     String? audioPath,
     String sampleText = testSampleText,
     Future<void>? cancelSignal,
+  }) {
+    late final Future<OfflineSpeechTestResult> operation;
+    operation = _test(
+      model,
+      configuration,
+      audioPath: audioPath,
+      sampleText: sampleText,
+      cancelSignal: cancelSignal,
+    ).whenComplete(() => _activeTests.remove(operation));
+    _activeTests.add(operation);
+    return operation;
+  }
+
+  Future<OfflineSpeechTestResult> _test(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration, {
+    String? audioPath,
+    required String sampleText,
+    Future<void>? cancelSignal,
   }) async {
+    _throwIfShuttingDown();
+    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+      cancelSignal,
+      _shutdownSignal.future,
+    ]);
     final wasRunning = _processes.containsKey(model.id);
     if (!wasRunning) {
-      await start(model, configuration, cancelSignal: cancelSignal);
+      await start(model, configuration, cancelSignal: effectiveCancelSignal);
     }
     Directory? outputDirectory;
     try {
@@ -846,7 +912,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         final response = await session.request(
           <String, Object?>{'operation': 'recognize', 'audio_path': source},
           timeout: _inferenceTimeout,
-          cancelSignal: cancelSignal,
+          cancelSignal: effectiveCancelSignal,
         );
         return OfflineSpeechTestResult.recognition(
           '${response['transcript'] ?? ''}'.trim(),
@@ -863,7 +929,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
           'output_path': outputPath,
         },
         timeout: _inferenceTimeout,
-        cancelSignal: cancelSignal,
+        cancelSignal: effectiveCancelSignal,
         onDiscardedResponse: () =>
             unawaited(_deleteTemporaryDirectory(outputDirectory)),
       );
@@ -881,6 +947,42 @@ class OfflineSpeechModelService extends ChangeNotifier {
     } finally {
       if (!wasRunning) await stop(model);
     }
+  }
+
+  Future<void> shutdown() => _shutdownOnce.run(_shutdown);
+
+  Future<void> _shutdown() async {
+    _shuttingDown = true;
+    if (!_shutdownSignal.isCompleted) _shutdownSignal.complete();
+
+    final downloads = _downloadCancellations.values.toList(growable: false);
+    for (final cancellation in downloads) {
+      cancellation.cancel();
+    }
+
+    final sessions = _processes.values.toSet().toList(growable: false);
+    _processes.clear();
+    for (final session in sessions) {
+      session.failPending(StateError('应用正在退出。'));
+    }
+
+    final cleanupTasks = <Future<void>>[
+      for (final session in sessions)
+        terminateTrackedProcessTree(session.process),
+      for (final cancellation in downloads) cancellation.done,
+      for (final operation in _activeStarts)
+        operation.then<void>((_) {}, onError: (_, _) {}),
+      for (final operation in _activeTests)
+        operation.then<void>((_) {}, onError: (_, _) {}),
+    ];
+    if (cleanupTasks.isNotEmpty) {
+      await Future.wait<void>(cleanupTasks).timeout(runtimeCleanupTimeout);
+    }
+    _runtimePreparations.clear();
+  }
+
+  void _throwIfShuttingDown() {
+    if (_shuttingDown) throw StateError('应用正在退出，无法启动新的语音任务。');
   }
 
   static Future<void> _deleteTemporaryDirectory(Directory? directory) async {
@@ -1489,6 +1591,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
   }
 
   Future<void> _inspectHardware() async {
+    if (_shuttingDown) return;
     if (kIsWeb || Platform.isAndroid || Platform.isIOS) {
       _hardwareProfile = OfflineSpeechHardwareProfile(
         platformSupported: false,
@@ -1497,7 +1600,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         totalMemoryBytes: 0,
         freeStorageBytes: 0,
       );
-      notifyListeners();
+      if (!_shuttingDown) notifyListeners();
       return;
     }
     final architecture = await _readArchitecture();
@@ -1510,7 +1613,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       totalMemoryBytes: totalMemoryBytes,
       freeStorageBytes: freeStorageBytes,
     );
-    notifyListeners();
+    if (!_shuttingDown) notifyListeners();
   }
 
   Future<String> _readArchitecture() async {
@@ -1758,7 +1861,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   void _setState(String modelId, OfflineSpeechModelState state) {
     _states[modelId] = state;
-    notifyListeners();
+    if (!_shuttingDown) notifyListeners();
   }
 }
 
@@ -1766,8 +1869,10 @@ class _DownloadCancellation {
   bool cancelled = false;
   HttpClient? client;
   final Completer<void> _cancelCompleter = Completer<void>();
+  final Completer<void> _finishedCompleter = Completer<void>();
 
   Future<void> get cancelSignal => _cancelCompleter.future;
+  Future<void> get done => _finishedCompleter.future;
 
   void cancel() {
     cancelled = true;
@@ -1782,6 +1887,10 @@ class _DownloadCancellation {
   void close() {
     client?.close(force: true);
     client = null;
+  }
+
+  void finish() {
+    if (!_finishedCompleter.isCompleted) _finishedCompleter.complete();
   }
 }
 

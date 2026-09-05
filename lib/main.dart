@@ -43,8 +43,6 @@ import 'shared/ui/startup_failure_view.dart';
 import 'shared/ui/structured_error_text.dart';
 import 'shared/util/user_failure_message.dart';
 
-const Duration _runtimeCleanupTotalTimeout = Duration(seconds: 60);
-
 Future<void> main() async {
   // 用 Zone 统一兜住异步异常，并过滤第三方库已知的可恢复输出噪声。
   await runZonedGuarded<Future<void>>(
@@ -65,7 +63,7 @@ Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   final runtimeCleanup = AppRuntimeCleanupRegistry(
     cleanupTimeout: const Duration(seconds: 5),
-    totalTimeout: _runtimeCleanupTotalTimeout,
+    totalTimeout: kOpenHandApplicationRuntimeCleanupTotalTimeout,
   );
   try {
     await _bootstrapRuntime(runtimeCleanup);
@@ -595,6 +593,11 @@ Future<void> _bootstrapRuntime(AppRuntimeCleanupRegistry runtimeCleanup) async {
       '媒体缓存',
       MediaCacheService.instance.shutdown,
       timeout: MediaCacheService.runtimeCleanupTimeout,
+    )
+    ..register(
+      '离线语音模型服务',
+      OfflineSpeechModelService.shutdownInstance,
+      timeout: OfflineSpeechModelService.runtimeCleanupTimeout,
     );
   runtimeCleanup
     ..register('定时任务托管处理器', () => cronsController.registerTaskHandler(null))

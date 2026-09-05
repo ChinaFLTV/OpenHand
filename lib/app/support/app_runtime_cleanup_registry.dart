@@ -11,6 +11,9 @@ typedef AppRuntimeCleanupErrorHandler =
 const Duration kOpenHandDefaultRuntimeCleanupTotalTimeout = Duration(
   seconds: 30,
 );
+const Duration kOpenHandApplicationRuntimeCleanupTotalTimeout = Duration(
+  seconds: 60,
+);
 const Duration kOpenHandMaxRuntimeCleanupTotalTimeout = Duration(minutes: 2);
 
 /// 统一管理 Provider 树创建前产生的应用级资源，并按注册逆序释放依赖。
