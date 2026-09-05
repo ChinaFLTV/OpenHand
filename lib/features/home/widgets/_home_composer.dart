@@ -2582,7 +2582,10 @@ class _VoiceTeleprompter extends StatelessWidget {
                               ),
                               kOpenHandGap4,
                               _VoiceTranscriptViewport(
-                                text: current.isEmpty ? previous : current,
+                                currentText: current.isEmpty
+                                    ? previous
+                                    : current,
+                                previousText: current.isEmpty ? '' : previous,
                                 placeholder: openHandLocalizedText(
                                   context,
                                   zh: '请开始说话…',
@@ -2634,11 +2637,13 @@ class _VoiceTeleprompter extends StatelessWidget {
 
 class _VoiceTranscriptViewport extends StatelessWidget {
   const _VoiceTranscriptViewport({
-    required this.text,
+    required this.currentText,
+    required this.previousText,
     required this.placeholder,
   });
 
-  final String text;
+  final String currentText;
+  final String previousText;
   final String placeholder;
 
   @override
@@ -2648,10 +2653,9 @@ class _VoiceTranscriptViewport extends StatelessWidget {
     final textScaler = MediaQuery.textScalerOf(context);
     final currentStyle = DefaultTextStyle.of(context).style
         .merge(theme.textTheme.bodyLarge)
-        .copyWith(color: colors.onSurface, fontWeight: FontWeight.w700);
+        .copyWith(color: colors.onSurface, fontWeight: FontWeight.w400);
     final fadedStyle = currentStyle.copyWith(
       color: colors.onSurfaceVariant.withValues(alpha: 0.38),
-      fontWeight: FontWeight.w600,
       shadows: <Shadow>[
         Shadow(
           color: colors.shadow.withValues(alpha: 0.18),
@@ -2673,29 +2677,53 @@ class _VoiceTranscriptViewport extends StatelessWidget {
         final width = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
-        final page = _layoutPage(context, width, currentStyle);
+        final currentPage = _layoutTail(
+          context,
+          currentText,
+          width,
+          currentStyle,
+        );
+        final previousPage = _layoutTail(
+          context,
+          previousText,
+          width,
+          currentStyle,
+        );
+        final currentLine = currentPage.$2;
+        var fadedLine = previousPage.$2;
+        if (fadedLine.isEmpty || fadedLine == currentLine) {
+          fadedLine = currentPage.$1;
+        }
+        if (fadedLine == currentLine) fadedLine = '';
+        final showingPlaceholder = currentLine.isEmpty;
+        final page = (
+          fadedLine,
+          showingPlaceholder ? placeholder : currentLine,
+          showingPlaceholder,
+        );
         final pageKey = ValueKey<(String, String, bool)>(page);
+        final hasFadedLine = fadedLine.isNotEmpty;
         final content = SizedBox(
-          height: lineHeight * 2 + 2,
+          height: lineHeight * (hasFadedLine ? 2 : 1) + (hasFadedLine ? 2 : 0),
           width: double.infinity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: lineHeight,
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: page.$1.isEmpty
-                      ? const SizedBox.shrink()
-                      : Text(
-                          page.$1,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: fadedStyle,
-                        ),
+              if (hasFadedLine) ...[
+                SizedBox(
+                  height: lineHeight,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      fadedLine,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: fadedStyle,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
+                const SizedBox(height: 2),
+              ],
               SizedBox(
                 height: lineHeight,
                 child: Align(
@@ -2715,8 +2743,10 @@ class _VoiceTranscriptViewport extends StatelessWidget {
         if (!openHandTickerMotionEnabled(context)) {
           return ExcludeSemantics(child: content);
         }
-        return SizedBox(
-          height: lineHeight * 2 + 2,
+        return AnimatedSize(
+          duration: openHandMotionDuration(context, kOpenHandMotion260),
+          curve: kOpenHandEmphasizedCurve,
+          alignment: AlignmentDirectional.bottomStart,
           child: ClipRect(
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion260),
@@ -2724,7 +2754,13 @@ class _VoiceTranscriptViewport extends StatelessWidget {
                 context,
                 kOpenHandMotion220,
               ),
-              layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+              layoutBuilder: (currentChild, previousChildren) =>
+                  buildCollisionSafeAnimatedSwitcherLayout(
+                    currentChild,
+                    previousChildren,
+                    alignment: AlignmentDirectional.bottomStart,
+                    sizeToCurrentChild: true,
+                  ),
               transitionBuilder: (child, animation) {
                 final incoming = child.key == pageKey;
                 final curved = CurvedAnimation(
@@ -2752,14 +2788,15 @@ class _VoiceTranscriptViewport extends StatelessWidget {
     );
   }
 
-  (String, String, bool) _layoutPage(
+  (String, String) _layoutTail(
     BuildContext context,
+    String text,
     double width,
     TextStyle style,
   ) {
     final normalized = text.trim();
     if (normalized.isEmpty || width <= 0) {
-      return ('', placeholder, true);
+      return ('', '');
     }
     final painter = TextPainter(
       text: TextSpan(text: normalized, style: style),
@@ -2786,7 +2823,7 @@ class _VoiceTranscriptViewport extends StatelessWidget {
           .trim();
     }
     painter.dispose();
-    return (fadedLine, currentLine.isEmpty ? normalized : currentLine, false);
+    return (fadedLine, currentLine.isEmpty ? normalized : currentLine);
   }
 }
 

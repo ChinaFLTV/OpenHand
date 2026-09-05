@@ -139,8 +139,7 @@ class AiVoiceConversationService extends ChangeNotifier {
   Duration _silenceTimeout = const Duration(seconds: 3);
   void Function(String text)? _onTextReady;
   void Function(String message)? _onIssue;
-  String? _polishingBlockMessage;
-  String? _pendingPolishingText;
+  bool _polishingUnavailable = false;
   final Set<String> _reportedIssues = <String>{};
 
   StreamSubscription<Uint8List>? _recordingSubscription;
@@ -255,8 +254,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _silenceTimeout = Duration(seconds: settings.silenceTimeoutSeconds);
     _onTextReady = onTextReady;
     _onIssue = onIssue;
-    _polishingBlockMessage = null;
-    _pendingPolishingText = null;
+    _polishingUnavailable = false;
     _reportedIssues.clear();
     _snapshot = const AiVoiceConversationSnapshot.idle().copyWith(
       active: true,
@@ -371,11 +369,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _setSnapshot(
       _snapshot.copyWith(currentTranscript: '', previousTranscript: current),
     );
-    await _deliverText(
-      current,
-      _sessionSerial,
-      skipPolishing: _polishingBlockMessage != null,
-    );
+    await _deliverText(current, _sessionSerial);
   }
 
   void ingestAssistantResponse({
@@ -687,28 +681,10 @@ class AiVoiceConversationService extends ChangeNotifier {
     }
   }
 
-  Future<void> _deliverText(
-    String source,
-    int sessionSerial, {
-    bool skipPolishing = false,
-  }) async {
+  Future<void> _deliverText(String source, int sessionSerial) async {
     var text = source.trim();
     if (text.isEmpty || !_isCurrentSession(sessionSerial)) return;
-    final blockedMessage = _polishingBlockMessage;
-    if (_polishingSettings.enabled && !skipPolishing) {
-      if (blockedMessage != null) {
-        final pending = _pendingPolishingText?.trim() ?? '';
-        if (pending.isNotEmpty && pending != text) text = '$pending\n$text';
-        _pendingPolishingText = text;
-        _setSnapshot(
-          _snapshot.copyWith(
-            phase: AiVoiceConversationPhase.listening,
-            currentTranscript: text,
-            message: blockedMessage,
-          ),
-        );
-        return;
-      }
+    if (_polishingSettings.enabled && !_polishingUnavailable) {
       _setSnapshot(
         _snapshot.copyWith(
           phase: AiVoiceConversationPhase.polishing,
@@ -727,23 +703,14 @@ class AiVoiceConversationService extends ChangeNotifier {
         silentLog('voice_conversation', '润色识别文本', error, stack);
         if (!_isCurrentSession(sessionSerial)) return;
         final message = _polishingFailureMessage(error);
-        _polishingBlockMessage = message;
-        _pendingPolishingText = text;
-        _setSnapshot(
-          _snapshot.copyWith(
-            phase: AiVoiceConversationPhase.listening,
-            currentTranscript: text,
-            message: message,
-          ),
-        );
+        _polishingUnavailable = true;
         _notifyIssue(message);
-        return;
       }
     }
     if (!_isCurrentSession(sessionSerial) || text.trim().isEmpty) return;
-    _pendingPolishingText = null;
     _setSnapshot(
       _snapshot.copyWith(
+        currentTranscript: '',
         previousTranscript: text,
         phase: AiVoiceConversationPhase.listening,
         clearMessage: true,
@@ -1097,17 +1064,17 @@ class AiVoiceConversationService extends ChangeNotifier {
 
   String _polishingFailureMessage(Object error) {
     if (error is AiChatEmptyResponseException) {
-      return '文本润色模型未返回有效内容。识别文本已保留，可直接发送，或更换润色模型后重试。';
+      return '文本润色模型未返回有效内容，已改用识别原文发送。请更换润色模型。';
     }
     if (error is AiChatException) {
       return switch (error.statusCode) {
-        401 => '文本润色模型鉴权失败。识别文本已保留，请检查密钥或更换润色模型。',
-        403 => '文本润色模型无访问权限或受地区限制。识别文本已保留，请更换模型或关闭文本润色。',
-        429 => '文本润色服务请求过于频繁或额度不足。识别文本已保留，请稍后重试。',
-        _ => '文本润色失败。识别文本已保留，可直接发送，或检查润色模型后重试。',
+        401 => '文本润色模型鉴权失败，已改用识别原文发送。请检查密钥或更换模型。',
+        403 => '文本润色模型无访问权限或受地区限制，已改用识别原文发送。请更换模型。',
+        429 => '文本润色服务请求过于频繁或额度不足，已改用识别原文发送。',
+        _ => '文本润色失败，已改用识别原文发送。请检查或更换润色模型。',
       };
     }
-    return '文本润色失败。识别文本已保留，可直接发送，或检查润色模型后重试。';
+    return '文本润色失败，已改用识别原文发送。请检查或更换润色模型。';
   }
 
   void _notifyIssue(String message) {
@@ -1200,8 +1167,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _availableModels = const <AiModelConfig>[];
     _onTextReady = null;
     _onIssue = null;
-    _polishingBlockMessage = null;
-    _pendingPolishingText = null;
+    _polishingUnavailable = false;
     _reportedIssues.clear();
     _preRoll = <int>[];
     _utterance = <int>[];
