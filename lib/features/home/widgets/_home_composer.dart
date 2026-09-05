@@ -2413,7 +2413,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion260),
         curve: kOpenHandEmphasizedCurve,
-        padding: EdgeInsets.fromLTRB(18, 14, 18, effectiveCollapsed ? 10 : 18),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
