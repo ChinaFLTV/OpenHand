@@ -52,6 +52,13 @@ class OfflineSpeechDownloadCancelled implements Exception {
   const OfflineSpeechDownloadCancelled();
 }
 
+class OfflineSpeechInferenceTimeout implements Exception {
+  const OfflineSpeechInferenceTimeout();
+
+  @override
+  String toString() => '模型推理超时，请缩短输入后重试。';
+}
+
 class OfflineSpeechHardwareProfile {
   const OfflineSpeechHardwareProfile({
     required this.platformSupported,
@@ -76,6 +83,19 @@ class OfflineSpeechModelAvailability {
 
   final bool available;
   final String reason;
+}
+
+class OfflineSpeechTestResult {
+  const OfflineSpeechTestResult._({this.audioPath, this.transcript});
+
+  const OfflineSpeechTestResult.synthesis(String audioPath)
+    : this._(audioPath: audioPath);
+
+  const OfflineSpeechTestResult.recognition(String transcript)
+    : this._(transcript: transcript);
+
+  final String? audioPath;
+  final String? transcript;
 }
 
 abstract interface class OfflineSpeechRuntimeAdapter {
@@ -161,7 +181,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   static final OfflineSpeechModelService instance =
       OfflineSpeechModelService._();
+  static const String testSampleText = '你好，这是一段 OpenHand 本地语音朗读测试。';
   static const Duration _runtimeStartTimeout = Duration(minutes: 5);
+  static const Duration _inferenceTimeout = Duration(minutes: 5);
   static const Duration _runtimeInstallTimeout = Duration(minutes: 45);
   static const Duration _downloadNotifyInterval = Duration(milliseconds: 80);
   static const Duration _downloadIdleTimeout = Duration(seconds: 60);
@@ -294,7 +316,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
       <String, OfflineSpeechModelState>{};
   final Map<String, _DownloadCancellation> _downloadCancellations =
       <String, _DownloadCancellation>{};
-  final Map<String, Process> _processes = <String, Process>{};
+  final Map<String, _OfflineSpeechRuntimeSession> _processes =
+      <String, _OfflineSpeechRuntimeSession>{};
   final Map<OfflineSpeechRuntime, Future<void>> _runtimePreparations =
       <OfflineSpeechRuntime, Future<void>>{};
   OfflineSpeechHardwareProfile? _hardwareProfile;
@@ -674,35 +697,25 @@ class OfflineSpeechModelService extends ChangeNotifier {
         workingDirectory: runtimeRoot,
         environment: _runtimeEnvironment(model.runtime, runtimeRoot),
       );
-      _processes[model.id] = process;
-      final ready = Completer<void>();
-      var errors = '';
-      process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen((line) {
-            if (line == 'OPENHAND_模型就绪' && !ready.isCompleted) {
-              ready.complete();
-            }
-          });
-      process.stderr.transform(utf8.decoder).listen((chunk) {
-        errors += chunk;
-        if (errors.length > _runtimeErrorCharacters) {
-          errors = errors.substring(errors.length - _runtimeErrorCharacters);
-        }
-      });
+      final startedSession = _OfflineSpeechRuntimeSession(process);
+      _processes[model.id] = startedSession;
       unawaited(
         process.exitCode.then((code) {
-          if (!ready.isCompleted) {
-            ready.completeError(
+          if (!startedSession.ready.isCompleted) {
+            startedSession.ready.completeError(
               StateError(
-                errors.trim().isEmpty
+                startedSession.errors.trim().isEmpty
                     ? '模型运行时异常退出（$code）。'
-                    : _runtimeStartFailureMessage(model, errors, code),
+                    : _runtimeStartFailureMessage(
+                        model,
+                        startedSession.errors,
+                        code,
+                      ),
               ),
             );
           }
-          if (identical(_processes[model.id], process)) {
+          startedSession.failPending(StateError('模型运行时已退出（$code）。'));
+          if (identical(_processes[model.id], startedSession)) {
             _processes.remove(model.id);
             _setState(
               model.id,
@@ -714,7 +727,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
           }
         }),
       );
-      await ready.future.timeout(_runtimeStartTimeout);
+      await startedSession.ready.future.timeout(_runtimeStartTimeout);
       _setState(
         model.id,
         const OfflineSpeechModelState(
@@ -739,8 +752,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
   }
 
   Future<void> stop(OfflineSpeechModelDefinition model) async {
-    final process = _processes.remove(model.id);
-    if (process == null) {
+    final session = _processes.remove(model.id);
+    if (session == null) {
       if (isInstalled(model)) {
         _setState(
           model.id,
@@ -755,6 +768,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
       model.id,
       const OfflineSpeechModelState(lifecycle: OfflineSpeechLifecycle.stopping),
     );
+    session.failPending(StateError('模型已停止。'));
+    final process = session.process;
     process.kill();
     try {
       await process.exitCode.timeout(const Duration(seconds: 5));
@@ -770,14 +785,59 @@ class OfflineSpeechModelService extends ChangeNotifier {
     );
   }
 
-  Future<void> test(
+  Future<OfflineSpeechTestResult> test(
     OfflineSpeechModelDefinition model,
-    Map<String, Object?> configuration,
-  ) async {
-    final wasRunning =
-        stateOf(model).lifecycle == OfflineSpeechLifecycle.running;
+    Map<String, Object?> configuration, {
+    String? audioPath,
+    String sampleText = testSampleText,
+  }) async {
+    final wasRunning = _processes.containsKey(model.id);
     if (!wasRunning) await start(model, configuration);
-    if (!wasRunning) await stop(model);
+    Directory? outputDirectory;
+    try {
+      final session = _processes[model.id];
+      if (session == null) throw StateError('模型运行时尚未就绪。');
+      if (model.kind == OfflineSpeechKind.recognition) {
+        final source = audioPath?.trim() ?? '';
+        if (source.isEmpty || !await File(source).exists()) {
+          throw StateError('没有可识别的录音文件。');
+        }
+        final response = await session.request(<String, Object?>{
+          'operation': 'recognize',
+          'audio_path': source,
+        }, timeout: _inferenceTimeout);
+        return OfflineSpeechTestResult.recognition(
+          '${response['transcript'] ?? ''}'.trim(),
+        );
+      }
+      outputDirectory = await Directory.systemTemp.createTemp(
+        'openhand_speech_test_',
+      );
+      final outputPath = p.join(outputDirectory.path, 'sample.wav');
+      final response = await session.request(<String, Object?>{
+        'operation': 'synthesize',
+        'text': sampleText,
+        'output_path': outputPath,
+      }, timeout: _inferenceTimeout);
+      final generatedPath = '${response['audio_path'] ?? ''}'.trim();
+      final generated = File(generatedPath);
+      if (generatedPath.isEmpty ||
+          !await generated.exists() ||
+          await generated.length() == 0) {
+        throw StateError('模型没有生成有效音频。');
+      }
+      return OfflineSpeechTestResult.synthesis(generatedPath);
+    } catch (error) {
+      if (outputDirectory != null && await outputDirectory.exists()) {
+        await outputDirectory.delete(recursive: true);
+      }
+      if (wasRunning && error is OfflineSpeechInferenceTimeout) {
+        await stop(model);
+      }
+      rethrow;
+    } finally {
+      if (!wasRunning) await stop(model);
+    }
   }
 
   Future<List<_RemoteModelFile>> _loadRepositoryFiles(
@@ -1660,8 +1720,97 @@ class _RemoteModelFile {
   final Uri uri;
 }
 
+class _OfflineSpeechRuntimeSession {
+  _OfflineSpeechRuntimeSession(this.process) {
+    process.stdout
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(_handleOutput, onError: _handleStreamError);
+    process.stderr.transform(utf8.decoder).listen((chunk) {
+      errors += chunk;
+      if (errors.length > OfflineSpeechModelService._runtimeErrorCharacters) {
+        errors = errors.substring(
+          errors.length - OfflineSpeechModelService._runtimeErrorCharacters,
+        );
+      }
+    });
+  }
+
+  static const String _responsePrefix = 'OPENHAND_响应 ';
+
+  final Process process;
+  final Completer<void> ready = Completer<void>();
+  final Map<String, Completer<Map<String, Object?>>> _pending =
+      <String, Completer<Map<String, Object?>>>{};
+  int _requestSequence = 0;
+  String errors = '';
+
+  Future<Map<String, Object?>> request(
+    Map<String, Object?> request, {
+    required Duration timeout,
+  }) async {
+    final id = '${++_requestSequence}';
+    final completer = Completer<Map<String, Object?>>();
+    _pending[id] = completer;
+    try {
+      final encoded = base64Url.encode(
+        utf8.encode(jsonEncode(<String, Object?>{'id': id, ...request})),
+      );
+      process.stdin.writeln(encoded);
+      await process.stdin.flush();
+      return await completer.future.timeout(timeout);
+    } on TimeoutException {
+      throw const OfflineSpeechInferenceTimeout();
+    } finally {
+      _pending.remove(id);
+    }
+  }
+
+  void failPending(Object error) {
+    for (final completer in _pending.values) {
+      if (!completer.isCompleted) completer.completeError(error);
+    }
+    _pending.clear();
+  }
+
+  void _handleOutput(String line) {
+    if (line == 'OPENHAND_模型就绪') {
+      if (!ready.isCompleted) ready.complete();
+      return;
+    }
+    if (!line.startsWith(_responsePrefix)) return;
+    try {
+      final decoded = utf8.decode(
+        base64Url.decode(line.substring(_responsePrefix.length)),
+      );
+      final payload = jsonDecode(decoded);
+      if (payload is! Map) return;
+      final id = '${payload['id'] ?? ''}';
+      final completer = _pending[id];
+      if (completer == null || completer.isCompleted) return;
+      if (payload['ok'] == true) {
+        final result = payload['result'];
+        completer.complete(
+          result is Map
+              ? Map<String, Object?>.from(result)
+              : const <String, Object?>{},
+        );
+      } else {
+        completer.completeError(StateError('${payload['error'] ?? '模型推理失败。'}'));
+      }
+    } catch (error) {
+      failPending(StateError('无法解析模型运行时响应：$error'));
+    }
+  }
+
+  void _handleStreamError(Object error, StackTrace stack) {
+    if (!ready.isCompleted) ready.completeError(error, stack);
+    failPending(error);
+  }
+}
+
 const String _runtimeHostSource = r'''
-import argparse, base64, json, os, sys, time, traceback
+import argparse, array, base64, json, os, sys, traceback, wave
 
 def device(config):
     value = config.get("device", "auto")
@@ -1759,6 +1908,250 @@ def load(runtime, model_dir, config):
         )
     raise RuntimeError("不支持的运行时: " + runtime)
 
+def flatten_samples(samples):
+    if hasattr(samples, "detach"):
+        samples = samples.detach().float().cpu()
+    if hasattr(samples, "reshape"):
+        samples = samples.reshape(-1)
+    if hasattr(samples, "tolist"):
+        samples = samples.tolist()
+    result = []
+    def append(value):
+        if isinstance(value, (list, tuple)):
+            for item in value: append(item)
+        else:
+            result.append(float(value))
+    append(samples)
+    return result
+
+def write_wav(path, samples, sample_rate, volume=1.0):
+    values = flatten_samples(samples)
+    if not values: raise RuntimeError("模型没有生成音频采样")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    pcm = array.array("h", (
+        int(max(-1.0, min(1.0, value * volume)) * 32767) for value in values
+    ))
+    with wave.open(path, "wb") as output:
+        output.setnchannels(1)
+        output.setsampwidth(2)
+        output.setframerate(int(sample_rate))
+        output.writeframes(pcm.tobytes())
+
+def read_wav(path):
+    with wave.open(path, "rb") as source:
+        channels = source.getnchannels()
+        width = source.getsampwidth()
+        sample_rate = source.getframerate()
+        frames = source.readframes(source.getnframes())
+    if width != 2: raise RuntimeError("录音必须为 16 位 WAV 格式")
+    pcm = array.array("h")
+    pcm.frombytes(frames)
+    if sys.byteorder == "big": pcm.byteswap()
+    if channels > 1:
+        values = [
+            sum(pcm[index:index + channels]) / channels / 32768.0
+            for index in range(0, len(pcm), channels)
+        ]
+    else:
+        values = [value / 32768.0 for value in pcm]
+    return values, sample_rate
+
+def language(config, canonical=False):
+    value = config.get("language", "auto")
+    if value == "auto": return None
+    if not canonical: return value
+    return {
+        "zh": "Chinese", "yue": "Cantonese", "en": "English",
+        "ja": "Japanese", "ko": "Korean",
+    }.get(value, value)
+
+def recognize(runtime, loaded, audio_path, config):
+    if runtime == "funAsr":
+        if "chunk_size" in config:
+            import numpy as np
+            samples, _ = read_wav(audio_path)
+            chunk_size = [int(value.strip()) for value in str(config["chunk_size"]).split(",")]
+            if len(chunk_size) != 3 or chunk_size[1] <= 0:
+                raise RuntimeError("流式分块配置必须包含三个有效整数")
+            stride = chunk_size[1] * 960
+            cache, texts = {}, []
+            waveform = np.asarray(samples, dtype=np.float32)
+            total = max(1, (len(waveform) + stride - 1) // stride)
+            for index in range(total):
+                result = loaded.generate(
+                    input=waveform[index * stride:(index + 1) * stride],
+                    cache=cache,
+                    is_final=index == total - 1,
+                    chunk_size=chunk_size,
+                    encoder_chunk_look_back=int(config.get("encoder_lookback", 4)),
+                    decoder_chunk_look_back=int(config.get("decoder_lookback", 1)),
+                )
+                if result:
+                    item = result[0]
+                    texts.append(item.get("text", "") if isinstance(item, dict) else str(item))
+            return "".join(texts).strip()
+        kwargs = {
+            "input": audio_path,
+            "batch_size_s": int(config.get("batch_size_s", 60)),
+            "use_itn": bool(config.get("itn", True)),
+        }
+        selected_language = language(config)
+        if selected_language:
+            if "batch_size" not in config:
+                selected_language = {
+                    "zh": "中文", "yue": "粤语", "en": "英文",
+                    "ja": "日文", "ko": "韩文",
+                }.get(selected_language, selected_language)
+            kwargs["language"] = selected_language
+        hotwords = str(config.get("hotwords", "")).strip()
+        if hotwords: kwargs["hotword"] = hotwords
+        result = loaded.generate(**kwargs)
+        if not result: return ""
+        text = result[0].get("text", "") if isinstance(result[0], dict) else str(result[0])
+        try:
+            from funasr.utils.postprocess_utils import rich_transcription_postprocess
+            text = rich_transcription_postprocess(text)
+        except Exception:
+            pass
+        return text.strip()
+    if runtime == "qwenAsr":
+        result = loaded.transcribe(
+            audio=audio_path,
+            context=str(config.get("hotwords", "")).strip(),
+            language=language(config, canonical=True),
+            return_time_stamps=False,
+        )
+        return result[0].text.strip() if result else ""
+    if runtime == "fasterWhisper":
+        segments, _ = loaded.transcribe(
+            audio_path,
+            language=language(config),
+            task="translate" if config.get("translate", False) else "transcribe",
+            beam_size=int(config.get("beam_size", 5)),
+            best_of=int(config.get("best_of", 5)),
+            temperature=float(config.get("temperature", 0.0)),
+            word_timestamps=bool(config.get("word_timestamps", True)),
+            vad_filter=bool(config.get("vad", True)),
+        )
+        return "".join(segment.text for segment in segments).strip()
+    if runtime == "sherpaOnnx":
+        samples, sample_rate = read_wav(audio_path)
+        stream = loaded.create_stream()
+        stream.accept_waveform(sample_rate, samples)
+        stream.accept_waveform(sample_rate, [0.0] * int(0.66 * sample_rate))
+        stream.input_finished()
+        while loaded.is_ready(stream): loaded.decode_stream(stream)
+        result = loaded.get_result(stream)
+        return (result.text if hasattr(result, "text") else str(result)).strip()
+    raise RuntimeError("当前运行时不支持语音识别")
+
+def generation_options(config):
+    options = {}
+    temperature = float(config.get("temperature", 0.7))
+    if temperature > 0:
+        options["do_sample"] = True
+        options["temperature"] = temperature
+        options["top_p"] = float(config.get("top_p", 0.8))
+    else:
+        options["do_sample"] = False
+    return options
+
+def synthesize(runtime, loaded, text, output_path, config):
+    volume = float(config.get("volume", 1.0))
+    if runtime == "qwenTts":
+        selected_language = language(config, canonical=True) or "Auto"
+        options = generation_options(config)
+        if "speaker" in config:
+            wavs, sample_rate = loaded.generate_custom_voice(
+                text=text,
+                language=selected_language,
+                speaker=config.get("speaker", "Vivian"),
+                instruct=str(config.get("instruct", "")).strip(),
+                non_streaming_mode=True,
+                **options,
+            )
+        elif "voice_description" in config:
+            wavs, sample_rate = loaded.generate_voice_design(
+                text=text,
+                language=selected_language,
+                instruct=str(config.get("voice_description", "")).strip(),
+                non_streaming_mode=True,
+                **options,
+            )
+        else:
+            reference_audio = str(config.get("reference_audio", "")).strip()
+            if not reference_audio or not os.path.isfile(reference_audio):
+                raise RuntimeError("请先选择有效的参考音频，再测试音色克隆模型")
+            reference_text = str(config.get("reference_text", "")).strip()
+            wavs, sample_rate = loaded.generate_voice_clone(
+                text=text,
+                language=selected_language,
+                ref_audio=reference_audio,
+                ref_text=reference_text or None,
+                x_vector_only_mode=not bool(reference_text),
+                non_streaming_mode=True,
+                **options,
+            )
+        write_wav(output_path, wavs[0], sample_rate, volume)
+    elif runtime == "cosyVoice":
+        reference_audio = str(config.get("reference_audio", "")).strip()
+        if not reference_audio:
+            reference_audio = os.path.join(os.getcwd(), "source", "asset", "zero_shot_prompt.wav")
+        if not os.path.isfile(reference_audio):
+            raise RuntimeError("请先选择有效的参考音频")
+        speed = float(config.get("speed", 1.0))
+        text_frontend = bool(config.get("text_frontend", True))
+        instruct = str(config.get("instruct", "")).strip()
+        if hasattr(loaded, "inference_instruct2") and instruct:
+            prompt = "You are a helpful assistant. " + instruct + "<|endofprompt|>"
+            generated = loaded.inference_instruct2(
+                text, prompt, reference_audio, stream=False,
+                speed=speed, text_frontend=text_frontend,
+            )
+        else:
+            prompt_text = str(config.get("prompt_text", "")).strip()
+            if not prompt_text:
+                prompt_text = "You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。"
+            generated = loaded.inference_zero_shot(
+                text, prompt_text, reference_audio, stream=False,
+                speed=speed, text_frontend=text_frontend,
+            )
+        samples = []
+        for chunk in generated: samples.extend(flatten_samples(chunk["tts_speech"]))
+        write_wav(output_path, samples, loaded.sample_rate, volume)
+    elif runtime == "sherpaOnnx":
+        import sherpa_onnx
+        generation = sherpa_onnx.GenerationConfig()
+        generation.sid = int(config.get("speaker_id", 3))
+        generation.speed = float(config.get("speed", 1.0))
+        generation.silence_scale = float(config.get("silence_scale", 1.0))
+        audio = loaded.generate(text, generation)
+        write_wav(output_path, audio.samples, audio.sample_rate, volume)
+    else:
+        raise RuntimeError("当前运行时不支持语音合成")
+    return output_path
+
+def respond(request_id, result=None, error=None):
+    payload = {"id": request_id, "ok": error is None}
+    if error is None: payload["result"] = result or {}
+    else: payload["error"] = error
+    encoded = base64.urlsafe_b64encode(
+        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    ).decode("ascii")
+    print("OPENHAND_响应 " + encoded, flush=True)
+
+def handle_request(runtime, loaded, config, request):
+    operation = request.get("operation")
+    if operation == "recognize":
+        transcript = recognize(runtime, loaded, request["audio_path"], config)
+        return {"transcript": transcript}
+    if operation == "synthesize":
+        path = synthesize(
+            runtime, loaded, request["text"], request["output_path"], config
+        )
+        return {"audio_path": path}
+    raise RuntimeError("不支持的测试操作")
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--runtime", required=True)
@@ -1769,7 +2162,17 @@ def main():
     loaded = load(args.runtime, args.model, config)
     if loaded is None: raise RuntimeError("模型加载失败")
     print("OPENHAND_模型就绪", flush=True)
-    while True: time.sleep(1)
+    for line in sys.stdin:
+        line = line.strip()
+        if not line: continue
+        request_id = ""
+        try:
+            request = json.loads(base64.urlsafe_b64decode(line).decode("utf-8"))
+            request_id = str(request.get("id", ""))
+            respond(request_id, result=handle_request(args.runtime, loaded, config, request))
+        except Exception as error:
+            details = traceback.format_exc().strip().splitlines()
+            respond(request_id, error=str(error) + "\n" + "\n".join(details[-8:]))
 
 try:
     main()

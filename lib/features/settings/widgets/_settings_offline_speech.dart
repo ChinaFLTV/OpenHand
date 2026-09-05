@@ -1,6 +1,9 @@
 part of 'settings_view.dart';
 
 const double _offlineSpeechModelListMaxHeight = 560;
+const Duration _offlineSpeechTestOperationTimeout = Duration(seconds: 15);
+const Duration _offlineSpeechMaxRecordingDuration = Duration(seconds: 30);
+const Duration _offlineSpeechMinimumRecordingDuration = Duration(seconds: 1);
 
 class _OfflineSpeechModelPanel extends StatefulWidget {
   const _OfflineSpeechModelPanel({
@@ -748,7 +751,11 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                     ),
                   ),
                   _OfflineSpeechActionButton(
-                    tooltip: hardwareAvailable ? '测试当前配置' : availability.reason,
+                    tooltip: hardwareAvailable
+                        ? widget.model.kind == OfflineSpeechKind.synthesis
+                              ? '试听示例朗读'
+                              : '录音并测试识别'
+                        : availability.reason,
                     onPressed: runnable && !busy ? _test : null,
                     child: _testing
                         ? const SizedBox.square(
@@ -922,12 +929,22 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
   Future<void> _test() async {
     setState(() => _testing = true);
     try {
-      await OfflineSpeechModelService.instance.test(
-        widget.model,
-        _configuration,
+      await showOpenHandProfiledDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        dismissOnEscape: false,
+        transitionProfile: const OpenHandAnimationTransitionProfile(
+          fadeScaleBegin: 0.9,
+          elasticScaleBegin: 0.9,
+          springScaleBegin: 0.9,
+          slideUpOffset: Offset(0, 0.1),
+          slideDownOffset: Offset(0, -0.1),
+        ),
+        builder: (_) => _OfflineSpeechTestDialog(
+          model: widget.model,
+          configuration: _configuration,
+        ),
       );
-      if (!mounted) return;
-      showOpenHandSuccessSnack(context, '${widget.model.name} 当前配置测试通过');
     } catch (error, stack) {
       silentLog('settings_offline_speech', '测试离线语音模型', error, stack);
       if (!mounted) return;
@@ -1047,6 +1064,701 @@ class _OfflineSpeechParameterField extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+enum _OfflineSpeechTestPhase {
+  preparing,
+  recording,
+  recognizing,
+  ready,
+  failed,
+}
+
+class _OfflineSpeechTestDialog extends StatefulWidget {
+  const _OfflineSpeechTestDialog({
+    required this.model,
+    required this.configuration,
+  });
+
+  final OfflineSpeechModelDefinition model;
+  final Map<String, Object?> configuration;
+
+  @override
+  State<_OfflineSpeechTestDialog> createState() =>
+      _OfflineSpeechTestDialogState();
+}
+
+class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
+  static const String _sampleText = OfflineSpeechModelService.testSampleText;
+
+  final List<StreamSubscription<dynamic>> _subscriptions =
+      <StreamSubscription<dynamic>>[];
+  _OfflineSpeechTestPhase _phase = _OfflineSpeechTestPhase.preparing;
+  AudioRecorder? _recorder;
+  mk.Player? _player;
+  StreamSubscription<Amplitude>? _amplitudeSubscription;
+  Timer? _recordingTimer;
+  Directory? _temporaryDirectory;
+  DateTime? _recordingStartedAt;
+  Duration _recordingElapsed = Duration.zero;
+  double _recordingLevel = 0.08;
+  String? _audioPath;
+  String? _transcript;
+  String? _error;
+  bool _finishingRecording = false;
+  bool _playing = false;
+
+  bool get _isRecognition => widget.model.kind == OfflineSpeechKind.recognition;
+
+  bool get _processing =>
+      _phase == _OfflineSpeechTestPhase.preparing ||
+      _phase == _OfflineSpeechTestPhase.recognizing ||
+      _finishingRecording;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isRecognition) {
+      unawaited(_startRecording());
+    } else {
+      unawaited(_synthesize());
+    }
+  }
+
+  @override
+  void dispose() {
+    _recordingTimer?.cancel();
+    unawaited(_disposeResources());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = _phase == _OfflineSpeechTestPhase.failed
+        ? theme.colorScheme.error
+        : _phase == _OfflineSpeechTestPhase.ready
+        ? OpenHandStatusColors.success
+        : theme.colorScheme.primary;
+    return PopScope(
+      canPop: !_processing,
+      child: buildOpenHandAlertDialog(
+        icon: AnimatedSwitcher(
+          duration: openHandMotionDuration(context, kOpenHandMotion200),
+          switchInCurve: kOpenHandSwitchInCurve,
+          switchOutCurve: kOpenHandSwitchOutCurve,
+          child: Icon(
+            _phaseIcon,
+            key: ValueKey<_OfflineSpeechTestPhase>(_phase),
+            color: accent,
+          ),
+        ),
+        title: Text(_title),
+        content: SizedBox(
+          width: 520,
+          child: AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion260),
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SizeTransition(
+                sizeFactor: animation,
+                alignment: AlignmentDirectional.topCenter,
+                child: child,
+              ),
+            ),
+            child: KeyedSubtree(
+              key: ValueKey<_OfflineSpeechTestPhase>(_phase),
+              child: _buildContent(theme, accent),
+            ),
+          ),
+        ),
+        actions: _buildActions(),
+      ),
+    );
+  }
+
+  Widget _buildContent(ThemeData theme, Color accent) {
+    if (_phase == _OfflineSpeechTestPhase.recording) {
+      final progress =
+          _recordingElapsed.inMilliseconds /
+          _offlineSpeechMaxRecordingDuration.inMilliseconds;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.9, end: 0.9 + _recordingLevel * 0.18),
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 120),
+            ),
+            curve: kOpenHandEmphasizedCurve,
+            builder: (context, scale, child) =>
+                Transform.scale(scale: scale, child: child),
+            child: Container(
+              width: 82,
+              height: 82,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.12),
+                border: Border.all(color: accent.withValues(alpha: 0.34)),
+              ),
+              child: Icon(Icons.mic_rounded, size: 38, color: accent),
+            ),
+          ),
+          kOpenHandGap18,
+          Text(
+            '请对着麦克风说一段话',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          kOpenHandGap8,
+          Text(
+            '说完后点击“完成并识别”，最长录制 30 秒。',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          kOpenHandGap18,
+          ClipRRect(
+            borderRadius: kOpenHandBorderRadius12,
+            child: LinearProgressIndicator(
+              value: progress.clamp(0, 1),
+              minHeight: 8,
+              color: accent,
+              backgroundColor: accent.withValues(alpha: 0.12),
+            ),
+          ),
+          kOpenHandGap8,
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: Text(
+              '${_formatDuration(_recordingElapsed)} / 00:30',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontFeatures: const <ui.FontFeature>[
+                  ui.FontFeature.tabularFigures(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    if (_phase == _OfflineSpeechTestPhase.ready) {
+      final transcript = _transcript?.trim() ?? '';
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _OfflineSpeechTestStatusCard(
+            color: accent,
+            title: _isRecognition ? '识别已完成' : '示例文本已生成并播放',
+            message: _isRecognition
+                ? transcript.isEmpty
+                      ? '本次录音中没有识别到清晰语音，可重新录制后再试。'
+                      : '下方内容由 ${widget.model.name} 从本次录音中识别。'
+                : '点击“重新播放”可再次试听 ${widget.model.name} 的实际合成结果。',
+          ),
+          kOpenHandGap16,
+          Text(
+            _isRecognition ? '识别结果' : '示例文本',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          kOpenHandGap8,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.62,
+              ),
+              borderRadius: kOpenHandBorderRadius14,
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+              ),
+            ),
+            child: SelectionArea(
+              child: Text(
+                _isRecognition
+                    ? transcript.isEmpty
+                          ? '未识别到语音内容'
+                          : transcript
+                    : _sampleText,
+                style: theme.textTheme.bodyLarge?.copyWith(height: 1.55),
+              ),
+            ),
+          ),
+          if (!_isRecognition) ...<Widget>[
+            kOpenHandGap12,
+            Row(
+              children: <Widget>[
+                AnimatedSwitcher(
+                  duration: openHandMotionDuration(context, kOpenHandMotion200),
+                  child: Icon(
+                    _playing
+                        ? Icons.graphic_eq_rounded
+                        : Icons.check_circle_outline_rounded,
+                    key: ValueKey<bool>(_playing),
+                    color: accent,
+                    size: 20,
+                  ),
+                ),
+                kOpenHandHGap8,
+                Text(
+                  _playing ? '正在播放试听音频' : '试听音频已就绪',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      );
+    }
+    if (_phase == _OfflineSpeechTestPhase.failed) {
+      return _OfflineSpeechTestStatusCard(
+        color: theme.colorScheme.error,
+        title: _isRecognition ? '识别测试失败' : '朗读测试失败',
+        message: _error ?? '测试没有完成，请重试。',
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _OfflineSpeechTestStatusCard(
+          color: accent,
+          title: _phase == _OfflineSpeechTestPhase.recognizing
+              ? '正在识别录音'
+              : _isRecognition
+              ? '正在准备麦克风'
+              : '正在生成试听音频',
+          message: _phase == _OfflineSpeechTestPhase.recognizing
+              ? '${widget.model.name} 正在对本次录音执行真实推理。'
+              : _isRecognition
+              ? '正在检查麦克风权限并启动录音。'
+              : '${widget.model.name} 正在朗读下方示例文本，首次加载可能需要一些时间。',
+        ),
+        if (!_isRecognition) ...<Widget>[
+          kOpenHandGap16,
+          Text(
+            _sampleText,
+            style: theme.textTheme.bodyLarge?.copyWith(height: 1.55),
+          ),
+        ],
+        kOpenHandGap18,
+        const ClipRRect(
+          borderRadius: kOpenHandBorderRadius12,
+          child: LinearProgressIndicator(minHeight: 8),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildActions() {
+    if (_processing) {
+      return <Widget>[
+        OpenHandDialogActionButton.primary(
+          onPressed: null,
+          label: _phase == _OfflineSpeechTestPhase.recognizing
+              ? '正在识别'
+              : _finishingRecording
+              ? '正在整理录音'
+              : '正在准备',
+          busy: true,
+        ),
+      ];
+    }
+    if (_phase == _OfflineSpeechTestPhase.recording) {
+      return <Widget>[
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: '取消',
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed:
+              !_finishingRecording &&
+                  _recordingElapsed >= _offlineSpeechMinimumRecordingDuration
+              ? _finishRecording
+              : null,
+          label: '完成并识别',
+          busy: _finishingRecording,
+        ),
+      ];
+    }
+    if (_phase == _OfflineSpeechTestPhase.ready) {
+      return <Widget>[
+        OpenHandDialogActionButton.secondary(
+          onPressed: _isRecognition ? _startRecording : _replay,
+          label: _isRecognition ? '重新录制' : '重新播放',
+          icon: _isRecognition ? Icons.mic_rounded : Icons.replay_rounded,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: '完成',
+        ),
+      ];
+    }
+    return <Widget>[
+      if (_isRecognition)
+        OpenHandDialogActionButton.secondary(
+          onPressed: _startRecording,
+          label: '重新录制',
+          icon: Icons.mic_rounded,
+        ),
+      OpenHandDialogActionButton.primary(
+        onPressed: () => Navigator.of(context).pop(),
+        label: '关闭',
+      ),
+    ];
+  }
+
+  IconData get _phaseIcon => switch (_phase) {
+    _OfflineSpeechTestPhase.preparing => Icons.hourglass_top_rounded,
+    _OfflineSpeechTestPhase.recording => Icons.mic_rounded,
+    _OfflineSpeechTestPhase.recognizing => Icons.hearing_rounded,
+    _OfflineSpeechTestPhase.ready => Icons.check_circle_outline_rounded,
+    _OfflineSpeechTestPhase.failed => Icons.error_outline_rounded,
+  };
+
+  String get _title => switch (_phase) {
+    _OfflineSpeechTestPhase.preparing => _isRecognition ? '准备识别测试' : '准备朗读测试',
+    _OfflineSpeechTestPhase.recording => '录制测试语音',
+    _OfflineSpeechTestPhase.recognizing => '正在执行语音识别',
+    _OfflineSpeechTestPhase.ready => _isRecognition ? '语音识别测试' : '语音朗读测试',
+    _OfflineSpeechTestPhase.failed => '模型测试失败',
+  };
+
+  Future<void> _synthesize() async {
+    try {
+      final result = await OfflineSpeechModelService.instance.test(
+        widget.model,
+        widget.configuration,
+      );
+      final path = result.audioPath;
+      if (path == null) throw StateError('模型没有返回试听音频。');
+      if (!mounted) {
+        await _deleteTemporaryPath(path);
+        return;
+      }
+      mk.MediaKit.ensureInitialized();
+      final player = mk.Player();
+      _player = player;
+      _subscriptions
+        ..add(
+          player.stream.playing.listen((playing) {
+            if (mounted) setState(() => _playing = playing);
+          }),
+        )
+        ..add(
+          player.stream.error.listen((message) {
+            if (message.trim().isEmpty) return;
+            _setFailure(StateError('播放试听音频失败：${message.trim()}'));
+          }),
+        );
+      _audioPath = path;
+      await player
+          .open(mk.Media(path))
+          .timeout(_offlineSpeechTestOperationTimeout);
+      if (mounted) {
+        setState(() {
+          _phase = _OfflineSpeechTestPhase.ready;
+          _playing = true;
+        });
+      }
+    } catch (error, stack) {
+      silentLog('settings_offline_speech', '生成离线语音试听', error, stack);
+      _setFailure(error);
+    }
+  }
+
+  Future<void> _startRecording() async {
+    if (_phase == _OfflineSpeechTestPhase.recording ||
+        _phase == _OfflineSpeechTestPhase.recognizing ||
+        _finishingRecording) {
+      return;
+    }
+    _recordingTimer?.cancel();
+    await _disposeRecorder(cancel: true);
+    await _deleteTemporaryAudio();
+    if (!mounted) return;
+    setState(() {
+      _phase = _OfflineSpeechTestPhase.preparing;
+      _error = null;
+      _transcript = null;
+      _recordingElapsed = Duration.zero;
+      _recordingLevel = 0.08;
+      _finishingRecording = false;
+    });
+    final recorder = AudioRecorder();
+    _recorder = recorder;
+    try {
+      final permitted = await recorder.hasPermission().timeout(
+        _offlineSpeechTestOperationTimeout,
+      );
+      if (!permitted) {
+        throw StateError('未获得麦克风权限，请在系统设置中允许 OpenHand 使用麦克风。');
+      }
+      final directory = await Directory.systemTemp.createTemp(
+        'openhand_asr_test_',
+      );
+      final path = p.join(directory.path, 'recording.wav');
+      _temporaryDirectory = directory;
+      _audioPath = path;
+      await recorder
+          .start(
+            const RecordConfig(
+              encoder: AudioEncoder.wav,
+              bitRate: 256000,
+              sampleRate: 16000,
+              numChannels: 1,
+              noiseSuppress: true,
+              echoCancel: true,
+            ),
+            path: path,
+          )
+          .timeout(_offlineSpeechTestOperationTimeout);
+      if (!mounted || !identical(_recorder, recorder)) {
+        await recorder.cancel();
+        await recorder.dispose();
+        return;
+      }
+      _amplitudeSubscription = recorder
+          .onAmplitudeChanged(const Duration(milliseconds: 120))
+          .listen((amplitude) {
+            if (!mounted || !identical(_recorder, recorder)) return;
+            final current = amplitude.current.isFinite
+                ? amplitude.current
+                : -60.0;
+            setState(() {
+              _recordingLevel = ((current + 60) / 60).clamp(0.08, 1);
+            });
+          });
+      _recordingStartedAt = DateTime.now();
+      _recordingTimer = startNonOverlappingPeriodicTimer(
+        const Duration(milliseconds: 120),
+        (_) {
+          if (!mounted || _phase != _OfflineSpeechTestPhase.recording) return;
+          final startedAt = _recordingStartedAt;
+          if (startedAt == null) return;
+          final elapsed = DateTime.now().difference(startedAt);
+          setState(() => _recordingElapsed = elapsed);
+          if (elapsed >= _offlineSpeechMaxRecordingDuration &&
+              !_finishingRecording) {
+            unawaited(_finishRecording());
+          }
+        },
+        onError: (error, stack) =>
+            silentLog('settings_offline_speech', '刷新语音测试录音状态', error, stack),
+      );
+      setState(() => _phase = _OfflineSpeechTestPhase.recording);
+    } catch (error, stack) {
+      silentLog('settings_offline_speech', '启动离线语音测试录音', error, stack);
+      await _disposeRecorder(cancel: true);
+      _setFailure(error);
+    }
+  }
+
+  Future<void> _finishRecording() async {
+    if (_finishingRecording || _phase != _OfflineSpeechTestPhase.recording) {
+      return;
+    }
+    setState(() => _finishingRecording = true);
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    final recorder = _recorder;
+    final fallbackPath = _audioPath;
+    try {
+      final recordedPath = recorder == null
+          ? fallbackPath
+          : await recorder.stop().timeout(_offlineSpeechTestOperationTimeout) ??
+                fallbackPath;
+      await _disposeRecorder();
+      if (recordedPath == null) throw StateError('没有生成录音文件。');
+      final file = File(recordedPath);
+      if (!await file.exists() || await file.length() == 0) {
+        throw StateError('没有录到有效语音内容，请重新录制。');
+      }
+      if (!mounted) return;
+      setState(() {
+        _phase = _OfflineSpeechTestPhase.recognizing;
+        _finishingRecording = false;
+      });
+      final result = await OfflineSpeechModelService.instance.test(
+        widget.model,
+        widget.configuration,
+        audioPath: recordedPath,
+      );
+      if (!mounted) return;
+      setState(() {
+        _transcript = result.transcript ?? '';
+        _phase = _OfflineSpeechTestPhase.ready;
+      });
+    } catch (error, stack) {
+      silentLog('settings_offline_speech', '执行离线语音识别测试', error, stack);
+      await _disposeRecorder(cancel: true);
+      _setFailure(error);
+    } finally {
+      if (mounted) setState(() => _finishingRecording = false);
+    }
+  }
+
+  Future<void> _replay() async {
+    final player = _player;
+    if (player == null || _audioPath == null) return;
+    try {
+      await player
+          .seek(Duration.zero)
+          .timeout(_offlineSpeechTestOperationTimeout);
+      await player.play().timeout(_offlineSpeechTestOperationTimeout);
+    } catch (error, stack) {
+      silentLog('settings_offline_speech', '重新播放离线语音试听', error, stack);
+      _setFailure(error);
+    }
+  }
+
+  void _setFailure(Object error) {
+    if (!mounted) return;
+    setState(() {
+      _phase = _OfflineSpeechTestPhase.failed;
+      _error = userFailureMessage(error, fallback: '模型测试失败。');
+      _finishingRecording = false;
+    });
+  }
+
+  Future<void> _disposeRecorder({bool cancel = false}) async {
+    final amplitudeSubscription = _amplitudeSubscription;
+    _amplitudeSubscription = null;
+    if (amplitudeSubscription != null) {
+      try {
+        await amplitudeSubscription.cancel().timeout(
+          _offlineSpeechTestOperationTimeout,
+        );
+      } catch (error, stack) {
+        silentLog('settings_offline_speech', '取消离线语音测试波形订阅', error, stack);
+      }
+    }
+    final recorder = _recorder;
+    _recorder = null;
+    if (recorder == null) return;
+    try {
+      if (cancel) {
+        await recorder.cancel().timeout(_offlineSpeechTestOperationTimeout);
+      }
+    } catch (error, stack) {
+      silentLog('settings_offline_speech', '取消离线语音测试录音', error, stack);
+    }
+    try {
+      await recorder.dispose().timeout(_offlineSpeechTestOperationTimeout);
+    } catch (error, stack) {
+      silentLog('settings_offline_speech', '释放离线语音测试录音器', error, stack);
+    }
+  }
+
+  Future<void> _disposeResources() async {
+    for (final subscription in _subscriptions) {
+      try {
+        await subscription.cancel().timeout(_offlineSpeechTestOperationTimeout);
+      } catch (error, stack) {
+        silentLog('settings_offline_speech', '取消离线语音测试订阅', error, stack);
+      }
+    }
+    _subscriptions.clear();
+    await _disposeRecorder(cancel: true);
+    final player = _player;
+    _player = null;
+    if (player != null) {
+      try {
+        await player.dispose().timeout(_offlineSpeechTestOperationTimeout);
+      } catch (error, stack) {
+        silentLog('settings_offline_speech', '释放离线语音测试播放器', error, stack);
+      }
+    }
+    await _deleteTemporaryAudio();
+  }
+
+  Future<void> _deleteTemporaryAudio() async {
+    final path = _audioPath;
+    _audioPath = null;
+    final directory = _temporaryDirectory;
+    _temporaryDirectory = null;
+    if (directory != null) {
+      try {
+        if (await directory.exists()) await directory.delete(recursive: true);
+      } catch (error, stack) {
+        silentLog('settings_offline_speech', '清理语音识别测试录音', error, stack);
+      }
+      return;
+    }
+    if (path != null) await _deleteTemporaryPath(path);
+  }
+
+  Future<void> _deleteTemporaryPath(String path) async {
+    final directory = File(path).parent;
+    try {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    } catch (error, stack) {
+      silentLog('settings_offline_speech', '清理语音朗读测试音频', error, stack);
+    }
+  }
+
+  static String _formatDuration(Duration value) {
+    final seconds = value.inSeconds.clamp(0, 99);
+    return '00:${seconds.toString().padLeft(2, '0')}';
+  }
+}
+
+class _OfflineSpeechTestStatusCard extends StatelessWidget {
+  const _OfflineSpeechTestStatusCard({
+    required this.color,
+    required this.title,
+    required this.message,
+  });
+
+  final Color color;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion260),
+      curve: kOpenHandEmphasizedCurve,
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: kOpenHandBorderRadius14,
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          kOpenHandGap5,
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+          ),
+        ],
+      ),
     );
   }
 }
