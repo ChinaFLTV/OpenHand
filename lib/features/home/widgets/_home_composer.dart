@@ -2502,17 +2502,29 @@ class _VoiceTeleprompter extends StatelessWidget {
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              CircularProgressIndicator(
-                                value: snapshot.microphoneEnabled
-                                    ? (snapshot.inputLevel * 14).clamp(0.06, 1)
-                                    : 0,
-                                strokeWidth: 3,
-                                color:
-                                    snapshot.phase ==
-                                        AiVoiceConversationPhase.failed
-                                    ? colors.error
-                                    : colors.primary,
-                                backgroundColor: colors.surfaceContainerHigh,
+                              TweenAnimationBuilder<double>(
+                                tween: Tween<double>(
+                                  end: snapshot.microphoneEnabled
+                                      ? snapshot.inputLevel.clamp(0.06, 1)
+                                      : 0,
+                                ),
+                                duration: openHandMotionDuration(
+                                  context,
+                                  kOpenHandMotion120,
+                                ),
+                                curve: kOpenHandEmphasizedCurve,
+                                builder: (context, value, _) =>
+                                    CircularProgressIndicator(
+                                      value: value,
+                                      strokeWidth: 3,
+                                      color:
+                                          snapshot.phase ==
+                                              AiVoiceConversationPhase.failed
+                                          ? colors.error
+                                          : colors.primary,
+                                      backgroundColor:
+                                          colors.surfaceContainerHigh,
+                                    ),
                               ),
                               Icon(
                                 snapshot.microphoneEnabled

@@ -98,7 +98,13 @@ class AiVoiceConversationService extends ChangeNotifier {
   static const int _minimumRecognitionBytes =
       _sampleRate * _bytesPerSample * 3 ~/ 5;
   static const int _maximumUtteranceBytes = _sampleRate * _bytesPerSample * 120;
-  static const double _speechThreshold = 0.012;
+  static const double _minimumSpeechLevel = 0.0015;
+  static const double _initialNoiseFloor = 0.0005;
+  static const double _speechToNoiseRatio = 2.6;
+  static const double _speechReleaseRatio = 1.7;
+  static const double _minimumSpeechPeak = 0.008;
+  static const int _speechAttackChunks = 2;
+  static const Duration _inputWatchdogTimeout = Duration(seconds: 5);
   static const Duration _partialRecognitionInterval = Duration(
     milliseconds: 950,
   );
@@ -129,10 +135,16 @@ class AiVoiceConversationService extends ChangeNotifier {
   StreamSubscription<Uint8List>? _recordingSubscription;
   Timer? _silenceTimer;
   Timer? _partialRecognitionTimer;
+  Timer? _inputWatchdogTimer;
   Completer<void>? _sessionCancellation;
   List<int> _preRoll = <int>[];
   List<int> _utterance = <int>[];
   bool _hasSpeech = false;
+  int _speechCandidateChunks = 0;
+  int _receivedAudioBytes = 0;
+  double _noiseFloor = _initialNoiseFloor;
+  double _maximumObservedLevel = 0;
+  bool _inputWarningVisible = false;
   bool _partialRecognitionQueued = false;
   int _utteranceSerial = 0;
   int _sessionSerial = 0;
@@ -229,9 +241,6 @@ class AiVoiceConversationService extends ChangeNotifier {
           encoder: AudioEncoder.pcm16bits,
           sampleRate: _sampleRate,
           numChannels: _channelCount,
-          noiseSuppress: true,
-          echoCancel: true,
-          autoGain: true,
         ),
       );
       if (!_isCurrentSession(sessionSerial)) {
@@ -244,7 +253,13 @@ class AiVoiceConversationService extends ChangeNotifier {
           silentLog('voice_conversation', '持续录音', error, stack);
           _fail('录音中断：$error');
         },
+        onDone: () {
+          if (_isCurrentSession(sessionSerial)) {
+            _fail('麦克风音频流已中断，请重新开启语音沟通。');
+          }
+        },
       );
+      _startInputWatchdog(sessionSerial);
       _setSnapshot(
         _snapshot.copyWith(
           phase: AiVoiceConversationPhase.listening,
@@ -278,6 +293,12 @@ class AiVoiceConversationService extends ChangeNotifier {
     if (!_snapshot.active || _snapshot.microphoneEnabled == enabled) return;
     if (enabled) {
       await _recorder.resume();
+      _speechCandidateChunks = 0;
+      _receivedAudioBytes = 0;
+      _noiseFloor = _initialNoiseFloor;
+      _maximumObservedLevel = 0;
+      _inputWarningVisible = false;
+      _startInputWatchdog(_sessionSerial);
       _setSnapshot(
         _snapshot.copyWith(
           microphoneEnabled: true,
@@ -288,6 +309,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     } else {
       _silenceTimer?.cancel();
       _partialRecognitionTimer?.cancel();
+      _inputWatchdogTimer?.cancel();
       await _recorder.pause();
       if (_hasSpeech) _finalizeUtterance(force: true);
       _setSnapshot(_snapshot.copyWith(microphoneEnabled: false, inputLevel: 0));
@@ -379,20 +401,28 @@ class AiVoiceConversationService extends ChangeNotifier {
         chunk.isEmpty) {
       return;
     }
-    final level = _pcmLevel(chunk);
+    _receivedAudioBytes += chunk.length;
+    final audio = _pcmMetrics(chunk);
+    final level = audio.$1;
+    _maximumObservedLevel = math.max(_maximumObservedLevel, level);
+    if (_inputWarningVisible && level >= 1 / 32768) {
+      _inputWarningVisible = false;
+      _setSnapshot(_snapshot.copyWith(clearMessage: true));
+    }
     final now = DateTime.now();
     if (now.difference(_lastLevelNotification) >=
         const Duration(milliseconds: 80)) {
       _lastLevelNotification = now;
-      _setSnapshot(_snapshot.copyWith(inputLevel: level));
+      _setSnapshot(_snapshot.copyWith(inputLevel: _normalizeInputLevel(level)));
     }
-    final voiced = level >= _speechThreshold;
+    final voiced = _detectSpeech(level, audio.$2);
     if (!_hasSpeech) {
       _appendPreRoll(chunk);
       if (!voiced) return;
       _hasSpeech = true;
       _utterance.addAll(_preRoll);
       _preRoll.clear();
+      _setSnapshot(_snapshot.copyWith(message: '检测到语音，正在实时识别…'));
     } else {
       _utterance.addAll(chunk);
     }
@@ -414,6 +444,50 @@ class AiVoiceConversationService extends ChangeNotifier {
         _queuePartialRecognition,
       );
     }
+  }
+
+  bool _detectSpeech(double level, double peak) {
+    final ratio = _hasSpeech ? _speechReleaseRatio : _speechToNoiseRatio;
+    final threshold = math.max(_minimumSpeechLevel, _noiseFloor * ratio);
+    final candidate =
+        level >= threshold ||
+        (peak >= math.max(_minimumSpeechPeak, threshold * 3.2) &&
+            level >= _minimumSpeechLevel * 0.7);
+    if (_hasSpeech) return candidate;
+
+    if (candidate) {
+      _speechCandidateChunks += 1;
+      return _speechCandidateChunks >= _speechAttackChunks;
+    }
+    _speechCandidateChunks = 0;
+    if (level > 0) {
+      final weight = level < _noiseFloor ? 0.14 : 0.025;
+      _noiseFloor += (level - _noiseFloor) * weight;
+    }
+    return false;
+  }
+
+  void _startInputWatchdog(int sessionSerial) {
+    _inputWatchdogTimer?.cancel();
+    _inputWatchdogTimer = startSafeTimer(_inputWatchdogTimeout, () {
+      _inputWatchdogTimer = null;
+      if (!_isCurrentSession(sessionSerial) ||
+          !_snapshot.microphoneEnabled ||
+          _hasSpeech) {
+        return;
+      }
+      if (_speechPumpActive ||
+          _snapshot.phase == AiVoiceConversationPhase.speaking) {
+        _startInputWatchdog(sessionSerial);
+        return;
+      }
+      if (_receivedAudioBytes == 0) {
+        _fail('未收到有效的麦克风声音，请检查系统输入设备、输入音量和麦克风权限。');
+      } else if (_maximumObservedLevel < 1 / 32768) {
+        _inputWarningVisible = true;
+        _setSnapshot(_snapshot.copyWith(message: '尚未检测到麦克风声音，请检查输入设备和输入音量。'));
+      }
+    });
   }
 
   void _appendPreRoll(Uint8List chunk) {
@@ -487,6 +561,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _utterance = <int>[];
     _preRoll = <int>[];
     _hasSpeech = false;
+    _speechCandidateChunks = 0;
     _lastPartialByteCount = 0;
     _setSnapshot(
       _snapshot.copyWith(
@@ -762,18 +837,26 @@ class AiVoiceConversationService extends ChangeNotifier {
         .trim();
   }
 
-  double _pcmLevel(Uint8List bytes) {
-    if (bytes.length < 2) return 0;
+  (double, double) _pcmMetrics(Uint8List bytes) {
+    if (bytes.length < 2) return (0, 0);
     var squareSum = 0.0;
+    var peak = 0.0;
     var samples = 0;
     for (var index = 0; index + 1 < bytes.length; index += 2) {
       var sample = bytes[index] | (bytes[index + 1] << 8);
       if (sample >= 0x8000) sample -= 0x10000;
       final normalized = sample / 32768;
       squareSum += normalized * normalized;
+      peak = math.max(peak, normalized.abs());
       samples += 1;
     }
-    return math.sqrt(squareSum / samples).clamp(0, 1);
+    return (math.sqrt(squareSum / samples).clamp(0, 1), peak.clamp(0, 1));
+  }
+
+  double _normalizeInputLevel(double level) {
+    if (level <= 0) return 0;
+    final decibels = 20 * math.log(level) / math.ln10;
+    return ((decibels + 60) / 42).clamp(0, 1);
   }
 
   Uint8List _wavBytes(Uint8List pcm) {
@@ -812,14 +895,20 @@ class AiVoiceConversationService extends ChangeNotifier {
 
   void _fail(String message) {
     if (!_snapshot.active) return;
-    _setSnapshot(
-      _snapshot.copyWith(
-        phase: AiVoiceConversationPhase.failed,
-        inputLevel: 0,
-        message: message,
-      ),
+    _sessionSerial += 1;
+    unawaited(
+      _stopResources(markInactive: false).whenComplete(() {
+        if (_disposed) return;
+        _setSnapshot(
+          _snapshot.copyWith(
+            active: true,
+            phase: AiVoiceConversationPhase.failed,
+            inputLevel: 0,
+            message: message,
+          ),
+        );
+      }),
     );
-    unawaited(stop());
   }
 
   void _resetSpeechCancellation() {
@@ -836,8 +925,10 @@ class AiVoiceConversationService extends ChangeNotifier {
   Future<void> _stopResources({required bool markInactive}) async {
     _silenceTimer?.cancel();
     _partialRecognitionTimer?.cancel();
+    _inputWatchdogTimer?.cancel();
     _silenceTimer = null;
     _partialRecognitionTimer = null;
+    _inputWatchdogTimer = null;
     final cancellation = _sessionCancellation;
     if (cancellation != null && !cancellation.isCompleted) {
       cancellation.complete();
@@ -865,6 +956,11 @@ class AiVoiceConversationService extends ChangeNotifier {
     _preRoll = <int>[];
     _utterance = <int>[];
     _hasSpeech = false;
+    _speechCandidateChunks = 0;
+    _receivedAudioBytes = 0;
+    _noiseFloor = _initialNoiseFloor;
+    _maximumObservedLevel = 0;
+    _inputWarningVisible = false;
     _partialRecognitionQueued = false;
     _lastPartialByteCount = 0;
     _assistantMessageId = null;
