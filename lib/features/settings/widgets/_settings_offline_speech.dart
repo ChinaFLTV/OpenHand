@@ -671,6 +671,15 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                           label: widget.model.sizeLabel,
                           color: accent,
                         ),
+                        if (widget.model.kind == OfflineSpeechKind.synthesis)
+                          _OfflineSpeechBadge(
+                            label: widget.model.synthesisTransport.label,
+                            color:
+                                widget.model.synthesisTransport ==
+                                    OfflineSpeechSynthesisTransport.webSocket
+                                ? OpenHandStatusColors.success
+                                : theme.colorScheme.secondary,
+                          ),
                         _OfflineSpeechLifecycleBadge(state: state),
                         _OfflineSpeechBadge(
                           label: hardwareAvailable ? '设备可用' : '设备不可用',

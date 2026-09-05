@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -106,6 +107,30 @@ class OfflineSpeechTestResult {
   final String? transcript;
 }
 
+class OfflineSpeechAudioStream {
+  OfflineSpeechAudioStream._({
+    required this.sampleRate,
+    required this.channels,
+    required this.audio,
+    required this.done,
+    required this._addText,
+    required this._finish,
+    required this._close,
+  });
+
+  final int sampleRate;
+  final int channels;
+  final Stream<Uint8List> audio;
+  final Future<void> done;
+  final void Function(String text) _addText;
+  final Future<void> Function() _finish;
+  final Future<void> Function() _close;
+
+  void addText(String text) => _addText(text);
+  Future<void> finish() => _finish();
+  Future<void> close() => _close();
+}
+
 abstract interface class OfflineSpeechRuntimeAdapter {
   Future<Process> start({
     required String pythonExecutable,
@@ -201,6 +226,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
   static const String testSampleText = '你好，这是一段 OpenHand 本地语音朗读测试。';
   static const Duration _runtimeStartTimeout = Duration(minutes: 5);
   static const Duration _inferenceTimeout = Duration(minutes: 5);
+  static const Duration _realtimeConnectTimeout = Duration(seconds: 10);
+  static const Duration _realtimeStartTimeout = Duration(seconds: 30);
+  static const Duration _realtimeCloseTimeout = Duration(seconds: 2);
   static const Duration _runtimeInstallTimeout = Duration(minutes: 45);
   static const Duration _downloadNotifyInterval = Duration(milliseconds: 80);
   static const Duration _downloadIdleTimeout = Duration(seconds: 60);
@@ -255,7 +283,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       smokeTest: 'import sherpa_onnx',
     ),
     OfflineSpeechRuntime.cosyVoice: _OfflineSpeechRuntimeSpec(
-      revision: 'cosyvoice-074ca6d-v4',
+      revision: 'cosyvoice-074ca6d-v5',
       pythonVersion: '3.10',
       estimatedStorageGiB: 4,
       buildPackages: <String>[
@@ -296,6 +324,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         'tqdm',
         'transformers==4.51.3',
         'wetext==0.0.4',
+        'websockets==12.0',
         'wget==3.2',
         'x-transformers==2.11.24',
       ],
@@ -351,6 +380,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
   final Set<Future<void>> _activeStarts = <Future<void>>{};
   final Set<Future<OfflineSpeechTestResult>> _activeTests =
       <Future<OfflineSpeechTestResult>>{};
+  final Map<OfflineSpeechAudioStream, String> _activeAudioStreams =
+      <OfflineSpeechAudioStream, String>{};
   final Completer<void> _shutdownSignal = Completer<void>();
   final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
   bool _shuttingDown = false;
@@ -814,6 +845,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
         cancelSignal: effectiveCancelSignal,
       ).timeout(_runtimeStartTimeout);
       if (ready != true) throw const OfflineSpeechTestCancelled();
+      if (model.synthesisTransport ==
+              OfflineSpeechSynthesisTransport.webSocket &&
+          startedSession.realtimeEndpoint == null) {
+        throw StateError('模型实时语音通道启动失败。');
+      }
       _setState(
         model.id,
         const OfflineSpeechModelState(
@@ -843,6 +879,14 @@ class OfflineSpeechModelService extends ChangeNotifier {
   }
 
   Future<void> stop(OfflineSpeechModelDefinition model) async {
+    final audioStreams = _activeAudioStreams.entries
+        .where((entry) => entry.value == model.id)
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    for (final stream in audioStreams) {
+      _activeAudioStreams.remove(stream);
+      await stream.close();
+    }
     final session = _processes.remove(model.id);
     if (session == null) {
       if (isInstalled(model)) {
@@ -890,6 +934,222 @@ class OfflineSpeechModelService extends ChangeNotifier {
     return operation;
   }
 
+  Future<OfflineSpeechAudioStream> streamSynthesis(
+    OfflineSpeechModelDefinition model,
+    String text, {
+    Future<void>? cancelSignal,
+  }) async {
+    final stream = await startSynthesisStream(
+      model,
+      cancelSignal: cancelSignal,
+    );
+    try {
+      stream.addText(text);
+      await stream.finish();
+      return stream;
+    } catch (_) {
+      await stream.close();
+      rethrow;
+    }
+  }
+
+  Future<OfflineSpeechAudioStream> startSynthesisStream(
+    OfflineSpeechModelDefinition model, {
+    Future<void>? cancelSignal,
+  }) async {
+    _throwIfShuttingDown();
+    if (model.kind != OfflineSpeechKind.synthesis ||
+        model.synthesisTransport != OfflineSpeechSynthesisTransport.webSocket) {
+      throw StateError('当前朗读模型不支持实时语音通道。');
+    }
+    final session = _processes[model.id];
+    if (session == null) throw StateError('模型运行时尚未就绪。');
+    final endpoint = session.realtimeEndpoint;
+    if (endpoint == null) throw StateError('模型实时语音通道尚未就绪。');
+    final stream = await _openRealtimeSpeechStream(
+      endpoint,
+      cancelSignal: combineCancelSignals(<Future<void>?>[
+        cancelSignal,
+        _shutdownSignal.future,
+      ]),
+    );
+    _activeAudioStreams[stream] = model.id;
+    unawaited(
+      stream.done.then<void>(
+        (_) => _activeAudioStreams.remove(stream),
+        onError: (Object _, StackTrace _) => _activeAudioStreams.remove(stream),
+      ),
+    );
+    return stream;
+  }
+
+  Future<OfflineSpeechAudioStream> _openRealtimeSpeechStream(
+    Uri endpoint, {
+    Future<void>? cancelSignal,
+  }) async {
+    final client = HttpClient()..findProxy = (_) => 'DIRECT';
+    final connectionFuture = WebSocket.connect(
+      endpoint.toString(),
+      customClient: client,
+    ).timeout(_realtimeConnectTimeout);
+    WebSocket? socket;
+    try {
+      socket = await awaitWithCancelSignal<WebSocket>(
+        connectionFuture,
+        cancelSignal: cancelSignal,
+      );
+    } catch (_) {
+      client.close(force: true);
+      rethrow;
+    }
+    if (socket == null) {
+      unawaited(
+        connectionFuture.then<void>((lateSocket) async {
+          await lateSocket.close();
+          client.close(force: true);
+        }, onError: (Object _, StackTrace _) => client.close(force: true)),
+      );
+      throw const OfflineSpeechTestCancelled();
+    }
+    final activeSocket = socket;
+    final audio = StreamController<Uint8List>();
+    final started = Completer<(int, int)>();
+    final done = Completer<void>();
+    StreamSubscription<dynamic>? subscription;
+    var closed = false;
+    var finished = false;
+
+    Future<void> close() async {
+      if (closed) return;
+      closed = true;
+      try {
+        await subscription?.cancel().timeout(_realtimeCloseTimeout);
+      } catch (_) {}
+      try {
+        await activeSocket
+            .close(WebSocketStatus.normalClosure)
+            .timeout(_realtimeCloseTimeout);
+      } catch (_) {}
+      client.close(force: true);
+      if (!audio.isClosed) await audio.close();
+      if (!started.isCompleted) {
+        started.completeError(const OfflineSpeechTestCancelled());
+      }
+      if (!done.isCompleted) done.complete();
+    }
+
+    void fail(Object error, [StackTrace? stack]) {
+      final streamStarted = started.isCompleted;
+      if (!started.isCompleted) {
+        stack == null
+            ? started.completeError(error)
+            : started.completeError(error, stack);
+      }
+      if (!audio.isClosed) {
+        audio.addError(error, stack);
+        unawaited(audio.close());
+      }
+      if (!done.isCompleted) {
+        if (!streamStarted) {
+          done.complete();
+        } else {
+          stack == null
+              ? done.completeError(error)
+              : done.completeError(error, stack);
+        }
+      }
+    }
+
+    void addText(String text) {
+      final source = text.trim();
+      if (source.isEmpty) return;
+      if (closed || finished) throw StateError('实时语音通道已结束。');
+      activeSocket.add(
+        jsonEncode(<String, Object?>{'type': 'text', 'text': source}),
+      );
+    }
+
+    Future<void> finish() async {
+      if (closed || finished) return;
+      finished = true;
+      activeSocket.add(jsonEncode(const <String, Object?>{'type': 'finish'}));
+    }
+
+    subscription = activeSocket.listen(
+      (event) {
+        if (event is List<int>) {
+          if (!started.isCompleted || closed || event.isEmpty) return;
+          audio.add(Uint8List.fromList(event));
+          return;
+        }
+        if (event is! String) return;
+        try {
+          final payload = jsonDecode(event);
+          if (payload is! Map) throw const FormatException('消息格式无效。');
+          switch ('${payload['type'] ?? ''}') {
+            case 'start':
+              final sampleRate = payload['sample_rate'];
+              final channels = payload['channels'];
+              if (sampleRate is! num ||
+                  sampleRate <= 0 ||
+                  channels is! num ||
+                  channels <= 0) {
+                throw const FormatException('音频参数无效。');
+              }
+              if (!started.isCompleted) {
+                started.complete((sampleRate.toInt(), channels.toInt()));
+              }
+            case 'end':
+              if (!audio.isClosed) unawaited(audio.close());
+              if (!done.isCompleted) done.complete();
+              unawaited(activeSocket.close(WebSocketStatus.normalClosure));
+            case 'error':
+              fail(StateError('${payload['message'] ?? '实时语音生成失败。'}'));
+              unawaited(
+                activeSocket.close(WebSocketStatus.internalServerError),
+              );
+          }
+        } catch (error, stack) {
+          fail(StateError('无法解析实时语音响应：$error'), stack);
+          unawaited(
+            activeSocket.close(WebSocketStatus.invalidFramePayloadData),
+          );
+        }
+      },
+      onError: (Object error, StackTrace stack) => fail(error, stack),
+      onDone: () {
+        if (!closed && !done.isCompleted) {
+          fail(StateError('实时语音连接意外中断。'));
+        }
+      },
+    );
+    if (cancelSignal != null) {
+      unawaited(cancelSignal.then<void>((_) => close()));
+    }
+    activeSocket.add(
+      jsonEncode(const <String, Object?>{'operation': 'synthesize_stream'}),
+    );
+    try {
+      final format = await awaitWithCancelSignal<(int, int)>(
+        started.future,
+        cancelSignal: cancelSignal,
+      ).timeout(_realtimeStartTimeout);
+      if (format == null) throw const OfflineSpeechTestCancelled();
+      return OfflineSpeechAudioStream._(
+        sampleRate: format.$1,
+        channels: format.$2,
+        audio: audio.stream,
+        done: done.future,
+        addText: addText,
+        finish: finish,
+        close: close,
+      );
+    } catch (_) {
+      await close();
+      rethrow;
+    }
+  }
+
   Future<OfflineSpeechTestResult> _test(
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration, {
@@ -930,6 +1190,30 @@ class OfflineSpeechModelService extends ChangeNotifier {
         'openhand_speech_test_',
       );
       final outputPath = p.join(outputDirectory.path, 'sample.wav');
+      if (model.synthesisTransport ==
+          OfflineSpeechSynthesisTransport.webSocket) {
+        final stream = await streamSynthesis(
+          model,
+          sampleText,
+          cancelSignal: effectiveCancelSignal,
+        );
+        final pcm = BytesBuilder(copy: false);
+        try {
+          await for (final chunk in stream.audio) {
+            pcm.add(chunk);
+          }
+          await stream.done;
+        } finally {
+          await stream.close();
+        }
+        final bytes = pcm.takeBytes();
+        if (bytes.isEmpty) throw StateError('模型没有生成有效音频。');
+        await File(outputPath).writeAsBytes(
+          _pcm16Wav(bytes, stream.sampleRate, stream.channels),
+          flush: true,
+        );
+        return OfflineSpeechTestResult.synthesis(outputPath);
+      }
       final response = await session.request(
         <String, Object?>{
           'operation': 'synthesize',
@@ -970,6 +1254,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
     final sessions = _processes.values.toSet().toList(growable: false);
     _processes.clear();
+    final audioStreams = _activeAudioStreams.keys.toList(growable: false);
+    _activeAudioStreams.clear();
+    for (final stream in audioStreams) {
+      await stream.close();
+    }
     for (final session in sessions) {
       session.failPending(StateError('应用正在退出。'));
     }
@@ -998,6 +1287,32 @@ class OfflineSpeechModelService extends ChangeNotifier {
     try {
       if (await directory.exists()) await directory.delete(recursive: true);
     } catch (_) {}
+  }
+
+  static Uint8List _pcm16Wav(Uint8List pcm, int sampleRate, int channels) {
+    final output = Uint8List(44 + pcm.length);
+    final header = ByteData.sublistView(output);
+    void ascii(int offset, String value) {
+      for (var index = 0; index < value.length; index += 1) {
+        output[offset + index] = value.codeUnitAt(index);
+      }
+    }
+
+    ascii(0, 'RIFF');
+    header.setUint32(4, 36 + pcm.length, Endian.little);
+    ascii(8, 'WAVE');
+    ascii(12, 'fmt ');
+    header.setUint32(16, 16, Endian.little);
+    header.setUint16(20, 1, Endian.little);
+    header.setUint16(22, channels, Endian.little);
+    header.setUint32(24, sampleRate, Endian.little);
+    header.setUint32(28, sampleRate * channels * 2, Endian.little);
+    header.setUint16(32, channels * 2, Endian.little);
+    header.setUint16(34, 16, Endian.little);
+    ascii(36, 'data');
+    header.setUint32(40, pcm.length, Endian.little);
+    output.setRange(44, output.length, pcm);
+    return output;
   }
 
   Future<List<_RemoteModelFile>> _loadRepositoryFiles(
@@ -1931,6 +2246,7 @@ class _OfflineSpeechRuntimeSession {
   }
 
   static const String _responsePrefix = 'OPENHAND_响应 ';
+  static const String _realtimePrefix = 'OPENHAND_实时通道 ';
 
   final Process process;
   final Completer<void> ready = Completer<void>();
@@ -1940,6 +2256,7 @@ class _OfflineSpeechRuntimeSession {
       <String, void Function()>{};
   int _requestSequence = 0;
   String errors = '';
+  Uri? realtimeEndpoint;
 
   Future<Map<String, Object?>> request(
     Map<String, Object?> request, {
@@ -1985,6 +2302,25 @@ class _OfflineSpeechRuntimeSession {
   }
 
   void _handleOutput(String line) {
+    if (line.startsWith(_realtimePrefix)) {
+      try {
+        final endpoint = Uri.parse(
+          utf8.decode(base64Url.decode(line.substring(_realtimePrefix.length))),
+        );
+        if (endpoint.scheme != 'ws' ||
+            endpoint.host != InternetAddress.loopbackIPv4.address ||
+            endpoint.port <= 0 ||
+            (endpoint.queryParameters['token'] ?? '').length < 32) {
+          throw const FormatException('实时语音通道地址无效。');
+        }
+        realtimeEndpoint = endpoint;
+      } catch (error, stack) {
+        if (!ready.isCompleted) {
+          ready.completeError(StateError('无法解析模型实时语音通道：$error'), stack);
+        }
+      }
+      return;
+    }
     if (line == 'OPENHAND_模型就绪') {
       if (!ready.isCompleted) ready.complete();
       return;
@@ -2040,7 +2376,7 @@ class _OfflineSpeechRuntimeSession {
 }
 
 const String _runtimeHostSource = r'''
-import argparse, array, base64, json, os, sys, traceback, wave
+import argparse, array, asyncio, base64, json, os, secrets, sys, threading, traceback, urllib.parse, wave
 
 def device(config):
     value = config.get("device", "auto")
@@ -2167,12 +2503,136 @@ def write_wav(path, samples, sample_rate, volume=1.0):
         output.setframerate(int(sample_rate))
         output.writeframes(pcm.tobytes())
 
+def pcm16_bytes(samples, volume=1.0):
+    values = flatten_samples(samples)
+    if not values: return b""
+    pcm = array.array("h", (
+        int(max(-1.0, min(1.0, value * volume)) * 32767) for value in values
+    ))
+    if sys.byteorder == "big": pcm.byteswap()
+    return pcm.tobytes()
+
 def collect_speech(generated):
     samples = []
     for chunk in generated:
         if isinstance(chunk, dict) and "tts_speech" in chunk:
             samples.extend(flatten_samples(chunk["tts_speech"]))
     return samples
+
+def cosyvoice_stream(loaded, text, config):
+    reference_audio = str(config.get("reference_audio", "")).strip()
+    if not reference_audio:
+        reference_audio = os.path.join(os.getcwd(), "source", "asset", "zero_shot_prompt.wav")
+    if not os.path.isfile(reference_audio):
+        raise RuntimeError("请先选择有效的参考音频")
+    speed = float(config.get("speed", 1.0))
+    text_frontend = bool(config.get("text_frontend", True))
+    instruct = str(config.get("instruct", "")).strip()
+    generated_any = False
+    if hasattr(loaded, "inference_instruct2") and instruct:
+        prompt = "You are a helpful assistant. " + instruct + "<|endofprompt|>"
+        generated = loaded.inference_instruct2(
+            text, prompt, reference_audio, stream=True,
+            speed=speed, text_frontend=text_frontend,
+        )
+        try:
+            for chunk in generated:
+                if not isinstance(chunk, dict) or "tts_speech" not in chunk: continue
+                audio = pcm16_bytes(chunk["tts_speech"], float(config.get("volume", 1.0)))
+                if audio:
+                    generated_any = True
+                    yield audio
+        finally:
+            close = getattr(generated, "close", None)
+            if close: close()
+    if generated_any: return
+    prompt_text = str(config.get("prompt_text", "")).strip()
+    if not prompt_text:
+        prompt_text = "You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。"
+    generated = loaded.inference_zero_shot(
+        text, prompt_text, reference_audio, stream=True,
+        speed=speed, text_frontend=text_frontend,
+    )
+    try:
+        for chunk in generated:
+            if not isinstance(chunk, dict) or "tts_speech" not in chunk: continue
+            audio = pcm16_bytes(chunk["tts_speech"], float(config.get("volume", 1.0)))
+            if audio: yield audio
+    finally:
+        close = getattr(generated, "close", None)
+        if close: close()
+
+def start_realtime_server(loaded, config, model_lock):
+    import websockets
+    token = secrets.token_urlsafe(32)
+    ready = threading.Event()
+    state = {}
+    async def handle(websocket):
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(websocket.path).query)
+        supplied = query.get("token", [""])[0]
+        if not secrets.compare_digest(supplied, token):
+            await websocket.close(1008, "拒绝访问")
+            return
+        try:
+            raw = await asyncio.wait_for(websocket.recv(), timeout=10)
+            request = json.loads(raw)
+            if request.get("operation") != "synthesize_stream":
+                raise RuntimeError("不支持的实时语音操作")
+            await websocket.send(json.dumps({
+                "type": "start", "sample_rate": int(loaded.sample_rate),
+                "channels": 1, "format": "pcm_s16le",
+            }, ensure_ascii=False))
+            while True:
+                raw = await asyncio.wait_for(websocket.recv(), timeout=300)
+                message = json.loads(raw)
+                message_type = message.get("type")
+                if message_type == "finish":
+                    await websocket.send(json.dumps({"type": "end"}))
+                    return
+                if message_type != "text":
+                    raise RuntimeError("不支持的实时语音消息")
+                text = str(message.get("text", "")).strip()
+                if not any(character.isalnum() for character in text): continue
+                chunks = 0
+                await asyncio.to_thread(model_lock.acquire)
+                try:
+                    for audio in cosyvoice_stream(loaded, text, config):
+                        await websocket.send(audio)
+                        chunks += 1
+                finally:
+                    model_lock.release()
+                if chunks == 0: raise RuntimeError("模型没有生成音频采样")
+        except websockets.exceptions.ConnectionClosed:
+            pass
+        except Exception as error:
+            try:
+                await websocket.send(json.dumps({
+                    "type": "error", "message": str(error),
+                }, ensure_ascii=False))
+            except Exception:
+                pass
+
+    async def serve():
+        async with websockets.serve(
+            handle, "127.0.0.1", 0, compression=None,
+            max_size=1024 * 1024, max_queue=4, ping_interval=None,
+        ) as server:
+            port = server.sockets[0].getsockname()[1]
+            state["endpoint"] = "ws://127.0.0.1:{}/speech?token={}".format(port, token)
+            ready.set()
+            await asyncio.Future()
+
+    def run():
+        try:
+            asyncio.run(serve())
+        except Exception as error:
+            state["error"] = str(error)
+            ready.set()
+
+    threading.Thread(target=run, name="openhand-tts-ws", daemon=True).start()
+    if not ready.wait(10): raise RuntimeError("实时语音通道启动超时")
+    if state.get("error"): raise RuntimeError("实时语音通道启动失败：" + state["error"])
+    return state["endpoint"]
 
 def read_wav(path):
     with wave.open(path, "rb") as source:
@@ -2383,17 +2843,18 @@ def respond(request_id, result=None, error=None):
     ).decode("ascii")
     print("OPENHAND_响应 " + encoded, flush=True)
 
-def handle_request(runtime, loaded, config, request):
-    operation = request.get("operation")
-    if operation == "recognize":
-        transcript = recognize(runtime, loaded, request["audio_path"], config)
-        return {"transcript": transcript}
-    if operation == "synthesize":
-        path = synthesize(
-            runtime, loaded, request["text"], request["output_path"], config
-        )
-        return {"audio_path": path}
-    raise RuntimeError("不支持的测试操作")
+def handle_request(runtime, loaded, config, request, model_lock):
+    with model_lock:
+        operation = request.get("operation")
+        if operation == "recognize":
+            transcript = recognize(runtime, loaded, request["audio_path"], config)
+            return {"transcript": transcript}
+        if operation == "synthesize":
+            path = synthesize(
+                runtime, loaded, request["text"], request["output_path"], config
+            )
+            return {"audio_path": path}
+        raise RuntimeError("不支持的测试操作")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -2404,6 +2865,11 @@ def main():
     config = json.loads(base64.urlsafe_b64decode(args.config).decode("utf-8"))
     loaded = load(args.runtime, args.model, config)
     if loaded is None: raise RuntimeError("模型加载失败")
+    model_lock = threading.Lock()
+    if args.runtime == "cosyVoice":
+        endpoint = start_realtime_server(loaded, config, model_lock)
+        encoded = base64.urlsafe_b64encode(endpoint.encode("utf-8")).decode("ascii")
+        print("OPENHAND_实时通道 " + encoded, flush=True)
     print("OPENHAND_模型就绪", flush=True)
     for line in sys.stdin:
         line = line.strip()
@@ -2412,7 +2878,7 @@ def main():
         try:
             request = json.loads(base64.urlsafe_b64decode(line).decode("utf-8"))
             request_id = str(request.get("id", ""))
-            respond(request_id, result=handle_request(args.runtime, loaded, config, request))
+            respond(request_id, result=handle_request(args.runtime, loaded, config, request, model_lock))
         except Exception as error:
             details = traceback.format_exc().strip().splitlines()
             respond(request_id, error=str(error) + "\n" + "\n".join(details[-8:]))

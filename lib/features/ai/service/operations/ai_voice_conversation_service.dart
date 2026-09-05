@@ -111,6 +111,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     milliseconds: 950,
   );
   static const Duration _playbackTimeout = Duration(minutes: 1);
+  static const Duration _realtimePlaybackTimeout = Duration(minutes: 5);
   static const Duration _playbackCompletionGrace = Duration(seconds: 15);
   static const int _initialSpeechChunkTerminalLimit = 8;
   static const int _initialSpeechChunkSoftLimit = 24;
@@ -180,7 +181,9 @@ class AiVoiceConversationService extends ChangeNotifier {
   String? _assistantMessageId;
   String _assistantText = '';
   int _assistantSpokenOffset = 0;
+  bool _assistantResponseStreaming = false;
   bool _assistantSpeechBlocked = false;
+  Completer<void>? _speechQueueWaiter;
   bool _disposed = false;
 
   Future<void> start({
@@ -417,6 +420,8 @@ class AiVoiceConversationService extends ChangeNotifier {
       unawaited(_stopPlayerSafely());
     }
     _assistantText = text;
+    _assistantResponseStreaming = streaming;
+    _wakeSpeechQueue();
     if (_assistantSpeechBlocked) {
       _assistantSpokenOffset = text.length;
       return;
@@ -433,6 +438,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     }
     _assistantSpokenOffset = chunks.last.$2;
     _speechQueue.addAll(chunks.map((entry) => entry.$1));
+    _wakeSpeechQueue();
     unawaited(_generateSpeech(_sessionSerial, _speechSerial));
     _startBufferedSpeechIfReady(_sessionSerial, _speechSerial);
   }
@@ -442,6 +448,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _assistantSpeechBlocked = true;
     _assistantSpokenOffset = _assistantText.length;
     _speechQueue.clear();
+    _wakeSpeechQueue();
     _speechSerial += 1;
     _resetSpeechCancellation();
     _discardBufferedSpeech();
@@ -993,6 +1000,11 @@ class AiVoiceConversationService extends ChangeNotifier {
     if (_speechGenerationActive) return;
     _speechGenerationActive = true;
     try {
+      if (_synthesisModel?.synthesisTransport ==
+          OfflineSpeechSynthesisTransport.webSocket) {
+        await _streamSpeechResponse(sessionSerial, speechSerial);
+        return;
+      }
       while (_speechQueue.isNotEmpty &&
           _speechAudioQueue
                   .where((audio) => audio.serial == speechSerial)
@@ -1024,6 +1036,181 @@ class AiVoiceConversationService extends ChangeNotifier {
               _speechAudioBufferLimit &&
           _snapshot.active) {
         unawaited(_generateSpeech(_sessionSerial, _speechSerial));
+      }
+    }
+  }
+
+  Future<void> _streamSpeechResponse(
+    int sessionSerial,
+    int speechSerial,
+  ) async {
+    final model = _synthesisModel;
+    if (model == null || _speechQueue.isEmpty) return;
+    final playbackCancellation = _speechCancellation;
+    final cancelSignal = combineCancelSignals(<Future<void>?>[
+      _sessionCancellation?.future,
+      playbackCancellation.future,
+    ]);
+    OfflineSpeechAudioStream? speech;
+    _StreamingPcmAudioSource? source;
+    StreamSubscription<bool>? completionSubscription;
+    StreamSubscription<String>? errorSubscription;
+    try {
+      if (!_modelService.isInstalled(model) ||
+          _modelService.requiresDownloadForConfiguration(
+            model,
+            _synthesisConfiguration,
+          ) ||
+          !_modelService
+              .availabilityFor(model, _synthesisConfiguration)
+              .available) {
+        _blockAssistantSpeech('语音朗读模型当前不可用，已停止本轮朗读。请检查模型配置。');
+        return;
+      }
+      if (!_modelService.isRuntimeReady(model)) {
+        _blockAssistantSpeech('语音朗读模型已停止运行，已停止本轮朗读。请重新启动模型。');
+        return;
+      }
+      speech = await _modelService.startSynthesisStream(
+        model,
+        cancelSignal: cancelSignal,
+      );
+      if (!_isCurrentSession(sessionSerial) || speechSerial != _speechSerial) {
+        return;
+      }
+      source = await _StreamingPcmAudioSource.start(
+        speech.audio,
+        sampleRate: speech.sampleRate,
+        channels: speech.channels,
+      );
+      final sourceFailure = Completer<void>();
+      unawaited(
+        source.done.then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) {
+            if (!sourceFailure.isCompleted) {
+              sourceFailure.completeError(error, stack);
+            }
+          },
+        ),
+      );
+      final player = _player ??= mk.Player();
+      final completed = Completer<void>();
+      completionSubscription = player.stream.completed.listen(
+        (value) {
+          if (value && !completed.isCompleted) completed.complete();
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!completed.isCompleted) completed.completeError(error, stack);
+        },
+        onDone: () {
+          if (!completed.isCompleted) {
+            completed.completeError(StateError('播放器完成事件流已关闭。'));
+          }
+        },
+      );
+      errorSubscription = player.stream.error.listen((message) {
+        final detail = message.trim();
+        if (detail.isNotEmpty && !completed.isCompleted) {
+          completed.completeError(StateError(detail));
+        }
+      });
+      _speechPumpActive = true;
+      _setSnapshot(
+        _snapshot.copyWith(
+          phase: AiVoiceConversationPhase.speaking,
+          clearMessage: true,
+        ),
+      );
+      final feedFailure = Completer<void>();
+      unawaited(
+        _feedRealtimeSpeech(speech, sessionSerial, speechSerial).then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) {
+            if (!feedFailure.isCompleted) {
+              feedFailure.completeError(error, stack);
+            }
+          },
+        ),
+      );
+      await player.open(mk.Media(source.uri.toString()), play: false);
+      await player.setVolume(
+        _snapshot.speakerMuted ? 0 : _speechVolumeBeforeMute,
+      );
+      if (playbackCancellation.isCompleted ||
+          !_isCurrentSession(sessionSerial) ||
+          speechSerial != _speechSerial) {
+        return;
+      }
+      await player.play();
+      await Future.any<void>(<Future<void>>[
+        completed.future,
+        playbackCancellation.future,
+        sourceFailure.future,
+        feedFailure.future,
+      ]).timeout(_realtimePlaybackTimeout);
+    } on TimeoutException catch (error, stack) {
+      if (_isCurrentSession(sessionSerial)) {
+        silentLog('voice_conversation', '等待实时朗读完成', error, stack);
+        _blockAssistantSpeech('语音朗读超时，已停止本轮朗读。请检查朗读模型后重试。');
+      }
+    } catch (error, stack) {
+      if (_isCurrentSession(sessionSerial) && !_isExpectedCancellation(error)) {
+        if (_isEmptySpeechAudioError(error)) {
+          _notifyIssue('当前文本片段未生成语音，已跳过并继续处理后续内容。');
+        } else {
+          silentLog('voice_conversation', '生成实时回复语音', error, stack);
+          _blockAssistantSpeech('实时语音生成失败，已停止本轮朗读。请检查朗读模型后重试。');
+        }
+      }
+    } finally {
+      try {
+        await completionSubscription?.cancel();
+      } catch (_) {}
+      try {
+        await errorSubscription?.cancel();
+      } catch (_) {}
+      await speech?.close();
+      await source?.close();
+      _speechPumpActive = false;
+      if (_isCurrentSession(sessionSerial) &&
+          speechSerial == _speechSerial &&
+          _snapshot.phase == AiVoiceConversationPhase.speaking) {
+        _setSnapshot(
+          _snapshot.copyWith(phase: AiVoiceConversationPhase.listening),
+        );
+      }
+    }
+  }
+
+  Future<void> _feedRealtimeSpeech(
+    OfflineSpeechAudioStream speech,
+    int sessionSerial,
+    int speechSerial,
+  ) async {
+    while (_isCurrentSession(sessionSerial) && speechSerial == _speechSerial) {
+      while (_speechQueue.isNotEmpty) {
+        final text = _speechQueue.removeAt(0);
+        if (hasMeaningfulSpeechText(text)) speech.addText(text);
+      }
+      if (!_assistantResponseStreaming) {
+        await speech.finish();
+        return;
+      }
+      final waiter = Completer<void>();
+      _speechQueueWaiter = waiter;
+      if (_speechQueue.isNotEmpty || !_assistantResponseStreaming) {
+        if (identical(_speechQueueWaiter, waiter)) {
+          _speechQueueWaiter = null;
+        }
+        continue;
+      }
+      await Future.any<void>(<Future<void>>[
+        waiter.future,
+        _speechCancellation.future,
+      ]);
+      if (identical(_speechQueueWaiter, waiter)) {
+        _speechQueueWaiter = null;
       }
     }
   }
@@ -1301,6 +1488,12 @@ class AiVoiceConversationService extends ChangeNotifier {
     _speechCancellation = Completer<void>();
   }
 
+  void _wakeSpeechQueue() {
+    final waiter = _speechQueueWaiter;
+    _speechQueueWaiter = null;
+    if (waiter != null && !waiter.isCompleted) waiter.complete();
+  }
+
   void _setSnapshot(AiVoiceConversationSnapshot next) {
     if (_disposed || identical(_snapshot, next)) return;
     _snapshot = next;
@@ -1321,6 +1514,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _sessionCancellation = null;
     _cancelPolishing();
     _speechQueue.clear();
+    _wakeSpeechQueue();
     _speechSerial += 1;
     _resetSpeechCancellation();
     _discardBufferedSpeech();
@@ -1356,6 +1550,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _assistantMessageId = null;
     _assistantText = '';
     _assistantSpokenOffset = 0;
+    _assistantResponseStreaming = false;
     _assistantSpeechBlocked = false;
     if (markInactive && !_disposed) {
       _setSnapshot(const AiVoiceConversationSnapshot.idle());
@@ -1395,5 +1590,141 @@ class AiVoiceConversationService extends ChangeNotifier {
     );
     if (_ownsPolishingService) _polishingService.dispose();
     super.dispose();
+  }
+}
+
+class _StreamingPcmAudioSource {
+  _StreamingPcmAudioSource._(
+    this._server,
+    this._audio,
+    this._token,
+    this._sampleRate,
+    this._channels,
+  ) {
+    _requests = _server.listen((request) {
+      unawaited(_serve(request));
+    });
+  }
+
+  static Future<_StreamingPcmAudioSource> start(
+    Stream<Uint8List> audio, {
+    required int sampleRate,
+    required int channels,
+  }) async {
+    if (sampleRate <= 0 || channels <= 0) {
+      throw StateError('实时音频参数无效。');
+    }
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final random = math.Random.secure();
+    final token = List<int>.generate(
+      24,
+      (_) => random.nextInt(256),
+      growable: false,
+    ).map((value) => value.toRadixString(16).padLeft(2, '0')).join();
+    return _StreamingPcmAudioSource._(
+      server,
+      audio,
+      token,
+      sampleRate,
+      channels,
+    );
+  }
+
+  final HttpServer _server;
+  final Stream<Uint8List> _audio;
+  final String _token;
+  final int _sampleRate;
+  final int _channels;
+  late final StreamSubscription<HttpRequest> _requests;
+  HttpResponse? _activeResponse;
+  bool _claimed = false;
+  bool _closed = false;
+  final Completer<void> _done = Completer<void>();
+
+  Future<void> get done => _done.future;
+
+  Uri get uri => Uri(
+    scheme: 'http',
+    host: InternetAddress.loopbackIPv4.address,
+    port: _server.port,
+    pathSegments: <String>['speech', _token],
+  );
+
+  Future<void> _serve(HttpRequest request) async {
+    final response = request.response;
+    if (_closed || request.uri.path != '/speech/$_token') {
+      response.statusCode = HttpStatus.notFound;
+      await response.close();
+      return;
+    }
+    response.headers.contentType = ContentType('audio', 'wav');
+    response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+    response.persistentConnection = false;
+    if (request.method == 'HEAD') {
+      await response.close();
+      return;
+    }
+    if (request.method != 'GET' || _claimed) {
+      response.statusCode = HttpStatus.conflict;
+      await response.close();
+      return;
+    }
+    _claimed = true;
+    _activeResponse = response;
+    try {
+      response.add(_streamingWavHeader(_sampleRate, _channels));
+      await response.addStream(_audio);
+    } catch (error, stack) {
+      if (!_closed && !_done.isCompleted) {
+        _done.completeError(error, stack);
+      }
+    } finally {
+      _activeResponse = null;
+      try {
+        await response.close();
+      } catch (_) {}
+      if (!_done.isCompleted) _done.complete();
+    }
+  }
+
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    try {
+      await _requests.cancel();
+    } catch (_) {}
+    try {
+      await _server.close(force: true);
+    } catch (_) {}
+    try {
+      await _activeResponse?.close().timeout(const Duration(seconds: 1));
+    } catch (_) {}
+    if (!_done.isCompleted) _done.complete();
+  }
+
+  static Uint8List _streamingWavHeader(int sampleRate, int channels) {
+    const dataLength = 0x7ffff000;
+    final output = Uint8List(44);
+    final header = ByteData.sublistView(output);
+    void ascii(int offset, String value) {
+      for (var index = 0; index < value.length; index += 1) {
+        output[offset + index] = value.codeUnitAt(index);
+      }
+    }
+
+    ascii(0, 'RIFF');
+    header.setUint32(4, 36 + dataLength, Endian.little);
+    ascii(8, 'WAVE');
+    ascii(12, 'fmt ');
+    header.setUint32(16, 16, Endian.little);
+    header.setUint16(20, 1, Endian.little);
+    header.setUint16(22, channels, Endian.little);
+    header.setUint32(24, sampleRate, Endian.little);
+    header.setUint32(28, sampleRate * channels * 2, Endian.little);
+    header.setUint16(32, channels * 2, Endian.little);
+    header.setUint16(34, 16, Endian.little);
+    ascii(36, 'data');
+    header.setUint32(40, dataLength, Endian.little);
+    return output;
   }
 }

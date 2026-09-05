@@ -18,6 +18,15 @@ enum OfflineSpeechRuntime {
   qwenTts,
 }
 
+enum OfflineSpeechSynthesisTransport {
+  http('HTTP'),
+  webSocket('WSS');
+
+  const OfflineSpeechSynthesisTransport(this.label);
+
+  final String label;
+}
+
 enum OfflineSpeechParameterType { text, integer, decimal, toggle, choice, path }
 
 class OfflineSpeechOption {
@@ -90,6 +99,7 @@ class OfflineSpeechModelDefinition {
     required this.description,
     required this.sizeLabel,
     required this.parameters,
+    this.synthesisTransport = OfflineSpeechSynthesisTransport.http,
   });
 
   final String id;
@@ -100,6 +110,7 @@ class OfflineSpeechModelDefinition {
   final String description;
   final String sizeLabel;
   final List<OfflineSpeechParameter> parameters;
+  final OfflineSpeechSynthesisTransport synthesisTransport;
 
   Map<String, Object?> defaults() => <String, Object?>{
     for (final parameter in parameters) parameter.key: parameter.defaultValue,
@@ -556,13 +567,6 @@ abstract final class OfflineSpeechModelCatalog {
       max: 2,
     ),
     OfflineSpeechParameter(
-      key: 'streaming',
-      label: '流式输出',
-      description: '生成首段音频后立即开始播放。',
-      type: OfflineSpeechParameterType.toggle,
-      defaultValue: true,
-    ),
-    OfflineSpeechParameter(
       key: 'device',
       label: '计算设备',
       description: '选择模型推理设备。',
@@ -853,6 +857,7 @@ abstract final class OfflineSpeechModelCatalog {
       repository: 'FunAudioLLM/Fun-CosyVoice3-0.5B-2512',
       sizeLabel: '约 4 GB',
       description: '中文、方言和多语言自然语音，支持音色克隆与双向流式生成。',
+      synthesisTransport: OfflineSpeechSynthesisTransport.webSocket,
       parameters: <OfflineSpeechParameter>[
         ..._ttsCommon,
         OfflineSpeechParameter(
