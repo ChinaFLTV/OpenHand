@@ -385,21 +385,43 @@ class _OfflineSpeechSelectorButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final disabledColor = colorScheme.onSurfaceVariant.withValues(alpha: 0.46);
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
         onPressed: enabled ? onPressed : null,
-        style: OutlinedButton.styleFrom(
-          alignment: AlignmentDirectional.centerStart,
-          minimumSize: const Size(0, 48),
-          padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 10, 10),
-          shape: const RoundedRectangleBorder(
-            borderRadius: kOpenHandBorderRadius14,
-          ),
-          side: BorderSide(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.8),
-          ),
-        ),
+        style:
+            OutlinedButton.styleFrom(
+              alignment: AlignmentDirectional.centerStart,
+              foregroundColor: colorScheme.onSurface,
+              disabledForegroundColor: disabledColor,
+              disabledBackgroundColor: colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.62),
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 10, 10),
+              animationDuration: openHandMotionDuration(
+                context,
+                kOpenHandMotion200,
+              ),
+              shape: const RoundedRectangleBorder(
+                borderRadius: kOpenHandBorderRadius14,
+              ),
+            ).copyWith(
+              side: WidgetStateProperty.resolveWith<BorderSide>((states) {
+                final disabled = states.contains(WidgetState.disabled);
+                return BorderSide(
+                  color: colorScheme.outlineVariant.withValues(
+                    alpha: disabled ? 0.38 : 0.8,
+                  ),
+                );
+              }),
+              mouseCursor: WidgetStateProperty.resolveWith<MouseCursor>(
+                (states) => states.contains(WidgetState.disabled)
+                    ? SystemMouseCursors.forbidden
+                    : SystemMouseCursors.click,
+              ),
+            ),
         child: Row(
           children: <Widget>[
             Expanded(
@@ -408,16 +430,39 @@ class _OfflineSpeechSelectorButton extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
+                  color: enabled ? colorScheme.onSurface : disabledColor,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
             kOpenHandHGap8,
-            AnimatedRotation(
-              turns: expanded ? 0.5 : 0,
+            AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion200),
-              curve: kOpenHandEmphasizedCurve,
-              child: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child),
+              ),
+              child: enabled
+                  ? AnimatedRotation(
+                      key: const ValueKey<bool>(true),
+                      turns: expanded ? 0.5 : 0,
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion200,
+                      ),
+                      curve: kOpenHandEmphasizedCurve,
+                      child: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.lock_outline_rounded,
+                      key: ValueKey<bool>(false),
+                      size: 18,
+                    ),
             ),
           ],
         ),
