@@ -2167,6 +2167,13 @@ def write_wav(path, samples, sample_rate, volume=1.0):
         output.setframerate(int(sample_rate))
         output.writeframes(pcm.tobytes())
 
+def collect_speech(generated):
+    samples = []
+    for chunk in generated:
+        if isinstance(chunk, dict) and "tts_speech" in chunk:
+            samples.extend(flatten_samples(chunk["tts_speech"]))
+    return samples
+
 def read_wav(path):
     with wave.open(path, "rb") as source:
         channels = source.getnchannels()
@@ -2287,6 +2294,9 @@ def generation_options(config):
     return options
 
 def synthesize(runtime, loaded, text, output_path, config):
+    text = str(text or "").strip()
+    if not any(character.isalnum() for character in text):
+        raise RuntimeError("文本没有可朗读内容")
     volume = float(config.get("volume", 1.0))
     if runtime == "qwenTts":
         selected_language = language(config, canonical=True) or "Auto"
@@ -2322,6 +2332,7 @@ def synthesize(runtime, loaded, text, output_path, config):
                 non_streaming_mode=True,
                 **options,
             )
+        if len(wavs) == 0: raise RuntimeError("模型没有生成音频采样")
         write_wav(output_path, wavs[0], sample_rate, volume)
     elif runtime == "cosyVoice":
         reference_audio = str(config.get("reference_audio", "")).strip()
@@ -2338,7 +2349,10 @@ def synthesize(runtime, loaded, text, output_path, config):
                 text, prompt, reference_audio, stream=False,
                 speed=speed, text_frontend=text_frontend,
             )
+            samples = collect_speech(generated)
         else:
+            samples = []
+        if not samples:
             prompt_text = str(config.get("prompt_text", "")).strip()
             if not prompt_text:
                 prompt_text = "You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。"
@@ -2346,8 +2360,7 @@ def synthesize(runtime, loaded, text, output_path, config):
                 text, prompt_text, reference_audio, stream=False,
                 speed=speed, text_frontend=text_frontend,
             )
-        samples = []
-        for chunk in generated: samples.extend(flatten_samples(chunk["tts_speech"]))
+            samples = collect_speech(generated)
         write_wav(output_path, samples, loaded.sample_rate, volume)
     elif runtime == "sherpaOnnx":
         import sherpa_onnx

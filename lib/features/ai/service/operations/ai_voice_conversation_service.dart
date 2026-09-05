@@ -797,9 +797,12 @@ class AiVoiceConversationService extends ChangeNotifier {
               polishingSerial != _polishingSerial ||
               _isExpectedCancellation(error);
           if (!interrupted) {
-            silentLog('voice_conversation', '润色识别文本', error, stack);
+            final timedOut = _isPolishingTimeout(error);
+            if (!timedOut) {
+              silentLog('voice_conversation', '润色识别文本', error, stack);
+            }
             if (!_isCurrentSession(sessionSerial)) return;
-            _polishingUnavailable = true;
+            _polishingUnavailable = !timedOut;
             _notifyIssue(_polishingFailureMessage(error));
           }
         } finally {
@@ -1042,7 +1045,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     int speechSerial,
   ) async {
     final model = _synthesisModel;
-    if (model == null || text.isEmpty) return null;
+    if (model == null || !hasMeaningfulSpeechText(text)) return null;
     final speechCancellation = _speechCancellation.future;
     final cancelSignal = combineCancelSignals(<Future<void>?>[
       _sessionCancellation?.future,
@@ -1082,8 +1085,12 @@ class AiVoiceConversationService extends ChangeNotifier {
       return audioPath;
     } catch (error, stack) {
       if (_isCurrentSession(sessionSerial) && !_isExpectedCancellation(error)) {
-        silentLog('voice_conversation', '生成流式回复语音', error, stack);
-        _blockAssistantSpeech('语音生成失败，已停止本轮朗读。请检查朗读模型后重试。');
+        if (_isEmptySpeechAudioError(error)) {
+          _notifyIssue('当前文本片段未生成语音，已跳过并继续处理后续内容。');
+        } else {
+          silentLog('voice_conversation', '生成流式回复语音', error, stack);
+          _blockAssistantSpeech('语音生成失败，已停止本轮朗读。请检查朗读模型后重试。');
+        }
       }
       return null;
     }
@@ -1125,12 +1132,12 @@ class AiVoiceConversationService extends ChangeNotifier {
         continue;
       }
       final chunk = _cleanSpeechText(text.substring(segmentStart, index + 1));
-      if (chunk.isNotEmpty) result.add((chunk, index + 1));
+      if (hasMeaningfulSpeechText(chunk)) result.add((chunk, index + 1));
       segmentStart = index + 1;
     }
     if (flushRemainder && segmentStart < text.length) {
       final chunk = _cleanSpeechText(text.substring(segmentStart));
-      if (chunk.isNotEmpty) result.add((chunk, text.length));
+      if (hasMeaningfulSpeechText(chunk)) result.add((chunk, text.length));
     }
     return result;
   }
@@ -1207,7 +1214,23 @@ class AiVoiceConversationService extends ChangeNotifier {
         error is AiChatCancelledException;
   }
 
+  bool _isPolishingTimeout(Object error) {
+    if (error is TimeoutException) return true;
+    final message = '$error'.toLowerCase();
+    return message.contains('timeout') || message.contains('超时');
+  }
+
+  bool _isEmptySpeechAudioError(Object error) {
+    final message = '$error';
+    return message.contains('模型没有生成音频采样') ||
+        message.contains('模型没有生成有效音频') ||
+        message.contains('文本没有可朗读内容');
+  }
+
   String _polishingFailureMessage(Object error) {
+    if (_isPolishingTimeout(error)) {
+      return '文本润色超时，已改用识别原文发送。后续内容仍会继续尝试润色。';
+    }
     if (error is AiChatEmptyResponseException) {
       return '文本润色模型未返回有效内容，已改用识别原文发送。请更换润色模型。';
     }

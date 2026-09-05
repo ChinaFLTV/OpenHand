@@ -53,7 +53,7 @@ class AiSpeechTextPolishingService {
     : _chatClient = chatClient ?? AiChatService(),
       _ownsChatClient = chatClient == null;
 
-  static const Duration _timeout = Duration(seconds: 30);
+  static const Duration _timeout = Duration(minutes: 1);
   static const int _maxOutputTokens = 4096;
   static const String _systemPrompt =
       '你是语音转写编辑器。将识别结果整理为可直接发送、自然清晰的文本：\n'
