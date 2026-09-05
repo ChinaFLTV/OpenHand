@@ -289,7 +289,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final AiVoiceConversationService _voiceConversationService =
       AiVoiceConversationService();
   String? _voiceConversationSessionId;
-  String? _voiceResponseBaselineAssistantId;
+  String? _voiceLastReadAssistantId;
   final AiTranslationService _translationService = AiTranslationService();
   final WebReverseCdpMcpBridge _webReverseCdpMcpBridge =
       WebReverseCdpMcpBridge();
@@ -1456,25 +1456,46 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       unawaited(_stopVoiceConversation());
       return;
     }
-    final assistant = session.messages.reversed
-        .where(
-          (message) =>
-              !message.isDeleted &&
-              message.kind == AiSessionMessageKind.assistant,
-        )
-        .firstOrNull;
-    if (assistant == null) return;
-    if (assistant.id == _voiceResponseBaselineAssistantId &&
-        assistant.metadata[aiSessionMessageMetadataStreamingKey] != true) {
+    if (controller.canStopResponding(session.id)) return;
+    final assistant = _latestFormalVoiceAssistantResponse(session);
+    if (assistant == null || assistant.id == _voiceLastReadAssistantId) {
       return;
     }
-    _voiceResponseBaselineAssistantId = null;
+    _voiceLastReadAssistantId = assistant.id;
     _voiceConversationService.ingestAssistantResponse(
       messageId: assistant.id,
       text: assistant.content,
-      streaming:
-          assistant.metadata[aiSessionMessageMetadataStreamingKey] == true,
+      streaming: false,
     );
+  }
+
+  AiSessionMessage? _latestFormalVoiceAssistantResponse(AiSession session) {
+    var followedByToolCall = false;
+    for (var index = session.messages.length - 1; index >= 0; index--) {
+      final message = session.messages[index];
+      if (message.isDeleted) continue;
+      if (message.startsConversationRound) return null;
+      if (message.kind == AiSessionMessageKind.toolCall) {
+        followedByToolCall = true;
+        continue;
+      }
+      if (message.kind != AiSessionMessageKind.assistant ||
+          followedByToolCall ||
+          message.isGoalEvaluationMessage ||
+          message.senderOrigin != aiSessionMessageSenderOriginAiModel ||
+          message.content.trim().isEmpty) {
+        continue;
+      }
+      final responseStatus = '${message.metadata['response_status'] ?? ''}'
+          .trim();
+      if (message.metadata[aiSessionMessageMetadataStreamingKey] == true ||
+          message.metadata['was_cancelled'] == true ||
+          (responseStatus.isNotEmpty && responseStatus != 'completed')) {
+        continue;
+      }
+      return message;
+    }
+    return null;
   }
 
   MessageGatewayController? _readMessageGatewayController() {
@@ -6613,14 +6634,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     _voiceConversationSessionId = currentSession.id;
-    _voiceResponseBaselineAssistantId = currentSession.messages.reversed
-        .where(
-          (message) =>
-              !message.isDeleted &&
-              message.kind == AiSessionMessageKind.assistant,
-        )
-        .firstOrNull
-        ?.id;
+    _voiceLastReadAssistantId = _latestFormalVoiceAssistantResponse(
+      currentSession,
+    )?.id;
     setState(() => _composerCollapsed = false);
     try {
       await _ttsPlaybackService.stop();
@@ -6632,7 +6648,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error) {
       final cancelled = _voiceConversationSessionId != currentSession.id;
       _voiceConversationSessionId = null;
-      _voiceResponseBaselineAssistantId = null;
+      _voiceLastReadAssistantId = null;
       if (!mounted || cancelled) return;
       showOpenHandErrorSnack(
         context,
@@ -6647,7 +6663,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _stopVoiceConversation() async {
     _voiceConversationSessionId = null;
-    _voiceResponseBaselineAssistantId = null;
+    _voiceLastReadAssistantId = null;
     await _voiceConversationService.stop();
     if (!mounted || _selectedSection != AppSection.workspace) return;
     _composerFocusNode.requestFocus();
