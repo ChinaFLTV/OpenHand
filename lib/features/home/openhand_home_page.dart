@@ -1464,20 +1464,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       unawaited(_stopVoiceConversation());
       return;
     }
-    if (controller.canStopResponding(session.id)) return;
-    final assistant = _latestFormalVoiceAssistantResponse(session);
-    if (assistant == null || assistant.id == _voiceLastReadAssistantId) {
+    final assistant = _latestFormalVoiceAssistantResponse(
+      session,
+      includeStreaming: true,
+    );
+    if (assistant == null) {
       return;
     }
-    _voiceLastReadAssistantId = assistant.id;
+    if (assistant.id == _voiceLastReadAssistantId) return;
+    final streaming =
+        assistant.metadata[aiSessionMessageMetadataStreamingKey] == true ||
+        controller.canStopResponding(session.id);
+    if (!streaming) _voiceLastReadAssistantId = assistant.id;
     _voiceConversationService.ingestAssistantResponse(
       messageId: assistant.id,
       text: assistant.content,
-      streaming: false,
+      streaming: streaming,
     );
   }
 
-  AiSessionMessage? _latestFormalVoiceAssistantResponse(AiSession session) {
+  AiSessionMessage? _latestFormalVoiceAssistantResponse(
+    AiSession session, {
+    bool includeStreaming = false,
+  }) {
     var followedByToolCall = false;
     for (var index = session.messages.length - 1; index >= 0; index--) {
       final message = session.messages[index];
@@ -1496,8 +1505,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       final responseStatus = '${message.metadata['response_status'] ?? ''}'
           .trim();
-      if (message.metadata[aiSessionMessageMetadataStreamingKey] == true ||
-          message.metadata['was_cancelled'] == true ||
+      final streaming =
+          message.metadata[aiSessionMessageMetadataStreamingKey] == true;
+      if (message.metadata['was_cancelled'] == true ||
+          (!includeStreaming && streaming) ||
           (responseStatus.isNotEmpty && responseStatus != 'completed')) {
         continue;
       }

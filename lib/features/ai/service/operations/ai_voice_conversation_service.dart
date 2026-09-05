@@ -109,8 +109,13 @@ class AiVoiceConversationService extends ChangeNotifier {
     milliseconds: 950,
   );
   static const Duration _playbackTimeout = Duration(minutes: 5);
-  static const int _speechChunkSoftLimit = 72;
-  static const int _speechChunkHardLimit = 120;
+  static const int _initialSpeechChunkTerminalLimit = 28;
+  static const int _initialSpeechChunkSoftLimit = 44;
+  static const int _initialSpeechChunkHardLimit = 72;
+  static const int _speechChunkTerminalLimit = 96;
+  static const int _speechChunkSoftLimit = 144;
+  static const int _speechChunkHardLimit = 220;
+  static const int _speechAudioBufferLimit = 2;
 
   final OfflineSpeechModelService _modelService;
   final AiSpeechTextPolishingService _polishingService;
@@ -154,12 +159,17 @@ class AiVoiceConversationService extends ChangeNotifier {
 
   mk.Player? _player;
   final List<String> _speechQueue = <String>[];
+  final List<({int serial, String path})> _speechAudioQueue =
+      <({int serial, String path})>[];
+  bool _speechGenerationActive = false;
   bool _speechPumpActive = false;
+  bool _speechPlaybackStarted = false;
   int _speechSerial = 0;
   Completer<void> _speechCancellation = Completer<void>();
   String? _assistantMessageId;
   String _assistantText = '';
   int _assistantSpokenOffset = 0;
+  bool _assistantStreaming = false;
   bool _disposed = false;
 
   Future<void> start({
@@ -329,6 +339,8 @@ class AiVoiceConversationService extends ChangeNotifier {
     _speechSerial += 1;
     _resetSpeechCancellation();
     _speechQueue.clear();
+    _discardBufferedSpeech();
+    _speechPlaybackStarted = false;
     if (muted) {
       _assistantSpokenOffset = _assistantText.length;
       await _player?.stop();
@@ -363,9 +375,12 @@ class AiVoiceConversationService extends ChangeNotifier {
       _speechQueue.clear();
       _speechSerial += 1;
       _resetSpeechCancellation();
+      _discardBufferedSpeech();
+      _speechPlaybackStarted = false;
       unawaited(_player?.stop());
     }
     _assistantText = text;
+    _assistantStreaming = streaming;
     if (_snapshot.speakerMuted) {
       _assistantSpokenOffset = text.length;
       return;
@@ -376,19 +391,26 @@ class AiVoiceConversationService extends ChangeNotifier {
       start: _assistantSpokenOffset,
       flushRemainder: !streaming,
     );
-    if (chunks.isEmpty) return;
+    if (chunks.isEmpty) {
+      _startBufferedSpeechIfReady(_sessionSerial, _speechSerial);
+      return;
+    }
     _assistantSpokenOffset = chunks.last.$2;
     _speechQueue.addAll(chunks.map((entry) => entry.$1));
-    unawaited(_pumpSpeech(_sessionSerial, _speechSerial));
+    unawaited(_generateSpeech(_sessionSerial, _speechSerial));
+    _startBufferedSpeechIfReady(_sessionSerial, _speechSerial);
   }
 
   void resetAssistantResponse() {
     _assistantMessageId = null;
     _assistantText = '';
     _assistantSpokenOffset = 0;
+    _assistantStreaming = false;
     _speechQueue.clear();
     _speechSerial += 1;
     _resetSpeechCancellation();
+    _discardBufferedSpeech();
+    _speechPlaybackStarted = false;
     unawaited(_player?.stop());
   }
 
@@ -696,29 +718,23 @@ class AiVoiceConversationService extends ChangeNotifier {
 
   Future<void> _pumpSpeech(int sessionSerial, int speechSerial) async {
     if (_speechPumpActive) return;
+    if (!_speechAudioQueue.any((audio) => audio.serial == speechSerial)) {
+      return;
+    }
+    _speechPlaybackStarted = true;
     _speechPumpActive = true;
-    Future<String?>? prefetchedAudio;
     try {
-      while ((_speechQueue.isNotEmpty || prefetchedAudio != null) &&
+      while (_speechAudioQueue.any((audio) => audio.serial == speechSerial) &&
           _isCurrentSession(sessionSerial) &&
           speechSerial == _speechSerial &&
           !_snapshot.speakerMuted) {
-        final audioPath = prefetchedAudio != null
-            ? await prefetchedAudio
-            : await _synthesizeSpeechChunk(
-                _speechQueue.removeAt(0),
-                sessionSerial,
-                speechSerial,
-              );
-        prefetchedAudio = null;
-        if (audioPath == null) continue;
-        if (_speechQueue.isNotEmpty) {
-          prefetchedAudio = _synthesizeSpeechChunk(
-            _speechQueue.removeAt(0),
-            sessionSerial,
-            speechSerial,
-          );
-        }
+        final audioIndex = _speechAudioQueue.indexWhere(
+          (audio) => audio.serial == speechSerial,
+        );
+        if (audioIndex == -1) break;
+        final audioPath = _speechAudioQueue.removeAt(audioIndex).path;
+        unawaited(_generateSpeech(sessionSerial, speechSerial));
+        final playbackCancellation = _speechCancellation.future;
         try {
           if (!_isCurrentSession(sessionSerial) ||
               speechSerial != _speechSerial ||
@@ -733,9 +749,12 @@ class AiVoiceConversationService extends ChangeNotifier {
           );
           final player = _player ??= mk.Player();
           await player.open(mk.Media(audioPath));
-          await player.stream.completed
-              .firstWhere((completed) => completed)
-              .timeout(_playbackTimeout);
+          await Future.any<void>(<Future<void>>[
+            player.stream.completed
+                .firstWhere((completed) => completed)
+                .then<void>((_) {}),
+            playbackCancellation,
+          ]).timeout(_playbackTimeout);
         } catch (error, stack) {
           if (_isCurrentSession(sessionSerial)) {
             silentLog('voice_conversation', '朗读流式回复', error, stack);
@@ -745,22 +764,87 @@ class AiVoiceConversationService extends ChangeNotifier {
         }
       }
     } finally {
-      if (prefetchedAudio != null) {
-        final path = await prefetchedAudio.catchError((Object _) => null);
-        if (path != null) await _deleteGeneratedAudio(path);
-      }
       _speechPumpActive = false;
       if (_isCurrentSession(sessionSerial) &&
-          _snapshot.phase == AiVoiceConversationPhase.speaking) {
+          _snapshot.phase == AiVoiceConversationPhase.speaking &&
+          !_speechGenerationActive &&
+          _speechQueue.isEmpty &&
+          !_speechAudioQueue.any((audio) => audio.serial == speechSerial)) {
         _setSnapshot(
           _snapshot.copyWith(phase: AiVoiceConversationPhase.listening),
         );
       }
-      if (_speechQueue.isNotEmpty &&
+      if (_speechAudioQueue.any((audio) => audio.serial == _speechSerial) &&
           _snapshot.active &&
           !_snapshot.speakerMuted) {
         unawaited(_pumpSpeech(_sessionSerial, _speechSerial));
       }
+    }
+  }
+
+  Future<void> _generateSpeech(int sessionSerial, int speechSerial) async {
+    if (_speechGenerationActive) return;
+    _speechGenerationActive = true;
+    try {
+      while (_speechQueue.isNotEmpty &&
+          _speechAudioQueue
+                  .where((audio) => audio.serial == speechSerial)
+                  .length <
+              _speechAudioBufferLimit &&
+          _isCurrentSession(sessionSerial) &&
+          speechSerial == _speechSerial &&
+          !_snapshot.speakerMuted) {
+        final audioPath = await _synthesizeSpeechChunk(
+          _speechQueue.removeAt(0),
+          sessionSerial,
+          speechSerial,
+        );
+        if (audioPath == null) continue;
+        if (!_isCurrentSession(sessionSerial) ||
+            speechSerial != _speechSerial ||
+            _snapshot.speakerMuted) {
+          await _deleteGeneratedAudio(audioPath);
+          continue;
+        }
+        _speechAudioQueue.add((serial: speechSerial, path: audioPath));
+        _startBufferedSpeechIfReady(sessionSerial, speechSerial);
+      }
+    } finally {
+      _speechGenerationActive = false;
+      _startBufferedSpeechIfReady(_sessionSerial, _speechSerial);
+      if (_speechQueue.isNotEmpty &&
+          _speechAudioQueue
+                  .where((audio) => audio.serial == _speechSerial)
+                  .length <
+              _speechAudioBufferLimit &&
+          _snapshot.active &&
+          !_snapshot.speakerMuted) {
+        unawaited(_generateSpeech(_sessionSerial, _speechSerial));
+      }
+    }
+  }
+
+  void _startBufferedSpeechIfReady(int sessionSerial, int speechSerial) {
+    final bufferedCount = _speechAudioQueue
+        .where((audio) => audio.serial == speechSerial)
+        .length;
+    final replyReady =
+        !_assistantStreaming &&
+        !_speechGenerationActive &&
+        _speechQueue.isEmpty;
+    if (bufferedCount > 0 &&
+        (_speechPlaybackStarted ||
+            bufferedCount >= _speechAudioBufferLimit ||
+            replyReady)) {
+      unawaited(_pumpSpeech(sessionSerial, speechSerial));
+    }
+  }
+
+  void _discardBufferedSpeech() {
+    final discarded = List<({int serial, String path})>.from(_speechAudioQueue);
+    _speechAudioQueue.clear();
+    for (final audio in discarded) {
+      unawaited(_deleteGeneratedAudio(audio.path));
     }
   }
 
@@ -818,17 +902,27 @@ class AiVoiceConversationService extends ChangeNotifier {
     for (var index = segmentStart; index < text.length; index += 1) {
       final character = text[index];
       final segmentLength = index - segmentStart + 1;
+      final initialChunk = start == 0 && result.isEmpty;
+      final terminalLimit = initialChunk
+          ? _initialSpeechChunkTerminalLimit
+          : _speechChunkTerminalLimit;
+      final softLimit = initialChunk
+          ? _initialSpeechChunkSoftLimit
+          : _speechChunkSoftLimit;
+      final hardLimit = initialChunk
+          ? _initialSpeechChunkHardLimit
+          : _speechChunkHardLimit;
       final englishSentenceEnd =
           character == '.' &&
           index + 1 < text.length &&
           ' \n\r\t'.contains(text[index + 1]);
       final terminalBoundary =
-          '。！？!?；;\n'.contains(character) || englishSentenceEnd;
+          segmentLength >= terminalLimit &&
+          ('。！？!?；;\n'.contains(character) || englishSentenceEnd);
       final softBoundary =
-          segmentLength >= _speechChunkSoftLimit &&
-          '，,、：: '.contains(character);
+          segmentLength >= softLimit && '，,、：: '.contains(character);
       final hardBoundary =
-          segmentLength >= _speechChunkHardLimit &&
+          segmentLength >= hardLimit &&
           (text.codeUnitAt(index) & 0xFC00) != 0xD800;
       if (!terminalBoundary && !softBoundary && !hardBoundary) {
         continue;
@@ -955,6 +1049,8 @@ class AiVoiceConversationService extends ChangeNotifier {
     _speechQueue.clear();
     _speechSerial += 1;
     _resetSpeechCancellation();
+    _discardBufferedSpeech();
+    _speechPlaybackStarted = false;
     final subscription = _recordingSubscription;
     _recordingSubscription = null;
     await subscription?.cancel();
@@ -984,6 +1080,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _assistantMessageId = null;
     _assistantText = '';
     _assistantSpokenOffset = 0;
+    _assistantStreaming = false;
     if (markInactive && !_disposed) {
       _setSnapshot(const AiVoiceConversationSnapshot.idle());
     }
