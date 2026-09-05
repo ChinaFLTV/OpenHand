@@ -8190,43 +8190,46 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SegmentedButton<ThrottleCloudSyncProvider>(
-            segments: <ButtonSegment<ThrottleCloudSyncProvider>>[
-              ButtonSegment(
-                value: ThrottleCloudSyncProvider.custom,
-                icon: const Icon(Icons.cloud_outlined, size: 16),
-                label: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '自定义 HTTP',
-                    zhHant: '自訂 HTTP',
-                    en: 'Custom HTTP',
-                    fr: 'HTTP personnalisé',
-                    de: 'Eigenes HTTP',
-                    ja: 'カスタム HTTP',
+          Align(
+            alignment: Alignment.centerRight,
+            child: SegmentedButton<ThrottleCloudSyncProvider>(
+              segments: <ButtonSegment<ThrottleCloudSyncProvider>>[
+                ButtonSegment(
+                  value: ThrottleCloudSyncProvider.custom,
+                  icon: const Icon(Icons.cloud_outlined, size: 16),
+                  label: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '自定义 HTTP',
+                      zhHant: '自訂 HTTP',
+                      en: 'Custom HTTP',
+                      fr: 'HTTP personnalisé',
+                      de: 'Eigenes HTTP',
+                      ja: 'カスタム HTTP',
+                    ),
                   ),
                 ),
-              ),
-              const ButtonSegment(
-                value: ThrottleCloudSyncProvider.iCloud,
-                icon: Icon(Icons.cloud_circle_outlined, size: 16),
-                label: Text('iCloud'),
-              ),
-              const ButtonSegment(
-                value: ThrottleCloudSyncProvider.gistGitHub,
-                icon: Icon(Icons.code_rounded, size: 16),
-                label: Text('Gist'),
-              ),
-            ],
-            selected: <ThrottleCloudSyncProvider>{providerEnum},
-            onSelectionChanged: _busy
-                ? null
-                : (s) {
-                    if (s.isEmpty) return;
-                    c.updateAiStreamThrottleCloudSyncProvider(
-                      s.first.storageValue,
-                    );
-                  },
+                const ButtonSegment(
+                  value: ThrottleCloudSyncProvider.iCloud,
+                  icon: Icon(Icons.cloud_circle_outlined, size: 16),
+                  label: Text('iCloud'),
+                ),
+                const ButtonSegment(
+                  value: ThrottleCloudSyncProvider.gistGitHub,
+                  icon: Icon(Icons.code_rounded, size: 16),
+                  label: Text('Gist'),
+                ),
+              ],
+              selected: <ThrottleCloudSyncProvider>{providerEnum},
+              onSelectionChanged: _busy
+                  ? null
+                  : (s) {
+                      if (s.isEmpty) return;
+                      c.updateAiStreamThrottleCloudSyncProvider(
+                        s.first.storageValue,
+                      );
+                    },
+            ),
           ),
           kOpenHandGap12,
           if (providerEnum != ThrottleCloudSyncProvider.custom &&
