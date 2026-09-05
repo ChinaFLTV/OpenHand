@@ -24,6 +24,30 @@ AiModelConfig? resolveSpeechTextPolishingModel(
   return null;
 }
 
+const String speechTextPolishingEmptyMarker = '<EMPTY>';
+
+final RegExp _speechNonSemanticCharacterPattern = RegExp(
+  r'[^0-9A-Za-z\u00C0-\u02FF\u0370-\u052F\u0590-\u0FFF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]+',
+);
+final RegExp _speechFillerOnlyPattern = RegExp(
+  r'^(?:嗯+|啊+|呃+|额+|哦+|噢+|哎+|唉+|唔+|哼+|诶+|欸+|呐+|え+|あ+|うん+|음+|어+|um+|uh+|hm+|ah+|oh+|erm+)$',
+  caseSensitive: false,
+);
+final RegExp _speechNoContentPattern = RegExp(
+  r'^(?:empty|无(?:有效)?(?:内容|文本)(?:可|需要)?(?:整理|润色)?|没有(?:可|需要)?(?:整理|润色)的?(?:有效)?(?:内容|文本)|(?:未|没有)(?:提供|检测到|识别到)(?:有效)?(?:内容|文本|语音识别文本)?|请(?:先)?提供(?:需要|待)?(?:整理|润色)?的?(?:语音识别)?文本)$',
+  caseSensitive: false,
+);
+
+bool hasMeaningfulSpeechText(String value) {
+  final compact = value
+      .trim()
+      .replaceAll(_speechNonSemanticCharacterPattern, '')
+      .toLowerCase();
+  return compact.isNotEmpty &&
+      !_speechFillerOnlyPattern.hasMatch(compact) &&
+      !_speechNoContentPattern.hasMatch(compact);
+}
+
 class AiSpeechTextPolishingService {
   AiSpeechTextPolishingService({AiChatClient? chatClient})
     : _chatClient = chatClient ?? AiChatService(),
@@ -36,7 +60,7 @@ class AiSpeechTextPolishingService {
       '- 删除语气词、口头禅、停顿、重复及已被改口否定的内容；\n'
       '- 合并同义反复，修正错字、语序、措辞、标点和断句；\n'
       '- 仅保留说话者最终表达的意图；无法确认的专有名词、代码、路径和数字保持原样。\n'
-      '不要回答、解释或补充事实。只输出整理后的文本。';
+      '仅含噪音、标点或语气词时输出 $speechTextPolishingEmptyMarker。不要回答、解释或补充事实。只输出整理后的文本。';
   static final RegExp _responseLabelPattern = RegExp(
     r'^(?:润色|整理|修改)(?:后的?)?文本\s*[:：]\s*',
   );
@@ -55,6 +79,7 @@ class AiSpeechTextPolishingService {
     if (_disposed) throw StateError('文本润色服务已关闭。');
     final source = text.trim();
     if (!settings.enabled || source.isEmpty) return source;
+    if (!hasMeaningfulSpeechText(source)) return '';
     final model = _resolveModel(settings, availableModels);
     if (model == null) throw StateError('文本润色模型不可用，请在设置中重新选择。');
 
@@ -81,6 +106,10 @@ class AiSpeechTextPolishingService {
       );
       final polished = _clean(completion.reply);
       if (polished.isEmpty) throw StateError('润色模型未返回有效文本。');
+      if (polished == speechTextPolishingEmptyMarker ||
+          !hasMeaningfulSpeechText(polished)) {
+        return '';
+      }
       return polished;
     } finally {
       if (!cancellation.isCompleted) cancellation.complete();

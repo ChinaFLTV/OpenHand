@@ -101,10 +101,11 @@ class AiVoiceConversationService extends ChangeNotifier {
   static const int _maximumUtteranceBytes = _sampleRate * _bytesPerSample * 120;
   static const double _minimumSpeechLevel = 0.0015;
   static const double _initialNoiseFloor = 0.0005;
-  static const double _speechToNoiseRatio = 2.6;
+  static const double _speechToNoiseRatio = 2.8;
   static const double _speechReleaseRatio = 1.7;
   static const double _minimumSpeechPeak = 0.008;
-  static const int _speechAttackChunks = 2;
+  static const double _minimumSpeechCrestFactor = 2.2;
+  static const int _speechAttackChunks = 3;
   static const Duration _inputWatchdogTimeout = Duration(seconds: 5);
   static const Duration _partialRecognitionInterval = Duration(
     milliseconds: 950,
@@ -489,9 +490,9 @@ class AiVoiceConversationService extends ChangeNotifier {
     final ratio = _hasSpeech ? _speechReleaseRatio : _speechToNoiseRatio;
     final threshold = math.max(_minimumSpeechLevel, _noiseFloor * ratio);
     final candidate =
-        level >= threshold ||
-        (peak >= math.max(_minimumSpeechPeak, threshold * 3.2) &&
-            level >= _minimumSpeechLevel * 0.7);
+        level >= threshold &&
+        peak >=
+            math.max(_minimumSpeechPeak, threshold * _minimumSpeechCrestFactor);
     if (_hasSpeech) return candidate;
 
     if (candidate) {
@@ -557,7 +558,7 @@ class AiVoiceConversationService extends ChangeNotifier {
             final text = await _recognize(bytes, _sessionSerial);
             if (!_snapshot.active ||
                 serial != _utteranceSerial ||
-                text.isEmpty) {
+                !hasMeaningfulSpeechText(text)) {
               return;
             }
             final previous = _snapshot.currentTranscript.trim();
@@ -595,7 +596,10 @@ class AiVoiceConversationService extends ChangeNotifier {
     _partialRecognitionTimer = null;
     final sessionSerial = _sessionSerial;
     final bytes = Uint8List.fromList(_utterance);
-    final fallback = _snapshot.currentTranscript.trim();
+    final partialTranscript = _snapshot.currentTranscript.trim();
+    final fallback = hasMeaningfulSpeechText(partialTranscript)
+        ? partialTranscript
+        : '';
     _utteranceSerial += 1;
     _utterance = <int>[];
     _preRoll = <int>[];
@@ -680,7 +684,11 @@ class AiVoiceConversationService extends ChangeNotifier {
 
   Future<void> _deliverText(String source, int sessionSerial) async {
     var text = source.trim();
-    if (text.isEmpty || !_isCurrentSession(sessionSerial)) return;
+    if (!_isCurrentSession(sessionSerial)) return;
+    if (!hasMeaningfulSpeechText(text)) {
+      _ignoreRecognizedText(sessionSerial);
+      return;
+    }
     if (_polishingSettings.enabled && !_polishingUnavailable) {
       _setSnapshot(
         _snapshot.copyWith(
@@ -704,7 +712,11 @@ class AiVoiceConversationService extends ChangeNotifier {
         _notifyIssue(message);
       }
     }
-    if (!_isCurrentSession(sessionSerial) || text.trim().isEmpty) return;
+    if (!_isCurrentSession(sessionSerial)) return;
+    if (!hasMeaningfulSpeechText(text)) {
+      _ignoreRecognizedText(sessionSerial);
+      return;
+    }
     _setSnapshot(
       _snapshot.copyWith(
         currentTranscript: '',
@@ -714,6 +726,19 @@ class AiVoiceConversationService extends ChangeNotifier {
       ),
     );
     _onTextReady?.call(text.trim());
+  }
+
+  void _ignoreRecognizedText(int sessionSerial) {
+    if (!_isCurrentSession(sessionSerial)) return;
+    _setSnapshot(
+      _snapshot.copyWith(
+        phase: AiVoiceConversationPhase.listening,
+        currentTranscript: '',
+        previousTranscript: '',
+        inputLevel: 0,
+        clearMessage: true,
+      ),
+    );
   }
 
   Future<void> _pumpSpeech(int sessionSerial, int speechSerial) async {
