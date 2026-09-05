@@ -225,12 +225,21 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
     final requiresUpdate =
         installed &&
         service.requiresDownloadForConfiguration(widget.model, _configuration);
+    final requiresModelFiles = service.requiresModelFilesForConfiguration(
+      widget.model,
+      _configuration,
+    );
+    final requiresRuntime = service.requiresRuntimePreparation(widget.model);
+    final preparing = state.lifecycle == OfflineSpeechLifecycle.preparing;
+    final repairingRuntime =
+        installed && !requiresModelFiles && requiresRuntime;
     final runnable = installed && !requiresUpdate && hardwareAvailable;
     final running = state.lifecycle == OfflineSpeechLifecycle.running;
     final busy =
         _mutating ||
         _testing ||
         state.lifecycle == OfflineSpeechLifecycle.downloading ||
+        preparing ||
         state.lifecycle == OfflineSpeechLifecycle.starting ||
         state.lifecycle == OfflineSpeechLifecycle.stopping;
     final accent = theme.colorScheme.primary;
@@ -323,8 +332,12 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                     tooltip:
                         state.lifecycle == OfflineSpeechLifecycle.downloading
                         ? '正在下载模型'
+                        : preparing
+                        ? '正在准备隔离运行环境'
                         : !hardwareAvailable
                         ? availability.reason
+                        : repairingRuntime
+                        ? '补全隔离运行环境'
                         : requiresUpdate
                         ? '更新模型'
                         : installed
@@ -338,13 +351,17 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                         : requiresUpdate || !installed
                         ? _showDownloadDialog
                         : _confirmRemove,
-                    child: state.lifecycle == OfflineSpeechLifecycle.downloading
+                    child:
+                        state.lifecycle == OfflineSpeechLifecycle.downloading ||
+                            preparing
                         ? const SizedBox.square(
                             dimension: 17,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Icon(
-                            requiresUpdate
+                            repairingRuntime
+                                ? Icons.settings_suggest_rounded
+                                : requiresUpdate
                                 ? Icons.system_update_alt_rounded
                                 : installed
                                 ? Icons.delete_outline_rounded
@@ -442,16 +459,35 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
 
   Future<void> _showDownloadDialog() async {
     final service = OfflineSpeechModelService.instance;
-    final updating =
-        service.isInstalled(widget.model) &&
-        service.requiresDownloadForConfiguration(widget.model, _configuration);
+    final installed = service.isInstalled(widget.model);
+    final modelFilesRequired = service.requiresModelFilesForConfiguration(
+      widget.model,
+      _configuration,
+    );
+    final runtimeRequired = service.requiresRuntimePreparation(widget.model);
+    final repairingRuntime =
+        installed && !modelFilesRequired && runtimeRequired;
+    final action = repairingRuntime
+        ? '补全运行环境'
+        : installed
+        ? '更新'
+        : '下载';
+    final runtimeNote = runtimeRequired
+        ? '首次使用还会准备 ${service.runtimePreparationSizeLabel(widget.model)} 的隔离运行环境。'
+        : '';
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: '${updating ? '更新' : '下载'} ${widget.model.name}？',
-      message: updating
+      title: '$action ${widget.model.name}？',
+      message: repairingRuntime
+          ? '模型文件已保留。现在需要下载并验证 ${service.runtimePreparationSizeLabel(widget.model)} 的隔离运行环境，完成后即可运行。'
+          : installed
           ? '模型包约 ${widget.model.sizeLabel}。更新期间会额外占用一份模型空间，完成后自动替换旧文件。'
-          : '模型包约 ${widget.model.sizeLabel}，下载期间会占用网络和磁盘空间。',
-      confirmLabel: updating ? '确认更新' : '确认下载',
+          : '模型包约 ${widget.model.sizeLabel}，下载期间会占用网络和磁盘空间。$runtimeNote',
+      confirmLabel: repairingRuntime
+          ? '开始准备'
+          : installed
+          ? '确认更新'
+          : '确认下载',
     );
     if (!confirmed || !mounted) return;
     await showOpenHandProfiledDialog<void>(
@@ -723,6 +759,7 @@ class _OfflineSpeechDownloadDialogState
     final theme = Theme.of(context);
     final state = _service.stateOf(widget.model);
     final progress = state.progress;
+    final preparing = state.lifecycle == OfflineSpeechLifecycle.preparing;
     final accent = theme.colorScheme.primary;
     return PopScope(
       canPop: _finished,
@@ -742,6 +779,8 @@ class _OfflineSpeechDownloadDialogState
               Text(
                 _finished
                     ? _resultMessage
+                    : preparing
+                    ? '正在为 ${widget.model.name} 准备隔离运行环境，完成前请保持网络连接。'
                     : '正在下载 ${widget.model.name}，完成前请保持网络连接。',
                 style: theme.textTheme.bodyMedium,
               ),
@@ -765,26 +804,28 @@ class _OfflineSpeechDownloadDialogState
                   ),
                 ),
                 kOpenHandGap12,
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    _OfflineSpeechMetric(
-                      icon: Icons.data_usage_rounded,
-                      text: state.totalBytes > 0
-                          ? '${formatByteSize(state.receivedBytes)} / ${formatByteSize(state.totalBytes)}'
-                          : formatByteSize(state.receivedBytes),
-                    ),
-                    _OfflineSpeechMetric(
-                      icon: Icons.speed_rounded,
-                      text: '${formatByteSize(state.bytesPerSecond)}/s',
-                    ),
-                    _OfflineSpeechMetric(
-                      icon: Icons.inventory_2_outlined,
-                      text: '${state.completedFiles} / ${state.totalFiles} 个文件',
-                    ),
-                  ],
-                ),
+                if (state.totalBytes > 0 || state.totalFiles > 0)
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      _OfflineSpeechMetric(
+                        icon: Icons.data_usage_rounded,
+                        text: state.totalBytes > 0
+                            ? '${formatByteSize(state.receivedBytes)} / ${formatByteSize(state.totalBytes)}'
+                            : formatByteSize(state.receivedBytes),
+                      ),
+                      _OfflineSpeechMetric(
+                        icon: Icons.speed_rounded,
+                        text: '${formatByteSize(state.bytesPerSecond)}/s',
+                      ),
+                      _OfflineSpeechMetric(
+                        icon: Icons.inventory_2_outlined,
+                        text:
+                            '${state.completedFiles} / ${state.totalFiles} 个文件',
+                      ),
+                    ],
+                  ),
                 if (state.message != null) ...<Widget>[
                   kOpenHandGap10,
                   Text(
@@ -830,23 +871,29 @@ class _OfflineSpeechDownloadDialogState
   }
 
   String get _dialogTitle {
-    if (!_finished) return _cancelling ? '正在取消下载' : '下载离线模型';
+    if (!_finished) {
+      if (_cancelling) return '正在取消任务';
+      return _service.stateOf(widget.model).lifecycle ==
+              OfflineSpeechLifecycle.preparing
+          ? '准备隔离运行环境'
+          : '下载离线模型';
+    }
     if (_cancelled) return '下载已取消';
     if (_error != null) return '下载失败';
     return '模型已就绪';
   }
 
   String get _resultMessage {
-    if (_cancelled) return '下载已停止，所有未完成的模型数据均已清理。';
+    if (_cancelled) return '任务已停止，未完成的临时数据已清理，完整模型文件已保留。';
     if (_error != null) return '$_error';
-    return '${widget.model.name} 已完整下载到本地，可以启用并运行。';
+    return '${widget.model.name} 及隔离运行环境已准备完成，可以启用并运行。';
   }
 
   Future<void> _confirmCancel() async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: '强制取消下载？',
-      message: '下载会立即终止，已经写入的模型文件将同步清理。',
+      title: '强制取消当前任务？',
+      message: '当前任务会立即终止，未完成的临时数据将同步清理，已经完整下载的模型文件会保留。',
       confirmLabel: '取消并清理',
       destructive: true,
       barrierDismissible: false,
@@ -1058,6 +1105,7 @@ class _OfflineSpeechLifecycleBadge extends StatelessWidget {
         theme.colorScheme.onSurfaceVariant,
       ),
       OfflineSpeechLifecycle.downloading => ('下载中', theme.colorScheme.primary),
+      OfflineSpeechLifecycle.preparing => ('准备中', theme.colorScheme.tertiary),
       OfflineSpeechLifecycle.installed => ('已下载', OpenHandStatusColors.info),
       OfflineSpeechLifecycle.starting => ('启动中', theme.colorScheme.tertiary),
       OfflineSpeechLifecycle.running => ('运行中', OpenHandStatusColors.success),

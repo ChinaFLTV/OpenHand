@@ -14,6 +14,7 @@ import '../../model/offline_speech_model.dart';
 enum OfflineSpeechLifecycle {
   absent,
   downloading,
+  preparing,
   installed,
   starting,
   running,
@@ -84,6 +85,8 @@ abstract interface class OfflineSpeechRuntimeAdapter {
     required OfflineSpeechModelDefinition model,
     required String modelPath,
     required Map<String, Object?> configuration,
+    required String workingDirectory,
+    required Map<String, String> environment,
   });
 }
 
@@ -99,6 +102,8 @@ class PythonOfflineSpeechRuntimeAdapter implements OfflineSpeechRuntimeAdapter {
     required OfflineSpeechModelDefinition model,
     required String modelPath,
     required Map<String, Object?> configuration,
+    required String workingDirectory,
+    required Map<String, String> environment,
   }) {
     if (model.runtime != runtime) {
       throw StateError('模型运行时适配器不匹配。');
@@ -117,8 +122,36 @@ class PythonOfflineSpeechRuntimeAdapter implements OfflineSpeechRuntimeAdapter {
       ],
       timeout: const Duration(seconds: 15),
       tag: 'offline_speech.start.${runtime.name}',
+      workingDirectory: workingDirectory,
+      environment: environment,
     );
   }
+}
+
+class _OfflineSpeechRuntimeSpec {
+  const _OfflineSpeechRuntimeSpec({
+    required this.revision,
+    required this.pythonVersion,
+    required this.estimatedStorageGiB,
+    required this.packages,
+    required this.smokeTest,
+    this.buildPackages = const <String>[],
+    this.disableBuildIsolation = false,
+    this.sourceRepository,
+    this.sourceRevision,
+  });
+
+  final String revision;
+  final String pythonVersion;
+  final double estimatedStorageGiB;
+  final List<String> packages;
+  final String smokeTest;
+  final List<String> buildPackages;
+  final bool disableBuildIsolation;
+  final String? sourceRepository;
+  final String? sourceRevision;
+
+  bool get requiresSource => sourceRepository != null;
 }
 
 class OfflineSpeechModelService extends ChangeNotifier {
@@ -128,8 +161,110 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   static final OfflineSpeechModelService instance =
       OfflineSpeechModelService._();
-  static const Duration _runtimeStartTimeout = Duration(minutes: 3);
+  static const Duration _runtimeStartTimeout = Duration(minutes: 5);
+  static const Duration _runtimeInstallTimeout = Duration(minutes: 45);
   static const Duration _downloadNotifyInterval = Duration(milliseconds: 80);
+  static const Duration _downloadIdleTimeout = Duration(seconds: 60);
+  static const int _runtimeErrorCharacters = 8 * 1024;
+  static const Map<OfflineSpeechRuntime, _OfflineSpeechRuntimeSpec>
+  _runtimeSpecs = <OfflineSpeechRuntime, _OfflineSpeechRuntimeSpec>{
+    OfflineSpeechRuntime.funAsr: _OfflineSpeechRuntimeSpec(
+      revision: 'funasr-1.4.14-v1',
+      pythonVersion: '3.12',
+      estimatedStorageGiB: 3,
+      packages: <String>[
+        'torch==2.11.0',
+        'torchaudio==2.11.0',
+        'funasr==1.4.14',
+      ],
+      smokeTest: 'from funasr import AutoModel',
+    ),
+    OfflineSpeechRuntime.qwenAsr: _OfflineSpeechRuntimeSpec(
+      revision: 'qwen-asr-0.0.6-v1',
+      pythonVersion: '3.12',
+      estimatedStorageGiB: 3,
+      packages: <String>[
+        'torch==2.11.0',
+        'torchaudio==2.11.0',
+        'qwen-asr==0.0.6',
+      ],
+      smokeTest: 'from qwen_asr import Qwen3ASRModel',
+    ),
+    OfflineSpeechRuntime.fasterWhisper: _OfflineSpeechRuntimeSpec(
+      revision: 'faster-whisper-1.2.1-v1',
+      pythonVersion: '3.12',
+      estimatedStorageGiB: 1,
+      packages: <String>['faster-whisper==1.2.1'],
+      smokeTest: 'from faster_whisper import WhisperModel',
+    ),
+    OfflineSpeechRuntime.sherpaOnnx: _OfflineSpeechRuntimeSpec(
+      revision: 'sherpa-onnx-1.13.7-v1',
+      pythonVersion: '3.12',
+      estimatedStorageGiB: 0.5,
+      packages: <String>['sherpa-onnx==1.13.7'],
+      smokeTest: 'import sherpa_onnx',
+    ),
+    OfflineSpeechRuntime.cosyVoice: _OfflineSpeechRuntimeSpec(
+      revision: 'cosyvoice-074ca6d-v4',
+      pythonVersion: '3.10',
+      estimatedStorageGiB: 4,
+      buildPackages: <String>[
+        'setuptools<81',
+        'wheel',
+        'Cython==0.29.35',
+        'numpy==1.26.4',
+      ],
+      disableBuildIsolation: true,
+      packages: <String>[
+        'torch==2.3.1',
+        'torchaudio==2.3.1',
+        'conformer==0.3.2',
+        'diffusers==0.29.0',
+        'einops',
+        'gdown==5.1.0',
+        'hydra-core==1.3.2',
+        'HyperPyYAML==1.2.3',
+        'inflect==7.3.1',
+        'librosa==0.10.2',
+        'lightning==2.2.4',
+        'matplotlib==3.7.5',
+        'modelscope==1.20.0',
+        'networkx==3.1',
+        'numpy==1.26.4',
+        'omegaconf==2.3.0',
+        'onnx==1.16.0',
+        'onnxruntime==1.18.0',
+        'openai-whisper==20231117',
+        'protobuf>=4.25,<5',
+        'pyarrow==18.1.0',
+        'pydantic==2.7.0',
+        'pyworld==0.3.4',
+        'PyYAML>=6.0',
+        'rich==13.7.1',
+        'soundfile==0.12.1',
+        'tiktoken',
+        'tqdm',
+        'transformers==4.51.3',
+        'wetext==0.0.4',
+        'wget==3.2',
+        'x-transformers==2.11.24',
+      ],
+      smokeTest: 'from cosyvoice.cli.cosyvoice import AutoModel',
+      sourceRepository: 'https://github.com/QwenAudio/CosyVoice.git',
+      sourceRevision: '074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc',
+    ),
+    OfflineSpeechRuntime.qwenTts: _OfflineSpeechRuntimeSpec(
+      revision: 'qwen-tts-0.1.1-v1',
+      pythonVersion: '3.12',
+      estimatedStorageGiB: 3,
+      packages: <String>[
+        'torch==2.11.0',
+        'torchaudio==2.11.0',
+        'qwen-tts==0.1.1',
+      ],
+      smokeTest: 'from qwen_tts import Qwen3TTSModel',
+    ),
+  };
   static const Set<String> _metadataExtensions = <String>{
     '.json',
     '.txt',
@@ -160,6 +295,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
   final Map<String, _DownloadCancellation> _downloadCancellations =
       <String, _DownloadCancellation>{};
   final Map<String, Process> _processes = <String, Process>{};
+  final Map<OfflineSpeechRuntime, Future<void>> _runtimePreparations =
+      <OfflineSpeechRuntime, Future<void>>{};
   OfflineSpeechHardwareProfile? _hardwareProfile;
   final Map<OfflineSpeechRuntime, OfflineSpeechRuntimeAdapter>
   _runtimeAdapters = <OfflineSpeechRuntime, OfflineSpeechRuntimeAdapter>{
@@ -207,6 +344,15 @@ class OfflineSpeechModelService extends ChangeNotifier {
         reason: '无法读取模型目录的可用空间。',
       );
     }
+    final runtimeUnavailableReason = _runtimePreparationUnavailableReason(
+      model.runtime,
+    );
+    if (runtimeUnavailableReason != null) {
+      return OfflineSpeechModelAvailability(
+        available: false,
+        reason: runtimeUnavailableReason,
+      );
+    }
     final requirement = _hardwareRequirement(model, configuration);
     final currentMemoryGiB = profile.totalMemoryBytes / (1024 * 1024 * 1024);
     if (currentMemoryGiB < requirement.memoryGiB) {
@@ -223,18 +369,22 @@ class OfflineSpeechModelService extends ChangeNotifier {
             '至少需要 ${requirement.logicalCores} 个逻辑核心，当前为 ${profile.logicalCores} 个。',
       );
     }
+    final runtimeStorageGiB = requiresRuntimePreparation(model)
+        ? _runtimeSpecs[model.runtime]!.estimatedStorageGiB
+        : 0;
+    final requiredStorageGiB = requirement.storageGiB + runtimeStorageGiB;
     final freeStorageGiB = profile.freeStorageBytes / (1024 * 1024 * 1024);
-    if (freeStorageGiB < requirement.storageGiB) {
+    if (freeStorageGiB < requiredStorageGiB) {
       return OfflineSpeechModelAvailability(
         available: false,
         reason:
-            '至少需要 ${requirement.storageGiB.toStringAsFixed(1)} GB 可用空间，当前约 ${freeStorageGiB.toStringAsFixed(1)} GB。',
+            '模型及运行环境至少需要 ${requiredStorageGiB.toStringAsFixed(1)} GB 可用空间，当前约 ${freeStorageGiB.toStringAsFixed(1)} GB。',
       );
     }
     return OfflineSpeechModelAvailability(
       available: true,
       reason:
-          '设备满足 ${requirement.memoryGiB} GB 内存、${requirement.logicalCores} 核和 ${requirement.storageGiB.toStringAsFixed(1)} GB 空间要求。',
+          '设备满足 ${requirement.memoryGiB} GB 内存、${requirement.logicalCores} 核和 ${requiredStorageGiB.toStringAsFixed(1)} GB 空间要求。',
     );
   }
 
@@ -264,6 +414,14 @@ class OfflineSpeechModelService extends ChangeNotifier {
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration,
   ) {
+    return requiresModelFilesForConfiguration(model, configuration) ||
+        requiresRuntimePreparation(model);
+  }
+
+  bool requiresModelFilesForConfiguration(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration,
+  ) {
     final manifest = File(p.join(modelDirectory(model), 'openhand-model.json'));
     if (!manifest.existsSync()) return true;
     final expected = _artifactConfiguration(model, configuration);
@@ -282,6 +440,15 @@ class OfflineSpeechModelService extends ChangeNotifier {
     }
   }
 
+  bool requiresRuntimePreparation(OfflineSpeechModelDefinition model) {
+    return !_isRuntimeReady(model.runtime);
+  }
+
+  String runtimePreparationSizeLabel(OfflineSpeechModelDefinition model) {
+    final size = _runtimeSpecs[model.runtime]!.estimatedStorageGiB;
+    return '约 ${size == size.roundToDouble() ? size.toInt() : size} GB';
+  }
+
   Future<void> download(
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration,
@@ -292,101 +459,125 @@ class OfflineSpeechModelService extends ChangeNotifier {
     if (!availability.available) throw StateError(availability.reason);
     final target = Directory(modelDirectory(model));
     final staging = Directory('${target.path}.partial');
+    final downloadModelFiles = requiresModelFilesForConfiguration(
+      model,
+      configuration,
+    );
     final cancellation = _DownloadCancellation();
     _downloadCancellations[model.id] = cancellation;
     _setState(
       model.id,
-      const OfflineSpeechModelState(
-        lifecycle: OfflineSpeechLifecycle.downloading,
+      OfflineSpeechModelState(
+        lifecycle: downloadModelFiles
+            ? OfflineSpeechLifecycle.downloading
+            : OfflineSpeechLifecycle.preparing,
+        message: downloadModelFiles ? '正在读取模型文件清单…' : '正在检查隔离运行环境…',
       ),
     );
+    var receivedBytes = 0;
+    var totalBytes = 0;
+    var completedFiles = 0;
+    var totalFiles = 0;
     try {
       if (await staging.exists()) await staging.delete(recursive: true);
-      await staging.create(recursive: true);
-      final files = await _loadRepositoryFiles(
-        model,
-        configuration,
-        cancellation,
-      );
-      if (files.isEmpty) throw StateError('模型仓库没有可下载的运行文件。');
-      final totalBytes = files.fold<int>(0, (sum, file) => sum + file.size);
-      var receivedBytes = 0;
-      var completedFiles = 0;
-      final stopwatch = Stopwatch()..start();
-      var lastNotified = Duration.zero;
-      for (final remote in files) {
-        cancellation.throwIfCancelled();
-        final file = File(p.join(staging.path, remote.path));
-        await file.parent.create(recursive: true);
-        final sink = file.openWrite();
-        var fileBytes = 0;
-        try {
-          final opened = await _openDownload(remote.uri, cancellation);
+      if (downloadModelFiles) {
+        await staging.create(recursive: true);
+        final files = await _loadRepositoryFiles(
+          model,
+          configuration,
+          cancellation,
+        );
+        if (files.isEmpty) throw StateError('模型仓库没有可下载的运行文件。');
+        totalBytes = files.fold<int>(0, (sum, file) => sum + file.size);
+        totalFiles = files.length;
+        final stopwatch = Stopwatch()..start();
+        var lastNotified = Duration.zero;
+        for (final remote in files) {
+          cancellation.throwIfCancelled();
+          final file = File(p.join(staging.path, remote.path));
+          await file.parent.create(recursive: true);
+          final sink = file.openWrite();
+          var fileBytes = 0;
           try {
-            await for (final chunk in opened.response) {
-              cancellation.throwIfCancelled();
-              sink.add(chunk);
-              fileBytes += chunk.length;
-              receivedBytes += chunk.length;
-              final elapsed = stopwatch.elapsed;
-              if (elapsed - lastNotified >= _downloadNotifyInterval) {
-                lastNotified = elapsed;
-                _setState(
-                  model.id,
-                  OfflineSpeechModelState(
-                    lifecycle: OfflineSpeechLifecycle.downloading,
-                    receivedBytes: receivedBytes,
-                    totalBytes: totalBytes,
-                    bytesPerSecond: elapsed.inMilliseconds == 0
-                        ? 0
-                        : receivedBytes * 1000 / elapsed.inMilliseconds,
-                    completedFiles: completedFiles,
-                    totalFiles: files.length,
-                    message: remote.path,
-                  ),
-                );
+            final opened = await _openDownload(remote.uri, cancellation);
+            try {
+              await for (final chunk in opened.response.timeout(
+                _downloadIdleTimeout,
+              )) {
+                cancellation.throwIfCancelled();
+                sink.add(chunk);
+                fileBytes += chunk.length;
+                receivedBytes += chunk.length;
+                final elapsed = stopwatch.elapsed;
+                if (elapsed - lastNotified >= _downloadNotifyInterval) {
+                  lastNotified = elapsed;
+                  _setState(
+                    model.id,
+                    OfflineSpeechModelState(
+                      lifecycle: OfflineSpeechLifecycle.downloading,
+                      receivedBytes: receivedBytes,
+                      totalBytes: totalBytes,
+                      bytesPerSecond: elapsed.inMilliseconds == 0
+                          ? 0
+                          : receivedBytes * 1000 / elapsed.inMilliseconds,
+                      completedFiles: completedFiles,
+                      totalFiles: totalFiles,
+                      message: remote.path,
+                    ),
+                  );
+                }
               }
+            } finally {
+              if (identical(cancellation.client, opened.client)) {
+                cancellation.client = null;
+              }
+              opened.client.close(force: cancellation.cancelled);
             }
           } finally {
-            if (identical(cancellation.client, opened.client)) {
-              cancellation.client = null;
-            }
-            opened.client.close(force: cancellation.cancelled);
+            await sink.flush();
+            await sink.close();
           }
-        } finally {
-          await sink.flush();
-          await sink.close();
+          if (remote.size > 0 && fileBytes != remote.size) {
+            throw StateError('模型文件下载不完整：${remote.path}');
+          }
+          completedFiles++;
         }
-        if (remote.size > 0 && fileBytes != remote.size) {
-          throw StateError('模型文件下载不完整：${remote.path}');
-        }
-        completedFiles++;
+        cancellation.throwIfCancelled();
+        await File(p.join(staging.path, 'openhand-model.json')).writeAsString(
+          const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+            'id': model.id,
+            'repository': _repositoryFor(model, configuration),
+            'downloaded_at': DateTime.now().toUtc().toIso8601String(),
+            'artifact_configuration': _artifactConfiguration(
+              model,
+              configuration,
+            ),
+            'files': files.map((file) => file.path).toList(growable: false),
+          }),
+          flush: true,
+        );
+        if (await target.exists()) await target.delete(recursive: true);
+        await staging.rename(target.path);
       }
       cancellation.throwIfCancelled();
-      await File(p.join(staging.path, 'openhand-model.json')).writeAsString(
-        const JsonEncoder.withIndent('  ').convert(<String, Object?>{
-          'id': model.id,
-          'repository': _repositoryFor(model, configuration),
-          'downloaded_at': DateTime.now().toUtc().toIso8601String(),
-          'artifact_configuration': _artifactConfiguration(
-            model,
-            configuration,
-          ),
-          'files': files.map((file) => file.path).toList(growable: false),
-        }),
-        flush: true,
+      _setState(
+        model.id,
+        const OfflineSpeechModelState(
+          lifecycle: OfflineSpeechLifecycle.preparing,
+          message: '正在准备隔离运行环境…',
+        ),
       );
-      if (await target.exists()) await target.delete(recursive: true);
-      await staging.rename(target.path);
+      await _ensureRuntime(model, cancellation);
+      cancellation.throwIfCancelled();
       _setState(
         model.id,
         OfflineSpeechModelState(
           lifecycle: OfflineSpeechLifecycle.installed,
           receivedBytes: receivedBytes,
           totalBytes: math.max(totalBytes, receivedBytes),
-          completedFiles: files.length,
-          totalFiles: files.length,
-          message: '下载完成',
+          completedFiles: completedFiles,
+          totalFiles: totalFiles,
+          message: '模型及运行环境已准备完成',
         ),
       );
       unawaited(_inspectHardware());
@@ -409,7 +600,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
       _setState(
         model.id,
         OfflineSpeechModelState(
-          lifecycle: retained
+          lifecycle:
+              retained &&
+                  !requiresDownloadForConfiguration(model, configuration)
               ? OfflineSpeechLifecycle.installed
               : OfflineSpeechLifecycle.failed,
           message: '$error',
@@ -449,7 +642,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     if (!availability.available) throw StateError(availability.reason);
     if (!isInstalled(model)) throw StateError('请先下载模型。');
     if (requiresDownloadForConfiguration(model, configuration)) {
-      throw StateError('模型尺寸或精度已经变更，请重新下载当前配置。');
+      throw StateError('模型文件或隔离运行环境尚未就绪，请点击更新按钮完成准备。');
     }
     if (_processes.containsKey(model.id)) return;
     final runningSameKind = _processes.keys
@@ -466,10 +659,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
     );
     Process? process;
     try {
-      final python =
-          _findExecutable(Platform.isWindows ? 'python.exe' : 'python3') ??
-          _findExecutable('python');
-      if (python == null) throw StateError('未检测到 Python 3，无法启动模型运行时。');
+      final runtimeRoot = _runtimeDirectory(model.runtime);
+      final python = _runtimePythonExecutable(runtimeRoot);
+      if (!File(python).existsSync()) {
+        throw StateError('隔离运行环境已损坏，请点击更新按钮自动修复。');
+      }
       final runner = await _writeRuntimeHost();
       process = await _runtimeAdapters[model.runtime]!.start(
         pythonExecutable: python,
@@ -477,10 +671,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
         model: model,
         modelPath: modelDirectory(model),
         configuration: configuration,
+        workingDirectory: runtimeRoot,
+        environment: _runtimeEnvironment(model.runtime, runtimeRoot),
       );
       _processes[model.id] = process;
       final ready = Completer<void>();
-      final errors = StringBuffer();
+      var errors = '';
       process.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
@@ -489,17 +685,20 @@ class OfflineSpeechModelService extends ChangeNotifier {
               ready.complete();
             }
           });
-      process.stderr.transform(utf8.decoder).listen((line) {
-        if (errors.length < 8000) errors.write(line);
+      process.stderr.transform(utf8.decoder).listen((chunk) {
+        errors += chunk;
+        if (errors.length > _runtimeErrorCharacters) {
+          errors = errors.substring(errors.length - _runtimeErrorCharacters);
+        }
       });
       unawaited(
         process.exitCode.then((code) {
           if (!ready.isCompleted) {
             ready.completeError(
               StateError(
-                errors.toString().trim().isEmpty
+                errors.trim().isEmpty
                     ? '模型运行时异常退出（$code）。'
-                    : errors.toString().trim(),
+                    : _runtimeStartFailureMessage(model, errors, code),
               ),
             );
           }
@@ -525,6 +724,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
     } catch (error) {
       _processes.remove(model.id);
       process?.kill(ProcessSignal.sigkill);
+      if (_isRuntimeDependencyFailure(error)) {
+        await _invalidateRuntime(model.runtime);
+      }
       _setState(
         model.id,
         OfflineSpeechModelState(
@@ -606,7 +808,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
           uri: uri,
         );
       }
-      final payload = jsonDecode(await utf8.decodeStream(response));
+      final payload = jsonDecode(
+        await utf8.decodeStream(response.timeout(_downloadIdleTimeout)),
+      );
       if (payload is! Map || payload['siblings'] is! List) {
         return const <_RemoteModelFile>[];
       }
@@ -653,6 +857,498 @@ class OfflineSpeechModelService extends ChangeNotifier {
       if (identical(cancellation.client, client)) cancellation.client = null;
       client.close(force: cancellation.cancelled);
     }
+  }
+
+  Future<void> _ensureRuntime(
+    OfflineSpeechModelDefinition model,
+    _DownloadCancellation cancellation,
+  ) async {
+    if (_isRuntimeReady(model.runtime)) return;
+    final pending = _runtimePreparations[model.runtime];
+    if (pending != null) {
+      _setState(
+        model.id,
+        const OfflineSpeechModelState(
+          lifecycle: OfflineSpeechLifecycle.preparing,
+          message: '正在等待同类模型的隔离运行环境…',
+        ),
+      );
+      await Future.any<void>(<Future<void>>[
+        pending,
+        cancellation.cancelSignal.then<void>(
+          (_) => throw const OfflineSpeechDownloadCancelled(),
+        ),
+      ]);
+      cancellation.throwIfCancelled();
+      return;
+    }
+
+    final preparation = _prepareRuntime(model, cancellation);
+    _runtimePreparations[model.runtime] = preparation;
+    try {
+      await preparation;
+    } finally {
+      if (identical(_runtimePreparations[model.runtime], preparation)) {
+        unawaited(_runtimePreparations.remove(model.runtime));
+      }
+    }
+  }
+
+  Future<void> _prepareRuntime(
+    OfflineSpeechModelDefinition model,
+    _DownloadCancellation cancellation,
+  ) async {
+    final spec = _runtimeSpecs[model.runtime]!;
+    final target = Directory(_runtimeDirectory(model.runtime));
+    final staging = Directory('${target.path}.partial');
+    final stagingMarker = File(
+      p.join(staging.path, 'openhand-runtime.partial.json'),
+    );
+    final environment = _runtimeEnvironment(model.runtime, staging.path);
+    final uv = _findUvExecutable();
+    final compatiblePython = _findExecutable(
+      Platform.isWindows
+          ? 'python${spec.pythonVersion}.exe'
+          : 'python${spec.pythonVersion}',
+    );
+    if (uv == null && compatiblePython == null) {
+      throw StateError(
+        '准备运行环境需要 uv 或 Python ${spec.pythonVersion}。请安装后重新检测设备。',
+      );
+    }
+    final git = spec.requiresSource
+        ? _findExecutable(Platform.isWindows ? 'git.exe' : 'git')
+        : null;
+    if (spec.requiresSource && git == null) {
+      throw StateError('准备 ${model.name} 运行环境需要 Git。请安装后重新检测设备。');
+    }
+
+    try {
+      var canResume = false;
+      if (await stagingMarker.exists()) {
+        try {
+          final payload = jsonDecode(await stagingMarker.readAsString());
+          canResume =
+              payload is Map &&
+              payload['runtime'] == model.runtime.name &&
+              payload['revision'] == spec.revision;
+        } catch (_) {
+          canResume = false;
+        }
+      }
+      if (!canResume && await staging.exists()) {
+        await staging.delete(recursive: true);
+      }
+      await staging.create(recursive: true);
+      if (!canResume) {
+        await stagingMarker.writeAsString(
+          jsonEncode(<String, Object?>{
+            'runtime': model.runtime.name,
+            'revision': spec.revision,
+          }),
+          flush: true,
+        );
+      }
+      final venvPath = p.join(staging.path, '.venv');
+      if (!File(_runtimePythonExecutable(staging.path)).existsSync()) {
+        if (await Directory(venvPath).exists()) {
+          await Directory(venvPath).delete(recursive: true);
+        }
+        await _runRuntimeCommand(
+          model: model,
+          cancellation: cancellation,
+          executable: uv ?? compatiblePython!,
+          arguments: uv != null
+              ? <String>['venv', '--python', spec.pythonVersion, venvPath]
+              : <String>['-m', 'venv', venvPath],
+          environment: environment,
+          message: '正在创建 Python ${spec.pythonVersion} 隔离环境…',
+        );
+      }
+
+      if (spec.requiresSource) {
+        final sourcePath = p.join(staging.path, 'source');
+        final sourceMarker = File(p.join(sourcePath, 'openhand-source-ready'));
+        if (!await sourceMarker.exists()) {
+          if (await Directory(sourcePath).exists()) {
+            await Directory(sourcePath).delete(recursive: true);
+          }
+          await _runRuntimeCommand(
+            model: model,
+            cancellation: cancellation,
+            executable: git!,
+            arguments: <String>['init', sourcePath],
+            environment: environment,
+            message: '正在初始化官方运行时源码…',
+          );
+          await _runRuntimeCommand(
+            model: model,
+            cancellation: cancellation,
+            executable: git,
+            arguments: <String>[
+              '-C',
+              sourcePath,
+              'remote',
+              'add',
+              'origin',
+              spec.sourceRepository!,
+            ],
+            environment: environment,
+            message: '正在连接官方运行时仓库…',
+          );
+          await _runRuntimeCommand(
+            model: model,
+            cancellation: cancellation,
+            executable: git,
+            arguments: <String>[
+              '-C',
+              sourcePath,
+              'fetch',
+              '--depth',
+              '1',
+              'origin',
+              spec.sourceRevision!,
+            ],
+            environment: environment,
+            message: '正在下载官方运行时源码…',
+          );
+          await _runRuntimeCommand(
+            model: model,
+            cancellation: cancellation,
+            executable: git,
+            arguments: <String>[
+              '-C',
+              sourcePath,
+              'checkout',
+              '--detach',
+              'FETCH_HEAD',
+            ],
+            environment: environment,
+            message: '正在校验官方运行时版本…',
+          );
+          await _runRuntimeCommand(
+            model: model,
+            cancellation: cancellation,
+            executable: git,
+            arguments: <String>[
+              '-C',
+              sourcePath,
+              'submodule',
+              'update',
+              '--init',
+              '--recursive',
+              '--depth',
+              '1',
+            ],
+            environment: environment,
+            message: '正在下载官方运行时组件…',
+          );
+          await sourceMarker.writeAsString(spec.sourceRevision!, flush: true);
+        }
+      }
+
+      final runtimePython = _runtimePythonExecutable(staging.path);
+      if (spec.buildPackages.isNotEmpty) {
+        await _runRuntimeCommand(
+          model: model,
+          cancellation: cancellation,
+          executable: uv ?? runtimePython,
+          arguments: uv != null
+              ? <String>[
+                  'pip',
+                  'install',
+                  '--python',
+                  runtimePython,
+                  ...spec.buildPackages,
+                ]
+              : <String>[
+                  '-m',
+                  'pip',
+                  'install',
+                  '--disable-pip-version-check',
+                  ...spec.buildPackages,
+                ],
+          environment: environment,
+          message: '正在安装运行环境构建组件…',
+        );
+      }
+      await _runRuntimeCommand(
+        model: model,
+        cancellation: cancellation,
+        executable: uv ?? runtimePython,
+        arguments: uv != null
+            ? <String>[
+                'pip',
+                'install',
+                if (spec.disableBuildIsolation) '--no-build-isolation',
+                '--python',
+                runtimePython,
+                ...spec.packages,
+              ]
+            : <String>[
+                '-m',
+                'pip',
+                'install',
+                '--disable-pip-version-check',
+                if (spec.disableBuildIsolation) '--no-build-isolation',
+                ...spec.packages,
+              ],
+        environment: environment,
+        message: '正在安装 ${model.name} 运行依赖…',
+      );
+      await _runRuntimeCommand(
+        model: model,
+        cancellation: cancellation,
+        executable: runtimePython,
+        arguments: <String>['-c', spec.smokeTest],
+        workingDirectory: staging.path,
+        environment: environment,
+        message: '正在验证 ${model.name} 运行环境…',
+        timeout: const Duration(minutes: 5),
+      );
+      if (model.runtime == OfflineSpeechRuntime.cosyVoice) {
+        await _runRuntimeCommand(
+          model: model,
+          cancellation: cancellation,
+          executable: runtimePython,
+          arguments: <String>[
+            '-c',
+            '${spec.smokeTest}; AutoModel(model_dir=${jsonEncode(modelDirectory(model))})',
+          ],
+          workingDirectory: staging.path,
+          environment: environment,
+          message: '正在验证 ${model.name} 模型加载…',
+          timeout: _runtimeStartTimeout,
+        );
+      }
+      cancellation.throwIfCancelled();
+      await File(p.join(staging.path, 'openhand-runtime.json')).writeAsString(
+        const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+          'runtime': model.runtime.name,
+          'revision': spec.revision,
+          'python': spec.pythonVersion,
+          'prepared_at': DateTime.now().toUtc().toIso8601String(),
+        }),
+        flush: true,
+      );
+      await stagingMarker.delete();
+      if (await target.exists()) await target.delete(recursive: true);
+      await staging.rename(target.path);
+    } catch (_) {
+      if (cancellation.cancelled && await staging.exists()) {
+        await staging.delete(recursive: true);
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _runRuntimeCommand({
+    required OfflineSpeechModelDefinition model,
+    required _DownloadCancellation cancellation,
+    required String executable,
+    required List<String> arguments,
+    required Map<String, String> environment,
+    required String message,
+    String? workingDirectory,
+    Duration timeout = _runtimeInstallTimeout,
+  }) async {
+    cancellation.throwIfCancelled();
+    _setState(
+      model.id,
+      OfflineSpeechModelState(
+        lifecycle: OfflineSpeechLifecycle.preparing,
+        message: message,
+      ),
+    );
+    final result = await runTrackedProcessWithLineLogging(
+      executable,
+      arguments,
+      timeout: timeout,
+      processStartTimeout: const Duration(seconds: 20),
+      tag: 'offline_speech.runtime.${model.runtime.name}',
+      workingDirectory: workingDirectory,
+      environment: environment,
+      cancelSignal: cancellation.cancelSignal,
+      maxCapturedLinesPerStream: 80,
+      maxCapturedCharactersPerStream: 32 * 1024,
+    );
+    if (result.cancelled || cancellation.cancelled) {
+      throw const OfflineSpeechDownloadCancelled();
+    }
+    if (result.timedOut) {
+      throw StateError('$message超时，请检查网络后重试。');
+    }
+    if (result.exitCode == 0) return;
+    final details = _processFailureTail(
+      <String>[
+        result.stderr,
+        result.stdout,
+      ].where((value) => value.trim().isNotEmpty).join('\n'),
+    );
+    throw StateError(
+      details.isEmpty
+          ? '$message失败（退出码 ${result.exitCode}）。'
+          : '$message失败。\n$details',
+    );
+  }
+
+  String? _runtimePreparationUnavailableReason(OfflineSpeechRuntime runtime) {
+    if (_isRuntimeReady(runtime)) return null;
+    final spec = _runtimeSpecs[runtime]!;
+    final hasUv = _findUvExecutable() != null;
+    final compatiblePython = _findExecutable(
+      Platform.isWindows
+          ? 'python${spec.pythonVersion}.exe'
+          : 'python${spec.pythonVersion}',
+    );
+    if (!hasUv && compatiblePython == null) {
+      return '首次运行需要 uv 或 Python ${spec.pythonVersion}，当前设备尚未检测到。';
+    }
+    if (spec.requiresSource &&
+        _findExecutable(Platform.isWindows ? 'git.exe' : 'git') == null) {
+      return '首次运行 ${runtime.name} 需要 Git，当前设备尚未检测到。';
+    }
+    return null;
+  }
+
+  bool _isRuntimeReady(OfflineSpeechRuntime runtime) {
+    final spec = _runtimeSpecs[runtime]!;
+    final root = _runtimeDirectory(runtime);
+    final marker = File(p.join(root, 'openhand-runtime.json'));
+    if (!marker.existsSync() ||
+        !File(_runtimePythonExecutable(root)).existsSync()) {
+      return false;
+    }
+    if (spec.requiresSource &&
+        (!File(
+              p.join(root, 'source', 'cosyvoice', 'cli', 'cosyvoice.py'),
+            ).existsSync() ||
+            !Directory(
+              p.join(root, 'source', 'third_party', 'Matcha-TTS'),
+            ).existsSync())) {
+      return false;
+    }
+    try {
+      final payload = jsonDecode(marker.readAsStringSync());
+      return payload is Map &&
+          payload['runtime'] == runtime.name &&
+          payload['revision'] == spec.revision;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String _runtimeDirectory(OfflineSpeechRuntime runtime) {
+    return p.join(modelsRoot, '.runtimes', runtime.name);
+  }
+
+  String _runtimePythonExecutable(String runtimeRoot) {
+    return Platform.isWindows
+        ? p.join(runtimeRoot, '.venv', 'Scripts', 'python.exe')
+        : p.join(runtimeRoot, '.venv', 'bin', 'python');
+  }
+
+  Map<String, String> _runtimeEnvironment(
+    OfflineSpeechRuntime runtime,
+    String runtimeRoot,
+  ) {
+    final route = SystemProxyResolver.instance.resolveRuntimeRoute();
+    final environment = <String, String>{
+      'PYTHONUNBUFFERED': '1',
+      'PYTHONNOUSERSITE': '1',
+      'PYTHONPATH': '',
+      'PIP_DISABLE_PIP_VERSION_CHECK': '1',
+      'UV_CACHE_DIR': p.join(
+        OpenHandPaths.defaultCacheDirectoryPath(),
+        'offline_speech',
+        'uv',
+      ),
+      'UV_PYTHON_INSTALL_DIR': p.join(modelsRoot, '.python'),
+      'UV_LINK_MODE': 'copy',
+      'HF_HOME': p.join(runtimeRoot, 'cache', 'huggingface'),
+      'MODELSCOPE_CACHE': p.join(runtimeRoot, 'cache', 'modelscope'),
+      'HTTP_PROXY': route.httpProxy ?? '',
+      'HTTPS_PROXY': route.httpsProxy ?? '',
+      'http_proxy': route.httpProxy ?? '',
+      'https_proxy': route.httpsProxy ?? '',
+      'NO_PROXY': route.exceptions.join(','),
+      'no_proxy': route.exceptions.join(','),
+    };
+    if (_runtimeSpecs[runtime]!.requiresSource) {
+      final source = p.join(runtimeRoot, 'source');
+      final paths = <String>[
+        source,
+        p.join(source, 'third_party', 'Matcha-TTS'),
+      ];
+      environment['PYTHONPATH'] = paths.join(Platform.isWindows ? ';' : ':');
+    }
+    return environment;
+  }
+
+  String? _findUvExecutable() {
+    final discovered = _findExecutable(Platform.isWindows ? 'uv.exe' : 'uv');
+    if (discovered != null) return discovered;
+    final home = OpenHandPaths.homeDirectoryPath();
+    final candidates = Platform.isWindows
+        ? <String>[
+            p.join(home, '.local', 'bin', 'uv.exe'),
+            p.join(
+              Platform.environment['LOCALAPPDATA'] ?? home,
+              'Programs',
+              'uv',
+              'uv.exe',
+            ),
+          ]
+        : <String>[
+            '/opt/homebrew/bin/uv',
+            '/usr/local/bin/uv',
+            p.join(home, '.local', 'bin', 'uv'),
+            p.join(home, '.cargo', 'bin', 'uv'),
+          ];
+    return candidates.where((path) => File(path).existsSync()).firstOrNull;
+  }
+
+  Future<void> _invalidateRuntime(OfflineSpeechRuntime runtime) async {
+    final marker = File(
+      p.join(_runtimeDirectory(runtime), 'openhand-runtime.json'),
+    );
+    if (await marker.exists()) await marker.delete();
+  }
+
+  static bool _isRuntimeDependencyFailure(Object error) {
+    final message = '$error'.toLowerCase();
+    return message.contains('modulenotfounderror') ||
+        message.contains('no module named') ||
+        message.contains('importerror') ||
+        message.contains('library not loaded') ||
+        message.contains('dll load failed');
+  }
+
+  static String _runtimeStartFailureMessage(
+    OfflineSpeechModelDefinition model,
+    String raw,
+    int exitCode,
+  ) {
+    final missing = RegExp(
+      r'''No module named ['"]([^'"]+)['"]''',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (missing != null) {
+      return '隔离运行环境缺少 ${missing.group(1)}，请点击更新按钮自动修复。';
+    }
+    final details = _processFailureTail(raw);
+    return details.isEmpty
+        ? '${model.name} 加载失败（退出码 $exitCode）。'
+        : '${model.name} 加载失败（退出码 $exitCode）。\n$details';
+  }
+
+  static String _processFailureTail(String raw) {
+    final lines = raw
+        .split(RegExp(r'[\r\n]+'))
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
+    return lines.skip(math.max(0, lines.length - 10)).join('\n');
   }
 
   Future<void> _inspectHardware() async {
@@ -932,9 +1628,13 @@ class OfflineSpeechModelService extends ChangeNotifier {
 class _DownloadCancellation {
   bool cancelled = false;
   HttpClient? client;
+  final Completer<void> _cancelCompleter = Completer<void>();
+
+  Future<void> get cancelSignal => _cancelCompleter.future;
 
   void cancel() {
     cancelled = true;
+    if (!_cancelCompleter.isCompleted) _cancelCompleter.complete();
     client?.close(force: true);
   }
 
