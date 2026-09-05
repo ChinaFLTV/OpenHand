@@ -118,15 +118,31 @@ class AiModelScanner {
     AiProtocolType protocolType,
   ) {
     switch (protocolType) {
+      case AiProtocolType.openai:
+        return const <String>[
+          'gpt-6-astra',
+          'gpt-5.6-sol',
+          'gpt-5.6-terra',
+          'gpt-5.6-luna',
+        ];
       case AiProtocolType.dots:
         return const <String>['dots3-note-prev'];
       case AiProtocolType.claude:
         return const <String>[
+          'claude-fable-5-1',
+          'claude-mythos-5-1',
+          'claude-opus-5',
+          'claude-sonnet-5',
           'claude-sonnet-4-5',
-          'claude-opus-4-1',
           'claude-haiku-4-5',
-          'claude-sonnet-4',
-          'claude-opus-4',
+        ];
+      case AiProtocolType.gemini:
+        return const <String>['gemini-3.8-flash'];
+      case AiProtocolType.qwen:
+        return const <String>[
+          'qwen3.8-max-0902',
+          'qwen3.8-max',
+          'qwen3.8-flash',
         ];
       default:
         return const <String>[];

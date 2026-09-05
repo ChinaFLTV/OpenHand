@@ -132,10 +132,10 @@ abstract final class AiThinkingRequestPolicy {
       return;
     }
 
-    // Qwen3.8-Max 的 reasoning_effort 与 thinking_budget 互斥。
+    // Qwen3.8 系列的 reasoning_effort 与 thinking_budget 互斥。
     if (protocol == AiProtocolType.qwen &&
-        (normalizedModelId.contains('qwen3.8-max') ||
-            normalizedModelId.contains('qwen3-8-max'))) {
+        (normalizedModelId.contains('qwen3.8-') ||
+            normalizedModelId.contains('qwen3-8-'))) {
       _setEnableThinking(body, enabled);
       if (enabled && effortControlEnabled && effort != null) {
         body[_reasoningEffortField] = effort;
@@ -192,6 +192,91 @@ abstract final class AiThinkingRequestPolicy {
 
     if (enabled && effortControlEnabled) {
       body[_reasoningEffortField] = effort ?? 'medium';
+    }
+  }
+
+  /// 移除新模型官方明确拒绝的旧参数，包含调用方附加的请求字段。
+  static void normalizeModelRequestBody(
+    Map<String, Object?> body,
+    AiModelConfig model,
+  ) {
+    final modelId = lowercaseStringFromValue(model.modelId);
+    if (modelId.contains('gpt-6-astra')) {
+      for (final field in const <String>{
+        'temperature',
+        'top_p',
+        'top_logprobs',
+        'logprobs',
+        AiPromptCacheRetentionPolicy.bodyField,
+      }) {
+        body.remove(field);
+      }
+      final include = body['include'];
+      if (include is List) {
+        final filtered = include
+            .where(
+              (item) =>
+                  lowercaseStringFromValue(item) !=
+                  'message.output_text.logprobs',
+            )
+            .toList(growable: false);
+        if (filtered.isEmpty) {
+          body.remove('include');
+        } else {
+          body['include'] = filtered;
+        }
+      }
+    }
+
+    if (modelId.contains('claude-fable-5-1') ||
+        modelId.contains('claude-mythos-5-1')) {
+      body.remove(_thinkingField);
+      final toolChoice = body['tool_choice'];
+      if (toolChoice is Map) {
+        final normalizedToolChoice = stringKeyedMapFromValue(toolChoice);
+        final type = lowercaseStringFromValue(normalizedToolChoice['type']);
+        if (type == 'any' || type == 'tool') {
+          body['tool_choice'] = const <String, Object?>{'type': 'auto'};
+        }
+      } else {
+        final type = lowercaseStringFromValue(toolChoice);
+        if (type == 'any' || type == 'required' || type == 'tool') {
+          body['tool_choice'] = 'auto';
+        }
+      }
+    }
+
+    if (modelId.contains('claude-sonnet-5') || modelId.contains('sonnet-5')) {
+      for (final field in const <String>{'temperature', 'top_p', 'top_k'}) {
+        body.remove(field);
+      }
+    }
+
+    if (!modelId.contains('gemini-3.8-flash')) return;
+    const unsupportedSamplingFields = <String>{
+      'temperature',
+      'top_p',
+      'topP',
+      'top_k',
+      'topK',
+      'candidate_count',
+      'candidateCount',
+      'thinking_budget',
+      'thinkingBudget',
+    };
+    for (final field in unsupportedSamplingFields) {
+      body.remove(field);
+    }
+    for (final configField in const <String>{
+      'generationConfig',
+      'generation_config',
+    }) {
+      if (!body.containsKey(configField)) continue;
+      final generationConfig = stringKeyedMapFromValue(body[configField]);
+      for (final field in unsupportedSamplingFields) {
+        generationConfig.remove(field);
+      }
+      body[configField] = generationConfig;
     }
   }
 
@@ -1101,7 +1186,7 @@ class AiPromptCacheAffinity {
   static Map<String, Object?> putBodyFieldBeforeConversationInput(
     Map<String, Object?> body,
     String field,
-    String value,
+    Object? value,
   ) {
     if (body.containsKey(field)) {
       return body;
@@ -1222,8 +1307,8 @@ class AiPromptCacheAffinity {
   }
 }
 
-/// OpenAI-compatible 缓存保留提示。策略只按协议能力统一启用，不读取线程
-/// 模板、模型名称或用户问题；不创建显式缓存断点。
+/// OpenAI 兼容缓存保留提示。GPT-6 使用官方 30 分钟配置，其余兼容端点沿用
+/// 24 小时保留字段；策略不读取线程模板或用户问题，也不创建显式缓存断点。
 abstract final class AiPromptCacheRetentionPolicy {
   static const String bodyField = 'prompt_cache_retention';
   static const String extendedRetention = '24h';
@@ -1240,8 +1325,19 @@ abstract final class AiPromptCacheRetentionPolicy {
     if (model.apiDialect != AiApiDialect.openAiCompat ||
         !AiPromptCacheAffinity.kindUsesBodyAffinityMarker(affinityKind) ||
         inputCacheConfig == null ||
-        !inputCacheConfig.isEffectivelyEnabled ||
-        body.containsKey(bodyField)) {
+        !inputCacheConfig.isEffectivelyEnabled) {
+      return body;
+    }
+    if (lowercaseStringFromValue(model.modelId).contains('gpt-6-astra')) {
+      if (body.containsKey('prompt_cache_options')) return body;
+      return AiPromptCacheAffinity.putBodyFieldBeforeConversationInput(
+        body,
+        'prompt_cache_options',
+        const <String, Object?>{'ttl': '30m'},
+      );
+    }
+    if (body.containsKey(bodyField) ||
+        body.containsKey('prompt_cache_options')) {
       return body;
     }
     return AiPromptCacheAffinity.putBodyFieldBeforeConversationInput(
@@ -1384,6 +1480,7 @@ abstract class AiProtocolAdapter {
         body: cacheAffinity.applyToBody(bodyWithExtras),
       ),
     );
+    AiThinkingRequestPolicy.normalizeModelRequestBody(cacheAwareBody, model);
     return AiRequestBlueprint(
       url: AiOperationHttp.uriWithExtraQuery(
         endpoint.url,

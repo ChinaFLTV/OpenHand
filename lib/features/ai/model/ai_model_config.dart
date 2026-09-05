@@ -2001,6 +2001,9 @@ class AiModelConfig {
     required AiProtocolType protocolType,
   }) {
     final normalizedModelId = _normalizeReasoningModelId(modelId);
+    if (normalizedModelId.contains('gpt-6-astra')) {
+      return AiReasoningEffortOption.lowMediumHighXHighMax;
+    }
     if (normalizedModelId.contains('gpt-5-6')) {
       return AiReasoningEffortOption.openAiGpt56;
     }
@@ -2164,9 +2167,10 @@ class AiModelConfig {
   bool get resolvedThinkingEnabled {
     final trimmedModelId = nullIfBlank(modelId) ?? '';
     final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
-    if (_looksLikeAlwaysOnClaudeAdaptiveThinking(normalizedModelId) ||
+    if (normalizedModelId.contains('gpt-6-astra') ||
+        _looksLikeAlwaysOnClaudeAdaptiveThinking(normalizedModelId) ||
         _looksLikeAlwaysOnGrokReasoning(normalizedModelId) ||
-        _looksLikeAlwaysOnGemini37(normalizedModelId) ||
+        _looksLikeAlwaysOnGemini3Thinking(normalizedModelId) ||
         _looksLikeAlwaysOnKimiK3(normalizedModelId) ||
         _looksLikeAlwaysOnGlm53(normalizedModelId)) {
       return true;
@@ -2220,8 +2224,9 @@ class AiModelConfig {
         normalizedModelId.contains('grok-build-latest');
   }
 
-  static bool _looksLikeAlwaysOnGemini37(String normalizedModelId) {
-    return normalizedModelId.contains('gemini-3-7-flash');
+  static bool _looksLikeAlwaysOnGemini3Thinking(String normalizedModelId) {
+    return normalizedModelId.contains('gemini-3-7-flash') ||
+        normalizedModelId.contains('gemini-3-8-flash');
   }
 
   static bool _looksLikeAlwaysOnKimiK3(String normalizedModelId) {
@@ -2454,6 +2459,7 @@ class AiModelConfig {
         normalizedModelId.startsWith('o1') ||
             normalizedModelId.startsWith('o3') ||
             normalizedModelId.startsWith('o4') ||
+            normalizedModelId.startsWith('gpt-6') ||
             normalizedModelId.startsWith('gpt-5'),
       AiProtocolType.dots => normalizedModelId.startsWith('dots'),
       AiProtocolType.claude =>
@@ -2473,7 +2479,9 @@ class AiModelConfig {
             normalizedModelId.contains('haiku-4') ||
             normalizedModelId.contains('claude-sonnet') ||
             normalizedModelId.contains('claude-opus'),
-      AiProtocolType.gemini => normalizedModelId.contains('gemini-2-5'),
+      AiProtocolType.gemini =>
+        normalizedModelId.contains('gemini-2-5') ||
+            normalizedModelId.contains('gemini-3'),
       AiProtocolType.deepseek =>
         _looksLikeDeepSeekReasoningModel(normalizedModelId) ||
             _looksLikeDeepSeekHybridThinkingModel(normalizedModelId),

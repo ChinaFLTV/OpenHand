@@ -347,6 +347,7 @@ class AiResponsesService {
       ),
     );
     if (mimo) _normalizeMimoRequestBody(body);
+    AiThinkingRequestPolicy.normalizeModelRequestBody(body, model);
     return AiResponsesRequestBlueprint(
       url: AiOperationHttp.uriWithExtraQuery(
         endpoint.url,

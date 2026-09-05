@@ -249,6 +249,80 @@ class AiModelCatalog {
     'user',
   ];
 
+  static const _gpt6Parameters = <String>[
+    'model',
+    'messages',
+    'input',
+    'instructions',
+    'max_completion_tokens',
+    'max_output_tokens',
+    'reasoning_effort',
+    'reasoning',
+    'stream',
+    'stream_options',
+    'tools',
+    'tool_choice',
+    'parallel_tool_calls',
+    'response_format',
+    'text',
+    'verbosity',
+    'previous_response_id',
+    'store',
+    'metadata',
+    'user',
+    'prompt_cache_key',
+    'prompt_cache_options',
+    'service_tier',
+    'truncation',
+    'include',
+  ];
+
+  static const _claude51Parameters = <String>[
+    'model',
+    'messages',
+    'max_tokens',
+    'system',
+    'stream',
+    'stop_sequences',
+    'tools',
+    'tool_choice',
+    'thinking',
+    'output_config',
+    'cache_control',
+    'service_tier',
+    'metadata',
+  ];
+
+  static const _gemini38Parameters = <String>[
+    'contents',
+    'system_instruction',
+    'generation_config.max_output_tokens',
+    'generation_config.thinking_config.thinking_level',
+    'generation_config.thinking_config.include_thoughts',
+    'tools',
+    'tool_config',
+    'safety_settings',
+    'stream',
+  ];
+
+  static const _qwen38Parameters = <String>[
+    'model',
+    'messages',
+    'max_tokens',
+    'temperature',
+    'top_p',
+    'stream',
+    'stop',
+    'tools',
+    'tool_choice',
+    'response_format',
+    'enable_thinking',
+    'reasoning_effort',
+    'thinking_budget',
+    'preserve_thinking',
+    'tool_stream',
+  ];
+
   static const _openAiCompatibleEmbeddingParameters = <String>[
     'input',
     'model',
@@ -460,6 +534,8 @@ class AiModelCatalog {
     double? outputUsdPer1M,
     double? cacheReadUsdPer1M,
     double? cacheWriteUsdPer1M,
+    String? canonicalSlug,
+    String? knowledgeCutoff,
     List<String> supportedParameters = const <String>[],
     Map<String, Object?> defaultParameters = const <String, Object?>{},
     Set<AiModelCapability> capabilities = const <AiModelCapability>{},
@@ -526,6 +602,8 @@ class AiModelCatalog {
       outputUsdPer1M: outputUsdPer1M,
       cacheReadUsdPer1M: cacheReadUsdPer1M,
       cacheWriteUsdPer1M: cacheWriteUsdPer1M,
+      canonicalSlug: canonicalSlug,
+      knowledgeCutoff: knowledgeCutoff,
       supportedParameters: supportedParameters,
       defaultParameters: defaultParameters,
       capabilities: capabilities,
@@ -1024,7 +1102,30 @@ class AiModelCatalog {
       );
     }
 
-    // ── GPT-5.6 系列 ───────────────────────────────────────────────────
+    // ── GPT-6 / GPT-5.6 系列 ───────────────────────────────────────────
+    if (id.startsWith('gpt-6-astra')) {
+      return _p(
+        name: 'GPT-6 Astra',
+        desc: 'OpenAI 面向复杂专业工作、长上下文与智能体任务的旗舰推理模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1050000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
+        inputUsdPer1M: 10.00,
+        outputUsdPer1M: 50.00,
+        cacheReadUsdPer1M: 1.00,
+        cacheWriteUsdPer1M: 12.50,
+        canonicalSlug: 'gpt-6-astra',
+        knowledgeCutoff: '2026-04-30',
+        supportedParameters: _gpt6Parameters,
+      );
+    }
     if (id.startsWith('gpt-5.6-cyber')) {
       return _p(
         name: 'GPT-5.6 Cyber',
@@ -1041,6 +1142,9 @@ class AiModelCatalog {
         inputUsdPer1M: 12.50,
         outputUsdPer1M: 75.00,
         cacheReadUsdPer1M: 1.25,
+        cacheWriteUsdPer1M: 15.625,
+        canonicalSlug: 'gpt-5.6-cyber',
+        knowledgeCutoff: '2026-02-16',
       );
     }
     if (id.startsWith('gpt-5.6-luna')) {
@@ -1059,6 +1163,9 @@ class AiModelCatalog {
         inputUsdPer1M: 0.20,
         outputUsdPer1M: 1.20,
         cacheReadUsdPer1M: 0.02,
+        cacheWriteUsdPer1M: 0.25,
+        canonicalSlug: 'gpt-5.6-luna',
+        knowledgeCutoff: '2026-02-16',
       );
     }
     if (id.startsWith('gpt-5.6-terra')) {
@@ -1077,6 +1184,9 @@ class AiModelCatalog {
         inputUsdPer1M: 2.00,
         outputUsdPer1M: 12.00,
         cacheReadUsdPer1M: 0.20,
+        cacheWriteUsdPer1M: 2.50,
+        canonicalSlug: 'gpt-5.6-terra',
+        knowledgeCutoff: '2026-02-16',
       );
     }
     if (id.startsWith('gpt-5.6-sol') || id.startsWith('gpt-5.6')) {
@@ -1092,9 +1202,12 @@ class AiModelCatalog {
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
-        inputUsdPer1M: 5.00,
-        outputUsdPer1M: 30.00,
-        cacheReadUsdPer1M: 0.50,
+        inputUsdPer1M: 4.00,
+        outputUsdPer1M: 20.00,
+        cacheReadUsdPer1M: 0.40,
+        cacheWriteUsdPer1M: 5.00,
+        canonicalSlug: 'gpt-5.6-sol',
+        knowledgeCutoff: '2026-02-16',
       );
     }
 
@@ -1263,6 +1376,52 @@ class AiModelCatalog {
 
   static AiModelProfile? _claude(String id) {
     // ── Claude 5 / 4.8 ──────────────────────────────────────────────────
+    if (id.contains('fable-5-1') || id.contains('5-1-fable')) {
+      return _p(
+        name: 'Claude Fable 5.1',
+        desc: 'Anthropic 面向高难度推理、长时程智能体与复杂编程的旗舰模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
+        inputUsdPer1M: 10.00,
+        outputUsdPer1M: 50.00,
+        cacheReadUsdPer1M: 0.25,
+        cacheWriteUsdPer1M: 12.50,
+        canonicalSlug: 'claude-fable-5-1',
+        knowledgeCutoff: '2026-06',
+        supportedParameters: _claude51Parameters,
+      );
+    }
+    if (id.contains('mythos-5-1') || id.contains('5-1-mythos')) {
+      return _p(
+        name: 'Claude Mythos 5.1',
+        desc: '与 Fable 5.1 同规格的受邀开放模型，面向获批的安全工作负载。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
+        inputUsdPer1M: 10.00,
+        outputUsdPer1M: 50.00,
+        cacheReadUsdPer1M: 0.25,
+        cacheWriteUsdPer1M: 12.50,
+        canonicalSlug: 'claude-mythos-5-1',
+        knowledgeCutoff: '2026-06',
+        supportedParameters: _claude51Parameters,
+      );
+    }
     if (id.contains('fable-5') || id.contains('5-fable')) {
       return _p(
         name: 'Claude Fable 5',
@@ -1279,6 +1438,10 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 10.00,
         outputUsdPer1M: 50.00,
+        cacheReadUsdPer1M: 1.00,
+        cacheWriteUsdPer1M: 12.50,
+        canonicalSlug: 'claude-fable-5',
+        knowledgeCutoff: '2026-01',
       );
     }
     if (id.contains('opus-5') || id.contains('5-opus')) {
@@ -1297,6 +1460,10 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 5.00,
         outputUsdPer1M: 25.00,
+        cacheReadUsdPer1M: 0.50,
+        cacheWriteUsdPer1M: 6.25,
+        canonicalSlug: 'claude-opus-5',
+        knowledgeCutoff: '2026-05',
       );
     }
     if (id.contains('mythos-5') || id.contains('5-mythos')) {
@@ -1315,6 +1482,10 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 10.00,
         outputUsdPer1M: 50.00,
+        cacheReadUsdPer1M: 1.00,
+        cacheWriteUsdPer1M: 12.50,
+        canonicalSlug: 'claude-mythos-5',
+        knowledgeCutoff: '2026-01',
       );
     }
     if (id.contains('mythos-preview')) {
@@ -1344,8 +1515,12 @@ class AiModelCatalog {
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
-        inputUsdPer1M: 3.00,
-        outputUsdPer1M: 15.00,
+        inputUsdPer1M: 2.00,
+        outputUsdPer1M: 10.00,
+        cacheReadUsdPer1M: 0.20,
+        cacheWriteUsdPer1M: 2.50,
+        canonicalSlug: 'claude-sonnet-5',
+        knowledgeCutoff: '2026-01',
       );
     }
     if (id.contains('opus-4-8') || id.contains('4.8-opus')) {
@@ -1681,7 +1856,27 @@ class AiModelCatalog {
       );
     }
 
-    // ── Gemini 3.7 / 3.6 / 3.5 ──────────────────────────────────────────
+    // ── Gemini 3.8 / 3.7 / 3.6 / 3.5 ────────────────────────────────────
+    if (id.startsWith('gemini-3.8-flash')) {
+      return _p(
+        name: 'Gemini 3.8 Flash',
+        desc: 'Google 新一代通用多模态推理模型，兼顾复杂任务能力与低延迟。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _allModalities,
+        context: 1048576,
+        output: 65536,
+        thinking: 65536,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
+        inputUsdPer1M: 0.75,
+        outputUsdPer1M: 3.75,
+        canonicalSlug: 'gemini-3.8-flash',
+        supportedParameters: _gemini38Parameters,
+      );
+    }
     if (id.startsWith('gemini-3.7-flash')) {
       return _p(
         name: 'Gemini 3.7 Flash',
@@ -2316,6 +2511,49 @@ class AiModelCatalog {
     }
 
     // ── Qwen3.7 / 3.8 ──────────────────────────────────────────────────
+    if (id.startsWith('qwen3.8-max-0902') ||
+        id.startsWith('qwen3-8-max-0902') ||
+        id.startsWith('qwen3.8-max-2026-09-02') ||
+        id.startsWith('qwen3-8-max-2026-09-02')) {
+      return _p(
+        name: 'Qwen3.8-Max 2026-09-02',
+        desc: '通义千问新一代旗舰多模态推理模型的 2026-09-02 快照。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 1000000,
+        output: 131072,
+        thinking: 262144,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'xhigh',
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['low', 'medium', 'xhigh'],
+        ),
+        canonicalSlug: 'qwen3.8-max-2026-09-02',
+        supportedParameters: _qwen38Parameters,
+      );
+    }
+    if (id.startsWith('qwen3.8-flash') || id.startsWith('qwen3-8-flash')) {
+      return _p(
+        name: 'Qwen3.8-Flash',
+        desc: '通义千问高吞吐多模态推理模型，支持长上下文、工具调用与结构化输出。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 1000000,
+        output: 131072,
+        thinking: 262144,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'xhigh',
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['low', 'medium', 'xhigh'],
+        ),
+        canonicalSlug: 'qwen3.8-flash',
+        supportedParameters: _qwen38Parameters,
+      );
+    }
     if (id.startsWith('qwen3.8-max') || id.startsWith('qwen3-8-max')) {
       return _p(
         name: 'Qwen3.8-Max',
@@ -2331,6 +2569,8 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.standardValues(
           const <String>['low', 'medium', 'xhigh'],
         ),
+        canonicalSlug: 'qwen3.8-max',
+        supportedParameters: _qwen38Parameters,
       );
     }
     if (id.startsWith('qwen3.7-plus') || id.startsWith('qwen3-7-plus')) {
