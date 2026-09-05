@@ -2442,7 +2442,7 @@ class AiSessionController extends ChangeNotifier {
       var normalized = _normalizeHydratedSessionForResume(
         loaded,
         normalizedAt: loaded.updatedAt,
-        restoreInterruptedResponseRegeneration:
+        recoverInterruptedRuntimeState:
             _canRestoreInterruptedResponseRegeneration(sessionId),
       );
       if (!_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
@@ -2538,7 +2538,7 @@ class AiSessionController extends ChangeNotifier {
       var normalized = _normalizeHydratedSessionForResume(
         loaded,
         normalizedAt: loaded.updatedAt,
-        restoreInterruptedResponseRegeneration:
+        recoverInterruptedRuntimeState:
             _canRestoreInterruptedResponseRegeneration(sessionId),
       );
       if (!identical(normalized, loaded)) {
@@ -9442,10 +9442,7 @@ class AiSessionController extends ChangeNotifier {
       );
       final committed = await _commitSessionLocked(workingSession);
       if (!committed) {
-        _setLastSendErrorMessage(
-          workingSession.id,
-          _persistToolExecutionResultError,
-        );
+        _handleToolExecutionResultPersistenceFailure(workingSession);
         return null;
       }
       _absorbToolSearchLoadedNames(
@@ -9632,10 +9629,7 @@ class AiSessionController extends ChangeNotifier {
     }
     final committed = await _commitSessionLocked(workingSession);
     if (!committed) {
-      _setLastSendErrorMessage(
-        workingSession.id,
-        _persistToolExecutionResultError,
-      );
+      _handleToolExecutionResultPersistenceFailure(workingSession);
       return null;
     }
     for (final result in results) {
@@ -10562,7 +10556,7 @@ class AiSessionController extends ChangeNotifier {
   AiSession _normalizeHydratedSessionForResume(
     AiSession session, {
     DateTime? normalizedAt,
-    bool restoreInterruptedResponseRegeneration = true,
+    bool recoverInterruptedRuntimeState = true,
   }) {
     var normalized = _normalizeTemplateSnapshot(
       session,
@@ -10572,8 +10566,12 @@ class AiSessionController extends ChangeNotifier {
       normalized,
       normalizedAt: normalizedAt,
     );
-    if (restoreInterruptedResponseRegeneration) {
+    if (recoverInterruptedRuntimeState) {
       normalized = _restoreInterruptedResponseRegenerationState(normalized);
+      normalized = _markPendingToolCallsFailed(
+        normalized,
+        detail: '上次工具执行未正常结束，已停止。',
+      );
     }
     return normalized;
   }
@@ -12109,6 +12107,12 @@ $tail''';
     if (replaced) {
       notifyListeners();
     }
+  }
+
+  void _handleToolExecutionResultPersistenceFailure(AiSession session) {
+    // 落库失败后仍保留已完成的内存终态，避免回滚成永久“运行中”。
+    _setLastSendErrorMessage(session.id, _persistToolExecutionResultError);
+    _previewSession(session);
   }
 
   bool _replaceSessionInMemory(AiSession session, {bool sortSessions = true}) {

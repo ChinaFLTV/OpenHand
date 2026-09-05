@@ -611,6 +611,9 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     super.dispose();
   }
 
+  int get _defaultTimeoutSeconds =>
+      AiBuiltinToolConfig.defaultTimeoutSecondsFor(widget.initial.kind);
+
   AiBuiltinToolConfig _buildConfig() {
     final displayName = _displayNameController.text.trim();
     final summary = _summaryController.text.trim();
@@ -631,7 +634,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
         ? null
         : clampedIntFromText(
             _timeoutSecondsController.text,
-            fallback: AiBuiltinToolConfig.defaultTimeoutSeconds,
+            fallback: _defaultTimeoutSeconds,
             min: AiBuiltinToolConfig.minTimeoutSeconds,
             max: AiBuiltinToolConfig.maxTimeoutSeconds,
           );
@@ -868,10 +871,10 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                               decoration: InputDecoration(
                                 labelText: l10n.builtinToolTimeoutLabel,
                                 hintText: l10n.builtinToolTimeoutHint(
-                                  AiBuiltinToolConfig.defaultTimeoutSeconds,
+                                  _defaultTimeoutSeconds,
                                 ),
                                 helperText: l10n.builtinToolTimeoutHelper(
-                                  AiBuiltinToolConfig.defaultTimeoutSeconds,
+                                  _defaultTimeoutSeconds,
                                 ),
                               ),
                             ),

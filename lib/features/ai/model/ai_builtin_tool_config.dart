@@ -129,8 +129,19 @@ class AiBuiltinToolConfig {
   });
 
   /// 单次工具调用未在用户层面显式覆盖时使用的默认超时秒数。
-  /// 统一默认值可避免调用方遗漏边界而长时间挂起。
+  /// 基础默认值可避免调用方遗漏边界而长时间挂起。
   static const int defaultTimeoutSeconds = 20;
+
+  /// 网络资源工具需要覆盖请求、解析与摘要阶段，留空时给予合理完成窗口。
+  static const int defaultNetworkTimeoutSeconds = 90;
+
+  static int defaultTimeoutSecondsFor(AiBuiltinToolKind kind) {
+    return switch (kind) {
+      AiBuiltinToolKind.webFetch ||
+      AiBuiltinToolKind.webSearch => defaultNetworkTimeoutSeconds,
+      _ => defaultTimeoutSeconds,
+    };
+  }
 
   /// 单次工具调用可配置超时下限。
   static const int minTimeoutSeconds = 1;
@@ -236,8 +247,9 @@ class AiBuiltinToolConfig {
 
   /// 实际生效的超时秒数（毫秒级 Duration 由调用方包装）。
   int get effectiveTimeoutSeconds {
-    final raw = timeoutSeconds ?? defaultTimeoutSeconds;
-    if (raw <= 0) return defaultTimeoutSeconds;
+    final defaultSeconds = defaultTimeoutSecondsFor(kind);
+    final raw = timeoutSeconds ?? defaultSeconds;
+    if (raw <= 0) return defaultSeconds;
     if (raw > maxTimeoutSeconds) return maxTimeoutSeconds;
     return raw;
   }

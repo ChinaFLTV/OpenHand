@@ -1117,8 +1117,25 @@ class AiToolRuntimeService {
       cancelSignal,
       executionAbort.future,
     ]);
+    final resolvedTool = catalog.find(toolCall.name);
+    final networkTimeout = switch (resolvedTool?.builtinKind) {
+      AiBuiltinToolKind.webFetch || AiBuiltinToolKind.webSearch => Duration(
+        seconds:
+            resolvedTool?.builtinConfig?.effectiveTimeoutSeconds ??
+            AiBuiltinToolConfig.defaultNetworkTimeoutSeconds,
+      ),
+      _ => null,
+    };
+    final timeoutCancellation = networkTimeout == null
+        ? null
+        : Completer<void>();
+    final boundedCancelSignal = combineCancelSignals(<Future<void>?>[
+      effectiveCancelSignal,
+      timeoutCancellation?.future,
+    ]);
+    final stopwatch = Stopwatch()..start();
     try {
-      return await _execute(
+      final execution = _execute(
         sessionId: sessionId,
         catalog: catalog,
         toolCall: toolCall,
@@ -1127,11 +1144,40 @@ class AiToolRuntimeService {
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
-        cancelSignal: effectiveCancelSignal,
+        cancelSignal: boundedCancelSignal,
         onBashUpdate: onBashUpdate,
         metadata: metadata,
       );
+      if (networkTimeout == null) return await execution;
+      return await execution.timeout(
+        networkTimeout,
+        onTimeout: () {
+          if (timeoutCancellation?.isCompleted == false) {
+            timeoutCancellation!.complete();
+          }
+          unawaited(
+            AiToolExecutionRegistry.instance.cancelToolCall(
+              sessionId: sessionId,
+              toolCallId: toolCall.id,
+            ),
+          );
+          final seconds = networkTimeout.inSeconds;
+          return AiToolExecutionResult(
+            status: BashToolExecutionStatus.timedOut,
+            command: toolCall.name,
+            workingDirectory: AiToolUtils.defaultWorkingDirectory(),
+            stdout: '',
+            stderr: '工具“${toolCall.name}”超过配置的 $seconds 秒总时限。',
+            durationMs: stopwatch.elapsedMilliseconds,
+            resultText: 'status: timed_out\nerror: 工具超过 $seconds 秒总时限',
+            metadata: const <String, Object?>{
+              'tool_runtime_timeout_scope': 'total',
+            },
+          );
+        },
+      );
     } finally {
+      stopwatch.stop();
       _finishExecution(executionAbort);
     }
   }
@@ -1536,23 +1582,25 @@ class AiToolRuntimeService {
             'status: timed_out\nerror: 工具超过 ${localTimeout.inSeconds} 秒时限',
       );
 
-      Future<void> cancelTimedOutExecution() async {
+      void cancelTimedOutExecution() {
         if (!timeoutCancellation.isCompleted) {
           timeoutCancellation.complete();
         }
-        await AiToolExecutionRegistry.instance.cancelRegistration(registration);
+        unawaited(
+          AiToolExecutionRegistry.instance.cancelRegistration(registration),
+        );
       }
 
       try {
         return await f.timeout(
           localTimeout,
-          onTimeout: () async {
-            await cancelTimedOutExecution();
+          onTimeout: () {
+            cancelTimedOutExecution();
             return timedOutResult();
           },
         );
       } on TimeoutException {
-        await cancelTimedOutExecution();
+        cancelTimedOutExecution();
         return timedOutResult();
       }
     }
