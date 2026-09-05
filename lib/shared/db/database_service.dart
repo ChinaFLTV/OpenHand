@@ -27,6 +27,7 @@ class DatabaseService {
   static const Duration _fileIoTimeout = Duration(seconds: 3);
   static const Duration _databaseOpenTimeout = Duration(minutes: 2);
   static const Duration _databaseCloseTimeout = Duration(seconds: 10);
+  static const int _databaseBusyTimeoutMilliseconds = 5000;
   static const String _createUserInstructionsTableSql = '''
     CREATE TABLE IF NOT EXISTS user_instructions (
       id              TEXT PRIMARY KEY,
@@ -360,6 +361,7 @@ class DatabaseService {
   static Future<void> _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
     await db.execute('PRAGMA journal_mode = WAL');
+    await db.execute('PRAGMA busy_timeout = $_databaseBusyTimeoutMilliseconds');
   }
 
   static Future<void> _onCreate(Database db, int version) async {

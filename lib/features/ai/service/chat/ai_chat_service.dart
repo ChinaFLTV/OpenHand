@@ -411,6 +411,20 @@ class AiChatService implements AiChatClient {
       <String, Duration>{};
   final Map<String, Duration> _unsupportedResponsesRequestShapes =
       <String, Duration>{};
+  final String _dsmlToolCallScope = DateTime.now()
+      .toUtc()
+      .microsecondsSinceEpoch
+      .toRadixString(36);
+  int _dsmlExtractionSequence = 0;
+
+  AiDsmlToolCallExtractionResult _extractScopedDsmlToolCalls(String value) {
+    _dsmlExtractionSequence += 1;
+    return extractDsmlToolCalls(
+      value,
+      toolCallIdPrefix:
+          'dsml-tool-call-$_dsmlToolCallScope-$_dsmlExtractionSequence',
+    );
+  }
 
   bool _canUseResponsesFamily({
     required AiModelConfig model,
@@ -884,7 +898,7 @@ class AiChatService implements AiChatClient {
           ),
           cancelSignal,
         );
-        final dsmlExtraction = extractDsmlToolCalls(response.text);
+        final dsmlExtraction = _extractScopedDsmlToolCalls(response.text);
         return AiChatCompletion(
           reply: dsmlExtraction.sanitizedText,
           reasoningContent: response.reasoning,
@@ -1138,7 +1152,7 @@ class AiChatService implements AiChatClient {
           decodedResponse,
         );
         final parsedToolCalls = adapter.parseToolCalls(decodedResponse);
-        final dsmlExtraction = extractDsmlToolCalls(parsedReply);
+        final dsmlExtraction = _extractScopedDsmlToolCalls(parsedReply);
         // 单独提取推理模型专用字段中的思考内容。
         final reasoningText = _extractReasoningContent(decodedResponse);
         // 正文为空时解析器会用推理内容兜底，此处去重以免 UI 重复展示。
@@ -1873,7 +1887,7 @@ class AiChatService implements AiChatClient {
       final resolvedToolCalls = toolCalls.entries.toList(growable: false)
         ..sort((left, right) => left.key.compareTo(right.key));
       final streamedReply = textBuffer.toString().trim();
-      final dsmlExtraction = extractDsmlToolCalls(streamedReply);
+      final dsmlExtraction = _extractScopedDsmlToolCalls(streamedReply);
       final resolvedParsedToolCalls = resolvedToolCalls
           .map(
             (entry) => AiToolCall(
@@ -2482,7 +2496,9 @@ class AiChatService implements AiChatClient {
           .map((entry) => entry.value.toToolCall(entry.key))
           .whereType<AiToolCall>()
           .toList(growable: false);
-      final replyExtraction = extractDsmlToolCalls(textBuffer.toString());
+      final replyExtraction = _extractScopedDsmlToolCalls(
+        textBuffer.toString(),
+      );
       final resolvedToolCalls = parsed?.toolCalls.isNotEmpty == true
           ? parsed!.toolCalls
           : parsedStreamToolCalls.isNotEmpty

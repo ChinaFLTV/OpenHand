@@ -8767,6 +8767,10 @@ class AiSessionController extends ChangeNotifier {
         assistantMessageId: assistantMessageId,
         reasoningMessageId: reasoningMessageId,
       );
+      final currentResponseToolCallMessageIds = <String>{
+        ...toolCallMessageIds.values,
+        ...partialDsmlPreviewMessageIds.values,
+      };
 
       if (didCancelStream) {
         if (result.toolCalls.isNotEmpty) {
@@ -8774,6 +8778,7 @@ class AiSessionController extends ChangeNotifier {
             streamedSession,
             result.toolCalls,
             model,
+            currentResponseMessageIds: currentResponseToolCallMessageIds,
           );
         }
         streamedSession = _markPendingToolCallsCancelled(streamedSession);
@@ -8782,6 +8787,7 @@ class AiSessionController extends ChangeNotifier {
           streamedSession,
           result.toolCalls,
           model,
+          currentResponseMessageIds: currentResponseToolCallMessageIds,
         );
       }
       final rebasedSession = _sessionById(workingSession.id) ?? workingSession;
@@ -11951,8 +11957,9 @@ $tail''';
   AiSession _syncToolCallMessagesFromResult(
     AiSession session,
     List<AiToolCall> toolCalls,
-    AiModelConfig model,
-  ) {
+    AiModelConfig model, {
+    required Set<String> currentResponseMessageIds,
+  }) {
     var updatedSession = session;
     final expectedToolCallIds = trimmedNonEmptyStrings(
       toolCalls.map((toolCall) => toolCall.id),
@@ -11968,6 +11975,9 @@ $tail''';
     for (var index = 0; index < updatedMessages.length; index++) {
       final message = updatedMessages[index];
       if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
+        continue;
+      }
+      if (!currentResponseMessageIds.contains(message.id)) {
         continue;
       }
       final currentStatus = '${message.metadata['tool_execution_status'] ?? ''}'
@@ -12007,10 +12017,15 @@ $tail''';
       final toolCall = toolCalls[index];
       final existingIndex = updatedSession.messages.lastIndexWhere(
         (message) =>
+            currentResponseMessageIds.contains(message.id) &&
             !message.isDeleted &&
             message.kind == AiSessionMessageKind.toolCall &&
-            '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim() ==
-                toolCall.id,
+            ('${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim() ==
+                    toolCall.id ||
+                optionalNonNegativeIntFromValue(
+                      '${message.metadata['tool_call_index'] ?? ''}'.trim(),
+                    ) ==
+                    index),
       );
       final messageId = existingIndex == -1
           ? _idGenerator()
@@ -12344,6 +12359,7 @@ $tail''';
       _persistenceIssues,
     );
     _replaceSessionInMemory(effectiveSession);
+    final failedSnapshot = _sessionById(effectiveSession.id);
     notifyListeners();
     try {
       await _store.save(effectiveSession);
@@ -12352,16 +12368,19 @@ $tail''';
         notifyListeners();
       }
       return true;
-    } catch (error) {
-      final restoredSessions = List<AiSession>.from(_sessions)
-        ..removeWhere((item) => item.id == session.id);
-      if (previousSession != null) {
-        restoredSessions.add(previousSession);
-        restoredSessions.sort(
-          (left, right) => right.updatedAt.compareTo(left.updatedAt),
-        );
+    } catch (error, stack) {
+      silentLog('ai_session_controller', '保存会话 ${session.id}', error, stack);
+      if (identical(_sessionById(session.id), failedSnapshot)) {
+        final restoredSessions = List<AiSession>.from(_sessions)
+          ..removeWhere((item) => item.id == session.id);
+        if (previousSession != null) {
+          restoredSessions.add(previousSession);
+          restoredSessions.sort(
+            (left, right) => right.updatedAt.compareTo(left.updatedAt),
+          );
+        }
+        _setSessions(restoredSessions);
       }
-      _setSessions(restoredSessions);
       _persistenceIssues = previousIssues;
       _lastErrorMessage = _friendlyAiSessionPersistenceError(
         error,

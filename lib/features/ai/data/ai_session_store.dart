@@ -135,6 +135,7 @@ class AiSessionStore {
   static const int _compactMemoryMetadataMaxBytes = 2 * kBytesPerMiB;
   static const String _compactMemoryGenerationPrefix = '- generation: ';
   static const int _maxPendingSessionCleanups = 2048;
+  static const int _maxPendingSessionWrites = 512;
   static const int _pendingSessionCleanupRetryBatchSize = 4;
   static const int _pendingSessionCleanupMaxBytes = 256 * kBytesPerKiB;
   static const String _pendingSessionCleanupSettingPrefix =
@@ -154,6 +155,9 @@ class AiSessionStore {
   final SerialTaskQueue _sessionCleanupQueue = SerialTaskQueue(
     maxPendingTasks: _maxPendingSessionCleanups,
   );
+  final SerialTaskQueue _sessionWriteQueue = SerialTaskQueue(
+    maxPendingTasks: _maxPendingSessionWrites,
+  );
   final Map<String, int> _sessionDeletionGuardCounts = <String, int>{};
   Future<void>? _pendingSessionCleanupRetry;
 
@@ -166,6 +170,10 @@ class AiSessionStore {
   final Map<String, List<AiSessionMessage>> _savedMessagesShadowBySessionId =
       <String, List<AiSessionMessage>>{};
   static const int _kSavedMessagesShadowMaxSessions = 8;
+  static const List<Duration> _databaseBusyRetryDelays = <Duration>[
+    Duration(milliseconds: 100),
+    Duration(milliseconds: 300),
+  ];
 
   String get sessionsDirectoryPath => _sessionsDirectoryPath;
 
@@ -1395,70 +1403,79 @@ class AiSessionStore {
     _validateSessionForStorage(session);
     if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
     final replaceMessages = !_isMetadataOnlySessionSnapshot(session);
-    final previousMessages = replaceMessages
-        ? _savedMessagesShadowBySessionId[session.id]
-        : null;
-    var messagesPersisted = false;
 
-    await _db.transaction((txn) async {
-      if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
-      final row = _sessionToRow(session);
-      await txn.insert(
-        'sessions',
-        row,
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-      await txn.update(
-        'sessions',
-        row,
-        where: 'id = ?',
-        whereArgs: <Object?>[session.id],
-      );
+    await _sessionWriteQueue.enqueue(
+      () => _retryTransientDatabaseWrite(() async {
+        final previousMessages = replaceMessages
+            ? _savedMessagesShadowBySessionId[session.id]
+            : null;
+        var messagesPersisted = false;
+        await _db.transaction((txn) async {
+          if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
+          final row = _sessionToRow(session);
+          await txn.insert(
+            'sessions',
+            row,
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+          await txn.update(
+            'sessions',
+            row,
+            where: 'id = ?',
+            whereArgs: <Object?>[session.id],
+          );
 
-      if (!replaceMessages) {
-        return;
-      }
+          if (!replaceMessages) {
+            return;
+          }
 
-      final changedIndices = _incrementalMessageSavePlan(
-        previousMessages,
-        session.messages,
-      );
-      if (changedIndices != null) {
-        // 增量快速路径：只 upsert 变化的行（典型为流式尾消息 + 追加），
-        // 未变化的行连同其库内完整遥测原样保留。
-        final storedTelemetry = await _loadStoredTelemetry(
-          txn,
-          session,
-          changedIndices,
-        );
-        await _writeMessageRows(txn, session, changedIndices, storedTelemetry);
-        messagesPersisted = true;
-        return;
-      }
+          final changedIndices = _incrementalMessageSavePlan(
+            previousMessages,
+            session.messages,
+          );
+          if (changedIndices != null) {
+            // 增量快速路径：只 upsert 变化的行（典型为流式尾消息 + 追加），
+            // 未变化的行连同其库内完整遥测原样保留。
+            final storedTelemetry = await _loadStoredTelemetry(
+              txn,
+              session,
+              changedIndices,
+            );
+            await _writeMessageRows(
+              txn,
+              session,
+              changedIndices,
+              storedTelemetry,
+            );
+            messagesPersisted = true;
+            return;
+          }
 
-      // 全量回写：删除旧消息后按当前列表重插。带遥测裁剪标记的消息在内存里
-      // 是有损副本（加载时遥测被 json_remove 裁过），删除前先把库内完整遥测
-      // 读出来补回，避免整轮覆盖永久清空 request_payload / response_raw 等大字段。
-      final allIndices = List<int>.generate(
-        session.messages.length,
-        (index) => index,
-      );
-      final storedTelemetry = await _loadStoredTelemetry(
-        txn,
-        session,
-        allIndices,
-      );
-      await txn.delete(
-        'messages',
-        where: 'session_id = ?',
-        whereArgs: <Object?>[session.id],
-      );
-      await _writeMessageRows(txn, session, allIndices, storedTelemetry);
-      messagesPersisted = true;
-    });
-    if (messagesPersisted) {
-      _rememberSavedMessages(session.id, session.messages);
-    }
+          // 全量回写：删除旧消息后按当前列表重插。带遥测裁剪标记的消息在内存里
+          // 是有损副本（加载时遥测被 json_remove 裁过），删除前先把库内完整遥测
+          // 读出来补回，避免整轮覆盖永久清空 request_payload / response_raw 等大字段。
+          final allIndices = List<int>.generate(
+            session.messages.length,
+            (index) => index,
+          );
+          final storedTelemetry = await _loadStoredTelemetry(
+            txn,
+            session,
+            allIndices,
+          );
+          await txn.delete(
+            'messages',
+            where: 'session_id = ?',
+            whereArgs: <Object?>[session.id],
+          );
+          await _writeMessageRows(txn, session, allIndices, storedTelemetry);
+          messagesPersisted = true;
+        });
+        if (messagesPersisted) {
+          _rememberSavedMessages(session.id, session.messages);
+        }
+      }),
+    );
   }
 
   /// 计算增量落库计划：返回需要 upsert 的消息下标（下标即 sort_order）。
@@ -1594,22 +1611,50 @@ class AiSessionStore {
     _validateSessionForStorage(session);
     if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
     final row = _sessionToRow(session);
-    await _db.transaction((txn) async {
-      if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
-      final updated = await txn.update(
-        'sessions',
-        row,
-        where: 'id = ?',
-        whereArgs: <Object?>[session.id],
-      );
-      if (updated == 0) {
-        await txn.insert(
-          'sessions',
-          row,
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
+    await _sessionWriteQueue.enqueue(
+      () => _retryTransientDatabaseWrite(
+        () => _db.transaction((txn) async {
+          if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
+          final updated = await txn.update(
+            'sessions',
+            row,
+            where: 'id = ?',
+            whereArgs: <Object?>[session.id],
+          );
+          if (updated == 0) {
+            await txn.insert(
+              'sessions',
+              row,
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          }
+        }),
+      ),
+    );
+  }
+
+  Future<T> _retryTransientDatabaseWrite<T>(
+    Future<T> Function() operation,
+  ) async {
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await operation();
+      } on DatabaseException catch (error, stack) {
+        if (!_isTransientDatabaseBusy(error) ||
+            attempt >= _databaseBusyRetryDelays.length) {
+          Error.throwWithStackTrace(error, stack);
+        }
+        await Future<void>.delayed(_databaseBusyRetryDelays[attempt]);
       }
-    });
+    }
+  }
+
+  bool _isTransientDatabaseBusy(DatabaseException error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('database is locked') ||
+        message.contains('database is busy') ||
+        message.contains('sqlite_busy') ||
+        message.contains('sqlite_locked');
   }
 
   /// 仅更新单条消息元数据，避免轻量界面变更重写完整会话。
@@ -1626,32 +1671,36 @@ class AiSessionStore {
       messageId,
       label: '消息标识符',
     );
-    Map<String, Object?>? stored;
-    if (metadata[aiSessionMessageDeferredTelemetryMetadataKey] == true) {
-      // 传入的是遥测裁剪副本（如在尾窗里点赞/点踩）：先读回库内完整遥测再合并，
-      // 否则整列覆盖会把 request_payload / response_raw 等大字段一并清空。
-      final rows = await _db.query(
-        'messages',
-        columns: const <String>['metadata_json'],
-        where: 'id = ? AND session_id = ?',
-        whereArgs: <Object?>[normalizedMessageId, normalizedSessionId],
-        limit: 1,
-      );
-      if (rows.isNotEmpty) {
-        stored = _decodeJsonMap(rows.first['metadata_json']);
+    return _sessionWriteQueue.enqueue(() async {
+      Map<String, Object?>? stored;
+      if (metadata[aiSessionMessageDeferredTelemetryMetadataKey] == true) {
+        // 传入的是遥测裁剪副本（如在尾窗里点赞/点踩）：先读回库内完整遥测再合并，
+        // 否则整列覆盖会把 request_payload / response_raw 等大字段一并清空。
+        final rows = await _db.query(
+          'messages',
+          columns: const <String>['metadata_json'],
+          where: 'id = ? AND session_id = ?',
+          whereArgs: <Object?>[normalizedMessageId, normalizedSessionId],
+          limit: 1,
+        );
+        if (rows.isNotEmpty) {
+          stored = _decodeJsonMap(rows.first['metadata_json']);
+        }
       }
-    }
-    final updated = await _db.update(
-      'messages',
-      <String, Object?>{
-        'metadata_json': jsonEncode(
-          _metadataForPersistence(metadata, stored: stored),
+      final updated = await _retryTransientDatabaseWrite(
+        () => _db.update(
+          'messages',
+          <String, Object?>{
+            'metadata_json': jsonEncode(
+              _metadataForPersistence(metadata, stored: stored),
+            ),
+          },
+          where: 'id = ? AND session_id = ?',
+          whereArgs: <Object?>[normalizedMessageId, normalizedSessionId],
         ),
-      },
-      where: 'id = ? AND session_id = ?',
-      whereArgs: <Object?>[normalizedMessageId, normalizedSessionId],
-    );
-    return updated > 0;
+      );
+      return updated > 0;
+    });
   }
 
   /// 删除数据库中的会话及消息，并清理磁盘会话产物。
