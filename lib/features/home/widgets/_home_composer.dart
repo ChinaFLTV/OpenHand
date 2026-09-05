@@ -211,6 +211,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.onSend,
     required this.onStop,
     required this.voiceModeSelected,
+    required this.voiceConversationSnapshot,
     required this.voiceConversationService,
     required this.onStartVoiceConversation,
     required this.onStopVoiceConversation,
@@ -253,6 +254,7 @@ class _ComposerPanel extends StatefulWidget {
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
   final bool voiceModeSelected;
+  final ValueGetter<AiVoiceConversationSnapshot> voiceConversationSnapshot;
   final AiVoiceConversationService voiceConversationService;
   final Future<void> Function() onStartVoiceConversation;
   final Future<void> Function() onStopVoiceConversation;
@@ -1406,7 +1408,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    final voiceSnapshot = widget.voiceConversationService.snapshot;
+    final voiceSnapshot = widget.voiceConversationSnapshot();
     final voiceActive = widget.voiceModeSelected;
     final voiceRuntimeActive = voiceSnapshot.active;
     final effectiveCollapsed = widget.isCollapsed && !voiceActive;

@@ -133,6 +133,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onSend,
     required this.onStop,
     required this.voiceModeSelected,
+    required this.voiceConversationSnapshot,
     required this.voiceConversationService,
     required this.onStartVoiceConversation,
     required this.onStopVoiceConversation,
@@ -201,6 +202,7 @@ class _WorkspaceView extends StatelessWidget {
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
   final bool voiceModeSelected;
+  final ValueGetter<AiVoiceConversationSnapshot> voiceConversationSnapshot;
   final AiVoiceConversationService voiceConversationService;
   final Future<void> Function() onStartVoiceConversation;
   final Future<void> Function() onStopVoiceConversation;
@@ -366,7 +368,7 @@ class _WorkspaceView extends StatelessWidget {
                   child: ListenableBuilder(
                     listenable: voiceConversationService,
                     builder: (context, _) {
-                      final snapshot = voiceConversationService.snapshot;
+                      final snapshot = voiceConversationSnapshot();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -426,6 +428,7 @@ class _WorkspaceView extends StatelessWidget {
                       onSend: onSend,
                       onStop: onStop,
                       voiceModeSelected: voiceModeSelected,
+                      voiceConversationSnapshot: voiceConversationSnapshot,
                       voiceConversationService: voiceConversationService,
                       onStartVoiceConversation: onStartVoiceConversation,
                       onStopVoiceConversation: onStopVoiceConversation,

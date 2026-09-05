@@ -240,6 +240,14 @@ class OpenHandHomePage extends StatefulWidget {
   State<OpenHandHomePage> createState() => _OpenHandHomePageState();
 }
 
+class _VoiceConversationSessionState {
+  _VoiceConversationSessionState({this.lastReadAssistantId});
+
+  AiVoiceConversationResumeState resumeState =
+      const AiVoiceConversationResumeState();
+  String? lastReadAssistantId;
+}
+
 class _OpenHandHomePageState extends State<OpenHandHomePage>
     with WidgetsBindingObserver {
   /// 当前活跃的 home state 实例引用——`part of` 文件需要通过它取到
@@ -288,10 +296,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
   final AiVoiceConversationService _voiceConversationService =
       AiVoiceConversationService();
-  // 用户选择的语音模式按会话保留；运行实例仅在该会话可见时存在。
-  String? _voiceConversationSessionId;
+  // 语音偏好与识别草稿按会话保留；麦克风和朗读资源只属于当前可见会话。
+  final Map<String, _VoiceConversationSessionState>
+  _voiceConversationStatesBySessionId =
+      <String, _VoiceConversationSessionState>{};
   String? _voiceConversationRuntimeSessionId;
-  String? _voiceLastReadAssistantId;
+  String? _voiceConversationServiceSessionId;
   Future<void> _voiceConversationTransition = Future<void>.value();
   Future<void>? _voiceConversationPauseTask;
   int _voiceConversationTransitionGeneration = 0;
@@ -1182,8 +1192,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     _voiceConversationDisposed = true;
     _voiceConversationTransitionGeneration += 1;
-    _voiceConversationSessionId = null;
+    _voiceConversationStatesBySessionId.clear();
     _voiceConversationRuntimeSessionId = null;
+    _voiceConversationServiceSessionId = null;
     _inputRepairParticipantToken?.dispose();
     _inputRepairParticipantToken = null;
     _toolSearchReplayDispatcher.dispose();
@@ -1486,11 +1497,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (assistant == null) {
       return;
     }
-    if (assistant.id == _voiceLastReadAssistantId) return;
+    final voiceState = _voiceConversationStatesBySessionId[session.id];
+    if (voiceState == null || assistant.id == voiceState.lastReadAssistantId) {
+      return;
+    }
     final streaming =
         assistant.metadata[aiSessionMessageMetadataStreamingKey] == true ||
         responseInProgress;
-    if (!streaming) _voiceLastReadAssistantId = assistant.id;
+    if (!streaming) voiceState.lastReadAssistantId = assistant.id;
     _voiceConversationService.ingestAssistantResponse(
       messageId: assistant.id,
       text: assistant.content,
@@ -1501,7 +1515,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _voiceConversationCanRunFor(String sessionId) {
     if (!mounted || _voiceConversationDisposed) return false;
     final lifecycleState = _appLifecycleState;
-    return _voiceConversationSessionId == sessionId &&
+    return _voiceConversationStatesBySessionId.containsKey(sessionId) &&
         _selectedSection == AppSection.workspace &&
         (lifecycleState == null ||
             lifecycleState == AppLifecycleState.resumed) &&
@@ -1509,10 +1523,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _syncVoiceConversationVisibility(String? currentSessionId) {
-    final preferredSessionId = _voiceConversationSessionId;
-    if (preferredSessionId == null) return;
-    if (currentSessionId == preferredSessionId &&
-        _voiceConversationCanRunFor(preferredSessionId)) {
+    if (currentSessionId != null &&
+        _voiceConversationCanRunFor(currentSessionId)) {
       unawaited(_resumeVoiceConversationForCurrentSession());
       return;
     }
@@ -1520,6 +1532,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _voiceConversationService.snapshot.active) {
       unawaited(_pauseVoiceConversationForNavigation());
     }
+  }
+
+  AiVoiceConversationSnapshot _voiceConversationSnapshotForSession(
+    String? sessionId,
+  ) {
+    if (sessionId != null &&
+        _voiceConversationServiceSessionId == sessionId &&
+        _voiceConversationService.snapshot.active) {
+      return _voiceConversationService.snapshot;
+    }
+    final resumeState = sessionId == null
+        ? null
+        : _voiceConversationStatesBySessionId[sessionId]?.resumeState;
+    return resumeState == null
+        ? const AiVoiceConversationSnapshot.idle()
+        : AiVoiceConversationSnapshot.suspended(resumeState);
   }
 
   AiSessionMessage? _latestFormalVoiceAssistantResponse(
@@ -1770,10 +1798,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _releaseDeletedSessionState(String sessionId) {
-    if (_voiceConversationSessionId == sessionId ||
-        _voiceConversationRuntimeSessionId == sessionId) {
-      _voiceConversationSessionId = null;
-      _voiceLastReadAssistantId = null;
+    _voiceConversationStatesBySessionId.remove(sessionId);
+    if (_voiceConversationRuntimeSessionId == sessionId) {
       unawaited(_pauseVoiceConversationForNavigation());
     }
     _activeSubmissionSerialsBySessionId.remove(sessionId);
@@ -6833,17 +6859,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _startVoiceConversation() async {
     final currentSession = context.read<AiSessionController>().currentSession;
     if (currentSession == null) return;
-    _voiceConversationSessionId = currentSession.id;
-    _voiceLastReadAssistantId = _latestFormalVoiceAssistantResponse(
-      currentSession,
-    )?.id;
+    _voiceConversationStatesBySessionId[currentSession.id] =
+        _VoiceConversationSessionState(
+          lastReadAssistantId: _latestFormalVoiceAssistantResponse(
+            currentSession,
+          )?.id,
+        );
     setState(() => _composerCollapsed = false);
     await _resumeVoiceConversationForCurrentSession();
   }
 
   Future<void> _stopVoiceConversation() async {
-    _voiceConversationSessionId = null;
-    _voiceLastReadAssistantId = null;
+    final currentSessionId = context
+        .read<AiSessionController>()
+        .currentSessionId;
+    if (currentSessionId != null) {
+      _voiceConversationStatesBySessionId.remove(currentSessionId);
+    }
     if (mounted) setState(() {});
     await _pauseVoiceConversationForNavigation();
     if (!mounted || _selectedSection != AppSection.workspace) return;
@@ -6872,8 +6904,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return _voiceConversationTransition;
     }
 
+    final serviceSessionId = _voiceConversationServiceSessionId;
+    final sessionState = serviceSessionId == null
+        ? null
+        : _voiceConversationStatesBySessionId[serviceSessionId];
+    if (sessionState != null && _voiceConversationService.snapshot.active) {
+      sessionState.resumeState = AiVoiceConversationResumeState.fromSnapshot(
+        _voiceConversationService.snapshot,
+      );
+    }
     _voiceConversationTransitionGeneration += 1;
     _voiceConversationRuntimeSessionId = null;
+    _voiceConversationServiceSessionId = null;
     _voiceConversationService.interruptAssistantResponse();
     final stopSpeech = _ignoreVoiceTransitionError(
       _ttsPlaybackService.stop(),
@@ -6910,7 +6952,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _resumeVoiceConversationForCurrentSession() {
-    final targetSessionId = _voiceConversationSessionId;
+    final targetSessionId = _observedSessionController?.currentSessionId;
     if (targetSessionId == null ||
         !_voiceConversationCanRunFor(targetSessionId)) {
       return _voiceConversationTransition;
@@ -6947,9 +6989,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       if (!availability.available) {
         _voiceConversationRuntimeSessionId = null;
-        if (_voiceConversationSessionId == targetSessionId) {
-          _voiceConversationSessionId = null;
-          _voiceLastReadAssistantId = null;
+        if (_voiceConversationStatesBySessionId.remove(targetSessionId) !=
+            null) {
           if (mounted) setState(() {});
           showOpenHandInfoSnack(
             context,
@@ -6974,7 +7015,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           latestAssistant?.metadata[aiSessionMessageMetadataStreamingKey] ==
               true;
       if (latestAssistant != null && !latestAssistantStreaming) {
-        _voiceLastReadAssistantId = latestAssistant.id;
+        _voiceConversationStatesBySessionId[targetSessionId]
+                ?.lastReadAssistantId =
+            latestAssistant.id;
       }
 
       try {
@@ -6986,9 +7029,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             !_voiceConversationCanRunFor(targetSessionId)) {
           return;
         }
+        _voiceConversationServiceSessionId = targetSessionId;
         await _voiceConversationService.start(
           settings: settingsController.offlineSpeechSettings,
           availableModels: settingsController.aiModels,
+          resumeState:
+              _voiceConversationStatesBySessionId[targetSessionId]
+                  ?.resumeState ??
+              const AiVoiceConversationResumeState(),
           onTextReady: (text) {
             if (generation == _voiceConversationTransitionGeneration) {
               _enqueueVoiceMessage(targetSessionId, text);
@@ -7020,10 +7068,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         if (_voiceConversationRuntimeSessionId == targetSessionId) {
           _voiceConversationRuntimeSessionId = null;
         }
+        if (_voiceConversationServiceSessionId == targetSessionId) {
+          _voiceConversationServiceSessionId = null;
+        }
         if (!mounted || cancelled) return;
-        if (_voiceConversationSessionId == targetSessionId) {
-          _voiceConversationSessionId = null;
-          _voiceLastReadAssistantId = null;
+        if (_voiceConversationStatesBySessionId.remove(targetSessionId) !=
+            null) {
           setState(() {});
         }
         showOpenHandErrorSnack(
@@ -10583,7 +10633,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
         onSend: _sendMessage,
         onStop: _stopResponding,
-        voiceModeSelected: currentSession?.id == _voiceConversationSessionId,
+        voiceModeSelected:
+            currentSession != null &&
+            _voiceConversationStatesBySessionId.containsKey(currentSession.id),
+        voiceConversationSnapshot: () =>
+            _voiceConversationSnapshotForSession(currentSession?.id),
         voiceConversationService: _voiceConversationService,
         onStartVoiceConversation: _startVoiceConversation,
         onStopVoiceConversation: _stopVoiceConversation,

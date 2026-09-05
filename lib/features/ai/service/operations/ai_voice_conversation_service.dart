@@ -26,6 +26,31 @@ enum AiVoiceConversationPhase {
   failed,
 }
 
+class AiVoiceConversationResumeState {
+  const AiVoiceConversationResumeState({
+    this.microphoneEnabled = true,
+    this.speakerMuted = false,
+    this.currentTranscript = '',
+    this.previousTranscript = '',
+  });
+
+  factory AiVoiceConversationResumeState.fromSnapshot(
+    AiVoiceConversationSnapshot snapshot,
+  ) {
+    return AiVoiceConversationResumeState(
+      microphoneEnabled: snapshot.microphoneEnabled,
+      speakerMuted: snapshot.speakerMuted,
+      currentTranscript: snapshot.currentTranscript.trim(),
+      previousTranscript: snapshot.previousTranscript.trim(),
+    );
+  }
+
+  final bool microphoneEnabled;
+  final bool speakerMuted;
+  final String currentTranscript;
+  final String previousTranscript;
+}
+
 class AiVoiceConversationSnapshot {
   const AiVoiceConversationSnapshot({
     required this.active,
@@ -45,6 +70,16 @@ class AiVoiceConversationSnapshot {
       phase = AiVoiceConversationPhase.idle,
       currentTranscript = '',
       previousTranscript = '',
+      inputLevel = 0,
+      message = null;
+
+  AiVoiceConversationSnapshot.suspended(AiVoiceConversationResumeState state)
+    : active = false,
+      microphoneEnabled = state.microphoneEnabled,
+      speakerMuted = state.speakerMuted,
+      phase = AiVoiceConversationPhase.idle,
+      currentTranscript = state.currentTranscript,
+      previousTranscript = state.previousTranscript,
       inputLevel = 0,
       message = null;
 
@@ -167,6 +202,7 @@ class AiVoiceConversationService extends ChangeNotifier {
   String _pendingPolishingText = '';
   int _polishingSerial = 0;
   bool _polishingWorkerActive = false;
+  bool _restoredTranscriptPending = false;
   DateTime _lastLevelNotification = DateTime.fromMillisecondsSinceEpoch(0);
 
   mk.Player? _player;
@@ -191,6 +227,8 @@ class AiVoiceConversationService extends ChangeNotifier {
     required List<AiModelConfig> availableModels,
     required void Function(String text) onTextReady,
     required void Function(String message) onIssue,
+    AiVoiceConversationResumeState resumeState =
+        const AiVoiceConversationResumeState(),
   }) async {
     if (_disposed) throw StateError('语音沟通服务已关闭。');
     if (_snapshot.active) return;
@@ -266,9 +304,16 @@ class AiVoiceConversationService extends ChangeNotifier {
     _pendingPolishingText = '';
     _polishingSerial += 1;
     _reportedIssues.clear();
+    _restoredTranscriptPending = resumeState.currentTranscript
+        .trim()
+        .isNotEmpty;
     _snapshot = const AiVoiceConversationSnapshot.idle().copyWith(
       active: true,
+      microphoneEnabled: resumeState.microphoneEnabled,
+      speakerMuted: resumeState.speakerMuted,
       phase: AiVoiceConversationPhase.starting,
+      currentTranscript: resumeState.currentTranscript.trim(),
+      previousTranscript: resumeState.previousTranscript.trim(),
       clearMessage: true,
     );
     notifyListeners();
@@ -297,7 +342,12 @@ class AiVoiceConversationService extends ChangeNotifier {
           }
         },
       );
-      _startInputWatchdog(sessionSerial);
+      if (!resumeState.microphoneEnabled) {
+        await _recorder.pause();
+        if (!_isCurrentSession(sessionSerial)) return;
+      } else {
+        _startInputWatchdog(sessionSerial);
+      }
       _setSnapshot(
         _snapshot.copyWith(
           phase: AiVoiceConversationPhase.listening,
@@ -329,14 +379,8 @@ class AiVoiceConversationService extends ChangeNotifier {
 
   Future<void> setMicrophoneEnabled(bool enabled) async {
     if (!_snapshot.active || _snapshot.microphoneEnabled == enabled) return;
+    final sessionSerial = _sessionSerial;
     if (enabled) {
-      await _recorder.resume();
-      _speechCandidateChunks = 0;
-      _receivedAudioBytes = 0;
-      _noiseFloor = _initialNoiseFloor;
-      _maximumObservedLevel = 0;
-      _inputWarningVisible = false;
-      _startInputWatchdog(_sessionSerial);
       _setSnapshot(
         _snapshot.copyWith(
           microphoneEnabled: true,
@@ -344,13 +388,39 @@ class AiVoiceConversationService extends ChangeNotifier {
           clearMessage: true,
         ),
       );
+      try {
+        await _recorder.resume();
+        if (!_isCurrentSession(sessionSerial)) return;
+        _speechCandidateChunks = 0;
+        _receivedAudioBytes = 0;
+        _noiseFloor = _initialNoiseFloor;
+        _maximumObservedLevel = 0;
+        _inputWarningVisible = false;
+        _startInputWatchdog(sessionSerial);
+      } catch (error, stack) {
+        if (!_isCurrentSession(sessionSerial)) return;
+        silentLog('voice_conversation', '开启麦克风', error, stack);
+        _setSnapshot(
+          _snapshot.copyWith(microphoneEnabled: false, inputLevel: 0),
+        );
+        _notifyIssue('开启麦克风失败，请检查输入设备后重试。');
+      }
     } else {
       _silenceTimer?.cancel();
       _partialRecognitionTimer?.cancel();
       _inputWatchdogTimer?.cancel();
-      await _recorder.pause();
-      if (_hasSpeech) _finalizeUtterance(force: true);
       _setSnapshot(_snapshot.copyWith(microphoneEnabled: false, inputLevel: 0));
+      try {
+        await _recorder.pause();
+        if (!_isCurrentSession(sessionSerial)) return;
+        if (_hasSpeech) _finalizeUtterance(force: true);
+      } catch (error, stack) {
+        if (!_isCurrentSession(sessionSerial)) return;
+        silentLog('voice_conversation', '关闭麦克风', error, stack);
+        _setSnapshot(_snapshot.copyWith(microphoneEnabled: true));
+        _startInputWatchdog(sessionSerial);
+        _notifyIssue('关闭麦克风失败，请重试。');
+      }
     }
   }
 
@@ -389,6 +459,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     }
     final current = _snapshot.currentTranscript.trim();
     if (current.isEmpty) return;
+    _restoredTranscriptPending = false;
     _setSnapshot(
       _snapshot.copyWith(currentTranscript: '', previousTranscript: current),
     );
@@ -495,6 +566,18 @@ class AiVoiceConversationService extends ChangeNotifier {
     if (!_hasSpeech) {
       _appendPreRoll(chunk);
       if (!voiced) return;
+      if (_restoredTranscriptPending) {
+        final restored = _snapshot.currentTranscript.trim();
+        _restoredTranscriptPending = false;
+        _setSnapshot(
+          _snapshot.copyWith(
+            currentTranscript: '',
+            previousTranscript: restored.isEmpty
+                ? _snapshot.previousTranscript
+                : restored,
+          ),
+        );
+      }
       _hasSpeech = true;
       _utterance.addAll(_preRoll);
       _preRoll.clear();
@@ -611,7 +694,7 @@ class AiVoiceConversationService extends ChangeNotifier {
             _setSnapshot(
               _snapshot.copyWith(
                 phase: AiVoiceConversationPhase.listening,
-                previousTranscript: previous == text
+                previousTranscript: previous.isEmpty || previous == text
                     ? _snapshot.previousTranscript
                     : previous,
                 currentTranscript: text,
@@ -1599,6 +1682,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     _inputWarningVisible = false;
     _partialRecognitionQueued = false;
     _lastPartialByteCount = 0;
+    _restoredTranscriptPending = false;
     _assistantMessageId = null;
     _assistantText = '';
     _assistantSpokenOffset = 0;
