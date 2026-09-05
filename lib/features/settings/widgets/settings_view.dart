@@ -3877,12 +3877,19 @@ class _SettingsViewState extends State<SettingsView> {
                 kind: OfflineSpeechKind.recognition,
                 settings: offlineSpeechSettings.recognition,
                 textPolishingSettings: offlineSpeechSettings.textPolishing,
+                silenceTimeoutSeconds:
+                    offlineSpeechSettings.silenceTimeoutSeconds,
                 availableModels: settingsController.aiModels,
                 recentModelSelections: settingsController.recentModelSelections,
                 onTextPolishingChanged: (next) =>
                     settingsController.updateOfflineSpeechSettings(
                       settingsController.offlineSpeechSettings
                           .updateTextPolishing(next),
+                    ),
+                onSilenceTimeoutChanged: (seconds) =>
+                    settingsController.updateOfflineSpeechSettings(
+                      settingsController.offlineSpeechSettings
+                          .setSilenceTimeoutSeconds(seconds),
                     ),
                 onChanged: (next) =>
                     settingsController.updateOfflineSpeechSettings(

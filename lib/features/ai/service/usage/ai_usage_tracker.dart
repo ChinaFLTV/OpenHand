@@ -26,6 +26,7 @@ abstract final class AiUsageSource {
   static const String harness = 'harness';
   static const String translation = 'translation';
   static const String textToSpeech = 'text_to_speech';
+  static const String speechCommunication = 'speech_communication';
   static const String selfLearning = 'self_learning';
   static const String subagent = 'subagent';
   static const String webSearch = 'web_search';

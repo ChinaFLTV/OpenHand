@@ -289,6 +289,7 @@ class OfflineSpeechSettings {
     required this.recognition,
     required this.synthesis,
     required this.textPolishing,
+    required this.silenceTimeoutSeconds,
   });
 
   factory OfflineSpeechSettings.defaults() => OfflineSpeechSettings(
@@ -297,6 +298,7 @@ class OfflineSpeechSettings {
     ),
     synthesis: OfflineSpeechModelSettings.defaults(OfflineSpeechKind.synthesis),
     textPolishing: const OfflineSpeechTextPolishingSettings.disabled(),
+    silenceTimeoutSeconds: defaultSilenceTimeoutSeconds,
   );
 
   factory OfflineSpeechSettings.fromJson(Object? raw) {
@@ -314,12 +316,21 @@ class OfflineSpeechSettings {
       textPolishing: OfflineSpeechTextPolishingSettings.fromJson(
         json['text_polishing'],
       ),
-    );
+      silenceTimeoutSeconds: intFromValue(
+        json['silence_timeout_seconds'],
+        fallback: defaultSilenceTimeoutSeconds,
+      ),
+    ).normalized();
   }
+
+  static const int defaultSilenceTimeoutSeconds = 3;
+  static const int minSilenceTimeoutSeconds = 1;
+  static const int maxSilenceTimeoutSeconds = 15;
 
   final OfflineSpeechModelSettings recognition;
   final OfflineSpeechModelSettings synthesis;
   final OfflineSpeechTextPolishingSettings textPolishing;
+  final int silenceTimeoutSeconds;
 
   OfflineSpeechModelSettings settingsFor(OfflineSpeechKind kind) {
     return kind == OfflineSpeechKind.recognition ? recognition : synthesis;
@@ -337,6 +348,7 @@ class OfflineSpeechSettings {
           ? settings.normalized(kind)
           : synthesis,
       textPolishing: textPolishing,
+      silenceTimeoutSeconds: silenceTimeoutSeconds,
     );
   }
 
@@ -347,6 +359,19 @@ class OfflineSpeechSettings {
       recognition: recognition,
       synthesis: synthesis,
       textPolishing: settings.normalized(),
+      silenceTimeoutSeconds: silenceTimeoutSeconds,
+    );
+  }
+
+  OfflineSpeechSettings setSilenceTimeoutSeconds(int value) {
+    return OfflineSpeechSettings(
+      recognition: recognition,
+      synthesis: synthesis,
+      textPolishing: textPolishing,
+      silenceTimeoutSeconds: value.clamp(
+        minSilenceTimeoutSeconds,
+        maxSilenceTimeoutSeconds,
+      ),
     );
   }
 
@@ -354,12 +379,17 @@ class OfflineSpeechSettings {
     recognition: recognition.normalized(OfflineSpeechKind.recognition),
     synthesis: synthesis.normalized(OfflineSpeechKind.synthesis),
     textPolishing: textPolishing.normalized(),
+    silenceTimeoutSeconds: silenceTimeoutSeconds.clamp(
+      minSilenceTimeoutSeconds,
+      maxSilenceTimeoutSeconds,
+    ),
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
     OfflineSpeechKind.recognition.storageKey: recognition.toJson(),
     OfflineSpeechKind.synthesis.storageKey: synthesis.toJson(),
     'text_polishing': textPolishing.toJson(),
+    'silence_timeout_seconds': silenceTimeoutSeconds,
   };
 }
 

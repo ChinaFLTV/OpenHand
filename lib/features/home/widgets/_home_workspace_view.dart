@@ -132,6 +132,9 @@ class _WorkspaceView extends StatelessWidget {
     required this.attachments,
     required this.onSend,
     required this.onStop,
+    required this.voiceConversationService,
+    required this.onStartVoiceConversation,
+    required this.onStopVoiceConversation,
     required this.onCreateThreadRequested,
     required this.creationMode,
     required this.onCreationModeChanged,
@@ -196,6 +199,9 @@ class _WorkspaceView extends StatelessWidget {
   final _ComposerAttachments attachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
+  final AiVoiceConversationService voiceConversationService;
+  final Future<void> Function() onStartVoiceConversation;
+  final Future<void> Function() onStopVoiceConversation;
   final Future<void> Function() onCreateThreadRequested;
   final _CreationMode creationMode;
   final ValueChanged<_CreationMode> onCreationModeChanged;
@@ -385,6 +391,9 @@ class _WorkspaceView extends StatelessWidget {
                       attachments: attachments,
                       onSend: onSend,
                       onStop: onStop,
+                      voiceConversationService: voiceConversationService,
+                      onStartVoiceConversation: onStartVoiceConversation,
+                      onStopVoiceConversation: onStopVoiceConversation,
                       creationMode: creationMode,
                       onCreationModeChanged: onCreationModeChanged,
                       creationOptions: creationOptions,

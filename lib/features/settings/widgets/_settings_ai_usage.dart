@@ -4341,6 +4341,11 @@ String _usageSourceLabel(BuildContext context, String source) {
       zh: '文本转语音',
       en: 'Text to Speech',
     ),
+    AiUsageSource.speechCommunication => openHandLocalizedText(
+      context,
+      zh: '语音沟通',
+      en: 'Voice Conversation',
+    ),
     AiUsageSource.selfLearning => openHandLocalizedText(
       context,
       zh: '自学习',
@@ -4373,6 +4378,11 @@ String _usageOperationLabel(BuildContext context, String operation) {
       context,
       zh: '会话回复',
       en: 'Conversation',
+    ),
+    'speech_text_polishing' => openHandLocalizedText(
+      context,
+      zh: '语音文本润色',
+      en: 'Speech Text Polishing',
     ),
     'goal_turn' => openHandLocalizedText(context, zh: '目标执行', en: 'Goal Turn'),
     'goal_evaluation' => openHandLocalizedText(

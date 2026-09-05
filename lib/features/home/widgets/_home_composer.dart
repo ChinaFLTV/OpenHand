@@ -118,6 +118,35 @@ class _AtMentionSearchScope {
   final String rootPath;
 }
 
+({bool available, String reason}) _composerVoiceAvailability(
+  OfflineSpeechSettings settings,
+) {
+  for (final entry in <(OfflineSpeechKind, OfflineSpeechModelSettings)>[
+    (OfflineSpeechKind.recognition, settings.recognition),
+    (OfflineSpeechKind.synthesis, settings.synthesis),
+  ]) {
+    final modelId = entry.$2.enabledModelId;
+    final model = modelId == null
+        ? null
+        : OfflineSpeechModelCatalog.byId(modelId);
+    final label = entry.$1 == OfflineSpeechKind.recognition ? '语音识别' : '语音朗读';
+    if (model == null || model.kind != entry.$1) {
+      return (available: false, reason: '请先在设置中启用一个$label模型。');
+    }
+    final configuration = entry.$2.configuration(model);
+    final service = OfflineSpeechModelService.instance;
+    final availability = service.availabilityFor(model, configuration);
+    if (!availability.available) {
+      return (available: false, reason: '$label模型不可用：${availability.reason}');
+    }
+    if (!service.isInstalled(model) ||
+        service.requiresDownloadForConfiguration(model, configuration)) {
+      return (available: false, reason: '请先下载并准备好$label模型。');
+    }
+  }
+  return (available: true, reason: '开始语音沟通');
+}
+
 class _ComposerPanel extends StatefulWidget {
   const _ComposerPanel({
     required this.currentSession,
@@ -142,6 +171,9 @@ class _ComposerPanel extends StatefulWidget {
     required this.attachments,
     required this.onSend,
     required this.onStop,
+    required this.voiceConversationService,
+    required this.onStartVoiceConversation,
+    required this.onStopVoiceConversation,
     required this.creationMode,
     required this.onCreationModeChanged,
     this.creationOptions = AiCreationOptions.empty,
@@ -180,6 +212,9 @@ class _ComposerPanel extends StatefulWidget {
   final _ComposerAttachments attachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
+  final AiVoiceConversationService voiceConversationService;
+  final Future<void> Function() onStartVoiceConversation;
+  final Future<void> Function() onStopVoiceConversation;
   final _CreationMode creationMode;
   final ValueChanged<_CreationMode> onCreationModeChanged;
   final AiCreationOptions creationOptions;
@@ -240,6 +275,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     widget.onStateCreated?.call(this);
     widget.controller.addListener(_handleTextChangedForAtMention);
     widget.controller.addListener(_handleTextChangedForSlashSkill);
+    widget.voiceConversationService.addListener(
+      _handleVoiceConversationChanged,
+    );
+    OfflineSpeechModelService.instance.addListener(
+      _handleVoiceConversationChanged,
+    );
     _attachComposerFocusListener(widget.focusNode);
   }
 
@@ -256,6 +297,14 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       _detachComposerFocusListener(oldWidget.focusNode);
       _attachComposerFocusListener(widget.focusNode);
     }
+    if (oldWidget.voiceConversationService != widget.voiceConversationService) {
+      oldWidget.voiceConversationService.removeListener(
+        _handleVoiceConversationChanged,
+      );
+      widget.voiceConversationService.addListener(
+        _handleVoiceConversationChanged,
+      );
+    }
   }
 
   @override
@@ -263,10 +312,20 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     widget.onStateDisposed?.call(this);
     widget.controller.removeListener(_handleTextChangedForAtMention);
     widget.controller.removeListener(_handleTextChangedForSlashSkill);
+    widget.voiceConversationService.removeListener(
+      _handleVoiceConversationChanged,
+    );
+    OfflineSpeechModelService.instance.removeListener(
+      _handleVoiceConversationChanged,
+    );
     _detachComposerFocusListener(widget.focusNode);
     _atMentionOverlay.dispose();
     _skillPickerOverlay.dispose();
     super.dispose();
+  }
+
+  void _handleVoiceConversationChanged() {
+    if (mounted) setState(() {});
   }
 
   void _attachComposerFocusListener(FocusNode focusNode) {
@@ -1306,6 +1365,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
+    final voiceSnapshot = widget.voiceConversationService.snapshot;
+    final voiceActive = voiceSnapshot.active;
+    final effectiveCollapsed = widget.isCollapsed && !voiceActive;
     final persistedModelId = widget.currentSession?.lastUsedModelLabel?.trim();
     final selectedModelUnavailable =
         widget.selectedModel == null && persistedModelId?.isNotEmpty == true;
@@ -1348,11 +1410,37 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final isResponding = widget.sendPhase == AiSendPhase.responding;
     final isBusy = widget.sendPhase != AiSendPhase.idle;
     final settings = context.watch<SettingsController>();
+    final voiceAvailability = _composerVoiceAvailability(
+      settings.offlineSpeechSettings,
+    );
+    final voiceModeAvailable =
+        widget.currentSession != null && voiceAvailability.available;
     final modelSelectionLocked = _isModelSelectionLocked(settings);
     final modelLockReason = _inputCacheModelLockReason(context);
     final canStopSending = widget.canStopSending;
     final activeGoal = widget.currentSession?.activeGoal;
     final hasActiveGoal = activeGoal?.isActive == true;
+    final voiceModeActionEnabled =
+        voiceModeAvailable && !isBusy && !hasActiveGoal;
+    final voiceModeUnavailableReason = widget.currentSession == null
+        ? openHandLocalizedText(
+            context,
+            zh: '请先创建或打开一个会话。',
+            en: 'Create or open a conversation first.',
+          )
+        : !voiceAvailability.available
+        ? voiceAvailability.reason
+        : hasActiveGoal
+        ? openHandLocalizedText(
+            context,
+            zh: '请先暂停或结束当前目标。',
+            en: 'Pause or finish the active goal first.',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '请等待当前回复完成。',
+            en: 'Wait for the current response to finish.',
+          );
     final showGoalControls =
         hasActiveGoal && !widget.goalControls.suppressedForQueue;
     final manualSendLockedByGoal = hasActiveGoal && !canStopSending;
@@ -1385,6 +1473,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final expandedContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _VoiceTeleprompter(
+          snapshot: voiceSnapshot,
+          onForceSend: widget.voiceConversationService.forceSend,
+        ),
+        AnimatedContainer(
+          duration: openHandMotionDuration(context, kOpenHandMotion220),
+          curve: kOpenHandEmphasizedCurve,
+          height: voiceActive ? 10 : 0,
+        ),
         if (_selectedSkill != null) ...[
           AnimatedRemovableChip(
             key: ValueKey('skill:${_selectedSkill!.manifestPath}'),
@@ -1702,43 +1799,128 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           kOpenHandGap12,
         ],
         AnimatedSize(
-          duration: openHandMotionDuration(context, kOpenHandMotion180),
-          curve: kOpenHandSwitchInCurve,
-          child: SizedBox(
-            height: widget.composerHeight,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CompositedTransformTarget(
-                  key: _atMentionAnchorKey,
-                  link: _atMentionLayerLink,
-                  child: const SizedBox.expand(),
-                ),
-                CompositedTransformTarget(
-                  key: _skillPickerAnchorKey,
-                  link: _skillPickerLayerLink,
-                  child: const SizedBox.expand(),
-                ),
-                // 在输入框层拦截全局快捷键，避免 macOS 文本编辑快捷键抢占 Ctrl+P。
-                _ComposerShortcutsHost(
-                  bindings: context
-                      .watch<SettingsController>()
-                      .shortcutBindings,
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    expands: true,
-                    maxLines: null,
-                    textInputAction: TextInputAction.newline,
-                    textAlignVertical: TextAlignVertical.top,
-                    decoration: InputDecoration(hintText: l10n.composerHint),
-                  ),
-                ),
-              ],
+          duration: openHandMotionDuration(context, kOpenHandMotion260),
+          curve: kOpenHandEmphasizedCurve,
+          child: AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            reverseDuration: openHandMotionDuration(
+              context,
+              kOpenHandMotion180,
             ),
+            switchInCurve: kOpenHandEntranceCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
+            layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+            child: voiceActive
+                ? const SizedBox(
+                    key: ValueKey<String>('voice-composer-input-hidden'),
+                  )
+                : SizedBox(
+                    key: const ValueKey<String>('voice-composer-input'),
+                    height: widget.composerHeight,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CompositedTransformTarget(
+                          key: _atMentionAnchorKey,
+                          link: _atMentionLayerLink,
+                          child: const SizedBox.expand(),
+                        ),
+                        CompositedTransformTarget(
+                          key: _skillPickerAnchorKey,
+                          link: _skillPickerLayerLink,
+                          child: const SizedBox.expand(),
+                        ),
+                        // 在输入框层拦截全局快捷键，避免 macOS 文本编辑快捷键抢占 Ctrl+P。
+                        _ComposerShortcutsHost(
+                          bindings: context
+                              .watch<SettingsController>()
+                              .shortcutBindings,
+                          child: TextField(
+                            controller: widget.controller,
+                            focusNode: widget.focusNode,
+                            expands: true,
+                            maxLines: null,
+                            textInputAction: TextInputAction.newline,
+                            textAlignVertical: TextAlignVertical.top,
+                            decoration: InputDecoration(
+                              hintText: l10n.composerHint,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
           ),
         ),
       ],
+    );
+
+    final voiceControls = AnimatedSwitcher(
+      duration: openHandMotionDuration(context, kOpenHandMotion240),
+      reverseDuration: openHandMotionDuration(context, kOpenHandMotion180),
+      switchInCurve: kOpenHandEntranceCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
+      layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+      child: voiceActive
+          ? Row(
+              key: const ValueKey<String>('voice-controls-active'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _VoiceModeActionButton(
+                  tooltip: voiceSnapshot.speakerMuted
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '恢复语音朗读',
+                          en: 'Unmute spoken replies',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: '静音语音朗读',
+                          en: 'Mute spoken replies',
+                        ),
+                  icon: voiceSnapshot.speakerMuted
+                      ? Icons.volume_off_rounded
+                      : Icons.volume_up_rounded,
+                  active: voiceSnapshot.speakerMuted,
+                  onPressed: () => widget.voiceConversationService
+                      .setSpeakerMuted(!voiceSnapshot.speakerMuted),
+                ),
+                kOpenHandHGap10,
+                _VoiceModeActionButton(
+                  tooltip: voiceSnapshot.microphoneEnabled
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '关闭麦克风',
+                          en: 'Turn off microphone',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: '开启麦克风',
+                          en: 'Turn on microphone',
+                        ),
+                  icon: voiceSnapshot.microphoneEnabled
+                      ? Icons.mic_rounded
+                      : Icons.mic_off_rounded,
+                  active: !voiceSnapshot.microphoneEnabled,
+                  onPressed: () => widget.voiceConversationService
+                      .setMicrophoneEnabled(!voiceSnapshot.microphoneEnabled),
+                ),
+              ],
+            )
+          : _VoiceModeActionButton(
+              key: const ValueKey<String>('voice-controls-inactive'),
+              tooltip: voiceModeActionEnabled
+                  ? openHandLocalizedText(
+                      context,
+                      zh: '开始语音沟通',
+                      en: 'Start voice mode',
+                    )
+                  : voiceModeUnavailableReason,
+              icon: Icons.graphic_eq_rounded,
+              onPressed: voiceModeActionEnabled
+                  ? widget.onStartVoiceConversation
+                  : null,
+            ),
     );
 
     final actionRow = Row(
@@ -1954,14 +2136,24 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         Tooltip(
           message: openHandLocalizedText(
             context,
-            zh: widget.isCollapsed ? '展开输入框' : '折叠输入框',
-            en: widget.isCollapsed ? 'Expand Composer' : 'Collapse Composer',
+            zh: voiceActive
+                ? '语音沟通期间保持展开'
+                : widget.isCollapsed
+                ? '展开输入框'
+                : '折叠输入框',
+            en: voiceActive
+                ? 'Composer stays expanded in voice mode'
+                : widget.isCollapsed
+                ? 'Expand Composer'
+                : 'Collapse Composer',
           ),
           child: SizedBox(
             width: 52,
             height: 52,
             child: FilledButton(
-              onPressed: () => widget.onCollapsedChanged(!widget.isCollapsed),
+              onPressed: voiceActive
+                  ? null
+                  : () => widget.onCollapsedChanged(!widget.isCollapsed),
               style: FilledButton.styleFrom(
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(52, 52),
@@ -2050,6 +2242,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 )
               : const SizedBox(key: ValueKey<String>('creation-options-off')),
         ),
+        if (!showGoalControls) ...[kOpenHandHGap10, voiceControls],
         kOpenHandHGap10,
         if (showGoalControls)
           SizedBox(
@@ -2097,6 +2290,28 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   ),
                 ),
               ],
+            ),
+          )
+        else if (voiceActive)
+          Tooltip(
+            message: openHandLocalizedText(
+              context,
+              zh: '结束语音沟通',
+              en: 'End voice mode',
+            ),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: FilledButton(
+                onPressed: widget.onStopVoiceConversation,
+                style: FilledButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(52, 52),
+                  backgroundColor: colorScheme.error,
+                  foregroundColor: colorScheme.onError,
+                ),
+                child: const Icon(Icons.stop_rounded),
+              ),
             ),
           )
         else
@@ -2157,21 +2372,292 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion260),
         curve: kOpenHandEmphasizedCurve,
-        padding: EdgeInsets.fromLTRB(18, 14, 18, widget.isCollapsed ? 10 : 18),
+        padding: EdgeInsets.fromLTRB(18, 14, 18, effectiveCollapsed ? 10 : 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             OpenHandCollapsibleFade(
-              collapsed: widget.isCollapsed,
+              collapsed: effectiveCollapsed,
               child: expandedContent,
             ),
             AnimatedContainer(
               duration: openHandMotionDuration(context, kOpenHandMotion260),
               curve: kOpenHandEmphasizedCurve,
-              height: widget.isCollapsed ? 0 : 14,
+              height: effectiveCollapsed ? 0 : 14,
             ),
             actionRow,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceTeleprompter extends StatelessWidget {
+  const _VoiceTeleprompter({required this.snapshot, required this.onForceSend});
+
+  final AiVoiceConversationSnapshot snapshot;
+  final Future<void> Function() onForceSend;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final current = snapshot.currentTranscript.trim();
+    final previous = snapshot.previousTranscript.trim();
+    final status = switch (snapshot.phase) {
+      AiVoiceConversationPhase.starting => openHandLocalizedText(
+        context,
+        zh: '正在启动本地语音服务…',
+        en: 'Starting local voice services…',
+      ),
+      AiVoiceConversationPhase.recognizing => openHandLocalizedText(
+        context,
+        zh: '正在识别…',
+        en: 'Recognizing…',
+      ),
+      AiVoiceConversationPhase.polishing => openHandLocalizedText(
+        context,
+        zh: '正在润色…',
+        en: 'Polishing…',
+      ),
+      AiVoiceConversationPhase.speaking => openHandLocalizedText(
+        context,
+        zh: '正在朗读回复',
+        en: 'Speaking reply',
+      ),
+      AiVoiceConversationPhase.failed => openHandLocalizedText(
+        context,
+        zh: '语音沟通异常',
+        en: 'Voice mode error',
+      ),
+      AiVoiceConversationPhase.idle || AiVoiceConversationPhase.listening =>
+        snapshot.microphoneEnabled
+            ? openHandLocalizedText(context, zh: '正在聆听', en: 'Listening')
+            : openHandLocalizedText(
+                context,
+                zh: '麦克风已关闭',
+                en: 'Microphone off',
+              ),
+    };
+
+    return AnimatedSize(
+      duration: openHandMotionDuration(context, kOpenHandMotion260),
+      curve: kOpenHandEmphasizedCurve,
+      child: AnimatedSwitcher(
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
+        reverseDuration: openHandMotionDuration(context, kOpenHandMotion180),
+        switchInCurve: kOpenHandEntranceCurve,
+        switchOutCurve: kOpenHandSwitchOutCurve,
+        layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+        child: !snapshot.active
+            ? const SizedBox(key: ValueKey<String>('voice-teleprompter-hidden'))
+            : Semantics(
+                key: const ValueKey<String>('voice-teleprompter-visible'),
+                liveRegion: true,
+                label: '$status $current',
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHighest,
+                    borderRadius: kOpenHandBorderRadius16,
+                    border: Border.all(
+                      color: colors.outlineVariant.withValues(alpha: 0.72),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 34,
+                          height: 34,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                value: snapshot.microphoneEnabled
+                                    ? (snapshot.inputLevel * 14).clamp(0.06, 1)
+                                    : 0,
+                                strokeWidth: 3,
+                                color:
+                                    snapshot.phase ==
+                                        AiVoiceConversationPhase.failed
+                                    ? colors.error
+                                    : colors.primary,
+                                backgroundColor: colors.surfaceContainerHigh,
+                              ),
+                              Icon(
+                                snapshot.microphoneEnabled
+                                    ? Icons.mic_rounded
+                                    : Icons.mic_off_rounded,
+                                size: 17,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    status,
+                                    style: theme.textTheme.labelMedium
+                                        ?.copyWith(
+                                          color: colors.primary,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                  if (snapshot.message case final message?) ...[
+                                    kOpenHandHGap8,
+                                    Expanded(
+                                      child: Text(
+                                        message,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: colors.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              if (previous.isNotEmpty) ...[
+                                kOpenHandGap4,
+                                Text(
+                                  previous,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant.withValues(
+                                      alpha: 0.48,
+                                    ),
+                                    shadows: <Shadow>[
+                                      Shadow(
+                                        color: colors.shadow.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              kOpenHandGap4,
+                              AnimatedSwitcher(
+                                duration: openHandMotionDuration(
+                                  context,
+                                  kOpenHandMotion180,
+                                ),
+                                layoutBuilder:
+                                    buildCollisionSafeAnimatedSwitcherLayout,
+                                child: Text(
+                                  current.isEmpty
+                                      ? openHandLocalizedText(
+                                          context,
+                                          zh: '请开始说话…',
+                                          en: 'Start speaking…',
+                                        )
+                                      : current,
+                                  key: ValueKey<String>(current),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: current.isEmpty
+                                        ? colors.onSurfaceVariant
+                                        : colors.onSurface,
+                                    fontWeight: current.isEmpty
+                                        ? FontWeight.w500
+                                        : FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        kOpenHandHGap8,
+                        AnimatedSwitcher(
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion180,
+                          ),
+                          child: current.isEmpty
+                              ? const SizedBox(
+                                  key: ValueKey<String>(
+                                    'voice-force-send-hidden',
+                                  ),
+                                )
+                              : Tooltip(
+                                  key: const ValueKey<String>(
+                                    'voice-force-send-visible',
+                                  ),
+                                  message: openHandLocalizedText(
+                                    context,
+                                    zh: '立即发送识别文本',
+                                    en: 'Send recognized text now',
+                                  ),
+                                  child: IconButton.filled(
+                                    onPressed: () => unawaited(onForceSend()),
+                                    icon: const Icon(
+                                      Icons.arrow_upward_rounded,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _VoiceModeActionButton extends StatelessWidget {
+  const _VoiceModeActionButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.active = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final Future<void> Function()? onPressed;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final enabled = onPressed != null;
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: FilledButton(
+          onPressed: enabled ? () => unawaited(onPressed!()) : null,
+          style: FilledButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(52, 52),
+            backgroundColor: active
+                ? colors.primary
+                : colors.surfaceContainerHighest,
+            foregroundColor: active
+                ? colors.onPrimary
+                : colors.onSurfaceVariant,
+            side: active ? null : BorderSide(color: colors.outlineVariant),
+          ),
+          child: Icon(icon),
         ),
       ),
     );

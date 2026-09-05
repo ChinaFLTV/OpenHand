@@ -286,6 +286,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AiWorkspaceInstructionService();
   final AiGitSnapshotService _gitSnapshotService = AiGitSnapshotService();
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
+  final AiVoiceConversationService _voiceConversationService =
+      AiVoiceConversationService();
+  String? _voiceConversationSessionId;
+  String? _voiceResponseBaselineAssistantId;
   final AiTranslationService _translationService = AiTranslationService();
   final WebReverseCdpMcpBridge _webReverseCdpMcpBridge =
       WebReverseCdpMcpBridge();
@@ -1071,6 +1075,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 窗口失焦、最小化或进入后台时继续朗读；仅在应用真正退出时停止。
     if (state == AppLifecycleState.detached) {
       unawaited(_ttsPlaybackService.stop());
+      unawaited(_voiceConversationService.stop());
     }
     // 进入后台或失活时立即保存 Harness 会话，避免系统终止进程时丢失状态。
     if (state == AppLifecycleState.paused ||
@@ -1162,6 +1167,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _inputRepairParticipantToken?.dispose();
     _inputRepairParticipantToken = null;
     _toolSearchReplayDispatcher.dispose();
+    _voiceConversationService.dispose();
     unawaited(_ttsPlaybackService.dispose());
     _translationService.dispose();
     _activeHarnessOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
@@ -1437,6 +1443,38 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     _scheduleSessionControllerUiSync();
     _processMessageQueueIfNeeded(sessionController);
+    _syncVoiceAssistantResponse(sessionController);
+  }
+
+  void _syncVoiceAssistantResponse(AiSessionController? controller) {
+    if (!_voiceConversationService.snapshot.active || controller == null) {
+      return;
+    }
+    final session = controller.currentSession;
+    if (session == null) return;
+    if (session.id != _voiceConversationSessionId) {
+      unawaited(_stopVoiceConversation());
+      return;
+    }
+    final assistant = session.messages.reversed
+        .where(
+          (message) =>
+              !message.isDeleted &&
+              message.kind == AiSessionMessageKind.assistant,
+        )
+        .firstOrNull;
+    if (assistant == null) return;
+    if (assistant.id == _voiceResponseBaselineAssistantId &&
+        assistant.metadata[aiSessionMessageMetadataStreamingKey] != true) {
+      return;
+    }
+    _voiceResponseBaselineAssistantId = null;
+    _voiceConversationService.ingestAssistantResponse(
+      messageId: assistant.id,
+      text: assistant.content,
+      streaming:
+          assistant.metadata[aiSessionMessageMetadataStreamingKey] == true,
+    );
   }
 
   MessageGatewayController? _readMessageGatewayController() {
@@ -2771,6 +2809,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _selectSection(AppSection section) {
     if (_selectedSection == section) return;
     dismissOpenHandTooltipsSafely(debugLabel: '切换功能页面前收起工具提示');
+    if (section != AppSection.workspace &&
+        _voiceConversationService.snapshot.active) {
+      unawaited(_stopVoiceConversation());
+    }
     setState(() {
       _selectedSection = section;
     });
@@ -6224,6 +6266,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required AiCreationRequest creationRequest,
     required List<String> additionalSystemReminders,
     required Map<String, Object?>? selectedSkillMetadata,
+    bool clearComposer = true,
   }) {
     final queue = _queuedMessagesBySessionId[sessionId];
     if ((queue?.length ?? 0) >= _maxQueuedMessagesPerSession) {
@@ -6249,11 +6292,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final q = queue ?? <_QueuedMessage>[];
       q.add(queued);
       _queuedMessagesBySessionId[sessionId] = q;
-      _replaceComposerText('');
-      _pendingAttachments = const <_ComposerAttachmentDraft>[];
-      _creationMode = _CreationMode.none;
-      _creationOptions = AiCreationOptions.empty;
-      if (!_composerCollapsed) {
+      if (clearComposer) {
+        _replaceComposerText('');
+        _pendingAttachments = const <_ComposerAttachmentDraft>[];
+        _creationMode = _CreationMode.none;
+        _creationOptions = AiCreationOptions.empty;
+      }
+      if (clearComposer && !_composerCollapsed) {
         _composerFocusNode.requestFocus();
       }
     });
@@ -6272,12 +6317,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  Future<void> _sendMessage() async {
+  Future<void> _sendMessage({String? promptOverride}) async {
     final l10n = AppLocalizations.of(context)!;
-    var prompt = _composerController.text.trim();
-    final pendingAttachments = List<_ComposerAttachmentDraft>.from(
-      _pendingAttachments,
-    );
+    final voiceSubmission = promptOverride != null;
+    var prompt = (promptOverride ?? _composerController.text).trim();
+    final pendingAttachments = voiceSubmission
+        ? const <_ComposerAttachmentDraft>[]
+        : List<_ComposerAttachmentDraft>.from(_pendingAttachments);
     if (prompt.isEmpty && pendingAttachments.isEmpty) {
       return;
     }
@@ -6331,7 +6377,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (existingSessionId != null &&
         _displaySendPhaseForSession(sessionController, existingSessionId) !=
             AiSendPhase.idle) {
-      final composerState = _composerPanelState;
+      final composerState = voiceSubmission ? null : _composerPanelState;
       final skillDisplayMetadata = composerState?.peekPendingSkillMetadata();
       final skillReminder = composerState?.consumePendingSkillReminder();
       final additionalSystemReminders = <String>[
@@ -6342,13 +6388,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         sessionId: existingSessionId,
         prompt: prompt,
         pendingAttachments: pendingAttachments,
-        creationRequest: _creationRequestFromComposer(_creationMode),
+        creationRequest: voiceSubmission
+            ? AiCreationRequest.none
+            : _creationRequestFromComposer(_creationMode),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: skillDisplayMetadata,
+        clearComposer: !voiceSubmission,
       );
       return;
     }
-    final slashCommand = parseOpenHandSlashCommand(prompt);
+    final slashCommand = voiceSubmission
+        ? null
+        : parseOpenHandSlashCommand(prompt);
     if (slashCommand != null) {
       if (pendingAttachments.isNotEmpty) {
         showOpenHandInfoSnack(
@@ -6464,7 +6515,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     // 技能提示词通过隐藏元数据发送，避免污染会话中展示的用户原文。
-    final composerState = _composerPanelState;
+    final composerState = voiceSubmission ? null : _composerPanelState;
     final skillDisplayMetadata = composerState?.peekPendingSkillMetadata();
     final skillReminder = composerState?.consumePendingSkillReminder();
     final additionalSystemReminders = <String>[
@@ -6479,9 +6530,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         sessionId: targetSessionId,
         prompt: prompt,
         pendingAttachments: pendingAttachments,
-        creationRequest: _creationRequestFromComposer(_creationMode),
+        creationRequest: voiceSubmission
+            ? AiCreationRequest.none
+            : _creationRequestFromComposer(_creationMode),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: skillDisplayMetadata,
+        clearComposer: !voiceSubmission,
       );
       return;
     }
@@ -6514,15 +6568,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
 
-    _replaceComposerText('');
+    if (!voiceSubmission) _replaceComposerText('');
     // 发送前捕获并重置创作模式。
-    final creationMode = _creationMode;
+    final creationMode = voiceSubmission ? _CreationMode.none : _creationMode;
     final creationRequest = _creationRequestFromComposer(creationMode);
-    setState(() {
-      _pendingAttachments = const <_ComposerAttachmentDraft>[];
-      _creationMode = _CreationMode.none;
-      _creationOptions = AiCreationOptions.empty;
-    });
+    if (!voiceSubmission) {
+      setState(() {
+        _pendingAttachments = const <_ComposerAttachmentDraft>[];
+        _creationMode = _CreationMode.none;
+        _creationOptions = AiCreationOptions.empty;
+      });
+    }
 
     await _submitTextToSession(
       targetSessionId,
@@ -6536,6 +6592,50 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       selectedSkillMetadata: skillDisplayMetadata,
       goalStartOptions: goalStartOptions,
     );
+  }
+
+  Future<void> _startVoiceConversation() async {
+    if (_voiceConversationService.snapshot.active) return;
+    final settingsController = context.read<SettingsController>();
+    final currentSession = context.read<AiSessionController>().currentSession;
+    if (currentSession == null) return;
+    _voiceConversationSessionId = currentSession.id;
+    _voiceResponseBaselineAssistantId = currentSession.messages.reversed
+        .where(
+          (message) =>
+              !message.isDeleted &&
+              message.kind == AiSessionMessageKind.assistant,
+        )
+        .firstOrNull
+        ?.id;
+    setState(() => _composerCollapsed = false);
+    try {
+      await _voiceConversationService.start(
+        settings: settingsController.offlineSpeechSettings,
+        availableModels: settingsController.aiModels,
+        onTextReady: (text) => _sendMessage(promptOverride: text),
+      );
+    } catch (error) {
+      _voiceConversationSessionId = null;
+      _voiceResponseBaselineAssistantId = null;
+      if (!mounted) return;
+      showOpenHandErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '无法开始语音沟通：$error',
+          en: 'Unable to start voice mode: $error',
+        ),
+      );
+    }
+  }
+
+  Future<void> _stopVoiceConversation() async {
+    _voiceConversationSessionId = null;
+    _voiceResponseBaselineAssistantId = null;
+    await _voiceConversationService.stop();
+    if (!mounted || _selectedSection != AppSection.workspace) return;
+    _composerFocusNode.requestFocus();
   }
 
   void _beginPendingAutoStartSubmission(String sessionId) {
@@ -9885,7 +9985,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       _maybeAutoFollowSession(currentSession);
     }
-
     return switch (effectiveSection) {
       AppSection.workspace => _WorkspaceView(
         draftController: _composerController,
@@ -10074,6 +10173,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
         onSend: _sendMessage,
         onStop: _stopResponding,
+        voiceConversationService: _voiceConversationService,
+        onStartVoiceConversation: _startVoiceConversation,
+        onStopVoiceConversation: _stopVoiceConversation,
         onCreateThreadRequested: _createSessionFromDialog,
         creationMode: _creationMode,
         creationOptions: _creationOptions,

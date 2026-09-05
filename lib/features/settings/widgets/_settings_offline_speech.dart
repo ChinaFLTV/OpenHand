@@ -11,19 +11,23 @@ class _OfflineSpeechModelPanel extends StatefulWidget {
     required this.settings,
     required this.onChanged,
     this.textPolishingSettings,
+    this.silenceTimeoutSeconds,
     this.availableModels = const <AiModelConfig>[],
     this.recentModelSelections = const <RecentModelSelection>[],
     this.onTextPolishingChanged,
+    this.onSilenceTimeoutChanged,
   });
 
   final OfflineSpeechKind kind;
   final OfflineSpeechModelSettings settings;
   final Future<bool> Function(OfflineSpeechModelSettings settings) onChanged;
   final OfflineSpeechTextPolishingSettings? textPolishingSettings;
+  final int? silenceTimeoutSeconds;
   final List<AiModelConfig> availableModels;
   final List<RecentModelSelection> recentModelSelections;
   final Future<bool> Function(OfflineSpeechTextPolishingSettings settings)?
   onTextPolishingChanged;
+  final Future<bool> Function(int seconds)? onSilenceTimeoutChanged;
 
   @override
   State<_OfflineSpeechModelPanel> createState() =>
@@ -53,6 +57,37 @@ class _OfflineSpeechModelPanelState extends State<_OfflineSpeechModelPanel> {
             kind: widget.kind,
             modelCount: models.length,
           ),
+          if (widget.kind == OfflineSpeechKind.recognition &&
+              widget.silenceTimeoutSeconds != null &&
+              widget.onSilenceTimeoutChanged != null) ...<Widget>[
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '停顿后自动发送',
+                en: 'Send After Silence',
+              ),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '语音沟通时连续静音达到该时长后自动提交识别文本。',
+                en: 'Submit recognized text after this much silence in voice mode.',
+              ),
+              control: _SettingsIntSlider(
+                value: widget.silenceTimeoutSeconds!,
+                min: OfflineSpeechSettings.minSilenceTimeoutSeconds,
+                max: OfflineSpeechSettings.maxSilenceTimeoutSeconds,
+                step: 1,
+                suffix: 's',
+                onChanged: (value) async {
+                  final saved = await widget.onSilenceTimeoutChanged!(value);
+                  if (!saved && context.mounted) {
+                    _showOfflineSpeechPersistenceFailure(context);
+                  }
+                },
+              ),
+              controlMaxWidth: _settingsStandardFieldWidth,
+            ),
+          ],
           if (widget.kind == OfflineSpeechKind.recognition &&
               widget.textPolishingSettings != null &&
               widget.onTextPolishingChanged != null) ...<Widget>[
