@@ -1307,11 +1307,12 @@ class AiPromptCacheAffinity {
   }
 }
 
-/// OpenAI 兼容缓存保留提示。GPT-6 使用官方 30 分钟配置，其余兼容端点沿用
-/// 24 小时保留字段；策略不读取线程模板或用户问题，也不创建显式缓存断点。
+/// OpenAI 兼容缓存保留提示。策略仅按协议能力装配，不读取线程模板或用户问题。
 abstract final class AiPromptCacheRetentionPolicy {
   static const String bodyField = 'prompt_cache_retention';
+  static const String optionsBodyField = 'prompt_cache_options';
   static const String extendedRetention = '24h';
+  static const String optionsRetention = '30m';
   static const Duration rejectionCacheTtl = Duration(hours: 1);
   static const int rejectionCacheLimit = 64;
   static final Map<String, DateTime> _rejectedRequests = <String, DateTime>{};
@@ -1328,16 +1329,15 @@ abstract final class AiPromptCacheRetentionPolicy {
         !inputCacheConfig.isEffectivelyEnabled) {
       return body;
     }
-    if (lowercaseStringFromValue(model.modelId).contains('gpt-6-astra')) {
-      if (body.containsKey('prompt_cache_options')) return body;
+    if (_usesOptionsField(model)) {
+      if (body.containsKey(optionsBodyField)) return body;
       return AiPromptCacheAffinity.putBodyFieldBeforeConversationInput(
         body,
-        'prompt_cache_options',
-        const <String, Object?>{'ttl': '30m'},
+        optionsBodyField,
+        const <String, Object?>{'ttl': optionsRetention},
       );
     }
-    if (body.containsKey(bodyField) ||
-        body.containsKey('prompt_cache_options')) {
+    if (body.containsKey(bodyField) || body.containsKey(optionsBodyField)) {
       return body;
     }
     return AiPromptCacheAffinity.putBodyFieldBeforeConversationInput(
@@ -1353,11 +1353,13 @@ abstract final class AiPromptCacheRetentionPolicy {
     required Map<String, Object?> requestBody,
   }) {
     if ((statusCode != 400 && statusCode != 422) ||
-        !requestBody.containsKey(bodyField)) {
+        (!requestBody.containsKey(bodyField) &&
+            !requestBody.containsKey(optionsBodyField))) {
       return false;
     }
     final normalized = errorBody.toLowerCase();
     if (!normalized.contains(bodyField) &&
+        !normalized.contains(optionsBodyField) &&
         !normalized.contains('prompt cache retention')) {
       return false;
     }
@@ -1371,8 +1373,22 @@ abstract final class AiPromptCacheRetentionPolicy {
   }
 
   static Map<String, Object?> withoutMarker(Map<String, Object?> body) {
-    if (!body.containsKey(bodyField)) return body;
-    return Map<String, Object?>.from(body)..remove(bodyField);
+    if (!body.containsKey(bodyField) && !body.containsKey(optionsBodyField)) {
+      return body;
+    }
+    return Map<String, Object?>.from(body)
+      ..remove(bodyField)
+      ..remove(optionsBodyField);
+  }
+
+  static bool _usesOptionsField(AiModelConfig model) {
+    final supported = model.profileFor(model.modelId).supportedParameters;
+    final normalized = supported
+        .map(lowercaseStringFromValue)
+        .where((value) => value.isNotEmpty)
+        .toSet();
+    return normalized.contains(optionsBodyField) &&
+        !normalized.contains(bodyField);
   }
 
   static bool wasRecentlyRejected({

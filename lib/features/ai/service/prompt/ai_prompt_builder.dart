@@ -1975,6 +1975,7 @@ class AiPromptBuilder {
     final isMachineExpert = templatePolicy.usesMachineToolCatalog;
     final isWebReverse = templatePolicy.usesWebReverseToolCatalog;
     final isAndroidReverse = templatePolicy.usesAndroidReverseToolCatalog;
+    final schemaBackedCompact = compact && !useDsmlToolCalls;
     final buffer = StringBuffer();
     if (compact) {
       buffer.writeln(
@@ -2043,7 +2044,12 @@ class AiPromptBuilder {
                     : '## Skill Tools (load only on clear match)'),
         );
       for (final tool in skillTools) {
-        _renderToolEntry(buffer, tool, compact: compact);
+        _renderToolEntry(
+          buffer,
+          tool,
+          compact: compact,
+          schemaBackedCompact: schemaBackedCompact,
+        );
       }
     }
     if (mcpTools.isNotEmpty) {
@@ -2059,7 +2065,12 @@ class AiPromptBuilder {
               : '## MCP Tools (medium priority)',
         );
       for (final tool in mcpTools) {
-        _renderToolEntry(buffer, tool, compact: compact);
+        _renderToolEntry(
+          buffer,
+          tool,
+          compact: compact,
+          schemaBackedCompact: schemaBackedCompact,
+        );
       }
     }
     if (builtinTools.isNotEmpty) {
@@ -2075,8 +2086,12 @@ class AiPromptBuilder {
               : '## Builtin Tools (baseline)',
         );
       for (final tool in builtinTools) {
-        // 紧凑模式仍保留内置工具完整描述与必填参数，兼容忽略 API 工具数组的模型。
-        _renderToolEntry(buffer, tool, compact: compact);
+        _renderToolEntry(
+          buffer,
+          tool,
+          compact: compact,
+          schemaBackedCompact: schemaBackedCompact,
+        );
       }
     }
     if (useDsmlToolCalls && visibleToolCount > 0) {
@@ -2128,9 +2143,9 @@ class AiPromptBuilder {
     StringBuffer buffer,
     AiToolDefinition tool, {
     bool compact = false,
-    bool builtinCompact = false,
+    bool schemaBackedCompact = false,
   }) {
-    if (builtinCompact) {
+    if (schemaBackedCompact) {
       final description = _truncateToolDescription(
         tool.description,
         maxCharacters: 80,

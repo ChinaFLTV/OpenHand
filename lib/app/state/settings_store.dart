@@ -61,7 +61,7 @@ class SettingsStore {
   static const String _emptySettingsJsonMessage = '设置 JSON 为空。';
   static const String _invalidSettingsRootMessage = '设置 JSON 根节点必须是对象。';
   static const String _retiredBuiltinToolKindPrefix = 'agent';
-  static const int _currentSchemaVersion = 5;
+  static const int _currentSchemaVersion = 6;
 
   /// 保留该路径以兼容仍对外暴露路径的控制器。
   String get settingsFilePath => 'db://app_settings';
@@ -80,6 +80,8 @@ class SettingsStore {
       if (rows.isNotEmpty) {
         try {
           final source = _decodeSettingsJson(rows.first['value']);
+          final sourceVersion =
+              optionalIntegralIntFromValue(source['version']) ?? 0;
           final removedRetiredTools = _removeRetiredBuiltinToolConfigs(source);
           final snapshot = _snapshotFromJson(source);
           try {
@@ -90,11 +92,11 @@ class SettingsStore {
           } catch (error, stack) {
             silentLog('settings_store', '标记旧版设置迁移', error, stack);
           }
-          if (removedRetiredTools) {
+          if (removedRetiredTools || sourceVersion < _currentSchemaVersion) {
             try {
               await save(snapshot);
             } catch (error, stack) {
-              silentLog('settings_store', '清理已下线内置工具配置', error, stack);
+              silentLog('settings_store', '保存迁移后的设置', error, stack);
             }
           }
           return SettingsLoadResult(snapshot: snapshot, canPersist: true);
@@ -1109,6 +1111,13 @@ class SettingsStore {
             )) {
           builtinToolConfigs = AiBuiltinToolConfig.defaults();
         } else {
+          if (schemaVersion < 6) {
+            for (var index = 0; index < parsed.length; index += 1) {
+              parsed[index] = AiBuiltinToolConfig.migrateLegacyLoadingDefault(
+                parsed[index],
+              );
+            }
+          }
           // 保留已解析条目，并为新增工具类型补齐默认配置。
           final parsedKinds = parsed.map((c) => c.kind).toSet();
           final defaults = AiBuiltinToolConfig.defaults();

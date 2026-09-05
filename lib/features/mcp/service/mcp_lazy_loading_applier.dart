@@ -16,7 +16,6 @@ class McpLazyLoadingApplier {
     required AiSessionRuntimeContext runtimeContext,
     AiToolRuntimeService? toolRuntimeService,
     bool keepToolSearchWhenIdle = false,
-    Set<String> promotedToolNames = const <String>{},
   }) {
     final mode = runtimeContext.mcpLazyLoadingMode;
     final mcpEntries = catalog.toolsByName.entries
@@ -60,7 +59,6 @@ class McpLazyLoadingApplier {
         mcpEntries
             .where(
               (entry) =>
-                  !promotedToolNames.contains(entry.value.definition.name) &&
                   !eagerServerNames.contains(entry.value.mcpServer?.name),
             )
             .toList(growable: true)

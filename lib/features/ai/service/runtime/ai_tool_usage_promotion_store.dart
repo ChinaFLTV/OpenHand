@@ -284,29 +284,6 @@ final class AiResourceUsageSnapshot {
   };
 }
 
-final class AiToolUsageRecord {
-  const AiToolUsageRecord({
-    required this.toolId,
-    required this.sessionCallCount,
-    required this.sessionTotalCallCount,
-    required this.promotedNow,
-    required this.isPromoted,
-  });
-
-  const AiToolUsageRecord.ignored()
-    : toolId = '',
-      sessionCallCount = 0,
-      sessionTotalCallCount = 0,
-      promotedNow = false,
-      isPromoted = false;
-
-  final String toolId;
-  final int sessionCallCount;
-  final int sessionTotalCallCount;
-  final bool promotedNow;
-  final bool isPromoted;
-}
-
 final class AiToolUsagePromotionStore {
   AiToolUsagePromotionStore({
     String? filePath,
@@ -410,7 +387,7 @@ final class AiToolUsagePromotionStore {
     return _operations.enqueue(_initializeLocked);
   }
 
-  Future<AiToolUsageRecord> recordToolCall({
+  Future<void> recordToolCall({
     required String sessionId,
     required AiResolvedToolCatalog catalog,
     required AiToolCall toolCall,
@@ -420,9 +397,8 @@ final class AiToolUsagePromotionStore {
     final gatewayToolId = _string(
       resultMetadata['tool_search_gateway_tool_name'],
     );
-    final isGatewayInvocation = gatewayToolId.isNotEmpty;
     final resolvedTool = catalog.find(toolCall.name);
-    final logicalToolId = isGatewayInvocation
+    final logicalToolId = gatewayToolId.isNotEmpty
         ? gatewayToolId
         : (resolvedTool?.definition.name.trim() ?? toolCall.name.trim());
     final resources = <AiResourceUsageKind, Set<String>>{
@@ -511,8 +487,6 @@ final class AiToolUsagePromotionStore {
     return _recordBatch(
       sessionId: sessionId,
       resources: resources,
-      toolId: logicalToolId,
-      promotionEligible: isGatewayInvocation,
       subResourceId: defaultSubResourceId,
       toolCallId: toolCall.id,
       toolName: logicalToolId,
@@ -527,24 +501,6 @@ final class AiToolUsagePromotionStore {
       metadataJson: isWorkflowInvocation
           ? _encodeMetadata(resultMetadata)
           : '{}',
-    );
-  }
-
-  Future<AiToolUsageRecord> record({
-    required String sessionId,
-    required String toolId,
-    bool promotionEligible = false,
-  }) {
-    return _recordBatch(
-      sessionId: sessionId,
-      resources: <AiResourceUsageKind, Set<String>>{
-        AiResourceUsageKind.tool: <String>{toolId},
-      },
-      toolId: toolId,
-      promotionEligible: promotionEligible,
-      subResourceId: toolId,
-      toolName: toolId,
-      source: 'direct',
     );
   }
 
@@ -588,11 +544,9 @@ final class AiToolUsagePromotionStore {
     );
   }
 
-  Future<AiToolUsageRecord> _recordBatch({
+  Future<void> _recordBatch({
     required String sessionId,
     required Map<AiResourceUsageKind, Set<String>> resources,
-    String toolId = '',
-    bool promotionEligible = false,
     String subResourceId = '',
     String toolCallId = '',
     String toolName = '',
@@ -605,13 +559,13 @@ final class AiToolUsagePromotionStore {
     String metadataJson = '{}',
   }) {
     if (_shuttingDown) {
-      return Future<AiToolUsageRecord>.value(const AiToolUsageRecord.ignored());
+      return Future<void>.value();
     }
     return _operations.enqueue(() async {
       await _initializeLocked();
       final normalizedSessionId = _validSessionId(sessionId);
       if (normalizedSessionId == null) {
-        return const AiToolUsageRecord.ignored();
+        return;
       }
       final normalizedResources = <AiResourceUsageKind, Set<String>>{};
       for (final entry in resources.entries) {
@@ -623,7 +577,7 @@ final class AiToolUsagePromotionStore {
         if (ids.isNotEmpty) normalizedResources[entry.key] = ids;
       }
       if (normalizedResources.isEmpty) {
-        return const AiToolUsageRecord.ignored();
+        return;
       }
 
       final now = _clock();
@@ -697,38 +651,11 @@ final class AiToolUsagePromotionStore {
       }
       session.updatedAt = now.toUtc();
 
-      final normalizedToolId = _validIdentifier(toolId) ?? '';
-      final toolCount = session.countFor(
-        AiResourceUsageKind.tool,
-        normalizedToolId,
-      );
-      final toolTotal = session.totalFor(AiResourceUsageKind.tool);
-      final promotedNow =
-          promotionEligible &&
-          normalizedToolId.isNotEmpty &&
-          !session.promotedToolIds.contains(normalizedToolId) &&
-          toolCount * 2 > toolTotal;
-      if (promotedNow) session.promotedToolIds.add(normalizedToolId);
-
       _dirty = true;
       if (!_shuttingDown) _revision.value += 1;
       _schedulePersist();
-      return AiToolUsageRecord(
-        toolId: normalizedToolId,
-        sessionCallCount: toolCount,
-        sessionTotalCallCount: toolTotal,
-        promotedNow: promotedNow,
-        isPromoted: session.promotedToolIds.contains(normalizedToolId),
-      );
+      return;
     });
-  }
-
-  Set<String> promotedToolIdsForSession(String sessionId) {
-    final normalizedSessionId = _validSessionId(sessionId);
-    final usage = normalizedSessionId == null
-        ? null
-        : _sessions[normalizedSessionId];
-    return Set<String>.unmodifiable(usage?.promotedToolIds ?? const <String>{});
   }
 
   AiResourceUsageSnapshot snapshot({
@@ -1081,15 +1008,6 @@ final class AiToolUsagePromotionStore {
         if (sessionId == null) continue;
         final value = entry.value as Map;
         final counts = _restoreLegacyCounts(value['counts']);
-        final promoted = <String>{};
-        final rawPromoted = value['promoted_tools'];
-        if (rawPromoted is List) {
-          for (final item in rawPromoted) {
-            if (promoted.length >= _maxResourcesPerKind) break;
-            final id = item is String ? _validIdentifier(item) : null;
-            if (id != null) promoted.add(id);
-          }
-        }
         final restored = _SessionUsage(
           updatedAt:
               DateTime.tryParse('${value['updated_at'] ?? ''}')?.toUtc() ??
@@ -1106,7 +1024,6 @@ final class AiToolUsagePromotionStore {
               _maxCount,
             ),
           },
-          promotedToolIds: promoted,
         );
         final existing = _sessions[sessionId];
         if (existing == null) {
@@ -2015,8 +1932,7 @@ final class _SessionUsage extends _UsageBucket {
     super.counts,
     super.totals,
     super.metrics,
-    Set<String>? promotedToolIds,
-  }) : promotedToolIds = promotedToolIds ?? <String>{};
+  });
 
   factory _SessionUsage.fromJson(
     Object? raw, {
@@ -2030,17 +1946,6 @@ final class _SessionUsage extends _UsageBucket {
       validSessionIdentifier: validSessionIdentifier,
       validCount: validCount,
     );
-    final promoted = <String>{};
-    if (raw is Map && raw['promoted_tools'] is List) {
-      for (final item in raw['promoted_tools'] as List) {
-        if (promoted.length >= AiToolUsagePromotionStore._maxResourcesPerKind) {
-          break;
-        }
-        if (item is! String) continue;
-        final id = validIdentifier(item);
-        if (id != null) promoted.add(id);
-      }
-    }
     return _SessionUsage(
       updatedAt: raw is Map
           ? DateTime.tryParse('${raw['updated_at'] ?? ''}')?.toUtc() ??
@@ -2049,33 +1954,22 @@ final class _SessionUsage extends _UsageBucket {
       counts: bucket.counts,
       totals: bucket.totals,
       metrics: bucket.metrics,
-      promotedToolIds: promoted,
     );
   }
 
-  final Set<String> promotedToolIds;
   DateTime updatedAt;
 
   @override
   void absorb(_UsageBucket other) {
     super.absorb(other);
     if (other is! _SessionUsage) return;
-    for (final id in other.promotedToolIds) {
-      if (promotedToolIds.length >=
-          AiToolUsagePromotionStore._maxResourcesPerKind) {
-        break;
-      }
-      promotedToolIds.add(id);
-    }
     if (other.updatedAt.isAfter(updatedAt)) updatedAt = other.updatedAt;
   }
 
   @override
   Map<String, Object?> toJson() {
-    final promoted = promotedToolIds.toList(growable: false)..sort();
     return <String, Object?>{
       ...super.toJson(),
-      'promoted_tools': promoted,
       'updated_at': updatedAt.toIso8601String(),
     };
   }

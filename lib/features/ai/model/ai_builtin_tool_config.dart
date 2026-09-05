@@ -633,6 +633,19 @@ class AiBuiltinToolConfig {
     }
   }
 
+  static AiBuiltinToolConfig migrateLegacyLoadingDefault(
+    AiBuiltinToolConfig config,
+  ) {
+    final currentDefault = defaultLoadStrategyForKind(config.kind);
+    if (config.isCustom ||
+        config.forceLoad ||
+        config.loadStrategy != AiBuiltinToolLoadStrategy.eager ||
+        currentDefault == AiBuiltinToolLoadStrategy.eager) {
+      return config;
+    }
+    return config.copyWith(loadStrategy: currentDefault);
+  }
+
   static bool looksLikeLegacyEagerDefaults(List<AiBuiltinToolConfig> configs) {
     return _looksLikeLegacyDefaults(configs, _looksLikeLegacyEagerDefault);
   }

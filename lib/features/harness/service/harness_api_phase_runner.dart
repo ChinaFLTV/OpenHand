@@ -237,9 +237,6 @@ class HarnessApiPhaseRunner {
       runtimeContext: runtimeContext,
       templateId: _harnessTemplateId,
     );
-    var promotedToolNames = _toolUsagePromotionStore.promotedToolIdsForSession(
-      phaseSessionId,
-    );
 
     // 先统一折叠延迟工具，再按阶段权限过滤；延迟工具始终通过固定网关执行。
     AiResolvedToolCatalog applyRuntimeLazyLoadingForPhase() {
@@ -253,7 +250,6 @@ class HarnessApiPhaseRunner {
             mode: runtimeContext.builtinToolLazyLoadingMode,
             thresholdTokens: builtinLazyLoadingThresholdTokens,
             charsPerToken: runtimeContext.estimatedCharactersPerToken,
-            promotedToolNames: promotedToolNames,
           );
       final mcpCatalog = McpLazyLoadingApplier.apply(
         catalog: rawToolCatalog,
@@ -262,7 +258,6 @@ class HarnessApiPhaseRunner {
         keepToolSearchWhenIdle:
             runtimeContext.mcpLazyLoadingMode != McpLazyLoadingMode.disabled ||
             keepToolSearchForBuiltins,
-        promotedToolNames: promotedToolNames,
       );
       return AiBuiltinToolLazyLoadingApplier.apply(
         catalog: mcpCatalog,
@@ -271,7 +266,6 @@ class HarnessApiPhaseRunner {
         thresholdTokens: builtinLazyLoadingThresholdTokens,
         charsPerToken: runtimeContext.estimatedCharactersPerToken,
         toolRuntimeService: _toolRuntimeService,
-        promotedToolNames: promotedToolNames,
       );
     }
 
@@ -658,20 +652,6 @@ class HarnessApiPhaseRunner {
               content: toolOutput,
               toolCallId: toolCall.id,
             ),
-          );
-        }
-
-        final latestPromotedToolNames = _toolUsagePromotionStore
-            .promotedToolIdsForSession(phaseSessionId);
-        if (latestPromotedToolNames.length != promotedToolNames.length ||
-            !latestPromotedToolNames.containsAll(promotedToolNames)) {
-          promotedToolNames = latestPromotedToolNames;
-          toolCatalog = applyRuntimeLazyLoadingForPhase();
-          phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
-          currentSystemContent = buildSystemContent(phaseToolCatalog);
-          conversation[0] = AiChatTurn(
-            role: AiChatRole.system,
-            content: currentSystemContent,
           );
         }
 

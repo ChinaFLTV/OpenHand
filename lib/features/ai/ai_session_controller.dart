@@ -7234,9 +7234,6 @@ class AiSessionController extends ChangeNotifier {
     final templateBundle = bootstrapResults[0] as AiPromptTemplateBundle;
     final fullCatalog = bootstrapResults[1] as AiResolvedToolCatalog;
     var workingSession = session;
-    var promotedToolNames = _toolUsagePromotionStore.promotedToolIdsForSession(
-      session.id,
-    );
     AiResolvedToolCatalog applyRuntimeLazyLoading() {
       final builtinLazyLoadingThresholdTokens =
           AiBuiltinToolLazyLoadingApplier.effectiveAutoThresholdTokens(
@@ -7248,7 +7245,6 @@ class AiSessionController extends ChangeNotifier {
             mode: runtimeContext.builtinToolLazyLoadingMode,
             thresholdTokens: builtinLazyLoadingThresholdTokens,
             charsPerToken: runtimeContext.estimatedCharactersPerToken,
-            promotedToolNames: promotedToolNames,
           );
       final mcpCatalog = McpLazyLoadingApplier.apply(
         catalog: fullCatalog,
@@ -7257,7 +7253,6 @@ class AiSessionController extends ChangeNotifier {
         keepToolSearchWhenIdle:
             runtimeContext.mcpLazyLoadingMode != McpLazyLoadingMode.disabled ||
             keepToolSearchForBuiltins,
-        promotedToolNames: promotedToolNames,
       );
       return AiBuiltinToolLazyLoadingApplier.apply(
         catalog: mcpCatalog,
@@ -7266,7 +7261,6 @@ class AiSessionController extends ChangeNotifier {
         thresholdTokens: builtinLazyLoadingThresholdTokens,
         charsPerToken: runtimeContext.estimatedCharactersPerToken,
         toolRuntimeService: _toolRuntimeService,
-        promotedToolNames: promotedToolNames,
       );
     }
 
@@ -9266,13 +9260,6 @@ class AiSessionController extends ChangeNotifier {
           awaitingUserInput: true,
         );
         return true;
-      }
-      final latestPromotedToolNames = _toolUsagePromotionStore
-          .promotedToolIdsForSession(workingSession.id);
-      if (latestPromotedToolNames.length != promotedToolNames.length ||
-          !latestPromotedToolNames.containsAll(promotedToolNames)) {
-        promotedToolNames = latestPromotedToolNames;
-        toolCatalog = applyRuntimeLazyLoading();
       }
       final nextRoundAnchor = _latestNonAiSideRoundAnchorMessageId(
         workingSession.messages.skip(beforeToolExecutionMessageCount),
@@ -15270,6 +15257,10 @@ $tail''';
       if (body.containsKey(AiPromptCacheRetentionPolicy.bodyField))
         'request_prompt_cache_retention':
             '${body[AiPromptCacheRetentionPolicy.bodyField] ?? ''}',
+      if (!body.containsKey(AiPromptCacheRetentionPolicy.bodyField) &&
+          body[AiPromptCacheRetentionPolicy.optionsBodyField] is Map)
+        'request_prompt_cache_retention':
+            '${(body[AiPromptCacheRetentionPolicy.optionsBodyField] as Map)['ttl'] ?? ''}',
     };
   }
 
