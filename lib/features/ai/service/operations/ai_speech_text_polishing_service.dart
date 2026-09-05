@@ -30,6 +30,7 @@ class AiSpeechTextPolishingService {
       _ownsChatClient = chatClient == null;
 
   static const Duration _timeout = Duration(seconds: 30);
+  static const int _maxOutputTokens = 4096;
   static const String _systemPrompt =
       '你是语音转写编辑器。将识别结果整理为可直接发送、自然清晰的文本：\n'
       '- 删除语气词、口头禅、停顿、重复及已被改口否定的内容；\n'
@@ -96,11 +97,16 @@ class AiSpeechTextPolishingService {
     final modelId = provider.modelId;
     final effort = optionalStringFromValue(settings.reasoningEffort);
     final profile = provider.profileFor(modelId);
+    final profileOutputLimit = profile.maxOutputLength;
+    final outputTokens = profileOutputLimit == null
+        ? _maxOutputTokens
+        : profileOutputLimit.clamp(1, _maxOutputTokens).toInt();
     return provider.copyWith(
       modelId: modelId,
       streamEnabled: false,
-      temperature: 0,
-      maxTokens: 1024,
+      temperature: provider.resolvedThinkingEnabled ? null : 0,
+      clearTemperature: provider.resolvedThinkingEnabled,
+      maxTokens: outputTokens,
       modelProfiles: <String, AiModelProfile>{
         ...provider.modelProfiles,
         modelId: profile.copyWith(

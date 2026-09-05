@@ -536,6 +536,23 @@ class AiChatService implements AiChatClient {
       );
       return;
     }
+    _rememberResponsesRequestShapeIncompatibility(
+      model: model,
+      messages: messages,
+      tools: tools,
+      responseModalities: responseModalities,
+      creationRequest: creationRequest,
+    );
+  }
+
+  void _rememberResponsesRequestShapeIncompatibility({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    required List<AiToolDefinition> tools,
+    required List<String> responseModalities,
+    required AiCreationRequest creationRequest,
+  }) {
+    final endpointKey = _responsesEndpointKey(model);
     _cacheResponsesIncompatibility(
       _unsupportedResponsesRequestShapes,
       _responsesRequestShapeKey(
@@ -577,25 +594,26 @@ class AiChatService implements AiChatClient {
     final request = error.request;
     final startedAt = error.startedAt;
     final endedAt = error.endedAt;
-    return AiChatException(
-      error.message,
-      telemetry: request == null
-          ? null
-          : AiChatRequestTelemetry(
-              requestUrl: request.url,
-              requestMethod: request.method,
-              requestHeaders: request.headers,
-              requestBody: request.body,
-              rawResponse: error.body,
-              startedAt: startedAt,
-              endedAt: endedAt,
-              durationMs: startedAt == null || endedAt == null
-                  ? null
-                  : endedAt.difference(startedAt).inMilliseconds,
-              error: error.message,
-              requestFallbacks: error.requestFallbacks,
-            ),
-    );
+    final telemetry = request == null
+        ? null
+        : AiChatRequestTelemetry(
+            requestUrl: request.url,
+            requestMethod: request.method,
+            requestHeaders: request.headers,
+            requestBody: request.body,
+            rawResponse: error.body,
+            startedAt: startedAt,
+            endedAt: endedAt,
+            durationMs: startedAt == null || endedAt == null
+                ? null
+                : endedAt.difference(startedAt).inMilliseconds,
+            error: error.message,
+            requestFallbacks: error.requestFallbacks,
+          );
+    if (error.isEmptyOutput) {
+      return AiChatEmptyResponseException(telemetry: telemetry);
+    }
+    return AiChatException(error.message, telemetry: telemetry);
   }
 
   AiChatException _imageResponsesUnavailable(AiModelConfig model) {
@@ -909,7 +927,31 @@ class AiChatService implements AiChatClient {
           aiChatRequestFallbackResponsesUnsupported,
         );
       } on AiResponsesPayloadException catch (error) {
-        throw _chatExceptionFromResponsesPayload(error);
+        final textOnlyRequest =
+            (creationRequest.mode == AiCreationMode.none ||
+                creationRequest.mode == AiCreationMode.deepResearch) &&
+            responseModalities.every(
+              (modality) => lowercaseStringFromValue(modality) == 'text',
+            );
+        if (!allowResponsesFallback ||
+            !error.isEmptyOutput ||
+            !textOnlyRequest) {
+          throw _chatExceptionFromResponsesPayload(error);
+        }
+        _rememberResponsesRequestShapeIncompatibility(
+          model: model,
+          messages: messages,
+          tools: tools,
+          responseModalities: responseModalities,
+          creationRequest: creationRequest,
+        );
+        for (final reason in error.requestFallbacks) {
+          _addRequestFallback(routeFallbacks, reason);
+        }
+        _addRequestFallback(
+          routeFallbacks,
+          aiChatRequestFallbackResponsesUnsupported,
+        );
       }
     }
     if (usesDedicatedMediaGenerationEndpoint(model, creationRequest)) {
@@ -1102,14 +1144,25 @@ class AiChatService implements AiChatClient {
         // 正文为空时解析器会用推理内容兜底，此处去重以免 UI 重复展示。
         final replyIsReasoning =
             reasoningText != null && nullIfBlank(parsedReply) == reasoningText;
+        final reply = replyIsReasoning ? '' : dsmlExtraction.sanitizedText;
+        final toolCalls = parsedToolCalls.isNotEmpty
+            ? parsedToolCalls
+            : dsmlExtraction.toolCalls;
+        if (reply.trim().isEmpty && toolCalls.isEmpty) {
+          throw AiChatEmptyResponseException(
+            telemetry: telemetry(
+              rawResponse: response.body,
+              endedAt: endedAt,
+              error: aiChatEmptyResponseMessage,
+            ),
+          );
+        }
         return AiChatCompletion(
-          reply: replyIsReasoning ? '' : dsmlExtraction.sanitizedText,
+          reply: reply,
           reasoningContent: reasoningText,
           usage: adapter.parseUsage(decodedResponse),
           rawResponse: response.body,
-          toolCalls: parsedToolCalls.isNotEmpty
-              ? parsedToolCalls
-              : dsmlExtraction.toolCalls,
+          toolCalls: toolCalls,
           requestUrl: blueprint.url,
           requestMethod: effectiveMethod,
           requestHeaders: Map<String, String>.unmodifiable(blueprint.headers),

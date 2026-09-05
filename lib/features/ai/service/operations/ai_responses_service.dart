@@ -26,6 +26,8 @@ import 'ai_operation_http.dart';
 typedef AiResponsesRequestStarted =
     void Function(AiResponsesRequestBlueprint request);
 
+const String aiResponsesEmptyOutputMessage = 'Responses API 未返回助手正文或工具调用。';
+
 class AiResponsesRequestBlueprint {
   const AiResponsesRequestBlueprint({
     required this.url,
@@ -194,6 +196,8 @@ class AiResponsesPayloadException implements Exception {
   final DateTime? startedAt;
   final DateTime? endedAt;
   final List<String> requestFallbacks;
+
+  bool get isEmptyOutput => message == aiResponsesEmptyOutputMessage;
 
   @override
   String toString() => message;
@@ -641,7 +645,7 @@ class AiResponsesService {
     final parsed = await parseResponsePayload(decoded);
     if (parsed.text.isEmpty && parsed.toolCalls.isEmpty) {
       throw AiResponsesPayloadException(
-        'Responses API returned no assistant content or tool calls.',
+        aiResponsesEmptyOutputMessage,
         request: request,
         body: response.body,
         startedAt: startedAt,
