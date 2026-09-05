@@ -200,10 +200,95 @@ class OfflineSpeechModelSettings {
   };
 }
 
+class OfflineSpeechTextPolishingSettings {
+  const OfflineSpeechTextPolishingSettings({
+    required this.enabled,
+    required this.modelConfigId,
+    required this.modelId,
+    required this.reasoningEffort,
+  });
+
+  const OfflineSpeechTextPolishingSettings.disabled()
+    : enabled = false,
+      modelConfigId = null,
+      modelId = null,
+      reasoningEffort = null;
+
+  factory OfflineSpeechTextPolishingSettings.fromJson(Object? raw) {
+    if (raw is! Map) {
+      return const OfflineSpeechTextPolishingSettings.disabled();
+    }
+    final json = stringKeyedMapFromValue(raw);
+    return OfflineSpeechTextPolishingSettings(
+      enabled: boolFromValue(json['enabled']),
+      modelConfigId: optionalStringFromValue(json['model_config_id']),
+      modelId: optionalStringFromValue(json['model_id']),
+      reasoningEffort: optionalStringFromValue(json['reasoning_effort']),
+    ).normalized();
+  }
+
+  final bool enabled;
+  final String? modelConfigId;
+  final String? modelId;
+  final String? reasoningEffort;
+
+  OfflineSpeechTextPolishingSettings setEnabled(bool value) {
+    return OfflineSpeechTextPolishingSettings(
+      enabled: value,
+      modelConfigId: modelConfigId,
+      modelId: modelId,
+      reasoningEffort: reasoningEffort,
+    );
+  }
+
+  OfflineSpeechTextPolishingSettings selectModel({
+    required String modelConfigId,
+    required String modelId,
+    required String? reasoningEffort,
+  }) {
+    return OfflineSpeechTextPolishingSettings(
+      enabled: enabled,
+      modelConfigId: modelConfigId,
+      modelId: modelId,
+      reasoningEffort: reasoningEffort,
+    ).normalized();
+  }
+
+  OfflineSpeechTextPolishingSettings setReasoningEffort(String? value) {
+    return OfflineSpeechTextPolishingSettings(
+      enabled: enabled,
+      modelConfigId: modelConfigId,
+      modelId: modelId,
+      reasoningEffort: value,
+    ).normalized();
+  }
+
+  OfflineSpeechTextPolishingSettings normalized() {
+    final normalizedConfigId = optionalStringFromValue(modelConfigId);
+    final normalizedModelId = optionalStringFromValue(modelId);
+    return OfflineSpeechTextPolishingSettings(
+      enabled: enabled,
+      modelConfigId: normalizedConfigId,
+      modelId: normalizedConfigId == null ? null : normalizedModelId,
+      reasoningEffort: normalizedConfigId == null || normalizedModelId == null
+          ? null
+          : optionalStringFromValue(reasoningEffort),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'enabled': enabled,
+    if (modelConfigId != null) 'model_config_id': modelConfigId,
+    if (modelId != null) 'model_id': modelId,
+    if (reasoningEffort != null) 'reasoning_effort': reasoningEffort,
+  };
+}
+
 class OfflineSpeechSettings {
   const OfflineSpeechSettings({
     required this.recognition,
     required this.synthesis,
+    required this.textPolishing,
   });
 
   factory OfflineSpeechSettings.defaults() => OfflineSpeechSettings(
@@ -211,6 +296,7 @@ class OfflineSpeechSettings {
       OfflineSpeechKind.recognition,
     ),
     synthesis: OfflineSpeechModelSettings.defaults(OfflineSpeechKind.synthesis),
+    textPolishing: const OfflineSpeechTextPolishingSettings.disabled(),
   );
 
   factory OfflineSpeechSettings.fromJson(Object? raw) {
@@ -225,11 +311,15 @@ class OfflineSpeechSettings {
         json[OfflineSpeechKind.synthesis.storageKey],
         OfflineSpeechKind.synthesis,
       ),
+      textPolishing: OfflineSpeechTextPolishingSettings.fromJson(
+        json['text_polishing'],
+      ),
     );
   }
 
   final OfflineSpeechModelSettings recognition;
   final OfflineSpeechModelSettings synthesis;
+  final OfflineSpeechTextPolishingSettings textPolishing;
 
   OfflineSpeechModelSettings settingsFor(OfflineSpeechKind kind) {
     return kind == OfflineSpeechKind.recognition ? recognition : synthesis;
@@ -246,17 +336,30 @@ class OfflineSpeechSettings {
       synthesis: kind == OfflineSpeechKind.synthesis
           ? settings.normalized(kind)
           : synthesis,
+      textPolishing: textPolishing,
+    );
+  }
+
+  OfflineSpeechSettings updateTextPolishing(
+    OfflineSpeechTextPolishingSettings settings,
+  ) {
+    return OfflineSpeechSettings(
+      recognition: recognition,
+      synthesis: synthesis,
+      textPolishing: settings.normalized(),
     );
   }
 
   OfflineSpeechSettings normalized() => OfflineSpeechSettings(
     recognition: recognition.normalized(OfflineSpeechKind.recognition),
     synthesis: synthesis.normalized(OfflineSpeechKind.synthesis),
+    textPolishing: textPolishing.normalized(),
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
     OfflineSpeechKind.recognition.storageKey: recognition.toJson(),
     OfflineSpeechKind.synthesis.storageKey: synthesis.toJson(),
+    'text_polishing': textPolishing.toJson(),
   };
 }
 

@@ -77,6 +77,7 @@ import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
+import '../../../shared/ui/reasoning_effort_selector.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -3873,6 +3874,14 @@ class _SettingsViewState extends State<SettingsView> {
               _OfflineSpeechModelPanel(
                 kind: OfflineSpeechKind.recognition,
                 settings: offlineSpeechSettings.recognition,
+                textPolishingSettings: offlineSpeechSettings.textPolishing,
+                availableModels: settingsController.aiModels,
+                recentModelSelections: settingsController.recentModelSelections,
+                onTextPolishingChanged: (next) =>
+                    settingsController.updateOfflineSpeechSettings(
+                      settingsController.offlineSpeechSettings
+                          .updateTextPolishing(next),
+                    ),
                 onChanged: (next) =>
                     settingsController.updateOfflineSpeechSettings(
                       settingsController.offlineSpeechSettings.update(

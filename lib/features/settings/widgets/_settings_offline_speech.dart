@@ -1,17 +1,26 @@
 part of 'settings_view.dart';
 
-const double _offlineSpeechPanelMaxHeight = 680;
+const double _offlineSpeechPanelMaxHeight = 760;
 
 class _OfflineSpeechModelPanel extends StatefulWidget {
   const _OfflineSpeechModelPanel({
     required this.kind,
     required this.settings,
     required this.onChanged,
+    this.textPolishingSettings,
+    this.availableModels = const <AiModelConfig>[],
+    this.recentModelSelections = const <RecentModelSelection>[],
+    this.onTextPolishingChanged,
   });
 
   final OfflineSpeechKind kind;
   final OfflineSpeechModelSettings settings;
   final Future<bool> Function(OfflineSpeechModelSettings settings) onChanged;
+  final OfflineSpeechTextPolishingSettings? textPolishingSettings;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
+  final Future<bool> Function(OfflineSpeechTextPolishingSettings settings)?
+  onTextPolishingChanged;
 
   @override
   State<_OfflineSpeechModelPanel> createState() =>
@@ -45,6 +54,17 @@ class _OfflineSpeechModelPanelState extends State<_OfflineSpeechModelPanel> {
               kind: widget.kind,
               modelCount: models.length,
             ),
+            if (widget.kind == OfflineSpeechKind.recognition &&
+                widget.textPolishingSettings != null &&
+                widget.onTextPolishingChanged != null) ...<Widget>[
+              kOpenHandGap18,
+              _OfflineSpeechTextPolishingControls(
+                settings: widget.textPolishingSettings!,
+                availableModels: widget.availableModels,
+                recentModelSelections: widget.recentModelSelections,
+                onChanged: widget.onTextPolishingChanged!,
+              ),
+            ],
             kOpenHandGap10,
             Flexible(
               child: DecoratedBox(
@@ -82,6 +102,298 @@ class _OfflineSpeechModelPanelState extends State<_OfflineSpeechModelPanel> {
                   ),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OfflineSpeechTextPolishingControls extends StatefulWidget {
+  const _OfflineSpeechTextPolishingControls({
+    required this.settings,
+    required this.availableModels,
+    required this.recentModelSelections,
+    required this.onChanged,
+  });
+
+  final OfflineSpeechTextPolishingSettings settings;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
+  final Future<bool> Function(OfflineSpeechTextPolishingSettings settings)
+  onChanged;
+
+  @override
+  State<_OfflineSpeechTextPolishingControls> createState() =>
+      _OfflineSpeechTextPolishingControlsState();
+}
+
+class _OfflineSpeechTextPolishingControlsState
+    extends State<_OfflineSpeechTextPolishingControls> {
+  bool _modelSelectorOpen = false;
+
+  AiModelConfig? _selectedModel() {
+    final configId = widget.settings.modelConfigId;
+    final modelId = widget.settings.modelId;
+    if (configId == null || modelId == null) return null;
+    final provider = widget.availableModels
+        .where(
+          (candidate) =>
+              candidate.id == configId &&
+              candidate.allModelIds.contains(modelId),
+        )
+        .firstOrNull;
+    return provider?.copyWith(modelId: modelId);
+  }
+
+  List<AiReasoningEffortOption> _reasoningOptions(AiModelConfig? model) {
+    if (model == null || !model.resolvedReasoningEffortControlEnabled) {
+      return const <AiReasoningEffortOption>[];
+    }
+    return model.resolvedReasoningEffortOptions
+        .where((option) => option.isSelectable)
+        .toList(growable: false);
+  }
+
+  String? _normalizedReasoningEffort(AiModelConfig? model, String? configured) {
+    final options = _reasoningOptions(model);
+    if (options.isEmpty) return null;
+    if (options.length == 1) return options.single.value;
+    final normalized = configured?.trim();
+    if (normalized != null &&
+        options.any((option) => option.value == normalized)) {
+      return normalized;
+    }
+    final modelDefault = model?.resolvedReasoningEffort;
+    if (modelDefault != null &&
+        options.any((option) => option.value == modelDefault)) {
+      return modelDefault;
+    }
+    return options.first.value;
+  }
+
+  Future<void> _save(OfflineSpeechTextPolishingSettings next) async {
+    if (await widget.onChanged(next) || !mounted) return;
+    _showOfflineSpeechPersistenceFailure(context);
+  }
+
+  Future<void> _selectModel() async {
+    if (_modelSelectorOpen || widget.availableModels.isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _modelSelectorOpen = true);
+    final picked = await showModelSearchSelector(
+      context: context,
+      models: widget.availableModels,
+      recentSelections: widget.recentModelSelections,
+      selectedConfigId: widget.settings.modelConfigId,
+      selectedModelId: widget.settings.modelId,
+    );
+    if (!mounted) return;
+    setState(() => _modelSelectorOpen = false);
+    if (picked == null) return;
+    final provider = widget.availableModels
+        .where((candidate) => candidate.id == picked.$1)
+        .firstOrNull;
+    final model = provider?.copyWith(modelId: picked.$2);
+    final next = widget.settings.selectModel(
+      modelConfigId: picked.$1,
+      modelId: picked.$2,
+      reasoningEffort: _normalizedReasoningEffort(model, null),
+    );
+    await context.read<SettingsController>().addRecentModelSelection(
+      picked.$1,
+      picked.$2,
+    );
+    if (!mounted) return;
+    await _save(next);
+  }
+
+  Future<void> _selectReasoningEffort(BuildContext anchorContext) async {
+    final model = _selectedModel();
+    final options = _reasoningOptions(model);
+    if (options.length <= 1) return;
+    final currentValue = _normalizedReasoningEffort(
+      model,
+      widget.settings.reasoningEffort,
+    );
+    await showReasoningEffortSelector(
+      context: context,
+      anchorContext: anchorContext,
+      options: options,
+      currentValue: currentValue,
+      onChanged: (effort) async {
+        final saved = await widget.onChanged(
+          widget.settings.setReasoningEffort(effort),
+        );
+        if (!mounted || saved) return saved;
+        _showOfflineSpeechPersistenceFailure(context);
+        return false;
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedModel = _selectedModel();
+    final options = _reasoningOptions(selectedModel);
+    final reasoningEffort = _normalizedReasoningEffort(
+      selectedModel,
+      widget.settings.reasoningEffort,
+    );
+    final localeName = Localizations.localeOf(context).toLanguageTag();
+    final reasoningLabel = reasoningEffort == null
+        ? openHandLocalizedText(context, zh: '关闭', en: 'Off')
+        : options
+                  .where((option) => option.value == reasoningEffort)
+                  .firstOrNull
+                  ?.labelForLocaleName(localeName) ??
+              reasoningEffort;
+    final hasModels = widget.availableModels.any(
+      (model) => model.allModelIds.isNotEmpty,
+    );
+    final modelLabel = selectedModel == null
+        ? openHandLocalizedText(
+            context,
+            zh: hasModels ? '选择润色模型' : '暂无可用模型',
+            en: hasModels ? 'Choose polishing model' : 'No models available',
+          )
+        : '${selectedModel.providerLabel} · ${selectedModel.displayName}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _ResponsiveSettingRow(
+          title: openHandLocalizedText(
+            context,
+            zh: '启用文本润色',
+            en: 'Enable Text Polishing',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '识别完成后使用所选模型修正错字、标点和断句。默认关闭。',
+            en: 'Use the selected model to correct words, punctuation, and sentence breaks after recognition. Off by default.',
+          ),
+          control: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: _SettingsSwitch(
+              value: widget.settings.enabled,
+              onChanged: (value) => _save(widget.settings.setEnabled(value)),
+            ),
+          ),
+        ),
+        _AnimatedSettingReveal(
+          visible: widget.settings.enabled,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Column(
+              children: <Widget>[
+                _ResponsiveSettingRow(
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '润色模型',
+                    en: 'Polishing Model',
+                  ),
+                  subtitle: openHandLocalizedText(
+                    context,
+                    zh: '选择语音识别完成后用于整理文本的 AI 模型。',
+                    en: 'Choose the AI model used to refine recognized text.',
+                  ),
+                  control: _OfflineSpeechSelectorButton(
+                    label: modelLabel,
+                    enabled: hasModels,
+                    expanded: _modelSelectorOpen,
+                    onPressed: _selectModel,
+                  ),
+                ),
+                kOpenHandGap16,
+                _ResponsiveSettingRow(
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '润色模型推理强度',
+                    en: 'Polishing Reasoning Effort',
+                  ),
+                  subtitle: options.length > 1
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '控制润色模型处理识别文本时的推理投入。',
+                          en: 'Control how much reasoning the model uses when refining recognized text.',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: options.length == 1
+                              ? '当前模型仅支持一种推理强度，已自动固定。'
+                              : '当前模型不支持可配置的推理强度。',
+                          en: options.length == 1
+                              ? 'This model supports one fixed reasoning effort.'
+                              : 'This model does not support configurable reasoning effort.',
+                        ),
+                  control: Builder(
+                    builder: (anchorContext) => _OfflineSpeechSelectorButton(
+                      label: reasoningLabel,
+                      enabled: options.length > 1,
+                      onPressed: () => _selectReasoningEffort(anchorContext),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OfflineSpeechSelectorButton extends StatelessWidget {
+  const _OfflineSpeechSelectorButton({
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+    this.expanded = false,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onPressed;
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: enabled ? onPressed : null,
+        style: OutlinedButton.styleFrom(
+          alignment: AlignmentDirectional.centerStart,
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 10, 10),
+          shape: const RoundedRectangleBorder(
+            borderRadius: kOpenHandBorderRadius14,
+          ),
+          side: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.8),
+          ),
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            kOpenHandHGap8,
+            AnimatedRotation(
+              turns: expanded ? 0.5 : 0,
+              duration: openHandMotionDuration(context, kOpenHandMotion200),
+              curve: kOpenHandEmphasizedCurve,
+              child: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
             ),
           ],
         ),
