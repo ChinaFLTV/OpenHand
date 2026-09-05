@@ -355,6 +355,37 @@ class _WorkspaceView extends StatelessWidget {
             ),
             if (currentSession != null) ...[
               kOpenHandGap16,
+              NotificationListener<SizeChangedLayoutNotification>(
+                onNotification: (notification) {
+                  onComposerLayoutChanged();
+                  return false;
+                },
+                child: SizeChangedLayoutNotifier(
+                  child: ListenableBuilder(
+                    listenable: voiceConversationService,
+                    builder: (context, _) {
+                      final snapshot = voiceConversationService.snapshot;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _VoiceTeleprompter(
+                            snapshot: snapshot,
+                            onForceSend: voiceConversationService.forceSend,
+                          ),
+                          AnimatedContainer(
+                            duration: openHandMotionDuration(
+                              context,
+                              kOpenHandMotion220,
+                            ),
+                            curve: kOpenHandEmphasizedCurve,
+                            height: snapshot.active ? 10 : 0,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
               _ComposerInstructionsStrip(
                 skippedIds: skippedInstructionIds,
                 onToggle: onToggleInstructionSkip,

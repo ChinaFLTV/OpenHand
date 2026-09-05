@@ -103,6 +103,8 @@ class AiVoiceConversationService extends ChangeNotifier {
     milliseconds: 950,
   );
   static const Duration _playbackTimeout = Duration(minutes: 5);
+  static const int _speechChunkSoftLimit = 72;
+  static const int _speechChunkHardLimit = 120;
 
   final OfflineSpeechModelService _modelService;
   final AiSpeechTextPolishingService _polishingService;
@@ -222,6 +224,13 @@ class AiVoiceConversationService extends ChangeNotifier {
       await _modelService.start(
         recognition,
         recognitionConfiguration,
+        cancelSignal: _sessionCancellation!.future,
+      );
+      if (!_isCurrentSession(sessionSerial)) return;
+      _ownsSynthesisRuntime = !_modelService.isRunning(synthesis);
+      await _modelService.start(
+        synthesis,
+        synthesisConfiguration,
         cancelSignal: _sessionCancellation!.future,
       );
       if (!_isCurrentSession(sessionSerial)) return;
@@ -375,6 +384,7 @@ class AiVoiceConversationService extends ChangeNotifier {
   void _handleAudioChunk(int sessionSerial, Uint8List chunk) {
     if (!_isCurrentSession(sessionSerial) ||
         !_snapshot.microphoneEnabled ||
+        _speechPumpActive ||
         _snapshot.phase == AiVoiceConversationPhase.speaking ||
         chunk.isEmpty) {
       return;
@@ -478,6 +488,7 @@ class AiVoiceConversationService extends ChangeNotifier {
     if (!_snapshot.active || !_hasSpeech) return;
     _silenceTimer?.cancel();
     _partialRecognitionTimer?.cancel();
+    _silenceTimer = null;
     _partialRecognitionTimer = null;
     final sessionSerial = _sessionSerial;
     final bytes = Uint8List.fromList(_utterance);
@@ -727,7 +738,23 @@ class AiVoiceConversationService extends ChangeNotifier {
     final result = <(String, int)>[];
     var segmentStart = start.clamp(0, text.length);
     for (var index = segmentStart; index < text.length; index += 1) {
-      if (!'。！？!?；;\n'.contains(text[index])) continue;
+      final character = text[index];
+      final segmentLength = index - segmentStart + 1;
+      final englishSentenceEnd =
+          character == '.' &&
+          index + 1 < text.length &&
+          ' \n\r\t'.contains(text[index + 1]);
+      final terminalBoundary =
+          '。！？!?；;\n'.contains(character) || englishSentenceEnd;
+      final softBoundary =
+          segmentLength >= _speechChunkSoftLimit &&
+          '，,、：: '.contains(character);
+      final hardBoundary =
+          segmentLength >= _speechChunkHardLimit &&
+          (text.codeUnitAt(index) & 0xFC00) != 0xD800;
+      if (!terminalBoundary && !softBoundary && !hardBoundary) {
+        continue;
+      }
       final chunk = _cleanSpeechText(text.substring(segmentStart, index + 1));
       if (chunk.isNotEmpty) result.add((chunk, index + 1));
       segmentStart = index + 1;

@@ -6610,15 +6610,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ?.id;
     setState(() => _composerCollapsed = false);
     try {
+      await _ttsPlaybackService.stop();
       await _voiceConversationService.start(
         settings: settingsController.offlineSpeechSettings,
         availableModels: settingsController.aiModels,
         onTextReady: (text) => _sendMessage(promptOverride: text),
       );
     } catch (error) {
+      final cancelled = _voiceConversationSessionId != currentSession.id;
       _voiceConversationSessionId = null;
       _voiceResponseBaselineAssistantId = null;
-      if (!mounted) return;
+      if (!mounted || cancelled) return;
       showOpenHandErrorSnack(
         context,
         openHandLocalizedText(

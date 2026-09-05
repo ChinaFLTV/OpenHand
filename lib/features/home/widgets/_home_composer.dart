@@ -1473,15 +1473,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final expandedContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _VoiceTeleprompter(
-          snapshot: voiceSnapshot,
-          onForceSend: widget.voiceConversationService.forceSend,
-        ),
-        AnimatedContainer(
-          duration: openHandMotionDuration(context, kOpenHandMotion220),
-          curve: kOpenHandEmphasizedCurve,
-          height: voiceActive ? 10 : 0,
-        ),
         if (_selectedSkill != null) ...[
           AnimatedRemovableChip(
             key: ValueKey('skill:${_selectedSkill!.manifestPath}'),
@@ -1881,7 +1872,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   icon: voiceSnapshot.speakerMuted
                       ? Icons.volume_off_rounded
                       : Icons.volume_up_rounded,
-                  active: voiceSnapshot.speakerMuted,
+                  active: !voiceSnapshot.speakerMuted,
                   onPressed: () => widget.voiceConversationService
                       .setSpeakerMuted(!voiceSnapshot.speakerMuted),
                 ),
@@ -1901,7 +1892,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   icon: voiceSnapshot.microphoneEnabled
                       ? Icons.mic_rounded
                       : Icons.mic_off_rounded,
-                  active: !voiceSnapshot.microphoneEnabled,
+                  active: voiceSnapshot.microphoneEnabled,
                   onPressed: () => widget.voiceConversationService
                       .setMicrophoneEnabled(!voiceSnapshot.microphoneEnabled),
                 ),
@@ -1917,6 +1908,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     )
                   : voiceModeUnavailableReason,
               icon: Icons.graphic_eq_rounded,
+              active: true,
               onPressed: voiceModeActionEnabled
                   ? widget.onStartVoiceConversation
                   : null,
