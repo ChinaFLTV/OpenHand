@@ -43,7 +43,7 @@
 
 计划期允许的工具：
 - 仓库检索：`Read` / `Grep` / `Glob` / `LS` / `LSP` / `CodebaseSearch`
-- 网络调研：`WebSearch` / `WebFetch`
+- 网络调研：目录中有 `WebSearch` / `WebFetch` 时直接调用；仅有 `ToolSearch` 时通过其精确选择并执行
 - 只读子任务：`Task`（仅 `research` / `summarize` / `advice`）
 - 歧义选择：`AskUserChoice`
 - 起草执行清单：`TodoWrite`

@@ -2436,14 +2436,25 @@ class AiSessionController extends ChangeNotifier {
       if (liveSession != null && liveSession.hasCompleteMessages) {
         return liveSession;
       }
+      final canRecoverInterruptedRuntimeState =
+          _canRestoreInterruptedResponseRegeneration(sessionId);
       final shouldRecoverInterruptedRegeneration =
-          _canRestoreInterruptedResponseRegeneration(sessionId) &&
+          canRecoverInterruptedRuntimeState &&
           _hasRestorableResponseRegenerationState(loaded);
+      final recoveredInterruptedToolCallMessageIds = <String>{
+        if (canRecoverInterruptedRuntimeState)
+          for (final message in loaded.messages)
+            if (!message.isDeleted &&
+                message.kind == AiSessionMessageKind.toolCall &&
+                !_isTerminalToolExecutionStatus(
+                  '${message.metadata['tool_execution_status'] ?? ''}'.trim(),
+                ))
+              message.id,
+      };
       var normalized = _normalizeHydratedSessionForResume(
         loaded,
         normalizedAt: loaded.updatedAt,
-        recoverInterruptedRuntimeState:
-            _canRestoreInterruptedResponseRegeneration(sessionId),
+        recoverInterruptedRuntimeState: canRecoverInterruptedRuntimeState,
       );
       if (!_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
         return _sessionById(sessionId);
@@ -2460,6 +2471,8 @@ class AiSessionController extends ChangeNotifier {
             session: normalized,
             shouldRecoverInterruptedRegeneration:
                 shouldRecoverInterruptedRegeneration,
+            recoveredInterruptedToolCallMessageIds:
+                recoveredInterruptedToolCallMessageIds,
           ),
         );
       } else if (shouldRecoverInterruptedRegeneration) {
@@ -2487,6 +2500,7 @@ class AiSessionController extends ChangeNotifier {
     required String sessionId,
     required AiSession session,
     required bool shouldRecoverInterruptedRegeneration,
+    required Set<String> recoveredInterruptedToolCallMessageIds,
   }) async {
     try {
       if (session.hasCompleteMessages) {
@@ -2509,6 +2523,15 @@ class AiSessionController extends ChangeNotifier {
         if (live == null) return;
         normalizedSnapshot = live;
         await _store.saveSessionHeader(live);
+        for (final message in live.messages) {
+          if (recoveredInterruptedToolCallMessageIds.contains(message.id)) {
+            await _store.updateMessageMetadata(
+              sessionId: sessionId,
+              messageId: message.id,
+              metadata: message.metadata,
+            );
+          }
+        }
       });
       if (shouldRecoverInterruptedRegeneration &&
           normalizedSnapshot != null &&
@@ -9958,7 +9981,9 @@ class AiSessionController extends ChangeNotifier {
     required AiResolvedToolCatalog toolCatalog,
     required AiToolCall toolCall,
   }) {
-    final resolvedTool = toolCatalog.find(toolCall.name);
+    final resolvedTool =
+        toolCatalog.find(toolCall.name) ??
+        toolCatalog.findDeferredTool(toolCall.name);
     if (resolvedTool == null ||
         resolvedTool.source != AiRuntimeToolSource.builtin) {
       return false;
@@ -10142,19 +10167,34 @@ class AiSessionController extends ChangeNotifier {
     final allowExitPlanMode =
         !recoveryInspectionRequired &&
         _hasIncompleteTodoItems(session.todoItems);
-    final filteredEntries = baseCatalog.toolsByName.entries
-        .where(
-          (entry) => _isAllowedPlanModePlanningTool(
-            entry.key,
-            allowExitPlanMode: allowExitPlanMode,
-          ),
-        )
-        .toList(growable: false);
+    final filteredTools = <String, AiResolvedTool>{};
+    for (final entry in baseCatalog.toolsByName.entries) {
+      if (_isAllowedPlanModePlanningTool(
+        entry.key,
+        allowExitPlanMode: allowExitPlanMode,
+      )) {
+        filteredTools[entry.key] = entry.value;
+      }
+    }
+    // 计划模式只开放只读工具。懒加载工具原本藏在 ToolSearch 快照中，若不
+    // 展开，WebSearch/WebFetch 等会同时从目录与网关消失，形成不可调用死角。
+    for (final tool in baseCatalog.toolsByName.values) {
+      if (tool.builtinKind != AiBuiltinToolKind.toolSearch) continue;
+      for (final entry in tool.toolSearchDeferredTools.entries) {
+        if (entry.value.source == AiRuntimeToolSource.builtin &&
+            _isAllowedPlanModePlanningTool(
+              entry.key,
+              allowExitPlanMode: allowExitPlanMode,
+            )) {
+          filteredTools.putIfAbsent(entry.key, () => entry.value);
+        }
+      }
+    }
     return AiResolvedToolCatalog(
-      definitions: filteredEntries
-          .map((entry) => entry.value.definition)
+      definitions: filteredTools.values
+          .map((tool) => tool.definition)
           .toList(growable: false),
-      toolsByName: Map<String, AiResolvedTool>.fromEntries(filteredEntries),
+      toolsByName: filteredTools,
       notices: baseCatalog.notices,
       mcpServerInstructionsByName: baseCatalog.mcpServerInstructionsByName,
     );

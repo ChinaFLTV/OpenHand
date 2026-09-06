@@ -13,7 +13,7 @@
 
 **计划期工具**（以当前 Tool Catalog 为准）：
 - 仓库检索：`Read` / `Grep` / `Glob` / `LS`
-- 网络调研：`WebSearch` / `WebFetch`
+- 网络调研：目录中有 `WebSearch` / `WebFetch` 时直接调用；仅有 `ToolSearch` 时通过其精确选择并执行
 - 委派只读子任务：`Task`
 - 关键歧义选择：`AskUserChoice`
 - 起草清单：`TodoWrite`

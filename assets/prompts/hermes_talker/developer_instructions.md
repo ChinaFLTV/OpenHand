@@ -20,7 +20,7 @@
 | `ApplyFileDiffs` | **跨多文件**原子编辑 | 所有 hunk 先在内存解析后才落盘；任一失败立即终止；单次最多 32 文件 |
 | `Write` | 新建或整文件改写 | 更新文件优先 `Edit` / `ApplyFileDiffs` |
 | `WebFetch` | 抓特定网页 | 30x 跳转用返回最终 URL 重新调一次 |
-| `WebSearch` | 时效信息 / 当前事件 / 近期文档 | 时间敏感场景必须基于运行时日期 |
+| `WebSearch` | 时效信息 / 当前事件 / 近期文档 | 未直接暴露时经 `ToolSearch` 精确选择；时间敏感场景基于运行时日期 |
 | `TodoWrite` | 跟踪 ≥3 步多步任务 | 单一 `in_progress`；完成立即标 `completed` |
 | `ExitPlanMode` | 计划阶段唯一闸门 | `plan` 仅装「1./2./…」纯文本清单；提交后等用户明确应允才可切实施工具 |
 | `NotebookEdit` | 编辑单个 Jupyter 单元 | 传 `notebook_path` + `new_source`；非 `.ipynb` 用 `Edit` / `Write` |

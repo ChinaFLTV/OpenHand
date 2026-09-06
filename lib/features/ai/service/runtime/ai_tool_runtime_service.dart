@@ -1117,7 +1117,8 @@ class AiToolRuntimeService {
       cancelSignal,
       executionAbort.future,
     ]);
-    final resolvedTool = catalog.find(toolCall.name);
+    final resolvedTool =
+        catalog.find(toolCall.name) ?? catalog.findDeferredTool(toolCall.name);
     final networkTimeout = switch (resolvedTool?.builtinKind) {
       AiBuiltinToolKind.webFetch || AiBuiltinToolKind.webSearch => Duration(
         seconds:
@@ -1200,6 +1201,51 @@ class AiToolRuntimeService {
   }) async {
     final catalogTool = catalog.find(toolCall.name);
     if (catalogTool == null) {
+      final deferredTool = catalog.findDeferredTool(toolCall.name);
+      final deferredBuiltinKind = deferredTool?.builtinKind;
+      if (deferredTool != null &&
+          deferredTool.source == AiRuntimeToolSource.builtin &&
+          deferredBuiltinKind != null &&
+          kAiReadOnlyBuiltinToolKinds.contains(deferredBuiltinKind)) {
+        // 部分模型会按静态能力说明直接调用已懒加载的只读工具。该工具仍在
+        // ToolSearch 的受控快照中，透明执行可避免无意义的失败、落库和续轮；
+        // 写工具仍必须显式通过网关，防止在未见 Schema 时产生副作用。
+        final delegatedResult = await _execute(
+          sessionId: sessionId,
+          catalog: AiResolvedToolCatalog(
+            definitions: <AiToolDefinition>[deferredTool.definition],
+            toolsByName: <String, AiResolvedTool>{
+              deferredTool.name: deferredTool,
+            },
+            notices: catalog.notices,
+            mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
+          ),
+          toolCall: AiToolCall(
+            id: toolCall.id,
+            name: deferredTool.name,
+            arguments: toolCall.arguments,
+          ),
+          model: model,
+          previouslyReadFiles: previouslyReadFiles,
+          denyCommandRules: denyCommandRules,
+          requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+          confirmWriteCommand: confirmWriteCommand,
+          cancelSignal: cancelSignal,
+          onBashUpdate: onBashUpdate,
+          metadata: <String, Object?>{
+            ...metadata,
+            'tool_search_implicit_gateway': true,
+            'tool_search_gateway_tool_name': deferredTool.name,
+          },
+        );
+        return delegatedResult.copyWith(
+          metadata: <String, Object?>{
+            ...delegatedResult.metadata,
+            'tool_search_implicit_gateway': true,
+            'tool_search_gateway_tool_name': deferredTool.name,
+          },
+        );
+      }
       // 工具未命中时，给模型一份可操作的引导，而不是只丢一句
       // “Unsupported tool name”。常见两种诱因：
       //   1) 模型在 plan 待批准轮次幻觉调用 Write/TodoWrite —— 此时 catalog
