@@ -8587,9 +8587,9 @@ export function SessionDetailPage() {
           为了在弹窗关闭瞬间用户跳转过去看到的就是最新数据）。 */}
       <SessionGoneDialog
         open={sessionGone}
-        onBeforeNavigate={async () => {
+        onBeforeNavigate={async (signal) => {
           try {
-            await listSessions({ page: 1, pageSize: 20 });
+            await listSessions({ page: 1, pageSize: 20, signal });
           } catch {
             // 静默：列表刷新失败也不影响导航
           }

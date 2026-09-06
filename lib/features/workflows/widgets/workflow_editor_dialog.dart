@@ -3379,13 +3379,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               required toolName,
               required arguments,
               required toolCallId,
+              cancelSignal,
             }) async {
               final result = await mcpController.callTool(
                 serverName: serverName,
                 toolName: toolName,
                 arguments: arguments,
                 toolCallId: toolCallId,
-                cancelSignal: cancellation?.whenCancelled,
+                cancelSignal: cancelSignal,
               );
               return WorkflowMcpToolInvocationResult(
                 output: result.outputText,

@@ -26,10 +26,13 @@ const String workflowCallSourceMetadataKey = 'workflow_call_source';
 class WorkflowExecutionCoordinator {
   WorkflowExecutionCoordinator({
     this.maxRecords = 128,
+    this.maxConcurrentExecutions = 8,
     this.recordTtl = const Duration(hours: 1),
-  });
+  }) : assert(maxRecords > 0),
+       assert(maxConcurrentExecutions > 0);
 
   final int maxRecords;
+  final int maxConcurrentExecutions;
   final Duration recordTtl;
   final Map<String, _WorkflowExecutionRecord> _records =
       <String, _WorkflowExecutionRecord>{};
@@ -61,6 +64,13 @@ class WorkflowExecutionCoordinator {
       },
     );
     _records[executionId] = record;
+    if (_records.values.where((item) => item.finishedAt == null).length >
+        maxConcurrentExecutions) {
+      record.status = 'failed';
+      record.error = '工作流并发执行数量已达上限。';
+      record.finishedAt = DateTime.now().toUtc();
+      return record.snapshot();
+    }
     unawaited(
       _run(
         record: record,
@@ -86,9 +96,22 @@ class WorkflowExecutionCoordinator {
     required Map<String, Object?> inputs,
   }) async {
     try {
-      final resources = await resourcesProvider(workflow, context);
-      if (resources == null) {
+      final loadedResources = await resourcesProvider(workflow, context);
+      if (loadedResources == null) {
         throw StateError('工作流执行资源不可用。');
+      }
+      var resources = loadedResources;
+      final cancelSignal = context.cancelSignal;
+      if (cancelSignal != null) {
+        final cancellation =
+            resources.cancellation ?? WorkflowExecutionCancellationToken();
+        resources = resources.withCancellation(cancellation);
+        unawaited(
+          cancelSignal.then<void>(
+            (_) => cancellation.cancel(),
+            onError: (_, _) => cancellation.cancel(),
+          ),
+        );
       }
       final executor = WorkflowNodeExecutor();
       try {
@@ -152,9 +175,12 @@ class WorkflowExecutionCoordinator {
           record.finishedAt != null && record.finishedAt!.isBefore(cutoff),
     );
     if (_records.length <= maxRecords) return;
-    final entries = _records.entries.toList()
-      ..sort((a, b) => a.value.startedAt.compareTo(b.value.startedAt));
-    final removeCount = _records.length - maxRecords;
+    final entries =
+        _records.entries
+            .where((entry) => entry.value.finishedAt != null)
+            .toList(growable: false)
+          ..sort((a, b) => a.value.startedAt.compareTo(b.value.startedAt));
+    final removeCount = (_records.length - maxRecords).clamp(0, entries.length);
     for (var i = 0; i < removeCount; i += 1) {
       _records.remove(entries[i].key);
     }

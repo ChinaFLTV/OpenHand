@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { useControlledDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { runWithTimeout } from '../utils/timed_abort';
+import { runWithAbortableTimeout } from '../utils/timed_abort';
 import { ignoreError } from '../shared/util/errors';
 import {
   DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
@@ -13,37 +13,36 @@ import {
 
 interface SessionGoneDialogProps {
   open: boolean;
-  onBeforeNavigate?: () => Promise<void> | void;
+  onBeforeNavigate?: (signal: AbortSignal) => Promise<void> | void;
 }
 
 const BEFORE_NAVIGATE_TIMEOUT_MS = 2500;
 
 async function runBeforeNavigate(
-  onBeforeNavigate?: () => Promise<void> | void,
+  onBeforeNavigate: ((signal: AbortSignal) => Promise<void> | void) | undefined,
+  signal: AbortSignal,
 ): Promise<void> {
   if (!onBeforeNavigate || typeof window === 'undefined') return;
-  await runWithTimeout(() => Promise.resolve().then(onBeforeNavigate), {
+  await runWithAbortableTimeout(onBeforeNavigate, {
     timeoutMs: BEFORE_NAVIGATE_TIMEOUT_MS,
+    signal,
   }).catch(ignoreError);
 }
 
 export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogProps) {
   const location = useAnimatedLocation();
   const [navigating, setNavigating] = useState(false);
+  const beforeNavigateAbortRef = useRef<AbortController | null>(null);
   const { visible, closing: hiding } = useControlledDelayedVisibility(open);
   const { closing, requestClose, resetClosing } = useDialogExitMotion(
     () => location.route('/threads'),
-    {
-      onBeforeClose: () => {
-        setNavigating(true);
-        void runBeforeNavigate(onBeforeNavigate);
-      },
-    },
   );
   const frameClosing = closing || hiding;
 
   useEffect(() => {
     if (!open) {
+      beforeNavigateAbortRef.current?.abort();
+      beforeNavigateAbortRef.current = null;
       setNavigating(false);
       resetClosing();
       return undefined;
@@ -53,20 +52,31 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
       const btn = document.getElementById('oh-session-gone-back-btn');
       btn?.focus();
     });
-    return () => window.cancelAnimationFrame(id);
+    return () => {
+      window.cancelAnimationFrame(id);
+      beforeNavigateAbortRef.current?.abort();
+      beforeNavigateAbortRef.current = null;
+    };
   }, [open, resetClosing]);
 
   if (!visible) return null;
 
-  const handleBack = () => {
-    if (navigating || frameClosing) return;
+  const handleBack = async () => {
+    if (navigating || frameClosing || beforeNavigateAbortRef.current != null) {
+      return;
+    }
+    const controller = new AbortController();
+    beforeNavigateAbortRef.current = controller;
+    setNavigating(true);
+    await runBeforeNavigate(onBeforeNavigate, controller.signal);
+    if (controller.signal.aborted) return;
     requestClose();
   };
 
   return (
     <DialogFrame
       closing={frameClosing}
-      onRequestClose={handleBack}
+      onRequestClose={() => void handleBack()}
       closeOnBackdrop={false}
       {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_COMPACT_CLASS,

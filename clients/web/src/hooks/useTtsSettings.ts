@@ -275,6 +275,20 @@ export function useTtsSettings(): TtsSettings {
 
 let speechGeneration = 0;
 let speechTimeout: number | null = null;
+let cancelActiveSpeech: (() => void) | null = null;
+
+export class TtsPlaybackCancelledError extends Error {
+  constructor() {
+    super('语音播放已取消。');
+    this.name = 'TtsPlaybackCancelledError';
+  }
+}
+
+export function isTtsPlaybackCancelledError(
+  error: unknown,
+): error is TtsPlaybackCancelledError {
+  return error instanceof TtsPlaybackCancelledError;
+}
 
 function clearSpeechTimer(): void {
   if (speechTimeout != null) {
@@ -285,6 +299,9 @@ function clearSpeechTimer(): void {
 
 export function stopTtsPlayback(): void {
   speechGeneration += 1;
+  const cancel = cancelActiveSpeech;
+  cancelActiveSpeech = null;
+  cancel?.();
   clearSpeechTimer();
   try {
     window.speechSynthesis?.cancel();
@@ -342,6 +359,7 @@ async function speakWithBrowserSystem(
 
   return new Promise<void>((resolve, reject) => {
     let settled = false;
+    let cancelCurrentSpeech: (() => void) | null = null;
     const cleanupUtterance = () => {
       utterance.onend = null;
       utterance.onerror = null;
@@ -349,11 +367,16 @@ async function speakWithBrowserSystem(
     const finish = (error?: unknown) => {
       if (settled) return;
       settled = true;
+      if (cancelActiveSpeech === cancelCurrentSpeech) {
+        cancelActiveSpeech = null;
+      }
       clearSpeechTimer();
       cleanupUtterance();
       if (error) reject(error);
       else resolve();
     };
+    cancelCurrentSpeech = () => finish(new TtsPlaybackCancelledError());
+    cancelActiveSpeech = cancelCurrentSpeech;
     utterance.onend = () => finish();
     utterance.onerror = (event) => {
       const reason = typeof event.error === 'string' && event.error

@@ -637,6 +637,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     _disposed = true;
     _logNotifyDebouncer.dispose();
     _saveSuccessPulse.dispose();
+    _dingtalkController.dispose();
     _resourceShutdownFuture = Future.wait<bool>(<Future<bool>>[
       cancelStreamSubscriptionBounded<WebGatewayLogEntry>(
         _logSub,

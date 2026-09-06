@@ -6019,6 +6019,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         .tools,
                 },
                 codeRuntimes: workflowSystemCodeRuntimes(),
+                mcpToolInvoker:
+                    ({
+                      required serverName,
+                      required toolName,
+                      required arguments,
+                      required toolCallId,
+                      cancelSignal,
+                    }) async {
+                      final result = await mcpController.callTool(
+                        serverName: serverName,
+                        toolName: toolName,
+                        arguments: arguments,
+                        toolCallId: toolCallId,
+                        cancelSignal: cancelSignal,
+                      );
+                      return WorkflowMcpToolInvocationResult(
+                        output: result.outputText,
+                        isError: result.isError,
+                      );
+                    },
                 cancellation: toolContext.cancelSignal == null
                     ? null
                     : WorkflowExecutionCancellationToken(),

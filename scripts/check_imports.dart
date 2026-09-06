@@ -13,6 +13,8 @@ import 'dart:io';
 ///      弹窗动画设置一致。
 ///   5. lib/ 业务代码禁止直接构造 Timer；统一通过安全计时工具限制时长并处理
 ///      异步回调异常。
+///   6. Web 模态弹窗与 Portal 必须经统一框架构建，保持全局动效、焦点
+///      管理、Escape 关闭和全屏投射行为一致。
 ///
 /// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
 ///
@@ -33,6 +35,7 @@ Future<void> main(List<String> args) async {
   violations += await _scanDart(root);
   violations += await _scanRestrictedApis(root);
   violations += await _scanWeb(Directory('$root/clients/web/src/features'));
+  violations += await _scanWebRestrictedApis(root);
 
   if (violations > 0) {
     stderr.writeln('[架构检查] 发现 $violations 个边界违规。');
@@ -353,4 +356,56 @@ String? _resolveWebImport({
 bool _isWebFeatureEntry(String sub) {
   if (sub.isEmpty) return true;
   return RegExp(r'^index(?:\.(?:ts|tsx|js|jsx))?$').hasMatch(sub);
+}
+
+class _WebRestrictedApiRule {
+  const _WebRestrictedApiRule({
+    required this.pattern,
+    required this.allowedRelativePath,
+    required this.message,
+  });
+
+  final RegExp pattern;
+  final String allowedRelativePath;
+  final String message;
+}
+
+Future<int> _scanWebRestrictedApis(String root) async {
+  final sourceRoot = Directory('$root/clients/web/src');
+  if (!sourceRoot.existsSync()) return 0;
+  final rules = <_WebRestrictedApiRule>[
+    _WebRestrictedApiRule(
+      pattern: RegExp(
+        r'''\baria-modal\s*=|\brole\s*=\s*(?:["']dialog["']|\{\s*["']dialog["']\s*\})''',
+      ),
+      allowedRelativePath: 'components/DialogFrame.tsx',
+      message: 'Web 模态弹窗必须使用 DialogFrame',
+    ),
+    _WebRestrictedApiRule(
+      pattern: RegExp(r'\bcreatePortal\s*\('),
+      allowedRelativePath: 'components/OverlayPortal.tsx',
+      message: 'Web Portal 必须使用 OverlayPortal',
+    ),
+  ];
+  final separator = Platform.pathSeparator;
+  var violations = 0;
+  await for (final entity in sourceRoot.list(recursive: true)) {
+    if (entity is! File ||
+        !(entity.path.endsWith('.ts') || entity.path.endsWith('.tsx'))) {
+      continue;
+    }
+    final relativePath = entity.path
+        .substring(sourceRoot.path.length + 1)
+        .replaceAll(separator, '/');
+    final lines = await entity.readAsLines();
+    for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      for (final rule in rules) {
+        if (relativePath == rule.allowedRelativePath) continue;
+        if (!rule.pattern.hasMatch(lines[lineIndex])) continue;
+        stderr.writeln('${entity.path}:${lineIndex + 1} ${rule.message}。');
+        violations++;
+      }
+    }
+  }
+  return violations;
 }

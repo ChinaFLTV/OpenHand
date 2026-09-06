@@ -56,6 +56,7 @@ typedef WorkflowMcpToolInvoker =
       required String toolName,
       required Map<String, Object?> arguments,
       required String toolCallId,
+      Future<void>? cancelSignal,
     });
 
 typedef WorkflowLlmConversationListener =
@@ -317,6 +318,25 @@ class WorkflowExecutionResources {
     onHumanIntervention: onHumanIntervention,
     onNodeExecution: listener,
     cancellation: cancellation,
+  );
+
+  WorkflowExecutionResources withCancellation(
+    WorkflowExecutionCancellationToken value,
+  ) => WorkflowExecutionResources(
+    models: models,
+    templateRepository: templateRepository,
+    skills: skills,
+    memories: memories,
+    instructions: instructions,
+    knowledgeBaseController: knowledgeBaseController,
+    mcpServers: mcpServers,
+    mcpTools: mcpTools,
+    codeRuntimes: codeRuntimes,
+    mcpToolInvoker: mcpToolInvoker,
+    onLlmConversation: onLlmConversation,
+    onHumanIntervention: onHumanIntervention,
+    onNodeExecution: onNodeExecution,
+    cancellation: value,
   );
 }
 
@@ -1186,6 +1206,7 @@ class WorkflowNodeExecutor {
                 toolName: binding.tool.id,
                 arguments: arguments,
                 toolCallId: call.id,
+                cancelSignal: cancellation?.whenCancelled,
               ).timeout(
                 const Duration(seconds: 120),
                 onTimeout: () => throw TimeoutException('MCP 工具调用超时。'),

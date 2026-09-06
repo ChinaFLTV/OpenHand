@@ -19,6 +19,7 @@ import {
 } from '../../../hooks/useMessageContentFormat';
 import {
   MIMO_DEFAULT_AUDIO_FORMAT,
+  isTtsPlaybackCancelledError,
   normalizeTtsSettings,
   saveTtsSettings,
   stopTtsPlayback,
@@ -996,6 +997,7 @@ function TtsProviderCard(props: {
       await testTtsProvider(props.provider, props.allSettings);
       showSnackbar(t('settings.tts.test.ok', 'TTS 测试播放完成'), { tone: 'success' });
     } catch (error) {
+      if (isTtsPlaybackCancelledError(error)) return;
       showSnackbar(`${t('settings.tts.test.fail', 'TTS 测试失败')}：${friendlyTtsError(error)}`, {
         tone: 'error',
         durationMs: 4200,

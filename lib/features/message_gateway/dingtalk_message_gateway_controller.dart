@@ -466,6 +466,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool _responseSchedulingQueued = false;
   bool _initialized = false;
   bool _disposed = false;
+  bool _notifierDisposed = false;
   bool _shutdownRequested = false;
   bool _notificationQueued = false;
   DingTalkWriteApprovalHandler? _writeApprovalHandler;
@@ -4902,6 +4903,26 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                           .tools,
                   },
                   codeRuntimes: workflowSystemCodeRuntimes(),
+                  mcpToolInvoker:
+                      ({
+                        required serverName,
+                        required toolName,
+                        required arguments,
+                        required toolCallId,
+                        cancelSignal,
+                      }) async {
+                        final result = await _mcpController.callTool(
+                          serverName: serverName,
+                          toolName: toolName,
+                          arguments: arguments,
+                          toolCallId: toolCallId,
+                          cancelSignal: cancelSignal,
+                        );
+                        return WorkflowMcpToolInvocationResult(
+                          output: result.outputText,
+                          isError: result.isError,
+                        );
+                      },
                 );
               },
           'dingtalk_dws_executor': _executeDwsCommandForAi,
@@ -7668,6 +7689,8 @@ ${_markdownStructuredFields(response)}''';
 
   @override
   void dispose() {
+    if (_notifierDisposed) return;
+    _notifierDisposed = true;
     unawaited(
       shutdown().then<void>(
         (_) {},
