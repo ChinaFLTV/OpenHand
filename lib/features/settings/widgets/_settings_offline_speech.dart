@@ -608,6 +608,7 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final service = OfflineSpeechModelService.instance;
+    final activeOnlineTransport = service.activeOnlineTransport(widget.model);
     final state = service.stateOf(widget.model);
     final installed = service.isInstalled(widget.model);
     final availability = service.availabilityFor(widget.model, _configuration);
@@ -677,10 +678,26 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                           label: online ? '在线' : '本地',
                           color: accent,
                         ),
-                        _OfflineSpeechBadge(
-                          label: widget.model.sizeLabel,
-                          color: online ? OpenHandStatusColors.success : accent,
-                        ),
+                        if (online)
+                          for (final transport in widget.model.onlineTransports)
+                            Tooltip(
+                              message: transport == activeOnlineTransport
+                                  ? '当前客户端实际使用的加密传输通道'
+                                  : '服务端支持的传输通道，客户端按 AOQ → WSS → HTTP 选择可用通道',
+                              child: _OfflineSpeechBadge(
+                                label: transport == activeOnlineTransport
+                                    ? '${transport.label} · 当前'
+                                    : transport.label,
+                                color: transport == activeOnlineTransport
+                                    ? OpenHandStatusColors.success
+                                    : theme.colorScheme.secondary,
+                              ),
+                            )
+                        else
+                          _OfflineSpeechBadge(
+                            label: widget.model.sizeLabel,
+                            color: accent,
+                          ),
                         if (!online &&
                             widget.model.kind == OfflineSpeechKind.synthesis)
                           _OfflineSpeechBadge(
@@ -1091,6 +1108,12 @@ class _OfflineSpeechParameterField extends StatelessWidget {
         ],
         onChanged: onChanged,
       ),
+      OfflineSpeechParameterType.multiChoice => _OfflineSpeechMultiChoiceField(
+        label: parameter.label,
+        value: '$value',
+        options: parameter.options,
+        onChanged: onChanged,
+      ),
       OfflineSpeechParameterType.integer ||
       OfflineSpeechParameterType.decimal => _AiTtsProviderNumberField(
         label: parameter.label,
@@ -1107,11 +1130,16 @@ class _OfflineSpeechParameterField extends StatelessWidget {
         ),
       ),
       OfflineSpeechParameterType.text ||
+      OfflineSpeechParameterType.json ||
       OfflineSpeechParameterType.secret ||
       OfflineSpeechParameterType.path => _AiTtsProviderTextField(
         label: parameter.label,
         value: '$value',
-        maxLines: parameter.type == OfflineSpeechParameterType.text ? 2 : 1,
+        maxLines: parameter.type == OfflineSpeechParameterType.json
+            ? 5
+            : parameter.type == OfflineSpeechParameterType.text
+            ? 2
+            : 1,
         obscure: parameter.type == OfflineSpeechParameterType.secret,
         onSubmitted: onChanged,
       ),
@@ -1132,6 +1160,92 @@ class _OfflineSpeechParameterField extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _OfflineSpeechMultiChoiceField extends StatelessWidget {
+  const _OfflineSpeechMultiChoiceField({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<OfflineSpeechOption> options;
+  final ValueChanged<Object?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selected = value
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final labels = <String>[
+      for (final option in options)
+        if (selected.contains(option.value)) option.label,
+    ];
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: AnimatedPopupMenuButton<String>(
+        tooltip: '选择语种提示',
+        constraints: const BoxConstraints(minWidth: 240, maxWidth: 360),
+        onSelected: (selection) {
+          final next = <String>{...selected};
+          if (selection.isEmpty) {
+            next.clear();
+          } else if (!next.remove(selection)) {
+            next.add(selection);
+          }
+          onChanged(next.join(','));
+        },
+        itemBuilder: (context) => <PopupMenuEntry<String>>[
+          for (final option in options)
+            PopupMenuItem<String>(
+              value: option.value,
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    option.value.isEmpty
+                        ? Icons.auto_awesome_rounded
+                        : selected.contains(option.value)
+                        ? Icons.check_circle_rounded
+                        : Icons.circle_outlined,
+                    size: 19,
+                    color:
+                        option.value.isEmpty || selected.contains(option.value)
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  kOpenHandHGap10,
+                  Expanded(child: Text(option.label)),
+                ],
+              ),
+            ),
+        ],
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                child: Text(
+                  labels.isEmpty ? '自动检测' : labels.join(' · '),
+                  key: ValueKey<String>(value),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge,
+                ),
+              ),
+            ),
+            kOpenHandHGap8,
+            const Icon(Icons.expand_more_rounded),
+          ],
+        ),
+      ),
     );
   }
 }

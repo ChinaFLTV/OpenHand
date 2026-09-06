@@ -20,7 +20,26 @@ enum OfflineSpeechRuntime {
 
 enum OfflineSpeechDeployment { local, online }
 
-enum OnlineSpeechService { xfyunRtasr, xfyunRtasrLlm, xfyunTts }
+enum OnlineSpeechTransport {
+  aoq('AOQ'),
+  webSocket('WSS'),
+  http('HTTP');
+
+  const OnlineSpeechTransport(this.label);
+
+  final String label;
+}
+
+enum OnlineSpeechService {
+  xfyunRtasr,
+  xfyunRtasrLlm,
+  xfyunTts,
+  bailianTaskAsr,
+  bailianRealtimeAsr,
+  bailianTaskTts,
+  bailianRealtimeTts,
+  bailianSambertTts,
+}
 
 enum OfflineSpeechSynthesisTransport {
   http('HTTP'),
@@ -33,11 +52,13 @@ enum OfflineSpeechSynthesisTransport {
 
 enum OfflineSpeechParameterType {
   text,
+  json,
   secret,
   integer,
   decimal,
   toggle,
   choice,
+  multiChoice,
   path,
 }
 
@@ -78,7 +99,9 @@ class OfflineSpeechParameter {
       OfflineSpeechParameterType.integer => _number(value, integer: true),
       OfflineSpeechParameterType.decimal => _number(value, integer: false),
       OfflineSpeechParameterType.choice => _choice(value),
+      OfflineSpeechParameterType.multiChoice => _multiChoice(value),
       OfflineSpeechParameterType.text ||
+      OfflineSpeechParameterType.json ||
       OfflineSpeechParameterType.secret ||
       OfflineSpeechParameterType.path =>
         value is String ? value.trim() : '$defaultValue',
@@ -101,6 +124,18 @@ class OfflineSpeechParameter {
         ? candidate
         : defaultValue;
   }
+
+  Object _multiChoice(Object? value) {
+    final source = value is Iterable
+        ? value.map((item) => '$item')
+        : '${value ?? defaultValue}'.split(',');
+    final allowed = options.map((option) => option.value).toSet();
+    return source
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty && allowed.contains(item))
+        .toSet()
+        .join(',');
+  }
 }
 
 class OfflineSpeechModelDefinition {
@@ -115,6 +150,9 @@ class OfflineSpeechModelDefinition {
     required this.parameters,
     this.deployment = OfflineSpeechDeployment.local,
     this.onlineService,
+    this.onlineTransports = const <OnlineSpeechTransport>[
+      OnlineSpeechTransport.webSocket,
+    ],
     this.synthesisTransport = OfflineSpeechSynthesisTransport.http,
   }) : _runtime = runtime,
        assert(
@@ -133,11 +171,25 @@ class OfflineSpeechModelDefinition {
   final List<OfflineSpeechParameter> parameters;
   final OfflineSpeechDeployment deployment;
   final OnlineSpeechService? onlineService;
+  final List<OnlineSpeechTransport> onlineTransports;
   final OfflineSpeechSynthesisTransport synthesisTransport;
 
   bool get isOnline => deployment == OfflineSpeechDeployment.online;
   OfflineSpeechRuntime get runtime =>
       _runtime ?? (throw StateError('在线语音服务没有本地运行时。'));
+
+  OnlineSpeechTransport? selectOnlineTransport(
+    Set<OnlineSpeechTransport> available,
+  ) {
+    if (!isOnline) return null;
+    for (final transport in OnlineSpeechTransport.values) {
+      if (onlineTransports.contains(transport) &&
+          available.contains(transport)) {
+        return transport;
+      }
+    }
+    return null;
+  }
 
   Map<String, Object?> defaults() => <String, Object?>{
     for (final parameter in parameters) parameter.key: parameter.defaultValue,
@@ -505,6 +557,486 @@ abstract final class OfflineSpeechModelCatalog {
     OfflineSpeechOption('com', '企业'),
     OfflineSpeechOption('life', '生活'),
     OfflineSpeechOption('car', '汽车'),
+  ];
+  static const _bailianCredentials = <OfflineSpeechParameter>[
+    OfflineSpeechParameter(
+      key: 'api_key',
+      label: '百炼 API Key',
+      description: '必须与服务地域、业务空间一致，仅用于建立加密连接。',
+      type: OfflineSpeechParameterType.secret,
+      defaultValue: '',
+    ),
+    OfflineSpeechParameter(
+      key: 'workspace_id',
+      label: '业务空间 ID',
+      description: '可选；使用子业务空间时填写 Workspace ID。',
+      type: OfflineSpeechParameterType.text,
+      defaultValue: '',
+    ),
+    OfflineSpeechParameter(
+      key: 'data_inspection',
+      label: '内容安全检查',
+      description: '通过 X-DashScope-DataInspection 请求头开启官方内容检查。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
+  ];
+  static const _bailianAudioFormats = <OfflineSpeechOption>[
+    OfflineSpeechOption('pcm', 'PCM · 实时麦克风'),
+    OfflineSpeechOption('wav', 'WAV（PCM 编码）'),
+    OfflineSpeechOption('mp3', 'MP3'),
+    OfflineSpeechOption('opus', 'Ogg Opus'),
+    OfflineSpeechOption('speex', 'Ogg Speex'),
+    OfflineSpeechOption('aac', 'AAC'),
+    OfflineSpeechOption('amr', 'AMR-NB'),
+  ];
+  static const _bailianAsrLanguages = <OfflineSpeechOption>[
+    OfflineSpeechOption('', '自动检测'),
+    OfflineSpeechOption('zh', '中文'),
+    OfflineSpeechOption('yue', '粤语'),
+    OfflineSpeechOption('en', '英语'),
+    OfflineSpeechOption('ja', '日语'),
+    OfflineSpeechOption('ko', '韩语'),
+    OfflineSpeechOption('vi', '越南语'),
+    OfflineSpeechOption('th', '泰语'),
+    OfflineSpeechOption('id', '印尼语'),
+    OfflineSpeechOption('ms', '马来语'),
+    OfflineSpeechOption('tl', '菲律宾语'),
+    OfflineSpeechOption('hi', '印地语'),
+    OfflineSpeechOption('ar', '阿拉伯语'),
+    OfflineSpeechOption('fr', '法语'),
+    OfflineSpeechOption('de', '德语'),
+    OfflineSpeechOption('es', '西班牙语'),
+    OfflineSpeechOption('pt', '葡萄牙语'),
+    OfflineSpeechOption('ru', '俄语'),
+    OfflineSpeechOption('it', '意大利语'),
+    OfflineSpeechOption('nl', '荷兰语'),
+    OfflineSpeechOption('sv', '瑞典语'),
+    OfflineSpeechOption('da', '丹麦语'),
+    OfflineSpeechOption('fi', '芬兰语'),
+    OfflineSpeechOption('no', '挪威语'),
+    OfflineSpeechOption('el', '希腊语'),
+    OfflineSpeechOption('pl', '波兰语'),
+    OfflineSpeechOption('cs', '捷克语'),
+    OfflineSpeechOption('hu', '匈牙利语'),
+    OfflineSpeechOption('ro', '罗马尼亚语'),
+    OfflineSpeechOption('bg', '保加利亚语'),
+    OfflineSpeechOption('hr', '克罗地亚语'),
+    OfflineSpeechOption('sk', '斯洛伐克语'),
+    OfflineSpeechOption('tr', '土耳其语'),
+    OfflineSpeechOption('uk', '乌克兰语'),
+    OfflineSpeechOption('is', '冰岛语'),
+  ];
+  static const _bailianQwen3AsrLanguages = <OfflineSpeechOption>[
+    OfflineSpeechOption('', '自动检测'),
+    OfflineSpeechOption('zh', '中文'),
+    OfflineSpeechOption('yue', '粤语'),
+    OfflineSpeechOption('en', '英语'),
+    OfflineSpeechOption('ja', '日语'),
+    OfflineSpeechOption('de', '德语'),
+    OfflineSpeechOption('ko', '韩语'),
+    OfflineSpeechOption('ru', '俄语'),
+    OfflineSpeechOption('fr', '法语'),
+    OfflineSpeechOption('pt', '葡萄牙语'),
+    OfflineSpeechOption('ar', '阿拉伯语'),
+    OfflineSpeechOption('it', '意大利语'),
+    OfflineSpeechOption('es', '西班牙语'),
+    OfflineSpeechOption('hi', '印地语'),
+    OfflineSpeechOption('id', '印尼语'),
+    OfflineSpeechOption('th', '泰语'),
+    OfflineSpeechOption('tr', '土耳其语'),
+    OfflineSpeechOption('uk', '乌克兰语'),
+    OfflineSpeechOption('vi', '越南语'),
+    OfflineSpeechOption('cs', '捷克语'),
+    OfflineSpeechOption('da', '丹麦语'),
+    OfflineSpeechOption('fil', '菲律宾语'),
+    OfflineSpeechOption('fi', '芬兰语'),
+    OfflineSpeechOption('is', '冰岛语'),
+    OfflineSpeechOption('ms', '马来语'),
+    OfflineSpeechOption('no', '挪威语'),
+    OfflineSpeechOption('pl', '波兰语'),
+    OfflineSpeechOption('sv', '瑞典语'),
+  ];
+  static const _bailianTaskAsrParameters = <OfflineSpeechParameter>[
+    OfflineSpeechParameter(
+      key: 'format',
+      label: '输入音频格式',
+      description: '官方全部格式；OpenHand 麦克风实时输入需选 PCM。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: 'pcm',
+      options: _bailianAudioFormats,
+    ),
+    OfflineSpeechParameter(
+      key: 'sample_rate',
+      label: '输入采样率',
+      description: '8k 模型固定 8000 Hz，其他模型支持原始采样率。',
+      type: OfflineSpeechParameterType.integer,
+      defaultValue: 16000,
+      min: 8000,
+      max: 48000,
+    ),
+    OfflineSpeechParameter(
+      key: 'vocabulary_id',
+      label: '预编译热词 ID',
+      description: '可选；填写已在百炼创建的热词表 ID。',
+      type: OfflineSpeechParameterType.text,
+      defaultValue: '',
+    ),
+    OfflineSpeechParameter(
+      key: 'vocabulary',
+      label: '即时热词',
+      description: 'JSON 对象，权重为 1–5 或 50；仅 Qwen-Audio 模型支持。',
+      type: OfflineSpeechParameterType.json,
+      defaultValue: '{}',
+    ),
+    OfflineSpeechParameter(
+      key: 'language_hints',
+      label: '语种提示',
+      description: '逗号分隔语言代码；Qwen-Audio 最多 4 个，Fun-ASR 只使用第 1 个。',
+      type: OfflineSpeechParameterType.multiChoice,
+      defaultValue: '',
+      options: _bailianAsrLanguages,
+    ),
+    OfflineSpeechParameter(
+      key: 'semantic_punctuation_enabled',
+      label: '语义断句',
+      description: '根据语义输出更自然的断句与标点；Paraformer 仅 V2 支持。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
+    OfflineSpeechParameter(
+      key: 'max_sentence_silence',
+      label: '最大句间静音',
+      description: 'VAD 断句静音时长，200–6000 ms；Paraformer 仅 V2 支持。',
+      type: OfflineSpeechParameterType.integer,
+      defaultValue: 1300,
+      min: 200,
+      max: 6000,
+    ),
+    OfflineSpeechParameter(
+      key: 'multi_threshold_mode_enabled',
+      label: '多阈值断句',
+      description: '在缩短延迟的同时减少误切句；Paraformer 仅 V2 支持。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
+    OfflineSpeechParameter(
+      key: 'heartbeat',
+      label: '心跳模式',
+      description: '保持长时间无音频输入的任务连接；Paraformer 仅 V2 支持。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
+    OfflineSpeechParameter(
+      key: 'speech_noise_threshold',
+      label: '语音噪声阈值',
+      description: 'Qwen-Audio/Fun-ASR 专用；范围 -1–1，越大越倾向判定为噪声。',
+      type: OfflineSpeechParameterType.decimal,
+      defaultValue: 0.0,
+      min: -1,
+      max: 1,
+    ),
+    OfflineSpeechParameter(
+      key: 'special_word_filter',
+      label: '特殊词过滤',
+      description: 'Qwen-Audio/Fun-ASR 专用；填写官方 JSON 对象，空对象不启用。',
+      type: OfflineSpeechParameterType.json,
+      defaultValue: '{}',
+    ),
+    OfflineSpeechParameter(
+      key: 'context',
+      label: '对话上下文',
+      description: 'JSON 数组；每类角色最多 5 条、文本合计最多 400 字。',
+      type: OfflineSpeechParameterType.json,
+      defaultValue: '[]',
+    ),
+  ];
+  static const _bailianTaskTtsParameters = <OfflineSpeechParameter>[
+    OfflineSpeechParameter(
+      key: 'voice',
+      label: '合成音色',
+      description: '填写模型系统音色或已创建的专属音色 ID。',
+      type: OfflineSpeechParameterType.text,
+      defaultValue: 'longanhuan_v3.6',
+    ),
+    OfflineSpeechParameter(
+      key: 'format',
+      label: '输出音频格式',
+      description: 'PCM 可直接流式播放；CosyVoice V1 不支持 Opus。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: 'pcm',
+      options: <OfflineSpeechOption>[
+        OfflineSpeechOption('pcm', 'PCM · 低延迟推荐'),
+        OfflineSpeechOption('wav', 'WAV'),
+        OfflineSpeechOption('mp3', 'MP3 · 官方默认'),
+        OfflineSpeechOption('opus', 'Opus'),
+      ],
+    ),
+    OfflineSpeechParameter(
+      key: 'sample_rate',
+      label: '输出采样率',
+      description: '官方支持 8、16、22.05、24、44.1 与 48 kHz，默认 22.05 kHz。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: '22050',
+      options: <OfflineSpeechOption>[
+        OfflineSpeechOption('8000', '8 kHz'),
+        OfflineSpeechOption('16000', '16 kHz'),
+        OfflineSpeechOption('22050', '22.05 kHz · 默认'),
+        OfflineSpeechOption('24000', '24 kHz'),
+        OfflineSpeechOption('44100', '44.1 kHz'),
+        OfflineSpeechOption('48000', '48 kHz'),
+      ],
+    ),
+    OfflineSpeechParameter(
+      key: 'volume',
+      label: '音量',
+      description: '范围 0–100，默认 50。',
+      type: OfflineSpeechParameterType.integer,
+      defaultValue: 50,
+      min: 0,
+      max: 100,
+    ),
+    OfflineSpeechParameter(
+      key: 'rate',
+      label: '语速',
+      description: '范围 0.5–2.0，默认 1.0。',
+      type: OfflineSpeechParameterType.decimal,
+      defaultValue: 1.0,
+      min: 0.5,
+      max: 2,
+    ),
+    OfflineSpeechParameter(
+      key: 'pitch',
+      label: '音调',
+      description: '范围 0.5–2.0，默认 1.0。',
+      type: OfflineSpeechParameterType.decimal,
+      defaultValue: 1.0,
+      min: 0.5,
+      max: 2,
+    ),
+    OfflineSpeechParameter(
+      key: 'bit_rate',
+      label: '音频码率',
+      description: 'MP3/Opus 时生效，范围 6–510 kbps，默认 32；V1 不支持。',
+      type: OfflineSpeechParameterType.integer,
+      defaultValue: 32,
+      min: 6,
+      max: 510,
+    ),
+    OfflineSpeechParameter(
+      key: 'enable_ssml',
+      label: 'SSML',
+      description: '开启后文本按 SSML 解析，单任务仅允许一次文本提交。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
+    OfflineSpeechParameter(
+      key: 'word_timestamp_enabled',
+      label: '字级时间戳',
+      description: '为支持的模型与音色返回字级时间戳。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
+    OfflineSpeechParameter(
+      key: 'seed',
+      label: '随机种子',
+      description: '范围 0–65535，默认 0；CosyVoice V1 不支持。',
+      type: OfflineSpeechParameterType.integer,
+      defaultValue: 0,
+      min: 0,
+      max: 65535,
+    ),
+    OfflineSpeechParameter(
+      key: 'language_hint',
+      label: '目标语种',
+      description: '官方当前仅处理第一个语种提示；留空自动。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: '',
+      options: <OfflineSpeechOption>[
+        OfflineSpeechOption('', '自动'),
+        OfflineSpeechOption('zh', '中文'),
+        OfflineSpeechOption('en', '英语'),
+        OfflineSpeechOption('fr', '法语'),
+        OfflineSpeechOption('de', '德语'),
+        OfflineSpeechOption('ja', '日语'),
+        OfflineSpeechOption('ko', '韩语'),
+        OfflineSpeechOption('ru', '俄语'),
+        OfflineSpeechOption('pt', '葡萄牙语'),
+        OfflineSpeechOption('th', '泰语'),
+        OfflineSpeechOption('id', '印尼语'),
+        OfflineSpeechOption('vi', '越南语'),
+        OfflineSpeechOption('es', '西班牙语'),
+        OfflineSpeechOption('it', '意大利语'),
+        OfflineSpeechOption('ms', '马来西亚语'),
+        OfflineSpeechOption('fil', '菲律宾语'),
+        OfflineSpeechOption('ar', '阿拉伯语'),
+      ],
+    ),
+    OfflineSpeechParameter(
+      key: 'instruction',
+      label: '合成指令',
+      description: '用自然语言控制方言、情感或角色；按模型支持范围生效。',
+      type: OfflineSpeechParameterType.text,
+      defaultValue: '',
+    ),
+    OfflineSpeechParameter(
+      key: 'enable_aigc_tag',
+      label: 'AIGC 隐性标识',
+      description: '为支持的 WAV、MP3 或 Opus 音频嵌入内容标识。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
+    OfflineSpeechParameter(
+      key: 'aigc_propagator',
+      label: 'AIGC 传播者',
+      description: '开启隐性标识后可选，默认由服务端使用阿里云 UID。',
+      type: OfflineSpeechParameterType.text,
+      defaultValue: '',
+    ),
+    OfflineSpeechParameter(
+      key: 'aigc_propagate_id',
+      label: 'AIGC 传播 ID',
+      description: '开启隐性标识后可选，默认由服务端使用请求 ID。',
+      type: OfflineSpeechParameterType.text,
+      defaultValue: '',
+    ),
+    OfflineSpeechParameter(
+      key: 'hot_fix_pronunciation',
+      label: '发音热修复',
+      description: 'hot_fix.pronunciation JSON 数组；CosyVoice V1/V2 不支持。',
+      type: OfflineSpeechParameterType.json,
+      defaultValue: '[]',
+    ),
+    OfflineSpeechParameter(
+      key: 'hot_fix_replace',
+      label: '文本替换热修复',
+      description: 'hot_fix.replace JSON 数组；CosyVoice V1/V2 不支持。',
+      type: OfflineSpeechParameterType.json,
+      defaultValue: '[]',
+    ),
+    OfflineSpeechParameter(
+      key: 'enable_markdown_filter',
+      label: 'Markdown 过滤',
+      description: '仅 CosyVoice V3 Flash 专属音色支持。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
+  ];
+  static const _bailianRealtimeTtsParameters = <OfflineSpeechParameter>[
+    OfflineSpeechParameter(
+      key: 'voice',
+      label: '合成音色',
+      description: '填写系统音色或对应 VC/VD 模型的专属音色 ID。',
+      type: OfflineSpeechParameterType.text,
+      defaultValue: 'Cherry',
+    ),
+    OfflineSpeechParameter(
+      key: 'mode',
+      label: '文本提交模式',
+      description: '服务端自动提交平衡质量与延迟；手动提交延迟最低。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: 'server_commit',
+      options: <OfflineSpeechOption>[
+        OfflineSpeechOption('server_commit', '服务端自动提交 · 默认'),
+        OfflineSpeechOption('commit', '客户端手动提交'),
+      ],
+    ),
+    OfflineSpeechParameter(
+      key: 'language_type',
+      label: '合成语种',
+      description: '单一语种时固定选项可提升发音准确性。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: 'Auto',
+      options: <OfflineSpeechOption>[
+        OfflineSpeechOption('Auto', '自动检测 · 默认'),
+        OfflineSpeechOption('Chinese', '中文'),
+        OfflineSpeechOption('English', '英语'),
+        OfflineSpeechOption('German', '德语'),
+        OfflineSpeechOption('Italian', '意大利语'),
+        OfflineSpeechOption('Portuguese', '葡萄牙语'),
+        OfflineSpeechOption('Spanish', '西班牙语'),
+        OfflineSpeechOption('Japanese', '日语'),
+        OfflineSpeechOption('Korean', '韩语'),
+        OfflineSpeechOption('French', '法语'),
+        OfflineSpeechOption('Russian', '俄语'),
+      ],
+    ),
+    OfflineSpeechParameter(
+      key: 'response_format',
+      label: '输出音频格式',
+      description: 'PCM 可流式播放；旧版 Qwen-TTS Realtime 仅支持 PCM。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: 'pcm',
+      options: <OfflineSpeechOption>[
+        OfflineSpeechOption('pcm', 'PCM · 默认'),
+        OfflineSpeechOption('wav', 'WAV'),
+        OfflineSpeechOption('mp3', 'MP3'),
+        OfflineSpeechOption('opus', 'Opus'),
+      ],
+    ),
+    OfflineSpeechParameter(
+      key: 'sample_rate',
+      label: '输出采样率',
+      description: '旧版 Qwen-TTS Realtime 仅支持 24 kHz。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: '24000',
+      options: <OfflineSpeechOption>[
+        OfflineSpeechOption('8000', '8 kHz'),
+        OfflineSpeechOption('16000', '16 kHz'),
+        OfflineSpeechOption('24000', '24 kHz · 默认'),
+        OfflineSpeechOption('48000', '48 kHz'),
+      ],
+    ),
+    OfflineSpeechParameter(
+      key: 'speech_rate',
+      label: '语速',
+      description: '范围 0.5–2.0；旧版 Qwen-TTS Realtime 不支持。',
+      type: OfflineSpeechParameterType.decimal,
+      defaultValue: 1.0,
+      min: 0.5,
+      max: 2,
+    ),
+    OfflineSpeechParameter(
+      key: 'volume',
+      label: '音量',
+      description: '范围 0–100，默认 50；旧版模型不支持。',
+      type: OfflineSpeechParameterType.integer,
+      defaultValue: 50,
+      min: 0,
+      max: 100,
+    ),
+    OfflineSpeechParameter(
+      key: 'pitch_rate',
+      label: '音调',
+      description: '范围 0.5–2.0；旧版 Qwen-TTS Realtime 不支持。',
+      type: OfflineSpeechParameterType.decimal,
+      defaultValue: 1.0,
+      min: 0.5,
+      max: 2,
+    ),
+    OfflineSpeechParameter(
+      key: 'bit_rate',
+      label: 'Opus 码率',
+      description: '仅 Opus 生效，范围 6–510 kbps，默认 128。',
+      type: OfflineSpeechParameterType.integer,
+      defaultValue: 128,
+      min: 6,
+      max: 510,
+    ),
+    OfflineSpeechParameter(
+      key: 'instructions',
+      label: '表达指令',
+      description: '仅 Qwen3-TTS Instruct Flash Realtime 支持，最多 1600 Token。',
+      type: OfflineSpeechParameterType.text,
+      defaultValue: '',
+    ),
+    OfflineSpeechParameter(
+      key: 'optimize_instructions',
+      label: '优化表达指令',
+      description: '有指令时由服务端增强其自然度与表现力。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
   ];
   static const _asrCommon = <OfflineSpeechParameter>[
     OfflineSpeechParameter(
@@ -929,6 +1461,231 @@ abstract final class OfflineSpeechModelCatalog {
             OfflineSpeechOption('1', '远场 · 默认'),
             OfflineSpeechOption('2', '近场'),
           ],
+        ),
+      ],
+    ),
+    OfflineSpeechModelDefinition(
+      id: 'bailian-qwen-fun-asr',
+      name: '阿里云百炼 · Qwen-Audio / Fun-ASR',
+      kind: OfflineSpeechKind.recognition,
+      repository:
+          'https://help.aliyun.com/zh/model-studio/real-time-speech-recognition-user-guide',
+      sizeLabel: 'AOQ / WSS',
+      description: '低延迟云端流式识别，支持上下文、热词、语种提示与语义断句。',
+      deployment: OfflineSpeechDeployment.online,
+      onlineService: OnlineSpeechService.bailianTaskAsr,
+      onlineTransports: <OnlineSpeechTransport>[
+        OnlineSpeechTransport.aoq,
+        OnlineSpeechTransport.webSocket,
+      ],
+      parameters: <OfflineSpeechParameter>[
+        OfflineSpeechParameter(
+          key: 'endpoint',
+          label: 'WebSocket 服务地址',
+          description: '北京地域默认地址；新加坡请改为 dashscope-intl 域名。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'wss://dashscope.aliyuncs.com/api-ws/v1/inference',
+        ),
+        ..._bailianCredentials,
+        OfflineSpeechParameter(
+          key: 'model',
+          label: '识别模型',
+          description: '覆盖北京与新加坡地域官方实时模型及快照。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'qwen-audio-3.0-asr-flash-streaming',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption(
+              'qwen-audio-3.0-asr-flash-streaming',
+              'Qwen-Audio 3.0 ASR Flash Streaming',
+            ),
+            OfflineSpeechOption('fun-asr-realtime', 'Fun-ASR Realtime 稳定版'),
+            OfflineSpeechOption(
+              'fun-asr-realtime-2026-02-28',
+              'Fun-ASR Realtime · 2026-02-28',
+            ),
+            OfflineSpeechOption(
+              'fun-asr-realtime-2025-11-07',
+              'Fun-ASR Realtime · 2025-11-07',
+            ),
+            OfflineSpeechOption(
+              'fun-asr-realtime-2025-09-15',
+              'Fun-ASR Realtime · 2025-09-15',
+            ),
+            OfflineSpeechOption(
+              'fun-asr-flash-8k-realtime',
+              'Fun-ASR Flash 8k Realtime 稳定版',
+            ),
+            OfflineSpeechOption(
+              'fun-asr-flash-8k-realtime-2026-01-28',
+              'Fun-ASR Flash 8k · 2026-01-28',
+            ),
+          ],
+        ),
+        ..._bailianTaskAsrParameters,
+      ],
+    ),
+    OfflineSpeechModelDefinition(
+      id: 'bailian-qwen3-asr-realtime',
+      name: '阿里云百炼 · Qwen3-ASR Realtime',
+      kind: OfflineSpeechKind.recognition,
+      repository:
+          'https://help.aliyun.com/zh/model-studio/qwen-asr-realtime-api',
+      sizeLabel: 'WSS',
+      description: '云端多语种实时识别，支持服务端 VAD 与客户端手动提交。',
+      deployment: OfflineSpeechDeployment.online,
+      onlineService: OnlineSpeechService.bailianRealtimeAsr,
+      parameters: <OfflineSpeechParameter>[
+        OfflineSpeechParameter(
+          key: 'endpoint',
+          label: 'WebSocket 服务地址',
+          description: '北京地域默认地址；模型名由系统自动追加。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime',
+        ),
+        ..._bailianCredentials,
+        OfflineSpeechParameter(
+          key: 'model',
+          label: '识别模型',
+          description: '稳定版会随官方升级，快照版行为固定。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'qwen3-asr-flash-realtime',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption(
+              'qwen3-asr-flash-realtime',
+              'Qwen3-ASR Flash 稳定版',
+            ),
+            OfflineSpeechOption(
+              'qwen3-asr-flash-realtime-2026-02-10',
+              'Qwen3-ASR Flash · 2026-02-10',
+            ),
+            OfflineSpeechOption(
+              'qwen3-asr-flash-realtime-2025-10-27',
+              'Qwen3-ASR Flash · 2025-10-27',
+            ),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'input_audio_format',
+          label: '输入音频格式',
+          description: 'OpenHand 麦克风实时输入需选 PCM。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'pcm',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('pcm', 'PCM · 默认'),
+            OfflineSpeechOption('opus', 'Ogg Opus'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'sample_rate',
+          label: '输入采样率',
+          description: '16 kHz 质量更好；8 kHz 适合电话线路。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '16000',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('16000', '16 kHz · 默认'),
+            OfflineSpeechOption('8000', '8 kHz'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'language',
+          label: '音频语种',
+          description: '留空自动识别；固定语种可降低误判。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '',
+          options: _bailianQwen3AsrLanguages,
+        ),
+        OfflineSpeechParameter(
+          key: 'vad_enabled',
+          label: '服务端 VAD',
+          description: '开启时由服务端自动检测语音起止；关闭时手动提交。',
+          type: OfflineSpeechParameterType.toggle,
+          defaultValue: true,
+        ),
+        OfflineSpeechParameter(
+          key: 'vad_threshold',
+          label: 'VAD 阈值',
+          description: '范围 -1–1，官方推荐 0.0，默认 0.2。',
+          type: OfflineSpeechParameterType.decimal,
+          defaultValue: 0.2,
+          min: -1,
+          max: 1,
+        ),
+        OfflineSpeechParameter(
+          key: 'silence_duration_ms',
+          label: 'VAD 静音时长',
+          description: '200–6000 ms，官方推荐 400 ms，默认 800 ms。',
+          type: OfflineSpeechParameterType.integer,
+          defaultValue: 800,
+          min: 200,
+          max: 6000,
+        ),
+      ],
+    ),
+    OfflineSpeechModelDefinition(
+      id: 'bailian-paraformer-realtime',
+      name: '阿里云百炼 · Paraformer Realtime',
+      kind: OfflineSpeechKind.recognition,
+      repository:
+          'https://help.aliyun.com/zh/model-studio/paraformer-real-time-speech-recognition-api-reference',
+      sizeLabel: 'WSS',
+      description: '北京地域低延迟中英日粤等语种识别，支持数字规整和语气词过滤。',
+      deployment: OfflineSpeechDeployment.online,
+      onlineService: OnlineSpeechService.bailianTaskAsr,
+      parameters: <OfflineSpeechParameter>[
+        OfflineSpeechParameter(
+          key: 'endpoint',
+          label: 'WebSocket 服务地址',
+          description: 'Paraformer Realtime 官方 WebSocket 任务端点。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'wss://dashscope.aliyuncs.com/api-ws/v1/inference',
+        ),
+        ..._bailianCredentials,
+        OfflineSpeechParameter(
+          key: 'model',
+          label: '识别模型',
+          description: '8k 模型面向电话音频，其他模型默认 16 kHz。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'paraformer-realtime-v2',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption(
+              'paraformer-realtime-v2',
+              'Paraformer Realtime V2',
+            ),
+            OfflineSpeechOption(
+              'paraformer-realtime-v1',
+              'Paraformer Realtime V1',
+            ),
+            OfflineSpeechOption(
+              'paraformer-realtime-8k-v2',
+              'Paraformer Realtime 8k V2',
+            ),
+            OfflineSpeechOption(
+              'paraformer-realtime-8k-v1',
+              'Paraformer Realtime 8k V1',
+            ),
+          ],
+        ),
+        ..._bailianTaskAsrParameters,
+        OfflineSpeechParameter(
+          key: 'disfluency_removal_enabled',
+          label: '语气词过滤',
+          description: '自动删除“嗯”“呃”等口语语气词。',
+          type: OfflineSpeechParameterType.toggle,
+          defaultValue: false,
+        ),
+        OfflineSpeechParameter(
+          key: 'punctuation_prediction_enabled',
+          label: '标点预测',
+          description: '为识别文本补充标点，默认开启。',
+          type: OfflineSpeechParameterType.toggle,
+          defaultValue: true,
+        ),
+        OfflineSpeechParameter(
+          key: 'inverse_text_normalization_enabled',
+          label: '数字与符号规整',
+          description: '将口语数字、日期和符号转换为书面形式。',
+          type: OfflineSpeechParameterType.toggle,
+          defaultValue: true,
         ),
       ],
     ),
@@ -1387,6 +2144,279 @@ abstract final class OfflineSpeechModelCatalog {
           key: 'binary_output',
           label: '二进制音频帧',
           description: '使用 output_proto=binary 接收二进制音频帧。',
+          type: OfflineSpeechParameterType.toggle,
+          defaultValue: false,
+        ),
+      ],
+    ),
+    OfflineSpeechModelDefinition(
+      id: 'bailian-qwen-cosyvoice-tts',
+      name: '阿里云百炼 · Qwen-Audio / CosyVoice',
+      kind: OfflineSpeechKind.synthesis,
+      repository:
+          'https://help.aliyun.com/zh/model-studio/realtime-tts-user-guide',
+      sizeLabel: 'AOQ / WSS',
+      description: '云端双工流式合成，支持系统、复刻与设计音色及细粒度表达控制。',
+      deployment: OfflineSpeechDeployment.online,
+      onlineService: OnlineSpeechService.bailianTaskTts,
+      onlineTransports: <OnlineSpeechTransport>[
+        OnlineSpeechTransport.aoq,
+        OnlineSpeechTransport.webSocket,
+      ],
+      synthesisTransport: OfflineSpeechSynthesisTransport.webSocket,
+      parameters: <OfflineSpeechParameter>[
+        OfflineSpeechParameter(
+          key: 'endpoint',
+          label: 'WebSocket 服务地址',
+          description: '北京地域默认地址；新加坡请改为 dashscope-intl 域名。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'wss://dashscope.aliyuncs.com/api-ws/v1/inference',
+        ),
+        ..._bailianCredentials,
+        OfflineSpeechParameter(
+          key: 'model',
+          label: '合成模型',
+          description: '覆盖北京与新加坡地域 Qwen-Audio-TTS 和 CosyVoice 实时模型。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'qwen-audio-3.0-tts-flash',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption(
+              'qwen-audio-3.0-tts-plus',
+              'Qwen-Audio 3.0 TTS Plus',
+            ),
+            OfflineSpeechOption(
+              'qwen-audio-3.0-tts-flash',
+              'Qwen-Audio 3.0 TTS Flash',
+            ),
+            OfflineSpeechOption(
+              'cosyvoice-v3.5-plus',
+              'CosyVoice V3.5 Plus · 北京',
+            ),
+            OfflineSpeechOption(
+              'cosyvoice-v3.5-flash',
+              'CosyVoice V3.5 Flash · 北京',
+            ),
+            OfflineSpeechOption('cosyvoice-v3-plus', 'CosyVoice V3 Plus'),
+            OfflineSpeechOption('cosyvoice-v3-flash', 'CosyVoice V3 Flash'),
+            OfflineSpeechOption('cosyvoice-v2', 'CosyVoice V2'),
+            OfflineSpeechOption('cosyvoice-v1', 'CosyVoice V1'),
+          ],
+        ),
+        ..._bailianTaskTtsParameters,
+      ],
+    ),
+    OfflineSpeechModelDefinition(
+      id: 'bailian-qwen-tts-realtime',
+      name: '阿里云百炼 · Qwen-TTS Realtime',
+      kind: OfflineSpeechKind.synthesis,
+      repository:
+          'https://help.aliyun.com/zh/model-studio/qwen-tts-realtime-api-reference',
+      sizeLabel: 'WSS',
+      description: '低延迟云端流式合成，支持指令音色、声音复刻和声音设计系列。',
+      deployment: OfflineSpeechDeployment.online,
+      onlineService: OnlineSpeechService.bailianRealtimeTts,
+      synthesisTransport: OfflineSpeechSynthesisTransport.webSocket,
+      parameters: <OfflineSpeechParameter>[
+        OfflineSpeechParameter(
+          key: 'endpoint',
+          label: 'WebSocket 服务地址',
+          description: '北京地域默认地址；新加坡请改为 dashscope-intl 域名。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime',
+        ),
+        ..._bailianCredentials,
+        OfflineSpeechParameter(
+          key: 'model',
+          label: '合成模型',
+          description: '覆盖稳定版与官方公开快照，专属音色需与 VC/VD 系列匹配。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'qwen3-tts-flash-realtime',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption(
+              'qwen3-tts-instruct-flash-realtime',
+              'Qwen3-TTS Instruct Flash 稳定版',
+            ),
+            OfflineSpeechOption(
+              'qwen3-tts-instruct-flash-realtime-2026-01-22',
+              'Qwen3-TTS Instruct · 2026-01-22',
+            ),
+            OfflineSpeechOption(
+              'qwen3-tts-vd-realtime-2026-01-15',
+              'Qwen3-TTS VD · 2026-01-15',
+            ),
+            OfflineSpeechOption(
+              'qwen3-tts-vd-realtime-2025-12-16',
+              'Qwen3-TTS VD · 2025-12-16',
+            ),
+            OfflineSpeechOption(
+              'qwen3-tts-vc-realtime-2026-01-15',
+              'Qwen3-TTS VC · 2026-01-15',
+            ),
+            OfflineSpeechOption(
+              'qwen3-tts-vc-realtime-2025-11-27',
+              'Qwen3-TTS VC · 2025-11-27',
+            ),
+            OfflineSpeechOption(
+              'qwen3-tts-flash-realtime',
+              'Qwen3-TTS Flash 稳定版',
+            ),
+            OfflineSpeechOption(
+              'qwen3-tts-flash-realtime-2025-11-27',
+              'Qwen3-TTS Flash · 2025-11-27',
+            ),
+            OfflineSpeechOption(
+              'qwen3-tts-flash-realtime-2025-09-18',
+              'Qwen3-TTS Flash · 2025-09-18',
+            ),
+            OfflineSpeechOption('qwen-tts-realtime', 'Qwen-TTS Realtime 稳定版'),
+            OfflineSpeechOption(
+              'qwen-tts-realtime-latest',
+              'Qwen-TTS Realtime Latest',
+            ),
+            OfflineSpeechOption(
+              'qwen-tts-realtime-2025-07-15',
+              'Qwen-TTS Realtime · 2025-07-15',
+            ),
+          ],
+        ),
+        ..._bailianRealtimeTtsParameters,
+      ],
+    ),
+    OfflineSpeechModelDefinition(
+      id: 'bailian-sambert-tts',
+      name: '阿里云百炼 · Sambert',
+      kind: OfflineSpeechKind.synthesis,
+      repository:
+          'https://help.aliyun.com/zh/model-studio/sambert-websocket-api',
+      sizeLabel: 'WSS',
+      description: '北京地域云端流式合成，内置完整的中英与多语种音色阵容。',
+      deployment: OfflineSpeechDeployment.online,
+      onlineService: OnlineSpeechService.bailianSambertTts,
+      synthesisTransport: OfflineSpeechSynthesisTransport.webSocket,
+      parameters: <OfflineSpeechParameter>[
+        OfflineSpeechParameter(
+          key: 'endpoint',
+          label: 'WebSocket 服务地址',
+          description: 'Sambert 官方 WebSocket 任务端点，仅北京地域。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'wss://dashscope.aliyuncs.com/api-ws/v1/inference',
+        ),
+        ..._bailianCredentials,
+        OfflineSpeechParameter(
+          key: 'model',
+          label: '音色模型',
+          description: '百炼官方全部 Sambert V1 实时音色模型。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'sambert-zhinan-v1',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('sambert-zhinan-v1', 'Zhinan'),
+            OfflineSpeechOption('sambert-zhiqi-v1', 'Zhiqi'),
+            OfflineSpeechOption('sambert-zhichu-v1', 'Zhichu'),
+            OfflineSpeechOption('sambert-zhide-v1', 'Zhide'),
+            OfflineSpeechOption('sambert-zhijia-v1', 'Zhijia'),
+            OfflineSpeechOption('sambert-zhiru-v1', 'Zhiru'),
+            OfflineSpeechOption('sambert-zhiqian-v1', 'Zhiqian'),
+            OfflineSpeechOption('sambert-zhixiang-v1', 'Zhixiang'),
+            OfflineSpeechOption('sambert-zhiwei-v1', 'Zhiwei'),
+            OfflineSpeechOption('sambert-zhihao-v1', 'Zhihao'),
+            OfflineSpeechOption('sambert-zhijing-v1', 'Zhijing'),
+            OfflineSpeechOption('sambert-zhiming-v1', 'Zhiming'),
+            OfflineSpeechOption('sambert-zhimo-v1', 'Zhimo'),
+            OfflineSpeechOption('sambert-zhina-v1', 'Zhina'),
+            OfflineSpeechOption('sambert-zhishu-v1', 'Zhishu'),
+            OfflineSpeechOption('sambert-zhistella-v1', 'Zhistella'),
+            OfflineSpeechOption('sambert-zhiting-v1', 'Zhiting'),
+            OfflineSpeechOption('sambert-zhixiao-v1', 'Zhixiao'),
+            OfflineSpeechOption('sambert-zhiya-v1', 'Zhiya'),
+            OfflineSpeechOption('sambert-zhiye-v1', 'Zhiye'),
+            OfflineSpeechOption('sambert-zhiying-v1', 'Zhiying'),
+            OfflineSpeechOption('sambert-zhiyuan-v1', 'Zhiyuan'),
+            OfflineSpeechOption('sambert-zhiyue-v1', 'Zhiyue'),
+            OfflineSpeechOption('sambert-zhigui-v1', 'Zhigui'),
+            OfflineSpeechOption('sambert-zhishuo-v1', 'Zhishuo'),
+            OfflineSpeechOption('sambert-zhimiao-emo-v1', 'Zhimiao Emo'),
+            OfflineSpeechOption('sambert-zhimao-v1', 'Zhimao'),
+            OfflineSpeechOption('sambert-zhilun-v1', 'Zhilun'),
+            OfflineSpeechOption('sambert-zhifei-v1', 'Zhifei'),
+            OfflineSpeechOption('sambert-zhida-v1', 'Zhida'),
+            OfflineSpeechOption('sambert-camila-v1', 'Camila'),
+            OfflineSpeechOption('sambert-perla-v1', 'Perla'),
+            OfflineSpeechOption('sambert-indah-v1', 'Indah'),
+            OfflineSpeechOption('sambert-clara-v1', 'Clara'),
+            OfflineSpeechOption('sambert-hanna-v1', 'Hanna'),
+            OfflineSpeechOption('sambert-beth-v1', 'Beth'),
+            OfflineSpeechOption('sambert-betty-v1', 'Betty'),
+            OfflineSpeechOption('sambert-cally-v1', 'Cally'),
+            OfflineSpeechOption('sambert-cindy-v1', 'Cindy'),
+            OfflineSpeechOption('sambert-eva-v1', 'Eva'),
+            OfflineSpeechOption('sambert-donna-v1', 'Donna'),
+            OfflineSpeechOption('sambert-brian-v1', 'Brian'),
+            OfflineSpeechOption('sambert-waan-v1', 'Waan'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'format',
+          label: '输出音频格式',
+          description: 'PCM 可流式播放；官方默认 WAV。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'pcm',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('pcm', 'PCM · 低延迟推荐'),
+            OfflineSpeechOption('wav', 'WAV · 官方默认'),
+            OfflineSpeechOption('mp3', 'MP3'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'sample_rate',
+          label: '输出采样率',
+          description: '官方支持 8、16、22.05 与 24 kHz，默认 16 kHz。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '16000',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('8000', '8 kHz'),
+            OfflineSpeechOption('16000', '16 kHz · 默认'),
+            OfflineSpeechOption('22050', '22.05 kHz'),
+            OfflineSpeechOption('24000', '24 kHz'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'volume',
+          label: '音量',
+          description: '范围 0–100，默认 50。',
+          type: OfflineSpeechParameterType.integer,
+          defaultValue: 50,
+          min: 0,
+          max: 100,
+        ),
+        OfflineSpeechParameter(
+          key: 'rate',
+          label: '语速',
+          description: '范围 0.5–2.0，默认 1.0。',
+          type: OfflineSpeechParameterType.decimal,
+          defaultValue: 1.0,
+          min: 0.5,
+          max: 2,
+        ),
+        OfflineSpeechParameter(
+          key: 'pitch',
+          label: '音调',
+          description: '范围 0.5–2.0，默认 1.0。',
+          type: OfflineSpeechParameterType.decimal,
+          defaultValue: 1.0,
+          min: 0.5,
+          max: 2,
+        ),
+        OfflineSpeechParameter(
+          key: 'word_timestamp_enabled',
+          label: '字级时间戳',
+          description: '返回字级别起止时间。',
+          type: OfflineSpeechParameterType.toggle,
+          defaultValue: false,
+        ),
+        OfflineSpeechParameter(
+          key: 'phoneme_timestamp_enabled',
+          label: '音素级时间戳',
+          description: '需同时开启字级时间戳。',
           type: OfflineSpeechParameterType.toggle,
           defaultValue: false,
         ),

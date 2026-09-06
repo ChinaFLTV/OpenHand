@@ -243,6 +243,10 @@ class OfflineSpeechModelService extends ChangeNotifier {
   static const int _onlineAudioFrameBytes = 1280;
   static const int _maxOnlineAudioBytes = 64 * 1024 * 1024;
   static const int _maxOnlineEventCharacters = 16 * 1024 * 1024;
+  static const int _bailianTtsChunkCharacters = 20000;
+  static const int _bailianTtsTaskCharacters = 200000;
+  static const Set<OnlineSpeechTransport> _availableOnlineTransports =
+      <OnlineSpeechTransport>{OnlineSpeechTransport.webSocket};
   static const List<String> _proxyEnvironmentKeys = <String>[
     'HTTP_PROXY',
     'HTTPS_PROXY',
@@ -490,6 +494,13 @@ class OfflineSpeechModelService extends ChangeNotifier {
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration,
   ) {
+    final transport = activeOnlineTransport(model);
+    if (transport == null) {
+      return const OfflineSpeechModelAvailability(
+        available: false,
+        reason: '当前客户端暂无该服务可用的传输通道。',
+      );
+    }
     final endpoint = Uri.tryParse(
       _configurationText(configuration, 'endpoint'),
     );
@@ -554,6 +565,247 @@ class OfflineSpeechModelService extends ChangeNotifier {
           require('api_key', 'APIKey');
           require('api_secret', 'APISecret');
         }
+      case OnlineSpeechService.bailianTaskAsr:
+      case OnlineSpeechService.bailianRealtimeAsr:
+        require('api_key', '百炼 API Key');
+        final formatKey =
+            model.onlineService == OnlineSpeechService.bailianTaskAsr
+            ? 'format'
+            : 'input_audio_format';
+        if (_configurationText(configuration, formatKey) != 'pcm') {
+          return const OfflineSpeechModelAvailability(
+            available: false,
+            reason: 'OpenHand 麦克风输入为 PCM，请将输入音频格式设为 PCM。',
+          );
+        }
+        if (model.onlineService == OnlineSpeechService.bailianTaskAsr) {
+          for (final field in <(String, String, bool)>[
+            ('vocabulary', '即时热词', false),
+            ('special_word_filter', '特殊词过滤', false),
+            ('context', '对话上下文', true),
+          ]) {
+            final error = _jsonConfigurationError(
+              configuration,
+              field.$1,
+              expectsList: field.$3,
+            );
+            if (error != null) {
+              return OfflineSpeechModelAvailability(
+                available: false,
+                reason: '${field.$2}$error',
+              );
+            }
+          }
+          final selectedModel = _configurationText(configuration, 'model');
+          final sampleRate = _integerValue(configuration['sample_rate']);
+          if ((selectedModel.contains('-8k-') && sampleRate != 8000) ||
+              (selectedModel == 'paraformer-realtime-v1' &&
+                  sampleRate != 16000)) {
+            return OfflineSpeechModelAvailability(
+              available: false,
+              reason: selectedModel.contains('-8k-')
+                  ? '8k 模型的输入采样率必须为 8000 Hz。'
+                  : 'Paraformer Realtime V1 的输入采样率必须为 16000 Hz。',
+            );
+          }
+          final languageHints = _commaSeparated(
+            configuration,
+            'language_hints',
+          );
+          final supportedLanguages = switch (selectedModel) {
+            'fun-asr-realtime-2026-02-28' => const <String>{'zh', 'en', 'ja'},
+            'fun-asr-realtime-2025-09-15' => const <String>{'zh', 'en'},
+            'fun-asr-flash-8k-realtime' ||
+            'fun-asr-flash-8k-realtime-2026-01-28' => const <String>{'zh'},
+            final value when value.startsWith('paraformer-') => const <String>{
+              'zh',
+              'en',
+              'ja',
+              'yue',
+              'ko',
+              'de',
+              'fr',
+              'ru',
+            },
+            _ => null,
+          };
+          if (supportedLanguages != null &&
+              languageHints.any(
+                (language) => !supportedLanguages.contains(language),
+              )) {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: '当前识别模型不支持所选语种提示，请调整后重试。',
+            );
+          }
+          if (selectedModel.startsWith('paraformer-') &&
+              selectedModel != 'paraformer-realtime-v2' &&
+              (_configurationBool(
+                    configuration,
+                    'semantic_punctuation_enabled',
+                  ) ||
+                  _integerValue(configuration['max_sentence_silence']) !=
+                      1300 ||
+                  _configurationBool(
+                    configuration,
+                    'multi_threshold_mode_enabled',
+                  ) ||
+                  _configurationBool(configuration, 'heartbeat') ||
+                  !_configurationBool(
+                    configuration,
+                    'punctuation_prediction_enabled',
+                  ) ||
+                  !_configurationBool(
+                    configuration,
+                    'inverse_text_normalization_enabled',
+                  ))) {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: '当前 Paraformer 模型不支持已调整的 V2 专属参数。',
+            );
+          }
+          final context = _jsonConfiguration(
+            configuration,
+            'context',
+            fallback: const <Object?>[],
+          );
+          final supportsContext =
+              selectedModel == 'qwen-audio-3.0-asr-flash-streaming' ||
+              selectedModel == 'fun-asr-realtime' ||
+              selectedModel == 'fun-asr-realtime-2025-11-07';
+          if (context is List && context.isNotEmpty && !supportsContext) {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: '当前识别模型不支持对话上下文。',
+            );
+          }
+          final vocabulary = _jsonConfiguration(
+            configuration,
+            'vocabulary',
+            fallback: const <String, Object?>{},
+          );
+          if (vocabulary is Map &&
+              vocabulary.isNotEmpty &&
+              selectedModel != 'qwen-audio-3.0-asr-flash-streaming') {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: '即时热词仅适用于 Qwen-Audio 3.0 ASR Flash Streaming。',
+            );
+          }
+        }
+      case OnlineSpeechService.bailianTaskTts:
+      case OnlineSpeechService.bailianRealtimeTts:
+      case OnlineSpeechService.bailianSambertTts:
+        require('api_key', '百炼 API Key');
+        final formatKey =
+            model.onlineService == OnlineSpeechService.bailianRealtimeTts
+            ? 'response_format'
+            : 'format';
+        final format = _configurationText(configuration, formatKey);
+        if (model.onlineService == OnlineSpeechService.bailianTaskTts) {
+          final selectedModel = _configurationText(configuration, 'model');
+          if (selectedModel == 'cosyvoice-v1' && format == 'opus') {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: 'CosyVoice V1 不支持 Opus 输出。',
+            );
+          }
+          for (final field in <(String, String)>[
+            ('hot_fix_pronunciation', '发音热修复'),
+            ('hot_fix_replace', '文本替换热修复'),
+          ]) {
+            final error = _jsonConfigurationError(
+              configuration,
+              field.$1,
+              expectsList: true,
+            );
+            if (error != null) {
+              return OfflineSpeechModelAvailability(
+                available: false,
+                reason: '${field.$2}$error',
+              );
+            }
+          }
+          final pronunciation = _jsonConfiguration(
+            configuration,
+            'hot_fix_pronunciation',
+            fallback: const <Object?>[],
+          );
+          final replacement = _jsonConfiguration(
+            configuration,
+            'hot_fix_replace',
+            fallback: const <Object?>[],
+          );
+          if ((selectedModel == 'cosyvoice-v1' ||
+                  selectedModel == 'cosyvoice-v2') &&
+              ((pronunciation is List && pronunciation.isNotEmpty) ||
+                  (replacement is List && replacement.isNotEmpty))) {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: 'CosyVoice V1/V2 不支持文本热修复。',
+            );
+          }
+          if (_configurationText(configuration, 'instruction').isNotEmpty &&
+              (selectedModel == 'cosyvoice-v1' ||
+                  selectedModel == 'cosyvoice-v2')) {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: 'CosyVoice V1/V2 不支持合成指令。',
+            );
+          }
+          final supportsAigcTag =
+              selectedModel.startsWith('qwen-audio-3.0-tts-') ||
+              selectedModel == 'cosyvoice-v3-plus' ||
+              selectedModel == 'cosyvoice-v3-flash' ||
+              selectedModel == 'cosyvoice-v2';
+          if (_configurationBool(configuration, 'enable_aigc_tag') &&
+              !supportsAigcTag) {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: '当前合成模型不支持 AIGC 隐性标识。',
+            );
+          }
+          if (_configurationBool(configuration, 'enable_markdown_filter') &&
+              selectedModel != 'cosyvoice-v3-flash') {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: 'Markdown 过滤仅适用于 CosyVoice V3 Flash 复刻音色。',
+            );
+          }
+          if (_configurationBool(configuration, 'word_timestamp_enabled') &&
+              selectedModel == 'cosyvoice-v1') {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: 'CosyVoice V1 不支持字级时间戳。',
+            );
+          }
+        } else if (model.onlineService ==
+            OnlineSpeechService.bailianRealtimeTts) {
+          final selectedModel = _configurationText(configuration, 'model');
+          if (selectedModel.startsWith('qwen-tts-realtime') &&
+              (format != 'pcm' ||
+                  _integerValue(configuration['sample_rate']) != 24000)) {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: '旧版 Qwen-TTS Realtime 仅支持 24 kHz PCM 输出。',
+            );
+          }
+          if (_configurationText(configuration, 'instructions').isNotEmpty &&
+              !selectedModel.startsWith('qwen3-tts-instruct-')) {
+            return const OfflineSpeechModelAvailability(
+              available: false,
+              reason: '合成指令仅适用于 Qwen3-TTS Instruct Realtime 模型。',
+            );
+          }
+        }
+        if (model.onlineService == OnlineSpeechService.bailianSambertTts &&
+            _configurationBool(configuration, 'phoneme_timestamp_enabled') &&
+            !_configurationBool(configuration, 'word_timestamp_enabled')) {
+          return const OfflineSpeechModelAvailability(
+            available: false,
+            reason: '音素级时间戳需同时开启字级时间戳。',
+          );
+        }
       case null:
         return const OfflineSpeechModelAvailability(
           available: false,
@@ -563,14 +815,21 @@ class OfflineSpeechModelService extends ChangeNotifier {
     if (missing.isNotEmpty) {
       return OfflineSpeechModelAvailability(
         available: false,
-        reason: '请补全讯飞配置：${missing.join('、')}。',
+        reason: '请补全在线服务配置：${missing.join('、')}。',
       );
     }
-    return const OfflineSpeechModelAvailability(
+    final provider = model.onlineService!.name.startsWith('bailian')
+        ? '阿里云百炼'
+        : '讯飞';
+    return OfflineSpeechModelAvailability(
       available: true,
-      reason: '在线服务配置完整，将通过加密 WebSocket 连接讯飞。',
+      reason: '在线服务配置完整，将通过加密 ${transport.label} 连接$provider。',
     );
   }
+
+  OnlineSpeechTransport? activeOnlineTransport(
+    OfflineSpeechModelDefinition model,
+  ) => model.selectOnlineTransport(_availableOnlineTransports);
 
   String modelDirectory(OfflineSpeechModelDefinition model) =>
       p.join(modelsRoot, model.id);
@@ -1056,8 +1315,16 @@ class OfflineSpeechModelService extends ChangeNotifier {
         model.synthesisTransport != OfflineSpeechSynthesisTransport.webSocket) {
       return false;
     }
-    return model.onlineService != OnlineSpeechService.xfyunTts ||
-        _configurationText(configuration, 'aue') == 'raw';
+    return switch (model.onlineService) {
+      OnlineSpeechService.xfyunTts =>
+        _configurationText(configuration, 'aue') == 'raw',
+      OnlineSpeechService.bailianTaskTts ||
+      OnlineSpeechService.bailianSambertTts =>
+        _configurationText(configuration, 'format') == 'pcm',
+      OnlineSpeechService.bailianRealtimeTts =>
+        _configurationText(configuration, 'response_format') == 'pcm',
+      _ => true,
+    };
   }
 
   Future<OfflineSpeechAudioStream> streamSynthesis(
@@ -1091,16 +1358,27 @@ class OfflineSpeechModelService extends ChangeNotifier {
         !supportsRealtimeSynthesis(model, configuration)) {
       throw StateError('当前朗读模型不支持实时语音通道。');
     }
-    if (model.onlineService == OnlineSpeechService.xfyunTts) {
+    if (model.isOnline) {
       final availability = availabilityFor(model, configuration);
       if (!availability.available) throw StateError(availability.reason);
-      return _startXfyunSynthesisStream(
+      final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+        cancelSignal,
+        _shutdownSignal.future,
+      ]);
+      if (model.onlineService == OnlineSpeechService.bailianTaskTts ||
+          model.onlineService == OnlineSpeechService.bailianRealtimeTts) {
+        final stream = await _startBailianSynthesisStream(
+          model,
+          configuration,
+          cancelSignal: effectiveCancelSignal,
+        );
+        _trackAudioStream(stream, model.id);
+        return stream;
+      }
+      return _startQueuedOnlineSynthesisStream(
         model,
         configuration,
-        cancelSignal: combineCancelSignals(<Future<void>?>[
-          cancelSignal,
-          _shutdownSignal.future,
-        ]),
+        cancelSignal: effectiveCancelSignal,
       );
     }
     final session = _processes[model.id];
@@ -1114,14 +1392,18 @@ class OfflineSpeechModelService extends ChangeNotifier {
         _shutdownSignal.future,
       ]),
     );
-    _activeAudioStreams[stream] = model.id;
+    _trackAudioStream(stream, model.id);
+    return stream;
+  }
+
+  void _trackAudioStream(OfflineSpeechAudioStream stream, String modelId) {
+    _activeAudioStreams[stream] = modelId;
     unawaited(
       stream.done.then<void>(
         (_) => _activeAudioStreams.remove(stream),
         onError: (Object _, StackTrace _) => _activeAudioStreams.remove(stream),
       ),
     );
-    return stream;
   }
 
   Future<OfflineSpeechAudioStream> _openRealtimeSpeechStream(
@@ -1449,12 +1731,359 @@ class OfflineSpeechModelService extends ChangeNotifier {
             : path;
         await File(outputPath).writeAsBytes(bytes, flush: true);
         return OfflineSpeechTestResult.synthesis(outputPath);
+      case OnlineSpeechService.bailianTaskAsr:
+      case OnlineSpeechService.bailianRealtimeAsr:
+        final source = audioPath?.trim() ?? '';
+        if (source.isEmpty || !await File(source).exists()) {
+          throw StateError('没有可识别的录音文件。');
+        }
+        final wav = await _readPcm16Wav(source);
+        final targetRate = _integerValue(configuration['sample_rate']);
+        final pcm = _resamplePcm16(
+          wav.pcm,
+          from: wav.sampleRate,
+          to: targetRate,
+        );
+        final transcript = await _recognizeWithBailian(
+          model,
+          configuration,
+          pcm,
+          sampleRate: targetRate,
+          cancelSignal: cancelSignal,
+        );
+        return OfflineSpeechTestResult.recognition(transcript);
+      case OnlineSpeechService.bailianTaskTts:
+      case OnlineSpeechService.bailianRealtimeTts:
+      case OnlineSpeechService.bailianSambertTts:
+        final generated = await _synthesizeBailianText(
+          model,
+          configuration,
+          sampleText,
+          cancelSignal: cancelSignal,
+        );
+        if (generated.bytes.isEmpty) {
+          throw StateError('阿里云百炼没有返回有效音频。');
+        }
+        final directory = await Directory.systemTemp.createTemp(
+          'openhand_speech_test_',
+        );
+        final pcm = generated.extension == '.pcm';
+        final outputPath = p.join(
+          directory.path,
+          'sample${pcm ? '.wav' : generated.extension}',
+        );
+        await File(outputPath).writeAsBytes(
+          pcm
+              ? _pcm16Wav(generated.bytes, generated.sampleRate, 1)
+              : generated.bytes,
+          flush: true,
+        );
+        return OfflineSpeechTestResult.synthesis(outputPath);
       case null:
         throw StateError('在线语音服务类型无效。');
     }
   }
 
-  Future<OfflineSpeechAudioStream> _startXfyunSynthesisStream(
+  Future<OfflineSpeechAudioStream> _startBailianSynthesisStream(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration, {
+    Future<void>? cancelSignal,
+  }) async {
+    final realtime =
+        model.onlineService == OnlineSpeechService.bailianRealtimeTts;
+    final connection = await _connectBailian(
+      configuration,
+      modelQuery: realtime,
+      cancelSignal: cancelSignal,
+    );
+    final socket = connection.socket;
+    final taskId = realtime ? null : const Uuid().v4();
+    final audio = StreamController<Uint8List>();
+    final ready = Completer<void>();
+    final done = Completer<void>();
+    final manualCommit =
+        realtime && _configurationText(configuration, 'mode') == 'commit';
+    final pendingCommits = Queue<String>();
+    Completer<void>? commitsDrained;
+    StreamSubscription<dynamic>? subscription;
+    var closed = false;
+    var finishing = false;
+    var commitResponseActive = false;
+    var audioBytes = 0;
+    var textCharacters = 0;
+
+    void fail(Object error, [StackTrace? stack]) {
+      if (!ready.isCompleted) {
+        stack == null
+            ? ready.completeError(error)
+            : ready.completeError(error, stack);
+      }
+      if (!audio.isClosed) {
+        stack == null ? audio.addError(error) : audio.addError(error, stack);
+        unawaited(audio.close());
+      }
+      if (!done.isCompleted) {
+        stack == null
+            ? done.completeError(error)
+            : done.completeError(error, stack);
+      }
+      final drain = commitsDrained;
+      if (drain != null && !drain.isCompleted) {
+        stack == null
+            ? drain.completeError(error)
+            : drain.completeError(error, stack);
+      }
+    }
+
+    void complete() {
+      if (!audio.isClosed) unawaited(audio.close());
+      if (!done.isCompleted) done.complete();
+    }
+
+    void addAudio(Uint8List chunk) {
+      if (chunk.isEmpty || closed || audio.isClosed) return;
+      audioBytes += chunk.length;
+      if (audioBytes > _maxOnlineAudioBytes) {
+        fail(const FormatException('百炼语音合成结果超过安全上限。'));
+        return;
+      }
+      audio.add(chunk);
+    }
+
+    void sendRealtimeText(String source) {
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'event_id': const Uuid().v4(),
+          'type': 'input_text_buffer.append',
+          'text': source,
+        }),
+      );
+      if (manualCommit) {
+        socket.add(
+          jsonEncode(<String, Object?>{
+            'event_id': const Uuid().v4(),
+            'type': 'input_text_buffer.commit',
+          }),
+        );
+      }
+    }
+
+    void pumpManualCommit() {
+      if (!manualCommit ||
+          closed ||
+          commitResponseActive ||
+          pendingCommits.isEmpty) {
+        return;
+      }
+      commitResponseActive = true;
+      sendRealtimeText(pendingCommits.removeFirst());
+    }
+
+    subscription = socket.listen(
+      (event) {
+        if (!realtime && event is List<int>) {
+          addAudio(Uint8List.fromList(event));
+          return;
+        }
+        if (event is! String) return;
+        try {
+          if (event.length > _maxOnlineEventCharacters) {
+            throw const FormatException('百炼语音合成响应超过安全上限。');
+          }
+          final payload = jsonDecode(event);
+          if (payload is! Map) return;
+          if (realtime) {
+            switch ('${payload['type'] ?? ''}') {
+              case 'session.updated':
+                if (!ready.isCompleted) ready.complete();
+              case 'response.audio.delta':
+                final delta = payload['delta'];
+                if (delta is String && delta.isNotEmpty) {
+                  addAudio(Uint8List.fromList(base64Decode(delta)));
+                }
+              case 'response.done':
+                commitResponseActive = false;
+                if (pendingCommits.isEmpty) {
+                  final drain = commitsDrained;
+                  if (drain != null && !drain.isCompleted) drain.complete();
+                } else {
+                  pumpManualCommit();
+                }
+              case 'session.finished':
+                complete();
+              case 'error':
+                final detail = payload['error'];
+                fail(
+                  StateError(
+                    '阿里云百炼语音合成失败：'
+                    '${detail is Map ? detail['message'] ?? detail['code'] : '未知错误'}',
+                  ),
+                );
+            }
+            return;
+          }
+          final header = payload['header'];
+          if (header is! Map) return;
+          switch ('${header['event'] ?? ''}') {
+            case 'task-started':
+              if (!ready.isCompleted) ready.complete();
+            case 'task-finished':
+              complete();
+            case 'task-failed':
+              fail(
+                StateError(
+                  '阿里云百炼语音合成失败'
+                  '（${header['error_code'] ?? '未知错误'}）：'
+                  '${header['error_message'] ?? '未知错误'}',
+                ),
+              );
+          }
+        } catch (error, stack) {
+          fail(error, stack);
+        }
+      },
+      onError: fail,
+      onDone: () {
+        if (!closed && !done.isCompleted) {
+          fail(StateError('阿里云百炼语音合成连接意外中断。'));
+        }
+      },
+    );
+
+    Future<void> close() async {
+      if (closed) return;
+      closed = true;
+      if (!audio.isClosed) await audio.close();
+      if (!done.isCompleted) done.complete();
+      final drain = commitsDrained;
+      if (drain != null && !drain.isCompleted) drain.complete();
+      await subscription?.cancel();
+      await _closeBailianConnection(connection);
+    }
+
+    try {
+      if (realtime) {
+        socket.add(
+          jsonEncode(<String, Object?>{
+            'event_id': const Uuid().v4(),
+            'type': 'session.update',
+            'session': _bailianRealtimeTtsSession(configuration),
+          }),
+        );
+      } else {
+        socket.add(
+          jsonEncode(<String, Object?>{
+            'header': <String, Object?>{
+              'action': 'run-task',
+              'task_id': taskId,
+              'streaming': 'duplex',
+            },
+            'payload': <String, Object?>{
+              'task_group': 'audio',
+              'task': 'tts',
+              'function': 'SpeechSynthesizer',
+              'model': _configurationText(configuration, 'model'),
+              'input': <String, Object?>{},
+              'parameters': _bailianTaskTtsParameters(configuration),
+            },
+          }),
+        );
+      }
+      final initialized = await awaitWithCancelSignal<bool>(
+        ready.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_realtimeStartTimeout);
+      if (initialized != true) throw const OfflineSpeechTestCancelled();
+    } catch (_) {
+      await close();
+      rethrow;
+    }
+
+    void addText(String text) {
+      final source = text.trim();
+      if (source.isEmpty) return;
+      if (closed || finishing) throw StateError('实时语音通道已结束。');
+      if (source.length > _bailianTtsChunkCharacters ||
+          textCharacters + source.length > _bailianTtsTaskCharacters) {
+        throw StateError('百炼单次文本不得超过 20000 字符，单任务累计不得超过 200000 字符。');
+      }
+      textCharacters += source.length;
+      if (realtime) {
+        if (manualCommit) {
+          pendingCommits.add(source);
+          pumpManualCommit();
+        } else {
+          sendRealtimeText(source);
+        }
+      } else {
+        socket.add(
+          jsonEncode(<String, Object?>{
+            'header': <String, Object?>{
+              'action': 'continue-task',
+              'task_id': taskId,
+              'streaming': 'duplex',
+            },
+            'payload': <String, Object?>{
+              'input': <String, Object?>{'text': source},
+            },
+          }),
+        );
+      }
+    }
+
+    Future<void> finish() async {
+      if (closed) return;
+      if (!finishing) {
+        finishing = true;
+        if (manualCommit &&
+            (commitResponseActive || pendingCommits.isNotEmpty)) {
+          final drain = commitsDrained ??= Completer<void>();
+          final drained = await awaitWithCancelSignal<bool>(
+            drain.future.then((_) => true),
+            cancelSignal: cancelSignal,
+          ).timeout(_inferenceTimeout);
+          if (drained != true) throw const OfflineSpeechTestCancelled();
+        }
+        if (closed) return;
+        socket.add(
+          realtime
+              ? jsonEncode(<String, Object?>{
+                  'event_id': const Uuid().v4(),
+                  'type': 'session.finish',
+                })
+              : jsonEncode(<String, Object?>{
+                  'header': <String, Object?>{
+                    'action': 'finish-task',
+                    'task_id': taskId,
+                    'streaming': 'duplex',
+                  },
+                  'payload': <String, Object?>{'input': <String, Object?>{}},
+                }),
+        );
+      }
+      final completed = await awaitWithCancelSignal<bool>(
+        done.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_inferenceTimeout);
+      if (completed != true) throw const OfflineSpeechTestCancelled();
+    }
+
+    final stream = OfflineSpeechAudioStream._(
+      sampleRate: _integerValue(configuration['sample_rate']),
+      channels: 1,
+      audio: audio.stream,
+      done: done.future,
+      addText: addText,
+      finish: finish,
+      close: close,
+    );
+    if (cancelSignal != null) {
+      unawaited(cancelSignal.then((_) => close(), onError: (_, _) => close()));
+    }
+    return stream;
+  }
+
+  Future<OfflineSpeechAudioStream> _startQueuedOnlineSynthesisStream(
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration, {
     Future<void>? cancelSignal,
@@ -1463,7 +2092,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
     final done = Completer<void>();
     final localCancellation = Completer<void>();
     final queue = <String>[];
-    final sampleRate = _xfyunSampleRate(configuration);
+    final sampleRate = model.onlineService == OnlineSpeechService.xfyunTts
+        ? _xfyunSampleRate(configuration)
+        : _integerValue(configuration['sample_rate']);
     var processing = false;
     var finishing = false;
     var closed = false;
@@ -1482,17 +2113,30 @@ class OfflineSpeechModelService extends ChangeNotifier {
       try {
         while (queue.isNotEmpty && !closed) {
           final text = queue.removeAt(0);
-          await _synthesizeXfyunText(
-            configuration,
-            text,
-            cancelSignal: combineCancelSignals(<Future<void>?>[
-              cancelSignal,
-              localCancellation.future,
-            ]),
-            onAudio: (chunk) {
-              if (!closed && !audio.isClosed) audio.add(chunk);
-            },
-          );
+          final operationCancelSignal = combineCancelSignals(<Future<void>?>[
+            cancelSignal,
+            localCancellation.future,
+          ]);
+          void addAudio(Uint8List chunk) {
+            if (!closed && !audio.isClosed) audio.add(chunk);
+          }
+
+          if (model.onlineService == OnlineSpeechService.xfyunTts) {
+            await _synthesizeXfyunText(
+              configuration,
+              text,
+              cancelSignal: operationCancelSignal,
+              onAudio: addAudio,
+            );
+          } else {
+            await _synthesizeBailianText(
+              model,
+              configuration,
+              text,
+              cancelSignal: operationCancelSignal,
+              onAudio: addAudio,
+            );
+          }
         }
         if (finishing && !closed) {
           if (!audio.isClosed) await audio.close();
@@ -1797,6 +2441,811 @@ class OfflineSpeechModelService extends ChangeNotifier {
     return output.toString();
   }
 
+  Future<String> _recognizeWithBailian(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration,
+    Uint8List pcm, {
+    required int sampleRate,
+    Future<void>? cancelSignal,
+  }) {
+    return model.onlineService == OnlineSpeechService.bailianRealtimeAsr
+        ? _recognizeWithBailianRealtime(
+            configuration,
+            pcm,
+            sampleRate: sampleRate,
+            cancelSignal: cancelSignal,
+          )
+        : _recognizeWithBailianTask(
+            configuration,
+            pcm,
+            sampleRate: sampleRate,
+            cancelSignal: cancelSignal,
+          );
+  }
+
+  Future<String> _recognizeWithBailianTask(
+    Map<String, Object?> configuration,
+    Uint8List pcm, {
+    required int sampleRate,
+    Future<void>? cancelSignal,
+  }) async {
+    final connection = await _connectBailian(
+      configuration,
+      cancelSignal: cancelSignal,
+    );
+    final socket = connection.socket;
+    final taskId = const Uuid().v4();
+    final started = Completer<void>();
+    final finished = Completer<void>();
+    final completed = SplayTreeMap<int, String>();
+    final partial = SplayTreeMap<int, String>();
+    StreamSubscription<dynamic>? subscription;
+    Object? terminalError;
+
+    void fail(Object error, [StackTrace? stack]) {
+      terminalError ??= error;
+      if (!started.isCompleted) {
+        stack == null
+            ? started.completeError(error)
+            : started.completeError(error, stack);
+      }
+      if (!finished.isCompleted) {
+        stack == null
+            ? finished.completeError(error)
+            : finished.completeError(error, stack);
+      }
+    }
+
+    subscription = socket.listen(
+      (event) {
+        if (event is! String) return;
+        try {
+          if (event.length > _maxOnlineEventCharacters) {
+            throw const FormatException('百炼语音识别响应超过安全上限。');
+          }
+          final payload = jsonDecode(event);
+          if (payload is! Map) return;
+          final header = payload['header'];
+          if (header is! Map) return;
+          switch ('${header['event'] ?? ''}') {
+            case 'task-started':
+              if (!started.isCompleted) started.complete();
+            case 'result-generated':
+              final body = payload['payload'];
+              final output = body is Map ? body['output'] : null;
+              final sentence = output is Map ? output['sentence'] : null;
+              if (sentence is! Map || sentence['heartbeat'] == true) return;
+              final id = _integerValue(
+                sentence['sentence_id'] ?? sentence['begin_time'],
+              );
+              final text = '${sentence['text'] ?? ''}'.trim();
+              final isFinal = sentence['sentence_end'] == true;
+              (isFinal ? completed : partial)[id] = text;
+              if (isFinal) partial.remove(id);
+            case 'task-finished':
+              if (!finished.isCompleted) finished.complete();
+            case 'task-failed':
+              fail(
+                StateError(
+                  '阿里云百炼语音识别失败'
+                  '（${header['error_code'] ?? '未知错误'}）：'
+                  '${header['error_message'] ?? '未知错误'}',
+                ),
+              );
+          }
+        } catch (error, stack) {
+          fail(error, stack);
+        }
+      },
+      onError: fail,
+      onDone: () {
+        if (!finished.isCompleted) {
+          fail(terminalError ?? StateError('阿里云百炼识别连接意外中断。'));
+        }
+      },
+    );
+    try {
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'header': <String, Object?>{
+            'action': 'run-task',
+            'task_id': taskId,
+            'streaming': 'duplex',
+          },
+          'payload': <String, Object?>{
+            'task_group': 'audio',
+            'task': 'asr',
+            'function': 'recognition',
+            'model': _configurationText(configuration, 'model'),
+            'input': <String, Object?>{
+              if (_jsonConfiguration(
+                    configuration,
+                    'context',
+                    fallback: const <Object?>[],
+                  )
+                  case final List context when context.isNotEmpty)
+                'context': context,
+            },
+            'parameters': _bailianTaskAsrParameters(configuration, sampleRate),
+          },
+        }),
+      );
+      final ready = await awaitWithCancelSignal<bool>(
+        started.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_realtimeStartTimeout);
+      if (ready != true) throw const OfflineSpeechTestCancelled();
+      await _sendPacedPcm(
+        socket,
+        pcm,
+        sampleRate: sampleRate,
+        cancelSignal: cancelSignal,
+      );
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'header': <String, Object?>{
+            'action': 'finish-task',
+            'task_id': taskId,
+            'streaming': 'duplex',
+          },
+          'payload': <String, Object?>{'input': <String, Object?>{}},
+        }),
+      );
+      final done = await awaitWithCancelSignal<bool>(
+        finished.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_inferenceTimeout);
+      if (done != true) throw const OfflineSpeechTestCancelled();
+      final keys = <int>{...completed.keys, ...partial.keys}.toList()..sort();
+      return keys
+          .map((key) => completed[key] ?? partial[key] ?? '')
+          .where((text) => text.isNotEmpty)
+          .join('\n')
+          .trim();
+    } finally {
+      await subscription.cancel();
+      await _closeBailianConnection(connection);
+    }
+  }
+
+  Map<String, Object?> _bailianTaskAsrParameters(
+    Map<String, Object?> configuration,
+    int sampleRate,
+  ) {
+    final model = _configurationText(configuration, 'model');
+    final paraformer = model.startsWith('paraformer-');
+    final paraformerV2 = model == 'paraformer-realtime-v2';
+    final configuredLanguages = _commaSeparated(
+      configuration,
+      'language_hints',
+    );
+    final languageHints = model == 'qwen-audio-3.0-asr-flash-streaming'
+        ? configuredLanguages.take(4).toList(growable: false)
+        : configuredLanguages.take(1).toList(growable: false);
+    final parameters = <String, Object?>{
+      'format': 'pcm',
+      'sample_rate': sampleRate,
+      if (_configurationText(configuration, 'vocabulary_id').isNotEmpty)
+        'vocabulary_id': _configurationText(configuration, 'vocabulary_id'),
+      if (languageHints.isNotEmpty) 'language_hints': languageHints,
+      if (!paraformer || paraformerV2) ...<String, Object?>{
+        'semantic_punctuation_enabled': _configurationBool(
+          configuration,
+          'semantic_punctuation_enabled',
+        ),
+        'max_sentence_silence': _integerValue(
+          configuration['max_sentence_silence'],
+        ),
+        'multi_threshold_mode_enabled': _configurationBool(
+          configuration,
+          'multi_threshold_mode_enabled',
+        ),
+        'heartbeat': _configurationBool(configuration, 'heartbeat'),
+      },
+    };
+    if (paraformer) {
+      parameters.addAll(<String, Object?>{
+        'disfluency_removal_enabled': _configurationBool(
+          configuration,
+          'disfluency_removal_enabled',
+        ),
+        if (paraformerV2) ...<String, Object?>{
+          'punctuation_prediction_enabled': _configurationBool(
+            configuration,
+            'punctuation_prediction_enabled',
+          ),
+          'inverse_text_normalization_enabled': _configurationBool(
+            configuration,
+            'inverse_text_normalization_enabled',
+          ),
+        },
+      });
+      return parameters;
+    }
+    final vocabulary = _jsonConfiguration(
+      configuration,
+      'vocabulary',
+      fallback: const <String, Object?>{},
+    );
+    final specialWordFilter = _jsonConfiguration(
+      configuration,
+      'special_word_filter',
+      fallback: const <String, Object?>{},
+    );
+    if (vocabulary is Map && vocabulary.isNotEmpty) {
+      parameters['vocabulary'] = vocabulary;
+    }
+    if (specialWordFilter is Map && specialWordFilter.isNotEmpty) {
+      parameters['special_word_filter'] = jsonEncode(specialWordFilter);
+    }
+    parameters['speech_noise_threshold'] =
+        configuration['speech_noise_threshold'] ?? 0.0;
+    return parameters;
+  }
+
+  Future<String> _recognizeWithBailianRealtime(
+    Map<String, Object?> configuration,
+    Uint8List pcm, {
+    required int sampleRate,
+    Future<void>? cancelSignal,
+  }) async {
+    final connection = await _connectBailian(
+      configuration,
+      modelQuery: true,
+      cancelSignal: cancelSignal,
+    );
+    final socket = connection.socket;
+    final updated = Completer<void>();
+    final finished = Completer<void>();
+    final transcripts = <String>[];
+    StreamSubscription<dynamic>? subscription;
+
+    void fail(Object error, [StackTrace? stack]) {
+      if (!updated.isCompleted) {
+        stack == null
+            ? updated.completeError(error)
+            : updated.completeError(error, stack);
+      }
+      if (!finished.isCompleted) {
+        stack == null
+            ? finished.completeError(error)
+            : finished.completeError(error, stack);
+      }
+    }
+
+    subscription = socket.listen(
+      (event) {
+        if (event is! String) return;
+        try {
+          if (event.length > _maxOnlineEventCharacters) {
+            throw const FormatException('百炼语音识别响应超过安全上限。');
+          }
+          final payload = jsonDecode(event);
+          if (payload is! Map) return;
+          switch ('${payload['type'] ?? ''}') {
+            case 'session.updated':
+              if (!updated.isCompleted) updated.complete();
+            case 'conversation.item.input_audio_transcription.completed':
+              final transcript = '${payload['transcript'] ?? ''}'.trim();
+              if (transcript.isNotEmpty) transcripts.add(transcript);
+            case 'conversation.item.input_audio_transcription.failed':
+            case 'error':
+              final error = payload['error'];
+              fail(
+                StateError(
+                  '阿里云百炼语音识别失败：'
+                  '${error is Map ? error['message'] ?? error['code'] : '未知错误'}',
+                ),
+              );
+            case 'session.finished':
+              if (!finished.isCompleted) finished.complete();
+          }
+        } catch (error, stack) {
+          fail(error, stack);
+        }
+      },
+      onError: fail,
+      onDone: () {
+        if (!finished.isCompleted) fail(StateError('阿里云百炼识别连接意外中断。'));
+      },
+    );
+    try {
+      final vadEnabled = _configurationBool(configuration, 'vad_enabled');
+      final language = _configurationText(configuration, 'language');
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'event_id': const Uuid().v4(),
+          'type': 'session.update',
+          'session': <String, Object?>{
+            'input_audio_format': 'pcm',
+            'sample_rate': sampleRate,
+            'input_audio_transcription': <String, Object?>{
+              if (language.isNotEmpty) 'language': language,
+            },
+            'turn_detection': vadEnabled
+                ? <String, Object?>{
+                    'type': 'server_vad',
+                    'threshold': configuration['vad_threshold'] ?? 0.0,
+                    'silence_duration_ms': _integerValue(
+                      configuration['silence_duration_ms'],
+                    ),
+                  }
+                : null,
+          },
+        }),
+      );
+      final ready = await awaitWithCancelSignal<bool>(
+        updated.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_realtimeStartTimeout);
+      if (ready != true) throw const OfflineSpeechTestCancelled();
+      await _sendPacedPcm(
+        socket,
+        pcm,
+        sampleRate: sampleRate,
+        base64Events: true,
+        cancelSignal: cancelSignal,
+      );
+      if (!vadEnabled) {
+        socket.add(
+          jsonEncode(<String, Object?>{
+            'event_id': const Uuid().v4(),
+            'type': 'input_audio_buffer.commit',
+          }),
+        );
+      }
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'event_id': const Uuid().v4(),
+          'type': 'session.finish',
+        }),
+      );
+      final done = await awaitWithCancelSignal<bool>(
+        finished.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_inferenceTimeout);
+      if (done != true) throw const OfflineSpeechTestCancelled();
+      return transcripts.join('\n').trim();
+    } finally {
+      await subscription.cancel();
+      await _closeBailianConnection(connection);
+    }
+  }
+
+  Future<({Uint8List bytes, int sampleRate, String extension})>
+  _synthesizeBailianText(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration,
+    String text, {
+    Future<void>? cancelSignal,
+    void Function(Uint8List chunk)? onAudio,
+  }) {
+    final source = text.trim();
+    if (source.isEmpty) throw StateError('没有可合成的文本。');
+    return model.onlineService == OnlineSpeechService.bailianRealtimeTts
+        ? _synthesizeBailianRealtimeText(
+            configuration,
+            source,
+            cancelSignal: cancelSignal,
+            onAudio: onAudio,
+          )
+        : _synthesizeBailianTaskText(
+            model,
+            configuration,
+            source,
+            cancelSignal: cancelSignal,
+            onAudio: onAudio,
+          );
+  }
+
+  Future<({Uint8List bytes, int sampleRate, String extension})>
+  _synthesizeBailianTaskText(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration,
+    String text, {
+    Future<void>? cancelSignal,
+    void Function(Uint8List chunk)? onAudio,
+  }) async {
+    final connection = await _connectBailian(
+      configuration,
+      cancelSignal: cancelSignal,
+    );
+    final socket = connection.socket;
+    final taskId = const Uuid().v4();
+    final started = Completer<void>();
+    final finished = Completer<void>();
+    final output = onAudio == null ? BytesBuilder(copy: false) : null;
+    StreamSubscription<dynamic>? subscription;
+    var audioBytes = 0;
+
+    void fail(Object error, [StackTrace? stack]) {
+      if (!started.isCompleted) {
+        stack == null
+            ? started.completeError(error)
+            : started.completeError(error, stack);
+      }
+      if (!finished.isCompleted) {
+        stack == null
+            ? finished.completeError(error)
+            : finished.completeError(error, stack);
+      }
+    }
+
+    void addAudio(List<int> data) {
+      if (data.isEmpty) return;
+      audioBytes += data.length;
+      if (audioBytes > _maxOnlineAudioBytes) {
+        fail(const FormatException('百炼语音合成结果超过安全上限。'));
+        return;
+      }
+      final chunk = Uint8List.fromList(data);
+      output?.add(chunk);
+      onAudio?.call(chunk);
+    }
+
+    subscription = socket.listen(
+      (event) {
+        if (event is List<int>) {
+          addAudio(event);
+          return;
+        }
+        if (event is! String) return;
+        try {
+          if (event.length > _maxOnlineEventCharacters) {
+            throw const FormatException('百炼语音合成响应超过安全上限。');
+          }
+          final payload = jsonDecode(event);
+          if (payload is! Map) return;
+          final header = payload['header'];
+          if (header is! Map) return;
+          switch ('${header['event'] ?? ''}') {
+            case 'task-started':
+              if (!started.isCompleted) started.complete();
+            case 'task-finished':
+              if (!finished.isCompleted) finished.complete();
+            case 'task-failed':
+              fail(
+                StateError(
+                  '阿里云百炼语音合成失败'
+                  '（${header['error_code'] ?? '未知错误'}）：'
+                  '${header['error_message'] ?? '未知错误'}',
+                ),
+              );
+          }
+        } catch (error, stack) {
+          fail(error, stack);
+        }
+      },
+      onError: fail,
+      onDone: () {
+        if (!finished.isCompleted) fail(StateError('阿里云百炼合成连接意外中断。'));
+      },
+    );
+    try {
+      final sambert =
+          model.onlineService == OnlineSpeechService.bailianSambertTts;
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'header': <String, Object?>{
+            'action': 'run-task',
+            'task_id': taskId,
+            'streaming': sambert ? 'out' : 'duplex',
+          },
+          'payload': <String, Object?>{
+            'task_group': 'audio',
+            'task': 'tts',
+            'function': 'SpeechSynthesizer',
+            'model': _configurationText(configuration, 'model'),
+            'input': sambert
+                ? <String, Object?>{'text': text}
+                : <String, Object?>{},
+            'parameters': sambert
+                ? _bailianSambertParameters(configuration)
+                : _bailianTaskTtsParameters(configuration),
+          },
+        }),
+      );
+      final ready = await awaitWithCancelSignal<bool>(
+        started.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_realtimeStartTimeout);
+      if (ready != true) throw const OfflineSpeechTestCancelled();
+      if (!sambert) {
+        socket.add(
+          jsonEncode(<String, Object?>{
+            'header': <String, Object?>{
+              'action': 'continue-task',
+              'task_id': taskId,
+              'streaming': 'duplex',
+            },
+            'payload': <String, Object?>{
+              'input': <String, Object?>{'text': text},
+            },
+          }),
+        );
+        socket.add(
+          jsonEncode(<String, Object?>{
+            'header': <String, Object?>{
+              'action': 'finish-task',
+              'task_id': taskId,
+              'streaming': 'duplex',
+            },
+            'payload': <String, Object?>{'input': <String, Object?>{}},
+          }),
+        );
+      }
+      final done = await awaitWithCancelSignal<bool>(
+        finished.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_inferenceTimeout);
+      if (done != true) throw const OfflineSpeechTestCancelled();
+      final format = _configurationText(configuration, 'format');
+      return (
+        bytes: output?.takeBytes() ?? Uint8List(0),
+        sampleRate: _integerValue(configuration['sample_rate']),
+        extension: _bailianAudioExtension(format),
+      );
+    } finally {
+      await subscription.cancel();
+      await _closeBailianConnection(connection);
+    }
+  }
+
+  Map<String, Object?> _bailianTaskTtsParameters(
+    Map<String, Object?> configuration,
+  ) {
+    final model = _configurationText(configuration, 'model');
+    final format = _configurationText(configuration, 'format');
+    final cosyVoiceV1 = model == 'cosyvoice-v1';
+    final supportsHotFix = model != 'cosyvoice-v1' && model != 'cosyvoice-v2';
+    final enableAigcTag = _configurationBool(configuration, 'enable_aigc_tag');
+    final parameters = <String, Object?>{
+      'text_type': 'PlainText',
+      'voice': _configurationText(configuration, 'voice'),
+      'format': format,
+      'sample_rate': _integerValue(configuration['sample_rate']),
+      'volume': _integerValue(configuration['volume']),
+      'rate': configuration['rate'] ?? 1.0,
+      'pitch': configuration['pitch'] ?? 1.0,
+      if (!cosyVoiceV1 && (format == 'mp3' || format == 'opus'))
+        'bit_rate': _integerValue(configuration['bit_rate']),
+      'enable_ssml': _configurationBool(configuration, 'enable_ssml'),
+      if (!cosyVoiceV1)
+        'word_timestamp_enabled': _configurationBool(
+          configuration,
+          'word_timestamp_enabled',
+        ),
+      if (!cosyVoiceV1) 'seed': _integerValue(configuration['seed']),
+      if (enableAigcTag) 'enable_aigc_tag': true,
+      if (_configurationBool(configuration, 'enable_markdown_filter'))
+        'enable_markdown_filter': true,
+    };
+    final language = _configurationText(configuration, 'language_hint');
+    final instruction = _configurationText(configuration, 'instruction');
+    final propagator = _configurationText(configuration, 'aigc_propagator');
+    final propagateId = _configurationText(configuration, 'aigc_propagate_id');
+    if (!cosyVoiceV1 && language.isNotEmpty) {
+      parameters['language_hints'] = <String>[language];
+    }
+    if (instruction.isNotEmpty) parameters['instruction'] = instruction;
+    if (enableAigcTag && propagator.isNotEmpty) {
+      parameters['aigc_propagator'] = propagator;
+    }
+    if (enableAigcTag && propagateId.isNotEmpty) {
+      parameters['aigc_propagate_id'] = propagateId;
+    }
+    final pronunciation = _jsonConfiguration(
+      configuration,
+      'hot_fix_pronunciation',
+      fallback: const <Object?>[],
+    );
+    final replace = _jsonConfiguration(
+      configuration,
+      'hot_fix_replace',
+      fallback: const <Object?>[],
+    );
+    if (supportsHotFix &&
+        (pronunciation is List && pronunciation.isNotEmpty ||
+            replace is List && replace.isNotEmpty)) {
+      parameters['hot_fix'] = <String, Object?>{
+        if (pronunciation is List && pronunciation.isNotEmpty)
+          'pronunciation': pronunciation,
+        if (replace is List && replace.isNotEmpty) 'replace': replace,
+      };
+    }
+    return parameters;
+  }
+
+  Map<String, Object?> _bailianSambertParameters(
+    Map<String, Object?> configuration,
+  ) => <String, Object?>{
+    'text_type': 'PlainText',
+    'format': _configurationText(configuration, 'format'),
+    'sample_rate': _integerValue(configuration['sample_rate']),
+    'volume': _integerValue(configuration['volume']),
+    'rate': configuration['rate'] ?? 1.0,
+    'pitch': configuration['pitch'] ?? 1.0,
+    'word_timestamp_enabled': _configurationBool(
+      configuration,
+      'word_timestamp_enabled',
+    ),
+    'phoneme_timestamp_enabled': _configurationBool(
+      configuration,
+      'phoneme_timestamp_enabled',
+    ),
+  };
+
+  Map<String, Object?> _bailianRealtimeTtsSession(
+    Map<String, Object?> configuration,
+  ) {
+    final model = _configurationText(configuration, 'model');
+    final legacy = model.startsWith('qwen-tts-realtime');
+    final session = <String, Object?>{
+      'voice': _configurationText(configuration, 'voice'),
+      'mode': _configurationText(configuration, 'mode'),
+      'language_type': _configurationText(configuration, 'language_type'),
+      'response_format': _configurationText(configuration, 'response_format'),
+      'sample_rate': _integerValue(configuration['sample_rate']),
+      if (!legacy) ...<String, Object?>{
+        'speech_rate': configuration['speech_rate'] ?? 1.0,
+        'volume': _integerValue(configuration['volume']),
+        'pitch_rate': configuration['pitch_rate'] ?? 1.0,
+        if (_configurationText(configuration, 'response_format') == 'opus')
+          'bit_rate': _integerValue(configuration['bit_rate']),
+      },
+    };
+    final instructions = _configurationText(configuration, 'instructions');
+    if (instructions.isNotEmpty) {
+      session['instructions'] = instructions;
+      session['optimize_instructions'] = _configurationBool(
+        configuration,
+        'optimize_instructions',
+      );
+    }
+    return session;
+  }
+
+  Future<({Uint8List bytes, int sampleRate, String extension})>
+  _synthesizeBailianRealtimeText(
+    Map<String, Object?> configuration,
+    String text, {
+    Future<void>? cancelSignal,
+    void Function(Uint8List chunk)? onAudio,
+  }) async {
+    final connection = await _connectBailian(
+      configuration,
+      modelQuery: true,
+      cancelSignal: cancelSignal,
+    );
+    final socket = connection.socket;
+    final updated = Completer<void>();
+    final responseDone = Completer<void>();
+    final finished = Completer<void>();
+    final manualCommit = _configurationText(configuration, 'mode') == 'commit';
+    final output = onAudio == null ? BytesBuilder(copy: false) : null;
+    StreamSubscription<dynamic>? subscription;
+    var audioBytes = 0;
+
+    void fail(Object error, [StackTrace? stack]) {
+      if (!updated.isCompleted) {
+        stack == null
+            ? updated.completeError(error)
+            : updated.completeError(error, stack);
+      }
+      if (!finished.isCompleted) {
+        stack == null
+            ? finished.completeError(error)
+            : finished.completeError(error, stack);
+      }
+      if (manualCommit && !responseDone.isCompleted) {
+        stack == null
+            ? responseDone.completeError(error)
+            : responseDone.completeError(error, stack);
+      }
+    }
+
+    subscription = socket.listen(
+      (event) {
+        if (event is! String) return;
+        try {
+          if (event.length > _maxOnlineEventCharacters) {
+            throw const FormatException('百炼语音合成响应超过安全上限。');
+          }
+          final payload = jsonDecode(event);
+          if (payload is! Map) return;
+          switch ('${payload['type'] ?? ''}') {
+            case 'session.updated':
+              if (!updated.isCompleted) updated.complete();
+            case 'response.audio.delta':
+              final delta = payload['delta'];
+              if (delta is! String || delta.isEmpty) return;
+              final chunk = Uint8List.fromList(base64Decode(delta));
+              audioBytes += chunk.length;
+              if (audioBytes > _maxOnlineAudioBytes) {
+                throw const FormatException('百炼语音合成结果超过安全上限。');
+              }
+              output?.add(chunk);
+              onAudio?.call(chunk);
+            case 'response.done':
+              if (!responseDone.isCompleted) responseDone.complete();
+            case 'error':
+              final error = payload['error'];
+              fail(
+                StateError(
+                  '阿里云百炼语音合成失败：'
+                  '${error is Map ? error['message'] ?? error['code'] : '未知错误'}',
+                ),
+              );
+            case 'session.finished':
+              if (!finished.isCompleted) finished.complete();
+          }
+        } catch (error, stack) {
+          fail(error, stack);
+        }
+      },
+      onError: fail,
+      onDone: () {
+        if (!finished.isCompleted) fail(StateError('阿里云百炼合成连接意外中断。'));
+      },
+    );
+    try {
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'event_id': const Uuid().v4(),
+          'type': 'session.update',
+          'session': _bailianRealtimeTtsSession(configuration),
+        }),
+      );
+      final ready = await awaitWithCancelSignal<bool>(
+        updated.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_realtimeStartTimeout);
+      if (ready != true) throw const OfflineSpeechTestCancelled();
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'event_id': const Uuid().v4(),
+          'type': 'input_text_buffer.append',
+          'text': text,
+        }),
+      );
+      if (manualCommit) {
+        socket.add(
+          jsonEncode(<String, Object?>{
+            'event_id': const Uuid().v4(),
+            'type': 'input_text_buffer.commit',
+          }),
+        );
+        final responseCompleted = await awaitWithCancelSignal<bool>(
+          responseDone.future.then((_) => true),
+          cancelSignal: cancelSignal,
+        ).timeout(_inferenceTimeout);
+        if (responseCompleted != true) {
+          throw const OfflineSpeechTestCancelled();
+        }
+      }
+      socket.add(
+        jsonEncode(<String, Object?>{
+          'event_id': const Uuid().v4(),
+          'type': 'session.finish',
+        }),
+      );
+      final done = await awaitWithCancelSignal<bool>(
+        finished.future.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_inferenceTimeout);
+      if (done != true) throw const OfflineSpeechTestCancelled();
+      final format = _configurationText(configuration, 'response_format');
+      return (
+        bytes: output?.takeBytes() ?? Uint8List(0),
+        sampleRate: _integerValue(configuration['sample_rate']),
+        extension: _bailianAudioExtension(format),
+      );
+    } finally {
+      await subscription.cancel();
+      await _closeBailianConnection(connection);
+    }
+  }
+
   Future<({Uint8List bytes, int sampleRate, String extension})>
   _synthesizeXfyunText(
     Map<String, Object?> configuration,
@@ -1974,6 +3423,103 @@ class OfflineSpeechModelService extends ChangeNotifier {
     );
   }
 
+  Future<({WebSocket socket, HttpClient client})> _connectBailian(
+    Map<String, Object?> configuration, {
+    bool modelQuery = false,
+    Future<void>? cancelSignal,
+  }) async {
+    await SystemProxyResolver.instance.initialize();
+    var endpoint = Uri.parse(_configurationText(configuration, 'endpoint'));
+    if (modelQuery) {
+      endpoint = endpoint.replace(
+        queryParameters: <String, String>{
+          ...endpoint.queryParameters,
+          'model': _configurationText(configuration, 'model'),
+        },
+      );
+    }
+    final workspaceId = _configurationText(configuration, 'workspace_id');
+    final headers = <String, dynamic>{
+      HttpHeaders.authorizationHeader:
+          'Bearer ${_configurationText(configuration, 'api_key')}',
+      'user-agent': 'OpenHand/0.1',
+      if (workspaceId.isNotEmpty) 'X-DashScope-WorkSpace': workspaceId,
+      if (modelQuery &&
+          _configurationText(configuration, 'model').startsWith('qwen3-asr-'))
+        'OpenAI-Beta': 'realtime=v1',
+      if (_configurationBool(configuration, 'data_inspection'))
+        'X-DashScope-DataInspection': 'enable',
+    };
+    final client = SystemProxyResolver.instance.createRawHttpClient(
+      connectionTimeout: _onlineIdleTimeout,
+    );
+    final connecting = WebSocket.connect(
+      endpoint.toString(),
+      headers: headers,
+      customClient: client,
+    ).timeout(_realtimeConnectTimeout);
+    try {
+      final socket = await awaitWithCancelSignal<WebSocket>(
+        connecting,
+        cancelSignal: cancelSignal,
+      );
+      if (socket == null) {
+        unawaited(
+          connecting.then<void>(
+            (lateSocket) => lateSocket.close(WebSocketStatus.normalClosure),
+            onError: (Object _, StackTrace _) {},
+          ),
+        );
+        throw const OfflineSpeechTestCancelled();
+      }
+      return (socket: socket, client: client);
+    } catch (_) {
+      client.close(force: true);
+      rethrow;
+    }
+  }
+
+  Future<void> _closeBailianConnection(
+    ({WebSocket socket, HttpClient client}) connection,
+  ) async {
+    try {
+      await connection.socket
+          .close(WebSocketStatus.normalClosure)
+          .timeout(_realtimeCloseTimeout);
+    } catch (_) {}
+    connection.client.close(force: true);
+  }
+
+  Future<void> _sendPacedPcm(
+    WebSocket socket,
+    Uint8List pcm, {
+    required int sampleRate,
+    bool base64Events = false,
+    Future<void>? cancelSignal,
+  }) async {
+    final frameBytes = math.max(320, (40 * sampleRate * 2) ~/ 1000);
+    for (var offset = 0; offset < pcm.length; offset += frameBytes) {
+      if (offset > 0) {
+        final continued = await awaitWithCancelSignal<bool>(
+          Future<bool>.delayed(_onlineAudioFrameInterval, () => true),
+          cancelSignal: cancelSignal,
+        );
+        if (continued != true) throw const OfflineSpeechTestCancelled();
+      }
+      final end = math.min(offset + frameBytes, pcm.length);
+      final chunk = pcm.sublist(offset, end);
+      socket.add(
+        base64Events
+            ? jsonEncode(<String, Object?>{
+                'event_id': const Uuid().v4(),
+                'type': 'input_audio_buffer.append',
+                'audio': base64Encode(chunk),
+              })
+            : chunk,
+      );
+    }
+  }
+
   static Future<({Uint8List pcm, int sampleRate})> _readPcm16Wav(
     String path,
   ) async {
@@ -2039,6 +3585,39 @@ class OfflineSpeechModelService extends ChangeNotifier {
     return output;
   }
 
+  static Uint8List _resamplePcm16(
+    Uint8List source, {
+    required int from,
+    required int to,
+  }) {
+    if (from == to) return source;
+    if (from <= 0 || to <= 0 || source.length < 2) {
+      throw StateError('无法转换当前 PCM 采样率。');
+    }
+    if (from == 16000 && to == 8000) {
+      return _downsamplePcm16(source, from: from, to: to);
+    }
+    final inputSamples = source.length ~/ 2;
+    final outputSamples = (inputSamples * to / from).round();
+    final input = ByteData.sublistView(source);
+    final output = Uint8List(outputSamples * 2);
+    final target = ByteData.sublistView(output);
+    for (var index = 0; index < outputSamples; index++) {
+      final position = index * from / to;
+      final left = position.floor().clamp(0, inputSamples - 1);
+      final right = math.min(left + 1, inputSamples - 1);
+      final fraction = position - left;
+      final a = input.getInt16(left * 2, Endian.little);
+      final b = input.getInt16(right * 2, Endian.little);
+      target.setInt16(
+        index * 2,
+        (a + (b - a) * fraction).round().clamp(-32768, 32767),
+        Endian.little,
+      );
+    }
+    return output;
+  }
+
   static String _sortedQuery(Map<String, String> parameters) {
     final keys = parameters.keys.toList()..sort();
     return keys
@@ -2072,6 +3651,54 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   static int _integerValue(Object? value) =>
       value is num ? value.round() : int.tryParse('$value') ?? 0;
+
+  static List<String> _commaSeparated(
+    Map<String, Object?> configuration,
+    String key,
+  ) => _configurationText(configuration, key)
+      .split(',')
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toList(growable: false);
+
+  static Object _jsonConfiguration(
+    Map<String, Object?> configuration,
+    String key, {
+    required Object fallback,
+  }) {
+    final source = _configurationText(configuration, key);
+    if (source.isEmpty) return fallback;
+    return jsonDecode(source);
+  }
+
+  static String? _jsonConfigurationError(
+    Map<String, Object?> configuration,
+    String key, {
+    bool? expectsList,
+  }) {
+    try {
+      final value = _jsonConfiguration(
+        configuration,
+        key,
+        fallback: expectsList == false
+            ? const <String, Object?>{}
+            : const <Object?>[],
+      );
+      if (expectsList == true && value is! List) return '必须是 JSON 数组。';
+      if (expectsList == false && value is! Map) return '必须是 JSON 对象。';
+      return null;
+    } on FormatException catch (error) {
+      return '必须是有效 JSON：${error.message}';
+    }
+  }
+
+  static String _bailianAudioExtension(String format) => switch (format) {
+    'pcm' => '.pcm',
+    'wav' => '.wav',
+    'mp3' => '.mp3',
+    'opus' => '.opus',
+    _ => '.$format',
+  };
 
   static int _xfyunSampleRate(Map<String, Object?> configuration) =>
       _configurationText(configuration, 'auf').contains('8000') ? 8000 : 16000;
