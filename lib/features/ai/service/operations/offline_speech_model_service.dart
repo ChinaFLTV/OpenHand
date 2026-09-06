@@ -3298,10 +3298,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
     final encoding = _configurationText(configuration, 'tte');
     late final Uint8List encodedText;
     try {
-      encodedText = await CharsetConverter.encode(
-        _xfyunCharsetName(encoding),
-        source,
-      );
+      encodedText = encoding == 'UTF8'
+          ? Uint8List.fromList(utf8.encode(source))
+          : await CharsetConverter.encode(_xfyunCharsetName(encoding), source);
     } catch (_) {
       throw StateError('当前系统不支持 $encoding 文本编码，请改用 UTF-8。');
     }
