@@ -85,7 +85,7 @@ function trimToUndefined(value: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-interface ChipGroupProps<T extends string | number> {
+interface ChipGroupProps<T extends string | number | boolean> {
   title: string;
   values: readonly T[];
   selected: T | undefined;
@@ -93,7 +93,7 @@ interface ChipGroupProps<T extends string | number> {
   onSelect: (value: T | undefined) => void;
 }
 
-function ChipGroup<T extends string | number>({
+function ChipGroup<T extends string | number | boolean>({
   title,
   values,
   selected,
@@ -143,34 +143,14 @@ interface TriStateGroupProps {
 }
 
 function TriStateGroup({ title, value, onChange }: TriStateGroupProps) {
-  const items: Array<[boolean | undefined, string]> = [
-    [undefined, t('creation.options.auto', '默认')],
-    [true, t('common.on', '开')],
-    [false, t('common.off', '关')],
-  ];
   return (
-    <div class="mb-4">
-      <p class="text-xs font-medium mb-2 oh-text-muted">
-        {title}
-      </p>
-      <div class="flex flex-wrap gap-2">
-        {items.map(([itemValue, label]) => {
-          const active = value === itemValue;
-          return (
-            <button
-              key={String(itemValue)}
-              type="button"
-              onClick={() => onChange(itemValue)}
-              class={`oh-tap-press px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                active ? 'oh-creation-chip-active' : 'oh-creation-chip'
-              }`}
-            >
-              {active ? `✓ ${label}` : label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <ChipGroup
+      title={title}
+      values={[true, false]}
+      selected={value}
+      labelFor={(item) => item ? t('common.on', '开') : t('common.off', '关')}
+      onSelect={onChange}
+    />
   );
 }
 

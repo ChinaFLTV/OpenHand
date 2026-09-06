@@ -11,6 +11,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../../shared/ui/buffered_console_log.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -23,7 +24,6 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/runtime_log_dialog.dart';
-import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/user_failure_message.dart';
 import '../../ai/index.dart' show AiPromptTemplatePolicies;
@@ -1797,8 +1797,6 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-// 插件 MCP 服务弹窗
-
 class _PluginMcpDialog extends StatefulWidget {
   const _PluginMcpDialog({required this.plugin, required this.controller});
 
@@ -1809,37 +1807,23 @@ class _PluginMcpDialog extends StatefulWidget {
   State<_PluginMcpDialog> createState() => _PluginMcpDialogState();
 }
 
-class _PluginMcpDialogState extends State<_PluginMcpDialog> {
+class _PluginMcpDialogState extends State<_PluginMcpDialog>
+    with BufferedConsoleLogHost<_PluginMcpDialog> {
+  @override
+  String get consoleLogTag => 'plugin_service_view';
+
+  @override
+  Duration get consoleFollowDuration => _kLogFollowDuration;
+
   bool _checking = true;
   bool _mcpInstalled = false;
   String? _mcpVersion;
   bool _operating = false;
   String? _error;
-  final BoundedLogBuffer _logs = BoundedLogBuffer();
-  final ScrollController _logScroll = ScrollController();
-  final AutoFollowScrollGuard _logGuard = AutoFollowScrollGuard();
-
   @override
   void initState() {
     super.initState();
     unawaited(_checkMcpStatus());
-  }
-
-  @override
-  void dispose() {
-    _logScroll.dispose();
-    super.dispose();
-  }
-
-  void _addLog(String line) {
-    _logs.add(line);
-    if (!mounted) return;
-    setState(() {});
-    _logGuard.scheduleFollowToBottom(
-      _logScroll,
-      animated: true,
-      animationDuration: openHandMotionDuration(context, _kLogFollowDuration),
-    );
   }
 
   Future<bool> _checkMcpStatus() async {
@@ -1914,19 +1898,20 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     setState(() {
       _operating = true;
       _error = null;
-      _logs.clear();
+      resetConsoleLog();
     });
-    _addLog('> npm ${args.join(' ')}');
-    _addLog('');
+    appendConsoleLine('> npm ${args.join(' ')}');
+    appendConsoleLine('');
     try {
       final result = await runPluginToolchainCommandWithLineLogging(
         'npm',
         args,
         timeout: const Duration(minutes: 3),
         tag: 'plugin_service_view',
-        onStdoutLine: _addLog,
-        onStderrLine: _addLog,
-        onTimeout: () => _addLog(l10n.pluginServiceMcpOperationTimeout),
+        onStdoutLine: appendConsoleLine,
+        onStderrLine: appendConsoleLine,
+        onTimeout: () =>
+            appendConsoleLine(l10n.pluginServiceMcpOperationTimeout),
       );
       final exitCode = result.exitCode;
       if (exitCode == 0) {
@@ -1935,7 +1920,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         if (!mounted) return;
         if (!synced) {
           const message = 'MCP 服务配置同步失败';
-          _addLog(message);
+          appendConsoleLine(message);
           _error = message;
         } else {
           final checked = await _checkMcpStatus();
@@ -1943,29 +1928,29 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
           final shouldBeInstalled = action != _PluginServiceAction.uninstall;
           if (!checked || _mcpInstalled != shouldBeInstalled) {
             final message = l10n.pluginServiceMcpVerificationFailed;
-            _addLog(message);
+            appendConsoleLine(message);
             _error = message;
           }
         }
         if (_error == null) {
-          _addLog('');
-          _addLog(
+          appendConsoleLine('');
+          appendConsoleLine(
             l10n.pluginServiceMcpOperationCompleted(actionLabel, exitCode),
           );
         }
       } else {
-        _addLog('');
+        appendConsoleLine('');
         final message = l10n.pluginServiceMcpOperationFailed(
           actionLabel,
           exitCode,
         );
-        _addLog(message);
+        appendConsoleLine(message);
         _error = message;
       }
     } catch (error, stack) {
       silentLog('plugin_service_view', '执行 Playwright MCP 操作', error, stack);
       if (!mounted) return;
-      _addLog('');
+      appendConsoleLine('');
       final message = l10n.pluginServiceMcpOperationError(
         userFailureMessage(
           error,
@@ -1980,7 +1965,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
           ),
         ),
       );
-      _addLog(message);
+      appendConsoleLine(message);
       _error = message;
     }
     if (mounted) setState(() => _operating = false);
@@ -2137,14 +2122,13 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
             ),
           ),
           OpenHandInlineErrorText(message: _error),
-          // 终端输出区域
-          if (_logs.isNotEmpty || _operating)
+          if (logLines.isNotEmpty || _operating)
             Flexible(
               child: OpenHandConsoleLogPanel(
-                lineCount: _logs.length,
-                lineAt: (index) => _logs[index],
-                controller: _logScroll,
-                onNotification: _logGuard.handleNotification,
+                lineCount: logLines.length,
+                lineAt: (index) => logLines[index],
+                controller: logScrollController,
+                onNotification: logScrollGuard.handleNotification,
                 margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 emptyPlaceholder: const Padding(
                   padding: EdgeInsets.all(20),

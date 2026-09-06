@@ -1517,19 +1517,15 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     [components, rehypePlugins, remarkPlugins, renderedContent],
   );
 
-  if (raw) {
-    return (
-      <pre
-        class="whitespace-pre-wrap break-words text-sm"
-        style={{ margin: 0, fontFamily }}
-      >
-        {content}
-      </pre>
+  const renderAsPlainText = raw
+    || format === 'plain_text'
+    || (
+      format === 'html'
+      && !streaming
+      && !stickyLooksHtml
+      && htmlFallback === 'plain_text'
     );
-  }
-
-  // 纯文本和 HTML 渲染成本可控，不受 Markdown 体积限制影响。
-  if (format === 'plain_text') {
+  if (renderAsPlainText) {
     return (
       <pre
         class="whitespace-pre-wrap break-words text-sm"
@@ -1545,16 +1541,6 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     }
     if (stickyLooksHtml) {
       return <ProgressiveHtmlBody source={content} mono={mono} deferInitialRender={deferInitialRender} />;
-    }
-    if (htmlFallback === 'plain_text') {
-      return (
-        <pre
-          class="whitespace-pre-wrap break-words text-sm"
-          style={{ margin: 0, fontFamily }}
-        >
-          {content}
-        </pre>
-      );
     }
     // 继续按 Markdown 渲染。
   }

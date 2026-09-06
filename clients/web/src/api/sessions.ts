@@ -287,7 +287,7 @@ interface SessionMessageUsage {
   web_search_page_usage?: number | null;
 }
 
-interface SessionStatistics {
+interface SessionStatistics extends SessionMessageUsage {
   total_message_count?: number;
   user_message_count?: number;
   assistant_message_count?: number;
@@ -300,17 +300,6 @@ interface SessionStatistics {
   total_prompt_characters?: number;
   prompt_build_count?: number;
   compression_run_count?: number;
-  total_prompt_tokens?: number | null;
-  total_completion_tokens?: number | null;
-  total_tokens?: number | null;
-  cache_read_tokens?: number | null;
-  cache_creation_tokens?: number | null;
-  reasoning_tokens?: number | null;
-  audio_input_tokens?: number | null;
-  image_input_tokens?: number | null;
-  video_input_tokens?: number | null;
-  web_search_tool_usage?: number | null;
-  web_search_page_usage?: number | null;
   first_prompt_tokens?: number | null;
   // 后端预计算字段：默认剔除首轮冷请求与过期异常，避免 WEB 端独立
   // walk messages 重算导致跨端计算口径漂移。`null` 表示无任何 token 数据。

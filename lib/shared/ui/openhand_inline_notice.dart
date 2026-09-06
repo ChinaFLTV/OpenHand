@@ -228,10 +228,6 @@ const EdgeInsets kOpenHandInlineErrorPadding = EdgeInsets.fromLTRB(
 );
 
 /// 面板内的一行错误文本：出现与消失走全局动效的纵向展开。
-///
-/// 插件服务与 MCP STDIO 的依赖弹窗各写了一份 `if (_error != null) Padding(...)`，
-/// 报错出现时整块内容会被硬生生顶下去一次；重试期间错误反复出现 / 消失，
-/// 观感就是列表在跳。
 class OpenHandInlineErrorText extends StatelessWidget {
   const OpenHandInlineErrorText({
     super.key,

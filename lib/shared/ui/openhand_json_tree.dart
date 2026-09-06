@@ -14,6 +14,7 @@ import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'openhand_clipboard.dart';
+import 'openhand_inline_empty_state.dart';
 import 'openhand_spacing.dart';
 import 'openhand_typography.dart';
 
@@ -282,7 +283,7 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
     final trimmed = widget.text.trim();
     if (trimmed.isEmpty) {
       if (widget.emptyText.trim().isEmpty) return const SizedBox.shrink();
-      return _JsonTreeEmpty(text: widget.emptyText);
+      return OpenHandInlineEmptyState.compact(message: widget.emptyText);
     }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -725,48 +726,6 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
               : const SizedBox.shrink(),
         ),
       ],
-    );
-  }
-}
-
-class _JsonTreeEmpty extends StatelessWidget {
-  const _JsonTreeEmpty({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer.withValues(alpha: 0.62),
-        borderRadius: kOpenHandBorderRadius7,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.62),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 16,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          kOpenHandHGap8,
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -9,6 +9,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../../shared/ui/buffered_console_log.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
@@ -17,7 +18,6 @@ import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
-import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -760,8 +760,6 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// STDIO MCP 服务依赖管理弹窗
-
 /// 显示 STDIO MCP 服务的依赖管理弹窗（安装/更新/卸载 npm 包）。
 Future<void> showStdioDepsDialog(BuildContext context, McpServer server) {
   return showAnimatedDialog(
@@ -779,10 +777,14 @@ class _StdioDepsDialog extends StatefulWidget {
   State<_StdioDepsDialog> createState() => _StdioDepsDialogState();
 }
 
-class _StdioDepsDialogState extends State<_StdioDepsDialog> {
-  final ScrollController _logScroll = ScrollController();
-  final AutoFollowScrollGuard _logGuard = AutoFollowScrollGuard();
-  final BoundedLogBuffer _logs = BoundedLogBuffer();
+class _StdioDepsDialogState extends State<_StdioDepsDialog>
+    with BufferedConsoleLogHost<_StdioDepsDialog> {
+  @override
+  String get consoleLogTag => 'mcp_stdio_dialogs';
+
+  @override
+  Duration get consoleFollowDuration => _kLogFollowDuration;
+
   bool _operating = false;
   bool _checking = true;
   bool _packageInstalled = false;
@@ -823,23 +825,6 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   void initState() {
     super.initState();
     _checkDepsStatus();
-  }
-
-  @override
-  void dispose() {
-    _logScroll.dispose();
-    super.dispose();
-  }
-
-  void _addLog(String line) {
-    _logs.add(line);
-    if (!mounted) return;
-    setState(() {});
-    _logGuard.scheduleFollowToBottom(
-      _logScroll,
-      animated: true,
-      animationDuration: openHandMotionDuration(context, _kLogFollowDuration),
-    );
   }
 
   Future<void> _checkDepsStatus() async {
@@ -925,10 +910,10 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     setState(() {
       _operating = true;
       _error = null;
-      _logs.clear();
+      resetConsoleLog();
     });
-    _addLog('[${_ts()}] > $executable ${args.join(' ')}');
-    _addLog('');
+    appendConsoleLine('[${_ts()}] > $executable ${args.join(' ')}');
+    appendConsoleLine('');
     var succeeded = false;
     try {
       final result = await runTrackedProcessWithLineLogging(
@@ -938,18 +923,22 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
             .resolveSubprocessEnvironment(),
         timeout: const Duration(minutes: 5),
         tag: 'mcp_stdio_dialogs',
-        onStdoutLine: _addLog,
-        onStderrLine: _addLog,
-        onTimeout: () => _addLog(l10n.mcpStdioDialogOperationTimeout),
+        onStdoutLine: appendConsoleLine,
+        onStderrLine: appendConsoleLine,
+        onTimeout: () => appendConsoleLine(l10n.mcpStdioDialogOperationTimeout),
       );
       final exitCode = result.exitCode;
-      _addLog('');
+      appendConsoleLine('');
       if (exitCode == 0) {
-        _addLog(l10n.mcpStdioDialogOperationCompleted(_ts(), action, 0));
+        appendConsoleLine(
+          l10n.mcpStdioDialogOperationCompleted(_ts(), action, 0),
+        );
         await _checkDepsStatus();
         succeeded = true;
       } else {
-        _addLog(l10n.mcpStdioDialogOperationFailed(_ts(), action, exitCode));
+        appendConsoleLine(
+          l10n.mcpStdioDialogOperationFailed(_ts(), action, exitCode),
+        );
         _error = l10n.mcpStdioDialogOperationFailedPlain(action, exitCode);
       }
     } catch (error, stack) {
@@ -958,7 +947,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         error,
         fallback: l10n.mcpOperationFailed,
       );
-      _addLog(l10n.mcpStdioDialogOperationException(_ts(), message));
+      appendConsoleLine(l10n.mcpStdioDialogOperationException(_ts(), message));
       _error = message;
     }
     if (mounted) setState(() => _operating = false);
@@ -978,8 +967,8 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
       if (!installed || !mounted) return;
       setState(() => _operating = true);
       // 同时预热隔离缓存
-      _addLog('');
-      _addLog(l10n.mcpStdioDialogWarmCache(_ts()));
+      appendConsoleLine('');
+      appendConsoleLine(l10n.mcpStdioDialogWarmCache(_ts()));
       final cacheRoot = mcpStdioIsolatedCacheRoot();
       try {
         await runTrackedProcessOrFailed(
@@ -992,10 +981,10 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
           timeout: const Duration(seconds: 30),
           tag: 'mcp_stdio.npm_cache_add',
         );
-        _addLog(l10n.mcpStdioDialogWarmCacheDone(_ts()));
+        appendConsoleLine(l10n.mcpStdioDialogWarmCacheDone(_ts()));
       } catch (error, stack) {
         silentLog('mcp_stdio_dialogs', '预热 MCP 软件包缓存', error, stack);
-        _addLog(
+        appendConsoleLine(
           l10n.mcpStdioDialogWarmCacheSkipped(
             _ts(),
             mcpFailureMessage(error, fallback: l10n.mcpOperationFailed),
@@ -1189,7 +1178,6 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
             ),
           ),
           OpenHandInlineErrorText(message: _error),
-          // 进度指示
           if (_operating)
             LinearProgressIndicator(
               minHeight: 3,
@@ -1198,14 +1186,13 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
             )
           else
             kOpenHandGap3,
-          // 终端输出区域
-          if (_logs.isNotEmpty || _operating)
+          if (logLines.isNotEmpty || _operating)
             Flexible(
               child: OpenHandConsoleLogPanel(
-                lineCount: _logs.length,
-                lineAt: (index) => _logs[index],
-                controller: _logScroll,
-                onNotification: _logGuard.handleNotification,
+                lineCount: logLines.length,
+                lineAt: (index) => logLines[index],
+                controller: logScrollController,
+                onNotification: logScrollGuard.handleNotification,
                 margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                 emptyPlaceholder: const Padding(
                   padding: EdgeInsets.all(20),

@@ -573,7 +573,6 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
     );
   }
 
-  // 遥测界面（调用日志和引擎健康度）
   List<Widget> _buildTelemetrySection(BuildContext context) {
     return _buildTelemetryPanel(
       context: context,

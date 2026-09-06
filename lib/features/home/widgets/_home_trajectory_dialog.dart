@@ -3879,8 +3879,8 @@ class _TrajectoryDetailBody extends StatelessWidget {
   Widget _buildUsage(BuildContext context, {bool compact = false}) {
     final usage = record.usage;
     if (usage == null || usage.isEmpty) {
-      return _TrajectoryEmptyDetail(
-        text: _trajectoryText(
+      return OpenHandInlineEmptyState.compact(
+        message: _trajectoryText(
           context,
           zh: '未报告用量',
           zhHant: '未報告用量',
@@ -4706,7 +4706,7 @@ class _TrajectoryMarkdownDetailState extends State<_TrajectoryMarkdownDetail> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     if (widget.text.trim().isEmpty) {
-      return _TrajectoryEmptyDetail(text: widget.emptyText);
+      return OpenHandInlineEmptyState.compact(message: widget.emptyText);
     }
     final content = Container(
       width: double.infinity,
@@ -4742,48 +4742,6 @@ class _TrajectoryMarkdownDetailState extends State<_TrajectoryMarkdownDetail> {
           physics: openHandDialogAwareScrollPhysics(context),
           child: content,
         ),
-      ),
-    );
-  }
-}
-
-class _TrajectoryEmptyDetail extends StatelessWidget {
-  const _TrajectoryEmptyDetail({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer.withValues(alpha: 0.62),
-        borderRadius: kOpenHandBorderRadius7,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.62),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 16,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          kOpenHandHGap8,
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
