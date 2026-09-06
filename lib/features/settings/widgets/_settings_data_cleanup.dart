@@ -21,6 +21,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
   int? _webSearchCacheBytes;
   int? _webFetchCacheBytes;
   int? _mediaCacheBytes;
+  SpeechDataCleanupSizeReport? _speechResourcesReport;
 
   @override
   void didChangeDependencies() {
@@ -93,11 +94,32 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       setState(() => apply(bytes));
     }
 
+    Future<void> measureSpeechResources() async {
+      SpeechDataCleanupSizeReport report;
+      try {
+        report = await _service.measureSpeechResources();
+      } catch (error, stack) {
+        silentLog('data_cleanup', '统计语音模型资源', error, stack);
+        report = const SpeechDataCleanupSizeReport(
+          recognitionModels: DataCleanupSizeReport.unknown,
+          synthesisModels: DataCleanupSizeReport.unknown,
+          sharedResources: DataCleanupSizeReport.unknown,
+        );
+      }
+      if (!mounted || token != _measureToken) return;
+      setState(() {
+        _speechResourcesReport = report;
+        _reports[DataCleanupCategory.speechResources] = report.total;
+        _measuringCategories.remove(DataCleanupCategory.speechResources);
+      });
+    }
+
     final measurements = <Future<void> Function()>[
       () => measureOne(
         DataCleanupCategory.multimedia,
         _service.measureMultimedia,
       ),
+      measureSpeechResources,
       () => measureOne(DataCleanupCategory.sessions, _service.measureSessions),
       () => measureOne(DataCleanupCategory.appCache, _service.measureAppCache),
       () => measureOne(DataCleanupCategory.logs, _service.measureLogs),
@@ -224,6 +246,8 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       switch (category) {
         case DataCleanupCategory.multimedia:
           await _service.cleanMultimedia();
+        case DataCleanupCategory.speechResources:
+          await _service.cleanSpeechResources();
         case DataCleanupCategory.sessions:
           await _service.cleanSessions();
         case DataCleanupCategory.appCache:
@@ -329,6 +353,25 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     return '$searchLine\n$fetchLine';
   }
 
+  String? _buildSpeechResourcesBreakdown(BuildContext context) {
+    final report = _speechResourcesReport;
+    if (report == null) return null;
+    final recognition = formatByteSize(report.recognitionModels.bytes);
+    final synthesis = formatByteSize(report.synthesisModels.bytes);
+    final shared = formatByteSize(report.sharedResources.bytes);
+    return openHandLocalizedText(
+      context,
+      zh:
+          '语音识别模型：$recognition\n'
+          '语音朗读模型：$synthesis\n'
+          '共享运行环境与下载缓存：$shared',
+      en:
+          'Speech recognition models: $recognition\n'
+          'Speech synthesis models: $synthesis\n'
+          'Shared runtimes and download cache: $shared',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return _SettingsSubsectionCard(
@@ -359,6 +402,8 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
                 DataCleanupCategory.multimedia => _buildMultimediaBreakdown(
                   context,
                 ),
+                DataCleanupCategory.speechResources =>
+                  _buildSpeechResourcesBreakdown(context),
                 DataCleanupCategory.appCache => _buildAppCacheBreakdown(
                   context,
                 ),
@@ -625,6 +670,8 @@ IconData _categoryIcon(DataCleanupCategory category) {
   switch (category) {
     case DataCleanupCategory.multimedia:
       return Icons.image_outlined;
+    case DataCleanupCategory.speechResources:
+      return Icons.record_voice_over_outlined;
     case DataCleanupCategory.sessions:
       return Icons.forum_outlined;
     case DataCleanupCategory.appCache:
@@ -660,6 +707,12 @@ String _categoryTitle(BuildContext context, DataCleanupCategory category) {
   switch (category) {
     case DataCleanupCategory.multimedia:
       return openHandLocalizedText(context, zh: '多媒体数据', en: 'Multimedia Data');
+    case DataCleanupCategory.speechResources:
+      return openHandLocalizedText(
+        context,
+        zh: '语音模型资源',
+        en: 'Speech Model Resources',
+      );
     case DataCleanupCategory.sessions:
       return openHandLocalizedText(context, zh: '会话数据', en: 'Sessions');
     case DataCleanupCategory.appCache:
@@ -721,6 +774,20 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'older messages will appear as missing; remote media will cache '
             'again on next load.',
       );
+    case DataCleanupCategory.speechResources:
+      return openHandLocalizedText(
+        context,
+        zh:
+            '语音识别与语音朗读下载的本地模型、隔离运行环境及下载缓存。'
+            '清理会停止并禁用已启用的本地语音服务；在线服务选择、凭据和模型参数保持不变，'
+            '本地资源可在下次使用时重新下载。',
+        en:
+            'Downloaded speech recognition and synthesis models, isolated '
+            'runtimes, and download cache. Cleanup stops and disables active '
+            'local speech services while preserving online selections, '
+            'credentials, and model parameters. Local resources can be '
+            'downloaded again when needed.',
+      );
     case DataCleanupCategory.sessions:
       return openHandLocalizedText(
         context,
@@ -732,10 +799,12 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
     case DataCleanupCategory.appCache:
       return openHandLocalizedText(
         context,
-        zh: '~/.openhand/cache/ 下的临时缓存文件，不包含由“多媒体数据”单独管理的媒体缓存。',
+        zh:
+            '~/.openhand/cache/ 下的临时缓存文件，不包含由“多媒体数据”与“语音模型资源”'
+            '单独管理的缓存。',
         en:
-            'Temporary cache files under ~/.openhand/cache/, excluding media '
-            'cache managed by "Multimedia Data".',
+            'Temporary cache files under ~/.openhand/cache/, excluding caches '
+            'managed by "Multimedia Data" and "Speech Model Resources".',
       );
     case DataCleanupCategory.logs:
       return openHandLocalizedText(

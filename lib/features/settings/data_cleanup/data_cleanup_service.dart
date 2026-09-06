@@ -6,7 +6,7 @@
 /// 3. **数据库访问留在主 isolate**——sqflite_common_ffi 的 Database
 ///    句柄不能跨 isolate；所以 DB 体积探测使用主 isolate 上一次很快的
 ///    `LENGTH(...)` 聚合查询。
-/// 4. **清理顺序在 [cleanAll] 中固定**：先抹掉派生数据（多媒体/缓存/日志），
+/// 4. **清理顺序在 [cleanAll] 中固定**：先停止并清理语音模型等派生资源，
 ///    最后再删 sessions。这样即便中途崩溃，残留也不会引用已经被删的
 ///    附件文件。
 library;
@@ -75,6 +75,15 @@ class DataCleanupService {
     );
   }
 
+  /// 本地语音识别/朗读模型、共享隔离环境与下载缓存。单次遍历完成用途
+  /// 分类，避免对数 GB 模型目录重复扫描。
+  Future<SpeechDataCleanupSizeReport> measureSpeechResources() {
+    return compute(_isolateMeasureSpeechResources, <String>[
+      OfflineSpeechModelService.defaultModelsRoot,
+      OfflineSpeechModelService.defaultDownloadCacheRoot,
+    ]);
+  }
+
   /// 会话本身（非附件）：sqlite 行体积估算 + 旧版 `session-*.json`。
   Future<DataCleanupSizeReport> measureSessions() async {
     final dbReport = await _measureSessionsDb();
@@ -85,12 +94,13 @@ class DataCleanupService {
     return dbReport + fsReport;
   }
 
-  /// 应用缓存目录。多媒体缓存由 [measureMultimedia] 单独统计，避免
-  /// `wipeAll` 汇总时重复计入。
+  /// 应用缓存目录。多媒体与语音下载缓存分别统计，避免 `wipeAll` 汇总
+  /// 时重复计入。
   Future<DataCleanupSizeReport> measureAppCache() {
     return compute(_isolateMeasureDirectoryExcluding, <String>[
       OpenHandPaths.defaultCacheDirectoryPath(),
       MediaCacheService.cacheDirectoryPath,
+      OfflineSpeechModelService.defaultDownloadCacheRoot,
     ]);
   }
 
@@ -288,6 +298,39 @@ class DataCleanupService {
     await MediaCacheService.clearCache();
   }
 
+  /// 停止本地语音服务、取消进行中的下载，再清空模型、隔离环境与下载
+  /// 缓存。在线服务选择和所有参数配置均保留。
+  Future<void> cleanSpeechResources() async {
+    final current = _settingsController.offlineSpeechSettings;
+    var next = current;
+    var settingsChanged = false;
+    for (final kind in OfflineSpeechKind.values) {
+      final settings = current.settingsFor(kind);
+      final selected = OfflineSpeechModelCatalog.byId(
+        settings.enabledModelId ?? '',
+      );
+      if (selected != null && !selected.isOnline) {
+        next = next.update(kind, settings.select(null));
+        settingsChanged = true;
+      }
+    }
+    if (settingsChanged &&
+        !await _settingsController.updateOfflineSpeechSettings(next)) {
+      throw StateError('无法保存本地语音服务停用状态。');
+    }
+
+    await OfflineSpeechModelService.instance.clearManagedStorage(() async {
+      await compute(
+        _isolateDeleteDirectoryContents,
+        OfflineSpeechModelService.defaultModelsRoot,
+      );
+      await compute(
+        _isolateDeleteDirectoryContents,
+        OfflineSpeechModelService.defaultDownloadCacheRoot,
+      );
+    });
+  }
+
   /// 清空所有会话（DB + 磁盘 JSON），并触发 controller 重新加载。
   Future<void> cleanSessions() async {
     await _aiSessionController.store.clearAll();
@@ -307,6 +350,7 @@ class DataCleanupService {
     await compute(_isolateDeleteDirectoryContentsExcluding, <String>[
       OpenHandPaths.defaultCacheDirectoryPath(),
       MediaCacheService.cacheDirectoryPath,
+      OfflineSpeechModelService.defaultDownloadCacheRoot,
     ]);
   }
 
@@ -421,6 +465,7 @@ class DataCleanupService {
     }
 
     await runStep('多媒体', cleanMultimedia);
+    await runStep('语音模型资源', cleanSpeechResources);
     await runStep('应用缓存', cleanAppCache);
     await runStep('日志', cleanLogs);
     await runStep('用户记忆', cleanUserMemory);
@@ -679,6 +724,109 @@ Future<DataCleanupSizeReport> _isolateMeasureSessionsExcludingAttachments(
   return DataCleanupSizeReport(
     bytes: totalBytes,
     error: budget.incomplete ? _dataCleanupPartialScanError : null,
+  );
+}
+
+Future<SpeechDataCleanupSizeReport> _isolateMeasureSpeechResources(
+  List<String> roots,
+) async {
+  if (roots.length < 2) {
+    return const SpeechDataCleanupSizeReport(
+      recognitionModels: DataCleanupSizeReport.empty,
+      synthesisModels: DataCleanupSizeReport.empty,
+      sharedResources: DataCleanupSizeReport.empty,
+    );
+  }
+  final recognitionIds = OfflineSpeechModelCatalog.models
+      .where(
+        (model) =>
+            !model.isOnline && model.kind == OfflineSpeechKind.recognition,
+      )
+      .map((model) => model.id)
+      .toSet();
+  final synthesisIds = OfflineSpeechModelCatalog.models
+      .where(
+        (model) => !model.isOnline && model.kind == OfflineSpeechKind.synthesis,
+      )
+      .map((model) => model.id)
+      .toSet();
+  final budget = _DataCleanupScanBudget();
+  var recognitionBytes = 0;
+  var recognitionFiles = 0;
+  var synthesisBytes = 0;
+  var synthesisFiles = 0;
+  var sharedBytes = 0;
+  var sharedFiles = 0;
+
+  Future<void> scan(Directory root, {required bool classifyModels}) async {
+    try {
+      if (!await _cleanupDirectoryExists(root, budget: budget)) return;
+      await for (final entity
+          in root
+              .list(recursive: true, followLinks: false)
+              .timeout(_dataCleanupScanIdleTimeout)) {
+        if (!budget.takeEntry()) break;
+        if (entity is! File) continue;
+        int length;
+        try {
+          length = await entity.length().timeout(budget.nextOperationTimeout());
+        } catch (error, stack) {
+          budget.markInterrupted();
+          silentLog('data_cleanup', '读取语音资源大小', error, stack);
+          continue;
+        }
+        var modelId = '';
+        if (classifyModels) {
+          final segments = p.split(p.relative(entity.path, from: root.path));
+          if (segments.isNotEmpty) {
+            modelId = segments.first.endsWith('.partial')
+                ? segments.first.substring(
+                    0,
+                    segments.first.length - '.partial'.length,
+                  )
+                : segments.first;
+          }
+        }
+        if (recognitionIds.contains(modelId)) {
+          recognitionBytes += length;
+          recognitionFiles += 1;
+        } else if (synthesisIds.contains(modelId)) {
+          synthesisBytes += length;
+          synthesisFiles += 1;
+        } else {
+          sharedBytes += length;
+          sharedFiles += 1;
+        }
+      }
+    } catch (error, stack) {
+      budget.markInterrupted();
+      silentLog('data_cleanup', '遍历语音资源目录', error, stack);
+    }
+  }
+
+  await scan(Directory(roots[0]), classifyModels: true);
+  if (!budget.exhausted) {
+    await scan(Directory(roots[1]), classifyModels: false);
+  } else {
+    budget.markInterrupted();
+  }
+  final error = budget.incomplete ? _dataCleanupPartialScanError : null;
+  return SpeechDataCleanupSizeReport(
+    recognitionModels: DataCleanupSizeReport(
+      bytes: recognitionBytes,
+      itemCount: recognitionFiles,
+      error: error,
+    ),
+    synthesisModels: DataCleanupSizeReport(
+      bytes: synthesisBytes,
+      itemCount: synthesisFiles,
+      error: error,
+    ),
+    sharedResources: DataCleanupSizeReport(
+      bytes: sharedBytes,
+      itemCount: sharedFiles,
+      error: error,
+    ),
   );
 }
 

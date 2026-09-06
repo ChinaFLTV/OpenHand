@@ -8,11 +8,14 @@ enum DataCleanupCategory {
   /// 多媒体附件与远程媒体缓存（图片、视频、音频、文档等）。
   multimedia,
 
+  /// 本地语音识别/朗读模型、共享隔离运行环境与下载缓存。
+  speechResources,
+
   /// 会话本身：sqlite 中的 `sessions` / `messages` 行 + 旧版 JSON 文件。
   /// 不包含附件，附件由 [multimedia] 单独管理，保证两个分类互不重叠。
   sessions,
 
-  /// 应用缓存目录（`~/.openhand/cache/`，不含单独归类的媒体缓存）。
+  /// 应用缓存目录（`~/.openhand/cache/`，不含单独归类的媒体与语音缓存）。
   appCache,
 
   /// 日志数据：cron 执行历史 + `~/.openhand/logs/`。
@@ -93,4 +96,20 @@ class DataCleanupSizeReport {
       error: combinedError,
     );
   }
+}
+
+/// 语音资源按用途拆分后的占用报告，总量只由三个互斥分支求和。
+class SpeechDataCleanupSizeReport {
+  const SpeechDataCleanupSizeReport({
+    required this.recognitionModels,
+    required this.synthesisModels,
+    required this.sharedResources,
+  });
+
+  final DataCleanupSizeReport recognitionModels;
+  final DataCleanupSizeReport synthesisModels;
+  final DataCleanupSizeReport sharedResources;
+
+  DataCleanupSizeReport get total =>
+      recognitionModels + synthesisModels + sharedResources;
 }

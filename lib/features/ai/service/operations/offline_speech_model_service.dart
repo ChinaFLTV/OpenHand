@@ -395,8 +395,10 @@ class OfflineSpeechModelService extends ChangeNotifier {
       <Future<OfflineSpeechTestResult>>{};
   final Map<OfflineSpeechAudioStream, String> _activeAudioStreams =
       <OfflineSpeechAudioStream, String>{};
+  Future<void>? _managedStorageCleanupFuture;
   final Completer<void> _shutdownSignal = Completer<void>();
   final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
+  bool _managedStorageCleanupInProgress = false;
   bool _shuttingDown = false;
   OfflineSpeechHardwareProfile? _hardwareProfile;
   final Map<OfflineSpeechRuntime, OfflineSpeechRuntimeAdapter>
@@ -405,8 +407,15 @@ class OfflineSpeechModelService extends ChangeNotifier {
       runtime: PythonOfflineSpeechRuntimeAdapter(runtime),
   };
 
-  String get modelsRoot =>
+  static String get defaultModelsRoot =>
       p.join(OpenHandPaths.defaultRootDirectoryPath(), 'models', 'speech');
+
+  static String get defaultDownloadCacheRoot =>
+      p.join(OpenHandPaths.defaultCacheDirectoryPath(), 'offline_speech');
+
+  String get modelsRoot => defaultModelsRoot;
+
+  String get downloadCacheRoot => defaultDownloadCacheRoot;
 
   OfflineSpeechHardwareProfile? get hardwareProfile => _hardwareProfile;
 
@@ -1128,6 +1137,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   Future<void> remove(OfflineSpeechModelDefinition model) async {
     if (model.isOnline) return;
+    _throwIfShuttingDown();
     cancelDownload(model);
     await stop(model);
     final target = Directory(modelDirectory(model));
@@ -1139,6 +1149,68 @@ class OfflineSpeechModelService extends ChangeNotifier {
       const OfflineSpeechModelState(lifecycle: OfflineSpeechLifecycle.absent),
     );
     unawaited(_inspectHardware());
+  }
+
+  /// 停止本地语音任务并在资源静默期内执行数据清理，避免删除操作与下载、
+  /// 运行时进程交错。并发清理复用同一个任务。
+  Future<void> clearManagedStorage(Future<void> Function() deleteStorage) {
+    final active = _managedStorageCleanupFuture;
+    if (active != null) return active;
+    late final Future<void> operation;
+    operation = _clearManagedStorage(deleteStorage).whenComplete(() {
+      if (identical(_managedStorageCleanupFuture, operation)) {
+        _managedStorageCleanupFuture = null;
+      }
+    });
+    _managedStorageCleanupFuture = operation;
+    return operation;
+  }
+
+  Future<void> _clearManagedStorage(
+    Future<void> Function() deleteStorage,
+  ) async {
+    _throwIfShuttingDown();
+    _managedStorageCleanupInProgress = true;
+    final localModels = OfflineSpeechModelCatalog.models
+        .where((model) => !model.isOnline)
+        .toList(growable: false);
+    try {
+      final downloads = _downloadCancellations.values.toList(growable: false);
+      for (final cancellation in downloads) {
+        cancellation.cancel();
+      }
+      for (final model in localModels) {
+        await stop(model);
+      }
+      final pending = <Future<void>>[
+        for (final cancellation in downloads) cancellation.done,
+        for (final start in _activeStarts)
+          start.then<void>((_) {}, onError: (_, _) {}),
+      ];
+      if (pending.isNotEmpty) {
+        await Future.wait<void>(pending).timeout(runtimeCleanupTimeout);
+      }
+      // 启动任务可能在第一次快照之后才登记进程，删除前再收口一次。
+      for (final model in localModels) {
+        await stop(model);
+      }
+      await deleteStorage();
+    } finally {
+      for (final model in localModels) {
+        _states[model.id] = OfflineSpeechModelState(
+          lifecycle: _processes.containsKey(model.id)
+              ? OfflineSpeechLifecycle.running
+              : isInstalled(model)
+              ? OfflineSpeechLifecycle.installed
+              : OfflineSpeechLifecycle.absent,
+        );
+      }
+      _managedStorageCleanupInProgress = false;
+      if (!_shuttingDown) {
+        notifyListeners();
+        unawaited(_inspectHardware());
+      }
+    }
   }
 
   Future<void> start(
@@ -3806,6 +3878,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   void _throwIfShuttingDown() {
     if (_shuttingDown) throw StateError('应用正在退出，无法启动新的语音任务。');
+    if (_managedStorageCleanupInProgress) {
+      throw StateError('语音模型资源正在清理，请稍后重试。');
+    }
   }
 
   static Future<void> _deleteTemporaryDirectory(Directory? directory) async {
@@ -4335,11 +4410,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       'PYTHONPATH': '',
       'PIP_DISABLE_PIP_VERSION_CHECK': '1',
       'UV_NATIVE_TLS': 'true',
-      'UV_CACHE_DIR': p.join(
-        OpenHandPaths.defaultCacheDirectoryPath(),
-        'offline_speech',
-        'uv',
-      ),
+      'UV_CACHE_DIR': p.join(downloadCacheRoot, 'uv'),
       'UV_PYTHON_INSTALL_DIR': p.join(modelsRoot, '.python'),
       'UV_LINK_MODE': 'copy',
       'HF_HOME': p.join(runtimeRoot, 'cache', 'huggingface'),
@@ -4710,7 +4781,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   void _setState(String modelId, OfflineSpeechModelState state) {
     _states[modelId] = state;
-    if (!_shuttingDown) notifyListeners();
+    if (!_shuttingDown && !_managedStorageCleanupInProgress) notifyListeners();
   }
 }
 
