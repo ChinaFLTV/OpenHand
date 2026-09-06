@@ -202,3 +202,22 @@ export function getResourceUsage(
 ): Promise<ResourceUsageSnapshot> {
   return apiRequest<ResourceUsageSnapshot>(`/api/resource-usage?kind=${encodeURIComponent(kind)}`, options);
 }
+
+export type ResourceUsagePayloadField = 'arguments' | 'result' | 'metadata';
+export type ResourceUsagePayloadOrigin = 'stored' | 'persisted' | 'recovered' | 'truncated';
+
+export interface ResourceUsagePayload {
+  text: string;
+  origin: ResourceUsagePayloadOrigin;
+}
+
+export function getResourceUsagePayload(
+  eventId: string,
+  field: ResourceUsagePayloadField,
+  options: ApiRequestSignalOptions = {},
+): Promise<ResourceUsagePayload> {
+  return apiRequest<ResourceUsagePayload>(
+    `/api/resource-usage/payload?event_id=${encodeURIComponent(eventId)}&field=${encodeURIComponent(field)}`,
+    options,
+  );
+}

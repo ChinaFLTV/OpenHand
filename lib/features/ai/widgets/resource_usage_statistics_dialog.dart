@@ -16,7 +16,9 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../workflows/index.dart';
 import '../ai_session_controller.dart';
+import '../service/runtime/ai_resource_usage_payload.dart';
 import '../service/runtime/ai_tool_usage_promotion_store.dart';
 
 const double _kUsageListMaxHeight = 420;
@@ -426,6 +428,7 @@ class _ResourceUsageStatisticsDialogState
             ja: 'リアルタイム · 内容はマスク・制限済み',
           ),
           child: _RecentUsageEvents(
+            store: widget.store,
             events: level.recentEvents,
             labels: widget.resourceLabels,
           ),
@@ -1511,8 +1514,13 @@ class _MetricPill extends StatelessWidget {
 }
 
 class _RecentUsageEvents extends StatefulWidget {
-  const _RecentUsageEvents({required this.events, required this.labels});
+  const _RecentUsageEvents({
+    required this.store,
+    required this.events,
+    required this.labels,
+  });
 
+  final AiToolUsagePromotionStore store;
   final List<AiResourceUsageEvent> events;
   final Map<String, String> labels;
 
@@ -1566,6 +1574,7 @@ class _RecentUsageEventsState extends State<_RecentUsageEvents> {
               for (var index = 0; index < pageEvents.length; index++) ...[
                 _UsageEventCard(
                   key: ValueKey<String>(pageEvents[index].eventId),
+                  store: widget.store,
                   event: pageEvents[index],
                   labels: widget.labels,
                 ),
@@ -1637,8 +1646,14 @@ class _BoundedAnalyticsListState extends State<_BoundedAnalyticsList> {
 }
 
 class _UsageEventCard extends StatelessWidget {
-  const _UsageEventCard({super.key, required this.event, required this.labels});
+  const _UsageEventCard({
+    super.key,
+    required this.store,
+    required this.event,
+    required this.labels,
+  });
 
+  final AiToolUsagePromotionStore store;
   final AiResourceUsageEvent event;
   final Map<String, String> labels;
 
@@ -1779,6 +1794,12 @@ class _UsageEventCard extends StatelessWidget {
                 ja: '引数',
               ),
               value: event.argumentsSummary,
+              loadFullText: _usagePayloadLoader(
+                context,
+                store,
+                event,
+                AiResourceUsagePayloadField.arguments,
+              ),
             ),
           if (event.errorSummary.trim().isNotEmpty)
             _UsageEventPayload(
@@ -1798,6 +1819,12 @@ class _UsageEventCard extends StatelessWidget {
                 ja: '結果',
               ),
               value: event.resultSummary,
+              loadFullText: _usagePayloadLoader(
+                context,
+                store,
+                event,
+                AiResourceUsagePayloadField.result,
+              ),
             ),
           if (_hasUsageMetadata(event.metadataJson))
             _UsageEventPayload(
@@ -1811,6 +1838,12 @@ class _UsageEventCard extends StatelessWidget {
                 ja: 'メタデータ',
               ),
               value: event.metadataJson,
+              loadFullText: _usagePayloadLoader(
+                context,
+                store,
+                event,
+                AiResourceUsagePayloadField.metadata,
+              ),
             ),
         ],
       ),
@@ -1823,11 +1856,13 @@ class _UsageEventPayload extends StatelessWidget {
     required this.label,
     required this.value,
     this.error = false,
+    this.loadFullText,
   });
 
   final String label;
   final String value;
   final bool error;
+  final OpenHandJsonFullTextLoader? loadFullText;
 
   @override
   Widget build(BuildContext context) {
@@ -1838,9 +1873,64 @@ class _UsageEventPayload extends StatelessWidget {
         label: label,
         error: error,
         logTag: 'resource_usage',
+        loadFullText: loadFullText,
       ),
     );
   }
+}
+
+OpenHandJsonFullTextLoader _usagePayloadLoader(
+  BuildContext context,
+  AiToolUsagePromotionStore store,
+  AiResourceUsageEvent event,
+  AiResourceUsagePayloadField field,
+) {
+  WorkflowsController? workflows;
+  try {
+    workflows = context.read<WorkflowsController>();
+  } catch (_) {
+    workflows = null;
+  }
+
+  return () async {
+    final resolved = await AiResourceUsagePayloadResolver(
+      store: store,
+      loadWorkflowJson: workflows?.loadPrettyJsonByIdOrName,
+    ).resolve(event: event, field: field);
+    return OpenHandJsonFullText(
+      text: resolved.text,
+      hint: context.mounted ? _usagePayloadHint(context, resolved) : null,
+    );
+  };
+}
+
+String? _usagePayloadHint(
+  BuildContext context,
+  AiResourceUsageResolvedPayload resolved,
+) {
+  final count = resolved.text.trim().length;
+  return switch (resolved.origin) {
+    AiResourceUsagePayloadOrigin.recovered => openHandLocalizedText(
+      context,
+      zh: '已从当前工作流恢复完整内容 · 共 $count 字符 · 可滚动阅读与复制',
+      zhHant: '已從目前工作流程恢復完整內容 · 共 $count 字元 · 可捲動閱讀與複製',
+      en: 'Restored from the current workflow · $count characters · scroll and copy',
+      fr: 'Restauré depuis le workflow actuel · $count caractères · défiler et copier',
+      de: 'Aus dem aktuellen Workflow wiederhergestellt · $count Zeichen · scrollen und kopieren',
+      ja: '現在のワークフローから復元 · $count 文字 · スクロールとコピー',
+    ),
+    AiResourceUsagePayloadOrigin.truncated => openHandLocalizedText(
+      context,
+      zh: '记录写入时已被截断，仅能显示已保存片段 · 共 $count 字符',
+      zhHant: '記錄寫入時已被截斷，僅能顯示已儲存片段 · 共 $count 字元',
+      en: 'Stored record was truncated · $count characters saved',
+      fr: 'Enregistrement tronqué à l’écriture · $count caractères conservés',
+      de: 'Beim Speichern gekürzt · $count Zeichen vorhanden',
+      ja: '記録時に切り詰め済み · 保存分は $count 文字',
+    ),
+    AiResourceUsagePayloadOrigin.persisted ||
+    AiResourceUsagePayloadOrigin.stored => null,
+  };
 }
 
 class _EmptyAnalytics extends StatelessWidget {

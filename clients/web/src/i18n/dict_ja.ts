@@ -744,4 +744,7 @@ export const dict_ja: Record<string, string> = {
   'trajectory.structured.showAll': 'すべての内容を表示',
   'trajectory.structured.fullContent': '完全な内容',
   'trajectory.structured.fullHint': '{count} 文字 · スクロールとコピー',
+  'trajectory.structured.fullLoading': '完全な内容を読み込み中…',
+  'trajectory.structured.fullRecovered': '現在のワークフローから復元 · {count} 文字 · スクロールとコピー',
+  'trajectory.structured.fullTruncated': '記録時に切り詰め済み · 保存分は {count} 文字',
 };

@@ -3032,6 +3032,8 @@ class WorkflowDefinition {
   };
 
   String encode() => jsonEncode(toJson());
+
+  String encodePretty() => const JsonEncoder.withIndent('  ').convert(toJson());
 }
 
 Map<String, Object?> _stringMap(Object? value) {

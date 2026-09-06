@@ -27,6 +27,29 @@ class WorkflowsController extends ManagedChangeNotifier {
   String? get errorMessage => _errorMessage;
   ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
 
+  WorkflowDefinition? findByIdOrName(String key) {
+    final normalized = key.trim();
+    if (normalized.isEmpty) return null;
+    for (final workflow in _workflows) {
+      if (workflow.id == normalized || workflow.name == normalized) {
+        return workflow;
+      }
+    }
+    return null;
+  }
+
+  Future<String?> loadPrettyJsonByIdOrName(String key) async {
+    final cached = findByIdOrName(key);
+    if (cached != null) return cached.encodePretty();
+    try {
+      final loaded = await _store.loadByIdOrName(key);
+      return loaded?.encodePretty();
+    } catch (error, stack) {
+      silentLog('workflows_controller', '读取工作流完整内容', error, stack);
+      return null;
+    }
+  }
+
   @override
   void dispose() {
     _saveSuccessPulse.dispose();

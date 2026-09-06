@@ -746,4 +746,7 @@ export const dict_en: Record<string, string> = {
   'trajectory.structured.showAll': 'Show full content',
   'trajectory.structured.fullContent': 'Full content',
   'trajectory.structured.fullHint': '{count} characters · scroll and copy',
+  'trajectory.structured.fullLoading': 'Loading full content…',
+  'trajectory.structured.fullRecovered': 'Restored from the current workflow · {count} characters · scroll and copy',
+  'trajectory.structured.fullTruncated': 'Stored record was truncated · {count} characters saved',
 };

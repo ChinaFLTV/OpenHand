@@ -2,16 +2,18 @@ import type { JSX } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   getResourceUsage,
+  getResourceUsagePayload,
   type ResourceUsageKind,
   type ResourceUsageLevel,
   type ResourceUsageLevelSnapshot,
   type ResourceUsageEvent,
+  type ResourceUsagePayloadField,
   type ResourceUsageResourceSnapshot,
   type ResourceUsageSnapshot,
 } from '../api/toolbox';
 import { useAsyncPolling } from '../hooks/useAsyncPolling';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { t } from '../i18n';
+import { t, tFmt } from '../i18n';
 import { formatDurationMs, formatLocalDateTimeSecond } from '../shared/util/date_time';
 import { clampNumber } from '../shared/util/number';
 import { describeApiError } from '../utils/api_error';
@@ -684,6 +686,7 @@ function RecentEvents({ events, labels }: { events: ResourceUsageEvent[]; labels
               <StructuredJsonView
                 label={t('resourceUsage.arguments', '参数')}
                 text={event.arguments_summary}
+                loadFullText={() => loadUsageEventPayload(event.event_id, 'arguments')}
               />
             ) : null}
             {event.error_summary
@@ -699,6 +702,7 @@ function RecentEvents({ events, labels }: { events: ResourceUsageEvent[]; labels
                   <StructuredJsonView
                     label={t('resourceUsage.result', '结果')}
                     text={event.result_summary}
+                    loadFullText={() => loadUsageEventPayload(event.event_id, 'result')}
                   />
                 )
                 : null}
@@ -706,6 +710,7 @@ function RecentEvents({ events, labels }: { events: ResourceUsageEvent[]; labels
               <StructuredJsonView
                 label={t('resourceUsage.metadata', '元数据')}
                 text={event.metadata_json ?? ''}
+                loadFullText={() => loadUsageEventPayload(event.event_id, 'metadata')}
               />
             ) : null}
           </article>
@@ -713,6 +718,40 @@ function RecentEvents({ events, labels }: { events: ResourceUsageEvent[]; labels
       })}
     </div>
   );
+}
+
+async function loadUsageEventPayload(
+  eventId: string,
+  field: ResourceUsagePayloadField,
+): Promise<{ text: string; hint?: string }> {
+  try {
+    const payload = await getResourceUsagePayload(eventId, field);
+    const text = payload.text?.trim() ? payload.text : '';
+    const count = text.trim().length;
+    if (payload.origin === 'recovered') {
+      return {
+        text,
+        hint: tFmt(
+          'trajectory.structured.fullRecovered',
+          { count },
+          `Restored from the current workflow · ${count} characters · scroll and copy`,
+        ),
+      };
+    }
+    if (payload.origin === 'truncated') {
+      return {
+        text,
+        hint: tFmt(
+          'trajectory.structured.fullTruncated',
+          { count },
+          `Stored record was truncated · ${count} characters saved`,
+        ),
+      };
+    }
+    return { text };
+  } catch {
+    return { text: '' };
+  }
 }
 
 function hasUsageMetadata(value: string | undefined): boolean {

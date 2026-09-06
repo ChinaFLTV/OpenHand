@@ -3,14 +3,18 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/date_time_format.dart';
+import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/sensitive_data.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
@@ -58,8 +62,8 @@ enum AiResourceUsagePeriod {
   DateTime now,
 ) {
   return switch (period) {
-    AiResourceUsagePeriod.session || AiResourceUsagePeriod.day =>
-      rollingCalendarDateWindow(now),
+    AiResourceUsagePeriod.session ||
+    AiResourceUsagePeriod.day => rollingCalendarDateWindow(now),
     AiResourceUsagePeriod.week => rollingCalendarDateWindow(
       now,
       daysInclusive: kRollingUsageWeekDays,
@@ -165,6 +169,9 @@ final class AiResourceUsageEvent {
     required this.errorSummary,
     required this.source,
     this.metadataJson = '{}',
+    this.argumentsFullPath = '',
+    this.resultFullPath = '',
+    this.metadataFullPath = '',
   });
 
   final String eventId;
@@ -182,6 +189,9 @@ final class AiResourceUsageEvent {
   final String errorSummary;
   final String source;
   final String metadataJson;
+  final String argumentsFullPath;
+  final String resultFullPath;
+  final String metadataFullPath;
 
   bool get succeeded => status == 'success';
 
@@ -202,8 +212,19 @@ final class AiResourceUsageEvent {
     'error_summary': errorSummary,
     'source': source,
     'metadata_json': metadataJson,
+    if (argumentsFullPath.isNotEmpty)
+      kAiResourceUsageArgumentsFullPathKey: argumentsFullPath,
+    if (resultFullPath.isNotEmpty)
+      kAiResourceUsageResultFullPathKey: resultFullPath,
+    if (metadataFullPath.isNotEmpty)
+      kAiResourceUsageMetadataFullPathKey: metadataFullPath,
   };
 }
+
+const String kAiResourceUsageArgumentsFullPathKey = 'arguments_full_path';
+const String kAiResourceUsageResultFullPathKey = 'result_full_path';
+const String kAiResourceUsageMetadataFullPathKey = 'metadata_full_path';
+const int kAiResourceUsagePersistedPayloadMaxBytes = 4 * kBytesPerMiB;
 
 final class AiResourceUsageLevelSnapshot {
   const AiResourceUsageLevelSnapshot({
@@ -348,6 +369,13 @@ final class AiToolUsagePromotionStore {
   static const int _maxSummaryLength = 32 * kBytesPerKiB;
   static const int _maxErrorSummaryLength = 480;
   static const int _maxMetadataLength = 16 * kBytesPerKiB;
+  static const int _maxPersistedPayloadChars =
+      kAiResourceUsagePersistedPayloadMaxBytes;
+  static const int _maxPayloadPathLength = 4096;
+  static const int _maxPayloadDirectoryEntries = 2048;
+  static const int _maxPayloadRedactDepth = 64;
+  static const int _maxPayloadRedactNodes = 20000;
+  static const String _payloadDirectoryName = 'resource_usage_payloads';
   static const int _periodTrimBatchSize = 8;
   static const List<String> _nestedSessionMarkers = <String>[
     '::parallel-',
@@ -414,6 +442,31 @@ final class AiToolUsagePromotionStore {
       return List<AiResourceUsageEvent>.unmodifiable(events);
     }
     return List<AiResourceUsageEvent>.unmodifiable(events.take(boundedLimit));
+  }
+
+  AiResourceUsageEvent? eventById(String eventId) {
+    final normalized = eventId.trim();
+    if (normalized.isEmpty) return null;
+    for (final event in _recentEvents) {
+      if (event.eventId == normalized) return event;
+    }
+    return null;
+  }
+
+  Future<String?> readPersistedPayload(String path) async {
+    final allowed = _validPayloadPath(path);
+    if (allowed.isEmpty) return null;
+    try {
+      if (!await isRegularFilePath(allowed, followLinks: true)) return null;
+      final text = await readBoundedFileString(
+        File(allowed),
+        maxBytes: _maxPersistedPayloadChars,
+      );
+      return text.trim().isEmpty ? null : text;
+    } catch (error, stack) {
+      silentLog('ai_tool_usage_promotion_store', '读取完整调用载荷', error, stack);
+      return null;
+    }
   }
 
   Future<void> initialize() {
@@ -526,14 +579,14 @@ final class AiToolUsagePromotionStore {
       toolName: logicalToolId,
       status: usageStatus,
       durationMs: result.durationMs,
-      argumentsSummary: _summarizeArguments(toolCall.arguments),
-      resultSummary: _boundedSummary(result.resultText, _maxSummaryLength),
+      argumentsSummary: toolCall.arguments,
+      resultSummary: result.resultText,
       errorSummary: _boundedSummary(result.stderr, _maxErrorSummaryLength),
       source: usageSource.isEmpty
           ? (resolvedTool?.source.name ?? 'unknown')
           : usageSource,
       metadataJson: isWorkflowInvocation
-          ? _encodeMetadata(resultMetadata)
+          ? _rawMetadataJson(resultMetadata)
           : '{}',
     );
   }
@@ -621,6 +674,33 @@ final class AiToolUsagePromotionStore {
       final normalizedToolCallId = _validIdentifier(toolCallId) ?? '';
       final normalizedToolName = _validIdentifier(toolName) ?? '';
       final normalizedSource = _validIdentifier(source) ?? 'runtime';
+      final argumentsPreview = _summarizeArguments(argumentsSummary);
+      final resultPreview = _boundedSummary(resultSummary, _maxSummaryLength);
+      final metadataPreview = _previewMetadata(metadataJson);
+      final argumentsPath = await _persistOverflowPayload(
+        sessionId: normalizedSessionId,
+        toolCallId: normalizedToolCallId,
+        occurredAt: now,
+        field: 'arguments',
+        previewLimit: _maxSummaryLength,
+        raw: argumentsSummary,
+      );
+      final resultPath = await _persistOverflowPayload(
+        sessionId: normalizedSessionId,
+        toolCallId: normalizedToolCallId,
+        occurredAt: now,
+        field: 'result',
+        previewLimit: _maxSummaryLength,
+        raw: resultSummary,
+      );
+      final metadataPath = await _persistOverflowPayload(
+        sessionId: normalizedSessionId,
+        toolCallId: normalizedToolCallId,
+        occurredAt: now,
+        field: 'metadata',
+        previewLimit: _maxMetadataLength,
+        raw: metadataJson,
+      );
       var session = _sessions[normalizedSessionId];
       if (session == null) {
         _evictOldestSessionIfNeeded();
@@ -668,17 +748,17 @@ final class AiToolUsagePromotionStore {
               occurredAt: now.toUtc(),
               status: normalizedStatus,
               durationMs: normalizedDurationMs,
-              argumentsSummary: _boundedSummary(
-                argumentsSummary,
-                _maxSummaryLength,
-              ),
-              resultSummary: _boundedSummary(resultSummary, _maxSummaryLength),
+              argumentsSummary: argumentsPreview,
+              resultSummary: resultPreview,
               errorSummary: _boundedSummary(
                 errorSummary,
                 _maxErrorSummaryLength,
               ),
               source: normalizedSource,
-              metadataJson: _boundedSummary(metadataJson, _maxMetadataLength),
+              metadataJson: metadataPreview,
+              argumentsFullPath: argumentsPath,
+              resultFullPath: resultPath,
+              metadataFullPath: metadataPath,
             ),
           );
         }
@@ -785,9 +865,7 @@ final class AiToolUsagePromotionStore {
     required List<AiResourceUsageTrendPoint> trend,
     required bool Function(AiResourceUsageEvent event) includeEvent,
   }) {
-    final events = _recentEvents
-        .where(includeEvent)
-        .toList(growable: false);
+    final events = _recentEvents.where(includeEvent).toList(growable: false);
     final visibleEvents = events.length <= _maxRecentEventsPerLevel
         ? events.reversed.toList(growable: false)
         : events
@@ -1012,6 +1090,15 @@ final class AiToolUsagePromotionStore {
           metadataJson: _boundedSummary(
             '${raw['metadata_json'] ?? '{}'}',
             _maxMetadataLength,
+          ),
+          argumentsFullPath: _validPayloadPath(
+            '${raw[kAiResourceUsageArgumentsFullPathKey] ?? ''}',
+          ),
+          resultFullPath: _validPayloadPath(
+            '${raw[kAiResourceUsageResultFullPathKey] ?? ''}',
+          ),
+          metadataFullPath: _validPayloadPath(
+            '${raw[kAiResourceUsageMetadataFullPathKey] ?? ''}',
           ),
         ),
       );
@@ -1313,6 +1400,7 @@ final class AiToolUsagePromotionStore {
       }
       await writeFileAtomically(_file, content);
       _dirty = false;
+      await _pruneUnreferencedPayloadsLocked();
     } finally {
       if (pruned && !_shuttingDown) _revision.value += 1;
     }
@@ -1373,6 +1461,126 @@ final class AiToolUsagePromotionStore {
     return normalized.isEmpty ? 'success' : normalized;
   }
 
+  static String _rawMetadataJson(Map<String, Object?> metadata) {
+    try {
+      return jsonEncode(metadata);
+    } catch (_) {
+      return '{}';
+    }
+  }
+
+  static String _previewMetadata(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '{}';
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is Map) {
+        return _encodeMetadata(<String, Object?>{
+          for (final entry in decoded.entries) '${entry.key}': entry.value,
+        });
+      }
+    } catch (_) {}
+    return _boundedSummary(trimmed, _maxMetadataLength);
+  }
+
+  Future<String> _persistOverflowPayload({
+    required String sessionId,
+    required String toolCallId,
+    required DateTime occurredAt,
+    required String field,
+    required int previewLimit,
+    required String raw,
+  }) async {
+    final redacted = _redactSensitiveText(raw);
+    if (redacted.isEmpty || redacted.length <= previewLimit) return '';
+    final full = clipTextByCodeUnits(
+      _prettyOrRawJson(_redactSecretsInDecoded(redacted)),
+      _maxPersistedPayloadChars,
+      suffix: '…',
+    );
+    final fileName = sanitizePortableFileNamePart(
+      '${sessionId}_${toolCallId.isEmpty ? occurredAt.toUtc().microsecondsSinceEpoch : toolCallId}_$field.txt',
+      fallback: '${field}_payload.txt',
+      maxCharacters: 180,
+    );
+    try {
+      final directory = await createDirectoryBounded(
+        Directory(_payloadDirectoryPath()),
+      );
+      final file = File(p.join(directory.path, fileName));
+      if (!isPathWithinOrEqual(_payloadDirectoryPath(), file.path)) return '';
+      await writeFileAtomically(file, full);
+      return file.path;
+    } catch (error, stack) {
+      silentLog('ai_tool_usage_promotion_store', '持久化完整调用载荷', error, stack);
+      return '';
+    }
+  }
+
+  String _payloadDirectoryPath() {
+    return p.join(p.dirname(_file.path), _payloadDirectoryName);
+  }
+
+  String _validPayloadPath(String raw) {
+    final path = raw.trim();
+    if (path.isEmpty ||
+        path.length > _maxPayloadPathLength ||
+        path.contains('\u0000')) {
+      return '';
+    }
+    final normalized = p.normalize(path);
+    if (!p.isAbsolute(normalized)) return '';
+    if (isPathWithinOrEqual(_payloadDirectoryPath(), normalized)) {
+      return normalized;
+    }
+    if (isPathWithinOrEqual(
+          OpenHandPaths.defaultSessionsDirectoryPath(),
+          normalized,
+        ) &&
+        p.split(normalized).contains('tool_results')) {
+      return normalized;
+    }
+    return '';
+  }
+
+  Future<void> _pruneUnreferencedPayloadsLocked() async {
+    final directory = Directory(_payloadDirectoryPath());
+    try {
+      if (!await directory.exists().timeout(
+        defaultBoundedDirectoryIdleTimeout,
+      )) {
+        return;
+      }
+      final referenced = <String>{
+        for (final event in _recentEvents) ...<String>[
+          if (event.argumentsFullPath.isNotEmpty)
+            p.normalize(event.argumentsFullPath),
+          if (event.resultFullPath.isNotEmpty)
+            p.normalize(event.resultFullPath),
+          if (event.metadataFullPath.isNotEmpty)
+            p.normalize(event.metadataFullPath),
+        ],
+      };
+      final listing = await listDirectoryBounded(
+        directory,
+        maxEntries: _maxPayloadDirectoryEntries,
+      );
+      for (final entity in listing.entries) {
+        if (entity is! File) continue;
+        final path = p.normalize(entity.path);
+        if (referenced.contains(path)) continue;
+        if (!isPathWithinOrEqual(_payloadDirectoryPath(), path)) continue;
+        try {
+          await entity.delete().timeout(defaultBoundedDirectoryIdleTimeout);
+        } catch (error, stack) {
+          silentLog('ai_tool_usage_promotion_store', '清理完整调用载荷', error, stack);
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_tool_usage_promotion_store', '扫描完整调用载荷', error, stack);
+    }
+  }
+
   static String _summarizeArguments(String arguments) {
     final normalized = arguments.trim();
     if (normalized.isEmpty) return '';
@@ -1419,7 +1627,15 @@ final class AiToolUsagePromotionStore {
   }
 
   static String _boundedSummary(String value, int limit) {
-    final normalized = value
+    final normalized = _redactSensitiveText(value)
+        .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
+        .replaceAll(RegExp(' {2,}'), ' ')
+        .trim();
+    return clipTextByCodeUnits(normalized, limit, suffix: '…');
+  }
+
+  static String _redactSensitiveText(String value) {
+    return value
         .replaceAllMapped(
           _sensitiveValuePattern,
           (match) => '${match.group(1) ?? ''}[已脱敏]',
@@ -1427,11 +1643,57 @@ final class AiToolUsagePromotionStore {
         .replaceAllMapped(
           _bearerTokenPattern,
           (match) => '${match.group(1) ?? ''}[已脱敏]',
-        )
-        .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
-        .replaceAll(RegExp(' {2,}'), ' ')
-        .trim();
-    return clipTextByCodeUnits(normalized, limit, suffix: '…');
+        );
+  }
+
+  static String _prettyOrRawJson(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length < 2 ||
+        !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
+            !(trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      return value;
+    }
+    try {
+      return const JsonEncoder.withIndent('  ').convert(jsonDecode(trimmed));
+    } catch (_) {
+      return value;
+    }
+  }
+
+  static String _redactSecretsInDecoded(String value) {
+    try {
+      final decoded = jsonDecode(value);
+      return jsonEncode(_redactSecretsOnly(decoded));
+    } catch (_) {
+      return value;
+    }
+  }
+
+  static Object? _redactSecretsOnly(
+    Object? value, [
+    int depth = 0,
+    List<int>? nodes,
+  ]) {
+    final visited = nodes ?? <int>[0];
+    if (depth >= _maxPayloadRedactDepth ||
+        visited[0] >= _maxPayloadRedactNodes) {
+      return '…';
+    }
+    visited[0] += 1;
+    if (value is Map) {
+      return <String, Object?>{
+        for (final entry in value.entries)
+          '${entry.key}': isSensitiveDataKey('${entry.key}')
+              ? kOpenHandRedactedValue
+              : _redactSecretsOnly(entry.value, depth + 1, visited),
+      };
+    }
+    if (value is Iterable) {
+      return value
+          .map((item) => _redactSecretsOnly(item, depth + 1, visited))
+          .toList(growable: false);
+    }
+    return value;
   }
 
   static final RegExp _sensitiveKeyPattern = RegExp(

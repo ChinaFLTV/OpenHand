@@ -745,4 +745,7 @@ export const dict_zh: Record<string, string> = {
   'trajectory.structured.showAll': '显示全部内容',
   'trajectory.structured.fullContent': '完整内容',
   'trajectory.structured.fullHint': '共 {count} 字符 · 可滚动阅读与复制',
+  'trajectory.structured.fullLoading': '正在展开完整内容…',
+  'trajectory.structured.fullRecovered': '已从当前工作流恢复完整内容 · 共 {count} 字符 · 可滚动阅读与复制',
+  'trajectory.structured.fullTruncated': '记录写入时已被截断，仅能显示已保存片段 · 共 {count} 字符',
 };

@@ -28,12 +28,14 @@ export function StructuredJsonView({
   error = false,
   label,
   enableFullView = true,
+  loadFullText,
 }: {
   text: string;
   empty?: string;
   error?: boolean;
   label?: string;
   enableFullView?: boolean;
+  loadFullText?: () => Promise<{ text: string; hint?: string }>;
 }) {
   const document = useMemo(() => parseStructuredJsonDocument(text), [text]);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => initialExpandedPaths(document));
@@ -122,6 +124,7 @@ export function StructuredJsonView({
           text={text}
           label={label}
           error={error}
+          loadFullText={loadFullText}
           onClose={() => setFullOpen(false)}
         />
       ) : null}
@@ -170,16 +173,46 @@ function StructuredJsonFullDialog({
   text,
   label,
   error = false,
+  loadFullText,
   onClose,
 }: {
   text: string;
   label?: string;
   error?: boolean;
+  loadFullText?: () => Promise<{ text: string; hint?: string }>;
   onClose: () => void;
 }) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
-  const pretty = tryPrettyJsonText(text) ?? text;
+  const [body, setBody] = useState(text);
+  const [hint, setHint] = useState<string | undefined>();
+  const [loading, setLoading] = useState(Boolean(loadFullText));
+  useEffect(() => {
+    if (!loadFullText) return;
+    let cancelled = false;
+    const failSafe = window.setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 12_000);
+    void loadFullText()
+      .then((loaded) => {
+        if (cancelled) return;
+        setBody(loaded.text.trim() ? loaded.text : text);
+        setHint(loaded.hint?.trim() || undefined);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      })
+      .finally(() => window.clearTimeout(failSafe));
+    return () => {
+      cancelled = true;
+      window.clearTimeout(failSafe);
+    };
+  }, []);
+  const pretty = tryPrettyJsonText(body) ?? body;
   const title = label?.trim() || t('trajectory.structured.fullContent', '完整内容');
+  const subtitle = loading
+    ? t('trajectory.structured.fullLoading', '正在展开完整内容…')
+    : (hint || tFmt('trajectory.structured.fullHint', { count: body.trim().length }, `${body.trim().length} characters · scroll and copy`));
   return (
     <DialogFrame
       closing={closing}
@@ -203,12 +236,13 @@ function StructuredJsonFullDialog({
         <span class="oh-json-full-head-icon" aria-hidden="true">{'{}'}</span>
         <div class="min-w-0 flex-1">
           <h2>{title}</h2>
-          <p>{tFmt('trajectory.structured.fullHint', { count: text.trim().length }, `${text.trim().length} characters · scroll and copy`)}</p>
+          <p>{subtitle}</p>
         </div>
         <button type="button" class="oh-json-full-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
           <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
         </button>
       </header>
+      {loading ? <div class="oh-json-full-loading" aria-hidden="true" /> : null}
       <div class="oh-json-full-body oh-overlay-scroll">
         <StructuredJsonView text={pretty} error={error} label={label} enableFullView={false} />
       </div>

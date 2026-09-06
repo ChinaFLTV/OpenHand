@@ -744,4 +744,7 @@ export const dict_zhHant: Record<string, string> = {
   'trajectory.structured.showAll': '顯示全部內容',
   'trajectory.structured.fullContent': '完整內容',
   'trajectory.structured.fullHint': '共 {count} 字元 · 可捲動閱讀與複製',
+  'trajectory.structured.fullLoading': '正在展開完整內容…',
+  'trajectory.structured.fullRecovered': '已從目前工作流程恢復完整內容 · 共 {count} 字元 · 可捲動閱讀與複製',
+  'trajectory.structured.fullTruncated': '記錄寫入時已被截斷，僅能顯示已儲存片段 · 共 {count} 字元',
 };

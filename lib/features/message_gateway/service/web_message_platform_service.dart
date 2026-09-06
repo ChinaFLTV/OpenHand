@@ -57,6 +57,7 @@ import '../../memory/index.dart';
 import '../../plugin_service/index.dart';
 import '../../skills/index.dart';
 import '../../thread_template_runtime/index.dart';
+import '../../workflows/index.dart';
 import '../data/web_gateway_ops_store.dart';
 import '../message_gateway_dependencies.dart';
 import '../message_gateway_errors.dart';
@@ -2629,6 +2630,11 @@ class WebMessagePlatformService {
       (shelf.Request r) => _withAuth(r, (req, _) => _resourceUsageHandler(req)),
     );
     router.get(
+      '/api/resource-usage/payload',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _resourceUsagePayloadHandler(req)),
+    );
+    router.get(
       '/api/knowledge/vector-distribution',
       (shelf.Request r) =>
           _withAuth(r, (req, _) => _knowledgeVectorDistributionHandler(req)),
@@ -3234,6 +3240,42 @@ class WebMessagePlatformService {
       preferredSessionId: request.url.queryParameters['session_id'],
     );
     return _json(HttpStatus.ok, snapshot.toJson());
+  }
+
+  Future<shelf.Response> _resourceUsagePayloadHandler(
+    shelf.Request request,
+  ) async {
+    final field = AiResourceUsagePayloadField.fromName(
+      request.url.queryParameters['field'],
+    );
+    final eventId = (request.url.queryParameters['event_id'] ?? '').trim();
+    if (field == null || eventId.isEmpty) {
+      return _errorJson(
+        HttpStatus.badRequest,
+        'resource_usage_payload_invalid',
+      );
+    }
+    final store = _sessionController.toolUsagePromotionStore;
+    await store.initialize();
+    final event = store.eventById(eventId);
+    if (event == null) {
+      return _errorJson(HttpStatus.notFound, 'resource_usage_event_missing');
+    }
+    final resolved = await AiResourceUsagePayloadResolver(
+      store: store,
+      loadWorkflowJson: _loadUsageWorkflowJson,
+    ).resolve(event: event, field: field);
+    return _json(HttpStatus.ok, resolved.toJson());
+  }
+
+  Future<String?> _loadUsageWorkflowJson(String key) async {
+    try {
+      final workflow = await WorkflowsStore().loadByIdOrName(key);
+      return workflow?.encodePretty();
+    } catch (error, stack) {
+      silentLog('web_message_platform_service', '恢复工作流完整内容', error, stack);
+      return null;
+    }
   }
 
   Future<shelf.Response> _knowledgeVectorDistributionHandler(
