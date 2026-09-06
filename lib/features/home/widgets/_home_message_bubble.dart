@@ -2432,7 +2432,7 @@ Future<void> _openAttachment(
   );
 }
 
-final RegExp _uriSchemePattern = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:');
+final RegExp _uriSchemePattern = RegExp('^[A-Za-z][A-Za-z0-9+.-]*:');
 final RegExp _windowsDrivePathPattern = RegExp(r'^[A-Za-z]:([\\/]|$)');
 
 Future<void> _openLocalPathWithSystemApp(
@@ -2853,9 +2853,10 @@ class _AdaptivePreviewDialogMetrics {
       contentHeight = fallbackContentSize.height * safeScale;
     }
 
-    final dialogWidth = (contentWidth + contentPadding * 2)
-        .clamp(minDialogWidth, maxDialogWidth)
-        .toDouble();
+    final dialogWidth = (contentWidth + contentPadding * 2).clamp(
+      minDialogWidth,
+      maxDialogWidth,
+    );
     return _AdaptivePreviewDialogMetrics(
       maxDialogWidth: maxDialogWidth,
       maxDialogHeight: maxDialogHeight,
@@ -2887,15 +2888,12 @@ class _AdaptivePreviewDialogMetrics {
       0.0,
       maxDialogHeight - chromeHeight - contentPadding * 2,
     );
-    final contentWidth = contentSize.width
-        .clamp(0.0, maxContentWidth)
-        .toDouble();
-    final contentHeight = contentSize.height
-        .clamp(0.0, maxContentHeight)
-        .toDouble();
-    final dialogWidth = (contentWidth + contentPadding * 2)
-        .clamp(minDialogWidth, maxDialogWidth)
-        .toDouble();
+    final contentWidth = contentSize.width.clamp(0.0, maxContentWidth);
+    final contentHeight = contentSize.height.clamp(0.0, maxContentHeight);
+    final dialogWidth = (contentWidth + contentPadding * 2).clamp(
+      minDialogWidth,
+      maxDialogWidth,
+    );
     return _AdaptivePreviewDialogMetrics(
       maxDialogWidth: maxDialogWidth,
       maxDialogHeight: maxDialogHeight,
@@ -3574,7 +3572,7 @@ class _GeneratedMediaLinkSyntax extends md.InlineSyntax {
     : super(_byGeneratedLabelPattern, caseSensitive: false);
 
   static const String _mediaExtensionAlternation =
-      r'mp4|webm|mov|m4v|mkv|mp3|wav|m4a|aac|ogg|opus|flac';
+      'mp4|webm|mov|m4v|mkv|mp3|wav|m4a|aac|ogg|opus|flac';
   static const String _byExtensionPattern =
       r'\[([^\]\n]{0,240})\]\(([^)\s]*\.(?:' +
       _mediaExtensionAlternation +

@@ -7,16 +7,16 @@ final RegExp _tildeFencePattern = RegExp(r'^\s*~~~', multiLine: true);
 final RegExp _pendingChineseActionPattern = RegExp(
   r'(?:^|[。！？!?\n])\s*'
   r'(?:(?:我|让我|这就|现在|马上|立即|接下来|下面|然后|重新|继续|再|正在)[^。！？!?\n]{0,32})?'
-  r'(?:重试|再试|尝试|调用|执行|查询|搜索|获取|读取|检查|验证|处理|生成|继续)'
+  '(?:重试|再试|尝试|调用|执行|查询|搜索|获取|读取|检查|验证|处理|生成|继续)'
   r'(?:一下|一次|中)?\s*(?:[。！!]|…+|\.{3})?$',
 );
 final RegExp _pendingEnglishActionPattern = RegExp(
   r'(?:^|[.!?\n])\s*'
-  r'(?:'
+  '(?:'
   r'(?:let me|i(?:\x27ll| will)|now|next)\s+[^.!?\n]{0,64}'
-  r'(?:retry|try|call|run|query|search|fetch|read|check|verify|continue|generate)'
+  '(?:retry|try|call|run|query|search|fetch|read|check|verify|continue|generate)'
   r'(?:\s+(?:again|now|once))?'
-  r'|(?:retrying|continuing|trying|calling|running|querying|searching|fetching|reading|checking|verifying|generating)'
+  '|(?:retrying|continuing|trying|calling|running|querying|searching|fetching|reading|checking|verifying|generating)'
   r'(?:\s+(?:again|now|once))?'
   r')\s*(?:[.!]|…+|\.{3})?$',
   caseSensitive: false,

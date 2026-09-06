@@ -43,7 +43,7 @@ double openHandBoundedProgress(
   final (:lower, :upper) = _orderedFiniteAnimationBounds(min, max);
   if (value.isNaN) return lower;
   if (!value.isFinite) return value.isNegative ? lower : upper;
-  return value.clamp(lower, upper).toDouble();
+  return value.clamp(lower, upper);
 }
 
 ({double lower, double upper}) _orderedFiniteAnimationBounds(

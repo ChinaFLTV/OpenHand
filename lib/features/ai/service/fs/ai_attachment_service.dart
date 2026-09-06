@@ -63,7 +63,7 @@ class AiAttachmentService {
     r'[^\x20-\x7E\u4E00-\u9FFF\r\n\t]+',
   );
   static final RegExp _spreadsheetColumnRefPattern = RegExp(
-    r'([A-Z]+)',
+    '([A-Z]+)',
     caseSensitive: false,
   );
   int maxPdfRawBytes = 2 * kBytesPerMiB;

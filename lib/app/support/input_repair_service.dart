@@ -155,8 +155,8 @@ class SafeTextEditingController extends TextEditingController {
 
   static TextSelection _clampSelection(TextSelection s, int len) {
     if (!s.isValid) return s;
-    final base = s.baseOffset.clamp(0, len).toInt();
-    final extent = s.extentOffset.clamp(0, len).toInt();
+    final base = s.baseOffset.clamp(0, len);
+    final extent = s.extentOffset.clamp(0, len);
     if (base == s.baseOffset && extent == s.extentOffset) {
       return s;
     }
@@ -170,8 +170,8 @@ class SafeTextEditingController extends TextEditingController {
 
   static TextRange _clampRange(TextRange r, int len) {
     if (!r.isValid) return r;
-    final start = r.start.clamp(0, len).toInt();
-    final end = r.end.clamp(0, len).toInt();
+    final start = r.start.clamp(0, len);
+    final end = r.end.clamp(0, len);
     if (start == r.start && end == r.end) {
       return r;
     }

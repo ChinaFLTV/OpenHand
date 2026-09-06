@@ -1671,8 +1671,8 @@ class AiModelConfig {
                    protocolType != AiProtocolType.dots)) &&
            (explicitPromptCacheEnabled ?? true);
 
-  static final RegExp _reasoningModelIdSeparatorPattern = RegExp(r'[^a-z0-9]+');
-  static final RegExp _reasoningModelIdRepeatedDashPattern = RegExp(r'-+');
+  static final RegExp _reasoningModelIdSeparatorPattern = RegExp('[^a-z0-9]+');
+  static final RegExp _reasoningModelIdRepeatedDashPattern = RegExp('-+');
   static final RegExp _reasoningModelIdEdgeDashPattern = RegExp(r'^-|-$');
   static final RegExp _officialWebsiteWhitespacePattern = RegExp(r'\s');
   static const Set<String> _thinkingParameterNames = <String>{
@@ -2603,9 +2603,10 @@ class AiModelConfig {
     final visibleSuffix = trimmedToken.substring(
       trimmedToken.length - visibleSuffixLength,
     );
-    final maskLength = (trimmedToken.length - visibleSuffixLength)
-        .clamp(0, maxMaskLength)
-        .toInt();
+    final maskLength = (trimmedToken.length - visibleSuffixLength).clamp(
+      0,
+      maxMaskLength,
+    );
     return '${'*' * maskLength}$visibleSuffix';
   }
 

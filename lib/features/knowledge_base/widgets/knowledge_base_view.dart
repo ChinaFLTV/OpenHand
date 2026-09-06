@@ -243,7 +243,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
     final refreshButton = FilledButton.tonalIcon(
       onPressed: controller.loading || controller.busy
           ? null
-          : () => controller.initialize(),
+          : controller.initialize,
       icon: const Icon(Icons.refresh_rounded),
       label: Text(knowledgeRefreshLabel(context)),
     );

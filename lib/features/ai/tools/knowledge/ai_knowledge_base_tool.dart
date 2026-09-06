@@ -922,8 +922,8 @@ String _likePattern(String value) {
 }
 
 /// 归一化匹配用的模式常量。提到顶层复用，避免在打分热路径上反复编译。
-final RegExp _queryTokenPattern = RegExp(r'[A-Za-z0-9_]+|[一-鿿]+');
-final RegExp _cjkCharPattern = RegExp(r'[一-鿿]');
+final RegExp _queryTokenPattern = RegExp('[A-Za-z0-9_]+|[一-鿿]+');
+final RegExp _cjkCharPattern = RegExp('[一-鿿]');
 
 String _normalizeForMatch(String value) {
   return value.toLowerCase().replaceAll(kInlineWhitespacePattern, '');

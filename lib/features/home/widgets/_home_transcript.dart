@@ -540,9 +540,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       }
       final position = positions.single;
-      final target = position.maxScrollExtent
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble();
+      final target = position.maxScrollExtent.clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
       final distance = (target - position.pixels).abs();
       final extentChanged =
           previousMaxScrollExtent != null &&
@@ -617,16 +618,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
-        setState(() {
-          _materializeOpenWindow();
-        });
+        setState(_materializeOpenWindow);
       });
       unawaited(
         _awaitEndOfFrameBounded().then((_) {
           if (!mounted || _renderEntries.isNotEmpty) return;
-          setState(() {
-            _materializeOpenWindow();
-          });
+          setState(_materializeOpenWindow);
         }),
       );
     } else if (oldWidget.session.messages != widget.session.messages ||
@@ -2523,9 +2520,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     // 复用原函数的反向遍历逻辑，但传实际 visibleMessages 切片以保持
     // 语义不变（不会跨越 windowStart 之前的 hidden 消息）。
-    final clampedWindowStart = windowStart
-        .clamp(0, displayMessages.length)
-        .toInt();
+    final clampedWindowStart = windowStart.clamp(0, displayMessages.length);
     final visibleMessages = displayMessages.sublist(clampedWindowStart);
     final result = _resolvePendingCreationPlaceholder(
       session: session,

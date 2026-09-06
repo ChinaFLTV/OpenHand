@@ -302,21 +302,21 @@ class AiToolSearchTool extends AiTool {
       final stripped = name.substring(5).toLowerCase();
       final parts = stripped
           .split('__')
-          .expand((p) => p.split(RegExp(r'[_-]+')))
+          .expand((p) => p.split(RegExp('[_-]+')))
           .where((p) => p.isNotEmpty)
           .toList(growable: false);
       return _ParsedToolName(
         parts: parts,
-        full: stripped.replaceAll('__', ' ').replaceAll(RegExp(r'[_-]+'), ' '),
+        full: stripped.replaceAll('__', ' ').replaceAll(RegExp('[_-]+'), ' '),
         isMcp: true,
       );
     }
     final parts = name
         .replaceAllMapped(
-          RegExp(r'([a-z])([A-Z])'),
+          RegExp('([a-z])([A-Z])'),
           (m) => '${m.group(1)} ${m.group(2)}',
         )
-        .replaceAll(RegExp(r'[_-]+'), ' ')
+        .replaceAll(RegExp('[_-]+'), ' ')
         .toLowerCase()
         .split(kInlineWhitespacePattern)
         .where((p) => p.isNotEmpty)

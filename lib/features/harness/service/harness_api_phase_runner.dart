@@ -703,7 +703,7 @@ class HarnessApiPhaseRunner {
       AiDenyCommandRule(
         id: 'harness_readonly_phase',
         pattern:
-            r'^(rm|mv|cp|chmod|chown|ln|install|make|cmake|gradle|cargo|go build|npm run|yarn|pnpm|flutter build)',
+            '^(rm|mv|cp|chmod|chown|ln|install|make|cmake|gradle|cargo|go build|npm run|yarn|pnpm|flutter build)',
         matchMode: AiCommandMatchMode.regex,
         note: '当前阶段为只读阶段，不允许执行修改文件系统的命令。',
       ),

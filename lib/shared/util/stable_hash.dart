@@ -23,7 +23,7 @@ String stableFnv1a32Hex(String content) {
 
 String stableSha256Hex(String content, {int length = kStableSha256HexLength}) {
   final full = crypto.sha256.convert(utf8.encode(content)).toString();
-  final safeLength = length.clamp(1, full.length).toInt();
+  final safeLength = length.clamp(1, full.length);
   return full.substring(0, safeLength);
 }
 
@@ -130,7 +130,7 @@ final class _StableJsonEquality {
   bool _compareContainers(Object left, Object right, bool Function() compare) {
     final activeRights = _activePairs.putIfAbsent(
       left,
-      () => HashSet<Object>.identity(),
+      HashSet<Object>.identity,
     );
     if (!activeRights.add(right)) return true;
     try {

@@ -1759,7 +1759,7 @@ class AiModelProxyHttpServer {
       return (models: const <Map<String, Object?>>[], hasMore: false);
     }
     final pageSize = _queryInt(query['limit'], fallback: 100, max: 100);
-    final pageEnd = (start + pageSize).clamp(start, end).toInt();
+    final pageEnd = (start + pageSize).clamp(start, end);
     return (
       models: result
           .skip(start)
@@ -1795,7 +1795,7 @@ class AiModelProxyHttpServer {
       return (models: const <Map<String, Object?>>[], hasMore: false);
     }
     final limit = _queryInt(query['limit'], fallback: 20, max: 1000);
-    final pageEnd = (start + limit).clamp(start, end).toInt();
+    final pageEnd = (start + limit).clamp(start, end);
     return (
       models: result
           .skip(start)
@@ -1825,12 +1825,12 @@ class AiModelProxyHttpServer {
 
   static int _queryInt(String? raw, {required int fallback, required int max}) {
     final value = int.tryParse(_readString(raw));
-    return (value ?? fallback).clamp(1, max).toInt();
+    return (value ?? fallback).clamp(1, max);
   }
 
   static int _queryOffset(String? raw) {
     final value = int.tryParse(_readString(raw));
-    return (value ?? 0).clamp(0, 1 << 30).toInt();
+    return (value ?? 0).clamp(0, 1 << 30);
   }
 
   Map<String, Object?>? _findModelMetadata(String modelId) {
@@ -2267,8 +2267,8 @@ class AiModelProxyHttpServer {
         request.uri.queryParameters['api_key'] ??
         request.uri.queryParameters['x-goog-api-key'];
     if (queryKey != null && queryKey.trim().isNotEmpty) {
-      result.putIfAbsent('x-goog-api-key', () => queryKey.trim());
-      result.putIfAbsent('x-api-key', () => queryKey.trim());
+      result.putIfAbsent('x-goog-api-key', queryKey.trim);
+      result.putIfAbsent('x-api-key', queryKey.trim);
     }
     final connectionInfo = request.connectionInfo;
     result['x-client-ip'] = connectionInfo?.remoteAddress.address ?? '';

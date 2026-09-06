@@ -584,7 +584,7 @@ class AiModelProxyDispatcher {
 
   static int _configuredAttemptCount(AiModelProxySettings settings) {
     if (settings.retryPolicy == AiModelProxyRetryPolicy.failFast) return 1;
-    return settings.retryCount.clamp(1, 10).toInt() + 1;
+    return settings.retryCount.clamp(1, 10) + 1;
   }
 
   static bool _canFailover(
@@ -727,7 +727,7 @@ class AiModelProxyDispatcher {
         final maxOutput =
             model.profileFor(model.modelId).maxOutputLength ?? (1 << 20);
         model = model.copyWith(
-          maxTokens: rawMaxTokens.toInt().clamp(1, maxOutput).toInt(),
+          maxTokens: rawMaxTokens.toInt().clamp(1, maxOutput),
         );
       }
     }

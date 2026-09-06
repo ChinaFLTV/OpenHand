@@ -35,7 +35,7 @@ final RegExp _knowledgeHeadingPathSeparatorPattern = RegExp(r'[>/\\|]+');
 final RegExp _knowledgeStableFragmentSeparatorPattern = RegExp(
   r'[\r\n。！？!?；;]+',
 );
-final RegExp _knowledgeQuotedTitlePattern = RegExp(r'《([^》]{2,80})》');
+final RegExp _knowledgeQuotedTitlePattern = RegExp('《([^》]{2,80})》');
 final RegExp _knowledgeLineBreakPattern = RegExp(r'[\r\n]+');
 final RegExp _knowledgeMarkdownTableSeparatorPattern = RegExp(
   r'^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$',

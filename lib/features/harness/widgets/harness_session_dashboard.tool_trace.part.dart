@@ -79,7 +79,7 @@ class _HeApiToolCallMeta {
             part.substring('status:'.length).trim(),
           );
         } else if (part.endsWith('ms')) {
-          final digits = part.replaceAll(RegExp(r'[^0-9]'), '');
+          final digits = part.replaceAll(RegExp('[^0-9]'), '');
           durationMs = intFromValue(digits, fallback: 0);
         } else if (part.startsWith('exit:')) {
           exitCode = optionalIntFromValue(part.substring('exit:'.length));

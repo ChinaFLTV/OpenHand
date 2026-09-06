@@ -399,9 +399,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     final actions = FeaturePageToolbar(
       primaryActions: [
         FilledButton.tonalIcon(
-          onPressed: mcpSnapshot.isLoading
-              ? null
-              : () => mcpController.refresh(),
+          onPressed: mcpSnapshot.isLoading ? null : mcpController.refresh,
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.mcpRefresh),
         ),
@@ -2868,10 +2866,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     final snapshot = controller.opsSnapshot;
     final auditEntries = controller.opsAuditEntries;
     final config = _buildConfig();
-    final stats = _McpOpsDashboardStats.from(
-      snapshot: snapshot,
-      auditEntries: auditEntries,
-    );
+    final stats = _McpOpsDashboardStats.from(snapshot: snapshot);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -5176,7 +5171,6 @@ class _McpOpsDashboardStats {
 
   factory _McpOpsDashboardStats.from({
     required McpOpsRuntimeSnapshot snapshot,
-    required List<McpOpsAuditEntry> auditEntries,
   }) {
     // 流量序列按分钟汇总全部请求；审计仅覆盖工具调用和拦截，因此图表以流量序列为准。
     final series = snapshot.trafficSeries;
@@ -10446,9 +10440,10 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
       _scrollCorrectionScheduled = false;
       if (!mounted || !_scrollController.hasClients) return;
       final position = _scrollController.position;
-      final target = position.pixels
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble();
+      final target = position.pixels.clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
       if ((target - position.pixels).abs() < _mcpScrollCorrectionEpsilon) {
         return;
       }
@@ -13102,9 +13097,10 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
       ),
       Offset.zero & overlayBox.size,
     );
-    final minWidth = anchorBox.size.width
-        .clamp(_mcpToolDebugMenuMinWidth, _mcpToolDebugMenuMaxWidth)
-        .toDouble();
+    final minWidth = anchorBox.size.width.clamp(
+      _mcpToolDebugMenuMinWidth,
+      _mcpToolDebugMenuMaxWidth,
+    );
     final selectedToolId = _selectedTool?.id;
 
     setState(() {
@@ -17073,10 +17069,7 @@ class _McpOpsInsightDialog extends StatelessWidget {
       snapshot: snapshot,
       audit: audit,
       config: config,
-      stats: _McpOpsDashboardStats.from(
-        snapshot: snapshot,
-        auditEntries: audit,
-      ),
+      stats: _McpOpsDashboardStats.from(snapshot: snapshot),
       servers: controller.servers,
     );
     final cs = Theme.of(context).colorScheme;

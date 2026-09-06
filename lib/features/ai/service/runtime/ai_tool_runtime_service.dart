@@ -396,7 +396,7 @@ class AiToolRuntimeService {
            httpClient ?? SystemProxyResolver.instance.createHttpClient(),
        _ownsHttpClient = httpClient == null,
        _scraplingBridge = WebFetchScraplingBridge(),
-       _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
+       _hostLookup = hostLookup ?? (InternetAddress.lookup),
        _fileHistory = fileHistoryService ?? AiFileHistoryService(),
        _mutationLedger = mutationLedger ?? AiFileMutationLedger(),
        _machineTerminalService = machineTerminalService {
@@ -440,7 +440,7 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.workflowExecute,
       };
   static final RegExp _unsafeToolOutputStorageCharsPattern = RegExp(
-    r'[^A-Za-z0-9_.-]+',
+    '[^A-Za-z0-9_.-]+',
   );
   static final RegExp _cdpIdentityTokenPattern = RegExp(
     r'(^|[^a-z0-9])cdp([^a-z0-9]|$)',

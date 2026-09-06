@@ -26,9 +26,6 @@ Duration? scaledDurationWithinRange(
   final secondBound = max.inMilliseconds;
   final lowerBound = firstBound <= secondBound ? firstBound : secondBound;
   final upperBound = firstBound <= secondBound ? secondBound : firstBound;
-  final milliseconds = scaledMilliseconds
-      .round()
-      .clamp(lowerBound, upperBound)
-      .toInt();
+  final milliseconds = scaledMilliseconds.round().clamp(lowerBound, upperBound);
   return Duration(milliseconds: milliseconds);
 }

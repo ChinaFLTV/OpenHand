@@ -886,13 +886,13 @@ int clampedIntegralIntFromValue(
 }) {
   final parsed = optionalIntegralIntFromValue(value);
   final (:lower, :upper) = _orderedIntBounds(min, max);
-  final safeFallback = fallback.clamp(lower, upper).toInt();
+  final safeFallback = fallback.clamp(lower, upper);
   return clampIntToRange(parsed ?? safeFallback, min: lower, max: upper);
 }
 
 int clampIntToRange(int value, {required int min, required int max}) {
   final (:lower, :upper) = _orderedIntBounds(min, max);
-  return value.clamp(lower, upper).toInt();
+  return value.clamp(lower, upper);
 }
 
 class IntValueRange {
@@ -944,7 +944,7 @@ double clampDoubleToRange(
 }) {
   final (:lower, :upper) = _orderedDoubleBounds(min, max);
   final safeFallback = fallback != null && fallback.isFinite
-      ? fallback.clamp(lower, upper).toDouble()
+      ? fallback.clamp(lower, upper)
       : lower;
   if (!value.isFinite) {
     if (value.isInfinite) return value.isNegative ? lower : upper;
@@ -989,7 +989,7 @@ class DoubleValueRange {
 
 double clampUnitInterval(num value, {double fallback = kUnitIntervalMinimum}) {
   final safeFallback = fallback.isFinite
-      ? fallback.clamp(kUnitIntervalMinimum, kUnitIntervalMaximum).toDouble()
+      ? fallback.clamp(kUnitIntervalMinimum, kUnitIntervalMaximum)
       : kUnitIntervalMinimum;
   if (!value.isFinite) {
     if (value.isInfinite) {

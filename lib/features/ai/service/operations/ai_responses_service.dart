@@ -1307,7 +1307,7 @@ class AiResponsesService {
             optionalIntegralIntFromValue(toolCall['index']) ?? toolCalls.length;
         final entry = toolCalls.putIfAbsent(
           index,
-          () => AiResponsesStreamToolCall(),
+          AiResponsesStreamToolCall.new,
         );
         entry.id = optionalStringFromValue(toolCall['id']) ?? entry.id;
         final rawFunction = toolCall['function'];
@@ -1344,10 +1344,7 @@ class AiResponsesService {
     required bool replaceArguments,
   }) {
     if ('${item['type'] ?? ''}' != 'function_call') return;
-    final entry = toolCalls.putIfAbsent(
-      index,
-      () => AiResponsesStreamToolCall(),
-    );
+    final entry = toolCalls.putIfAbsent(index, AiResponsesStreamToolCall.new);
     entry.id =
         optionalStringFromValue(item['call_id']) ??
         optionalStringFromValue(item['id']) ??

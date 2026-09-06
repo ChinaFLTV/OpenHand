@@ -42,7 +42,7 @@ NativeAudioVisualMeta generatedMediaAudioVisualMeta({
       ? '生成音频'
       : leaf;
   final segments = normalizedLeaf
-      .split(RegExp(r'[-_]+'))
+      .split(RegExp('[-_]+'))
       .map((value) => value.trim())
       .where((value) => value.isNotEmpty)
       .toList(growable: false);

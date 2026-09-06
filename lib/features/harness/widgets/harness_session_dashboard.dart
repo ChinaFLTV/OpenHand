@@ -1952,9 +1952,10 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       }
 
       final position = _feedController.position;
-      final target = position.maxScrollExtent
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble();
+      final target = position.maxScrollExtent.clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
       final distance = (target - position.pixels).abs();
 
       void clearProgrammaticScrollFlag() {
@@ -2082,9 +2083,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
                     : Icons.play_arrow_rounded),
           primaryActionEnabled:
               !_isAwaitingManualPhaseInput || _canSubmitManualPhase,
-          onPrimaryAction: () {
-            _handlePrimaryComposerAction();
-          },
+          onPrimaryAction: _handlePrimaryComposerAction,
           isManualReviewPhase:
               _isAwaitingManualPhaseInput &&
               _awaitingManualPhase == HarnessPhase.reviewing,

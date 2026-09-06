@@ -389,15 +389,10 @@ class _WorkflowExportLayout {
     }
     final logicalWidth = math.max(360, contentWidth + _kExportPadding * 2);
     final logicalHeight = math.max(240, contentHeight + _kExportPadding * 2);
-    var scale = math
-        .min(
-          _kPreferredExportScale,
-          math.min(
-            _kMaxRasterSide / logicalWidth,
-            _kMaxRasterSide / logicalHeight,
-          ),
-        )
-        .toDouble();
+    var scale = math.min(
+      _kPreferredExportScale,
+      math.min(_kMaxRasterSide / logicalWidth, _kMaxRasterSide / logicalHeight),
+    );
     final pixels = logicalWidth * logicalHeight * scale * scale;
     if (pixels > _kMaxRasterPixels) {
       scale *= math.sqrt(_kMaxRasterPixels / pixels);
@@ -456,9 +451,10 @@ _ConnectionGeometry _connectionGeometry(
   final end = layout.position(
     Offset(target.x, target.y + targetSize.height / 2),
   );
-  final distance = math
-      .max(48 * layout.scale, (end.dx - start.dx).abs() * 0.46)
-      .toDouble();
+  final distance = math.max(
+    48 * layout.scale,
+    (end.dx - start.dx).abs() * 0.46,
+  );
   final delta = end - start;
   final magnitude = math.sqrt(delta.dx * delta.dx + delta.dy * delta.dy);
   final direction = magnitude > 0.0001

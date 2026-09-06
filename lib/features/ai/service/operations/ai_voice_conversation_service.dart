@@ -429,9 +429,10 @@ class AiVoiceConversationService extends ChangeNotifier {
     final previousMuted = _snapshot.speakerMuted;
     final player = _player;
     if (muted && player != null && player.state.volume > 0) {
-      _speechVolumeBeforeMute = player.state.volume
-          .clamp(0.0, _defaultSpeechVolume)
-          .toDouble();
+      _speechVolumeBeforeMute = player.state.volume.clamp(
+        0.0,
+        _defaultSpeechVolume,
+      );
     }
     _setSnapshot(_snapshot.copyWith(speakerMuted: muted));
     if (player == null) return;
@@ -1480,10 +1481,10 @@ class AiVoiceConversationService extends ChangeNotifier {
   String _cleanSpeechText(String source) {
     return source
         .replaceAll(RegExp(r'```[\s\S]*?```'), ' ')
-        .replaceAll(RegExp(r'`([^`]*)`'), r'$1')
+        .replaceAll(RegExp('`([^`]*)`'), r'$1')
         .replaceAll(RegExp(r'!\[[^\]]*\]\([^)]*\)'), ' ')
         .replaceAll(RegExp(r'\[([^\]]+)\]\([^)]*\)'), r'$1')
-        .replaceAll(RegExp(r'[#>*_~]+'), ' ')
+        .replaceAll(RegExp('[#>*_~]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }

@@ -295,7 +295,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
       }
       _drainTimer = startNonOverlappingPeriodicTimer(
         const Duration(milliseconds: 800),
-        (timer) => _drain(timer),
+        _drain,
       );
       setState(() {
         _recording = true;

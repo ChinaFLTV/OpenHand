@@ -2205,7 +2205,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             final liveQueue =
                 _queuedMessagesBySessionId[sessionId] ?? <_QueuedMessage>[];
             if (!liveQueue.any((item) => item.id == queuedMessage.id)) {
-              final insertAt = index.clamp(0, liveQueue.length).toInt();
+              final insertAt = index.clamp(0, liveQueue.length);
               liveQueue.insert(insertAt, queuedMessage);
               _queuedMessagesBySessionId[sessionId] = liveQueue;
             }
@@ -2246,7 +2246,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final liveQueue =
             _queuedMessagesBySessionId[sessionId] ?? <_QueuedMessage>[];
         if (!liveQueue.any((item) => item.id == queuedMessage.id)) {
-          final insertAt = index.clamp(0, liveQueue.length).toInt();
+          final insertAt = index.clamp(0, liveQueue.length);
           liveQueue.insert(insertAt, queuedMessage);
           _queuedMessagesBySessionId[sessionId] = liveQueue;
         }
@@ -5715,7 +5715,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   static final RegExp _legacyHeAutoModelRewritePattern = RegExp(
-    r'^ℹ 检测到旧模型标识 "([^"]+)"，已自动改用 ',
+    '^ℹ 检测到旧模型标识 "([^"]+)"，已自动改用 ',
   );
 
   HarnessSessionRecord _migrateLegacyHarnessAutoRewrittenModels(
@@ -6019,26 +6019,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         .tools,
                 },
                 codeRuntimes: workflowSystemCodeRuntimes(),
-                mcpToolInvoker:
-                    ({
-                      required serverName,
-                      required toolName,
-                      required arguments,
-                      required toolCallId,
-                      cancelSignal,
-                    }) async {
-                      final result = await mcpController.callTool(
-                        serverName: serverName,
-                        toolName: toolName,
-                        arguments: arguments,
-                        toolCallId: toolCallId,
-                        cancelSignal: cancelSignal,
-                      );
-                      return WorkflowMcpToolInvocationResult(
-                        output: result.outputText,
-                        isError: result.isError,
-                      );
-                    },
+                mcpToolInvoker: workflowMcpToolInvokerFor(mcpController),
                 cancellation: toolContext.cancelSignal == null
                     ? null
                     : WorkflowExecutionCancellationToken(),
@@ -8410,9 +8391,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _queuedForcedScrollToBottom = false;
       _pendingAnimatedScrollToBottom = false;
       final activePosition = positions.single;
-      final targetOffset = activePosition.maxScrollExtent
-          .clamp(activePosition.minScrollExtent, activePosition.maxScrollExtent)
-          .toDouble();
+      final targetOffset = activePosition.maxScrollExtent.clamp(
+        activePosition.minScrollExtent,
+        activePosition.maxScrollExtent,
+      );
       final distance = (targetOffset - activePosition.pixels).abs();
       void clearProgrammaticScrollFlag() {
         _endProgrammaticMessageScroll();
@@ -8474,9 +8456,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _scrollToBottomStableFrames = 0;
         return;
       }
-      final targetOffset = position.maxScrollExtent
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble();
+      final targetOffset = position.maxScrollExtent.clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
       final distance = (targetOffset - position.pixels).abs();
       _scrollToBottomSettleFramesRemaining = math.max(
         0,
@@ -8651,9 +8634,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 反向偏移 scroll position：composer 长高 → pixels +delta，让"上方"内容
     // 视觉上往上挪同等距离；反之自然下移填补空间。修正量必须限制在当前
     // 滚动范围内，避免越界后由弹道回拉造成可见的二次跳动。
-    final target = (position.pixels + delta)
-        .clamp(position.minScrollExtent, position.maxScrollExtent)
-        .toDouble();
+    final target = (position.pixels + delta).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
     final correction = target - position.pixels;
     if (correction.abs() <= 0.5) {
       return (compensated: false, grew: grew);
@@ -10129,8 +10113,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       .clamp(
                         _stackedNavigationMinHeight,
                         _stackedNavigationMaxHeight,
-                      )
-                      .toDouble();
+                      );
                   final navigationPane =
                       Selector<AiSessionController, _NavigationSessionSnapshot>(
                         selector: (_, sessionController) {

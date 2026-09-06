@@ -985,7 +985,7 @@ class AiImageGenerationService {
       final body = <String, Object?>{
         'model': modelId,
         'prompt': prompt,
-        'n': options.count.clamp(1, AiCreationOptions.maxCount).toInt(),
+        'n': options.count.clamp(1, AiCreationOptions.maxCount),
       };
       putIfNotBlank(body, 'aspect_ratio', options.aspectRatio);
       final resolution = optionalLowercaseStringFromValue(options.resolution);
@@ -1015,9 +1015,7 @@ class AiImageGenerationService {
       if (options.count > 1 && !_isSeedream5Pro(modelId)) {
         body['sequential_image_generation'] = 'auto';
         body['sequential_image_generation_options'] = <String, Object?>{
-          'max_images': options.count
-              .clamp(1, AiCreationOptions.maxCount)
-              .toInt(),
+          'max_images': options.count.clamp(1, AiCreationOptions.maxCount),
         };
       }
       return body;
@@ -1034,7 +1032,7 @@ class AiImageGenerationService {
         'model': modelId,
         'prompt': prompt,
         'response_format': responseFormat,
-        'n': options.count.clamp(1, 9).toInt(),
+        'n': options.count.clamp(1, 9),
         if (options.promptEnhance != null)
           'prompt_optimizer': options.promptEnhance,
         if (options.watermark != null) 'aigc_watermark': options.watermark,
@@ -1204,9 +1202,10 @@ class AiImageGenerationService {
           final body = <String, Object?>{'model': modelId, 'prompt': prompt};
           final duration = options.durationSeconds;
           if (duration != null) {
-            body['duration'] = duration
-                .clamp(_xaiVideoMinDurationSeconds, _xaiVideoMaxDurationSeconds)
-                .toInt();
+            body['duration'] = duration.clamp(
+              _xaiVideoMinDurationSeconds,
+              _xaiVideoMaxDurationSeconds,
+            );
           }
           putIfNotBlank(body, 'aspect_ratio', options.aspectRatio);
           putIfNotBlank(body, 'resolution', options.resolution);
@@ -1429,7 +1428,7 @@ class AiImageGenerationService {
 
   int _agnesFrameRate(int? value) {
     if (value == null || value <= 0) return 24;
-    return value.clamp(1, 60).toInt();
+    return value.clamp(1, 60);
   }
 
   _PixelSize _agnesVideoSizeFromAspectRatio(

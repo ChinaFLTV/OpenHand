@@ -166,7 +166,7 @@ class PluginScannerService {
   static final RegExp _nodeVersionOutputPattern = RegExp(r'v(\d+\.\d+\.\d+)');
   static final RegExp _strictNodeVersionPattern = RegExp(r'^v\d+\.\d+\.\d+$');
   static final RegExp _pyenvVersionPathPattern = RegExp(
-    r'/.pyenv/versions/([^/]+)/',
+    '/.pyenv/versions/([^/]+)/',
   );
   static final RegExp _brewPythonFormulaPathPattern = RegExp(
     r'/(python(?:@[\d.]+)?)(?:/|$)',

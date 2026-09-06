@@ -818,7 +818,7 @@ class AiBashBackgroundTool extends AiTool {
 
   int _normalizeReadBytes(int? value) {
     final raw = value ?? _defaultReadBytes;
-    return raw.clamp(0, _maxBufferBytes).toInt();
+    return raw.clamp(0, _maxBufferBytes);
   }
 
   String _handleFromArgs(Map<String, Object?> args) {
@@ -835,7 +835,7 @@ class AiBashBackgroundTool extends AiTool {
 
   int _normalizeTaskOutputTimeoutMs(int? value) {
     final raw = value ?? _defaultTaskOutputTimeoutMs;
-    return raw.clamp(0, _maxTaskOutputTimeoutMs).toInt();
+    return raw.clamp(0, _maxTaskOutputTimeoutMs);
   }
 
   Future<bool> _waitForSessionExit(

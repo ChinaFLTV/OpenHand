@@ -20,9 +20,10 @@ retryCompressionWindowAfterPromptTooLong(
     return null;
   }
   final dropRatio =
-      _compressionPromptTooLongDropRatios[attempt
-          .clamp(0, _compressionPromptTooLongDropRatios.length - 1)
-          .toInt()];
+      _compressionPromptTooLongDropRatios[attempt.clamp(
+        0,
+        _compressionPromptTooLongDropRatios.length - 1,
+      )];
   final groups = _buildCompressionMessageGroups(messages);
   if (groups.length > 1) {
     final dropGroupCount = math.min(

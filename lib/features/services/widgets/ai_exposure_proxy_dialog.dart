@@ -375,9 +375,10 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                                   constraints.hasBoundedHeight
                                   ? constraints.maxHeight
                                   : _kProxyEndpointListMaxHeight;
-                              final listHeight = availableHeight
-                                  .clamp(1.0, _kProxyEndpointListMaxHeight)
-                                  .toDouble();
+                              final listHeight = availableHeight.clamp(
+                                1.0,
+                                _kProxyEndpointListMaxHeight,
+                              );
                               return SizedBox(
                                 height: listHeight,
                                 child: Padding(

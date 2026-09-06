@@ -176,8 +176,8 @@ const BorderRadius _markdownCodeBlockRadius = BorderRadius.all(
 /// 执行过多任务；等待量超限时优先淘汰普通旧任务。
 class _FrameTaskScheduler {
   _FrameTaskScheduler({required int maxPerFrame, int maxPending = 2048})
-    : maxPerFrame = maxPerFrame.clamp(1, 64).toInt(),
-      maxPending = maxPending.clamp(1, 8192).toInt();
+    : maxPerFrame = maxPerFrame.clamp(1, 64),
+      maxPending = maxPending.clamp(1, 8192);
 
   final int maxPerFrame;
   final int maxPending;
@@ -373,9 +373,10 @@ Duration _effectiveSwitchDuration(
     DialogAnimationSettings.minAnimatedDurationMs,
     maximumAnimatedDurationMs,
   );
-  final clamped = duration.inMilliseconds
-      .clamp(DialogAnimationSettings.minAnimatedDurationMs, maximumDurationMs)
-      .toInt();
+  final clamped = duration.inMilliseconds.clamp(
+    DialogAnimationSettings.minAnimatedDurationMs,
+    maximumDurationMs,
+  );
   return Duration(milliseconds: math.max(clamped, minimumAnimatedDurationMs));
 }
 

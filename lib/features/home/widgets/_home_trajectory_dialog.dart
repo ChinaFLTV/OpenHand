@@ -753,8 +753,8 @@ _TrajectoryProjection _trajectoryProjection(
     boundaries.putIfAbsent(record.turn, () => start);
     spans.add(_TrajectorySpan(record: record, start: start, end: end));
     coveredUntil = coveredUntil == null
-        ? rawEnd.toDouble()
-        : math.max(coveredUntil, rawEnd.toDouble());
+        ? rawEnd
+        : math.max(coveredUntil, rawEnd);
   }
   final end = spans.fold<double>(1, (value, span) => math.max(value, span.end));
   return _TrajectoryProjection(
@@ -2201,7 +2201,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
     final fullEnd = math.max(fullStart + 1, projection.end);
     final start = (_viewportStart ?? fullStart).clamp(fullStart, fullEnd - 1);
     final end = (_viewportEnd ?? fullEnd).clamp(start + 1, fullEnd);
-    return (start.toDouble(), end.toDouble());
+    return (start, end);
   }
 
   double _valueAt(
@@ -2271,7 +2271,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
       final start = (_panDomainStart - delta).clamp(projection.start, maxStart);
       _panMoved = _panMoved || delta.abs() > duration * 0.003;
       setState(() {
-        _viewportStart = start.toDouble();
+        _viewportStart = start;
         _viewportEnd = start + duration;
       });
       return;
@@ -2363,7 +2363,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
         _viewportStart = null;
         _viewportEnd = null;
       } else {
-        _viewportStart = start.toDouble();
+        _viewportStart = start;
         _viewportEnd = start + nextDuration;
       }
     });

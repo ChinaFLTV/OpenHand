@@ -127,12 +127,12 @@ List<_RestrictedApiRule> _restrictedApiRules() => <_RestrictedApiRule>[
   _RestrictedApiRule(
     pattern: RegExp(
       r'\b(showDialog|showGeneralDialog|showAdaptiveDialog|showCupertinoDialog'
-      r'|showCupertinoModalPopup|showModalBottomSheet|showBottomSheet'
-      r'|showDatePicker|showDateRangePicker|showTimePicker|showAboutDialog'
+      '|showCupertinoModalPopup|showModalBottomSheet|showBottomSheet'
+      '|showDatePicker|showDateRangePicker|showTimePicker|showAboutDialog'
       r'|showLicensePage|showSearch|showMenu)\s*(?:<[^>\n]+>)?\s*\('
       r'|\b(DialogRoute|RawDialogRoute|CupertinoDialogRoute'
-      r'|ModalBottomSheetRoute|PopupMenuRoute|AlertDialog|SimpleDialog|Dialog'
-      r'|PopupMenuButton|DropdownButton|DropdownMenu|MenuAnchor|OverlayEntry)'
+      '|ModalBottomSheetRoute|PopupMenuRoute|AlertDialog|SimpleDialog|Dialog'
+      '|PopupMenuButton|DropdownButton|DropdownMenu|MenuAnchor|OverlayEntry)'
       r'\s*(?:<[^>\n]+>)?\s*\(',
     ),
     allowedRelativePaths: const <String>{

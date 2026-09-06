@@ -64,7 +64,7 @@ class _KeyTweakableSliderState extends State<KeyTweakableSlider> {
 
   int get _safeValue {
     final (:lower, :upper) = _bounds;
-    return widget.value.clamp(lower, upper).toInt();
+    return widget.value.clamp(lower, upper);
   }
 
   @override
@@ -89,7 +89,7 @@ class _KeyTweakableSliderState extends State<KeyTweakableSlider> {
     }
     final (:lower, :upper) = _bounds;
     final current = _safeValue;
-    final next = (current + delta).clamp(lower, upper).toInt();
+    final next = (current + delta).clamp(lower, upper);
     if (next == current) return KeyEventResult.handled;
     HapticFeedback.selectionClick();
     widget.onChanged(next);

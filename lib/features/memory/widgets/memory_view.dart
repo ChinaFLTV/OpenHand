@@ -65,9 +65,7 @@ class MemoryView extends StatelessWidget {
       spacing: 12,
       primaryActions: [
         FilledButton.tonalIcon(
-          onPressed: memorySnapshot.isLoading
-              ? null
-              : () => memoryController.refresh(),
+          onPressed: memorySnapshot.isLoading ? null : memoryController.refresh,
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.memoryRefresh),
         ),

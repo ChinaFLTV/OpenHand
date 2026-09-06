@@ -153,7 +153,7 @@ final RegExp _webGatewayWorkspaceExtensionSeparatorPattern = RegExp(
   r'[\n,;；]+',
 );
 final RegExp _webGatewayWorkspaceExtensionSafeCharsPattern = RegExp(
-  r'[^a-z0-9_+-]',
+  '[^a-z0-9_+-]',
 );
 
 bool webGatewayIsDenyAllSelection(List<String> values) {

@@ -10,7 +10,7 @@ const _skipDualCapabilityRerankJsonKey =
     'skip_model_rerank_when_embedding_supports_rerank';
 const int _maxKnowledgeBaseSettingsBytes = kBytesPerMiB;
 final RegExp _knowledgeCollectionNameUnsafeCharsPattern = RegExp(
-  r'[^a-zA-Z0-9_]+',
+  '[^a-zA-Z0-9_]+',
 );
 
 class KnowledgeBaseSettingRanges {

@@ -23,7 +23,7 @@ const double _composerActionControlHeight = 52;
 const double _composerPanelVerticalInset = 14;
 const double _composerOverlayViewportMargin = 8;
 const double _composerOverlayGap = 6;
-final RegExp _composerTriggerWindowsDrivePattern = RegExp(r'^[A-Za-z]:');
+final RegExp _composerTriggerWindowsDrivePattern = RegExp('^[A-Za-z]:');
 
 String _inputCacheModelLockReason(BuildContext context) {
   return openHandLocalizedText(
@@ -2390,12 +2390,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 height: 52,
                 child: FilledButton.icon(
                   onPressed: isQueueingAction
-                      ? () => _sendWithReferences()
+                      ? _sendWithReferences
                       : canStopSending && !hasUserTextOrAttachments
                       ? () => widget.onStop()
                       : isBusy || manualSendLockedByGoal
                       ? null
-                      : () => _sendWithReferences(),
+                      : _sendWithReferences,
                   icon: isQueueingAction
                       ? const Icon(Icons.queue_play_next_rounded)
                       : canStopSending && !hasUserTextOrAttachments
@@ -3902,11 +3902,9 @@ _ComposerOverlayLayout _resolveComposerOverlayLayout(
     overlaySize.width - _composerOverlayViewportMargin - maxWidth,
   );
   final horizontalOffset = alignRight
-      ? anchorRect.right
-                .clamp(minLeft + maxWidth, maxLeft + maxWidth)
-                .toDouble() -
+      ? anchorRect.right.clamp(minLeft + maxWidth, maxLeft + maxWidth) -
             anchorRect.right
-      : anchorRect.left.clamp(minLeft, maxLeft).toDouble() - anchorRect.left;
+      : anchorRect.left.clamp(minLeft, maxLeft) - anchorRect.left;
 
   return _ComposerOverlayLayout(
     targetAnchor: placeAbove

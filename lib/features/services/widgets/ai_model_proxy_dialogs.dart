@@ -1844,12 +1844,10 @@ class _MindMapConnectorPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final spineX = size.width / 2;
-    final source = sourceY.clamp(0.0, size.height).toDouble();
+    final source = sourceY.clamp(0.0, size.height);
     canvas.drawLine(Offset(0, source), Offset(spineX, source), paint);
     if (branchCount <= 0) {
-      final branchCenter = (branchCenterY ?? source)
-          .clamp(0.0, size.height)
-          .toDouble();
+      final branchCenter = (branchCenterY ?? source).clamp(0.0, size.height);
       canvas.drawLine(
         Offset(spineX, source),
         Offset(spineX, branchCenter),
@@ -1864,14 +1862,15 @@ class _MindMapConnectorPainter extends CustomPainter {
     }
     final firstCenter = branchTop + branchHeight / 2;
     final lastCenter = firstCenter + (branchCount - 1) * (branchHeight + gap);
-    final first = firstCenter.clamp(0.0, size.height).toDouble();
-    final last = lastCenter.clamp(0.0, size.height).toDouble();
+    final first = firstCenter.clamp(0.0, size.height);
+    final last = lastCenter.clamp(0.0, size.height);
     canvas.drawLine(Offset(spineX, source), Offset(spineX, first), paint);
     canvas.drawLine(Offset(spineX, first), Offset(spineX, last), paint);
     for (var index = 0; index < branchCount; index++) {
-      final y = (firstCenter + index * (branchHeight + gap))
-          .clamp(0.0, size.height)
-          .toDouble();
+      final y = (firstCenter + index * (branchHeight + gap)).clamp(
+        0.0,
+        size.height,
+      );
       canvas.drawLine(Offset(spineX, y), Offset(size.width, y), paint);
     }
   }
@@ -2390,13 +2389,13 @@ class _NumberStepperState extends State<_NumberStepper> {
   void _commit(String raw) {
     final parsed = int.tryParse(raw.trim());
     if (parsed == null) return;
-    final next = parsed.clamp(widget.min, widget.max).toInt();
+    final next = parsed.clamp(widget.min, widget.max);
     if (_controller.text != '$next') _setControllerValue(next);
     widget.onChanged(next);
   }
 
   void _changeBy(int delta) {
-    final next = (widget.value + delta).clamp(widget.min, widget.max).toInt();
+    final next = (widget.value + delta).clamp(widget.min, widget.max);
     _setControllerValue(next);
     widget.onChanged(next);
   }

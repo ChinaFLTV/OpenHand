@@ -134,9 +134,10 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
       ..clear()
       ..addAll(newActiveOrder);
     for (final exiting in exitingSlots) {
-      final index = (previousIndex[exiting] ?? _slots.length)
-          .clamp(0, _slots.length)
-          .toInt();
+      final index = (previousIndex[exiting] ?? _slots.length).clamp(
+        0,
+        _slots.length,
+      );
       _slots.insert(index, exiting);
     }
   }

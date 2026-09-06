@@ -135,12 +135,6 @@ export function createTimedAbortController(
   };
 }
 
-export function isOperationTimeoutError(
-  error: unknown,
-): error is OperationTimeoutError {
-  return error instanceof OperationTimeoutError;
-}
-
 export function isOperationAbortedError(
   error: unknown,
 ): error is OperationAbortedError {

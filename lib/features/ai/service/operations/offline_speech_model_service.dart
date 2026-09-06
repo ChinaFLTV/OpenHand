@@ -1653,7 +1653,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
           );
         }
       },
-      onError: (Object error, StackTrace stack) => fail(error, stack),
+      onError: fail,
       onDone: () {
         if (!closed && !done.isCompleted) {
           fail(StateError('实时语音连接意外中断。'));
@@ -4489,7 +4489,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     int exitCode,
   ) {
     final missing = RegExp(
-      r'''No module named ['"]([^'"]+)['"]''',
+      '''No module named ['"]([^'"]+)['"]''',
       caseSensitive: false,
     ).firstMatch(raw);
     if (missing != null) {

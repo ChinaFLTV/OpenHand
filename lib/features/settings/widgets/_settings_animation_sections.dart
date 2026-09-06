@@ -64,9 +64,7 @@ class _DialogAnimationSettingsSection extends StatelessWidget {
       controlMaxWidth: 440,
       control: _AnimationSettingsControl(
         current: current,
-        onChanged: (value) {
-          settingsController.updateDialogAnimationSettings(value);
-        },
+        onChanged: settingsController.updateDialogAnimationSettings,
       ),
     );
   }
@@ -87,9 +85,7 @@ class _MenuAnimationSettingsSection extends StatelessWidget {
       controlMaxWidth: 440,
       control: _AnimationSettingsControl(
         current: current,
-        onChanged: (value) {
-          settingsController.updateMenuAnimationSettings(value);
-        },
+        onChanged: settingsController.updateMenuAnimationSettings,
       ),
     );
   }
@@ -110,9 +106,7 @@ class _PanelAnimationSettingsSection extends StatelessWidget {
       controlMaxWidth: 440,
       control: _AnimationSettingsControl(
         current: current,
-        onChanged: (value) {
-          settingsController.updatePanelAnimationSettings(value);
-        },
+        onChanged: settingsController.updatePanelAnimationSettings,
       ),
     );
   }
@@ -133,9 +127,7 @@ class _PageAnimationSettingsSection extends StatelessWidget {
       controlMaxWidth: 440,
       control: _AnimationSettingsControl(
         current: current,
-        onChanged: (value) {
-          settingsController.updatePageAnimationSettings(value);
-        },
+        onChanged: settingsController.updatePageAnimationSettings,
       ),
     );
   }
@@ -156,9 +148,7 @@ class _ChipAnimationSettingsSection extends StatelessWidget {
       controlMaxWidth: 440,
       control: _AnimationSettingsControl(
         current: current,
-        onChanged: (value) {
-          settingsController.updateChipAnimationSettings(value);
-        },
+        onChanged: settingsController.updateChipAnimationSettings,
       ),
     );
   }
@@ -179,9 +169,7 @@ class _ListItemAnimationSettingsSection extends StatelessWidget {
       controlMaxWidth: 440,
       control: _AnimationSettingsControl(
         current: current,
-        onChanged: (value) {
-          settingsController.updateListItemAnimationSettings(value);
-        },
+        onChanged: settingsController.updateListItemAnimationSettings,
       ),
     );
   }

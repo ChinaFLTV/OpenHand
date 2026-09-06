@@ -6855,7 +6855,7 @@ $content
     final id = modelId.trim().toLowerCase();
     if (id.isEmpty) return false;
     return id.startsWith('gpt-') ||
-        id.startsWith('gpt') && RegExp(r'^gpt[-_]?[3-9]').hasMatch(id) ||
+        id.startsWith('gpt') && RegExp('^gpt[-_]?[3-9]').hasMatch(id) ||
         id.startsWith('chatgpt-') ||
         id.startsWith('o1') ||
         id.startsWith('o3') ||

@@ -460,7 +460,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
               onChanged: _busy
                   ? null
                   : (v) => setState(() => _playbackRate = v),
-              onChangeEnd: _busy ? null : (v) => _setPlaybackRate(v),
+              onChangeEnd: _busy ? null : _setPlaybackRate,
             ),
           ),
           Padding(

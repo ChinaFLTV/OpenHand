@@ -40,7 +40,7 @@ final RegExp _invokeOpenPattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _invokeClosePattern = RegExp(
-  r'</DSML:invoke>',
+  '</DSML:invoke>',
   caseSensitive: false,
 );
 final RegExp _parameterPattern = RegExp(

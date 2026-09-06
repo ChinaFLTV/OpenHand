@@ -101,7 +101,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
   Future<void> _start() async {
     if (_busy) return;
     final loc = AppLocalizations.of(context);
-    final secs = _seconds.round().clamp(2, 30).toInt();
+    final secs = _seconds.round().clamp(2, 30);
     final earlyStop = Completer<void>();
     setState(() {
       _busy = true;

@@ -783,7 +783,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     _operationLogs.add(line);
     final pluginId = _activePluginLogId;
     if (pluginId != null && pluginId.trim().isNotEmpty) {
-      _pluginLogs.putIfAbsent(pluginId, () => BoundedLogBuffer()).add(line);
+      _pluginLogs.putIfAbsent(pluginId, BoundedLogBuffer.new).add(line);
     }
     notifyListeners();
   }

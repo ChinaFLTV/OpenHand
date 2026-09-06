@@ -55,9 +55,9 @@ double serviceProgressRatio({
     return 0;
   }
   final safeMinimum = minimumVisible.isFinite
-      ? minimumVisible.clamp(0.0, 1.0).toDouble()
+      ? minimumVisible.clamp(0.0, 1.0)
       : 0.0;
-  return (safeValue / safeMaximum).clamp(safeMinimum, 1.0).toDouble();
+  return (safeValue / safeMaximum).clamp(safeMinimum, 1.0);
 }
 
 double _finiteServiceValue(double value, {double fallback = 0}) {
@@ -69,7 +69,7 @@ double _serviceProgressValue(double? value) {
   if (value.isNaN) return 0;
   if (value == double.infinity) return 1;
   if (value == double.negativeInfinity) return 0;
-  return value.clamp(0.0, 1.0).toDouble();
+  return value.clamp(0.0, 1.0);
 }
 
 double _serviceProgressHeight(double value) {
@@ -252,7 +252,7 @@ class _ServiceAnimatedChartState extends State<ServiceAnimatedChart> {
     if (values.length == 1 || targetLength <= 1) return values.last;
     final position = index * (values.length - 1) / (targetLength - 1);
     final lower = position.floor();
-    final upper = position.ceil().clamp(0, values.length - 1).toInt();
+    final upper = position.ceil().clamp(0, values.length - 1);
     if (lower == upper) return values[lower];
     return values[lower] + (values[upper] - values[lower]) * (position - lower);
   }
@@ -1231,8 +1231,8 @@ class _ServiceDetailDashboard extends StatelessWidget {
         : positive / measured;
     final normalizedScore = rawScore.isFinite ? rawScore : 0.5;
     final score = normalizedScore > 1
-        ? (normalizedScore / 100).clamp(0.0, 1.0).toDouble()
-        : normalizedScore.clamp(0.0, 1.0).toDouble();
+        ? (normalizedScore / 100).clamp(0.0, 1.0)
+        : normalizedScore.clamp(0.0, 1.0);
     final tone = score >= 0.8
         ? OpenHandStatusColors.success
         : score >= 0.5

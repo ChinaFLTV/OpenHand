@@ -119,10 +119,7 @@ class _WatchDialogState extends State<_WatchDialog> {
 
   void _start() {
     _timer?.cancel();
-    _timer = startNonOverlappingPeriodicTimer(
-      _interval,
-      (timer) => _tick(timer),
-    );
+    _timer = startNonOverlappingPeriodicTimer(_interval, _tick);
     setState(() => _running = true);
   }
 

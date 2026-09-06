@@ -735,7 +735,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                   canPrevious: _redisCursorHistory.length > 1,
                   canNext: nextCursor != 0,
                   onPrevious: () {
-                    setState(() => _redisCursorHistory.removeLast());
+                    setState(_redisCursorHistory.removeLast);
                     _refresh(includeData: true);
                   },
                   onNext: () {

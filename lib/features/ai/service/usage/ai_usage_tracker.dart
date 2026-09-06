@@ -603,7 +603,7 @@ class AiUsageTracker {
       if (declaredMode.isEmpty &&
           route.trim().isNotEmpty &&
           normalized != 'DIRECT') {
-        result.putIfAbsent('network_endpoint', () => route.trim());
+        result.putIfAbsent('network_endpoint', route.trim);
       }
     }
     return result;

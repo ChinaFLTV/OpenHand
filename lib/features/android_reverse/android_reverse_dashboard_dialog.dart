@@ -3513,9 +3513,7 @@ fi
               SizedBox(
                 width: _kDeviceTrailingActionWidth,
                 child: _DashboardActionButton(
-                  onPressed: () {
-                    _refreshAll();
-                  },
+                  onPressed: _refreshAll,
                   icon: Icons.refresh_rounded,
                   label: openHandRefreshLabel(context),
                 ),
@@ -8228,7 +8226,7 @@ fi
                           ja: 'フィルターをクリア',
                         ),
                         onPressed: () {
-                          setState(() => _logcatFilterCtrl.clear());
+                          setState(_logcatFilterCtrl.clear);
                           _fetchLogcat();
                         },
                       ),
@@ -8302,9 +8300,10 @@ fi
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() {
-                        _logcatCacheLimit = value
-                            .clamp(_kMinLogcatCacheLimit, _kMaxLogcatCacheLimit)
-                            .toInt();
+                        _logcatCacheLimit = value.clamp(
+                          _kMinLogcatCacheLimit,
+                          _kMaxLogcatCacheLimit,
+                        );
                         final retained = _trimLogcatBuffer(
                           List<String>.from(_logcatLines),
                         );
@@ -8343,7 +8342,7 @@ fi
                           ja: 'PID をクリア',
                         ),
                         onPressed: () {
-                          setState(() => _logcatPidCtrl.clear());
+                          setState(_logcatPidCtrl.clear);
                           _fetchLogcat();
                         },
                       ),

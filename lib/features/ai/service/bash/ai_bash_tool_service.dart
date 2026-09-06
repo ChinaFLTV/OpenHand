@@ -770,8 +770,7 @@ class AiBashToolService {
             final approvalFuture = approvalDecisionFuture
                 .timeout(confirmationTimeout)
                 .then<_WriteConfirmationOutcome>(
-                  (decision) =>
-                      _WriteConfirmationOutcome.fromDecision(decision),
+                  _WriteConfirmationOutcome.fromDecision,
                 );
             if (cancelSignal == null) {
               return approvalFuture;
@@ -1932,7 +1931,7 @@ class AiBashToolService {
       if (session != null) _disposePersistentSession(session),
       if (start != null)
         start.then<void>(
-          (lateSession) => _disposePersistentSession(lateSession),
+          _disposePersistentSession,
           onError: (Object _, StackTrace _) {},
         ),
     ]);
@@ -2065,7 +2064,7 @@ class AiBashToolService {
               ...closes,
               for (final start in starts)
                 start.then<void>(
-                  (lateSession) => _disposePersistentSession(lateSession),
+                  _disposePersistentSession,
                   onError: (Object _, StackTrace _) {},
                 ),
             ])
@@ -3107,7 +3106,7 @@ class _ShellWriteCommandAnalyzer {
         flags.write(arg.substring(1));
         continue;
       }
-      if (!arg.startsWith('-') && RegExp(r'^[ctxruA]').hasMatch(arg)) {
+      if (!arg.startsWith('-') && RegExp('^[ctxruA]').hasMatch(arg)) {
         flags.write(arg);
       }
     }
@@ -3665,7 +3664,7 @@ class _ShellWriteCommandAnalyzer {
   }
 
   bool _looksLikeAssignment(String value) {
-    return RegExp(r'^[A-Za-z_][A-Za-z0-9_]*=').hasMatch(value);
+    return RegExp('^[A-Za-z_][A-Za-z0-9_]*=').hasMatch(value);
   }
 
   bool _looksLikeOption(String value) {
@@ -3729,7 +3728,7 @@ class _CmdWriteCommandAnalyzer {
     if (normalized.isEmpty) {
       return const BashWriteAnalysis.readOnly('empty command');
     }
-    if (RegExp(r'(^|[^<])>>?|>|>>').hasMatch(normalized)) {
+    if (RegExp('(^|[^<])>>?|>|>>').hasMatch(normalized)) {
       return const BashWriteAnalysis.write('cmd output redirection');
     }
     if (RegExp(

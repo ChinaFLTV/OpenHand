@@ -393,7 +393,7 @@ class AiModelProxyController extends ChangeNotifier {
       return 'node';
     }
     final token = RegExp(
-      r'^[a-z0-9][a-z0-9._-]{0,31}',
+      '^[a-z0-9][a-z0-9._-]{0,31}',
     ).firstMatch(value)?.group(0);
     return token == null ? 'unknown-client' : 'other:$token';
   }
@@ -631,10 +631,11 @@ class AiModelProxyController extends ChangeNotifier {
   void runtimeRequestObserved({int inboundBytes = 0}) {
     if (_disposed) return;
     _runtimeInboundBytes =
-        (_runtimeInboundBytes + inboundBytes.clamp(0, 1 << 31))
-            .clamp(0, 1 << 62)
-            .toInt();
-    _runtimeRequestCount = (_runtimeRequestCount + 1).clamp(0, 1 << 62).toInt();
+        (_runtimeInboundBytes + inboundBytes.clamp(0, 1 << 31)).clamp(
+          0,
+          1 << 62,
+        );
+    _runtimeRequestCount = (_runtimeRequestCount + 1).clamp(0, 1 << 62);
     _recordTelemetry(ingressCount: 1, inboundBytes: inboundBytes);
     _notify();
   }
@@ -643,9 +644,7 @@ class AiModelProxyController extends ChangeNotifier {
   void runtimeInboundBytesReceived(int inboundBytes) {
     if (_disposed || inboundBytes <= 0) return;
     final safeBytes = inboundBytes.clamp(0, 1 << 31);
-    _runtimeInboundBytes = (_runtimeInboundBytes + safeBytes)
-        .clamp(0, 1 << 62)
-        .toInt();
+    _runtimeInboundBytes = (_runtimeInboundBytes + safeBytes).clamp(0, 1 << 62);
     _recordTelemetry(inboundBytes: safeBytes);
     _notify();
   }
@@ -657,9 +656,10 @@ class AiModelProxyController extends ChangeNotifier {
     final key = connectionKey?.trim() ?? '';
     _runtimeRequests[requestId] = key;
     if (key.isEmpty) {
-      _unknownConnectionRequests = (_unknownConnectionRequests + 1)
-          .clamp(0, 1 << 30)
-          .toInt();
+      _unknownConnectionRequests = (_unknownConnectionRequests + 1).clamp(
+        0,
+        1 << 30,
+      );
     } else {
       final now = DateTime.now();
       final agent = userAgent?.trim() ?? '';
@@ -672,7 +672,7 @@ class AiModelProxyController extends ChangeNotifier {
           lastSeenAt: now,
         );
       } else {
-        existing.inflight = (existing.inflight + 1).clamp(0, 1 << 30).toInt();
+        existing.inflight = (existing.inflight + 1).clamp(0, 1 << 30);
         existing.lastSeenAt = now;
         if (agent.isNotEmpty) existing.userAgent = agent;
       }
@@ -686,11 +686,12 @@ class AiModelProxyController extends ChangeNotifier {
   void runtimeResponseWritten({int outboundBytes = 0, int statusCode = 200}) {
     if (_disposed) return;
     _runtimeOutboundBytes =
-        (_runtimeOutboundBytes + outboundBytes.clamp(0, 1 << 31))
-            .clamp(0, 1 << 62)
-            .toInt();
+        (_runtimeOutboundBytes + outboundBytes.clamp(0, 1 << 31)).clamp(
+          0,
+          1 << 62,
+        );
     if (statusCode >= 400) {
-      _runtimeErrorCount = (_runtimeErrorCount + 1).clamp(0, 1 << 62).toInt();
+      _runtimeErrorCount = (_runtimeErrorCount + 1).clamp(0, 1 << 62);
     }
     _recordTelemetry(
       ingressErrorCount: statusCode >= 400 ? 1 : 0,
@@ -710,9 +711,10 @@ class AiModelProxyController extends ChangeNotifier {
     final key = requestId == null ? null : _runtimeRequests.remove(requestId);
     if (key == null) return;
     if (key.isEmpty) {
-      _unknownConnectionRequests = (_unknownConnectionRequests - 1)
-          .clamp(0, 1 << 30)
-          .toInt();
+      _unknownConnectionRequests = (_unknownConnectionRequests - 1).clamp(
+        0,
+        1 << 30,
+      );
     } else {
       final existing = _liveConnections[key];
       if (existing == null || existing.inflight <= 1) {

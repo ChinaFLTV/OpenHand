@@ -465,7 +465,7 @@ class _MachineTerminalFileManagerDialogState
             zh: '当前终端路径',
             en: 'Terminal Current Path',
           ),
-          onPressed: _loading ? null : () => _loadDirectory(),
+          onPressed: _loading ? null : _loadDirectory,
         ),
         kOpenHandHGap7,
         _MachineTerminalIconButton(
@@ -1833,7 +1833,7 @@ class _MachineTerminalOperationProgressRingState
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final target = widget.value?.clamp(0.0, 1.0).toDouble();
+    final target = widget.value?.clamp(0.0, 1.0);
     Widget ring(double? value) => SizedBox.square(
       dimension: 84,
       child: Stack(
@@ -3217,7 +3217,7 @@ class _MachineTerminalTransferProgressBarState
 
   @override
   Widget build(BuildContext context) {
-    final target = widget.value.clamp(0.0, 1.0).toDouble();
+    final target = widget.value.clamp(0.0, 1.0);
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: _displayedValue, end: target),
       duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -3236,7 +3236,7 @@ class _MachineTerminalTransferProgressBarState
 }
 
 String _machineTerminalTransferPercent(double progress) {
-  final value = (progress.clamp(0.0, 1.0) * 100).toDouble();
+  final value = progress.clamp(0.0, 1.0) * 100;
   if (value >= 99.95) return '100%';
   final digits = value >= 10 ? 1 : 2;
   return '${value.toStringAsFixed(digits)}%';

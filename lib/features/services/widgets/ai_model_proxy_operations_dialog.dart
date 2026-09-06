@@ -330,13 +330,13 @@ class _ProxyOpsSnapshot {
       earliestSignal = telemetry.first.bucketAt;
     }
     final earliestKey = aiModelProxyTelemetryBucketKey(earliestSignal);
-    final trendBucketCount = math
-        .max(
-          _kProxyOpsTrendBuckets,
-          ((trendEndKey - earliestKey) ~/ aiModelProxyTelemetryBucketMs + 1)
-              .clamp(1, aiModelProxyTelemetryLoadLimit),
-        )
-        .toInt();
+    final trendBucketCount = math.max(
+      _kProxyOpsTrendBuckets,
+      ((trendEndKey - earliestKey) ~/ aiModelProxyTelemetryBucketMs + 1).clamp(
+        1,
+        aiModelProxyTelemetryLoadLimit,
+      ),
+    );
     final success = List<double>.filled(trendBucketCount, 0);
     final failure = List<double>.filled(trendBucketCount, 0);
     final tokens = List<double>.filled(trendBucketCount, 0);
@@ -466,12 +466,10 @@ class _ProxyOpsSnapshot {
   int get requestTotal => settings.requestCount;
   int get successTotal => settings.successCount;
   int get failureTotal => settings.failureCount;
-  double get successRate => requestTotal <= 0
-      ? 0
-      : (successTotal / requestTotal).clamp(0.0, 1.0).toDouble();
-  double get failureRate => requestTotal <= 0
-      ? 0
-      : (failureTotal / requestTotal).clamp(0.0, 1.0).toDouble();
+  double get successRate =>
+      requestTotal <= 0 ? 0 : (successTotal / requestTotal).clamp(0.0, 1.0);
+  double get failureRate =>
+      requestTotal <= 0 ? 0 : (failureTotal / requestTotal).clamp(0.0, 1.0);
   String get successRateLabel => (successRate * 100).toStringAsFixed(1);
   String get failureRateLabel => (failureRate * 100).toStringAsFixed(1);
   String get endpoint => '${settings.listenHost}:${settings.listenPort}';
@@ -736,10 +734,10 @@ class _ProxyOpsGroupStat {
   int get p95Ms => _proxyOpsPercentile(durations, 0.95);
   int get inferenceP95Ms => _proxyOpsPercentile(inferenceDurations, 0.95);
   double get successRate =>
-      requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0).toDouble();
+      requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0);
   double get inferenceSuccessRate => inferenceRequests <= 0
       ? 0
-      : (inferenceSuccesses / inferenceRequests).clamp(0.0, 1.0).toDouble();
+      : (inferenceSuccesses / inferenceRequests).clamp(0.0, 1.0);
 }
 
 String _proxyOpsRecordPeer(AiModelProxyRequestRecord record) {
@@ -783,7 +781,7 @@ List<_ProxyOpsGroupStat> _proxyOpsLiveAwareGroups({
       key,
       () => history[key] ?? _ProxyOpsGroupStat(key),
     );
-    group.inflight = (group.inflight + inflight).clamp(0, 1 << 30).toInt();
+    group.inflight = (group.inflight + inflight).clamp(0, 1 << 30);
     final endpoint = peer.trim();
     if (endpoint.isNotEmpty) group.peers.add(endpoint);
     if (userAgent.trim().isNotEmpty) {
@@ -1716,7 +1714,7 @@ class _ProxyOpsDistributionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final ratio = total <= 0 ? 0.0 : (value / total).clamp(0.0, 1.0).toDouble();
+    final ratio = total <= 0 ? 0.0 : (value / total).clamp(0.0, 1.0);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Column(
@@ -2342,7 +2340,7 @@ OpenHandOperationalMeter _proxyOpsRateMeter({
   String? helper,
   bool unavailable = false,
 }) {
-  final safe = rate.isFinite ? rate.clamp(0.0, 1.0).toDouble() : 0.0;
+  final safe = rate.isFinite ? rate.clamp(0.0, 1.0) : 0.0;
   return OpenHandOperationalMeter(
     label: label,
     value: safe,
@@ -5006,10 +5004,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final window = data.windowRecords;
           final windowOk = window.where((record) => record.success).length;
           final throughput = data.recentThroughputBuckets;
-          final peak = throughput.fold<double>(
-            0,
-            (max, value) => math.max(max, value),
-          );
+          final peak = throughput.fold<double>(0, math.max);
           var quiet = 0;
           var peakIndex = 0;
           for (var i = 0; i < throughput.length; i++) {

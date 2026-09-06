@@ -2282,7 +2282,7 @@ class WebReverseSessionController extends ChangeNotifier {
     String sessionId,
     int generation,
   ) async {
-    const recorderJs = r'''
+    const recorderJs = '''
 (() => {
   if (window.__oh_recorder_installed) return;
   window.__oh_recorder_installed = true;
@@ -2642,7 +2642,7 @@ class WebReverseSessionController extends ChangeNotifier {
     // 在执行真正交互前先等元素可见，避免 click 太快撞 DOM 还没渲染。
     // 5s 超时；轮询 100ms 一次；可见性 = 元素存在且 boundingClientRect.width|height > 0。
     Future<bool> waitForSelector(String selector) async {
-      const expr = r'''
+      const expr = '''
 (async (sel, timeoutMs) => {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -4964,7 +4964,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final sessionId = _pageSessionId;
     if (cdp == null || sessionId == null) return false;
     if (_fpsCounterInstalled) return true;
-    const js = r'''
+    const js = '''
 (() => {
   if (window.__oh_fps_installed) return;
   window.__oh_fps_installed = true;
@@ -5006,7 +5006,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final sessionId = _pageSessionId;
     if (cdp == null || sessionId == null) return false;
     if (_longTaskObserverInstalled) return true;
-    const js = r'''
+    const js = '''
 (() => {
   if (window.__oh_longtask_installed) return;
   window.__oh_longtask_installed = true;
@@ -5087,7 +5087,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final sessionId = _pageSessionId;
     if (cdp == null || sessionId == null) return false;
     if (_rtcInstalled) return true;
-    const js = r'''
+    const js = '''
 (() => {
   if (window.__oh_rtc_installed) return;
   window.__oh_rtc_installed = true;
@@ -6138,9 +6138,10 @@ class WebReverseSessionController extends ChangeNotifier {
     final active = _memorySamplingStartTask;
     if (active != null) return active;
     final normalizedInterval = samplingInterval.isFinite
-        ? samplingInterval
-              .clamp(_minMemorySamplingInterval, _maxMemorySamplingInterval)
-              .toDouble()
+        ? samplingInterval.clamp(
+            _minMemorySamplingInterval,
+            _maxMemorySamplingInterval,
+          )
         : 32768.0;
     final generation = ++_memorySamplingGeneration;
     late final Future<bool> task;
@@ -6782,9 +6783,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final init = <String, Object?>{
       'method': e.method,
       if ((overrideHeaders ?? e.requestHeaders).isNotEmpty)
-        'headers': (overrideHeaders ?? e.requestHeaders).map(
-          (k, v) => MapEntry(k, v),
-        ),
+        'headers': (overrideHeaders ?? e.requestHeaders).map(MapEntry.new),
       if (e.requestPostData != null) 'body': e.requestPostData,
       'credentials': 'include',
     };
@@ -7773,7 +7772,7 @@ class WebReverseSessionController extends ChangeNotifier {
     // 始/分隔符（如 `=,;:!&|?{([*/+-~^%<>` 或空），则是正则。
     bool looksLikeRegexStart() {
       if (prevSig.isEmpty) return true;
-      const exprStarters = r'=,;:!&|?{([*/+-~^%<>';
+      const exprStarters = '=,;:!&|?{([*/+-~^%<>';
       if (exprStarters.contains(prevSig)) return true;
       // `return` / `typeof` / `in` / `of` 等关键字后接 `/` 也是正则。
       // 简化处理：回扫最多 12 个字符判断是否以这些关键字结尾。
@@ -9184,9 +9183,7 @@ class WebReverseSessionController extends ChangeNotifier {
         name: name.isEmpty ? 'snapshot' : name,
         origin: origin ?? '',
         capturedAt: DateTime.now(),
-        cookies: cookies
-            .map((c) => Map<String, Object?>.from(c))
-            .toList(growable: false),
+        cookies: cookies.map(Map<String, Object?>.from).toList(growable: false),
         localStorage: <String, String>{for (final e in ls) e.key: e.value},
         sessionStorage: <String, String>{for (final e in ss) e.key: e.value},
       ),
@@ -10769,7 +10766,7 @@ String _webReverseRawTextFromValue(Object? value) {
 // 由 `domCssSelectorForNode` / `domXPathForNode` 通过 `Runtime.callFunctionOn`
 // 注入到目标对象上执行。注意 `this` 即对应 DOM node。
 
-const String _kCssSelectorFn = r'''
+const String _kCssSelectorFn = '''
 function() {
   const MAX_DEPTH = 256;
   const MAX_SIBLINGS = 4096;
@@ -10806,7 +10803,7 @@ function() {
 }
 ''';
 
-const String _kXPathFn = r'''
+const String _kXPathFn = '''
 function() {
   const MAX_DEPTH = 256;
   const MAX_SIBLINGS = 4096;

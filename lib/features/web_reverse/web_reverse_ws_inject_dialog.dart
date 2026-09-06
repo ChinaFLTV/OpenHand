@@ -41,7 +41,7 @@ const int _kWsInjectMaxUrlChars = 2 * kBytesPerKiB;
 const int _kWsInjectMaxLogEntries = 60;
 
 final String _kBootstrap =
-    r'''
+    '''
 (() => {
   if (window.__OH_WS_PATCHED__) return 'already';
   window.__OH_WS_PATCHED__ = true;
@@ -75,7 +75,7 @@ final String _kBootstrap =
         .replaceAll('__MAX_ROWS__', '$_kWsInjectMaxRows');
 
 final String _kList =
-    r'''
+    '''
 (() => {
   const reg = window.__OH_WS_REGISTRY__ || {};
   const out = [];

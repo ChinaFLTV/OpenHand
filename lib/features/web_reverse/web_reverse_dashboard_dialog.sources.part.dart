@@ -179,9 +179,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
 
   void _syncSourceLineScroll() {
     if (!_sourceScroll.hasClients || !_sourceLineScroll.hasClients) return;
-    final target = _sourceScroll.offset
-        .clamp(0.0, _sourceLineScroll.position.maxScrollExtent)
-        .toDouble();
+    final target = _sourceScroll.offset.clamp(
+      0.0,
+      _sourceLineScroll.position.maxScrollExtent,
+    );
     if ((_sourceLineScroll.offset - target).abs() < 0.5) return;
     _sourceLineScroll.jumpTo(target);
   }
@@ -1857,7 +1858,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   visualDensity: VisualDensity.compact,
                   iconSize: 16,
                   padding: EdgeInsets.zero,
-                  onPressed: () => _showLspSettings(),
+                  onPressed: _showLspSettings,
                   icon: const Icon(Icons.tune_rounded),
                 ),
               ),

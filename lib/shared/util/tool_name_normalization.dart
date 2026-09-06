@@ -4,7 +4,7 @@ import 'stable_hash.dart';
 
 const int kOpenHandDefaultToolNameMaxLength = 64;
 
-final RegExp _unsafeToolNameCharsPattern = RegExp(r'[^A-Za-z0-9_-]+');
+final RegExp _unsafeToolNameCharsPattern = RegExp('[^A-Za-z0-9_-]+');
 final RegExp _edgeUnderscoresPattern = RegExp(r'^_+|_+$');
 
 String normalizeToolNameToken(String value, {String fallback = 'tool'}) {

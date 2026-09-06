@@ -215,7 +215,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                 TextButton.icon(
                   onPressed: _selected.isEmpty
                       ? null
-                      : () => setState(() => _selected.clear()),
+                      : () => setState(_selected.clear),
                   icon: const Icon(Icons.deselect_rounded, size: 18),
                   label: Text(loc?.webReverseReplayClear ?? 'Clear'),
                 ),

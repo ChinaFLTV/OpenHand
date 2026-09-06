@@ -240,7 +240,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     r'[\r\n]+',
   );
   static final RegExp _outputDescriptionSentencePattern = RegExp(
-    r'[^。！？.!?]*(返回|输出|结果|returns?|output|response|result)[^。！？.!?]*[。！？.!?]?',
+    '[^。！？.!?]*(返回|输出|结果|returns?|output|response|result)[^。！？.!?]*[。！？.!?]?',
     caseSensitive: false,
   );
 
@@ -1519,7 +1519,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final content = result['content'];
     if (content is List) {
       final renderedItems = content
-          .map((item) => _renderToolCallContentItem(item))
+          .map(_renderToolCallContentItem)
           .where((item) => item.isNotEmpty)
           .toList(growable: false);
       if (renderedItems.isNotEmpty) {
@@ -3010,7 +3010,7 @@ class _BoundedSseEventTransformer
                 fail(error, stack);
               }
             },
-            onError: (Object error, StackTrace stack) => fail(error, stack),
+            onError: fail,
             onDone: () {
               if (terminated) return;
               try {

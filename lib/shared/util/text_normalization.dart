@@ -1,10 +1,10 @@
 /// 连续空白。共用同一个已编译实例：全库有二十余处按空白切分 / 折叠，其中
 /// 若干位于输入框监听、逐行解析这类高频路径上，每次重新编译纯属浪费。
 final RegExp kInlineWhitespacePattern = RegExp(r'\s+');
-final RegExp _asciiLookupTokenSeparatorPattern = RegExp(r'[^a-z0-9]+');
+final RegExp _asciiLookupTokenSeparatorPattern = RegExp('[^a-z0-9]+');
 
 /// 统一匹配 HTML/XML 标签，供错误页、TTS 和文档解析复用。
-final RegExp kHtmlTagPattern = RegExp(r'<[^>]*>');
+final RegExp kHtmlTagPattern = RegExp('<[^>]*>');
 
 /// 连续三个及以上换行，供折叠多空行复用。
 final RegExp kExcessiveNewlinesPattern = RegExp(r'\n{3,}');
@@ -18,7 +18,7 @@ final RegExp _imageSummaryOpeningTagPattern = RegExp(
 );
 const String _imageSummaryOpeningTagPrefix = '<image_summary';
 
-final RegExp _repeatedUnderscoresPattern = RegExp(r'_+');
+final RegExp _repeatedUnderscoresPattern = RegExp('_+');
 
 String collapseInlineWhitespace(String value) {
   return value.replaceAll(kInlineWhitespacePattern, ' ').trim();

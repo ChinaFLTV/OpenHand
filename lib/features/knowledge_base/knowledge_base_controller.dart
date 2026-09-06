@@ -373,7 +373,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     final embeddingModel = resolveEmbeddingModel(models, settings: settings);
     if (embeddingModel == null) return null;
     final rerankModel = resolveRerankModel(models, settings: settings);
-    final effectiveTopK = topK.clamp(1, 20).toInt();
+    final effectiveTopK = topK.clamp(1, 20);
     final retrievalSettings = settings.copyWith(
       topK: effectiveTopK,
       maxPromptChunks: math.max(effectiveTopK, settings.maxPromptChunks),
@@ -619,7 +619,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     final stopwatch = Stopwatch()..start();
     final settings = _settings;
     final vectorStore = QdrantKnowledgeVectorStore(settings: settings);
-    final safeMaxPoints = maxPoints.clamp(1, 2000).toInt();
+    final safeMaxPoints = maxPoints.clamp(1, 2000);
     final samples = <KnowledgeVectorSamplePoint>[];
     Object? offset;
     var hasMore = false;

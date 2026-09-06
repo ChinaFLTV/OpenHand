@@ -461,7 +461,7 @@ class _TokenDialPopupMetrics {
         aboveHeight > belowHeight;
     final rawHeight = placedAbove ? aboveHeight : belowHeight;
     final maxHeight = rawHeight.isFinite
-        ? rawHeight.clamp(0.0, safeRect.height).toDouble()
+        ? rawHeight.clamp(0.0, safeRect.height)
         : safeRect.height;
     final maxWidth = math.min(
       _kTokenDialPopupCompactMaxWidth,
@@ -473,7 +473,7 @@ class _TokenDialPopupMetrics {
       safeRect: safeRect,
       anchorRect: anchorRect,
       placedAbove: placedAbove,
-      maxHeight: math.max(0.0, maxHeight.toDouble()),
+      maxHeight: math.max(0.0, maxHeight),
       minWidth: minWidth,
       maxWidth: maxWidth,
     );
@@ -529,7 +529,7 @@ double _clampTokenDialPopupCoordinate(
 }) {
   if (!value.isFinite) return lower;
   if (upper <= lower) return lower;
-  return value.clamp(lower, upper).toDouble();
+  return value.clamp(lower, upper);
 }
 
 class _TokenDialPopupLayoutDelegate extends SingleChildLayoutDelegate {
@@ -1621,7 +1621,7 @@ class _ContextUsageTile extends StatelessWidget {
 
 int _contextUsageFlex(int tokens, int totalTokens) {
   if (tokens <= 0 || totalTokens <= 0) return 1;
-  return (tokens / totalTokens * 1000).round().clamp(1, 1000).toInt();
+  return (tokens / totalTokens * 1000).round().clamp(1, 1000);
 }
 
 String _contextUsagePercent(int tokens, int totalTokens) {

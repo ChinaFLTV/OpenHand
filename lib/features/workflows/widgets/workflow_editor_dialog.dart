@@ -3374,25 +3374,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       codeRuntimes: _catalog.codeRuntimes,
       mcpToolInvoker: mcpController == null
           ? null
-          : ({
-              required serverName,
-              required toolName,
-              required arguments,
-              required toolCallId,
-              cancelSignal,
-            }) async {
-              final result = await mcpController.callTool(
-                serverName: serverName,
-                toolName: toolName,
-                arguments: arguments,
-                toolCallId: toolCallId,
-                cancelSignal: cancelSignal,
-              );
-              return WorkflowMcpToolInvocationResult(
-                output: result.outputText,
-                isError: result.isError,
-              );
-            },
+          : workflowMcpToolInvokerFor(mcpController),
       onLlmConversation: (conversation) {
         if (!mounted || !_nodes.any((node) => node.id == conversation.nodeId)) {
           return;

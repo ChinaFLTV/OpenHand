@@ -40,7 +40,7 @@ final RegExp _pluginLifecyclePlaywrightVersionPrefixPattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _pluginLifecyclePyenvVersionPathPattern = RegExp(
-  r'/.pyenv/versions/([^/]+)/',
+  '/.pyenv/versions/([^/]+)/',
 );
 final RegExp _pluginLifecycleBrewPythonFormulaPathPattern = RegExp(
   r'/(python(?:@[\d.]+)?)(?:/|$)',
@@ -1213,7 +1213,10 @@ exit 4''';
   Future<String?> _resolveActivePythonPath() async {
     final result = await _runProcessOrFailed(
       pluginShellExecutable(),
-      ['-c', '${pluginPyenvShellPrefix()}command -v python3 || command -v python'],
+      [
+        '-c',
+        '${pluginPyenvShellPrefix()}command -v python3 || command -v python',
+      ],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.python_path',
     );

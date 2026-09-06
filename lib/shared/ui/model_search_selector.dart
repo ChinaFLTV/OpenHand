@@ -145,7 +145,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
         final terms = query.split(kInlineWhitespacePattern);
         _filtered = widget.entries.where((e) {
           final text = e.searchableText;
-          return terms.every((t) => text.contains(t));
+          return terms.every(text.contains);
         }).toList();
       }
     });
@@ -225,7 +225,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear_rounded, size: 18),
-                        onPressed: () => _searchController.clear(),
+                        onPressed: _searchController.clear,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
                           minWidth: 32,

@@ -1549,7 +1549,7 @@ String _metadataFieldTitle(String key) {
   if (direct != null) return direct;
   final words = normalized
       .replaceAllMapped(
-        RegExp(r'([a-z0-9])([A-Z])'),
+        RegExp('([a-z0-9])([A-Z])'),
         (match) => '${match.group(1)} ${match.group(2)}',
       )
       .split(RegExp(r'[_\-\s]+'))
@@ -2812,7 +2812,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                 void updateFocus(Offset local) {
                   if (n <= 1) return;
                   final raw = (local.dx / stepX).round();
-                  final clamped = raw.clamp(0, n - 1).toInt();
+                  final clamped = raw.clamp(0, n - 1);
                   if (_focusedIndex != clamped) {
                     _focusedIndex = clamped;
                     if (!_focusScheduled) {

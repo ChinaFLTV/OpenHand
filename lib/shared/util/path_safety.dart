@@ -12,7 +12,7 @@ const String _kEmptyPathError = '路径不能为空。';
 const String _kRelativePathError = '路径必须为相对路径。';
 const String _kParentTraversalError = '路径不能向上遍历父目录。';
 const String _kNullBytePathError = '路径不能包含空字节。';
-final RegExp _portableFileNameUnsafeCharsPattern = RegExp(r'[^A-Za-z0-9._-]+');
+final RegExp _portableFileNameUnsafeCharsPattern = RegExp('[^A-Za-z0-9._-]+');
 final RegExp _displayFileNameUnsafeCharsPattern = RegExp(
   r'[\\/:*?"<>|\x00-\x1f\x7f]+',
 );

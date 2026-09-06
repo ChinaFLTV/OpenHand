@@ -900,9 +900,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             constraints.maxWidth - 116,
             _previewMaxWidth,
           );
-          final previewWidth = rawPreviewWidth
-              .clamp(220.0, _previewMaxWidth)
-              .toDouble();
+          final previewWidth = rawPreviewWidth.clamp(220.0, _previewMaxWidth);
           final previewSize = Size(previewWidth, _previewHeight);
           _previewSize = previewSize;
 
@@ -1272,9 +1270,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   }
 
   void _resetAdjustments() {
-    setState(() {
-      _resetAdjustmentControls();
-    });
+    setState(_resetAdjustmentControls);
     _firePulse();
   }
 
@@ -1950,8 +1946,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     }
     final maxLeft = imageRect.right - width;
     final maxTop = imageRect.bottom - height;
-    final left = candidate.left.clamp(imageRect.left, maxLeft).toDouble();
-    final top = candidate.top.clamp(imageRect.top, maxTop).toDouble();
+    final left = candidate.left.clamp(imageRect.left, maxLeft);
+    final top = candidate.top.clamp(imageRect.top, maxTop);
     return Rect.fromLTWH(left, top, width, height);
   }
 
@@ -1969,12 +1965,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       final height = width / ratio;
       return Rect.fromLTWH(startRect.left, startRect.top, width, height);
     }
-    final width = (startRect.width + delta.dx)
-        .clamp(_minCropSide, maxWidth)
-        .toDouble();
-    final height = (startRect.height + delta.dy)
-        .clamp(_minCropSide, maxHeight)
-        .toDouble();
+    final width = (startRect.width + delta.dx).clamp(_minCropSide, maxWidth);
+    final height = (startRect.height + delta.dy).clamp(_minCropSide, maxHeight);
     return Rect.fromLTWH(startRect.left, startRect.top, width, height);
   }
 

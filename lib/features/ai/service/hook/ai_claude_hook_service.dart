@@ -664,9 +664,10 @@ class AiClaudeHookService {
         AiToolExecutionLimitPolicy.normalizeMaxHookTextCharacters(
           maxHookTextCharacters,
         );
-    final totalLimit = (perItemLimit * 4)
-        .clamp(perItemLimit, _maxAiHookResultCharacters)
-        .toInt();
+    final totalLimit = (perItemLimit * 4).clamp(
+      perItemLimit,
+      _maxAiHookResultCharacters,
+    );
     var retainedCharacters = 0;
     for (final item in items) {
       final trimmed = item.trim();

@@ -25,7 +25,7 @@ import '../../ai/index.dart'
 import '../../instructions/index.dart' show UserInstructionEntry;
 import '../../knowledge_base/index.dart'
     show KnowledgeBaseController, KnowledgeRetrievalHit;
-import '../../mcp/index.dart' show McpServer, McpTool;
+import '../../mcp/index.dart' show McpController, McpServer, McpTool;
 import '../../memory/index.dart' show UserMemoryEntry;
 import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
@@ -58,6 +58,27 @@ typedef WorkflowMcpToolInvoker =
       required String toolCallId,
       Future<void>? cancelSignal,
     });
+
+WorkflowMcpToolInvoker workflowMcpToolInvokerFor(McpController controller) =>
+    ({
+      required serverName,
+      required toolName,
+      required arguments,
+      required toolCallId,
+      cancelSignal,
+    }) async {
+      final result = await controller.callTool(
+        serverName: serverName,
+        toolName: toolName,
+        arguments: arguments,
+        toolCallId: toolCallId,
+        cancelSignal: cancelSignal,
+      );
+      return WorkflowMcpToolInvocationResult(
+        output: result.outputText,
+        isError: result.isError,
+      );
+    };
 
 typedef WorkflowLlmConversationListener =
     void Function(WorkflowLlmConversation conversation);
@@ -718,7 +739,6 @@ class WorkflowNodeExecutor {
                 defaultWorkflowCodeRetryCount,
               )
               .clamp(minWorkflowCodeRetryCount, maxWorkflowCodeRetryCount)
-              .toInt()
         : 0;
     final retryInterval = Duration(
       milliseconds: node
@@ -726,8 +746,10 @@ class WorkflowNodeExecutor {
             WorkflowSettingKeys.retryIntervalMs,
             defaultWorkflowCodeRetryIntervalMs,
           )
-          .clamp(minWorkflowCodeRetryIntervalMs, maxWorkflowCodeRetryIntervalMs)
-          .toInt(),
+          .clamp(
+            minWorkflowCodeRetryIntervalMs,
+            maxWorkflowCodeRetryIntervalMs,
+          ),
     );
     final timeout = Duration(
       seconds: node
@@ -3236,11 +3258,11 @@ String _workflowMcpToolName(
   Set<String> usedNames,
 ) {
   var base = 'mcp_${serverName}_$toolName'
-      .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
-      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp('[^A-Za-z0-9_-]+'), '_')
+      .replaceAll(RegExp('_+'), '_')
       .replaceAll(RegExp(r'^_+|_+$'), '');
   if (base.isEmpty) base = 'mcp_tool';
-  if (RegExp(r'^[0-9]').hasMatch(base)) base = 'mcp_$base';
+  if (RegExp('^[0-9]').hasMatch(base)) base = 'mcp_$base';
   base = clipTextByCodeUnits(base, 56, suffix: '');
   var candidate = base;
   var suffix = 2;

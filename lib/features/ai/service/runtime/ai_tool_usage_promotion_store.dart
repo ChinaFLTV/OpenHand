@@ -1365,13 +1365,13 @@ final class AiToolUsagePromotionStore {
           (match) => '${match.group(1) ?? ''}[已脱敏]',
         )
         .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
-        .replaceAll(RegExp(r' {2,}'), ' ')
+        .replaceAll(RegExp(' {2,}'), ' ')
         .trim();
     return clipTextByCodeUnits(normalized, limit, suffix: '…');
   }
 
   static final RegExp _sensitiveKeyPattern = RegExp(
-    r'(password|passwd|token|secret|api[_-]?key|authorization|cookie|credential)',
+    '(password|passwd|token|secret|api[_-]?key|authorization|cookie|credential)',
     caseSensitive: false,
   );
   static final RegExp _sensitiveValuePattern = RegExp(

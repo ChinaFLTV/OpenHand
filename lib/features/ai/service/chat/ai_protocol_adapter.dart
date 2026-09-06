@@ -27,7 +27,7 @@ import '../operations/ai_operation_http.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../session_io/ai_token_usage_parser.dart';
 
-final RegExp _dataUriMimePattern = RegExp(r'data:([^;]+)');
+final RegExp _dataUriMimePattern = RegExp('data:([^;]+)');
 final RegExp _markdownSeparatorTailPattern = RegExp(r'-+$');
 const Duration _inlineImageReadIdleTimeout = Duration(seconds: 15);
 const Duration _inlineImageReadTotalTimeout = Duration(minutes: 1);
@@ -339,7 +339,7 @@ abstract final class AiThinkingRequestPolicy {
         !_looksLikeNumericBudget(effort)) {
       return const <String, Object?>{'type': 'adaptive'};
     }
-    final budget = requestedBudget.clamp(_claudeMinimumBudget, ceiling).toInt();
+    final budget = requestedBudget.clamp(_claudeMinimumBudget, ceiling);
     if (budget >= maxTokens) {
       return null;
     }
@@ -404,7 +404,7 @@ abstract final class AiThinkingRequestPolicy {
     if (!requestHasMarker(body: requestBody)) return false;
     final normalized = errorBody.toLowerCase();
     final mentionsThinkingField =
-        _topLevelMarkerFields.any((field) => normalized.contains(field)) ||
+        _topLevelMarkerFields.any(normalized.contains) ||
         normalized.contains('thinkingconfig') ||
         normalized.contains('thinking_config') ||
         normalized.contains('thinkingbudget') ||
@@ -1749,7 +1749,7 @@ Object? _stableJsonValue(Object? value, {String? key}) {
         ..sort();
       return List<String>.unmodifiable(requiredNames);
     }
-    return value.map((item) => _stableJsonValue(item)).toList(growable: false);
+    return value.map(_stableJsonValue).toList(growable: false);
   }
   return value;
 }

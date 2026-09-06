@@ -511,7 +511,7 @@ AppReleaseInfo? _parseGitHubReleaseInfo(
   final publishedAt = dateTimeFromValue(json['published_at']);
   if (publishedAt == null) return null;
   final suffix = lowercaseStringFromValue(platformAssetSuffix);
-  final version = tagName.replaceFirst(RegExp(r'^v'), '');
+  final version = tagName.replaceFirst(RegExp('^v'), '');
   if (version.isEmpty) return null;
   final selectedAsset = _selectReleaseAsset(json['assets'], suffix);
   final releaseName = stringFromValue(json['name'], fallback: tagName);

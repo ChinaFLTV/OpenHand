@@ -2844,7 +2844,7 @@ class _SettingsViewState extends State<SettingsView> {
           focusNode: _imageSizeLimitFocusNode,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: <TextInputFormatter>[
-            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+            FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
           ],
           decoration: InputDecoration(
             labelText: l10n.aiImageSizeLimitFieldLabel,
@@ -3578,7 +3578,7 @@ class _SettingsViewState extends State<SettingsView> {
                   FilledButton.tonalIcon(
                     onPressed: _isSyncingOpenRouterModels
                         ? null
-                        : () => _syncOpenRouterModels(),
+                        : _syncOpenRouterModels,
                     icon: _isSyncingOpenRouterModels
                         ? const SizedBox(
                             width: 18,
@@ -4113,7 +4113,7 @@ class _SettingsViewState extends State<SettingsView> {
                         decimal: true,
                       ),
                       inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
                       ],
                       decoration: const InputDecoration(hintText: '0'),
                       onSubmitted: (value) =>

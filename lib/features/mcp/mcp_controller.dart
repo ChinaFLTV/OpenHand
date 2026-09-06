@@ -1591,7 +1591,7 @@ class McpController extends ChangeNotifier {
 
   String _opsNameToken(String value) {
     final normalized = collapseRepeatedUnderscores(
-      value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]+'), '_'),
+      value.trim().toLowerCase().replaceAll(RegExp('[^a-z0-9_]+'), '_'),
     ).replaceAll(RegExp(r'^_|_$'), '');
     if (normalized.isEmpty) return 'item';
     return normalized.length <= 80 ? normalized : normalized.substring(0, 80);

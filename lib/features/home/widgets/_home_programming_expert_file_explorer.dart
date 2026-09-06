@@ -4010,10 +4010,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         return '';
       }
       final normalized = raw
-          .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (match) {
+          .replaceAllMapped(RegExp('([a-z0-9])([A-Z])'), (match) {
             return '${match.group(1)} ${match.group(2)}';
           })
-          .replaceAll(RegExp(r'[-_]+'), ' ')
+          .replaceAll(RegExp('[-_]+'), ' ')
           .replaceAll(kInlineWhitespacePattern, ' ')
           .trim();
       if (normalized.isEmpty) {
@@ -7699,7 +7699,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               keyboardType: TextInputType.number,
               style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
               decoration: _editorToolbarInputDecoration(colorScheme),
-              onSubmitted: (val) => _goToLine(val),
+              onSubmitted: _goToLine,
             ),
           ),
           kOpenHandHGap4,
@@ -9215,9 +9215,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       context,
                       widget.activeFilePath,
                     ),
-                    onTap: () {
-                      _toggleProjectToolchainBar();
-                    },
+                    onTap: _toggleProjectToolchainBar,
                     active: _projectToolchainBarVisible,
                     foregroundColor: _projectToolchainStatusColor(
                       colorScheme,
@@ -10978,7 +10976,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   void _unfoldAll(String filePath) {
     final folded = _foldedRegions[filePath];
     if (folded == null || folded.isEmpty) return;
-    setState(() => folded.clear());
+    setState(folded.clear);
     _applyFolding(filePath);
   }
 
@@ -11005,7 +11003,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         .toSet();
     final folded = _foldedRegions[filePath];
     if (folded == null || folded.isEmpty) return;
-    setState(() => folded.removeWhere((line) => commentStarts.contains(line)));
+    setState(() => folded.removeWhere(commentStarts.contains));
     _applyFolding(filePath);
   }
 
@@ -14529,9 +14527,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       tooltipViewportMargin,
       overlaySize.width - tooltipWidth - tooltipViewportMargin,
     );
-    final left = globalAnchorRect.left
-        .clamp(tooltipViewportMargin, maxLeft)
-        .toDouble();
+    final left = globalAnchorRect.left.clamp(tooltipViewportMargin, maxLeft);
     final belowSpace = math.max(
       0.0,
       overlaySize.height -

@@ -35,7 +35,7 @@ class KnowledgeIndexingProgress {
 
   int get clampedProcessedChunks {
     if (totalChunks <= 0) return 0;
-    return processedChunks.clamp(0, totalChunks).toInt();
+    return processedChunks.clamp(0, totalChunks);
   }
 
   double? get fraction {

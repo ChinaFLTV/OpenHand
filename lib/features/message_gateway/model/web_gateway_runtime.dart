@@ -1044,7 +1044,7 @@ final List<(String, RegExp)> _webGatewayOperatingSystemUaRules =
       ('macOS', RegExp(r'Mac OS X[ /]([\d_]+)', caseSensitive: false)),
       ('Windows NT', RegExp(r'Windows NT[ /]([\d.]+)', caseSensitive: false)),
       ('ChromeOS', RegExp(r'CrOS [^; )]+[ /]([\d.]+)', caseSensitive: false)),
-      ('Linux', RegExp(r'(?:X11; )?Linux(?: [^;)]+)?', caseSensitive: false)),
+      ('Linux', RegExp('(?:X11; )?Linux(?: [^;)]+)?', caseSensitive: false)),
     ];
 
 String webGatewayNormalizeMetricRoute(String path) {

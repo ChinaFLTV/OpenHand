@@ -35,7 +35,7 @@ class AiContextWindowUsage {
 
   double get ratio {
     if (!hasData) return 0;
-    return (usedTokens / windowTokens).clamp(0.0, 1.0).toDouble();
+    return (usedTokens / windowTokens).clamp(0.0, 1.0);
   }
 
   int get percent => (ratio * 100).round();
@@ -115,10 +115,10 @@ class AiContextUsageBreakdown {
   }) {
     final normalized = <AiContextUsageCategory, int>{
       for (final category in AiContextUsageCategory.values)
-        category: characterCounts[category]?.clamp(0, 1 << 62).toInt() ?? 0,
+        category: characterCounts[category]?.clamp(0, 1 << 62) ?? 0,
     };
     final totalCharacters = normalized.values.fold<int>(0, (a, b) => a + b);
-    final safeTotalTokens = totalTokens.clamp(0, 1 << 62).toInt();
+    final safeTotalTokens = totalTokens.clamp(0, 1 << 62);
     final tokenCounts = _distributeTokens(
       normalized,
       totalCharacters: totalCharacters,

@@ -46,7 +46,7 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
   WebSearchDuckDuckGoEngine({required super.config, required super.httpClient});
 
   static final RegExp _resultPattern = RegExp(
-    r'<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)</a>'
+    '<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)</a>'
     r'[\s\S]*?<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>',
     caseSensitive: false,
   );

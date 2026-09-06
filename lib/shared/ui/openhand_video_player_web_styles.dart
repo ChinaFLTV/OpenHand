@@ -51,13 +51,13 @@ $trailingIcon
 }
 
 /// 播放器共用的时间与范围进度格式化脚本。
-const String openHandVideoPlayerScriptUtilities = r'''
+const String openHandVideoPlayerScriptUtilities = '''
 function formatTime(value){if(!Number.isFinite(value)||value<0)return'00:00';const total=Math.floor(value);const hours=Math.floor(total/3600);const minutes=Math.floor((total%3600)/60);const seconds=total%60;const pad=(number)=>String(number).padStart(2,'0');return hours>0?hours+':'+pad(minutes)+':'+pad(seconds):pad(minutes)+':'+pad(seconds);}
 function setRangeFill(input,ratio){const value=Math.max(0,Math.min(100,ratio*100));input.style.setProperty('--value',value+'%');}
 ''';
 
 /// 播放器共用的 DOM 元素绑定。
-const String openHandVideoPlayerElementBindingsJavaScript = r'''
+const String openHandVideoPlayerElementBindingsJavaScript = '''
 const shell=document.getElementById('shell');
 const media=document.getElementById('media');
 const play=document.getElementById('play');
@@ -73,7 +73,7 @@ const playMode=document.getElementById('playMode');
 ''';
 
 /// 播放器共用的播放、进度与音量状态同步逻辑。
-const String openHandVideoPlayerStateSyncJavaScript = r'''
+const String openHandVideoPlayerStateSyncJavaScript = '''
 function updatePlayState(){play.innerHTML=media.paused?icon.play:icon.pause;play.setAttribute('aria-label',media.paused?'Play':'Pause');play.setAttribute('title',media.paused?'Play':'Pause');if(media.paused||media.ended)showControls(true);else scheduleHide();}
 function updateTime(){const mediaDuration=Number.isFinite(media.duration)?media.duration:0;const mediaTime=Number.isFinite(media.currentTime)?media.currentTime:0;current.textContent=formatTime(mediaTime);duration.textContent=formatTime(mediaDuration);const ratio=mediaDuration>0?mediaTime/mediaDuration:0;progress.value=String(Math.round(ratio*1000));setRangeFill(progress,ratio);}
 function updateVolume(){const muted=media.muted||media.volume<=0;mute.innerHTML=muted?icon.mute:icon.volume;mute.setAttribute('aria-label',muted?'Unmute':'Mute');mute.setAttribute('title',muted?'Unmute':'Mute');volume.value=String(media.muted?0:media.volume);setRangeFill(volume,media.muted?0:media.volume);}
@@ -85,7 +85,7 @@ function updatePlayMode(){media.loop=looping;playMode.innerHTML=looping?icon.loo
 /// 依赖调用方先声明 `AUTO_HIDE_MS` 常量与 `hideTimer` / `dragging` /
 /// `volumeActive` 三个可变状态，并已注入
 /// [openHandVideoPlayerElementBindingsJavaScript] 的 DOM 绑定。
-const String openHandVideoPlayerVisibilityJavaScript = r'''
+const String openHandVideoPlayerVisibilityJavaScript = '''
 function clearHideTimer(){if(hideTimer)window.clearTimeout(hideTimer);hideTimer=0;}
 function scheduleHide(){clearHideTimer();if(media.paused||dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!media.paused&&!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},AUTO_HIDE_MS);}
 function showControls(sticky){shell.classList.add('controls-visible');if(sticky){clearHideTimer();return;}scheduleHide();}
@@ -97,7 +97,7 @@ function seekBy(delta){const dur=Number.isFinite(media.duration)?media.duration:
 /// 只有消息气泡内的两个播放器需要：媒体预览弹窗是模态的，指针不会移出外壳。
 /// 依赖调用方先声明 `POINTER_LEAVE_HIDE_MS` 常量与 `pointerInsideShell` 状态，
 /// 并已注入 [openHandVideoPlayerVisibilityJavaScript]。
-const String openHandVideoPlayerPointerLeaveHideJavaScript = r'''
+const String openHandVideoPlayerPointerLeaveHideJavaScript = '''
 function hideControlsAfterPointerLeave(){clearHideTimer();if(dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},POINTER_LEAVE_HIDE_MS);}
 function setVolumeActive(active){volumeActive=active;shell.classList.toggle('volume-open',active);if(active)showControls(true);else if(pointerInsideShell)scheduleHide();else hideControlsAfterPointerLeave();}
 function beginProgressDrag(event){dragging=true;progress.setPointerCapture?.(event.pointerId);showControls(true);}
@@ -106,11 +106,11 @@ function endProgressDrag(event){if(!dragging)return;dragging=false;progress.rele
 
 /// 停止播放并释放 WebView 媒体解码资源。
 const String openHandVideoPlayerReleaseJavaScript =
-    r'''try{var media=document.getElementById('media');if(media){try{media.pause();}catch(_){};try{media.muted=true;}catch(_){};try{media.removeAttribute('src');}catch(_){};try{while(media.firstChild)media.removeChild(media.firstChild);}catch(_){};try{media.load();}catch(_){};}}catch(_){}''';
+    '''try{var media=document.getElementById('media');if(media){try{media.pause();}catch(_){};try{media.muted=true;}catch(_){};try{media.removeAttribute('src');}catch(_){};try{while(media.firstChild)media.removeChild(media.firstChild);}catch(_){};try{media.load();}catch(_){};}}catch(_){}''';
 
 /// 切换 WebView 视频播放状态；优先复用页面已暴露的媒体实例。
 const String openHandVideoPlayerTogglePlaybackJavaScript =
-    r'''try{var media=window.media||document.getElementById('media');if(media){if(media.paused){var pending=media.play();if(pending&&pending.catch)pending.catch(function(){});}else{media.pause();}}}catch(_){}''';
+    '''try{var media=window.media||document.getElementById('media');if(media){if(media.paused){var pending=media.play();if(pending&&pending.catch)pending.catch(function(){});}else{media.pause();}}}catch(_){}''';
 
 /// 生成内嵌视频播放器共用的控制栏样式。
 String openHandVideoPlayerControlsCss({

@@ -239,12 +239,14 @@ class _WorkspaceView extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxComposerHeight = (constraints.maxHeight - 96)
-            .clamp(_composerMinHeight, _composerMaxHeight)
-            .toDouble();
-        final effectiveComposerHeight = composerHeight
-            .clamp(_composerMinHeight, maxComposerHeight)
-            .toDouble();
+        final maxComposerHeight = (constraints.maxHeight - 96).clamp(
+          _composerMinHeight,
+          _composerMaxHeight,
+        );
+        final effectiveComposerHeight = composerHeight.clamp(
+          _composerMinHeight,
+          maxComposerHeight,
+        );
         final session = currentSession;
         final hasLoadedMessages = session?.messages.isNotEmpty == true;
         final shouldShowTranscriptHydrating =
@@ -539,7 +541,7 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
     super.didChangeDependencies();
     final settings = _resolveSettings();
     final baseMs = settings.entranceDuration.inMilliseconds;
-    final durationMs = baseMs == 0 ? 0 : baseMs.clamp(240, 520).toInt();
+    final durationMs = baseMs == 0 ? 0 : baseMs.clamp(240, 520);
     final duration = Duration(milliseconds: durationMs);
     final durationChanged = _controller.duration != duration;
     _controller.duration = duration;

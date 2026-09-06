@@ -2,7 +2,7 @@ import 'input_value_parsing.dart';
 
 final RegExp _looseVersionTokenPattern = RegExp(r'\d+(?:\.\d+)*');
 final RegExp _strictSemanticVersionPattern = RegExp(r'^\d+\.\d+\.\d+$');
-final RegExp _leadingVersionPrefixPattern = RegExp(r'^[vV]');
+final RegExp _leadingVersionPrefixPattern = RegExp('^[vV]');
 
 List<int> versionPartsFromText(String value) {
   final normalized = value

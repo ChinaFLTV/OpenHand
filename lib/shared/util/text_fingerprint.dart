@@ -9,10 +9,11 @@ int boundedTextFingerprint(String value, {int edgeLength = 128}) {
     return Object.hash(length, value);
   }
 
-  final middleSampleLength = safeEdgeLength.clamp(1, length).toInt();
-  final middleStart = (length ~/ 2 - middleSampleLength ~/ 2)
-      .clamp(0, length - middleSampleLength)
-      .toInt();
+  final middleSampleLength = safeEdgeLength.clamp(1, length);
+  final middleStart = (length ~/ 2 - middleSampleLength ~/ 2).clamp(
+    0,
+    length - middleSampleLength,
+  );
   return Object.hash(
     length,
     value.substring(0, safeEdgeLength),
@@ -36,7 +37,7 @@ String compactTextSignature(
   final headEnd = safeHeadLength > text.length ? text.length : safeHeadLength;
   final tailStart = safeTailLength <= 0
       ? text.length
-      : (text.length - safeTailLength).clamp(headEnd, text.length).toInt();
+      : (text.length - safeTailLength).clamp(headEnd, text.length);
   final head = text.substring(0, headEnd);
   final tail = tailStart < text.length ? text.substring(tailStart) : '';
   return '${text.length}:$head:$tail';

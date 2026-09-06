@@ -326,7 +326,7 @@ class WebReverseCdpMcpBridge {
     if (existing != null && existing.isNotEmpty) {
       return existing;
     }
-    final shortId = sessionId.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '');
+    final shortId = sessionId.replaceAll(RegExp('[^A-Za-z0-9]+'), '');
     final shortToken = shortId.length <= 8 ? shortId : shortId.substring(0, 8);
     final base = 'web_reverse_cdp_$shortToken';
     final existingNames = existingServers.map((server) => server.name).toSet();

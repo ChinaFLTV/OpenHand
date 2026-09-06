@@ -736,8 +736,7 @@ _FieldStat _classify(String name, List<String> values) {
   final firstLen = unique.first.length;
   if (firstLen >= 8 && unique.every((v) => v.length == firstLen)) {
     final hashLike =
-        unique.every((v) => _hexRe.hasMatch(v)) ||
-        unique.every((v) => _b64Re.hasMatch(v));
+        unique.every(_hexRe.hasMatch) || unique.every(_b64Re.hasMatch);
     if (hashLike) {
       return _FieldStat(
         name: name,

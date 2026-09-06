@@ -933,7 +933,7 @@ final RegExp _terminalEscapePattern = RegExp(
   r'\[[0-?]*[ -/]*[@-~]' // CSI 控制序列
   r'|\][^\x07\x1B]*(?:\x07|\x1B\\)' // OSC 控制序列
   r'|[@-Z\\-_]' // 双字节转义
-  r')',
+  ')',
 );
 
 bool _shellSupportsInteractiveLogin(String shellPath) {

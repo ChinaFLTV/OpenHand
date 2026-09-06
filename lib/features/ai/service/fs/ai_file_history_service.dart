@@ -45,7 +45,7 @@ class AiFileHistoryService {
   }
 
   static final RegExp _unsafeHistoryPathBasenamePattern = RegExp(
-    r'[^a-zA-Z0-9_-]',
+    '[^a-zA-Z0-9_-]',
   );
   static const int _historyPathBasenamePrefixLength = 20;
   static const String _metadataFileSuffix = '.meta.json';

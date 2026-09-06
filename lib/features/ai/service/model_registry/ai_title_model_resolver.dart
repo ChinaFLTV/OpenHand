@@ -75,7 +75,7 @@ class AiTitleModelResolver {
       if (modality.contains('text')) {
         return true;
       }
-      if (_nonTextModalityMarkers.any((marker) => modality.contains(marker))) {
+      if (_nonTextModalityMarkers.any(modality.contains)) {
         return false;
       }
     }

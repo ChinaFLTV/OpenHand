@@ -165,6 +165,6 @@ class _OpenHandCountdownProgressBarState
 
   double _normalizedValue(double value) {
     if (!value.isFinite) return 0;
-    return value.clamp(0.0, 1.0).toDouble();
+    return value.clamp(0.0, 1.0);
   }
 }

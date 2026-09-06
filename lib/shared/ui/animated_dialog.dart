@@ -116,7 +116,7 @@ double? _validDialogDimension(double? value) {
 
 double? _validDialogViewportFraction(double? value) {
   if (value == null || !value.isFinite || value <= 0) return null;
-  return value.clamp(0.05, 1.0).toDouble();
+  return value.clamp(0.05, 1.0);
 }
 
 double _safeDialogMaxDimension(double? maxValue, double minValue) {
@@ -2730,9 +2730,10 @@ double _safeTransformProgress(double value) {
         ? -_kMaxTransformProgressMagnitude
         : _kMaxTransformProgressMagnitude;
   }
-  return value
-      .clamp(-_kMaxTransformProgressMagnitude, _kMaxTransformProgressMagnitude)
-      .toDouble();
+  return value.clamp(
+    -_kMaxTransformProgressMagnitude,
+    _kMaxTransformProgressMagnitude,
+  );
 }
 
 class _PaintMatrixTransition extends SingleChildRenderObjectWidget {

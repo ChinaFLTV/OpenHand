@@ -8328,7 +8328,7 @@ class _NaturalCardGrid extends StatelessWidget {
     builder: (context, constraints) {
       final possibleColumns =
           ((constraints.maxWidth + spacing) / (minTileWidth + spacing)).floor();
-      final columns = possibleColumns.clamp(1, maxColumns).toInt();
+      final columns = possibleColumns.clamp(1, maxColumns);
       final tileWidth =
           (constraints.maxWidth - spacing * (columns - 1)) / columns;
       return Wrap(
@@ -8770,7 +8770,7 @@ class _OpsDiagnosis {
         ),
       );
     }
-    score = score.clamp(0, 100).toInt();
+    score = score.clamp(0, 100);
     final tone = score >= 85
         ? _OpsDiagnosisTone.ok
         : score >= 65
@@ -11337,10 +11337,10 @@ int _boundedMegabytesAsBytes(
     minMegabytes,
     (maxBytes / kBytesPerMiB).floor(),
   );
-  final fallbackMegabytes = (fallbackBytes / kBytesPerMiB)
-      .round()
-      .clamp(minMegabytes, maxMegabytes)
-      .toInt();
+  final fallbackMegabytes = (fallbackBytes / kBytesPerMiB).round().clamp(
+    minMegabytes,
+    maxMegabytes,
+  );
   return clampedIntFromText(
         value,
         fallback: fallbackMegabytes,
@@ -11799,7 +11799,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                           onPressed: ding.isLoggingOut
                               ? null
                               : ding.isAuthenticating
-                              ? () => ding.cancelAuthorization()
+                              ? ding.cancelAuthorization
                               : () => _toggleDingTalkAuth(context, ding),
                           loading: ding.isLoggingOut,
                         ),
@@ -15358,7 +15358,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   double _voiceLevelFromAmplitude(Amplitude amplitude) {
     final current = amplitude.current.isFinite ? amplitude.current : -60.0;
-    return ((current + 60) / 60).clamp(0.08, 1.0).toDouble();
+    return ((current + 60) / 60).clamp(0.08, 1.0);
   }
 
   void _publishVoiceVisual() {
@@ -15950,9 +15950,7 @@ class _DingTalkVoiceWavePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final count = levels.isEmpty ? 40 : levels.length;
     const gap = 3.0;
-    final barWidth = ((size.width - (count - 1) * gap) / count)
-        .clamp(1.0, 5.0)
-        .toDouble();
+    final barWidth = ((size.width - (count - 1) * gap) / count).clamp(1.0, 5.0);
     final trackPaint = Paint()
       ..color = trackColor
       ..strokeWidth = barWidth
@@ -15963,15 +15961,11 @@ class _DingTalkVoiceWavePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     for (var index = 0; index < count; index++) {
       final x = barWidth / 2 + index * (barWidth + gap);
-      final level = levels.isEmpty
-          ? 0.08
-          : levels[index].clamp(0.08, 1.0).toDouble();
+      final level = levels.isEmpty ? 0.08 : levels[index].clamp(0.08, 1.0);
       final trackTop = size.height * 0.38;
       final trackBottom = size.height * 0.62;
       canvas.drawLine(Offset(x, trackTop), Offset(x, trackBottom), trackPaint);
-      final halfHeight = (size.height * 0.45 * level)
-          .clamp(2.0, size.height)
-          .toDouble();
+      final halfHeight = (size.height * 0.45 * level).clamp(2.0, size.height);
       final center = size.height / 2;
       canvas.drawLine(
         Offset(x, center - halfHeight),
@@ -18088,7 +18082,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 curve: kOpenHandEntranceCurve,
                 tween: Tween<double>(begin: 0, end: 1),
                 builder: (context, value, child) {
-                  final progress = value.clamp(0.0, 1.0).toDouble();
+                  final progress = value.clamp(0.0, 1.0);
                   return Opacity(
                     opacity: progress,
                     child: Transform.scale(
@@ -18455,10 +18449,7 @@ class _DingTalkStreamingDotsState extends State<_DingTalkStreamingDots>
           mainAxisSize: MainAxisSize.min,
           children: List<Widget>.generate(_dotCount, (index) {
             final phase = (_controller.value - index * _phaseStep) % 1.0;
-            final wave = math
-                .sin(phase * math.pi * 2)
-                .clamp(0.0, 1.0)
-                .toDouble();
+            final wave = math.sin(phase * math.pi * 2).clamp(0.0, 1.0);
             return Padding(
               padding: EdgeInsets.only(
                 right: index == _dotCount - 1 ? 0 : _dotSpacing,
@@ -18511,7 +18502,7 @@ class _DingTalkMessageActionsPanel extends StatelessWidget {
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
                 curve: kOpenHandEntranceCurve,
                 builder: (context, value, child) => Opacity(
-                  opacity: value.clamp(0.0, 1.0).toDouble(),
+                  opacity: value.clamp(0.0, 1.0),
                   child: Transform.translate(
                     offset: Offset(0, (1 - value) * 5),
                     child: Transform.scale(
@@ -20134,9 +20125,10 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final records = message.editHistory;
-    final historyHeight = (MediaQuery.sizeOf(context).height * 0.58)
-        .clamp(260.0, 520.0)
-        .toDouble();
+    final historyHeight = (MediaQuery.sizeOf(context).height * 0.58).clamp(
+      260.0,
+      520.0,
+    );
     final versions = <({String label, String content, DateTime? editedAt})>[
       (label: '当前版本', content: message.content, editedAt: null),
       for (var index = records.length - 1; index >= 0; index--)
@@ -21116,8 +21108,7 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
                         .clamp(
                           position.minScrollExtent,
                           position.maxScrollExtent,
-                        )
-                        .toDouble();
+                        );
                     if ((target - position.pixels).abs() < 0.5) return false;
                     parent.jumpTo(target);
                     return true;
@@ -21827,7 +21818,7 @@ Object? _humanizeDingTalkValue(Object? value) {
   if (unwrapped is List) {
     return unwrapped
         .map(_humanizeDingTalkValue)
-        .where((item) => _dingtalkDetailHasContent(item))
+        .where(_dingtalkDetailHasContent)
         .toList(growable: false);
   }
   return unwrapped;
@@ -21971,7 +21962,7 @@ String _canonicalDingTalkDetailLabel(String key) {
   final translated = labels[key];
   if (translated != null) return translated;
   if (key.contains(RegExp(r'[\u4e00-\u9fff]'))) return key;
-  final compact = key.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toLowerCase();
+  final compact = key.replaceAll(RegExp('[^A-Za-z0-9]'), '').toLowerCase();
   if (compact.startsWith('setting')) return '设置';
   if (compact.startsWith('notification')) return '通知';
   if (compact.startsWith('member')) return '成员资料';

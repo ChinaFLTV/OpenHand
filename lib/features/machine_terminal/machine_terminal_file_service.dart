@@ -1610,7 +1610,7 @@ String machineTerminalBaseName(String path) {
 }
 
 p.Context _machineTerminalPathContext(String path) {
-  return path.contains(r'\') || RegExp(r'^[A-Za-z]:').hasMatch(path)
+  return path.contains(r'\') || RegExp('^[A-Za-z]:').hasMatch(path)
       ? p.windows
       : p.posix;
 }
@@ -1707,7 +1707,7 @@ class _MutableTransferTask {
   }
 
   void updateProgress(int bytes) {
-    final next = bytes.clamp(0, totalBytes).toInt();
+    final next = bytes.clamp(0, totalBytes);
     if (next < transferredBytes) return;
     final now = DateTime.now();
     final previousAt = _lastProgressAt;
@@ -1805,7 +1805,7 @@ class _MutableTransferTask {
         transferredBytes < 0) {
       return null;
     }
-    final boundedTransferred = transferredBytes.clamp(0, totalBytes).toInt();
+    final boundedTransferred = transferredBytes.clamp(0, totalBytes);
     final rawSpeed =
         optionalDoubleFromValue(raw['speed_bytes_per_second']) ?? 0;
     final speed = rawSpeed.isFinite && rawSpeed >= 0 ? rawSpeed : 0.0;
@@ -1933,7 +1933,7 @@ String _listDirectoryCommand(String? path) {
   if (Platform.isWindows) {
     const entryLimitWithSentinel = _machineTerminalDirectoryEntryLimit + 1;
     final pathLiteral = path == null
-        ? r'(Get-Location).ProviderPath'
+        ? '(Get-Location).ProviderPath'
         : "[IO.Path]::GetFullPath('${_escapePowerShell(path)}')";
     final script =
         '''

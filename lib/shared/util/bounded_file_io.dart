@@ -541,8 +541,7 @@ final class BoundedRandomAccessFileLease {
     unawaited(
       Future<void>.sync(() => _release?.call(file) ?? file.close()).then<void>(
         (_) => completer.complete(),
-        onError: (Object error, StackTrace stack) =>
-            completer.completeError(error, stack),
+        onError: completer.completeError,
       ),
     );
     return future;

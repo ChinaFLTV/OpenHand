@@ -260,7 +260,7 @@ class AiModelProxyDailyComponent {
 
   int get failures => requests <= successes ? 0 : requests - successes;
   double get successRate =>
-      requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0).toDouble();
+      requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0);
   int get avgMs => requests <= 0 ? 0 : (durationMs / requests).round();
   AiModelProxyHealth get health => classifyAiModelProxyHealth(
     requests: requests,

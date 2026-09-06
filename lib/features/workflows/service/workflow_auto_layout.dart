@@ -503,7 +503,7 @@ double _clampAnnotationCoordinate(
     _workflowAnnotationCanvasPadding,
     canvasSize - size - _workflowAnnotationCanvasPadding,
   );
-  return value.clamp(_workflowAnnotationCanvasPadding, maximum).toDouble();
+  return value.clamp(_workflowAnnotationCanvasPadding, maximum);
 }
 
 class _WorkflowLayoutRect {

@@ -336,8 +336,7 @@ Future<void> _bootstrapRuntime(
     () => settingsController.aiModels,
   );
   services.aiModelHealthController.attachProxyResolver(
-    ({required String targetHost}) => services.aiModelProxyController
-        .resolveProxyEndpoint(targetHost: targetHost),
+    services.aiModelProxyController.resolveProxyEndpoint,
   );
   services.aiModelProxyController.attachThemeProvider(
     () => (

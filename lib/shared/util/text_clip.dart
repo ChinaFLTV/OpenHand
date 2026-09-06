@@ -133,10 +133,7 @@ String clipMiddleText(
 
   final available = maxChars - separatorLength;
   final safeHeadFraction = finiteUnitInterval(headFraction, fallback: 0.6);
-  final headCount = (available * safeHeadFraction)
-      .round()
-      .clamp(0, available)
-      .toInt();
+  final headCount = (available * safeHeadFraction).round().clamp(0, available);
   final tailCount = available - headCount;
   final head = characters.take(headCount);
   if (tailCount <= 0) {

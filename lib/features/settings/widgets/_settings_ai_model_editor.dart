@@ -3415,9 +3415,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _reasoningEffortOptionDrafts.length *
             _reasoningEffortCollapsedCardExtent +
         20;
-    return estimated
-        .clamp(_reasoningEffortListMinHeight, _reasoningEffortListMaxHeight)
-        .toDouble();
+    return estimated.clamp(
+      _reasoningEffortListMinHeight,
+      _reasoningEffortListMaxHeight,
+    );
   }
 
   void _ensureDefaultReaderTypes() {
@@ -4678,9 +4679,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 de: 'Nativer Wert',
                 ja: 'ネイティブ値',
               ),
-              onChanged: (_) => setState(() {
-                _syncReasoningEffortSelection();
-              }),
+              onChanged: (_) => setState(_syncReasoningEffortSelection),
             ),
             _buildReasoningEffortDraftTextField(
               width: fieldWidth,

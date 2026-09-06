@@ -128,8 +128,8 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
   }) {
     final selection = _controller.selection;
     final textLength = _controller.text.length;
-    final start = selection.start.clamp(0, textLength).toInt();
-    final end = selection.end.clamp(0, textLength).toInt();
+    final start = selection.start.clamp(0, textLength);
+    final end = selection.end.clamp(0, textLength);
     final rangeStart = math.min(start, end);
     final rangeEnd = math.max(start, end);
     final nextRanges = _applyStyleToSelection(
@@ -151,8 +151,8 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
   _AnnotationResolvedStyle _selectionStyle() {
     final textLength = _controller.text.length;
     final selection = _controller.selection;
-    final start = selection.start.clamp(0, textLength).toInt();
-    final end = selection.end.clamp(0, textLength).toInt();
+    final start = selection.start.clamp(0, textLength);
+    final end = selection.end.clamp(0, textLength);
     return _resolveAnnotationStyleAt(widget.annotation, math.min(start, end));
   }
 
@@ -368,14 +368,14 @@ class _WorkflowAnnotationTextController extends TextEditingController {
     final boundaries = <int>{0, text.length};
     for (final range in annotation.styleRanges) {
       boundaries
-        ..add(range.start.clamp(0, text.length).toInt())
-        ..add(range.end.clamp(0, text.length).toInt());
+        ..add(range.start.clamp(0, text.length))
+        ..add(range.end.clamp(0, text.length));
     }
     final composing = value.composing;
     if (withComposing && composing.isValid) {
       boundaries
-        ..add(composing.start.clamp(0, text.length).toInt())
-        ..add(composing.end.clamp(0, text.length).toInt());
+        ..add(composing.start.clamp(0, text.length))
+        ..add(composing.end.clamp(0, text.length));
     }
     final points = boundaries.toList()..sort();
     return TextSpan(

@@ -188,9 +188,7 @@ class _KnowledgeVectorDistributionViewState
                             : 0.0;
                         setState(() {
                           _yaw += dx * 0.010;
-                          _pitch = (_pitch + dy * 0.008)
-                              .clamp(-1.18, 1.18)
-                              .toDouble();
+                          _pitch = (_pitch + dy * 0.008).clamp(-1.18, 1.18);
                           _zoom = _clampZoom(_gestureStartZoom * gestureScale);
                         });
                       },
@@ -314,7 +312,7 @@ class _KnowledgeVectorDistributionViewState
   }
 
   double _clampZoom(double zoom) {
-    return zoom.clamp(_kVectorSceneMinZoom, _kVectorSceneMaxZoom).toDouble();
+    return zoom.clamp(_kVectorSceneMinZoom, _kVectorSceneMaxZoom);
   }
 
   void _restartReveal() {
@@ -927,7 +925,7 @@ class _VectorPopoverLayoutDelegate extends SingleChildLayoutDelegate {
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
     final safeWidth = safeRect.width.clamp(0.0, constraints.maxWidth);
-    final effectiveWidth = width.clamp(0.0, safeWidth).toDouble();
+    final effectiveWidth = width.clamp(0.0, safeWidth);
     final safeHeight = safeRect.height.clamp(0.0, constraints.maxHeight);
     return BoxConstraints(
       minWidth: effectiveWidth,
@@ -940,8 +938,8 @@ class _VectorPopoverLayoutDelegate extends SingleChildLayoutDelegate {
   Offset getPositionForChild(Size size, Size childSize) {
     if (safeRect.isEmpty) return Offset.zero;
     final clampedAnchor = Offset(
-      anchor.dx.clamp(safeRect.left, safeRect.right).toDouble(),
-      anchor.dy.clamp(safeRect.top, safeRect.bottom).toDouble(),
+      anchor.dx.clamp(safeRect.left, safeRect.right),
+      anchor.dy.clamp(safeRect.top, safeRect.bottom),
     );
     final childWidth = math.min(childSize.width, safeRect.width);
     final childHeight = math.min(childSize.height, safeRect.height);
@@ -954,8 +952,8 @@ class _VectorPopoverLayoutDelegate extends SingleChildLayoutDelegate {
     final rawX = preferRight ? rightX : leftX;
     final rawY = clampedAnchor.dy - childHeight * 0.34;
     return Offset(
-      rawX.clamp(safeRect.left, safeRect.right - childWidth).toDouble(),
-      rawY.clamp(safeRect.top, safeRect.bottom - childHeight).toDouble(),
+      rawX.clamp(safeRect.left, safeRect.right - childWidth),
+      rawY.clamp(safeRect.top, safeRect.bottom - childHeight),
     );
   }
 
@@ -1124,7 +1122,7 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
       ..sort((a, b) => a.depth.compareTo(b.depth));
     final revealWindow = revealProgress * sorted.length;
     for (var i = 0; i < sorted.length; i++) {
-      final localProgress = (revealWindow - i).clamp(0.0, 1.0).toDouble();
+      final localProgress = (revealWindow - i).clamp(0.0, 1.0);
       if (localProgress <= 0) continue;
       final point = sorted[i];
       final selected = point.point.id == selectedId;
@@ -1590,7 +1588,7 @@ _VectorSceneProjection _projectSceneCoordinate({
   final z1 = -x * sinY + z * cosY;
   final y1 = y * cosP - z1 * sinP;
   final z2 = y * sinP + z1 * cosP;
-  final perspective = (1 / (1.9 - z2 * 0.46)).clamp(0.42, 1.35).toDouble();
+  final perspective = (1 / (1.9 - z2 * 0.46)).clamp(0.42, 1.35);
   return _VectorSceneProjection(
     offset: center + Offset(x1 * radius, -y1 * radius) * perspective,
     depth: z2,
@@ -1654,7 +1652,7 @@ _ProjectedVectorPoint? _nearestPoint(
 }
 
 double _closestNiceAxisStep(double rawStep) {
-  final target = rawStep.clamp(0.05, 1.0).toDouble();
+  final target = rawStep.clamp(0.05, 1.0);
   const steps = <double>[0.05, 0.10, 0.20, 0.25, 0.50, 1.0];
   var best = steps.first;
   var bestScore = double.infinity;

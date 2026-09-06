@@ -146,7 +146,7 @@ class McpLoadedToolsTracker {
     }
     final bucket = _loadedBySession.putIfAbsent(
       normalizedSessionId,
-      () => SplayTreeSet<String>(),
+      SplayTreeSet<String>.new,
     );
     final addedNames = <String>[];
     for (final entry in loadedNamesRaw.take(maxNamesPerSession * 2)) {

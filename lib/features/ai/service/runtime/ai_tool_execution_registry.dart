@@ -74,7 +74,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
       unawaited(_cancelEntry(previous, '替换重复工具调用：$normalizedToolCallId'));
     }
     final entry = _RegisteredEntry(
-      killer: killer ?? () => Future<void>.value(),
+      killer: killer ?? Future<void>.value,
       record: AiToolExecutionRecord(
         toolCallId: normalizedToolCallId,
         sessionId: normalizedSessionId,

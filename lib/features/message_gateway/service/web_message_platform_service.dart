@@ -1443,7 +1443,7 @@ class WebMessagePlatformService {
       hostName: _safeHostName(),
       activeSseSubscriptions: _activeSseSubscriptions,
       recentErrors: List<Map<String, Object?>>.unmodifiable(
-        _recentErrors.map((e) => Map<String, Object?>.unmodifiable(e)),
+        _recentErrors.map(Map<String, Object?>.unmodifiable),
       ),
       logLevelBreakdown: _computeLogLevelBreakdown(),
       memoryLogCount: _memoryLogs.length,
@@ -2538,18 +2538,11 @@ class WebMessagePlatformService {
     // query string `?token=...`（匿名模式可省略）。该端点会推送整张
     // displayMessages 快照 + send_phase + last_error，前端按 message id 增量
     // 合并即可，无需服务端 diff。
-    router.get(
-      '/api/sessions/<sessionId>/events',
-      (shelf.Request r, String sessionId) =>
-          _sessionEventsHandler(r, sessionId),
-    );
+    router.get('/api/sessions/<sessionId>/events', _sessionEventsHandler);
     // 媒体资产: 仅放行已被该会话消息 metadata.attachments[].path /
     // generated_image_paths / generated_video_paths / generated_audio_paths
     // 等白名单引用过的本地文件路径, 防止任意路径读取。
-    router.get(
-      '/api/sessions/<sessionId>/asset',
-      (shelf.Request r, String sessionId) => _sessionAssetHandler(r, sessionId),
-    );
+    router.get('/api/sessions/<sessionId>/asset', _sessionAssetHandler);
     // 导出会话：返回 application/x-ndjson + Content-Disposition attachment，
     // 以便浏览器一键下载。包含 session 头信息 + 全量未删除消息（不分页）。
     router.get(
@@ -2687,10 +2680,7 @@ class WebMessagePlatformService {
     );
     router.put(
       '/api/settings/models/reasoning-effort',
-      (shelf.Request r) => _withAuth(
-        r,
-        (req, auth) => _putModelReasoningEffortHandler(req, auth),
-      ),
+      (shelf.Request r) => _withAuth(r, _putModelReasoningEffortHandler),
     );
 
     return router;
@@ -3263,7 +3253,7 @@ class WebMessagePlatformService {
     final maxPoints = nonNegativeIntFromText(
       rawMaxPoints,
       fallback: kKnowledgeVectorDistributionDefaultMaxPoints,
-    ).clamp(1, 2000).toInt();
+    ).clamp(1, 2000);
     try {
       final distribution = await controller.loadVectorDistribution(
         maxPoints: maxPoints,

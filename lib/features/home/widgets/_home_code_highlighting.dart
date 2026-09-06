@@ -1888,14 +1888,10 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
     final metrics = _contentMetrics;
     final dialogWidth = metrics == null
         ? maxWidth
-        : (metrics.width + _contentWidthChrome)
-              .clamp(minWidth, maxWidth)
-              .toDouble();
+        : (metrics.width + _contentWidthChrome).clamp(minWidth, maxWidth);
     final dialogHeight = metrics == null
         ? maxHeight
-        : (metrics.height + _contentHeightChrome)
-              .clamp(minHeight, maxHeight)
-              .toDouble();
+        : (metrics.height + _contentHeightChrome).clamp(minHeight, maxHeight);
     context.watch<SettingsController>();
     final animationSettings = openHandMotionSettingsOf(
       context,

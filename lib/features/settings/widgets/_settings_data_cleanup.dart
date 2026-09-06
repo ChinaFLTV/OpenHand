@@ -1332,7 +1332,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     TextButton.icon(
-                      onPressed: () => _openLedgerSearchDialog(),
+                      onPressed: _openLedgerSearchDialog,
                       icon: Icon(
                         Icons.search_rounded,
                         size: 16,
@@ -1347,7 +1347,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: () => _exportLedgerToClipboard(),
+                      onPressed: _exportLedgerToClipboard,
                       icon: Icon(
                         Icons.ios_share_rounded,
                         size: 16,
@@ -1362,7 +1362,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: () => _importLedgerFromClipboard(),
+                      onPressed: _importLedgerFromClipboard,
                       icon: Icon(
                         Icons.download_rounded,
                         size: 16,

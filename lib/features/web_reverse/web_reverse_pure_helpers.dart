@@ -82,7 +82,7 @@ final RegExp _consoleIsoTimestampPattern = RegExp(
 );
 final RegExp _consoleHexPattern = RegExp(r'\b0x[0-9a-fA-F]+\b');
 final RegExp _consoleLongNumberPattern = RegExp(r'\b\d{3,}\b');
-final RegExp _consolePathHashPattern = RegExp(r'/[A-Fa-f0-9]{8,}');
+final RegExp _consolePathHashPattern = RegExp('/[A-Fa-f0-9]{8,}');
 final RegExp _consoleLocationTailPattern = RegExp(r':\d+:\d+\)');
 
 typedef WebReversePageTargetData = ({String id, String url, String title});

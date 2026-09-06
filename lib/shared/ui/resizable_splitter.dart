@@ -65,9 +65,8 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
         final maxLeft = availForLeft < minLeft ? minLeft : availForLeft;
         _leftWidth ??=
             (total * _safeInitialLeftFraction(widget.initialLeftFraction))
-                .clamp(minLeft, maxLeft)
-                .toDouble();
-        final leftW = _leftWidth!.clamp(minLeft, maxLeft).toDouble();
+                .clamp(minLeft, maxLeft);
+        final leftW = _leftWidth!.clamp(minLeft, maxLeft);
         return Row(
           children: [
             SizedBox(width: leftW, child: widget.left),
@@ -92,9 +91,7 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
                 onHorizontalDragStart: (_) => setState(() => _dragging = true),
                 onHorizontalDragUpdate: (d) {
                   setState(() {
-                    final next = (leftW + d.delta.dx)
-                        .clamp(minLeft, maxLeft)
-                        .toDouble();
+                    final next = (leftW + d.delta.dx).clamp(minLeft, maxLeft);
                     _leftWidth = next;
                   });
                 },

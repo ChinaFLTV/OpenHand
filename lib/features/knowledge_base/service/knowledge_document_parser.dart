@@ -37,7 +37,7 @@ final RegExp _xlsxWorksheetFilePattern = RegExp(
   r'^xl/worksheets/sheet\d+\.xml$',
 );
 final RegExp _pptxSlideFilePattern = RegExp(r'^ppt/slides/slide\d+\.xml$');
-final RegExp _xlsxColumnReferencePattern = RegExp(r'^[A-Za-z]+');
+final RegExp _xlsxColumnReferencePattern = RegExp('^[A-Za-z]+');
 final RegExp _naturalIndexPattern = RegExp(r'(\d+)');
 final RegExp _htmlScriptPattern = RegExp(
   r'<script\b[^>]*>.*?</script>',
@@ -49,14 +49,14 @@ final RegExp _htmlStylePattern = RegExp(
   caseSensitive: false,
   dotAll: true,
 );
-final RegExp _htmlCommentPattern = RegExp(r'<!--.*?-->', dotAll: true);
+final RegExp _htmlCommentPattern = RegExp('<!--.*?-->', dotAll: true);
 final RegExp _htmlBlockClosePattern = RegExp(
-  r'</(p|div|section|article|header|footer|li|tr)>',
+  '</(p|div|section|article|header|footer|li|tr)>',
   caseSensitive: false,
 );
 final RegExp _htmlBreakPattern = RegExp(r'<br\s*/?>', caseSensitive: false);
 final RegExp _htmlTableCellClosePattern = RegExp(
-  r'</t[dh]>',
+  '</t[dh]>',
   caseSensitive: false,
 );
 final RegExp _htmlTitlePattern = RegExp(
@@ -65,12 +65,12 @@ final RegExp _htmlTitlePattern = RegExp(
   dotAll: true,
 );
 final RegExp _htmlDecimalEntityPattern = RegExp(r'&#(\d+);');
-final RegExp _htmlHexEntityPattern = RegExp(r'&#x([0-9a-fA-F]+);');
+final RegExp _htmlHexEntityPattern = RegExp('&#x([0-9a-fA-F]+);');
 final RegExp _tomlSectionPattern = RegExp(r'^\[(.+)]$');
 final RegExp _tomlAssignmentPattern = RegExp(r'^([^=]+)=(.*)$');
 final RegExp _pdfStreamStartPattern = RegExp(r'stream(?:\r\n|\n|\r)');
-final RegExp _pdfTextBlockPattern = RegExp(r'BT(.*?)ET', dotAll: true);
-final RegExp _pdfOctalEscapePattern = RegExp(r'^[0-7]{1,3}');
+final RegExp _pdfTextBlockPattern = RegExp('BT(.*?)ET', dotAll: true);
+final RegExp _pdfOctalEscapePattern = RegExp('^[0-7]{1,3}');
 
 class KnowledgeDocumentParseRequest {
   const KnowledgeDocumentParseRequest({

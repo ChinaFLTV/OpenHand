@@ -29,7 +29,7 @@ import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
-const String _kHookSource = r"""
+const String _kHookSource = """
 (function(){
   if (window.__OH_PM_HOOKED__) return;
   window.__OH_PM_HOOKED__ = true;
@@ -259,7 +259,7 @@ class _PmDialogState extends State<_PmDialog> {
         _pollTimer?.cancel();
         _pollTimer = startNonOverlappingPeriodicTimer(
           const Duration(milliseconds: 800),
-          (timer) => _drain(timer),
+          _drain,
         );
         setState(() {
           _hooked = true;
@@ -341,7 +341,7 @@ class _PmDialogState extends State<_PmDialog> {
   }
 
   Future<void> _clear() async {
-    setState(() => _records.clear());
+    setState(_records.clear);
     try {
       await widget.controller.evaluateJavaScript(
         'window.__OH_PM_clear__ && window.__OH_PM_clear__()',

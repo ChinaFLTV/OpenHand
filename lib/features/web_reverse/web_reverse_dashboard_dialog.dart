@@ -1501,8 +1501,8 @@ class _WebReverseDashboardDialogState
             _toggleRecorder(ctrl),
         // Shift + ? 打开快捷键速查面板。`?` 在大多数键盘上需要 shift+/，
         // SingleActivator 的 includeRepeats 默认 true 不影响这里。
-        const SingleActivator(LogicalKeyboardKey.slash, shift: true): () =>
-            _showShortcutsHelp(),
+        const SingleActivator(LogicalKeyboardKey.slash, shift: true):
+            _showShortcutsHelp,
       },
       // 注意：不要在这里包 `Focus(autofocus: true)` —— 它会抢走对话框内
       // TextField 的初始焦点，且会让 macOS IMK 上下文持续失效，导致此后

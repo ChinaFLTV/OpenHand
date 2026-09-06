@@ -650,7 +650,7 @@ class AndroidReverseAdbClient {
     String? pid,
   }) {
     final filter = <String>[];
-    final boundedLines = lines.clamp(1, _kMaxLogcatLines).toInt();
+    final boundedLines = lines.clamp(1, _kMaxLogcatLines);
     final normalizedLevel = _normalizeLogcatLevel(level);
     final normalizedTag = nullIfBlank(tag);
     final normalizedPid = nullIfBlank(pid);

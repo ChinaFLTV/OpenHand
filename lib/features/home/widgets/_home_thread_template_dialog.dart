@@ -15,15 +15,13 @@ class _ThreadTemplateDialog extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final viewport = MediaQuery.sizeOf(context);
-    final dialogWidth = math
-        .max(
-          _cardMinWidth,
-          math.min(
-            kOpenHandDialogWidthPanel,
-            viewport.width - _dialogHorizontalInset,
-          ),
-        )
-        .toDouble();
+    final dialogWidth = math.max(
+      _cardMinWidth,
+      math.min(
+        kOpenHandDialogWidthPanel,
+        viewport.width - _dialogHorizontalInset,
+      ),
+    );
     final dialogHeight = math
         .max(
           360,
@@ -92,7 +90,7 @@ class _ThreadTemplateDialog extends StatelessWidget {
     );
     final width =
         (availableWidth - _gridSpacing * (columnCount - 1)) / columnCount;
-    return width.clamp(_cardMinWidth, _cardMaxWidth).toDouble();
+    return width.clamp(_cardMinWidth, _cardMaxWidth);
   }
 }
 

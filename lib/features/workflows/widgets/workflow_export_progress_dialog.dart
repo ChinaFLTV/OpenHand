@@ -95,7 +95,7 @@ class _WorkflowExportProgressDialogState
       final path = await widget.task((progress, message) {
         if (!mounted || _status != _ExportStatus.processing) return;
         final boundedProgress = progress.isFinite
-            ? progress.clamp(0.0, 0.98).toDouble()
+            ? progress.clamp(0.0, 0.98)
             : _targetProgress;
         _animateProgressTo(boundedProgress, message: message);
       });
@@ -120,7 +120,7 @@ class _WorkflowExportProgressDialogState
 
   void _animateProgressTo(double progress, {String? message}) {
     final safeProgress = progress.isFinite
-        ? progress.clamp(0.0, 1.0).toDouble()
+        ? progress.clamp(0.0, 1.0)
         : _targetProgress;
     final nextTarget = safeProgress < _targetProgress
         ? _targetProgress

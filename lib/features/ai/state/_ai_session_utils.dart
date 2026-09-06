@@ -132,7 +132,7 @@ bool _isMeaningfulAutoTitle(String value) {
   if (words >= AiSessionController._minimumMeaningfulLatinTitleWords) {
     return true;
   }
-  final latinOrDigitCount = normalized.replaceAll(RegExp(r'[^a-z0-9]'), '');
+  final latinOrDigitCount = normalized.replaceAll(RegExp('[^a-z0-9]'), '');
   return latinOrDigitCount.length >= 6;
 }
 
@@ -173,8 +173,8 @@ String _sanitizeTitleSourceLine(String value) {
     RegExp(r'\[([^\]]+)\]\([^)]+\)'),
     (match) => match.group(1) ?? '',
   );
-  normalized = normalized.replaceAll(RegExp(r'`{1,3}'), '');
-  normalized = normalized.replaceAll(RegExp(r'[*_~]'), '');
+  normalized = normalized.replaceAll(RegExp('`{1,3}'), '');
+  normalized = normalized.replaceAll(RegExp('[*_~]'), '');
   normalized = normalized.replaceFirst(RegExp(r'^\s*[#>]+\s*'), '');
   normalized = normalized.replaceFirst(RegExp(r'^\s*[-+*]\s+'), '');
   normalized = normalized.replaceFirst(RegExp(r'^\s*\d+[.)、]\s*'), '');
@@ -424,7 +424,7 @@ String _failedToolExecutionResultText({
 
 List<String> _splitTitleSourceLine(String value) {
   return value
-      .split(RegExp(r'[。！？!?；;]'))
+      .split(RegExp('[。！？!?；;]'))
       .map(_sanitizeTitleSourceLine)
       .where((item) => item.isNotEmpty)
       .toList(growable: false);
@@ -534,7 +534,7 @@ String? _compactPersistenceRawDetail(String raw) {
   final unique = RegExp(
     r'UNIQUE constraint failed:\s*[^,\)]+',
   ).firstMatch(text);
-  final foreignKey = RegExp(r'FOREIGN KEY constraint failed').firstMatch(text);
+  final foreignKey = RegExp('FOREIGN KEY constraint failed').firstMatch(text);
   final parts = <String>[
     if (sqliteError != null) sqliteError.group(0)!,
     if (unique != null) unique.group(0)!,

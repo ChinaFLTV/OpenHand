@@ -424,7 +424,7 @@ class ThrottleCloudSyncService {
       return ThrottleCloudSyncResult.failure(error.message);
     } on FormatException catch (error) {
       return ThrottleCloudSyncResult.failure(
-        '云端 JSON 无效：${clipTextWithEllipsis(error.message.toString(), _httpErrorPreviewLength)}',
+        '云端 JSON 无效：${clipTextWithEllipsis(error.message, _httpErrorPreviewLength)}',
       );
     } catch (error, stack) {
       silentLog('throttle_cloud_sync', logAction, error, stack);

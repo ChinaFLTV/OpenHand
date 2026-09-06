@@ -4112,12 +4112,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         );
         final backoffSeconds =
             retryAfterSeconds != null && retryAfterSeconds > 0
-            ? retryAfterSeconds
-                  .clamp(
-                    _conversationReconcileInitialBackoff.inSeconds,
-                    _conversationReconcileMaxBackoff.inSeconds,
-                  )
-                  .toInt()
+            ? retryAfterSeconds.clamp(
+                _conversationReconcileInitialBackoff.inSeconds,
+                _conversationReconcileMaxBackoff.inSeconds,
+              )
             : commandError != null && !commandError.isRetryable
             ? _conversationReconcileMaxBackoff.inSeconds
             : exponentialSeconds;
@@ -4903,26 +4901,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                           .tools,
                   },
                   codeRuntimes: workflowSystemCodeRuntimes(),
-                  mcpToolInvoker:
-                      ({
-                        required serverName,
-                        required toolName,
-                        required arguments,
-                        required toolCallId,
-                        cancelSignal,
-                      }) async {
-                        final result = await _mcpController.callTool(
-                          serverName: serverName,
-                          toolName: toolName,
-                          arguments: arguments,
-                          toolCallId: toolCallId,
-                          cancelSignal: cancelSignal,
-                        );
-                        return WorkflowMcpToolInvocationResult(
-                          output: result.outputText,
-                          isError: result.isError,
-                        );
-                      },
+                  mcpToolInvoker: workflowMcpToolInvokerFor(_mcpController),
                 );
               },
           'dingtalk_dws_executor': _executeDwsCommandForAi,
@@ -5529,9 +5508,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _maxDingTalkStructuredDepth = 12;
   static const int _maxMessageEditHistoryEntries = 32;
   static final RegExp _markdownFenceLinePattern = RegExp(
-    r'^ {0,3}(`{3,}|~{3,})',
+    '^ {0,3}(`{3,}|~{3,})',
   );
-  static final RegExp _markdownBacktickRunPattern = RegExp(r'`+');
+  static final RegExp _markdownBacktickRunPattern = RegExp('`+');
   static final RegExp _markdownLineBreakPattern = RegExp(r'[\r\n]+');
   static final RegExp _markdownInlineEscapePattern = RegExp(
     r'[\\`*_{}\[\]()<>#+.!|~-]',
@@ -6515,7 +6494,7 @@ ${_markdownStructuredFields(response)}''';
     );
     final queue = _responseQueues.putIfAbsent(
       conversation.id,
-      () => Queue<_QueuedDingTalkResponse>(),
+      Queue<_QueuedDingTalkResponse>.new,
     );
     if (queue.length >= _maxQueuedResponsesPerConversation) {
       _warningMessage = '钉钉会话等待队列已满，新消息未进入队列。';

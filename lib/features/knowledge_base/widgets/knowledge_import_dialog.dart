@@ -122,8 +122,8 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
   }) {
     final text = _content.text;
     final safeSelection = _safeSelection(text);
-    final start = safeSelection.start.clamp(0, text.length).toInt();
-    final end = safeSelection.end.clamp(0, text.length).toInt();
+    final start = safeSelection.start.clamp(0, text.length);
+    final end = safeSelection.end.clamp(0, text.length);
     final selected = start == end ? placeholder : text.substring(start, end);
     final next = text.replaceRange(start, end, '$prefix$selected$suffix');
     final cursor =
@@ -140,8 +140,8 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
   void _prefixSelectedLines(String prefix) {
     final text = _content.text;
     final selection = _safeSelection(text);
-    final start = selection.start.clamp(0, text.length).toInt();
-    final end = selection.end.clamp(0, text.length).toInt();
+    final start = selection.start.clamp(0, text.length);
+    final end = selection.end.clamp(0, text.length);
     final lineStart = text.lastIndexOf('\n', math.max(0, start - 1)) + 1;
     final lineEnd = end >= text.length ? text.length : text.indexOf('\n', end);
     final effectiveEnd = lineEnd < 0 ? text.length : lineEnd;
@@ -162,8 +162,8 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
   void _insertBlock(String block) {
     final text = _content.text;
     final selection = _safeSelection(text);
-    final start = selection.start.clamp(0, text.length).toInt();
-    final end = selection.end.clamp(0, text.length).toInt();
+    final start = selection.start.clamp(0, text.length);
+    final end = selection.end.clamp(0, text.length);
     final needsLeadingBreak =
         start > 0 && !text.substring(0, start).endsWith('\n');
     final needsTrailingBreak =

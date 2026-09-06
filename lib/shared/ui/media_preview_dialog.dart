@@ -1259,9 +1259,10 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
   }
 
   String _buildVideoPlayerHtml({required String src}) {
-    final durationMs = widget.motionDurationMs
-        .clamp(0, DialogAnimationSettings.maxDurationMs)
-        .toInt();
+    final durationMs = widget.motionDurationMs.clamp(
+      0,
+      DialogAnimationSettings.maxDurationMs,
+    );
     final safeCurve = openHandCssTimingFunctionOrDefault(widget.motionCurveCss);
     final escapedSrc = escapeXmlAttribute(src);
     return '''

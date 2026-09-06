@@ -2,7 +2,7 @@ import '../util/input_value_parsing.dart';
 import '../util/text_normalization.dart';
 
 final RegExp _dingTalkMediaGenerationActionPattern = RegExp(
-  r'(?:生成|制作|创作|绘制|画(?:一|个|张|幅)|合成|创建|做(?:一|个|张|段|首)?|来(?:一|个|张|段|首)|写(?:一|段|首)|generate|create|make|draw|compose|synthesize)',
+  '(?:生成|制作|创作|绘制|画(?:一|个|张|幅)|合成|创建|做(?:一|个|张|段|首)?|来(?:一|个|张|段|首)|写(?:一|段|首)|generate|create|make|draw|compose|synthesize)',
   caseSensitive: false,
 );
 final RegExp _dingTalkMediaGenerationQuestionPattern = RegExp(
@@ -29,7 +29,7 @@ final RegExp _dingTalkMediaInvocationPreamblePattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _dingTalkMediaCompletionPattern = RegExp(
-  r'(?:已生成|已发送|生成失败|发送失败|成功完成)',
+  '(?:已生成|已发送|生成失败|发送失败|成功完成)',
 );
 
 /// 钉钉网关可直接注入提示词的多模态生成能力。

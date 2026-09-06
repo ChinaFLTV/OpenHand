@@ -579,7 +579,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
   int? _lastCenteredCurrentIndex;
 
   GlobalKey _stepKeyAt(int index) =>
-      _stepKeys.putIfAbsent(index, () => GlobalKey());
+      _stepKeys.putIfAbsent(index, GlobalKey.new);
 
   int? _resolveCurrentStepIndex() {
     for (var i = 0; i < widget.data.steps.length; i += 1) {
@@ -1347,7 +1347,7 @@ bool _looksLikePlanRecoveryTimelineMessage(String content) {
     '重新试',
     '恢复执行',
   ];
-  return recoveryPhrases.any((phrase) => normalized.contains(phrase));
+  return recoveryPhrases.any(normalized.contains);
 }
 
 List<String> _planTimelineStepsFromPendingPlan(String? pendingPlan) {
@@ -3471,7 +3471,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   }) {
     final nextRange = rangeSeconds ?? _rangeSeconds;
     final maxZoom = _maxZoomForRange(nextRange);
-    final nextZoom = (zoom ?? _zoom).clamp(_kMinZoom, maxZoom).toDouble();
+    final nextZoom = (zoom ?? _zoom).clamp(_kMinZoom, maxZoom);
     final nextWindow = _visibleWindowSeconds(
       rangeSeconds: nextRange,
       zoom: nextZoom,
@@ -3534,10 +3534,8 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
 
   int _visibleWindowSeconds({int? rangeSeconds, double? zoom}) {
     final range = rangeSeconds ?? _rangeSeconds;
-    final z = (zoom ?? _zoom)
-        .clamp(_kMinZoom, _maxZoomForRange(range))
-        .toDouble();
-    return (range / z).round().clamp(_kMinWindowSeconds, range).toInt();
+    final z = (zoom ?? _zoom).clamp(_kMinZoom, _maxZoomForRange(range));
+    return (range / z).round().clamp(_kMinWindowSeconds, range);
   }
 
   List<int> _granularityOptionsForWindow(int windowSeconds) {
@@ -3724,7 +3722,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     final cap = math.max(widget.maxRate, peak == 0 ? 1 : peak);
     final headerWindow = _formatRangeLabel(context, windowSeconds);
     final maxZoom = _maxZoomForRange(_rangeSeconds);
-    final zoomValue = _zoom.clamp(_kMinZoom, maxZoom).toDouble();
+    final zoomValue = _zoom.clamp(_kMinZoom, maxZoom);
     final granularityOptions = _granularityOptionsForWindow(windowSeconds);
     final effectiveGranularity = _normalizedBucketSeconds(
       _bucketSeconds,
@@ -3888,10 +3886,10 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                   value: granularityIndex.toDouble(),
                   label: _formatGranularityLabel(context, effectiveGranularity),
                   onChanged: (value) {
-                    final index = value
-                        .round()
-                        .clamp(0, granularityOptions.length - 1)
-                        .toInt();
+                    final index = value.round().clamp(
+                      0,
+                      granularityOptions.length - 1,
+                    );
                     _updateWindow(
                       bucketSeconds: granularityOptions[index],
                       animate: false,
@@ -3943,9 +3941,10 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                   },
                   onPointerPanZoomUpdate: (event) {
                     if (_displaySamples.isEmpty) return;
-                    _pendingZoom = (_zoomBase * event.scale)
-                        .clamp(_kMinZoom, _maxZoomForRange(_rangeSeconds))
-                        .toDouble();
+                    _pendingZoom = (_zoomBase * event.scale).clamp(
+                      _kMinZoom,
+                      _maxZoomForRange(_rangeSeconds),
+                    );
                     if (!_windowScheduled) {
                       _windowScheduled = true;
                       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3963,9 +3962,10 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                     if (signal is PointerScrollEvent &&
                         HardwareKeyboard.instance.isControlPressed) {
                       final delta = -signal.scrollDelta.dy / 200.0;
-                      _pendingZoom = (_zoom * (1.0 + delta))
-                          .clamp(_kMinZoom, _maxZoomForRange(_rangeSeconds))
-                          .toDouble();
+                      _pendingZoom = (_zoom * (1.0 + delta)).clamp(
+                        _kMinZoom,
+                        _maxZoomForRange(_rangeSeconds),
+                      );
                       if (!_windowScheduled) {
                         _windowScheduled = true;
                         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -4383,9 +4383,7 @@ class _ThroughputTooltip extends StatelessWidget {
               math.max(104.0, chartWidth - margin * 2),
             );
             final maxLeft = math.max(margin, chartWidth - bubbleWidth - margin);
-            final left = (anchor.dx - bubbleWidth / 2)
-                .clamp(margin, maxLeft)
-                .toDouble();
+            final left = (anchor.dx - bubbleWidth / 2).clamp(margin, maxLeft);
             final chartCap = math.max(1, cap);
             final pointY =
                 chartHeight -
@@ -4396,9 +4394,10 @@ class _ThroughputTooltip extends StatelessWidget {
             );
             final aboveTop = pointY - bubbleHeight - 8;
             final belowTop = pointY + 8;
-            final top = (aboveTop >= margin ? aboveTop : belowTop)
-                .clamp(margin, maxTop)
-                .toDouble();
+            final top = (aboveTop >= margin ? aboveTop : belowTop).clamp(
+              margin,
+              maxTop,
+            );
             return Stack(
               clipBehavior: Clip.none,
               children: [

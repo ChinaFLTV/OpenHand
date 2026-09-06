@@ -148,9 +148,7 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
       _popupHorizontalMargin,
       screenSize.width - popupWidth - _popupHorizontalMargin,
     );
-    final targetLeft = offset.dx
-        .clamp(_popupHorizontalMargin, maxLeft)
-        .toDouble();
+    final targetLeft = offset.dx.clamp(_popupHorizontalMargin, maxLeft);
     final belowSpace = math.max(
       0.0,
       screenSize.height -

@@ -82,7 +82,7 @@ String openHandDialogMotionHtmlRootAttributes(
 }
 
 /// 独立 HTML 页复用的弹窗进退场关键帧与选择器，与 Web 端 `data-dialog-enter` 对齐。
-const String kOpenHandDialogMotionStandaloneCss = r'''
+const String kOpenHandDialogMotionStandaloneCss = '''
 @keyframes oh-dialog-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes oh-dialog-fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes oh-dialog-card-fade-in { from { opacity: 0; } to { opacity: 1; } }

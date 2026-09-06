@@ -24,7 +24,7 @@ Future<HttpClientRequest> openHttpClientRequestBounded(
   } on TimeoutException {
     unawaited(
       openFuture.then<void>(
-        (request) => abortHttpClientRequest(request),
+        abortHttpClientRequest,
         onError: (Object _, StackTrace _) {},
       ),
     );

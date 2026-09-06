@@ -5097,8 +5097,8 @@ class _RecorderPanelState extends State<_RecorderPanel> {
             children: [
               FilledButton.icon(
                 onPressed: ctrl.isRecording
-                    ? () => ctrl.stopRecording()
-                    : () => ctrl.startRecording(),
+                    ? ctrl.stopRecording
+                    : ctrl.startRecording,
                 icon: Icon(
                   ctrl.isRecording
                       ? Icons.stop_rounded
@@ -5178,7 +5178,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   de: 'Als Code exportieren',
                   ja: 'コードとしてエクスポート',
                 ),
-                onSelected: (k) => _exportAsCode(k),
+                onSelected: _exportAsCode,
                 itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'puppeteer',
@@ -5234,7 +5234,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   de: 'Assertion hinzufügen',
                   ja: 'アサートを追加',
                 ),
-                onSelected: (kind) => _addAssertion(kind),
+                onSelected: _addAssertion,
                 itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'assertText',

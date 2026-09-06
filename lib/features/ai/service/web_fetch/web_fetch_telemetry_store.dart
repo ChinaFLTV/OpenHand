@@ -41,7 +41,7 @@ class WebFetchTelemetryStore
   Future<List<WebFetchCallLog>> recentCalls({int limit = 50}) async {
     return (await recentRawCalls(
       limit: limit,
-    )).map((m) => WebFetchCallLog.fromJson(m)).toList(growable: false);
+    )).map(WebFetchCallLog.fromJson).toList(growable: false);
   }
 
   Future<Map<AiWebFetchEngineKind, WebFetchEngineStat>> engineStats() async {

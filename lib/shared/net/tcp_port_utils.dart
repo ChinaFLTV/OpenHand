@@ -12,7 +12,7 @@ int? validTcpPort(int? port) {
 }
 
 int clampTcpPort(int port) {
-  return port.clamp(kTcpPortMin, kTcpPortMax).toInt();
+  return port.clamp(kTcpPortMin, kTcpPortMax);
 }
 
 int? tcpPortFromValue(Object? value) {

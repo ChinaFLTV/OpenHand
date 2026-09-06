@@ -94,7 +94,7 @@ class WebFetchScraplingBridge {
       AiWebFetchEngineConfig.maxTruncationChars * 2;
   static const int _maxCapturedRuntimeLinesPerStream = 400;
   static const int _maxPendingOperations = 32;
-  static const String _pythonRuntimeProbeScript = r'''
+  static const String _pythonRuntimeProbeScript = '''
 import json
 import platform
 import sys

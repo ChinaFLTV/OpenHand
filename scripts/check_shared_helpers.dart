@@ -230,7 +230,7 @@ int _checkRgbHex() {
 }
 
 int _checkXmlEscape() {
-  final escaped = escapeXmlAttribute(r'''a&b<"c">'d''');
+  final escaped = escapeXmlAttribute('''a&b<"c">'d''');
   if (!escaped.contains('&amp;') ||
       !escaped.contains('&lt;') ||
       !escaped.contains('&quot;') ||

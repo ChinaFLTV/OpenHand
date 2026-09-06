@@ -168,7 +168,7 @@ class OpenRouterModelSyncService {
         detail: '已获取 $total 条模型，开始转换',
       );
       for (var offset = 0; offset < rawModels.length; offset += _batchSize) {
-        final end = (offset + _batchSize).clamp(0, rawModels.length).toInt();
+        final end = (offset + _batchSize).clamp(0, rawModels.length);
         final entries = <MapEntry<String, AiModelProfile>>[];
         final idsInBatch = <String>{};
         for (final raw in rawModels.sublist(offset, end)) {

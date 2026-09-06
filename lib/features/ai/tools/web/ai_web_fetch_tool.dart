@@ -34,7 +34,7 @@ class AiWebFetchTool extends AiTool {
     required this._httpClient,
     required this._scraplingBridge,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
-  }) : _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host));
+  }) : _hostLookup = hostLookup ?? (InternetAddress.lookup);
 
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;

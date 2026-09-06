@@ -2044,7 +2044,7 @@ class AiChatService implements AiChatClient {
           usage: () => usage,
           setUsage: (value) => usage = value,
           emitEvent: emitEvent,
-          completeStreamResult: (reason) => completeStreamResult(reason),
+          completeStreamResult: completeStreamResult,
           cancelSubscription: () {
             unawaited(cancelResponseStream());
           },
@@ -3360,7 +3360,7 @@ void _processOpenAiStreamEvent(
       } else {
         index = toolCalls.keys.reduce((a, b) => a > b ? a : b);
       }
-      final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
+      final entry = toolCalls.putIfAbsent(index, _MutableToolCall.new);
       if (id.isNotEmpty) {
         entry.id = id;
       }
@@ -3469,7 +3469,7 @@ void _processClaudeStreamEvent(
           final index =
               optionalIntegralIntFromValue(decoded['index']) ??
               toolCalls.length;
-          final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
+          final entry = toolCalls.putIfAbsent(index, _MutableToolCall.new);
           final id = optionalStringFromValue(contentBlock['id']);
           if (id != null) entry.id = id;
           final name = optionalStringFromValue(contentBlock['name']);
@@ -3500,7 +3500,7 @@ void _processClaudeStreamEvent(
         final partialJson = '${delta['partial_json'] ?? ''}';
         final index =
             optionalIntegralIntFromValue(decoded['index']) ?? toolCalls.length;
-        final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
+        final entry = toolCalls.putIfAbsent(index, _MutableToolCall.new);
         if (partialJson.isNotEmpty) {
           entry.argumentsBuffer.write(partialJson);
           emitEvent(
@@ -3646,7 +3646,7 @@ void _processGeminiStreamEvent(
         final name = optionalStringFromValue(functionCall['name']);
         if (name != null) {
           final index = toolCalls.length;
-          final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
+          final entry = toolCalls.putIfAbsent(index, _MutableToolCall.new);
           entry.id = 'gemini-tc-$index';
           entry.name = name;
           final args = functionCall['args'];

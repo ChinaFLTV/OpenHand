@@ -724,7 +724,7 @@ class AiTaskTool extends AiTool {
   String _normalizeToken(String value) {
     final sanitized = value
         .trim()
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
+        .replaceAll(RegExp('[^A-Za-z0-9_-]+'), '_')
         .replaceAll(RegExp(r'^_+|_+$'), '');
     return sanitized.isEmpty ? 'tool' : sanitized;
   }

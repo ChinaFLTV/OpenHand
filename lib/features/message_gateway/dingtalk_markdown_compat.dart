@@ -4,7 +4,7 @@ import 'package:markdown/markdown.dart' as md;
 
 final RegExp _markdownFencePattern = RegExp(r'^\s{0,3}(`{3,}|~{3,})');
 final RegExp _markdownTableDividerCellPattern = RegExp(r'^:?-+:?$');
-final RegExp _markdownBacktickRunPattern = RegExp(r'`+');
+final RegExp _markdownBacktickRunPattern = RegExp('`+');
 
 /// 用单层 Markdown 斜体标记区分思考消息；已带斜体标记时保持幂等。
 String wrapDingTalkThinkingMarkdown(String source) {

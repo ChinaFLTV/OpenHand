@@ -2423,7 +2423,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
           final id = nonNegativeIntFromValue(e['id'], fallback: 0);
           if (id <= 0) continue;
           _retainConnection(id);
-          final s = _series.putIfAbsent(id, () => _RtcSeries());
+          final s = _series.putIfAbsent(id, _RtcSeries.new);
           s.push(
             bytesSent: optionalNonNegativeDoubleFromValue(e['bytesSent']) ?? 0,
             bytesReceived:
@@ -2490,7 +2490,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     required String type,
     required String sdp,
   }) {
-    final pair = _sdps.putIfAbsent(id, () => _SdpPair());
+    final pair = _sdps.putIfAbsent(id, _SdpPair.new);
     _sdpChars -= _sdpPairChars(pair);
     final version = _SdpVersion(
       type: clipText(type, 32, suffix: ''),

@@ -64,7 +64,7 @@ int megabytesTextToBytes(
     return upper;
   }
   final bytes = (parsedMb * kBytesPerMiB).round();
-  return bytes.clamp(lower, upper).toInt();
+  return bytes.clamp(lower, upper);
 }
 
 String _trimFractionZeros(String value) {

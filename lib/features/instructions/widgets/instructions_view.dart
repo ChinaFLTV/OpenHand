@@ -55,7 +55,7 @@ class InstructionsView extends StatelessWidget {
       alignment: WrapAlignment.end,
       children: [
         FilledButton.tonalIcon(
-          onPressed: snapshot.isLoading ? null : () => controller.refresh(),
+          onPressed: snapshot.isLoading ? null : controller.refresh,
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.instructionRefresh),
         ),
@@ -881,7 +881,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
   }
 
   List<String> _splitCsv(String value) =>
-      splitTrimmedNonEmpty(value, separator: RegExp(r'[,，;；]'));
+      splitTrimmedNonEmpty(value, separator: RegExp('[,，;；]'));
 
   List<String> _splitLines(String value) =>
       splitTrimmedNonEmpty(value, separator: '\n');

@@ -704,7 +704,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                             tooltip: AppLocalizations.of(
                               context,
                             )!.fileMutationHistoryInspector,
-                            onTap: () => _openHistoryInspector(),
+                            onTap: _openHistoryInspector,
                           ),
                         ],
                       ),

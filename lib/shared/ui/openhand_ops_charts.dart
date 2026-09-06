@@ -179,7 +179,7 @@ double _rankFitColumnWidth(_RankColumnKind kind, double padded) {
     _RankColumnKind.text => _kRankTextMaxWidth,
   };
   if (!maxWidth.isFinite) return math.max(padded, minWidth);
-  return padded.clamp(minWidth, maxWidth).toDouble();
+  return padded.clamp(minWidth, maxWidth);
 }
 
 double _rankTextWidth(
@@ -1349,7 +1349,7 @@ class OpenHandDonutChartPainter extends CustomPainter {
       final sweep = math.pi * 2 * pairedValues[index] / total;
       if (sweep <= 0 || !sweep.isFinite) continue;
       final gap = math.min(_kDonutSegmentGap, sweep / 3);
-      final visibleSweep = math.max(0.0, sweep - gap).toDouble();
+      final visibleSweep = math.max(0.0, sweep - gap);
       if (visibleSweep > 0) {
         canvas.drawArc(
           geometry.rect,
@@ -2376,7 +2376,7 @@ class _DonutSelectionPainter extends CustomPainter {
         canvas.drawArc(
           geometry.rect.inflate(2),
           start,
-          math.max(0.0, sweep - gap).toDouble(),
+          math.max(0.0, sweep - gap),
           false,
           Paint()
             ..color = color
@@ -2421,7 +2421,7 @@ class _TrendTooltipLayoutDelegate extends SingleChildLayoutDelegate {
     final top = preferredTop >= 8
         ? preferredTop
         : math.min(size.height - childSize.height - 8, point.dy + 14);
-    return Offset(left, math.max(8.0, top).toDouble());
+    return Offset(left, math.max(8.0, top));
   }
 
   @override
@@ -3098,7 +3098,7 @@ class _ChartFillTrack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final factor = ratio.isFinite ? ratio.clamp(0.0, 1.0).toDouble() : 0.0;
+    final factor = ratio.isFinite ? ratio.clamp(0.0, 1.0) : 0.0;
     return ClipRRect(
       borderRadius: BorderRadius.circular(_kFillTrackRadius),
       child: SizedBox(
@@ -3975,8 +3975,7 @@ class _OpenHandOperationalRankTableState
                                                 .clamp(
                                                   _kRankUserMinWidth,
                                                   _kRankUserMaxWidth,
-                                                )
-                                                .toDouble();
+                                                );
                                         if ((current[i] - next).abs() < 0.5) {
                                           return;
                                         }
@@ -4689,7 +4688,7 @@ double _clampHeatmapCoord(
 }) {
   if (!value.isFinite) return lower;
   if (upper <= lower) return lower;
-  return value.clamp(lower, upper).toDouble();
+  return value.clamp(lower, upper);
 }
 
 class _HeatmapHoverCard extends StatelessWidget {

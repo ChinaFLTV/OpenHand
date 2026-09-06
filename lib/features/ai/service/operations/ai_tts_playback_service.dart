@@ -62,7 +62,7 @@ class AiTtsPlaybackService {
   }) : _mediaGenerationService =
            mediaGenerationService ?? AiImageGenerationService(),
        _ownsMediaGenerationService = mediaGenerationService == null,
-       _transportFactory = transportFactory ?? (() => AiTransportClient());
+       _transportFactory = transportFactory ?? AiTransportClient.new;
 
   static const String settingsTestMessageId = '__settings_tts_test__';
   static const String settingsTestText = '这是一段文本转语音测试。';
@@ -1997,8 +1997,7 @@ class AiTtsPlaybackService {
     final charsPerMinute =
         (_defaultSpeechCharsPerMinute * _speechSpeedFactor(settings.speed))
             .round()
-            .clamp(_minSpeechCharsPerMinute, _maxSpeechCharsPerMinute)
-            .toInt();
+            .clamp(_minSpeechCharsPerMinute, _maxSpeechCharsPerMinute);
     final estimatedMs = (characterCount * 60000 / charsPerMinute).ceil();
     return _audibleProcessTimeout(
       Duration(milliseconds: estimatedMs),
@@ -2009,9 +2008,9 @@ class AiTtsPlaybackService {
   static double _speechSpeedFactor(double speed) {
     if (!speed.isFinite) return 1.0;
     if (speed > 10) {
-      return (_systemRate(speed) / 175).clamp(0.45, 2.4).toDouble();
+      return (_systemRate(speed) / 175).clamp(0.45, 2.4);
     }
-    return speed.clamp(0.5, 2.0).toDouble();
+    return speed.clamp(0.5, 2.0);
   }
 
   static Duration _estimateAudioDurationFromBytes({
@@ -2025,12 +2024,8 @@ class AiTtsPlaybackService {
         provider,
         'sample_rate',
         fallback: _defaultAiTtsSampleRate,
-      ).clamp(8000, 96000).toInt();
-      final channels = _extraInt(
-        provider,
-        'channels',
-        fallback: 1,
-      ).clamp(1, 2).toInt();
+      ).clamp(8000, 96000);
+      final channels = _extraInt(provider, 'channels', fallback: 1).clamp(1, 2);
       final headerBytes = normalizedExtension == '.wav' ? 44 : 0;
       final payloadBytes = math.max(0, byteLength - headerBytes);
       final bytesPerSecond = sampleRate * channels * _pcm16BytesPerSample;
@@ -2050,8 +2045,7 @@ class AiTtsPlaybackService {
         : outputFormatBitRate ?? _conservativeCompressedAudioBitRate;
     return math
         .min(selectedBitRate, _conservativeCompressedAudioBitRate)
-        .clamp(_minCompressedAudioBitRate, _maxCompressedAudioBitRate)
-        .toInt();
+        .clamp(_minCompressedAudioBitRate, _maxCompressedAudioBitRate);
   }
 
   static int? _bitRateFromText(String value) {
@@ -2408,7 +2402,7 @@ class AiTtsPlaybackService {
     Uint8List pcmBytes, {
     required int sampleRate,
   }) {
-    final safeSampleRate = sampleRate.clamp(8000, 96000).toInt();
+    final safeSampleRate = sampleRate.clamp(8000, 96000);
     const channels = 1;
     const bitsPerSample = 16;
     final byteRate = safeSampleRate * channels * bitsPerSample ~/ 8;

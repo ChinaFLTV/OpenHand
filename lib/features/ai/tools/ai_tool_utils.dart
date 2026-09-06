@@ -459,10 +459,8 @@ class AiToolUtils {
       }
       final propertySchemas = _propertySchemas(schema);
       return asMap.map(
-        (k, v) => MapEntry(
-          k.toString(),
-          _coerceArgumentValue(v, schema: propertySchemas[k.toString()]),
-        ),
+        (k, v) =>
+            MapEntry(k, _coerceArgumentValue(v, schema: propertySchemas[k])),
       );
     }
     if (value is List) {
@@ -1896,7 +1894,7 @@ class AiToolUtils {
       final approvalFuture = confirmWriteCommand(request)
           .timeout(confirmationTimeout)
           .then<_WriteConfirmationOutcome>(
-            (decision) => _WriteConfirmationOutcome.fromDecision(decision),
+            _WriteConfirmationOutcome.fromDecision,
           );
 
       if (cancelSignal == null) {

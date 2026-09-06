@@ -764,9 +764,9 @@ class _AiTranslationProviderDeckState
         DragTarget<AiTranslationProvider>(
           onWillAcceptWithDetails: (details) =>
               providers.contains(details.data),
-          onMove: (details) => _updateHoverInsertIndex(details),
+          onMove: _updateHoverInsertIndex,
           onLeave: (_) => _clearHoverInsertIndex(),
-          onAcceptWithDetails: (details) => _acceptProviderDrop(details),
+          onAcceptWithDetails: _acceptProviderDrop,
           builder: (context, candidates, rejected) {
             return Column(
               children: [
@@ -1574,9 +1574,9 @@ class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
         DragTarget<AiTtsProvider>(
           onWillAcceptWithDetails: (details) =>
               providers.contains(details.data),
-          onMove: (details) => _updateHoverInsertIndex(details),
+          onMove: _updateHoverInsertIndex,
           onLeave: (_) => _clearHoverInsertIndex(),
-          onAcceptWithDetails: (details) => _acceptProviderDrop(details),
+          onAcceptWithDetails: _acceptProviderDrop,
           builder: (context, candidates, rejected) {
             return Column(
               children: [
@@ -3426,9 +3426,10 @@ class _AiTtsProviderNumberFieldState extends State<_AiTtsProviderNumberField> {
   double? _draftValue;
 
   double get _effectiveValue {
-    return (_draftValue ?? widget.value)
-        .clamp(widget.range.min, widget.range.max)
-        .toDouble();
+    return (_draftValue ?? widget.value).clamp(
+      widget.range.min,
+      widget.range.max,
+    );
   }
 
   @override
@@ -3588,12 +3589,12 @@ String _humanizedDropdownValue(BuildContext context, String value) {
   final humanized = normalized
       .replaceFirst(
         RegExp(
-          r'^(?:zh-CN|zh-TW|en-US|en-GB|ja-JP|ko-KR|fr-FR|de-DE|[a-z]{2})[-_]',
+          '^(?:zh-CN|zh-TW|en-US|en-GB|ja-JP|ko-KR|fr-FR|de-DE|[a-z]{2})[-_]',
           caseSensitive: false,
         ),
         '',
       )
-      .replaceAll(RegExp(r'[_-]+'), ' ')
+      .replaceAll(RegExp('[_-]+'), ' ')
       .replaceAll(RegExp(r'\bbigtts\b', caseSensitive: false), '')
       .replaceAll(kInlineWhitespacePattern, ' ')
       .trim();
@@ -4046,10 +4047,10 @@ class _TtsNumberRange {
   }
 
   double snap(double raw) {
-    final clamped = raw.clamp(min, max).toDouble();
+    final clamped = raw.clamp(min, max);
     if (step <= 0) return clamped;
     final snapped = min + ((clamped - min) / step).round() * step;
-    return snapped.clamp(min, max).toDouble();
+    return snapped.clamp(min, max);
   }
 }
 
@@ -4339,7 +4340,7 @@ String? _ttsProviderReadinessError(
 
 double _ttsDragFeedbackWidth(BuildContext context) {
   final width = MediaQuery.sizeOf(context).width - 96;
-  return width.clamp(360.0, 960.0).toDouble();
+  return width.clamp(360.0, 960.0);
 }
 
 String _audioEncodingExtraKey(AiTtsProvider provider) {
@@ -4670,12 +4671,12 @@ class _SettingsIntSliderState extends State<_SettingsIntSlider> {
   }
 
   int _snap(int raw) {
-    final clamped = raw.clamp(widget.min, widget.max).toInt();
+    final clamped = raw.clamp(widget.min, widget.max);
     if (widget.step <= 0) return clamped;
     final snapped =
         widget.min +
         ((clamped - widget.min) / widget.step).round() * widget.step;
-    return snapped.clamp(widget.min, widget.max).toInt();
+    return snapped.clamp(widget.min, widget.max);
   }
 
   void _preview(double raw) {
@@ -6146,9 +6147,7 @@ class _WebEngineDispatchControls extends StatelessWidget {
           onChanged: (value) {
             final parsed = optionalIntFromText(value);
             if (parsed == null) return;
-            onResultCountChanged(
-              parsed.clamp(minResultCount, maxResultCount).toInt(),
-            );
+            onResultCountChanged(parsed.clamp(minResultCount, maxResultCount));
           },
         ),
         kOpenHandGap14,
@@ -6199,7 +6198,7 @@ class _WebEngineDispatchControls extends StatelessWidget {
                   final parsed = optionalIntFromText(value);
                   if (parsed == null) return;
                   onParallelWorkersChanged(
-                    parsed.clamp(_minWorkers, _maxWorkers).toInt(),
+                    parsed.clamp(_minWorkers, _maxWorkers),
                   );
                 },
               ),

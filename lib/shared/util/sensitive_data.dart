@@ -3,8 +3,8 @@ import 'text_clip.dart';
 const String kOpenHandRedactedValue = '[redacted]';
 const String _redactedUriUserInfo = 'redacted';
 
-final RegExp _sensitiveKeySeparator = RegExp(r'[^a-z0-9]+');
-final RegExp _sensitiveCamelCaseBoundary = RegExp(r'([a-z0-9])([A-Z])');
+final RegExp _sensitiveKeySeparator = RegExp('[^a-z0-9]+');
+final RegExp _sensitiveCamelCaseBoundary = RegExp('([a-z0-9])([A-Z])');
 const Set<String> _sensitiveExactKeys = <String>{'cookie', 'set-cookie'};
 
 /// 固定遍历长度比较凭据，避免普通字符串短路比较泄露首个差异位置。

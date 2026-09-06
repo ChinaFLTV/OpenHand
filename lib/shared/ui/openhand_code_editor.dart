@@ -363,7 +363,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   double? _pinchStartFontSize;
 
   double _boundedEditorHeight(double value) =>
-      value.clamp(_minEditorHeight, _maxEditorHeight).toDouble();
+      value.clamp(_minEditorHeight, _maxEditorHeight);
 
   @override
   void initState() {
@@ -745,9 +745,10 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     final points = _activePointers.values.toList(growable: false);
     final distance = (points[0] - points[1]).distance;
     if (distance <= 0 || _pinchStartDistance! <= 0) return;
-    final next = (_pinchStartFontSize! * distance / _pinchStartDistance!)
-        .clamp(_minFontSize, _maxFontSize)
-        .toDouble();
+    final next = (_pinchStartFontSize! * distance / _pinchStartDistance!).clamp(
+      _minFontSize,
+      _maxFontSize,
+    );
     if ((next - _fontSize).abs() < 0.1) return;
     setState(() => _fontSize = next);
   }
@@ -766,9 +767,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
 
   void _handlePanZoomUpdate(PointerPanZoomUpdateEvent event) {
     final base = _pinchStartFontSize ?? _fontSize;
-    final next = (base * event.scale)
-        .clamp(_minFontSize, _maxFontSize)
-        .toDouble();
+    final next = (base * event.scale).clamp(_minFontSize, _maxFontSize);
     if ((next - _fontSize).abs() < 0.1) return;
     setState(() => _fontSize = next);
   }

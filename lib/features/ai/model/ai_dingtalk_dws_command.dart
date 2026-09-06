@@ -7,7 +7,7 @@ String dingtalkDwsToolName(
   Set<String>? usedNames,
 }) {
   final slug = collapseRepeatedUnderscores(
-    command.cliPath.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_'),
+    command.cliPath.replaceAll(RegExp('[^A-Za-z0-9]+'), '_'),
   ).replaceAll(RegExp(r'^_|_$'), '');
   final base = 'DingTalkDws_${slug.isEmpty ? 'Command' : slug}';
   if (usedNames == null || usedNames.add(base)) return base;

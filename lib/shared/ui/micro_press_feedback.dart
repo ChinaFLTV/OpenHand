@@ -35,9 +35,10 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
 
   double get _safeScale {
     if (!widget.scale.isFinite || widget.scale <= 0) return 1.0;
-    return widget.scale
-        .clamp(kOpenHandMicroPressMinScale, kOpenHandMicroPressMaxScale)
-        .toDouble();
+    return widget.scale.clamp(
+      kOpenHandMicroPressMinScale,
+      kOpenHandMicroPressMaxScale,
+    );
   }
 
   @override

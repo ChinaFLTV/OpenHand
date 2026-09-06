@@ -1288,8 +1288,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             : math.min(width * 0.50, height * 0.42);
         final coverSize = math
             .min(coverLimit, coverBase)
-            .clamp(compact ? 92.0 : 180.0, coverLimit)
-            .toDouble();
+            .clamp(compact ? 92.0 : 180.0, coverLimit);
         final gap = compact || short ? 10.0 : 14.0;
         final content = Column(
           mainAxisSize: MainAxisSize.min,
@@ -2146,7 +2145,7 @@ String normalizeNativeAudioText(String value, {required String fallback}) {
 
 String deriveNativeAudioArtist(String detail) {
   final leaf = _prettyNativeAudioLeaf(detail);
-  final segments = splitTrimmedNonEmpty(leaf, separator: RegExp(r'[-_]+'));
+  final segments = splitTrimmedNonEmpty(leaf, separator: RegExp('[-_]+'));
   if (segments.length >= 2 && segments.first.length <= 28) {
     return segments.first;
   }
@@ -2190,7 +2189,7 @@ String _prettyNativeAudioLeaf(String detail) {
 bool looksLikeGeneratedNativeAudioName(String value) {
   final normalized = value.trim().toLowerCase();
   return RegExp(r'^audio[_-]?\d+$').hasMatch(normalized) ||
-      RegExp(r'^audio[_-]').hasMatch(normalized);
+      RegExp('^audio[_-]').hasMatch(normalized);
 }
 
 bool _sameNativeAudioBytes(Uint8List? a, Uint8List? b) {
@@ -2312,12 +2311,7 @@ Future<Duration?> _estimateNativeAudioDurationBySniffing(
   int length,
   MonotonicDeadline deadline,
 ) async {
-  final header = await _readAt(
-    input,
-    0,
-    math.min(16, length).toInt(),
-    deadline,
-  );
+  final header = await _readAt(input, 0, math.min(16, length), deadline);
   if (_asciiEquals(header, 0, 'ID3') ||
       (header.length >= 2 && header[0] == 0xFF && (header[1] & 0xE0) == 0xE0)) {
     return _estimateMp3Duration(input, length, deadline);
@@ -2339,7 +2333,7 @@ Future<Duration?> _estimateMp3Duration(
   final probe = await _readAt(
     input,
     0,
-    math.min(_kNativeAudioHeaderProbeBytes, length).toInt(),
+    math.min(_kNativeAudioHeaderProbeBytes, length),
     deadline,
   );
   final start = _mp3AudioStartOffset(probe);
@@ -2554,12 +2548,7 @@ Future<Duration?> _estimateWavDuration(
   int length,
   MonotonicDeadline deadline,
 ) async {
-  final header = await _readAt(
-    input,
-    0,
-    math.min(12, length).toInt(),
-    deadline,
-  );
+  final header = await _readAt(input, 0, math.min(12, length), deadline);
   if (!_asciiEquals(header, 0, 'RIFF') || !_asciiEquals(header, 8, 'WAVE')) {
     return null;
   }
@@ -2670,7 +2659,7 @@ Future<Duration?> _readMvhdDuration(
   final header = await _readAt(
     input,
     contentStart,
-    math.min(32, boxEnd - contentStart).toInt(),
+    math.min(32, boxEnd - contentStart),
     deadline,
   );
   if (header.length < 20) return null;

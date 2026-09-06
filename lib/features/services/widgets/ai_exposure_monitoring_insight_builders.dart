@@ -239,7 +239,7 @@ Widget _buildOverviewMetricInsight(
           suffix: ' 条',
           emptyLabel: '暂无任务产出样本',
           targets: chronological
-              .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+              .map<_InsightTarget?>(_TaskInsightTarget.new)
               .toList(growable: false),
         ),
       ]);
@@ -286,7 +286,7 @@ Widget _buildOverviewMetricInsight(
           suffix: ' 项',
           emptyLabel: '暂无处理吞吐样本',
           targets: chronological
-              .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+              .map<_InsightTarget?>(_TaskInsightTarget.new)
               .toList(growable: false),
         ),
         _InsightRankingSection(
@@ -665,7 +665,7 @@ Widget _buildPipelineMetricInsight(
           suffix: ' 项',
           emptyLabel: '暂无任务处理样本',
           targets: chronological
-              .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+              .map<_InsightTarget?>(_TaskInsightTarget.new)
               .toList(growable: false),
         ),
         _metricTaskPanel(
@@ -768,7 +768,7 @@ Widget _buildPipelineMetricInsight(
           suffix: ' 条',
           emptyLabel: '暂无验证产出样本',
           targets: chronological
-              .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+              .map<_InsightTarget?>(_TaskInsightTarget.new)
               .toList(growable: false),
         ),
         _metricTaskPanel(
@@ -2798,9 +2798,7 @@ Widget _taskThroughputTrendInsight(
       sampleTimes: jobs.map((task) => task.createdAt).toList(growable: false),
       suffix: suffix,
       emptyLabel: '暂无任务吞吐样本。',
-      targets: jobs
-          .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
-          .toList(),
+      targets: jobs.map<_InsightTarget?>(_TaskInsightTarget.new).toList(),
     ),
     _InsightRankingSection(
       title: '来源贡献排名',
@@ -2920,7 +2918,7 @@ Widget _taskDurationTrendInsight(
       suffix: suffix,
       emptyLabel: '暂无已结束任务耗时。',
       targets: chartTasks
-          .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+          .map<_InsightTarget?>(_TaskInsightTarget.new)
           .toList(growable: false),
     ),
     _Section(
@@ -3073,7 +3071,7 @@ Widget _pipelineFunnelTrendInsight(
       suffix: suffix,
       emptyLabel: '暂无漏斗趋势样本。',
       targets: jobs
-          .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+          .map<_InsightTarget?>(_TaskInsightTarget.new)
           .toList(growable: false),
     ),
     _InsightMatrixSection(
@@ -3310,7 +3308,7 @@ Widget _archiveGrowthTrendInsight(
       emptyLabel: '暂无归档增长样本。',
       interpolation: OpenHandChartInterpolation.step,
       targets: chartTasks
-          .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+          .map<_InsightTarget?>(_TaskInsightTarget.new)
           .toList(growable: false),
     ),
     _InsightDonutSection(
@@ -3474,7 +3472,7 @@ Widget _writeLoadTrendInsight(
       suffix: suffix,
       emptyLabel: '暂无任务写入负载样本。',
       targets: jobs
-          .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+          .map<_InsightTarget?>(_TaskInsightTarget.new)
           .toList(growable: false),
     ),
     _InsightRankingSection(

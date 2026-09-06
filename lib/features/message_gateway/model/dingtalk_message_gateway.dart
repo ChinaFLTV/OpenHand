@@ -180,9 +180,9 @@ String normalizeDingTalkOutgoingEchoContentForComparison(Object? value) {
         (match) => match.group(1) ?? '',
       )
       // 钉钉会移除代码标记、合并列表换行，并把正文中的单个波浪号转义为双写。
-      .replaceAll(RegExp(r'`+'), '')
+      .replaceAll(RegExp('`+'), '')
       .replaceAll('**', '')
-      .replaceAll(RegExp(r'~+'), '~')
+      .replaceAll(RegExp('~+'), '~')
       .replaceAll(_dingtalkWhitespacePattern, ' ')
       .replaceAll(RegExp(r'\s*-\s+(?=[\p{L}\p{N}👉])', unicode: true), '-');
   return normalizeDingTalkMessageContentForComparison(normalized);
@@ -1646,15 +1646,16 @@ class DingTalkGatewaySettings {
 
   static int normalizePollIntervalSeconds(Object? value) {
     final parsed = optionalIntegralIntFromValue(value);
-    return (parsed ?? defaultPollIntervalSeconds)
-        .clamp(minPollIntervalSeconds, maxPollIntervalSeconds)
-        .toInt();
+    return (parsed ?? defaultPollIntervalSeconds).clamp(
+      minPollIntervalSeconds,
+      maxPollIntervalSeconds,
+    );
   }
 
   static int normalizeResponseWorkerCount(Object? value) {
     final parsed = optionalIntegralIntFromValue(value);
     if (parsed == null) return defaultResponseWorkerCount;
-    return parsed.clamp(minResponseWorkerCount, maxResponseWorkerCount).toInt();
+    return parsed.clamp(minResponseWorkerCount, maxResponseWorkerCount);
   }
 
   Duration get pollInterval =>

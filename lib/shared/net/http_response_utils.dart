@@ -529,7 +529,7 @@ Future<Uint8List> _consumeByteStream(
         receivedBytes = nextByteCount;
         bytes?.add(chunk);
       },
-      onError: (Object error, StackTrace stack) => fail(error, stack),
+      onError: fail,
       onDone: () {
         if (settled) return;
         settled = true;

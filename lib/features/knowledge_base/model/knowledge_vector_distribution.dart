@@ -334,7 +334,7 @@ class KnowledgeVectorProjector {
     if (normalized.isEmpty || maxChars <= 0) return '';
     final chars = normalized.characters;
     if (chars.length <= maxChars) return normalized;
-    return '${chars.take(maxChars).toString()}...';
+    return '${chars.take(maxChars)}...';
   }
 }
 
@@ -347,9 +347,10 @@ bool _isFinite(double value) {
 }
 
 double _normalizedCoordinate(double value, double center, double maxDistance) {
-  return ((value - center) / maxDistance)
-      .clamp(_projectionMinCoordinate, _projectionMaxCoordinate)
-      .toDouble();
+  return ((value - center) / maxDistance).clamp(
+    _projectionMinCoordinate,
+    _projectionMaxCoordinate,
+  );
 }
 
 double _fallbackRadius(int index, int total) {

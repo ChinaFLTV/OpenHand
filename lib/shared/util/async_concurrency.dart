@@ -111,8 +111,7 @@ final class OpenHandAsyncOnce {
     unawaited(
       Future<void>.sync(operation).then<void>(
         (_) => completer.complete(),
-        onError: (Object error, StackTrace stack) =>
-            completer.completeError(error, stack),
+        onError: completer.completeError,
       ),
     );
     return future;

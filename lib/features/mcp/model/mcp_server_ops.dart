@@ -964,7 +964,7 @@ int _normalizePort(int value) {
 int _normalizeInt(int value, {required int min, required int max}) {
   final lower = min <= max ? min : max;
   final upper = min <= max ? max : min;
-  return value.clamp(lower, upper).toInt();
+  return value.clamp(lower, upper);
 }
 
 List<String> _normalizeStringList(

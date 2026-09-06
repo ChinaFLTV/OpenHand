@@ -1217,9 +1217,10 @@ Future<ProcessResult?> runProcessWithTimeout(
 }) async {
   final configuredGracefulMs =
       gracefulShutdownMs ?? safeSubprocessDefaultGracefulShutdownMs;
-  final effectiveGracefulMs = configuredGracefulMs
-      .clamp(0, _maxSubprocessGracefulTimeout.inMilliseconds)
-      .toInt();
+  final effectiveGracefulMs = configuredGracefulMs.clamp(
+    0,
+    _maxSubprocessGracefulTimeout.inMilliseconds,
+  );
   final effectiveTimeout = _boundedSubprocessExecutionTimeout(timeout);
   final processStartTimeout = shorterDuration(
     effectiveTimeout,
@@ -1239,12 +1240,14 @@ Future<ProcessResult?> runProcessWithTimeout(
   final stdoutBytes = BytesBuilder(copy: false);
   final stderrBytes = BytesBuilder(copy: false);
   final normalizedToolCallId = nullIfBlank(toolCallId);
-  final stdoutLimit = maxStdoutBytes
-      .clamp(0, _maxCapturedProcessBytesPerStream)
-      .toInt();
-  final stderrLimit = maxStderrBytes
-      .clamp(0, _maxCapturedProcessBytesPerStream)
-      .toInt();
+  final stdoutLimit = maxStdoutBytes.clamp(
+    0,
+    _maxCapturedProcessBytesPerStream,
+  );
+  final stderrLimit = maxStderrBytes.clamp(
+    0,
+    _maxCapturedProcessBytesPerStream,
+  );
   final executionStopwatch = Stopwatch()..start();
 
   void completeStream(Completer<void> completer) {
@@ -1577,19 +1580,19 @@ class _BoundedProcessLineCapture {
   _BoundedProcessLineCapture({
     required int maxLines,
     required int maxCharacters,
-  }) : _maxLines = maxLines.clamp(0, _maxCapturedProcessLinesPerStream).toInt(),
-       _maxCharacters = maxCharacters
-           .clamp(1, _maxCapturedProcessCharactersPerStream)
-           .toInt(),
+  }) : _maxLines = maxLines.clamp(0, _maxCapturedProcessLinesPerStream),
+       _maxCharacters = maxCharacters.clamp(
+         1,
+         _maxCapturedProcessCharactersPerStream,
+       ),
        _buffer = maxLines < 1
            ? null
            : BoundedLogBuffer(
-               maxLines: maxLines
-                   .clamp(1, _maxCapturedProcessLinesPerStream)
-                   .toInt(),
-               maxCharacters: maxCharacters
-                   .clamp(1, _maxCapturedProcessCharactersPerStream)
-                   .toInt(),
+               maxLines: maxLines.clamp(1, _maxCapturedProcessLinesPerStream),
+               maxCharacters: maxCharacters.clamp(
+                 1,
+                 _maxCapturedProcessCharactersPerStream,
+               ),
              );
 
   final int _maxLines;
@@ -1729,9 +1732,10 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       _defaultCapturedProcessCharactersPerStream,
   int maxLineCharacters = 4000,
 }) async {
-  final effectiveMaxLineCharacters = maxLineCharacters
-      .clamp(1, _maxProcessLineCharacters)
-      .toInt();
+  final effectiveMaxLineCharacters = maxLineCharacters.clamp(
+    1,
+    _maxProcessLineCharacters,
+  );
   final effectiveTimeout = _boundedSubprocessExecutionTimeout(timeout);
   final configuredStartTimeout = processStartTimeout;
   final boundedStartTimeout = configuredStartTimeout == null
@@ -2032,12 +2036,14 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
   final stderrDone = Completer<void>();
   final stdoutBytes = BytesBuilder(copy: false);
   final stderrBytes = BytesBuilder(copy: false);
-  final stdoutLimit = maxStdoutBytes
-      .clamp(0, _maxCapturedProcessBytesPerStream)
-      .toInt();
-  final stderrLimit = maxStderrBytes
-      .clamp(0, _maxCapturedProcessBytesPerStream)
-      .toInt();
+  final stdoutLimit = maxStdoutBytes.clamp(
+    0,
+    _maxCapturedProcessBytesPerStream,
+  );
+  final stderrLimit = maxStderrBytes.clamp(
+    0,
+    _maxCapturedProcessBytesPerStream,
+  );
 
   void completeIfNeeded(Completer<void> completer) {
     if (!completer.isCompleted) completer.complete();
@@ -2524,7 +2530,7 @@ Uri? _safeHttpUrlArgument(String value) {
 String? _safeLocalPathArgument(String value) {
   final target = nullIfBlank(value);
   if (target == null || target.startsWith('-')) return null;
-  final looksLikeUri = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(target);
+  final looksLikeUri = RegExp('^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(target);
   if (looksLikeUri && !(Platform.isWindows && _isWindowsDrivePath(target))) {
     return null;
   }

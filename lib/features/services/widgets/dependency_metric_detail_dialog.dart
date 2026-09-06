@@ -4097,8 +4097,8 @@ double? _numberOrNull(Object? value) {
 double _normalizedRatio(Object? value) {
   final ratio = _number(value);
   if (!ratio.isFinite || ratio <= 0) return 0;
-  if (ratio <= 1) return ratio.clamp(0.0, 1.0).toDouble();
-  return (ratio / 100).clamp(0.0, 1.0).toDouble();
+  if (ratio <= 1) return ratio.clamp(0.0, 1.0);
+  return (ratio / 100).clamp(0.0, 1.0);
 }
 
 double _finiteParsedNumber(String value) {

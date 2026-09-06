@@ -40,7 +40,7 @@ final List<RegExp> _unfulfilledIntentNegationPatterns = <RegExp>[
   RegExp(r'\bskip(?:ping)?\s+this\s+round\b', caseSensitive: false),
 ];
 final List<RegExp> _unfulfilledIntentPatterns = <RegExp>[
-  RegExp(r'upsert_profile'),
+  RegExp('upsert_profile'),
   RegExp(r'memory\s*\(\s*action'),
   RegExp(r'skill[_\s-]?manager'),
   RegExp(r'我\s*(?:将|要|准备|打算|应该|会|需要)\s*(?:调用|更新|新增|追加|删除|patch|edit|create)'),

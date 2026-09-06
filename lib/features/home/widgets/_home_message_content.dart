@@ -74,9 +74,10 @@ void _restoreCollapsedBodyScrollOffset({
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (!state.mounted || !controller.hasClients) return;
     final position = controller.position;
-    final target = savedOffset
-        .clamp(position.minScrollExtent, position.maxScrollExtent)
-        .toDouble();
+    final target = savedOffset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
     if ((position.pixels - target).abs() > 0.5) {
       controller.jumpTo(target);
     }
@@ -1463,7 +1464,7 @@ class _MarkdownStabilizingPlaceholder extends StatelessWidget {
     }
     final wrappedLines = (trimmed.length / _markdownPlaceholderCharsPerLine)
         .ceil();
-    return math.max(explicitLines, wrappedLines).clamp(1, maxLines).toInt();
+    return math.max(explicitLines, wrappedLines).clamp(1, maxLines);
   }
 
   double get _lineHeight {
@@ -1479,9 +1480,10 @@ class _MarkdownStabilizingPlaceholder extends StatelessWidget {
     final lineHeight = _lineHeight;
     final barHeight = math.max(8.0, lineHeight * 0.42);
     final gap = math.min(8.0, lineHeight * 0.32);
-    final height = (lines * barHeight + math.max(0, lines - 1) * gap)
-        .clamp(minHeight, maxHeight)
-        .toDouble();
+    final height = (lines * barHeight + math.max(0, lines - 1) * gap).clamp(
+      minHeight,
+      maxHeight,
+    );
     const widths = <double>[0.72, 0.9, 0.64, 0.82, 0.58, 0.46];
     final fillColor = color.withValues(alpha: 0.12);
     return Semantics(
@@ -3012,7 +3014,7 @@ final RegExp _htmlPreviewBlockEndTagPattern = RegExp(
   r'</\s*(?:p|div|li|tr|table|section|article|header|footer|main|aside|h[1-6]|blockquote|pre)\s*>',
   caseSensitive: false,
 );
-final RegExp _htmlPreviewAnyTagPattern = RegExp(r'<[^>]+>');
+final RegExp _htmlPreviewAnyTagPattern = RegExp('<[^>]+>');
 final RegExp _htmlPreviewWhitespacePattern = RegExp(r'[ \t\f\r]+');
 final RegExp _htmlPreviewBlankLinesPattern = RegExp(r'\n\s*\n\s*\n+');
 final RegExp _htmlPreviewNumericEntityPattern = RegExp(
@@ -3506,10 +3508,7 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
         .whereType<double>()
         .fold<double>(0.0, math.max);
     final effectiveColumns = basis > 0
-        ? ((maxWidth + gap) / (basis + gap))
-              .floor()
-              .clamp(1, children.length)
-              .toInt()
+        ? ((maxWidth + gap) / (basis + gap)).floor().clamp(1, children.length)
         : children.length;
     final childWidth = math.max(
       0.0,
@@ -3582,15 +3581,16 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
     }
     final repeat = _repeatColumnPattern.firstMatch(template);
     if (repeat != null) {
-      return (optionalIntFromValue(repeat.group(1)) ?? childCount)
-          .clamp(1, childCount)
-          .toInt();
+      return (optionalIntFromValue(repeat.group(1)) ?? childCount).clamp(
+        1,
+        childCount,
+      );
     }
     final explicitTracks = _splitCssTrackList(template);
     if (explicitTracks.length > 1) {
-      return explicitTracks.length.clamp(1, childCount).toInt();
+      return explicitTracks.length.clamp(1, childCount);
     }
-    return math.min(childCount, 3).clamp(1, childCount).toInt();
+    return math.min(childCount, 3).clamp(1, childCount);
   }
 
   static List<String> _splitCssTrackList(String value) {
@@ -4064,12 +4064,10 @@ double _estimateHtmlBubbleHeight(String data) {
   if (length == 0) return _HtmlBubbleWebViewState._kEstimatedMinHeight;
   final lines = (length / _HtmlBubbleWebViewState._kEstimatedCharsPerLine)
       .ceil();
-  return (lines * _HtmlBubbleWebViewState._kEstimatedLineHeight)
-      .clamp(
-        _HtmlBubbleWebViewState._kEstimatedMinHeight,
-        _HtmlBubbleWebViewState._kEstimatedMaxHeight,
-      )
-      .toDouble();
+  return (lines * _HtmlBubbleWebViewState._kEstimatedLineHeight).clamp(
+    _HtmlBubbleWebViewState._kEstimatedMinHeight,
+    _HtmlBubbleWebViewState._kEstimatedMaxHeight,
+  );
 }
 
 int _htmlBubbleHeightCacheKey(String data, TextStyle? baseTextStyle) {
@@ -4883,7 +4881,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 })();
 ''';
 
-  static const String _selectionBridgeScript = r'''
+  static const String _selectionBridgeScript = '''
 (function(){
   if (window.__openhandSelectionBridgeInstalled) return;
   window.__openhandSelectionBridgeInstalled = true;
@@ -5221,9 +5219,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
   void _onContentSizeChanged(Size newSize) {
     _reportBootstrapReady();
-    final next = newSize.height
-        .clamp(_kMinHeightClamp, _kMaxHeightClamp)
-        .toDouble();
+    final next = newSize.height.clamp(_kMinHeightClamp, _kMaxHeightClamp);
     if (!mounted) return;
     _measurementCount++;
     // CSS reset 前的全文档高度可能异常大（如 16222），直接应用会导致

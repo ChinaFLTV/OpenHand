@@ -79,7 +79,7 @@ class _StreamThroughputSampler {
 
   List<int> snapshot({int windowSeconds = defaultWindowSeconds, int? second}) {
     _advanceTo(second ?? _streamThroughputSecond());
-    final window = windowSeconds.clamp(1, retentionSeconds).toInt();
+    final window = windowSeconds.clamp(1, retentionSeconds);
     return List<int>.unmodifiable(
       Iterable<int>.generate(
         window,

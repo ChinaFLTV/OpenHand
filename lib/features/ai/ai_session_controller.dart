@@ -146,9 +146,10 @@ class _CachedStreamThroughputSnapshot {
   }
 
   List<int> window(int windowSeconds) {
-    final window = windowSeconds
-        .clamp(1, _StreamThroughputSampler.retentionSeconds)
-        .toInt();
+    final window = windowSeconds.clamp(
+      1,
+      _StreamThroughputSampler.retentionSeconds,
+    );
     final nowSecond = _streamThroughputSecond();
     final elapsedSeconds = math.max(0, nowSecond - capturedSecond);
     if (elapsedSeconds >= window) {
@@ -204,9 +205,9 @@ class AiSessionController extends ChangeNotifier {
     this._machineTerminalService,
     this._userHooksExecutor,
   }) {
-    _machineTerminalService?.configureMetadataPersister((sessionId, metadata) {
-      return _persistMachineTerminalMetadata(sessionId, metadata);
-    });
+    _machineTerminalService?.configureMetadataPersister(
+      _persistMachineTerminalMetadata,
+    );
   }
 
   static const Duration runtimeCleanupTimeout =
@@ -1148,9 +1149,10 @@ class AiSessionController extends ChangeNotifier {
     int windowSeconds = _StreamThroughputSampler.retentionSeconds,
   }) {
     final snapshotSecond = _streamThroughputSecond();
-    final window = windowSeconds
-        .clamp(1, _StreamThroughputSampler.retentionSeconds)
-        .toInt();
+    final window = windowSeconds.clamp(
+      1,
+      _StreamThroughputSampler.retentionSeconds,
+    );
     final displaySamples =
         _sessionDisplayThroughputSnapshot(
           sessionId,
@@ -1201,9 +1203,10 @@ class AiSessionController extends ChangeNotifier {
     List<int>? b, {
     required int windowSeconds,
   }) {
-    final window = windowSeconds
-        .clamp(1, _StreamThroughputSampler.retentionSeconds)
-        .toInt();
+    final window = windowSeconds.clamp(
+      1,
+      _StreamThroughputSampler.retentionSeconds,
+    );
     final left = _takeThroughputWindow(a, window);
     final right = _takeThroughputWindow(b, window);
     return List<int>.unmodifiable(<int>[
@@ -1212,9 +1215,10 @@ class AiSessionController extends ChangeNotifier {
   }
 
   List<int> _takeThroughputWindow(List<int>? source, int windowSeconds) {
-    final window = windowSeconds
-        .clamp(1, _StreamThroughputSampler.retentionSeconds)
-        .toInt();
+    final window = windowSeconds.clamp(
+      1,
+      _StreamThroughputSampler.retentionSeconds,
+    );
     if (source == null || source.isEmpty) {
       return _zeroThroughputWindow(window);
     }
@@ -1228,9 +1232,10 @@ class AiSessionController extends ChangeNotifier {
   }
 
   List<int> _zeroThroughputWindow(int windowSeconds) {
-    final window = windowSeconds
-        .clamp(1, _StreamThroughputSampler.retentionSeconds)
-        .toInt();
+    final window = windowSeconds.clamp(
+      1,
+      _StreamThroughputSampler.retentionSeconds,
+    );
     return List<int>.unmodifiable(List<int>.filled(window, 0));
   }
 
@@ -4800,7 +4805,7 @@ class AiSessionController extends ChangeNotifier {
 
   String _safeForkToolOutputStorageIdentifier(String raw) {
     final normalized = collapseRepeatedUnderscores(
-      raw.trim().replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_'),
+      raw.trim().replaceAll(RegExp('[^A-Za-z0-9_.-]+'), '_'),
     );
     if (normalized.isEmpty || normalized == '.' || normalized == '..') {
       return 'tool_result';
@@ -5656,7 +5661,7 @@ class AiSessionController extends ChangeNotifier {
     if (value == null || value <= 0) {
       return null;
     }
-    return value.clamp(1, aiSessionGoalHardMaxAutoTurns).toInt();
+    return value.clamp(1, aiSessionGoalHardMaxAutoTurns);
   }
 
   int? _normalizedGoalTokenBudget(int? value) {
@@ -6332,9 +6337,10 @@ class AiSessionController extends ChangeNotifier {
   }
 
   int _effectiveGoalMaxTurns(AiSessionGoalRecord goal) {
-    return (goal.maxTurns ?? aiSessionGoalDefaultMaxAutoTurns)
-        .clamp(1, aiSessionGoalHardMaxAutoTurns)
-        .toInt();
+    return (goal.maxTurns ?? aiSessionGoalDefaultMaxAutoTurns).clamp(
+      1,
+      aiSessionGoalHardMaxAutoTurns,
+    );
   }
 
   AiSession _finalizeGoal(AiSession session, AiSessionGoalRecord terminalGoal) {
@@ -6350,7 +6356,7 @@ class AiSessionController extends ChangeNotifier {
     if (maxCharacters <= 0 || normalized.characters.length <= maxCharacters) {
       return normalized;
     }
-    return '${normalized.characters.take(maxCharacters).toString()}...';
+    return '${normalized.characters.take(maxCharacters)}...';
   }
 
   Future<bool> sendMessage({
@@ -13416,7 +13422,7 @@ $tail''';
         optionalNonNegativeIntegralIntFromValue(
           metadata['context_budget_estimated_chars_per_token'],
         ) ??
-        math.max(1, runtimeContext.estimatedCharactersPerToken).toInt();
+        math.max(1, runtimeContext.estimatedCharactersPerToken);
     final activeCharacters = session.activeConversationMessages
         .where(
           (message) =>
@@ -13884,18 +13890,7 @@ $tail''';
       session,
       status: BashToolExecutionStatus.cancelled,
       debugLabel: 'cancelled',
-      fallbackResultText:
-          ({
-            required String command,
-            required String workingDirectory,
-            required int elapsedMs,
-            required bool hadStarted,
-          }) => _cancelledToolExecutionResultText(
-            command: command,
-            workingDirectory: workingDirectory,
-            elapsedMs: elapsedMs,
-            hadStarted: hadStarted,
-          ),
+      fallbackResultText: _cancelledToolExecutionResultText,
     );
   }
 
@@ -13950,18 +13945,7 @@ $tail''';
       session,
       status: BashToolExecutionStatus.cancelled,
       debugLabel: 'cancelled',
-      fallbackResultText:
-          ({
-            required String command,
-            required String workingDirectory,
-            required int elapsedMs,
-            required bool hadStarted,
-          }) => _cancelledToolExecutionResultText(
-            command: command,
-            workingDirectory: workingDirectory,
-            elapsedMs: elapsedMs,
-            hadStarted: hadStarted,
-          ),
+      fallbackResultText: _cancelledToolExecutionResultText,
     );
   }
 

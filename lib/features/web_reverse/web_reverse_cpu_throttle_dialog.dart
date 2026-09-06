@@ -155,7 +155,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                     divisions: 38,
                     label: '${_rate.toStringAsFixed(1)}×',
                     onChanged: _busy ? null : (v) => setState(() => _rate = v),
-                    onChangeEnd: _busy ? null : (v) => _apply(v),
+                    onChangeEnd: _busy ? null : _apply,
                   ),
                   kOpenHandGap8,
                   Container(

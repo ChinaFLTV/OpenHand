@@ -1213,7 +1213,7 @@ class _ThreadSessionManagementDialogState
         denseMode: _denseMode,
         showDragHandle: canReorder,
         diskBytes: _diskBytes[session.id],
-        formatDateTime: (dt) => formatYearMonthDayHmLocal(dt),
+        formatDateTime: formatYearMonthDayHmLocal,
         formatBytes: formatByteSize,
         estimateBytes: _estimateBytes,
         onTap: _isSelectionMode ? null : () => _openPreview(session),

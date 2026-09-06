@@ -317,8 +317,7 @@ class _OpenHandStableRawScrollbarState
   void _paintMetrics(ScrollMetrics metrics) {
     final minExtent = metrics.minScrollExtent;
     final maxExtent = (_displayMaxScrollExtent ?? metrics.maxScrollExtent)
-        .clamp(minExtent, double.infinity)
-        .toDouble();
+        .clamp(minExtent, double.infinity);
     final paintMaxExtent = maxExtent < metrics.pixels
         ? metrics.pixels
         : maxExtent;
@@ -326,7 +325,7 @@ class _OpenHandStableRawScrollbarState
       FixedScrollMetrics(
         minScrollExtent: minExtent,
         maxScrollExtent: paintMaxExtent,
-        pixels: metrics.pixels.clamp(minExtent, paintMaxExtent).toDouble(),
+        pixels: metrics.pixels.clamp(minExtent, paintMaxExtent),
         viewportDimension: metrics.viewportDimension,
         axisDirection: metrics.axisDirection,
         devicePixelRatio: metrics.devicePixelRatio,

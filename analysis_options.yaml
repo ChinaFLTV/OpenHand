@@ -27,9 +27,23 @@ linter:
     matching_super_parameters: true
     combinators_ordering: true
     unnecessary_await_in_return: true
+    unnecessary_getters_setters: true
+    unnecessary_brace_in_string_interps: true
+    unnecessary_const: true
+    unnecessary_constructor_name: true
+    unnecessary_ignore: true
+    unnecessary_lambdas: true
+    unnecessary_overrides: true
+    unnecessary_nullable_for_final_variable_declarations: true
+    unnecessary_raw_strings: true
     unnecessary_statements: true
+    unnecessary_string_escapes: true
+    unnecessary_string_interpolations: true
+    unnecessary_to_list_in_spreads: true
     use_string_in_part_of_directives: true
     unnecessary_underscores: true
+    avoid_unused_constructor_parameters: true
+    noop_primitive_operations: true
 
     always_declare_return_types: true
     null_check_on_nullable_type_parameter: true

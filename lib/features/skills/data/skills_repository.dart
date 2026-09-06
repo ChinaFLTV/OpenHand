@@ -53,9 +53,9 @@ class SkillsRepository {
     maxDepth: _maxSkillScanDepth,
     totalTimeout: Duration(minutes: 1),
   );
-  static final RegExp _windowsDrivePrefixPattern = RegExp(r'^[a-zA-Z]:');
-  static final RegExp _titleSegmentSeparatorPattern = RegExp(r'[-_]+');
-  static final RegExp _slugUnsafeCharsPattern = RegExp(r'[^a-z0-9]+');
+  static final RegExp _windowsDrivePrefixPattern = RegExp('^[a-zA-Z]:');
+  static final RegExp _titleSegmentSeparatorPattern = RegExp('[-_]+');
+  static final RegExp _slugUnsafeCharsPattern = RegExp('[^a-z0-9]+');
   static final RegExp _slugEdgeHyphenPattern = RegExp(r'^-+|-+$');
 
   Future<Directory> ensureStorageDirectory(String storagePath) async {

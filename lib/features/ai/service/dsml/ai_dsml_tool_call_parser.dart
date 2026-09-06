@@ -165,7 +165,7 @@ final RegExp _looseInvokeBodyTagPattern = RegExp(
   r'<\s*([A-Za-z_][\w:-]*)\s*>([\s\S]*?)</\s*[A-Za-z_][\w:-]*\s*>',
 );
 final RegExp _dsmlLooseTagPattern = RegExp(
-  r'</?DSML:[^>]+>',
+  '</?DSML:[^>]+>',
   caseSensitive: false,
 );
 final RegExp _dsmlAttributePattern = RegExp(

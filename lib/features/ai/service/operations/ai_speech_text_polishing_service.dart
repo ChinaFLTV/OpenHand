@@ -129,7 +129,7 @@ class AiSpeechTextPolishingService {
     final profileOutputLimit = profile.maxOutputLength;
     final outputTokens = profileOutputLimit == null
         ? _maxOutputTokens
-        : profileOutputLimit.clamp(1, _maxOutputTokens).toInt();
+        : profileOutputLimit.clamp(1, _maxOutputTokens);
     return provider.copyWith(
       modelId: modelId,
       streamEnabled: false,

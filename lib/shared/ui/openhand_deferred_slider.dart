@@ -32,7 +32,7 @@ class _OpenHandDeferredSliderState extends State<OpenHandDeferredSlider> {
 
   double _normalize(double value) {
     final finiteValue = value.isFinite ? value : _lower;
-    return finiteValue.clamp(_lower, _upper).toDouble();
+    return finiteValue.clamp(_lower, _upper);
   }
 
   double get _effectiveValue => _normalize(_draftValue ?? widget.value);

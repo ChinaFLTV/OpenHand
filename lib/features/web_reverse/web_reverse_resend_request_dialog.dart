@@ -604,7 +604,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
 
   // ─── 代码导出 ─────────────────────────────────────────────────────────
   String _exportCurl() {
-    String q(String s) => "'${s.replaceAll(r"'", r"'\''")}'";
+    String q(String s) => "'${s.replaceAll("'", r"'\''")}'";
     final buf = StringBuffer('curl ${q(_urlCtrl.text)}');
     if (_method != 'GET') buf.write(' \\\n  -X $_method');
     for (final h in _headers) {

@@ -437,7 +437,7 @@ class WebReverseHeadlessBatch {
   }
 
   static String _sanitizeDir(String url, int index) {
-    final cleaned = url.replaceAll(RegExp(r'^https?://'), '');
+    final cleaned = url.replaceAll(RegExp('^https?://'), '');
     final clipped = sanitizePortableFileNamePart(
       cleaned,
       fallback: '',

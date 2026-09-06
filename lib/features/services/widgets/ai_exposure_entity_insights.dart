@@ -532,7 +532,7 @@ class _TaskStageGanttSection extends StatelessWidget {
                         ? entry.start!.difference(earliest!).inMilliseconds /
                               spanMs
                         : 0.0;
-                    final left = rawLeft.clamp(0.0, 1.0).toDouble();
+                    final left = rawLeft.clamp(0.0, 1.0);
                     final rawCalendarWidth = hasCalendarPosition
                         ? entry.end!.difference(entry.start!).inMilliseconds /
                               spanMs
@@ -541,9 +541,7 @@ class _TaskStageGanttSection extends StatelessWidget {
                     final width = hasCalendarPosition
                         ? rawCalendarWidth <= 0
                               ? 0.0
-                              : rawCalendarWidth
-                                    .clamp(0.0, availableWidth)
-                                    .toDouble()
+                              : rawCalendarWidth.clamp(0.0, availableWidth)
                         : maxDuration <= 0
                         ? 0.04
                         : (entry.duration! / maxDuration).clamp(0.04, 1.0);
@@ -767,7 +765,7 @@ class _SourceEntityInsightBody extends StatelessWidget {
         suffix: ' 项',
         emptyLabel: '当前保留任务中没有该来源的处理样本。',
         targets: chronologicalTasks
-            .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+            .map<_InsightTarget?>(_TaskInsightTarget.new)
             .toList(growable: false),
       ),
       _InsightDonutSection(
@@ -3288,9 +3286,7 @@ Object? _entityRedactStructuredValue(Object? value, {String? key}) {
     };
   }
   if (value is Iterable) {
-    return value
-        .map((item) => _entityRedactStructuredValue(item))
-        .toList(growable: false);
+    return value.map(_entityRedactStructuredValue).toList(growable: false);
   }
   return value is String ? _entityRedactText(value) : value;
 }

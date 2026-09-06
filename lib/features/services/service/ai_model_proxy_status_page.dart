@@ -2477,7 +2477,7 @@ class _StatusComponent {
   );
 
   double get successRate =>
-      requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0).toDouble();
+      requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0);
 
   String uptimeLabel(String suffix) {
     if (requests <= 0) return '—';

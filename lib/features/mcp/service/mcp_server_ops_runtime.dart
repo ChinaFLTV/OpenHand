@@ -72,8 +72,8 @@ const int _mcpOpsMaxWorkspaceArgumentDepth = 64;
 const int _mcpOpsMaxWorkspaceArgumentNodes = 4096;
 const int _mcpOpsMaxWorkspacePathValues = 256;
 
-final RegExp _mcpOpsArgumentWordBoundary = RegExp(r'([a-z0-9])([A-Z])');
-final RegExp _mcpOpsArgumentKeySeparator = RegExp(r'[^a-z0-9]+');
+final RegExp _mcpOpsArgumentWordBoundary = RegExp('([a-z0-9])([A-Z])');
+final RegExp _mcpOpsArgumentKeySeparator = RegExp('[^a-z0-9]+');
 const Set<String> _mcpOpsPathArgumentWords = <String>{
   'path',
   'paths',
@@ -1563,7 +1563,7 @@ class McpServerOpsRuntime {
         .toSet();
     if (allowedClients.isNotEmpty) {
       final client = _clientName(request).toLowerCase();
-      final allowed = allowedClients.any((item) => client.contains(item));
+      final allowed = allowedClients.any(client.contains);
       if (!allowed) {
         _recordBlocked(
           request,

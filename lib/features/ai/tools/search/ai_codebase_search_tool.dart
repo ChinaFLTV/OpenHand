@@ -264,7 +264,7 @@ class AiCodebaseSearchTool extends AiTool {
       fragments.add(word);
       final camelParts = word
           .replaceAllMapped(
-            RegExp(r'([a-z])([A-Z])'),
+            RegExp('([a-z])([A-Z])'),
             (m) => '${m.group(1)} ${m.group(2)}',
           )
           .split(' ')

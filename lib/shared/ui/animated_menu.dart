@@ -430,7 +430,7 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
               : fallback.maxWidth)
         : fallback.maxWidth;
     final resolvedMinHeight = fallback.minHeight.isFinite
-        ? fallback.minHeight.clamp(0.0, fallback.maxHeight).toDouble()
+        ? fallback.minHeight.clamp(0.0, fallback.maxHeight)
         : 0.0;
     return BoxConstraints(
       minWidth: resolvedMinWidth,
@@ -487,8 +487,7 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
       final position = _verticalScrollController.position;
       final target =
           (offset - (position.viewportDimension - selectedSize.height) / 2)
-              .clamp(position.minScrollExtent, position.maxScrollExtent)
-              .toDouble();
+              .clamp(position.minScrollExtent, position.maxScrollExtent);
       if ((position.pixels - target).abs() > 0.5) {
         _verticalScrollController.jumpTo(target);
       }
@@ -677,7 +676,7 @@ double _clampMenuCoordinate(
 }) {
   if (!value.isFinite) return lower;
   if (upper < lower) return lower;
-  return value.clamp(lower, upper).toDouble();
+  return value.clamp(lower, upper);
 }
 
 Widget _buildMenuTransition(

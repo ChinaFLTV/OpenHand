@@ -132,14 +132,15 @@ Duration _safeDuration(Duration duration) {
 
 double _safeOpacityIntervalEnd(double value) {
   if (!value.isFinite || value <= 0) return 1.0;
-  return value.clamp(0.05, 1.0).toDouble();
+  return value.clamp(0.05, 1.0);
 }
 
 double _safeScaleBegin(double value) {
   if (!value.isFinite || value <= 0) return 1.0;
-  return value
-      .clamp(kOpenHandSpringEntranceMinScale, kOpenHandSpringEntranceMaxScale)
-      .toDouble();
+  return value.clamp(
+    kOpenHandSpringEntranceMinScale,
+    kOpenHandSpringEntranceMaxScale,
+  );
 }
 
 Offset _safeOffset(Offset value) {
