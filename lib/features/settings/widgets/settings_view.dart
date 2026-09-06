@@ -8194,6 +8194,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: SegmentedButton<ThrottleCloudSyncProvider>(
+              expandedInsets: EdgeInsets.zero,
               segments: <ButtonSegment<ThrottleCloudSyncProvider>>[
                 ButtonSegment(
                   value: ThrottleCloudSyncProvider.custom,
