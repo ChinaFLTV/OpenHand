@@ -614,6 +614,7 @@ export const dict_ja: Record<string, string> = {
   'resourceUsage.arguments': '引数',
   'resourceUsage.error': 'エラー',
   'resourceUsage.result': '結果',
+  'resourceUsage.metadata': 'メタデータ',
   'resourceUsage.statusSuccess': '成功',
   'resourceUsage.statusCancelled': 'キャンセル',
   'resourceUsage.statusTimedOut': 'タイムアウト',

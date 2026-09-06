@@ -614,6 +614,7 @@ export const dict_zhHant: Record<string, string> = {
   'resourceUsage.arguments': '參數',
   'resourceUsage.error': '錯誤',
   'resourceUsage.result': '結果',
+  'resourceUsage.metadata': '元資料',
   'resourceUsage.statusSuccess': '成功',
   'resourceUsage.statusCancelled': '已取消',
   'resourceUsage.statusTimedOut': '逾時',

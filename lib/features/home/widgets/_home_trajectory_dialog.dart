@@ -16,11 +16,7 @@ const double _kTrajectoryTableMinWidth = 760;
 const double _kTrajectoryOlderLoadThreshold = 48;
 const double _kTrajectoryPreviewMaxHeight = 220;
 const Duration _kTrajectoryRefreshDelay = Duration(milliseconds: 120);
-const int _kTrajectoryJsonTreeMaxCharacters = 512 * kBytesPerKiB;
-const int _kTrajectoryJsonTreeMaxNodes = 4096;
-const int _kTrajectoryJsonTreeMaxDepth = 32;
 const int _kTrajectoryThroughputMaxPoints = 300;
-const Duration _kTrajectoryCopyFeedbackDuration = Duration(seconds: 2);
 
 const _kTrajectoryTimelineLightColors = (
   system: Color(0xFF61666B),
@@ -37,24 +33,6 @@ const _kTrajectoryTimelineDarkColors = (
   assistant: Color(0xFF9474BC),
   tool: Color(0xFFDD8629),
   error: Color(0xFFF25A5A),
-);
-const _kTrajectoryJsonLightColors = (
-  key: Color(0xFF0B6E75),
-  string: Color(0xFF2F5FA7),
-  number: Color(0xFF8B3F8F),
-  boolValue: Color(0xFFB45309),
-  nullValue: Color(0xFFBE3455),
-  punctuation: Color(0xFF667085),
-  count: Color(0xFF6D4AC8),
-);
-const _kTrajectoryJsonDarkColors = (
-  key: Color(0xFF67D4D0),
-  string: Color(0xFF8CB8FF),
-  number: Color(0xFFE69BD3),
-  boolValue: Color(0xFFF7B955),
-  nullValue: Color(0xFFFF8296),
-  punctuation: Color(0xFFAAB3C2),
-  count: Color(0xFFB6A0FF),
 );
 
 enum _TrajectoryKind {
@@ -3565,8 +3543,9 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ja: 'このリクエストにはシステムプロンプトが記録されていません',
         ),
       ),
-      'tools' => _TrajectoryStructuredDetail(
+      'tools' => OpenHandJsonTreeView(
         text: _trajectoryToolCatalog(metadata),
+        logTag: 'trajectory',
         emptyText: _trajectoryText(
           context,
           zh: '本次请求未记录工具目录',
@@ -3589,8 +3568,9 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ja: '内容なし',
         ),
       ),
-      'raw' => _TrajectoryStructuredDetail(
+      'raw' => OpenHandJsonTreeView(
         text: _trajectoryRecordRawText(record),
+        logTag: 'trajectory',
         emptyText: _trajectoryText(
           context,
           zh: '无内容',
@@ -3601,7 +3581,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ja: '内容なし',
         ),
       ),
-      'source' => _TrajectoryStructuredDetail(
+      'source' => OpenHandJsonTreeView(
         text: _trajectoryPrettyValue(<String, Object?>{
           'message_id': record.sourceMessageId,
           'turn': record.turn,
@@ -3609,6 +3589,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           'request_number': record.requestNumber,
           'metadata': metadata,
         }),
+        logTag: 'trajectory',
         emptyText: _trajectoryText(
           context,
           zh: '未记录来源',
@@ -3619,8 +3600,9 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ja: 'ソースは記録されていません',
         ),
       ),
-      'input' => _TrajectoryStructuredDetail(
+      'input' => OpenHandJsonTreeView(
         text: record.input,
+        logTag: 'trajectory',
         emptyText: _trajectoryText(
           context,
           zh: '无输入载荷',
@@ -3631,8 +3613,9 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ja: '入力ペイロードなし',
         ),
       ),
-      'output' => _TrajectoryStructuredDetail(
+      'output' => OpenHandJsonTreeView(
         text: record.output,
+        logTag: 'trajectory',
         emptyText: record.running
             ? _trajectoryText(
                 context,
@@ -3654,8 +3637,9 @@ class _TrajectoryDetailBody extends StatelessWidget {
               ),
         error: record.isError,
       ),
-      'schema' => _TrajectoryStructuredDetail(
+      'schema' => OpenHandJsonTreeView(
         text: _trajectorySchema(metadata),
+        logTag: 'trajectory',
         emptyText: _trajectoryText(
           context,
           zh: '未记录结构',
@@ -3666,8 +3650,9 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ja: 'スキーマは記録されていません',
         ),
       ),
-      'options' => _TrajectoryStructuredDetail(
+      'options' => OpenHandJsonTreeView(
         text: _trajectoryRequestOptions(metadata),
+        logTag: 'trajectory',
         emptyText: _trajectoryText(
           context,
           zh: '未记录请求选项',
@@ -4760,547 +4745,6 @@ class _TrajectoryMarkdownDetailState extends State<_TrajectoryMarkdownDetail> {
       ),
     );
   }
-}
-
-class _TrajectoryJsonDocument {
-  const _TrajectoryJsonDocument({
-    required this.value,
-    required this.containerPaths,
-  });
-
-  final Object? value;
-  final Set<String> containerPaths;
-}
-
-_TrajectoryJsonDocument? _trajectoryJsonDocument(String text) {
-  final trimmed = text.trim();
-  if (trimmed.length < 2 ||
-      trimmed.length > _kTrajectoryJsonTreeMaxCharacters ||
-      !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
-          !(trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-    return null;
-  }
-  Object? decoded;
-  try {
-    decoded = jsonDecode(trimmed);
-  } on FormatException {
-    return null;
-  }
-  if (decoded is! Map && decoded is! List) return null;
-
-  final paths = <String>{r'$'};
-  final pending = <(Object?, String, int)>[(decoded, r'$', 0)];
-  var nodes = 0;
-  while (pending.isNotEmpty) {
-    final current = pending.removeLast();
-    if (current.$3 > _kTrajectoryJsonTreeMaxDepth) return null;
-    final value = current.$1;
-    final children = value is Map
-        ? value.values.toList(growable: false)
-        : value is List
-        ? value
-        : const <Object?>[];
-    for (var index = 0; index < children.length; index += 1) {
-      nodes += 1;
-      if (nodes > _kTrajectoryJsonTreeMaxNodes) return null;
-      final child = children[index];
-      if ((child is Map && child.isNotEmpty) ||
-          (child is List && child.isNotEmpty)) {
-        final path = '${current.$2}/$index';
-        paths.add(path);
-        pending.add((child, path, current.$3 + 1));
-      }
-    }
-  }
-  return _TrajectoryJsonDocument(
-    value: decoded,
-    containerPaths: Set<String>.unmodifiable(paths),
-  );
-}
-
-class _TrajectoryStructuredDetail extends StatefulWidget {
-  const _TrajectoryStructuredDetail({
-    required this.text,
-    required this.emptyText,
-    this.error = false,
-  });
-
-  final String text;
-  final String emptyText;
-  final bool error;
-
-  @override
-  State<_TrajectoryStructuredDetail> createState() =>
-      _TrajectoryStructuredDetailState();
-}
-
-class _TrajectoryStructuredDetailState
-    extends State<_TrajectoryStructuredDetail> {
-  _TrajectoryJsonDocument? _document;
-  Set<String> _expandedPaths = <String>{r'$'};
-  Timer? _copiedResetTimer;
-  bool _copied = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _parse();
-  }
-
-  @override
-  void didUpdateWidget(covariant _TrajectoryStructuredDetail oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text) {
-      _copiedResetTimer?.cancel();
-      _copied = false;
-      _parse();
-    }
-  }
-
-  @override
-  void dispose() {
-    _copiedResetTimer?.cancel();
-    super.dispose();
-  }
-
-  void _parse() {
-    _document = _trajectoryJsonDocument(widget.text);
-    _expandedPaths = <String>{
-      r'$',
-      ...?_document?.containerPaths.where(
-        (path) => path != r'$' && '/'.allMatches(path).length == 1,
-      ),
-    };
-  }
-
-  Future<void> _copy() async {
-    final copied = await copyOpenHandTextToClipboard(
-      context: context,
-      text: widget.text,
-      logTag: 'trajectory',
-      logAction: '复制轨迹详情',
-      showSuccess: false,
-    );
-    if (!copied || !mounted) return;
-    _copiedResetTimer?.cancel();
-    setState(() => _copied = true);
-    _copiedResetTimer = startSafeTimer(_kTrajectoryCopyFeedbackDuration, () {
-      if (mounted) setState(() => _copied = false);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.text.trim().isEmpty) {
-      return _TrajectoryEmptyDetail(text: widget.emptyText);
-    }
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final document = _document;
-    final value = document?.value;
-    final count = value is Map
-        ? value.length
-        : value is List
-        ? value.length
-        : 0;
-    final description = value is Map
-        ? _trajectoryText(
-            context,
-            zh: '对象 · $count 个字段',
-            zhHant: '物件 · $count 個欄位',
-            en: 'Object · $count ${count == 1 ? 'field' : 'fields'}',
-            fr: 'Objet · $count ${count == 1 ? 'champ' : 'champs'}',
-            de: 'Objekt · $count ${count == 1 ? 'Feld' : 'Felder'}',
-            ja: 'オブジェクト · $count フィールド',
-          )
-        : value is List
-        ? _trajectoryText(
-            context,
-            zh: '数组 · $count 项',
-            zhHant: '陣列 · $count 項',
-            en: 'Array · $count ${count == 1 ? 'item' : 'items'}',
-            fr: 'Tableau · $count ${count == 1 ? 'élément' : 'éléments'}',
-            de: 'Array · $count ${count == 1 ? 'Eintrag' : 'Einträge'}',
-            ja: '配列 · $count 件',
-          )
-        : _trajectoryText(
-            context,
-            zh: '文本 · ${widget.text.length} 字符',
-            zhHant: '文字 · ${widget.text.length} 字元',
-            en: 'Text · ${widget.text.length} characters',
-            fr: 'Texte · ${widget.text.length} caractères',
-            de: 'Text · ${widget.text.length} Zeichen',
-            ja: 'テキスト · ${widget.text.length} 文字',
-          );
-    final allExpanded =
-        document != null &&
-        document.containerPaths.every(_expandedPaths.contains);
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer.withValues(alpha: 0.78),
-        borderRadius: kOpenHandBorderRadius7,
-        border: Border.all(
-          color: widget.error
-              ? colorScheme.error.withValues(alpha: 0.38)
-              : colorScheme.outlineVariant.withValues(alpha: 0.78),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            height: 38,
-            padding: const EdgeInsetsDirectional.only(start: 10, end: 4),
-            decoration: BoxDecoration(
-              color: widget.error
-                  ? colorScheme.errorContainer.withValues(alpha: 0.5)
-                  : document == null
-                  ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.72)
-                  : colorScheme.primaryContainer.withValues(alpha: 0.38),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(6),
-              ),
-              border: Border(
-                bottom: BorderSide(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  document == null
-                      ? Icons.notes_rounded
-                      : Icons.data_object_rounded,
-                  size: 16,
-                  color: widget.error
-                      ? colorScheme.error
-                      : document == null
-                      ? colorScheme.onSurfaceVariant
-                      : colorScheme.primary,
-                ),
-                kOpenHandHGap8,
-                Expanded(
-                  child: Text(
-                    description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (document != null && document.containerPaths.length > 1) ...[
-                  IconButton(
-                    constraints: const BoxConstraints.tightFor(
-                      width: 30,
-                      height: 30,
-                    ),
-                    padding: EdgeInsets.zero,
-                    tooltip: allExpanded
-                        ? _trajectoryText(
-                            context,
-                            zh: '全部收起',
-                            zhHant: '全部收合',
-                            en: 'Collapse all',
-                            fr: 'Tout réduire',
-                            de: 'Alle einklappen',
-                            ja: 'すべて折りたたむ',
-                          )
-                        : _trajectoryText(
-                            context,
-                            zh: '全部展开',
-                            zhHant: '全部展開',
-                            en: 'Expand all',
-                            fr: 'Tout développer',
-                            de: 'Alle ausklappen',
-                            ja: 'すべて展開',
-                          ),
-                    onPressed: () => setState(() {
-                      _expandedPaths = allExpanded
-                          ? <String>{r'$'}
-                          : document.containerPaths.toSet();
-                    }),
-                    icon: Icon(
-                      allExpanded
-                          ? Icons.unfold_less_rounded
-                          : Icons.unfold_more_rounded,
-                      size: 17,
-                    ),
-                  ),
-                  kOpenHandHGap4,
-                ],
-                IconButton(
-                  constraints: const BoxConstraints.tightFor(
-                    width: 30,
-                    height: 30,
-                  ),
-                  padding: EdgeInsets.zero,
-                  tooltip: _copied
-                      ? _trajectoryText(
-                          context,
-                          zh: '已复制',
-                          zhHant: '已複製',
-                          en: 'Copied',
-                          fr: 'Copié',
-                          de: 'Kopiert',
-                          ja: 'コピー済み',
-                        )
-                      : _trajectoryText(
-                          context,
-                          zh: document == null ? '复制文本' : '复制 JSON',
-                          zhHant: document == null ? '複製文字' : '複製 JSON',
-                          en: document == null ? 'Copy text' : 'Copy JSON',
-                          fr: document == null
-                              ? 'Copier le texte'
-                              : 'Copier le JSON',
-                          de: document == null
-                              ? 'Text kopieren'
-                              : 'JSON kopieren',
-                          ja: document == null ? 'テキストをコピー' : 'JSON をコピー',
-                        ),
-                  onPressed: _copy,
-                  icon: Icon(
-                    _copied ? Icons.check_rounded : Icons.copy_rounded,
-                    size: 16,
-                    color: _copied ? colorScheme.primary : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: document == null
-                ? SelectableText(
-                    widget.text,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: kOpenHandMonospaceFontFamily,
-                      color: widget.error ? colorScheme.error : null,
-                      height: 1.5,
-                    ),
-                  )
-                : _buildJsonRoot(context, document.value),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildJsonRoot(BuildContext context, Object? value) {
-    final entries = value is Map
-        ? value.entries
-              .map((entry) => (key: '${entry.key}', value: entry.value))
-              .toList(growable: false)
-        : [
-            for (var index = 0; index < (value as List).length; index += 1)
-              (key: '$index', value: value[index]),
-          ];
-    if (entries.isEmpty) {
-      final theme = Theme.of(context);
-      return SelectableText(
-        value is Map ? '{}' : '[]',
-        style: theme.textTheme.bodySmall?.copyWith(
-          fontFamily: kOpenHandMonospaceFontFamily,
-          color: theme.colorScheme.onSurfaceVariant,
-          height: 1.45,
-        ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var index = 0; index < entries.length; index += 1)
-          _buildJsonNode(
-            context,
-            key: entries[index].key,
-            value: entries[index].value,
-            path:
-                r'$'
-                '/$index',
-            depth: 0,
-          ),
-      ],
-    );
-  }
-
-  Widget _buildJsonNode(
-    BuildContext context, {
-    required String key,
-    required Object? value,
-    required String path,
-    required int depth,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final jsonColors = theme.brightness == Brightness.dark
-        ? _kTrajectoryJsonDarkColors
-        : _kTrajectoryJsonLightColors;
-    final isContainer = value is Map || value is List;
-    final childCount = value is Map
-        ? value.length
-        : value is List
-        ? value.length
-        : 0;
-    final expandable = isContainer && childCount > 0;
-    final expanded = expandable && _expandedPaths.contains(path);
-    final keyStyle = theme.textTheme.bodySmall?.copyWith(
-      fontFamily: kOpenHandMonospaceFontFamily,
-      color: jsonColors.key,
-      fontWeight: FontWeight.w600,
-      height: 1.45,
-    );
-    final punctuationStyle = keyStyle?.copyWith(
-      color: jsonColors.punctuation,
-      fontWeight: FontWeight.w400,
-    );
-    final valueSpan = TextSpan(
-      style: keyStyle,
-      children: [
-        TextSpan(text: jsonEncode(key)),
-        TextSpan(text: ': ', style: punctuationStyle),
-        if (isContainer) ...[
-          TextSpan(
-            text: value is Map
-                ? childCount == 0
-                      ? '{}'
-                      : '{…}'
-                : childCount == 0
-                ? '[]'
-                : '[…]',
-            style: punctuationStyle,
-          ),
-          if (childCount > 0)
-            TextSpan(
-              text: '  $childCount',
-              style: punctuationStyle?.copyWith(color: jsonColors.count),
-            ),
-        ] else
-          TextSpan(
-            text: jsonEncode(value),
-            style: _trajectoryJsonValueStyle(theme, value),
-          ),
-      ],
-    );
-    final row = Padding(
-      padding: EdgeInsetsDirectional.only(start: depth == 0 ? 0 : 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 20,
-            height: 22,
-            child: expandable
-                ? AnimatedRotation(
-                    turns: expanded ? 0.25 : 0,
-                    duration: cardMotionDurationFor(
-                      context,
-                      expanding: expanded,
-                    ),
-                    curve: kCardMotionCurve,
-                    child: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 17,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  )
-                : Icon(Icons.circle, size: 4, color: colorScheme.outline),
-          ),
-          Expanded(
-            child: expandable
-                ? Text.rich(valueSpan)
-                : SelectableText.rich(valueSpan),
-          ),
-        ],
-      ),
-    );
-    if (!expandable) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: row,
-      );
-    }
-
-    final children = value is Map
-        ? value.entries
-              .map((entry) => (key: '${entry.key}', value: entry.value))
-              .toList(growable: false)
-        : [
-            for (var index = 0; index < (value as List).length; index += 1)
-              (key: '$index', value: value[index]),
-          ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          borderRadius: kOpenHandBorderRadius4,
-          onTap: () => setState(() {
-            if (expanded) {
-              _expandedPaths.remove(path);
-            } else {
-              _expandedPaths.add(path);
-            }
-          }),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: row,
-          ),
-        ),
-        maybeAnimatedSize(
-          duration: cardMotionDurationFor(context, expanding: expanded),
-          curve: kCardMotionCurve,
-          alignment: Alignment.topCenter,
-          child: expanded
-              ? Container(
-                  margin: const EdgeInsetsDirectional.only(start: 9),
-                  padding: const EdgeInsetsDirectional.only(start: 4),
-                  decoration: BoxDecoration(
-                    border: BorderDirectional(
-                      start: BorderSide(
-                        color: jsonColors.key.withValues(alpha: 0.28),
-                      ),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var index = 0; index < children.length; index += 1)
-                        _buildJsonNode(
-                          context,
-                          key: children[index].key,
-                          value: children[index].value,
-                          path: '$path/$index',
-                          depth: depth + 1,
-                        ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-      ],
-    );
-  }
-}
-
-TextStyle? _trajectoryJsonValueStyle(ThemeData theme, Object? value) {
-  final colors = theme.brightness == Brightness.dark
-      ? _kTrajectoryJsonDarkColors
-      : _kTrajectoryJsonLightColors;
-  final color = switch (value) {
-    String() => colors.string,
-    num() => colors.number,
-    bool() => colors.boolValue,
-    null => colors.nullValue,
-    _ => theme.colorScheme.onSurface,
-  };
-  return theme.textTheme.bodySmall?.copyWith(
-    fontFamily: kOpenHandMonospaceFontFamily,
-    color: color,
-    fontWeight: value is bool ? FontWeight.w700 : FontWeight.w500,
-    height: 1.45,
-  );
 }
 
 class _TrajectoryEmptyDetail extends StatelessWidget {

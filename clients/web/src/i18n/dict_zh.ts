@@ -615,6 +615,7 @@ export const dict_zh: Record<string, string> = {
   'resourceUsage.arguments': '参数',
   'resourceUsage.error': '错误',
   'resourceUsage.result': '结果',
+  'resourceUsage.metadata': '元数据',
   'resourceUsage.statusSuccess': '成功',
   'resourceUsage.statusCancelled': '已取消',
   'resourceUsage.statusTimedOut': '超时',

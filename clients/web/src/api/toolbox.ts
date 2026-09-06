@@ -130,6 +130,7 @@ export interface ResourceUsageEvent {
   result_summary: string;
   error_summary: string;
   source: string;
+  metadata_json?: string;
 }
 
 export interface ResourceUsageLevelSnapshot {

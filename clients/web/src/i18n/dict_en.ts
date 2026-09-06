@@ -616,6 +616,7 @@ export const dict_en: Record<string, string> = {
   'resourceUsage.arguments': 'Arguments',
   'resourceUsage.error': 'Error',
   'resourceUsage.result': 'Result',
+  'resourceUsage.metadata': 'Metadata',
   'resourceUsage.statusSuccess': 'Success',
   'resourceUsage.statusCancelled': 'Cancelled',
   'resourceUsage.statusTimedOut': 'Timed out',

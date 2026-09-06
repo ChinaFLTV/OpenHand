@@ -20,6 +20,7 @@ import {
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { StructuredJsonView } from './StructuredJsonView';
 
 const LEVELS: ResourceUsageLevel[] = ['session', 'day', 'week', 'month', 'quarter', 'year'];
 const CHART_COLORS = ['#6d5dfc', '#14b8a6', '#f59e0b', '#ec4899', '#38bdf8', '#94a3b8'];
@@ -486,7 +487,7 @@ function Ranking(props: { entries: Array<[string, number]>; labels: Record<strin
   const max = Math.max(1, visible[0][1]);
   const unit = t('resourceUsage.callUnit', '次');
   return (
-    <ol class="oh-resource-usage-ranking">
+    <ol class="oh-resource-usage-ranking oh-overlay-scroll">
       {visible.map((entry, index) => (
         <li key={entry[0]}>
           <span>{String(index + 1).padStart(2, '0')}</span>
@@ -502,7 +503,7 @@ function Ranking(props: { entries: Array<[string, number]>; labels: Record<strin
 function ResourceDetails(props: { resources: ResourceUsageResourceSnapshot[]; labels: Record<string, string> }) {
   if (props.resources.length === 0) return <EmptyChart label={t('resourceUsage.emptyDetails', '当前周期暂无资源明细')} />;
   return (
-    <div class="oh-resource-usage-details">
+    <div class="oh-resource-usage-details oh-overlay-scroll">
       {props.resources.map((resource) => {
         const label = props.labels[resource.resource_id] || resource.resource_id;
         const rateText = resource.success_rate == null ? '—' : `${(resource.success_rate * 100).toFixed(1)}%`;
@@ -621,7 +622,7 @@ function MetricPill({
 function RecentEvents({ events, labels }: { events: ResourceUsageEvent[]; labels: Record<string, string> }) {
   if (events.length === 0) return <EmptyChart label={t('resourceUsage.emptyRecent', '当前周期暂无详细调用记录')} />;
   return (
-    <div class="oh-resource-usage-events">
+    <div class="oh-resource-usage-events oh-overlay-scroll">
       {events.map((event) => {
         const resourceLabel = labels[event.resource_id] || event.resource_id;
         const subLabel = event.sub_resource_id ? subResourceLabel(event.sub_resource_id) : '';
@@ -671,12 +672,34 @@ function RecentEvents({ events, labels }: { events: ResourceUsageEvent[]; labels
                 />
               ) : null}
             </div>
-            {event.arguments_summary ? <EventSummary label={t('resourceUsage.arguments', '参数')} value={event.arguments_summary} /> : null}
+            {event.arguments_summary ? (
+              <StructuredJsonView
+                label={t('resourceUsage.arguments', '参数')}
+                text={event.arguments_summary}
+              />
+            ) : null}
             {event.error_summary
-              ? <EventSummary label={t('resourceUsage.error', '错误')} value={event.error_summary} error />
+              ? (
+                <StructuredJsonView
+                  label={t('resourceUsage.error', '错误')}
+                  text={event.error_summary}
+                  error
+                />
+              )
               : event.result_summary
-                ? <EventSummary label={t('resourceUsage.result', '结果')} value={event.result_summary} />
+                ? (
+                  <StructuredJsonView
+                    label={t('resourceUsage.result', '结果')}
+                    text={event.result_summary}
+                  />
+                )
                 : null}
+            {hasUsageMetadata(event.metadata_json) ? (
+              <StructuredJsonView
+                label={t('resourceUsage.metadata', '元数据')}
+                text={event.metadata_json ?? ''}
+              />
+            ) : null}
           </article>
         );
       })}
@@ -684,13 +707,9 @@ function RecentEvents({ events, labels }: { events: ResourceUsageEvent[]; labels
   );
 }
 
-function EventSummary({ label, value, error = false }: { label: string; value: string; error?: boolean }) {
-  return (
-    <p class={`oh-resource-usage-event-summary${error ? ' is-error' : ''}`}>
-      <b>{label}</b>
-      <span>{value}</span>
-    </p>
-  );
+function hasUsageMetadata(value: string | undefined): boolean {
+  const trimmed = value?.trim() ?? '';
+  return trimmed.length > 0 && trimmed !== '{}' && trimmed !== '[]';
 }
 
 function statusLabel(status: string): string {

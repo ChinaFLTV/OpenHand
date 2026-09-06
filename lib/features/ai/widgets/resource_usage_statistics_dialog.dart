@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_json_tree.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -152,6 +153,7 @@ class _ResourceUsageStatisticsDialogState
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
+                  physics: openHandDialogAwareScrollPhysics(context),
                   child: _buildBody(context, snapshot),
                 ),
               ),
@@ -1549,6 +1551,7 @@ class _RecentUsageEventsState extends State<_RecentUsageEvents> {
             children: [
               for (var index = 0; index < pageEvents.length; index++) ...[
                 _UsageEventCard(
+                  key: ValueKey<String>(pageEvents[index].eventId),
                   event: pageEvents[index],
                   labels: widget.labels,
                 ),
@@ -1604,10 +1607,13 @@ class _BoundedAnalyticsListState extends State<_BoundedAnalyticsList> {
       constraints: BoxConstraints(maxHeight: maxHeight),
       child: OpenHandSafeScrollbar(
         controller: _controller,
-        thumbVisibility: true,
+        thumbVisibility: false,
+        thickness: 5,
+        radius: kOpenHandPillRadius,
         child: SingleChildScrollView(
           controller: _controller,
           primary: false,
+          physics: openHandDialogAwareScrollPhysics(context),
           padding: const EdgeInsets.only(right: 8),
           child: widget.child,
         ),
@@ -1617,7 +1623,7 @@ class _BoundedAnalyticsListState extends State<_BoundedAnalyticsList> {
 }
 
 class _UsageEventCard extends StatelessWidget {
-  const _UsageEventCard({required this.event, required this.labels});
+  const _UsageEventCard({super.key, required this.event, required this.labels});
 
   final AiResourceUsageEvent event;
   final Map<String, String> labels;
@@ -1747,8 +1753,8 @@ class _UsageEventCard extends StatelessWidget {
                 ),
             ],
           ),
-          if (event.argumentsSummary.isNotEmpty)
-            _EventSummaryLine(
+          if (event.argumentsSummary.trim().isNotEmpty)
+            _UsageEventPayload(
               label: openHandLocalizedText(
                 context,
                 zh: '参数',
@@ -1760,14 +1766,14 @@ class _UsageEventCard extends StatelessWidget {
               ),
               value: event.argumentsSummary,
             ),
-          if (event.errorSummary.isNotEmpty)
-            _EventSummaryLine(
+          if (event.errorSummary.trim().isNotEmpty)
+            _UsageEventPayload(
               label: openHandErrorLabel(context),
               value: event.errorSummary,
               error: true,
             )
-          else if (event.resultSummary.isNotEmpty)
-            _EventSummaryLine(
+          else if (event.resultSummary.trim().isNotEmpty)
+            _UsageEventPayload(
               label: openHandLocalizedText(
                 context,
                 zh: '结果',
@@ -1779,8 +1785,8 @@ class _UsageEventCard extends StatelessWidget {
               ),
               value: event.resultSummary,
             ),
-          if (event.metadataJson != '{}' && event.metadataJson.isNotEmpty)
-            _EventSummaryLine(
+          if (_hasUsageMetadata(event.metadataJson))
+            _UsageEventPayload(
               label: openHandLocalizedText(
                 context,
                 zh: '元数据',
@@ -1798,8 +1804,8 @@ class _UsageEventCard extends StatelessWidget {
   }
 }
 
-class _EventSummaryLine extends StatelessWidget {
-  const _EventSummaryLine({
+class _UsageEventPayload extends StatelessWidget {
+  const _UsageEventPayload({
     required this.label,
     required this.value,
     this.error = false,
@@ -1811,32 +1817,13 @@ class _EventSummaryLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final accent = error ? colors.onErrorContainer : colors.primary;
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: error ? colors.errorContainer : colors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(kOpenHandRadius12),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: '$label  ',
-              style: TextStyle(color: accent, fontWeight: FontWeight.w700),
-            ),
-            TextSpan(text: value),
-          ],
-        ),
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: error ? colors.onErrorContainer : colors.onSurfaceVariant,
-          height: 1.45,
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: OpenHandJsonTreeView(
+        text: value,
+        label: label,
+        error: error,
+        logTag: 'resource_usage',
       ),
     );
   }
@@ -1952,6 +1939,11 @@ String _periodDescription(BuildContext context, AiResourceUsagePeriod period) {
     de: 'Aufrufvolumen · $label',
     ja: '$label単位の呼び出し数',
   );
+}
+
+bool _hasUsageMetadata(String value) {
+  final trimmed = value.trim();
+  return trimmed.isNotEmpty && trimmed != '{}' && trimmed != '[]';
 }
 
 String _shortBucket(String value) {
