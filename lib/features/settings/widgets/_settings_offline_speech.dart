@@ -612,6 +612,10 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
     final state = service.stateOf(widget.model);
     final installed = service.isInstalled(widget.model);
     final availability = service.availabilityFor(widget.model, _configuration);
+    final enableAvailability = service.enableAvailabilityFor(
+      widget.model,
+      _configuration,
+    );
     final hardwareAvailable = availability.available;
     final requiresUpdate =
         installed &&
@@ -634,6 +638,19 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
         state.lifecycle == OfflineSpeechLifecycle.starting ||
         state.lifecycle == OfflineSpeechLifecycle.stopping;
     final online = widget.model.isOnline;
+    final switchInteractive =
+        online || (!busy && (_enabled || enableAvailability.available));
+    final switchTooltip = online
+        ? _enabled
+              ? '禁用在线服务'
+              : '启用在线服务；连接配置可随后补全'
+        : busy
+        ? '当前模型操作完成后可切换'
+        : _enabled
+        ? '禁用模型'
+        : enableAvailability.available
+        ? '启用模型；同类模型将自动禁用'
+        : enableAvailability.reason;
     final accent = online
         ? theme.colorScheme.tertiary
         : theme.colorScheme.primary;
@@ -847,26 +864,10 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                     },
                   ),
                   Tooltip(
-                    message: !hardwareAvailable
-                        ? _enabled
-                              ? online
-                                    ? '配置不完整，仅可禁用服务'
-                                    : '设备不可用，仅可禁用模型'
-                              : availability.reason
-                        : runnable
-                        ? (_enabled
-                              ? online
-                                    ? '禁用在线服务'
-                                    : '禁用模型'
-                              : online
-                              ? '启用在线服务'
-                              : '启用模型')
-                        : '下载当前配置后可启用',
+                    message: switchTooltip,
                     child: _SettingsSwitch(
                       value: _enabled,
-                      onChanged: !busy && (_enabled || runnable)
-                          ? _setEnabled
-                          : null,
+                      onChanged: switchInteractive ? _setEnabled : null,
                     ),
                   ),
                 ],
@@ -963,8 +964,14 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
     if (!confirmed || !mounted) return;
     setState(() => _mutating = true);
     try {
+      if (_enabled) {
+        final disabled = await widget.onChanged(widget.settings.select(null));
+        if (!disabled) {
+          if (mounted) _showOfflineSpeechPersistenceFailure(context);
+          return;
+        }
+      }
       await OfflineSpeechModelService.instance.remove(widget.model);
-      if (_enabled) await widget.onChanged(widget.settings.select(null));
       if (!mounted) return;
       showOpenHandSuccessSnack(context, '${widget.model.name} 已移除');
     } catch (error, stack) {
@@ -1038,19 +1045,36 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
   }
 
   Future<void> _setEnabled(bool value) async {
-    if (value) {
-      final previous = OfflineSpeechModelCatalog.byId(
-        widget.settings.enabledModelId ?? '',
+    final service = OfflineSpeechModelService.instance;
+    if (value && !widget.model.isOnline) {
+      final readiness = service.enableAvailabilityFor(
+        widget.model,
+        _configuration,
       );
-      if (previous != null && previous.id != widget.model.id) {
-        await OfflineSpeechModelService.instance.stop(previous);
+      if (!readiness.available) {
+        if (mounted) showOpenHandInfoSnack(context, readiness.reason);
+        return;
       }
     }
+    final previous = OfflineSpeechModelCatalog.byId(
+      widget.settings.enabledModelId ?? '',
+    );
     final changed = await widget.onChanged(
       widget.settings.select(value ? widget.model.id : null),
     );
-    if (!mounted || changed) return;
-    _showOfflineSpeechPersistenceFailure(context);
+    if (!changed) {
+      if (mounted) _showOfflineSpeechPersistenceFailure(context);
+      return;
+    }
+    final obsolete = value ? previous : widget.model;
+    if (obsolete != null && (!value || obsolete.id != widget.model.id)) {
+      try {
+        await service.stop(obsolete);
+      } catch (error, stack) {
+        silentLog('settings_offline_speech', '回收先前语音服务', error, stack);
+        if (mounted) _showOperationError('先前服务停止失败', error);
+      }
+    }
   }
 
   Future<void> _updateParameter(
@@ -1062,11 +1086,31 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
       parameter.key: parameter.normalize(value),
     };
     setState(() => _draftConfiguration = next);
+    final updated = widget.settings.updateConfiguration(widget.model, next);
+    final disableLocalModel =
+        _enabled &&
+        !widget.model.isOnline &&
+        !OfflineSpeechModelService.instance
+            .enableAvailabilityFor(widget.model, next)
+            .available;
     final changed = await widget.onChanged(
-      widget.settings.updateConfiguration(widget.model, next),
+      disableLocalModel ? updated.select(null) : updated,
     );
-    if (!mounted || changed) return;
-    _showOfflineSpeechPersistenceFailure(context);
+    if (!changed) {
+      if (mounted) _showOfflineSpeechPersistenceFailure(context);
+      return;
+    }
+    if (disableLocalModel) {
+      try {
+        await OfflineSpeechModelService.instance.stop(widget.model);
+        if (mounted) {
+          showOpenHandInfoSnack(context, '配置需要更新模型资源，已自动禁用当前模型。');
+        }
+      } catch (error, stack) {
+        silentLog('settings_offline_speech', '配置变化后停止语音模型', error, stack);
+        if (mounted) _showOperationError('模型停止失败', error);
+      }
+    }
   }
 
   void _showOperationError(String title, Object error) {

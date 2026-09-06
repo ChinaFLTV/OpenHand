@@ -471,10 +471,14 @@ class OfflineSpeechModelService extends ChangeNotifier {
             '至少需要 ${requirement.logicalCores} 个逻辑核心，当前为 ${profile.logicalCores} 个。',
       );
     }
+    final modelStorageGiB =
+        requiresModelFilesForConfiguration(model, configuration)
+        ? requirement.storageGiB
+        : 0;
     final runtimeStorageGiB = requiresRuntimePreparation(model)
         ? _runtimeSpecs[model.runtime]!.estimatedStorageGiB
         : 0;
-    final requiredStorageGiB = requirement.storageGiB + runtimeStorageGiB;
+    final requiredStorageGiB = modelStorageGiB + runtimeStorageGiB;
     final freeStorageGiB = profile.freeStorageBytes / (1024 * 1024 * 1024);
     if (freeStorageGiB < requiredStorageGiB) {
       return OfflineSpeechModelAvailability(
@@ -830,6 +834,42 @@ class OfflineSpeechModelService extends ChangeNotifier {
   OnlineSpeechTransport? activeOnlineTransport(
     OfflineSpeechModelDefinition model,
   ) => model.selectOnlineTransport(_availableOnlineTransports);
+
+  OfflineSpeechModelAvailability enableAvailabilityFor(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration,
+  ) {
+    if (model.isOnline) {
+      return const OfflineSpeechModelAvailability(
+        available: true,
+        reason: '在线服务可直接启用，连接凭据可随后补全。',
+      );
+    }
+    final availability = availabilityFor(model, configuration);
+    if (!availability.available) return availability;
+    if (!isInstalled(model)) {
+      return const OfflineSpeechModelAvailability(
+        available: false,
+        reason: '请先下载模型资源并准备隔离运行环境。',
+      );
+    }
+    if (requiresModelFilesForConfiguration(model, configuration)) {
+      return const OfflineSpeechModelAvailability(
+        available: false,
+        reason: '当前配置对应的模型资源尚未完整下载，请先更新模型。',
+      );
+    }
+    if (requiresRuntimePreparation(model)) {
+      return const OfflineSpeechModelAvailability(
+        available: false,
+        reason: '隔离运行环境尚未完整准备，请先补全环境。',
+      );
+    }
+    return const OfflineSpeechModelAvailability(
+      available: true,
+      reason: '模型资源与隔离运行环境均已就绪。',
+    );
+  }
 
   String modelDirectory(OfflineSpeechModelDefinition model) =>
       p.join(modelsRoot, model.id);
