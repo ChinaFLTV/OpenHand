@@ -424,6 +424,17 @@ class _ReasoningBody extends StatelessWidget {
               inlineSyntaxes: inlineSyntaxes,
               pathRoots: pathRoots,
               parseKey: parseKey,
+              // 流式结束后 Markdown 会按共享帧预算解析。继续展示用户刚刚
+              // 阅读的纯文本，待富文本就绪后原位替换，禁止回退成整块骨架屏。
+              deferredPlaceholder: selectable
+                  ? SelectableText(
+                      content.isEmpty ? ' ' : content,
+                      style: styleSheet.p?.copyWith(color: textColor),
+                    )
+                  : Text(
+                      content.isEmpty ? ' ' : content,
+                      style: styleSheet.p?.copyWith(color: textColor),
+                    ),
             ),
           )
         : KeyedSubtree(
@@ -4096,10 +4107,7 @@ void _scheduleHtmlWebViewPermitGrant(void Function() task) {
 }
 
 final HtmlWebViewMountLimiter _htmlWebViewActiveLimiter =
-    HtmlWebViewMountLimiter(
-      maxMounted: _htmlWebViewMaxActiveInstances,
-      scheduleGranted: _scheduleHtmlWebViewPermitGrant,
-    );
+    HtmlWebViewMountLimiter(scheduleGranted: _scheduleHtmlWebViewPermitGrant);
 final HtmlWebViewMountLimiter _htmlWebViewBootstrapLimiter =
     HtmlWebViewMountLimiter(
       maxMounted: _htmlWebViewMaxConcurrentBootstraps,
