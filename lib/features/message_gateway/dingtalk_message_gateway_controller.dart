@@ -4877,9 +4877,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               .toList(growable: false),
           'dingtalk_working_directory_boundary': _settings.workingDirectory,
           'dingtalk_allowed_knowledge_source_ids': selectedKnowledgeSourceIds,
-          'workflow_definitions_provider': () => _workflowsController.workflows,
+          workflowDefinitionsProviderMetadataKey: () =>
+              _workflowsController.workflows,
           workflowCallSourceMetadataKey: 'dingtalk',
-          'workflow_resources_provider':
+          workflowResourcesProviderMetadataKey:
               (
                 WorkflowDefinition workflow,
                 AiToolExecutionContext toolContext,

@@ -1279,7 +1279,7 @@ class AiToolRuntimeService {
         durationMs: 0,
         resultText: 'status: invalid_arguments\nerror: $guidanceText',
         metadata: <String, Object?>{
-          ...metadata,
+          // 执行上下文可能含回调和服务对象，只回传可持久化的诊断字段。
           'unsupported_tool_name': toolCall.name,
           'available_tool_names': availableNames,
           'tool_catalog_empty': availableNames.isEmpty,

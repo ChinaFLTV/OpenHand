@@ -567,6 +567,10 @@ class AiSessionRuntimeContext {
   final Map<String, Object?> toolExecutionMetadata;
 
   Map<String, Object?> toJson() {
+    final serializableToolExecutionMetadata = <String, Object?>{
+      for (final entry in toolExecutionMetadata.entries)
+        if (entry.value is! Function) entry.key: entry.value,
+    };
     return <String, Object?>{
       'locale_tag': localeTag,
       'app_version': appVersion,
@@ -680,8 +684,8 @@ class AiSessionRuntimeContext {
       'workspace_instruction_documents': workspaceInstructionDocuments
           .map((item) => item.toJson())
           .toList(growable: false),
-      if (toolExecutionMetadata.isNotEmpty)
-        'tool_execution_metadata': toolExecutionMetadata,
+      if (serializableToolExecutionMetadata.isNotEmpty)
+        'tool_execution_metadata': serializableToolExecutionMetadata,
       'repository_snapshot': repositorySnapshot?.toJson(),
     };
   }

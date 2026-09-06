@@ -5985,9 +5985,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       userInstructions: instructionsController.entries,
       skippedInstructionIds: skippedInstructionIds,
       toolExecutionMetadata: <String, Object?>{
-        'workflow_definitions_provider': () => workflowsController.workflows,
+        workflowDefinitionsProviderMetadataKey: () =>
+            workflowsController.workflows,
         workflowCallSourceMetadataKey: 'thread',
-        'workflow_resources_provider':
+        workflowResourcesProviderMetadataKey:
             (
               WorkflowDefinition workflow,
               AiToolExecutionContext toolContext,

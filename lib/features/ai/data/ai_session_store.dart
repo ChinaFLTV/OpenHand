@@ -13,6 +13,7 @@ import '../../../shared/db/database_service.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
@@ -237,7 +238,9 @@ class AiSessionStore {
       'checkpoint_message_id': checkpoint.id,
       'checkpoint_created_at': checkpoint.createdAt.toUtc().toIso8601String(),
       'checkpoint_character_count': checkpoint.characterCount,
-      'checkpoint_metadata': checkpoint.metadata,
+      'checkpoint_metadata': _metadataWithoutRuntimeCallbacks(
+        checkpoint.metadata,
+      ),
       'generation': generation,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
@@ -262,7 +265,7 @@ class AiSessionStore {
               ..writeln()
               ..writeln(checkpoint.content.trim()))
             .toString();
-    final metadataJson = prettyPrintJson(metadata);
+    final metadataJson = _prettyPrintMetadataJson(metadata);
     if (utf8.encode(markdown).length > _compactMemoryMarkdownMaxBytes) {
       throw const FileSystemException('压缩记忆 Markdown 超过 16 MiB 上限。');
     }
@@ -1691,7 +1694,7 @@ class AiSessionStore {
         () => _db.update(
           'messages',
           <String, Object?>{
-            'metadata_json': jsonEncode(
+            'metadata_json': _encodeMetadataJson(
               _metadataForPersistence(metadata, stored: stored),
             ),
           },
@@ -2288,10 +2291,12 @@ class AiSessionStore {
             .toList(growable: false),
       ),
       'full_access_permission': session.fullAccessPermission ? 1 : 0,
-      'metadata_json': jsonEncode(session.metadata),
+      'metadata_json': _encodeMetadataJson(session.metadata),
       'environment_json': jsonEncode(session.environment.toJson()),
       'statistics_json': jsonEncode(session.statistics.toJson()),
-      'last_prompt_metadata_json': jsonEncode(session.lastPromptMetadata),
+      'last_prompt_metadata_json': _encodeMetadataJson(
+        session.lastPromptMetadata,
+      ),
       'recent_errors_json': jsonEncode(
         session.recentErrors
             .map((item) => item.toJson())
@@ -2386,6 +2391,34 @@ class AiSessionStore {
     return result;
   }
 
+  static Map<String, Object?> _metadataWithoutRuntimeCallbacks(
+    Map<String, Object?> metadata,
+  ) {
+    return <String, Object?>{
+      for (final entry in metadata.entries)
+        if (entry.value is! Function) entry.key: entry.value,
+    };
+  }
+
+  /// 正常元数据直接编码；仅在遇到循环引用或非 JSON 值时执行有界转换。
+  static String _encodeMetadataJson(Map<String, Object?> metadata) {
+    final persistable = _metadataWithoutRuntimeCallbacks(metadata);
+    try {
+      return jsonEncode(persistable);
+    } on JsonUnsupportedObjectError {
+      return jsonEncode(convertToJsonSafeMap(persistable));
+    }
+  }
+
+  static String _prettyPrintMetadataJson(Map<String, Object?> metadata) {
+    final persistable = _metadataWithoutRuntimeCallbacks(metadata);
+    try {
+      return prettyPrintJson(persistable);
+    } on JsonUnsupportedObjectError {
+      return prettyPrintJson(convertToJsonSafeMap(persistable));
+    }
+  }
+
   Map<String, Object?> _messageToRow(
     AiSessionMessage message,
     String sessionId,
@@ -2408,7 +2441,7 @@ class AiSessionStore {
       'usage_json': message.usage != null
           ? jsonEncode(message.usage!.toJson())
           : null,
-      'metadata_json': jsonEncode(
+      'metadata_json': _encodeMetadataJson(
         _metadataForPersistence(
           message.metadata,
           stored: storedTelemetry[message.id],
