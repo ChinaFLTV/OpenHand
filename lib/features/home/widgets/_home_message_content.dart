@@ -287,6 +287,23 @@ class _CompressionCheckpointBody extends StatelessWidget {
       zh: expanded ? '收起摘要' : '展开摘要',
       en: expanded ? 'Collapse Summary' : 'Expand Summary',
     );
+    final previewBody = KeyedSubtree(
+      key: const ValueKey<String>('compression-preview'),
+      child: _MarkdownPreviewBody(
+        data: content.isEmpty ? ' ' : content,
+        maxHeight: 122,
+        selectable: selectable,
+        styleSheet: styleSheet,
+        builders: builders,
+        inlineSyntaxes: inlineSyntaxes,
+        pathRoots: pathRoots,
+        parseKey: '$parseKey|compression-preview',
+        scrollStateKey: scrollStateKey == null
+            ? '$parseKey|compression-preview'
+            : '$scrollStateKey|preview',
+        fadeColor: fadeColor,
+      ),
+    );
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -337,25 +354,10 @@ class _CompressionCheckpointBody extends StatelessWidget {
                           inlineSyntaxes: inlineSyntaxes,
                           pathRoots: pathRoots,
                           parseKey: parseKey,
+                          deferredPlaceholder: previewBody,
                         ),
                       )
-                    : KeyedSubtree(
-                        key: const ValueKey<String>('compression-preview'),
-                        child: _MarkdownPreviewBody(
-                          data: content.isEmpty ? ' ' : content,
-                          maxHeight: 122,
-                          selectable: selectable,
-                          styleSheet: styleSheet,
-                          builders: builders,
-                          inlineSyntaxes: inlineSyntaxes,
-                          pathRoots: pathRoots,
-                          parseKey: '$parseKey|compression-preview',
-                          scrollStateKey: scrollStateKey == null
-                              ? '$parseKey|compression-preview'
-                              : '$scrollStateKey|preview',
-                          fadeColor: fadeColor,
-                        ),
-                      ),
+                    : previewBody,
               ),
             ],
           ),
@@ -424,17 +426,6 @@ class _ReasoningBody extends StatelessWidget {
               inlineSyntaxes: inlineSyntaxes,
               pathRoots: pathRoots,
               parseKey: parseKey,
-              // 流式结束后 Markdown 会按共享帧预算解析。继续展示用户刚刚
-              // 阅读的纯文本，待富文本就绪后原位替换，禁止回退成整块骨架屏。
-              deferredPlaceholder: selectable
-                  ? SelectableText(
-                      content.isEmpty ? ' ' : content,
-                      style: styleSheet.p?.copyWith(color: textColor),
-                    )
-                  : Text(
-                      content.isEmpty ? ' ' : content,
-                      style: styleSheet.p?.copyWith(color: textColor),
-                    ),
             ),
           )
         : KeyedSubtree(
@@ -1221,7 +1212,7 @@ class _SafeMarkdownBody extends StatefulWidget {
   State<_SafeMarkdownBody> createState() => _SafeMarkdownBodyState();
 }
 
-// 大型 Markdown 冷解析先显示轻量占位，再按共享帧预算构建富文本树。
+// 大型 Markdown 冷解析先保留可读正文，再按共享帧预算构建富文本树。
 const int _markdownDeferredParseThresholdChars = 768;
 
 // 流式追加时更早进入 deferred 路径，并把富文本树重建合并到稳定节奏；
@@ -1230,12 +1221,9 @@ const int _markdownStreamingDeferredParseThresholdChars = 160;
 const int _markdownStreamingInitialSyncParseThresholdChars = 8 * kBytesPerKiB;
 const int _markdownStreamingParseMinIntervalMs = 96;
 const int _markdownStreamingPlaceholderMaxLines = 6;
-const int _markdownDeferredPlaceholderMaxLines = 24;
 const int _markdownPlaceholderCharsPerLine = 72;
 const double _markdownStreamingPlaceholderMinHeight = 28;
 const double _markdownStreamingPlaceholderMaxHeight = 132;
-const double _markdownDeferredPlaceholderMinHeight = 44;
-const double _markdownDeferredPlaceholderMaxHeight = 520;
 const double _markdownPlaceholderMaxWidth = 560;
 
 /// 进程级 AST LRU 缓存，同时限制条目数和源文本总量，避免长会话挤占内存。
@@ -1753,15 +1741,11 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       Theme.of(context),
     ).merge(widget.styleSheet);
     _disposeRecognizers();
-    if (streaming) {
+    if (!streaming) {
       _children = <Widget>[
-        _MarkdownStabilizingPlaceholder(
-          source: normalizedSource,
-          style: effectiveStyleSheet.p,
-          maxLines: _markdownStreamingPlaceholderMaxLines,
-          minHeight: _markdownStreamingPlaceholderMinHeight,
-          maxHeight: _markdownStreamingPlaceholderMaxHeight,
-        ),
+        widget.selectable
+            ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
+            : Text(normalizedSource, style: effectiveStyleSheet.p),
       ];
       return;
     }
@@ -1769,9 +1753,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       _MarkdownStabilizingPlaceholder(
         source: normalizedSource,
         style: effectiveStyleSheet.p,
-        maxLines: _markdownDeferredPlaceholderMaxLines,
-        minHeight: _markdownDeferredPlaceholderMinHeight,
-        maxHeight: _markdownDeferredPlaceholderMaxHeight,
+        maxLines: _markdownStreamingPlaceholderMaxLines,
+        minHeight: _markdownStreamingPlaceholderMinHeight,
+        maxHeight: _markdownStreamingPlaceholderMaxHeight,
       ),
     ];
   }

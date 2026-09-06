@@ -1585,10 +1585,19 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     );
   }
 
-  // deferred parse 期间渲染骨架占位, 让首屏布局立刻完成。
-  // 占位用与最终 markdown 相同的容器 (.oh-markdown), 避免 parse 完成后
-  // 容器尺寸/主题色突变。
+  // 流式收尾或历史卡片重新进入视窗时保留可读正文，
+  // 禁止已显示的内容在 deferred parse 期间回退成骨架屏。
   if (!parseReady) {
+    if (deferInitialRender) {
+      return (
+        <pre
+          class="oh-markdown whitespace-pre-wrap break-words text-sm"
+          style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily }}
+        >
+          {markdownContent}
+        </pre>
+      );
+    }
     return (
       <div class="oh-markdown text-sm" style={{ fontFamily }}>
         <MarkdownRenderPlaceholder source={markdownContent} />
