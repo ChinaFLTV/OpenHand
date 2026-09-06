@@ -16,9 +16,13 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/net/bounded_http_request.dart';
 import '../../../../shared/net/http_response_utils.dart';
+import '../../../../shared/net/network_limits.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/offline_speech_model.dart';
 
@@ -241,6 +245,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
   static const Duration _runtimeInstallTimeout = Duration(minutes: 45);
   static const Duration _downloadNotifyInterval = Duration(milliseconds: 80);
   static const Duration _downloadIdleTimeout = Duration(seconds: 60);
+  static const Duration _downloadRequestTimeout = Duration(seconds: 30);
+  static const Duration _repositoryManifestTotalTimeout = Duration(minutes: 2);
+  static const Duration _modelDownloadTotalTimeout = Duration(hours: 6);
   static const Duration _onlineAudioFrameInterval = Duration(milliseconds: 40);
   static const Duration _onlineIdleTimeout = Duration(seconds: 30);
   static const Duration _temporaryAudioIoTimeout = Duration(seconds: 10);
@@ -249,6 +256,10 @@ class OfflineSpeechModelService extends ChangeNotifier {
   static const int _metadataFileMaxBytes = 16 * 1024;
   static const int _systemMemoryInfoMaxBytes = 64 * 1024;
   static const int _runtimeHostFileMaxBytes = 64 * 1024;
+  static const int _repositoryManifestMaxBytes = 4 * kBytesPerMiB;
+  static const int _maxRepositoryFiles = 4096;
+  static const int _maxRepositoryPathCharacters = 1024;
+  static const int _maxModelDownloadBytes = 16 * kBytesPerGiB;
   static const int _onlineAudioFrameBytes = 1280;
   static const int _maxOnlineAudioBytes = 64 * 1024 * 1024;
   static const int _maxOnlineEventCharacters = 16 * 1024 * 1024;
@@ -1005,7 +1016,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     var completedFiles = 0;
     var totalFiles = 0;
     try {
-      if (await staging.exists()) await staging.delete(recursive: true);
+      await _deleteManagedDirectory(staging);
       if (downloadModelFiles) {
         await staging.create(recursive: true);
         final files = await _loadRepositoryFiles(
@@ -1017,20 +1028,40 @@ class OfflineSpeechModelService extends ChangeNotifier {
         totalBytes = files.fold<int>(0, (sum, file) => sum + file.size);
         totalFiles = files.length;
         final stopwatch = Stopwatch()..start();
+        final downloadDeadline = MonotonicDeadline(
+          _modelDownloadTotalTimeout,
+          timeoutMessage: '模型下载超过总时限。',
+        );
+        final downloadClient = SystemProxyResolver.instance.createRawHttpClient(
+          connectionTimeout: _downloadRequestTimeout,
+        );
+        cancellation.client = downloadClient;
         var lastNotified = Duration.zero;
-        for (final remote in files) {
-          cancellation.throwIfCancelled();
-          final file = File(p.join(staging.path, remote.path));
-          await file.parent.create(recursive: true);
-          final sink = file.openWrite();
-          var fileBytes = 0;
-          try {
-            final opened = await _openDownload(remote.uri, cancellation);
+        try {
+          for (final remote in files) {
+            cancellation.throwIfCancelled();
+            final file = File(p.join(staging.path, remote.path));
+            await file.parent.create(recursive: true);
+            final sink = file.openWrite();
+            var fileBytes = 0;
             try {
-              await for (final chunk in opened.response.timeout(
-                _downloadIdleTimeout,
+              final response = await _openDownload(
+                remote.uri,
+                client: downloadClient,
+                deadline: downloadDeadline,
+              );
+              await for (final chunk in limitByteStream(
+                response,
+                maxBytes: remote.size > 0
+                    ? remote.size
+                    : kOpenHandMaxNetworkStreamBytes,
+                idleTimeout: _downloadIdleTimeout,
+                totalTimeout: downloadDeadline.remaining(),
               )) {
                 cancellation.throwIfCancelled();
+                if (chunk.length > _maxModelDownloadBytes - receivedBytes) {
+                  throw StateError('模型下载总量超过安全上限。');
+                }
                 sink.add(chunk);
                 fileBytes += chunk.length;
                 receivedBytes += chunk.length;
@@ -1054,19 +1085,20 @@ class OfflineSpeechModelService extends ChangeNotifier {
                 }
               }
             } finally {
-              if (identical(cancellation.client, opened.client)) {
-                cancellation.client = null;
-              }
-              opened.client.close(force: cancellation.cancelled);
+              await sink.flush();
+              await sink.close();
             }
-          } finally {
-            await sink.flush();
-            await sink.close();
+            if (remote.size > 0 && fileBytes != remote.size) {
+              throw StateError('模型文件下载不完整：${remote.path}');
+            }
+            completedFiles++;
           }
-          if (remote.size > 0 && fileBytes != remote.size) {
-            throw StateError('模型文件下载不完整：${remote.path}');
+        } finally {
+          if (identical(cancellation.client, downloadClient)) {
+            cancellation.client = null;
           }
-          completedFiles++;
+          downloadClient.close(force: true);
+          downloadDeadline.stop();
         }
         cancellation.throwIfCancelled();
         await writeFileAtomically(
@@ -1082,7 +1114,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
             'files': files.map((file) => file.path).toList(growable: false),
           }),
         );
-        if (await target.exists()) await target.delete(recursive: true);
+        await _deleteManagedDirectory(target);
         await staging.rename(target.path);
       }
       cancellation.throwIfCancelled();
@@ -1108,7 +1140,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       );
       unawaited(_inspectHardware());
     } catch (error) {
-      if (await staging.exists()) await staging.delete(recursive: true);
+      await _deleteManagedDirectoryQuietly(staging, '清理未完成的语音模型下载');
       final retained = File(
         p.join(target.path, 'openhand-model.json'),
       ).existsSync();
@@ -1153,8 +1185,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
     await stop(model);
     final target = Directory(modelDirectory(model));
     final staging = Directory('${target.path}.partial');
-    if (await target.exists()) await target.delete(recursive: true);
-    if (await staging.exists()) await staging.delete(recursive: true);
+    await _deleteManagedDirectory(target);
+    await _deleteManagedDirectory(staging);
     _setState(
       model.id,
       const OfflineSpeechModelState(lifecycle: OfflineSpeechLifecycle.absent),
@@ -3943,17 +3975,29 @@ class OfflineSpeechModelService extends ChangeNotifier {
       '/api/models/$repository',
       <String, String>{'blobs': 'true'},
     );
+    final deadline = MonotonicDeadline(
+      _repositoryManifestTotalTimeout,
+      timeoutMessage: '读取模型文件清单超过总时限。',
+    );
     final client = SystemProxyResolver.instance.createRawHttpClient(
-      connectionTimeout: const Duration(seconds: 30),
+      connectionTimeout: _downloadRequestTimeout,
     );
     cancellation.client = client;
     try {
-      final request = await client.getUrl(uri);
+      final request = await openHttpClientRequestBounded(
+        () => client.getUrl(uri),
+        timeout: deadline.limit(_downloadRequestTimeout),
+        timeoutMessage: '模型文件清单请求打开超时。',
+      );
       request.headers.set(
         HttpHeaders.userAgentHeader,
         'OpenHand offline speech manager',
       );
-      final response = await request.close();
+      final response = await closeHttpClientRequestBounded(
+        request,
+        timeout: deadline.limit(_downloadRequestTimeout),
+        timeoutMessage: '模型文件清单响应头获取超时。',
+      );
       if (response.statusCode != HttpStatus.ok) {
         throw HttpException(
           '读取模型文件清单失败（HTTP ${response.statusCode}）',
@@ -3961,7 +4005,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
         );
       }
       final payload = jsonDecode(
-        await utf8.decodeStream(response.timeout(_downloadIdleTimeout)),
+        await readBoundedHttpResponseText(
+          response,
+          maxBytes: _repositoryManifestMaxBytes,
+          idleTimeout: deadline.limit(_downloadIdleTimeout),
+          totalTimeout: deadline.remaining(),
+        ),
       );
       if (payload is! Map || payload['siblings'] is! List) {
         return const <_RemoteModelFile>[];
@@ -3993,11 +4042,14 @@ class OfflineSpeechModelService extends ChangeNotifier {
             ),
           ),
         );
+        if (candidates.length > _maxRepositoryFiles) {
+          throw StateError('模型仓库文件数量超过安全上限。');
+        }
       }
       final hasSafetensors = candidates.any(
         (file) => file.path.endsWith('.safetensors'),
       );
-      return candidates
+      final selected = candidates
           .where((file) {
             if (!hasSafetensors) return true;
             final name = p.basename(file.path).toLowerCase();
@@ -4005,9 +4057,21 @@ class OfflineSpeechModelService extends ChangeNotifier {
           })
           .where((file) => _matchesModelArtifact(model, file.path))
           .toList(growable: false);
+      var advertisedBytes = 0;
+      for (final file in selected) {
+        if (file.size < 0 || file.size > kOpenHandMaxNetworkStreamBytes) {
+          throw StateError('模型文件大小超过安全上限：${file.path}');
+        }
+        advertisedBytes += file.size;
+        if (advertisedBytes > _maxModelDownloadBytes) {
+          throw StateError('模型下载总量超过安全上限。');
+        }
+      }
+      return selected;
     } finally {
       if (identical(cancellation.client, client)) cancellation.client = null;
-      client.close(force: cancellation.cancelled);
+      client.close(force: true);
+      deadline.stop();
     }
   }
 
@@ -4094,7 +4158,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         }
       }
       if (!canResume && await staging.exists()) {
-        await staging.delete(recursive: true);
+        await _deleteManagedDirectory(staging);
       }
       await staging.create(recursive: true);
       if (!canResume) {
@@ -4109,7 +4173,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       final venvPath = p.join(staging.path, '.venv');
       if (!File(_runtimePythonExecutable(staging.path)).existsSync()) {
         if (await Directory(venvPath).exists()) {
-          await Directory(venvPath).delete(recursive: true);
+          await _deleteManagedDirectory(Directory(venvPath));
         }
         await _runRuntimeCommand(
           model: model,
@@ -4128,7 +4192,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         final sourceMarker = File(p.join(sourcePath, 'openhand-source-ready'));
         if (!await sourceMarker.exists()) {
           if (await Directory(sourcePath).exists()) {
-            await Directory(sourcePath).delete(recursive: true);
+            await _deleteManagedDirectory(Directory(sourcePath));
           }
           await _runRuntimeCommand(
             model: model,
@@ -4289,11 +4353,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
         }),
       );
       await stagingMarker.delete();
-      if (await target.exists()) await target.delete(recursive: true);
+      await _deleteManagedDirectory(target);
       await staging.rename(target.path);
     } catch (_) {
-      if (cancellation.cancelled && await staging.exists()) {
-        await staging.delete(recursive: true);
+      if (cancellation.cancelled) {
+        await _deleteManagedDirectoryQuietly(staging, '清理已取消的语音运行环境准备目录');
       }
       rethrow;
     }
@@ -4415,6 +4479,24 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   String _runtimeDirectory(OfflineSpeechRuntime runtime) {
     return p.join(modelsRoot, '.runtimes', runtime.name);
+  }
+
+  Future<void> _deleteManagedDirectory(Directory directory) async {
+    await deletePathBounded(
+      p.absolute(directory.path),
+      allowedRoot: p.absolute(modelsRoot),
+    );
+  }
+
+  Future<void> _deleteManagedDirectoryQuietly(
+    Directory directory,
+    String operation,
+  ) async {
+    try {
+      await _deleteManagedDirectory(directory);
+    } catch (error, stack) {
+      silentLog('offline_speech', operation, error, stack);
+    }
   }
 
   String _runtimePythonExecutable(String runtimeRoot) {
@@ -4686,29 +4768,41 @@ class OfflineSpeechModelService extends ChangeNotifier {
     };
   }
 
-  Future<({HttpClientResponse response, HttpClient client})> _openDownload(
-    Uri uri,
-    _DownloadCancellation cancellation,
-  ) async {
-    final client = SystemProxyResolver.instance.createRawHttpClient(
-      connectionTimeout: const Duration(seconds: 30),
+  Future<HttpClientResponse> _openDownload(
+    Uri uri, {
+    required HttpClient client,
+    required MonotonicDeadline deadline,
+  }) async {
+    final request = await openHttpClientRequestBounded(
+      () => client.getUrl(uri),
+      timeout: deadline.limit(_downloadRequestTimeout),
+      timeoutMessage: '模型文件请求打开超时。',
     );
-    cancellation.client = client;
-    final request = await client.getUrl(uri);
     request.headers.set(
       HttpHeaders.userAgentHeader,
       'OpenHand offline speech manager',
     );
-    final response = await request.close();
+    final response = await closeHttpClientRequestBounded(
+      request,
+      timeout: deadline.limit(_downloadRequestTimeout),
+      timeoutMessage: '模型文件响应头获取超时。',
+    );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      client.close(force: true);
       throw HttpException('下载失败（HTTP ${response.statusCode}）', uri: uri);
     }
-    return (response: response, client: client);
+    return response;
   }
 
   static bool _shouldDownload(OfflineSpeechModelDefinition model, String path) {
-    if (path.isEmpty || p.isAbsolute(path) || path.split('/').contains('..')) {
+    final segments = path.split('/');
+    if (path.isEmpty ||
+        path.length > _maxRepositoryPathCharacters ||
+        path.contains('\u0000') ||
+        path.contains('\\') ||
+        p.isAbsolute(path) ||
+        segments.any(
+          (segment) => segment.isEmpty || segment == '.' || segment == '..',
+        )) {
       return false;
     }
     final lower = path.toLowerCase();
