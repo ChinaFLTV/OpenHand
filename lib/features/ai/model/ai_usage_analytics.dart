@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import 'ai_token_usage.dart';
 
@@ -31,13 +32,20 @@ enum AiUsageRange {
   all;
 
   DateTime? startAt(DateTime now) {
-    final localNow = now.toLocal();
-    final today = DateTime(localNow.year, localNow.month, localNow.day);
     return switch (this) {
-      AiUsageRange.today => today,
-      AiUsageRange.sevenDays => today.subtract(const Duration(days: 6)),
-      AiUsageRange.thirtyDays => today.subtract(const Duration(days: 29)),
-      AiUsageRange.year => today.subtract(const Duration(days: 364)),
+      AiUsageRange.today => rollingCalendarDateWindow(now).start,
+      AiUsageRange.sevenDays => rollingCalendarDateWindow(
+        now,
+        daysInclusive: kRollingUsageWeekDays,
+      ).start,
+      AiUsageRange.thirtyDays => rollingCalendarDateWindow(
+        now,
+        monthsBack: kRollingUsageMonthSpan,
+      ).start,
+      AiUsageRange.year => rollingCalendarDateWindow(
+        now,
+        monthsBack: kRollingUsageYearMonths,
+      ).start,
       AiUsageRange.all => null,
     };
   }

@@ -4306,18 +4306,22 @@ class _AiUsageLoadingState extends StatelessWidget {
 
 String _usageRangeLabel(BuildContext context, AiUsageRange range) {
   return switch (range) {
-    AiUsageRange.today => openHandTodayLabel(context),
-    AiUsageRange.sevenDays => openHandLocalizedText(
+    AiUsageRange.today => openHandRecentUsageWindowLabel(
       context,
-      zh: '7 天',
-      en: '7 Days',
+      OpenHandRecentUsageWindow.day,
     ),
-    AiUsageRange.thirtyDays => openHandLocalizedText(
+    AiUsageRange.sevenDays => openHandRecentUsageWindowLabel(
       context,
-      zh: '30 天',
-      en: '30 Days',
+      OpenHandRecentUsageWindow.week,
     ),
-    AiUsageRange.year => openHandLocalizedText(context, zh: '一年', en: 'Year'),
+    AiUsageRange.thirtyDays => openHandRecentUsageWindowLabel(
+      context,
+      OpenHandRecentUsageWindow.month,
+    ),
+    AiUsageRange.year => openHandRecentUsageWindowLabel(
+      context,
+      OpenHandRecentUsageWindow.year,
+    ),
     AiUsageRange.all => openHandAllLabel(context),
   };
 }

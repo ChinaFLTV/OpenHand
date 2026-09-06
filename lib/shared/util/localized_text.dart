@@ -1596,6 +1596,61 @@ String openHandSessionLabel(BuildContext context) {
   );
 }
 
+enum OpenHandRecentUsageWindow { day, week, month, quarter, year }
+
+String openHandRecentUsageWindowLabel(
+  BuildContext context,
+  OpenHandRecentUsageWindow window,
+) {
+  return switch (window) {
+    OpenHandRecentUsageWindow.day => openHandLocalizedText(
+      context,
+      zh: '最近1天',
+      zhHant: '最近1天',
+      en: 'Last day',
+      fr: 'Dernier jour',
+      de: 'Letzter Tag',
+      ja: '直近1日',
+    ),
+    OpenHandRecentUsageWindow.week => openHandLocalizedText(
+      context,
+      zh: '最近一周',
+      zhHant: '最近一週',
+      en: 'Last week',
+      fr: '7 derniers jours',
+      de: 'Letzte Woche',
+      ja: '直近1週間',
+    ),
+    OpenHandRecentUsageWindow.month => openHandLocalizedText(
+      context,
+      zh: '最近一个月',
+      zhHant: '最近一個月',
+      en: 'Last month',
+      fr: 'Dernier mois',
+      de: 'Letzter Monat',
+      ja: '直近1か月',
+    ),
+    OpenHandRecentUsageWindow.quarter => openHandLocalizedText(
+      context,
+      zh: '最近一个季度',
+      zhHant: '最近一個季度',
+      en: 'Last quarter',
+      fr: 'Dernier trimestre',
+      de: 'Letztes Quartal',
+      ja: '直近1四半期',
+    ),
+    OpenHandRecentUsageWindow.year => openHandLocalizedText(
+      context,
+      zh: '最近一年',
+      zhHant: '最近一年',
+      en: 'Last year',
+      fr: 'Dernière année',
+      de: 'Letztes Jahr',
+      ja: '直近1年',
+    ),
+  };
+}
+
 String openHandSkillMarketLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

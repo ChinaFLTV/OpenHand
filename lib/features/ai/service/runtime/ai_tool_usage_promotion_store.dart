@@ -53,6 +53,32 @@ enum AiResourceUsagePeriod {
   final String storageValue;
 }
 
+({DateTime start, DateTime end}) resourceUsageRollingDateWindow(
+  AiResourceUsagePeriod period,
+  DateTime now,
+) {
+  return switch (period) {
+    AiResourceUsagePeriod.session || AiResourceUsagePeriod.day =>
+      rollingCalendarDateWindow(now),
+    AiResourceUsagePeriod.week => rollingCalendarDateWindow(
+      now,
+      daysInclusive: kRollingUsageWeekDays,
+    ),
+    AiResourceUsagePeriod.month => rollingCalendarDateWindow(
+      now,
+      monthsBack: kRollingUsageMonthSpan,
+    ),
+    AiResourceUsagePeriod.quarter => rollingCalendarDateWindow(
+      now,
+      monthsBack: kRollingUsageQuarterMonths,
+    ),
+    AiResourceUsagePeriod.year => rollingCalendarDateWindow(
+      now,
+      monthsBack: kRollingUsageYearMonths,
+    ),
+  };
+}
+
 final class AiResourceUsageTrendPoint {
   const AiResourceUsageTrendPoint({
     required this.bucketKey,
@@ -327,9 +353,17 @@ final class AiToolUsagePromotionStore {
     '::parallel-',
     '/task/',
   ];
+  static const List<AiResourceUsagePeriod> _rollingPeriods =
+      <AiResourceUsagePeriod>[
+        AiResourceUsagePeriod.day,
+        AiResourceUsagePeriod.week,
+        AiResourceUsagePeriod.month,
+        AiResourceUsagePeriod.quarter,
+        AiResourceUsagePeriod.year,
+      ];
   static const Map<AiResourceUsagePeriod, int> _periodRetention =
       <AiResourceUsagePeriod, int>{
-        AiResourceUsagePeriod.day: 90,
+        AiResourceUsagePeriod.day: 370,
         AiResourceUsagePeriod.week: 54,
         AiResourceUsagePeriod.month: 24,
         AiResourceUsagePeriod.quarter: 12,
@@ -594,7 +628,7 @@ final class AiToolUsagePromotionStore {
         _sessions[normalizedSessionId] = session;
       }
       final periodBuckets = <_UsageBucket>[
-        for (final period in _periodRetention.keys) _periodBucket(period, now),
+        _periodBucket(AiResourceUsagePeriod.day, now),
       ];
       for (final entry in normalizedResources.entries) {
         for (final resourceId in entry.value) {
@@ -680,6 +714,7 @@ final class AiToolUsagePromotionStore {
     final sessionTrendEntries = sessionEntries.length <= _sessionTrendLimit
         ? sessionEntries
         : sessionEntries.sublist(sessionEntries.length - _sessionTrendLimit);
+    final now = _clock();
     final levels = <AiResourceUsagePeriod, AiResourceUsageLevelSnapshot>{
       AiResourceUsagePeriod.session: _buildLevelSnapshot(
         period: AiResourceUsagePeriod.session,
@@ -695,26 +730,41 @@ final class AiToolUsagePromotionStore {
               failureCount: entry.value.failuresFor(kind),
             ),
         ],
+        includeEvent: (event) =>
+            event.kind == kind && event.sessionId == (activeSession?.key ?? ''),
       ),
     };
-    for (final period in _periodRetention.keys) {
-      final buckets = _periods[period]!;
-      final currentKey = _periodKey(period, _clock());
-      final current = buckets[currentKey];
+    final daily = _periods[AiResourceUsagePeriod.day]!;
+    for (final period in _rollingPeriods) {
+      final window = resourceUsageRollingDateWindow(period, now);
+      final merged = _UsageBucket();
+      final trend = <AiResourceUsageTrendPoint>[];
+      for (final date in rollingCalendarDateDays(window.start, window.end)) {
+        final key = formatYearMonthDay(date);
+        final bucket = daily[key];
+        if (bucket != null) merged.absorb(bucket);
+        trend.add(
+          AiResourceUsageTrendPoint(
+            bucketKey: key,
+            totalCount: bucket?.totalFor(kind) ?? 0,
+            successCount: bucket?.successesFor(kind) ?? 0,
+            failureCount: bucket?.failuresFor(kind) ?? 0,
+          ),
+        );
+      }
       levels[period] = _buildLevelSnapshot(
         period: period,
-        bucketKey: currentKey,
-        bucket: current,
+        bucketKey: formatYearMonthDayRange(window.start, window.end),
+        bucket: merged,
         kind: kind,
-        trend: <AiResourceUsageTrendPoint>[
-          for (final entry in buckets.entries)
-            AiResourceUsageTrendPoint(
-              bucketKey: entry.key,
-              totalCount: entry.value.totalFor(kind),
-              successCount: entry.value.successesFor(kind),
-              failureCount: entry.value.failuresFor(kind),
+        trend: trend,
+        includeEvent: (event) =>
+            event.kind == kind &&
+            _occurredOnLocalDateInWindow(
+              event.occurredAt,
+              window.start,
+              window.end,
             ),
-        ],
       );
     }
     return AiResourceUsageSnapshot(
@@ -723,7 +773,7 @@ final class AiToolUsagePromotionStore {
           Map<AiResourceUsagePeriod, AiResourceUsageLevelSnapshot>.unmodifiable(
             levels,
           ),
-      generatedAt: _clock().toUtc(),
+      generatedAt: now.toUtc(),
     );
   }
 
@@ -733,14 +783,10 @@ final class AiToolUsagePromotionStore {
     required _UsageBucket? bucket,
     required AiResourceUsageKind kind,
     required List<AiResourceUsageTrendPoint> trend,
+    required bool Function(AiResourceUsageEvent event) includeEvent,
   }) {
     final events = _recentEvents
-        .where((event) {
-          if (event.kind != kind) return false;
-          return period == AiResourceUsagePeriod.session
-              ? event.sessionId == bucketKey
-              : _periodKey(period, event.occurredAt) == bucketKey;
-        })
+        .where(includeEvent)
         .toList(growable: false);
     final visibleEvents = events.length <= _maxRecentEventsPerLevel
         ? events.reversed.toList(growable: false)
@@ -845,9 +891,9 @@ final class AiToolUsagePromotionStore {
     _restoreSessions(raw['sessions']);
     final rawPeriods = raw['periods'];
     if (rawPeriods is Map) {
-      for (final period in _periodRetention.keys) {
-        final rawBuckets = rawPeriods[period.storageValue];
-        if (rawBuckets is! Map) continue;
+      const period = AiResourceUsagePeriod.day;
+      final rawBuckets = rawPeriods[period.storageValue];
+      if (rawBuckets is Map) {
         final buckets = _periods[period]!;
         final currentKey = _periodKey(period, _clock());
         for (final entry in rawBuckets.entries) {
@@ -870,6 +916,14 @@ final class AiToolUsagePromotionStore {
             buckets.remove(buckets.firstKey());
             _dirty = true;
           }
+        }
+      } else {
+        _dirty = true;
+      }
+      for (final key in rawPeriods.keys) {
+        if ('$key' != period.storageValue) {
+          _dirty = true;
+          break;
         }
       }
     } else {
@@ -1038,8 +1092,6 @@ final class AiToolUsagePromotionStore {
     }
     for (final legacy in <(String, AiResourceUsagePeriod)>[
       ('day', AiResourceUsagePeriod.day),
-      ('month', AiResourceUsagePeriod.month),
-      ('year', AiResourceUsagePeriod.year),
     ]) {
       final value = raw[legacy.$1];
       if (value is! Map) continue;
@@ -1081,6 +1133,15 @@ final class AiToolUsagePromotionStore {
     final bucket = buckets.putIfAbsent(key, _UsageBucket.new);
     _prunePeriod(period);
     return bucket;
+  }
+
+  static bool _occurredOnLocalDateInWindow(
+    DateTime occurredAt,
+    DateTime start,
+    DateTime end,
+  ) {
+    final day = calendarDate(occurredAt);
+    return !day.isBefore(start) && !day.isAfter(end);
   }
 
   String _periodKey(AiResourceUsagePeriod period, DateTime now) {
@@ -1260,18 +1321,22 @@ final class AiToolUsagePromotionStore {
   bool _trimOldestPeriodBuckets() {
     var removed = 0;
     for (final period in const <AiResourceUsagePeriod>[
-      AiResourceUsagePeriod.day,
-      AiResourceUsagePeriod.week,
-      AiResourceUsagePeriod.month,
-      AiResourceUsagePeriod.quarter,
       AiResourceUsagePeriod.year,
+      AiResourceUsagePeriod.quarter,
+      AiResourceUsagePeriod.month,
+      AiResourceUsagePeriod.week,
     ]) {
       final buckets = _periods[period]!;
-      while (buckets.length > 1 && removed < _periodTrimBatchSize) {
+      while (buckets.isNotEmpty && removed < _periodTrimBatchSize) {
         buckets.remove(buckets.firstKey());
         removed += 1;
       }
-      if (removed >= _periodTrimBatchSize) break;
+      if (removed >= _periodTrimBatchSize) return true;
+    }
+    final days = _periods[AiResourceUsagePeriod.day]!;
+    while (days.length > 1 && removed < _periodTrimBatchSize) {
+      days.remove(days.firstKey());
+      removed += 1;
     }
     return removed > 0;
   }
@@ -1282,11 +1347,10 @@ final class AiToolUsagePromotionStore {
     return jsonEncode(<String, Object?>{
       'version': _version,
       'periods': <String, Object?>{
-        for (final period in _periodRetention.keys)
-          period.storageValue: <String, Object?>{
-            for (final entry in _periods[period]!.entries)
-              entry.key: entry.value.toJson(),
-          },
+        AiResourceUsagePeriod.day.storageValue: <String, Object?>{
+          for (final entry in _periods[AiResourceUsagePeriod.day]!.entries)
+            entry.key: entry.value.toJson(),
+        },
       },
       'sessions': <String, Object?>{
         for (final entry in sessions) entry.key: entry.value.toJson(),
@@ -1604,7 +1668,7 @@ class _UsageBucket {
           existing.absorb(entry.value);
         } else if (target.length <
             AiToolUsagePromotionStore._maxResourcesPerKind) {
-          target[entry.key] = entry.value;
+          target[entry.key] = _ResourceMetric()..absorb(entry.value);
         }
       }
     }
@@ -1835,7 +1899,7 @@ class _ResourceMetric {
         existing.absorb(entry.value);
       } else if (subResources.length <
           AiToolUsagePromotionStore._maxSubResourcesPerResource) {
-        subResources[entry.key] = entry.value;
+        subResources[entry.key] = _ResourceMetric()..absorb(entry.value);
       }
     }
   }

@@ -291,6 +291,10 @@ class _ResourceUsageStatisticsDialogState
         _PeriodSelector(
           selected: _period,
           onSelected: (period) => setState(() => _period = period),
+          rangeHints: <AiResourceUsagePeriod, String>{
+            for (final period in AiResourceUsagePeriod.values)
+              period: snapshot.level(period).bucketKey,
+          },
         ),
         kOpenHandGap18,
         _SummaryGrid(
@@ -326,12 +330,12 @@ class _ResourceUsageStatisticsDialogState
               ),
               subtitle: openHandLocalizedText(
                 context,
-                zh: '当前周期调用构成',
-                zhHant: '目前週期呼叫構成',
-                en: 'Current bucket composition',
-                fr: 'Composition actuelle',
-                de: 'Aktuelle Zusammensetzung',
-                ja: '現在期間の構成',
+                zh: '当前窗口调用构成',
+                zhHant: '目前視窗呼叫構成',
+                en: 'Current window composition',
+                fr: 'Composition de la fenêtre',
+                de: 'Zusammensetzung des Fensters',
+                ja: '現在の集計範囲の構成',
               ),
               child: _UsageDistribution(
                 entries: ranked,
@@ -437,10 +441,15 @@ class _ResourceUsageStatisticsDialogState
 }
 
 class _PeriodSelector extends StatelessWidget {
-  const _PeriodSelector({required this.selected, required this.onSelected});
+  const _PeriodSelector({
+    required this.selected,
+    required this.onSelected,
+    required this.rangeHints,
+  });
 
   final AiResourceUsagePeriod selected;
   final ValueChanged<AiResourceUsagePeriod> onSelected;
+  final Map<AiResourceUsagePeriod, String> rangeHints;
 
   @override
   Widget build(BuildContext context) {
@@ -450,17 +459,22 @@ class _PeriodSelector extends StatelessWidget {
       runSpacing: 8,
       children: [
         for (final period in AiResourceUsagePeriod.values)
-          ChoiceChip(
-            selected: selected == period,
-            onSelected: (_) => onSelected(period),
-            avatar: Icon(_periodIcon(period), size: 17),
-            label: Text(_periodLabel(context, period)),
-            showCheckmark: false,
-            selectedColor: colorScheme.primaryContainer,
-            side: BorderSide(
-              color: selected == period
-                  ? colorScheme.primary.withValues(alpha: 0.36)
-                  : colorScheme.outlineVariant,
+          Tooltip(
+            message: (rangeHints[period]?.trim().isEmpty ?? true)
+                ? _periodLabel(context, period)
+                : rangeHints[period]!.trim(),
+            child: ChoiceChip(
+              selected: selected == period,
+              onSelected: (_) => onSelected(period),
+              avatar: Icon(_periodIcon(period), size: 17),
+              label: Text(_periodLabel(context, period)),
+              showCheckmark: false,
+              selectedColor: colorScheme.primaryContainer,
+              side: BorderSide(
+                color: selected == period
+                    ? colorScheme.primary.withValues(alpha: 0.36)
+                    : colorScheme.outlineVariant,
+              ),
             ),
           ),
       ],
@@ -969,12 +983,12 @@ class _ResourceRanking extends StatelessWidget {
         icon: Icons.data_usage_rounded,
         label: openHandLocalizedText(
           context,
-          zh: '当前周期尚无调用记录',
-          zhHant: '目前週期尚無呼叫記錄',
-          en: 'No calls in this bucket',
+          zh: '当前窗口尚无调用记录',
+          zhHant: '目前視窗尚無呼叫記錄',
+          en: 'No calls in this window',
           fr: 'Aucun appel sur cette période',
           de: 'Keine Aufrufe in diesem Zeitraum',
-          ja: 'この期間の記録はありません',
+          ja: 'この集計範囲の記録はありません',
         ),
       );
     }
@@ -1100,12 +1114,12 @@ class _ResourceDetails extends StatelessWidget {
         icon: Icons.account_tree_outlined,
         label: openHandLocalizedText(
           context,
-          zh: '当前周期暂无资源明细',
-          zhHant: '目前週期暫無資源明細',
-          en: 'No resource details in this bucket',
+          zh: '当前窗口暂无资源明细',
+          zhHant: '目前視窗暫無資源明細',
+          en: 'No resource details in this window',
           fr: 'Aucun détail pour cette période',
           de: 'Keine Details für diesen Zeitraum',
-          ja: 'この期間の詳細はありません',
+          ja: 'この集計範囲の詳細はありません',
         ),
       );
     }
@@ -1518,12 +1532,12 @@ class _RecentUsageEventsState extends State<_RecentUsageEvents> {
         icon: Icons.history_rounded,
         label: openHandLocalizedText(
           context,
-          zh: '当前周期暂无详细调用记录',
-          zhHant: '目前週期暫無詳細呼叫記錄',
-          en: 'No detailed calls in this bucket',
+          zh: '当前窗口暂无详细调用记录',
+          zhHant: '目前視窗暫無詳細呼叫記錄',
+          en: 'No detailed calls in this window',
           fr: 'Aucun appel détaillé sur cette période',
           de: 'Keine detaillierten Aufrufe',
-          ja: 'この期間の詳細な記録はありません',
+          ja: 'この集計範囲の詳細な記録はありません',
         ),
       );
     }
@@ -1880,50 +1894,25 @@ IconData _periodIcon(AiResourceUsagePeriod period) => switch (period) {
 String _periodLabel(BuildContext context, AiResourceUsagePeriod period) {
   return switch (period) {
     AiResourceUsagePeriod.session => openHandSessionLabel(context),
-    AiResourceUsagePeriod.day => openHandLocalizedText(
+    AiResourceUsagePeriod.day => openHandRecentUsageWindowLabel(
       context,
-      zh: '天',
-      zhHant: '天',
-      en: 'Day',
-      fr: 'Jour',
-      de: 'Tag',
-      ja: '日',
+      OpenHandRecentUsageWindow.day,
     ),
-    AiResourceUsagePeriod.week => openHandLocalizedText(
+    AiResourceUsagePeriod.week => openHandRecentUsageWindowLabel(
       context,
-      zh: '周',
-      zhHant: '週',
-      en: 'Week',
-      fr: 'Semaine',
-      de: 'Woche',
-      ja: '週',
+      OpenHandRecentUsageWindow.week,
     ),
-    AiResourceUsagePeriod.month => openHandLocalizedText(
+    AiResourceUsagePeriod.month => openHandRecentUsageWindowLabel(
       context,
-      zh: '月',
-      zhHant: '月',
-      en: 'Month',
-      fr: 'Mois',
-      de: 'Monat',
-      ja: '月',
+      OpenHandRecentUsageWindow.month,
     ),
-    AiResourceUsagePeriod.quarter => openHandLocalizedText(
+    AiResourceUsagePeriod.quarter => openHandRecentUsageWindowLabel(
       context,
-      zh: '季度',
-      zhHant: '季度',
-      en: 'Quarter',
-      fr: 'Trimestre',
-      de: 'Quartal',
-      ja: '四半期',
+      OpenHandRecentUsageWindow.quarter,
     ),
-    AiResourceUsagePeriod.year => openHandLocalizedText(
+    AiResourceUsagePeriod.year => openHandRecentUsageWindowLabel(
       context,
-      zh: '年',
-      zhHant: '年',
-      en: 'Year',
-      fr: 'Année',
-      de: 'Jahr',
-      ja: '年',
+      OpenHandRecentUsageWindow.year,
     ),
   };
 }
@@ -1932,12 +1921,12 @@ String _periodDescription(BuildContext context, AiResourceUsagePeriod period) {
   final label = _periodLabel(context, period);
   return openHandLocalizedText(
     context,
-    zh: '$label级调用总量变化',
-    zhHant: '$label級呼叫總量變化',
-    en: '$label-level call volume',
+    zh: '$label的调用总量变化',
+    zhHant: '$label的呼叫總量變化',
+    en: 'Call volume · $label',
     fr: 'Volume d’appels · $label',
     de: 'Aufrufvolumen · $label',
-    ja: '$label単位の呼び出し数',
+    ja: '$labelの呼び出し数',
   );
 }
 
@@ -1949,7 +1938,7 @@ bool _hasUsageMetadata(String value) {
 String _shortBucket(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return '—';
-  if (trimmed.length <= 14) return trimmed;
+  if (trimmed.contains('~') || trimmed.length <= 14) return trimmed;
   final start = safeUtf16SuffixStart(trimmed, trimmed.length - 12);
   return '…${trimmed.substring(start)}';
 }

@@ -81,6 +81,59 @@ String formatYearMonthDay(DateTime value) {
   return '${fourDigit(value.year)}-${twoDigit(value.month)}-${twoDigit(value.day)}';
 }
 
+const int kRollingUsageWeekDays = 7;
+const int kRollingUsageMonthSpan = 1;
+const int kRollingUsageQuarterMonths = 3;
+const int kRollingUsageYearMonths = 12;
+const int kRollingUsageMaxTrendDays = 400;
+
+/// 本地日历日（去掉时分秒），用于滚动统计窗口。
+DateTime calendarDate(DateTime value) {
+  final local = value.toLocal();
+  return DateTime(local.year, local.month, local.day);
+}
+
+/// 按日历月平移，自动夹到目标月最后一天（1 月 31 日减一个月 → 2 月 28/29 日）。
+DateTime shiftCalendarMonths(DateTime date, int months) {
+  final totalMonths = date.year * 12 + (date.month - 1) + months;
+  final year = (totalMonths ~/ 12).clamp(1, 9999);
+  final month = totalMonths - (totalMonths ~/ 12) * 12 + 1;
+  final lastDay = DateTime(year, month + 1, 0).day;
+  final day = date.day > lastDay ? lastDay : date.day;
+  return DateTime(year, month, day);
+}
+
+/// 最近 N 个自然日或最近 N 个日历月，两端都包含当天。
+({DateTime start, DateTime end}) rollingCalendarDateWindow(
+  DateTime now, {
+  int daysInclusive = 1,
+  int monthsBack = 0,
+}) {
+  final today = calendarDate(now);
+  if (monthsBack > 0) {
+    return (start: shiftCalendarMonths(today, -monthsBack), end: today);
+  }
+  final offset = daysInclusive < 1 ? 0 : daysInclusive - 1;
+  return (start: today.subtract(Duration(days: offset)), end: today);
+}
+
+String formatYearMonthDayRange(DateTime start, DateTime end) {
+  final startKey = formatYearMonthDay(start);
+  final endKey = formatYearMonthDay(end);
+  return startKey == endKey ? startKey : '$startKey ~ $endKey';
+}
+
+Iterable<DateTime> rollingCalendarDateDays(DateTime start, DateTime end) sync* {
+  var date = calendarDate(start);
+  final last = calendarDate(end);
+  var steps = 0;
+  while (!date.isAfter(last) && steps < kRollingUsageMaxTrendDays) {
+    yield date;
+    date = DateTime(date.year, date.month, date.day + 1);
+    steps += 1;
+  }
+}
+
 String formatYearMonthDayHm(DateTime value) {
   return '${formatYearMonthDay(value)} ${formatHourMinute(value)}';
 }

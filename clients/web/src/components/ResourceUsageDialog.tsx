@@ -55,7 +55,12 @@ interface ResourceUsageDialogProps {
 
 function levelLabel(level: ResourceUsageLevel): string {
   return t(`resourceUsage.level.${level}`, {
-    session: '会话', day: '天', week: '周', month: '月', quarter: '季度', year: '年',
+    session: '会话',
+    day: '最近1天',
+    week: '最近一周',
+    month: '最近一个月',
+    quarter: '最近一个季度',
+    year: '最近一年',
   }[level]);
 }
 
@@ -66,8 +71,10 @@ function kindLabel(kind: ResourceUsageKind): string {
 }
 
 function shortBucket(value: string): string {
-  if (!value) return '—';
-  return value.length <= 14 ? value : `…${value.slice(-12)}`;
+  const trimmed = value.trim();
+  if (!trimmed) return '—';
+  if (trimmed.includes('~') || trimmed.length <= 14) return trimmed;
+  return `…${trimmed.slice(-12)}`;
 }
 
 function sortedEntries(level: ResourceUsageLevelSnapshot): Array<[string, number]> {
@@ -168,13 +175,14 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
       </header>
 
       <div class="oh-resource-usage-scroll">
-        <div class="oh-resource-usage-levels" role="tablist" aria-label={t('resourceUsage.levels', '统计周期')}>
+        <div class="oh-resource-usage-levels" role="tablist" aria-label={t('resourceUsage.levels', '统计范围')}>
           {LEVELS.map((item) => (
             <button
               key={item}
               type="button"
               role="tab"
               aria-selected={levelKey === item}
+              title={snapshot?.levels?.[item]?.bucket || levelLabel(item)}
               class={`oh-tap-press${levelKey === item ? ' is-active' : ''}`}
               onClick={() => setLevelKey(item)}
             >
@@ -201,10 +209,10 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
             </section>
 
             <section class="oh-resource-usage-charts">
-              <AnalyticsPanel title={t('resourceUsage.trend', '调用趋势')} subtitle={`${levelLabel(levelKey)}${t('resourceUsage.volumeSuffix', '级调用总量变化')}`}>
+              <AnalyticsPanel title={t('resourceUsage.trend', '调用趋势')} subtitle={`${levelLabel(levelKey)}${t('resourceUsage.volumeSuffix', '的调用总量变化')}`}>
                 <TrendChart key={levelKey} level={level} />
               </AnalyticsPanel>
-              <AnalyticsPanel title={t('resourceUsage.share', '资源占比')} subtitle={t('resourceUsage.shareSubtitle', '当前周期调用构成')}>
+              <AnalyticsPanel title={t('resourceUsage.share', '资源占比')} subtitle={t('resourceUsage.shareSubtitle', '当前窗口调用构成')}>
                 <Distribution entries={entries} labels={labels} total={level.total ?? 0} />
               </AnalyticsPanel>
             </section>
@@ -482,7 +490,7 @@ function Distribution(props: { entries: Array<[string, number]>; labels: Record<
 }
 
 function Ranking(props: { entries: Array<[string, number]>; labels: Record<string, string> }) {
-  if (props.entries.length === 0) return <EmptyChart label={t('resourceUsage.emptyMap', '当前周期尚无调用记录')} />;
+  if (props.entries.length === 0) return <EmptyChart label={t('resourceUsage.emptyMap', '当前窗口尚无调用记录')} />;
   const visible = props.entries;
   const max = Math.max(1, visible[0][1]);
   const unit = t('resourceUsage.callUnit', '次');
@@ -501,7 +509,7 @@ function Ranking(props: { entries: Array<[string, number]>; labels: Record<strin
 }
 
 function ResourceDetails(props: { resources: ResourceUsageResourceSnapshot[]; labels: Record<string, string> }) {
-  if (props.resources.length === 0) return <EmptyChart label={t('resourceUsage.emptyDetails', '当前周期暂无资源明细')} />;
+  if (props.resources.length === 0) return <EmptyChart label={t('resourceUsage.emptyDetails', '当前窗口暂无资源明细')} />;
   return (
     <div class="oh-resource-usage-details oh-overlay-scroll">
       {props.resources.map((resource) => {
@@ -620,7 +628,7 @@ function MetricPill({
 }
 
 function RecentEvents({ events, labels }: { events: ResourceUsageEvent[]; labels: Record<string, string> }) {
-  if (events.length === 0) return <EmptyChart label={t('resourceUsage.emptyRecent', '当前周期暂无详细调用记录')} />;
+  if (events.length === 0) return <EmptyChart label={t('resourceUsage.emptyRecent', '当前窗口暂无详细调用记录')} />;
   return (
     <div class="oh-resource-usage-events oh-overlay-scroll">
       {events.map((event) => {
