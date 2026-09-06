@@ -278,20 +278,40 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
     final radius = labeled
         ? kOpenHandBorderRadius12
         : kOpenHandBorderRadius7;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer.withValues(alpha: 0.78),
-        borderRadius: radius,
-        border: Border.all(
-          color: widget.error
-              ? colorScheme.error.withValues(alpha: 0.38)
-              : colorScheme.outlineVariant.withValues(alpha: 0.78),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    final body = Padding(
+      padding: const EdgeInsets.all(10),
+      child: document == null
+          ? SelectableText(
+              widget.text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                color: widget.error ? colorScheme.error : null,
+                height: 1.5,
+              ),
+            )
+          : _buildJsonRoot(context, document.value),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fillHeight =
+            !widget.enableFullView && constraints.hasBoundedHeight;
+        return Container(
+          width: double.infinity,
+          height: fillHeight ? constraints.maxHeight : null,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainer.withValues(alpha: 0.78),
+            borderRadius: radius,
+            border: Border.all(
+              color: widget.error
+                  ? colorScheme.error.withValues(alpha: 0.38)
+                  : colorScheme.outlineVariant.withValues(alpha: 0.78),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: fillHeight ? MainAxisSize.max : MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
           Container(
             constraints: const BoxConstraints(minHeight: 38),
             padding: const EdgeInsetsDirectional.only(start: 10, end: 4),
@@ -459,25 +479,20 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
               ],
             ),
           ),
-          _jsonTreePreviewBody(
-            context: context,
-            clipped: _offersFullView,
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: document == null
-                  ? SelectableText(
-                      widget.text,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: kOpenHandMonospaceFontFamily,
-                        color: widget.error ? colorScheme.error : null,
-                        height: 1.5,
-                      ),
-                    )
-                  : _buildJsonRoot(context, document.value),
+          if (fillHeight)
+            Expanded(
+              child: _jsonTreeScrollableBody(context: context, child: body),
+            )
+          else
+            _jsonTreePreviewBody(
+              context: context,
+              clipped: _offersFullView,
+              child: body,
             ),
-          ),
         ],
       ),
+        );
+      },
     );
   }
 
@@ -803,6 +818,17 @@ Widget _jsonTreeAnimatedSize({
   );
 }
 
+Widget _jsonTreeScrollableBody({
+  required BuildContext context,
+  required Widget child,
+}) {
+  return SingleChildScrollView(
+    primary: false,
+    physics: openHandDialogAwareScrollPhysics(context),
+    child: child,
+  );
+}
+
 Widget _jsonTreePreviewBody({
   required BuildContext context,
   required bool clipped,
@@ -817,11 +843,7 @@ Widget _jsonTreePreviewBody({
           constraints: const BoxConstraints(
             maxHeight: kOpenHandJsonTreePreviewMaxHeight,
           ),
-          child: SingleChildScrollView(
-            primary: false,
-            physics: openHandDialogAwareScrollPhysics(context),
-            child: child,
-          ),
+          child: _jsonTreeScrollableBody(context: context, child: child),
         ),
         Positioned(
           left: 0,

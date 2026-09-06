@@ -10794,6 +10794,13 @@ button.oh-composer-pill:not(:disabled):hover {
   padding: 16px;
   overflow: auto;
 }
+.oh-json-full-body .oh-json-tree {
+  min-height: 0;
+}
+.oh-json-full-body .oh-json-tree-body,
+.oh-json-full-body .oh-json-tree-text {
+  max-height: none;
+}
 .oh-json-tree-body {
   padding: 8px 7px;
   overflow-wrap: anywhere;
