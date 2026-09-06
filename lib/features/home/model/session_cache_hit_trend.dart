@@ -141,6 +141,7 @@ class SessionCacheHitTurnPoint {
       starterOrigin: starterOrigin,
       anchorMessageId: anchorMessageId,
       idleGapSeconds: idleGapSeconds,
+      previousDenominatorTokens: previousDenominatorTokens,
     );
   }
 
@@ -307,9 +308,6 @@ class SessionCacheHitTrend {
     required bool claudeStyle,
   }) {
     final points = <SessionCacheHitTurnPoint>[];
-    final sessionHasCacheUsageTelemetry = _sessionHasCacheUsageTelemetry(
-      session,
-    );
     var turnIndex = 0;
     var averagePromptTotal = 0;
     var averageCacheReadTotal = 0;
@@ -336,10 +334,8 @@ class SessionCacheHitTrend {
           telemetryMessage
               .metadata[aiSessionMessageUsageEstimatedMetadataKey] ==
           true;
-      if (usageEstimated && !_hasCacheUsageTelemetry(usage)) {
-        continue;
-      }
-      if (!sessionHasCacheUsageTelemetry && !_hasCacheUsageTelemetry(usage)) {
+      final hasCacheUsageTelemetry = _hasCacheUsageTelemetry(usage);
+      if (usageEstimated && !hasCacheUsageTelemetry) {
         continue;
       }
       final promptTokens = usage?.promptTokens ?? 0;
@@ -361,6 +357,12 @@ class SessionCacheHitTrend {
         continue;
       }
       turnIndex += 1;
+      final pointPreviousDenominator = previousDenominatorTokens;
+      previousDenominatorTokens = denominator;
+      // 供应商未返回缓存字段时只能判定为“未知”，不能伪造为 0% 命中。
+      if (!hasCacheUsageTelemetry) {
+        continue;
+      }
       averagePromptTotal += promptTokens;
       averageCacheReadTotal += cacheReadTokens;
       averageCacheWriteTotal += cacheWriteTokens;
@@ -373,7 +375,6 @@ class SessionCacheHitTrend {
       final fallbackIdleGapSeconds = previousStarter == null
           ? null
           : message.createdAt.difference(previousStarter.createdAt).inSeconds;
-      final pointPreviousDenominator = previousDenominatorTokens;
       final prefixReuseRatio =
           pointPreviousDenominator != null && pointPreviousDenominator > 0
           ? unitRatio(cacheReadTokens, pointPreviousDenominator)
@@ -409,7 +410,6 @@ class SessionCacheHitTrend {
               diagnostics.automaticProviderMissSuspected,
         ),
       );
-      previousDenominatorTokens = denominator;
     }
 
     return _buildTrend(points, claudeStyle: claudeStyle);
@@ -420,7 +420,12 @@ class SessionCacheHitTrend {
   ) {
     final points = statistics.cacheHitTrendPoints;
     return points.isNotEmpty &&
-        points.every((point) => point.starterOrigin != null);
+        points.every(
+          (point) =>
+              point.schemaVersion >=
+                  AiSessionCacheHitTrendPoint.currentSchemaVersion &&
+              point.starterOrigin != null,
+        );
   }
 
   static bool statisticsNeedHydration(AiSession session) {
@@ -500,7 +505,8 @@ class SessionCacheHitTrend {
           cacheReadTokens: point.cacheReadTokens,
           cacheWriteTokens: point.cacheWriteTokens,
           denominatorTokens: denominator,
-          previousDenominatorTokens: previousDenominatorTokens,
+          previousDenominatorTokens:
+              point.previousDenominatorTokens ?? previousDenominatorTokens,
           idleGapSeconds: point.idleGapSeconds,
           ttlSuspected: ttlSuspected,
           prefixDriftSuspected: false,
@@ -542,15 +548,6 @@ class SessionCacheHitTrend {
 
 bool _hasCacheUsageTelemetry(AiTokenUsage? usage) {
   return usage?.cacheReadTokens != null || usage?.cacheCreationTokens != null;
-}
-
-bool _sessionHasCacheUsageTelemetry(AiSession session) {
-  for (final message in session.messages) {
-    if (_hasCacheUsageTelemetry(message.usage)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 double _averageCacheHitRatioForPoints(

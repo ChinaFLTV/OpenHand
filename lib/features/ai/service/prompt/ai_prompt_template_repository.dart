@@ -90,24 +90,29 @@ class AiPromptTemplateRepository {
     final template = resolveTemplate(catalogEntry.id);
     final policy = catalogEntry.policy;
     final fallback = _TemplatePromptFallbacks.resolve(policy.templateId);
-    final systemInstructions = await _loadTemplateAsset(
-      policy,
-      AiPromptTemplateAssetFiles.systemInstructions,
-      fallback: fallback.systemInstructions,
-      loadState: loadState,
-    );
-    final developerInstructions = await _loadTemplateAsset(
-      policy,
-      AiPromptTemplateAssetFiles.developerInstructions,
-      fallback: fallback.developerInstructions,
-      loadState: loadState,
-    );
-    final compressionSummaryInstructions = await _loadTemplateAsset(
-      policy,
-      AiPromptTemplateAssetFiles.compressionSummaryInstructions,
-      fallback: fallback.compressionSummaryInstructions,
-      loadState: loadState,
-    );
+    final baseInstructions = await Future.wait<String>(<Future<String>>[
+      _loadTemplateAsset(
+        policy,
+        AiPromptTemplateAssetFiles.systemInstructions,
+        fallback: fallback.systemInstructions,
+        loadState: loadState,
+      ),
+      _loadTemplateAsset(
+        policy,
+        AiPromptTemplateAssetFiles.developerInstructions,
+        fallback: fallback.developerInstructions,
+        loadState: loadState,
+      ),
+      _loadTemplateAsset(
+        policy,
+        AiPromptTemplateAssetFiles.compressionSummaryInstructions,
+        fallback: fallback.compressionSummaryInstructions,
+        loadState: loadState,
+      ),
+    ]);
+    final systemInstructions = baseInstructions[0];
+    final developerInstructions = baseInstructions[1];
+    final compressionSummaryInstructions = baseInstructions[2];
     final systemWithSharedSections = await _appendSectionsIfAbsent(
       systemInstructions,
       policy.sharedSections,
@@ -154,21 +159,22 @@ class AiPromptTemplateRepository {
     if (sections.isEmpty) {
       return instructions;
     }
-    final loadedSections = <AiPromptLoadedSection>[];
-    for (final section in sections) {
-      final snippet = await _loadTemplateSection(
-        section.assetPath,
-        '',
-        loadState: loadState,
-      );
-      if (snippet.isEmpty) {
-        continue;
-      }
-      loadedSections.add(
-        AiPromptLoadedSection(tag: section.tag, content: snippet),
-      );
-    }
-    return appendAiPromptSharedSectionsIfAbsent(instructions, loadedSections);
+    final loadedSections = await Future.wait<AiPromptLoadedSection?>(
+      sections.map((section) async {
+        final snippet = await _loadTemplateSection(
+          section.assetPath,
+          '',
+          loadState: loadState,
+        );
+        return snippet.isEmpty
+            ? null
+            : AiPromptLoadedSection(tag: section.tag, content: snippet);
+      }),
+    );
+    return appendAiPromptSharedSectionsIfAbsent(
+      instructions,
+      loadedSections.whereType<AiPromptLoadedSection>(),
+    );
   }
 
   /// 当目标指令尚未包含结构化纪律区块时，追加共享的 v4 纪律内容。
@@ -177,20 +183,22 @@ class AiPromptTemplateRepository {
     String instructions,
     _PromptTemplateLoadState loadState,
   ) async {
-    final zhSnippet = await _loadTemplateSection(
-      'assets/prompts/common/v4_discipline_zh.md',
-      '',
-      loadState: loadState,
-    );
-    final enSnippet = await _loadTemplateSection(
-      'assets/prompts/common/v4_discipline_en.md',
-      '',
-      loadState: loadState,
-    );
+    final snippets = await Future.wait<String>(<Future<String>>[
+      _loadTemplateSection(
+        'assets/prompts/common/v4_discipline_zh.md',
+        '',
+        loadState: loadState,
+      ),
+      _loadTemplateSection(
+        'assets/prompts/common/v4_discipline_en.md',
+        '',
+        loadState: loadState,
+      ),
+    ]);
     return appendAiPromptV4DisciplineIfAbsent(
       instructions,
-      zhSnippet: zhSnippet,
-      enSnippet: enSnippet,
+      zhSnippet: snippets[0],
+      enSnippet: snippets[1],
     );
   }
 

@@ -2201,6 +2201,7 @@ class AiSessionStatistics {
 /// [SessionCacheHitTurnPoint] 映射）。WEB 端只读消费。
 class AiSessionCacheHitTrendPoint {
   const AiSessionCacheHitTrendPoint({
+    this.schemaVersion = currentSchemaVersion,
     required this.turnIndex,
     required this.hitRatio,
     required this.promptTokens,
@@ -2211,11 +2212,13 @@ class AiSessionCacheHitTrendPoint {
     this.starterOrigin,
     this.anchorMessageId,
     this.idleGapSeconds,
+    this.previousDenominatorTokens,
   });
 
   factory AiSessionCacheHitTrendPoint.fromJson(Object? raw) {
     final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiSessionCacheHitTrendPoint(
+      schemaVersion: _readNonNegativeInt(json[schemaVersionJsonKey]),
       turnIndex: _readNonNegativeInt(json[turnIndexJsonKey]),
       hitRatio: _readHitRatio(json[hitRatioJsonKey]),
       promptTokens: _readNonNegativeInt(json[promptTokensJsonKey]),
@@ -2226,9 +2229,14 @@ class AiSessionCacheHitTrendPoint {
       starterOrigin: _readString(json[starterOriginJsonKey]),
       anchorMessageId: _readString(json[anchorMessageIdJsonKey]),
       idleGapSeconds: _readNullableNonNegativeInt(json[idleGapSecondsJsonKey]),
+      previousDenominatorTokens: _readNullableNonNegativeInt(
+        json[previousDenominatorTokensJsonKey],
+      ),
     );
   }
 
+  static const int currentSchemaVersion = 2;
+  static const String schemaVersionJsonKey = 'schema_version';
   static const String turnIndexJsonKey = 'turn_index';
   static const String hitRatioJsonKey = 'hit_ratio';
   static const String promptTokensJsonKey = 'prompt_tokens';
@@ -2239,7 +2247,10 @@ class AiSessionCacheHitTrendPoint {
   static const String starterOriginJsonKey = 'starter_origin';
   static const String anchorMessageIdJsonKey = 'anchor_message_id';
   static const String idleGapSecondsJsonKey = 'idle_gap_seconds';
+  static const String previousDenominatorTokensJsonKey =
+      'previous_denominator_tokens';
 
+  final int schemaVersion;
   final int turnIndex;
   final double hitRatio;
   final int promptTokens;
@@ -2250,8 +2261,10 @@ class AiSessionCacheHitTrendPoint {
   final String? starterOrigin;
   final String? anchorMessageId;
   final int? idleGapSeconds;
+  final int? previousDenominatorTokens;
 
   Map<String, Object?> toJson() => <String, Object?>{
+    schemaVersionJsonKey: schemaVersion,
     turnIndexJsonKey: turnIndex,
     hitRatioJsonKey: hitRatio,
     promptTokensJsonKey: promptTokens,
@@ -2263,6 +2276,8 @@ class AiSessionCacheHitTrendPoint {
     if (starterOrigin != null) starterOriginJsonKey: starterOrigin,
     if (anchorMessageId != null) anchorMessageIdJsonKey: anchorMessageId,
     if (idleGapSeconds != null) idleGapSecondsJsonKey: idleGapSeconds,
+    if (previousDenominatorTokens != null)
+      previousDenominatorTokensJsonKey: previousDenominatorTokens,
   };
 
   static String? _readString(Object? value) {

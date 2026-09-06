@@ -15071,6 +15071,7 @@ $tail''';
           session: session,
           messageId: messageId,
           requestBody: telemetry.requestBody!,
+          maxChars: runtimeContext.telemetryMaxPayloadChars,
         ),
     };
     if (metadata.isEmpty || messageId.isEmpty) {
@@ -15331,10 +15332,10 @@ $tail''';
     required AiSession session,
     required String messageId,
     required Map<String, Object?> requestBody,
+    required int maxChars,
   }) {
     final currentJson = jsonEncode(
-      _sanitizeTelemetryValue(requestBody, 0, preserveMapOrder: true)
-          as Map<String, Object?>,
+      _sanitizeTelemetryMapPreservingOrder(requestBody, maxChars),
     );
     final currentHash = stableFnv1a32Hex(currentJson);
     final previousRequest = _previousRequestMessageForTelemetry(
@@ -15344,7 +15345,7 @@ $tail''';
     final previousPayload = previousRequest == null
         ? null
         : _metadataMap(previousRequest.metadata['request_payload']);
-    if (previousPayload == null) {
+    if (previousPayload == null || maxChars <= 0) {
       return <String, Object?>{
         'request_payload_json_length': currentJson.length,
         'request_payload_hash': currentHash,
