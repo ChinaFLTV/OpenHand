@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:path/path.dart' as p;
 
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import 'openhand_paths.dart';
 import 'safe_subprocess.dart';
@@ -31,6 +32,8 @@ final class OpenHandSingleInstance {
   static const int _recordVersion = 1;
   static const int _maxInstanceRecords = 128;
   static const int _maxTrackedDescendants = 256;
+  static const int _maxLinuxProcessStatBytes = 4 * kBytesPerKiB;
+  static const int _maxInstanceRecordBytes = 4 * kBytesPerKiB;
   static const int _maxProcessListBytes = 4 * kBytesPerMiB;
   static const int _maxMacInfoPlistBytes = kBytesPerMiB;
   static const Duration _fileOperationTimeout = Duration(seconds: 2);
@@ -333,9 +336,12 @@ final class OpenHandSingleInstance {
             p.join(entity.path, 'exe'),
           ).resolveSymbolicLinks().timeout(_fileOperationTimeout),
         );
-        final statParts = await File(
-          p.join(entity.path, 'stat'),
-        ).readAsString().timeout(_fileOperationTimeout);
+        final statParts = await readBoundedFileString(
+          File(p.join(entity.path, 'stat')),
+          maxBytes: _maxLinuxProcessStatBytes,
+          idleTimeout: _fileOperationTimeout,
+          totalTimeout: _fileOperationTimeout,
+        );
         final commandEnd = statParts.lastIndexOf(')');
         if (commandEnd < 0) continue;
         final tail = statParts.substring(commandEnd + 1).trim().split(' ');
@@ -417,12 +423,13 @@ Get-CimInstance Win32_Process | ForEach-Object {
 
   static Future<_InstanceRecord?> _readInstanceRecord(File file) async {
     try {
-      final stat = await file.stat().timeout(_fileOperationTimeout);
-      if (stat.type != FileSystemEntityType.file || stat.size > 4096) {
-        return null;
-      }
       final decoded = jsonDecode(
-        await file.readAsString().timeout(_fileOperationTimeout),
+        await readBoundedFileString(
+          file,
+          maxBytes: _maxInstanceRecordBytes,
+          idleTimeout: _fileOperationTimeout,
+          totalTimeout: _fileOperationTimeout,
+        ),
       );
       if (decoded is! Map) return null;
       final record = _InstanceRecord.fromJson(decoded.cast<String, Object?>());
@@ -517,14 +524,13 @@ Get-CimInstance Win32_Process | ForEach-Object {
     }
     try {
       final infoPlist = File(p.join(contentsDirectory, 'Info.plist'));
-      final stat = await infoPlist.stat().timeout(_fileOperationTimeout);
-      if (stat.type != FileSystemEntityType.file ||
-          stat.size <= 0 ||
-          stat.size > _maxMacInfoPlistBytes) {
-        return false;
-      }
       final contents = utf8.decode(
-        await infoPlist.readAsBytes().timeout(_fileOperationTimeout),
+        await readBoundedFileBytes(
+          infoPlist,
+          maxBytes: _maxMacInfoPlistBytes,
+          idleTimeout: _fileOperationTimeout,
+          totalTimeout: _fileOperationTimeout,
+        ),
         allowMalformed: true,
       );
       return contents.contains('CFBundleIdentifier') &&

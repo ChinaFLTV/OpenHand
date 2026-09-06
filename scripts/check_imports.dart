@@ -18,6 +18,7 @@ import 'dart:io';
 ///   7. 网络服务绑定必须使用有界入口，确保绑定超时后接管迟到资源。
 ///   8. 子进程启动必须使用统一安全入口，确保超时、输出和进程树受控。
 ///   9. 临时目录必须使用有界入口，确保创建超时后清理迟到目录。
+///  10. 业务文件读取必须使用有界入口，避免外部替换文件后无界占用内存。
 ///
 /// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
 ///
@@ -183,6 +184,12 @@ List<_RestrictedApiRule> _restrictedApiRules() => <_RestrictedApiRule>[
     allowedRelativePaths: const <String>{'shared/util/bounded_file_io.dart'},
     fallbackApiName: '临时目录创建 API',
     advice: '请使用 shared/util/bounded_file_io.dart 的有界创建入口',
+  ),
+  _RestrictedApiRule(
+    pattern: RegExp(r'\.readAs(?:Bytes|String)(?:Sync)?\s*\('),
+    allowedRelativePaths: const <String>{'shared/util/bounded_file_io.dart'},
+    fallbackApiName: '文件整体读取 API',
+    advice: '请使用 shared/util/bounded_file_io.dart 的有界读取入口',
   ),
 ];
 

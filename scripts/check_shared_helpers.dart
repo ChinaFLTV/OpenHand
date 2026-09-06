@@ -24,12 +24,42 @@ Future<void> main() async {
   failures += _checkRgbHex();
   failures += _checkXmlEscape();
   failures += _checkCompactDuration();
+  failures += await _checkSynchronousBoundedFileRead();
   failures += await _checkTemporaryDirectoryLifecycle();
   if (failures > 0) {
     stderr.writeln('[共享辅助检查] 失败 $failures 项。');
     exit(1);
   }
   stdout.writeln('[共享辅助检查] 通过。');
+}
+
+Future<int> _checkSynchronousBoundedFileRead() async {
+  Directory? directory;
+  try {
+    directory = await createTemporaryDirectoryBounded(
+      prefix: 'openhand-file-read-check-',
+      timeout: const Duration(seconds: 2),
+    );
+    final file = File('${directory.path}${Platform.pathSeparator}marker.txt');
+    file.writeAsStringSync('状态');
+    if (readBoundedFileStringSync(file, maxBytes: 16) != '状态') {
+      stderr.writeln('readBoundedFileStringSync 未读取出预期内容');
+      return 1;
+    }
+    file.writeAsBytesSync(List<int>.filled(17, 0));
+    try {
+      readBoundedFileBytesSync(file, maxBytes: 16);
+      stderr.writeln('readBoundedFileBytesSync 应拒绝超长文件');
+      return 1;
+    } on BoundedFileReadException {
+      return 0;
+    }
+  } catch (error) {
+    stderr.writeln('同步有界文件读取检查失败：$error');
+    return 1;
+  } finally {
+    await deleteTemporaryDirectoryBounded(directory);
+  }
 }
 
 Future<int> _checkTemporaryDirectoryLifecycle() async {

@@ -855,12 +855,20 @@ fn encrypt(cipher: &Aes256Gcm, plaintext: &[u8]) -> Result<String, StoreError> {
 
 fn load_or_create_key(path: &Path) -> anyhow::Result<Zeroizing<Vec<u8>>> {
     if path.exists() {
+        let metadata = fs::symlink_metadata(path).context("读取凭证密钥元数据失败")?;
+        anyhow::ensure!(metadata.file_type().is_file(), "凭证密钥必须为普通文件");
         let mut key = Zeroizing::new(Vec::new());
         OpenOptions::new()
             .read(true)
             .open(path)?
+            .take((KEY_LENGTH + 1) as u64)
             .read_to_end(&mut key)?;
         anyhow::ensure!(key.len() == KEY_LENGTH, "凭证密钥长度无效");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        }
         return Ok(key);
     }
     let mut key = Zeroizing::new(vec![0_u8; KEY_LENGTH]);
@@ -1132,6 +1140,22 @@ mod tests {
         ] {
             assert!(columns.contains(column));
         }
+    }
+
+    #[test]
+    fn rejects_oversized_or_non_regular_key_files() {
+        let path = temporary_store_path();
+        fs::create_dir_all(&path).unwrap();
+        let key_path = path.join(KEY_FILE);
+        fs::write(&key_path, vec![0_u8; KEY_LENGTH + 1]).unwrap();
+        let error = load_or_create_key(&key_path).unwrap_err();
+        assert!(error.to_string().contains("凭证密钥长度无效"));
+
+        fs::remove_file(&key_path).unwrap();
+        fs::create_dir(&key_path).unwrap();
+        let error = load_or_create_key(&key_path).unwrap_err();
+        assert!(error.to_string().contains("凭证密钥必须为普通文件"));
+        fs::remove_dir_all(path).unwrap();
     }
 
     fn temporary_store_path() -> PathBuf {

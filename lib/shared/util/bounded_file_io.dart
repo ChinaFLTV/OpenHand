@@ -641,6 +641,85 @@ final class BoundedFileReadException implements IOException {
   }
 }
 
+/// 同步读取小型普通文件，并在同一句柄上限制和复核长度。
+///
+/// 仅用于必须同步返回的轻量状态探测；大文件和业务 I/O 应使用异步版本。
+Uint8List readBoundedFileBytesSync(
+  File file, {
+  required int maxBytes,
+  bool verifyUnchanged = true,
+}) {
+  requirePositiveInt(maxBytes, 'maxBytes');
+  final initialStat = file.statSync();
+  if (!isRegularFileStat(initialStat)) {
+    throw FileSystemException('路径不是普通文件。', file.path);
+  }
+  if (initialStat.size < 0 || initialStat.size > maxBytes) {
+    throw BoundedFileReadException(
+      filePath: file.path,
+      maxBytes: maxBytes,
+      failure: BoundedFileReadFailure.tooLarge,
+    );
+  }
+
+  RandomAccessFile? input;
+  try {
+    input = file.openSync();
+    final initialLength = input.lengthSync();
+    if (initialLength < 0 || initialLength > maxBytes) {
+      throw BoundedFileReadException(
+        filePath: file.path,
+        maxBytes: maxBytes,
+        failure: BoundedFileReadFailure.tooLarge,
+      );
+    }
+    final bytes = Uint8List(initialLength);
+    var offset = 0;
+    while (offset < initialLength) {
+      final read = input.readIntoSync(bytes, offset, initialLength);
+      if (read <= 0) break;
+      offset += read;
+    }
+    if (offset != initialLength || input.lengthSync() != initialLength) {
+      throw BoundedFileReadException(
+        filePath: file.path,
+        maxBytes: maxBytes,
+        failure: BoundedFileReadFailure.changedDuringRead,
+      );
+    }
+    if (verifyUnchanged) {
+      final finalStat = file.statSync();
+      if (!isRegularFileStat(finalStat) ||
+          finalStat.size != initialLength ||
+          finalStat.modified != initialStat.modified ||
+          finalStat.changed != initialStat.changed) {
+        throw BoundedFileReadException(
+          filePath: file.path,
+          maxBytes: maxBytes,
+          failure: BoundedFileReadFailure.changedDuringRead,
+        );
+      }
+    }
+    return bytes;
+  } finally {
+    input?.closeSync();
+  }
+}
+
+/// 同步读取并解码小型有界文本文件。
+String readBoundedFileStringSync(
+  File file, {
+  required int maxBytes,
+  Encoding encoding = utf8,
+  bool verifyUnchanged = true,
+}) => encoding.decode(
+  readBoundedFileBytesSync(
+    file,
+    maxBytes: maxBytes,
+    verifyUnchanged: verifyUnchanged,
+  ),
+);
+
 /// 以大小、空闲时限和总时限约束读取普通本地文件。
 ///
 /// 长度检查与读取共用一个句柄，缩小状态检查与使用间隙；默认在读取后复核

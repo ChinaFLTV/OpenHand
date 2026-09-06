@@ -15,6 +15,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
@@ -245,6 +246,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
   static const Duration _temporaryAudioIoTimeout = Duration(seconds: 10);
   static const int _runtimeNetworkAttempts = 2;
   static const int _runtimeErrorCharacters = 8 * 1024;
+  static const int _metadataFileMaxBytes = 16 * 1024;
+  static const int _systemMemoryInfoMaxBytes = 64 * 1024;
+  static const int _runtimeHostFileMaxBytes = 64 * 1024;
   static const int _onlineAudioFrameBytes = 1280;
   static const int _maxOnlineAudioBytes = 64 * 1024 * 1024;
   static const int _maxOnlineEventCharacters = 16 * 1024 * 1024;
@@ -940,7 +944,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
     final expected = _artifactConfiguration(model, configuration);
     if (expected.isEmpty) return false;
     try {
-      final payload = jsonDecode(manifest.readAsStringSync());
+      final payload = jsonDecode(
+        readBoundedFileStringSync(manifest, maxBytes: _metadataFileMaxBytes),
+      );
       if (payload is! Map || payload['artifact_configuration'] is! Map) {
         return true;
       }
@@ -1063,7 +1069,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
           completedFiles++;
         }
         cancellation.throwIfCancelled();
-        await File(p.join(staging.path, 'openhand-model.json')).writeAsString(
+        await writeFileAtomically(
+          File(p.join(staging.path, 'openhand-model.json')),
           const JsonEncoder.withIndent('  ').convert(<String, Object?>{
             'id': model.id,
             'repository': _repositoryFor(model, configuration),
@@ -1074,7 +1081,6 @@ class OfflineSpeechModelService extends ChangeNotifier {
             ),
             'files': files.map((file) => file.path).toList(growable: false),
           }),
-          flush: true,
         );
         if (await target.exists()) await target.delete(recursive: true);
         await staging.rename(target.path);
@@ -4073,7 +4079,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
       var canResume = false;
       if (await stagingMarker.exists()) {
         try {
-          final payload = jsonDecode(await stagingMarker.readAsString());
+          final payload = jsonDecode(
+            await readBoundedFileString(
+              stagingMarker,
+              maxBytes: _metadataFileMaxBytes,
+            ),
+          );
           canResume =
               payload is Map &&
               payload['runtime'] == model.runtime.name &&
@@ -4087,12 +4098,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
       }
       await staging.create(recursive: true);
       if (!canResume) {
-        await stagingMarker.writeAsString(
+        await writeFileAtomically(
+          stagingMarker,
           jsonEncode(<String, Object?>{
             'runtime': model.runtime.name,
             'revision': spec.revision,
           }),
-          flush: true,
         );
       }
       final venvPath = p.join(staging.path, '.venv');
@@ -4189,7 +4200,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
             environment: environment,
             message: '正在下载官方运行时组件…',
           );
-          await sourceMarker.writeAsString(spec.sourceRevision!, flush: true);
+          await writeFileAtomically(sourceMarker, spec.sourceRevision!);
         }
       }
 
@@ -4268,14 +4279,14 @@ class OfflineSpeechModelService extends ChangeNotifier {
         );
       }
       cancellation.throwIfCancelled();
-      await File(p.join(staging.path, 'openhand-runtime.json')).writeAsString(
+      await writeFileAtomically(
+        File(p.join(staging.path, 'openhand-runtime.json')),
         const JsonEncoder.withIndent('  ').convert(<String, Object?>{
           'runtime': model.runtime.name,
           'revision': spec.revision,
           'python': spec.pythonVersion,
           'prepared_at': DateTime.now().toUtc().toIso8601String(),
         }),
-        flush: true,
       );
       await stagingMarker.delete();
       if (await target.exists()) await target.delete(recursive: true);
@@ -4391,7 +4402,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
       return false;
     }
     try {
-      final payload = jsonDecode(marker.readAsStringSync());
+      final payload = jsonDecode(
+        readBoundedFileStringSync(marker, maxBytes: _metadataFileMaxBytes),
+      );
       return payload is Map &&
           payload['runtime'] == runtime.name &&
           payload['revision'] == spec.revision;
@@ -4574,7 +4587,10 @@ class OfflineSpeechModelService extends ChangeNotifier {
     }
     if (Platform.isLinux) {
       try {
-        final content = await File('/proc/meminfo').readAsString();
+        final content = await readBoundedFileString(
+          File('/proc/meminfo'),
+          maxBytes: _systemMemoryInfoMaxBytes,
+        );
         final match = RegExp(
           r'^MemTotal:\s+(\d+)\s+kB$',
           multiLine: true,
@@ -4782,9 +4798,19 @@ class OfflineSpeechModelService extends ChangeNotifier {
     final directory = Directory(modelsRoot);
     await directory.create(recursive: true);
     final file = File(p.join(directory.path, 'runtime_host.py'));
-    if (!await file.exists() ||
-        await file.readAsString() != _runtimeHostSource) {
-      await file.writeAsString(_runtimeHostSource, flush: true);
+    var installedSource = '';
+    try {
+      if (await regularFileExistsBounded(file)) {
+        installedSource = await readBoundedFileString(
+          file,
+          maxBytes: _runtimeHostFileMaxBytes,
+        );
+      }
+    } on BoundedFileReadException {
+      // 超长或读写期间变化的宿主脚本按损坏文件原子重建。
+    }
+    if (installedSource != _runtimeHostSource) {
+      await writeFileAtomically(file, _runtimeHostSource);
     }
     return file;
   }
