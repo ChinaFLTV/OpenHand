@@ -13,7 +13,7 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
       subtitle: l10n.settingsAnimationRestoreDefaultsSubtitle,
       controlMaxWidth: 440,
       control: Align(
-        alignment: AlignmentDirectional.centerStart,
+        alignment: AlignmentDirectional.centerEnd,
         child: OutlinedButton.icon(
           icon: const Icon(Icons.refresh, size: 18),
           label: Text(l10n.settingsAnimationRestoreDefaultsButton),

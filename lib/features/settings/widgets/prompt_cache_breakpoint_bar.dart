@@ -248,7 +248,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
         ),
         kOpenHandGap8,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: TextButton.icon(
             onPressed: widget.onReset,
             icon: const Icon(Icons.refresh_rounded),

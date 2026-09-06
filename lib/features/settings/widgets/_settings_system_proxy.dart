@@ -761,7 +761,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
       title: l10n.inputRepairTitle,
       description: l10n.inputRepairBody,
       child: Align(
-        alignment: AlignmentDirectional.centerStart,
+        alignment: AlignmentDirectional.centerEnd,
         child: OutlinedButton.icon(
           onPressed: _repairing ? null : () => _runRepair(context),
           style: OutlinedButton.styleFrom(

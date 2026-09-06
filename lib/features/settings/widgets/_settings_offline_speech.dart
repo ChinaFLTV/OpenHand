@@ -336,7 +336,7 @@ class _OfflineSpeechTextPolishingControlsState
             en: 'Use the selected model to remove filler and repetition, then refine wording, order, spelling, and punctuation. Off by default.',
           ),
           control: Align(
-            alignment: AlignmentDirectional.centerStart,
+            alignment: AlignmentDirectional.centerEnd,
             child: _SettingsSwitch(value: _enabled, onChanged: _setEnabled),
           ),
         ),

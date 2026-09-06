@@ -384,7 +384,7 @@ class _ResponsiveSettingRow extends StatelessWidget {
                 ),
               ],
               kOpenHandGap14,
-              control,
+              Align(alignment: AlignmentDirectional.topEnd, child: control),
             ],
           );
         }

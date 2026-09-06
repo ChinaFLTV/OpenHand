@@ -601,7 +601,10 @@ class _DataCleanupRow extends StatelessWidget {
             children: [
               infoColumn,
               kOpenHandGap12,
-              Align(alignment: Alignment.centerLeft, child: cleanButton),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: cleanButton,
+              ),
             ],
           );
         }

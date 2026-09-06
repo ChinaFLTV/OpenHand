@@ -2319,7 +2319,7 @@ class _SettingsViewState extends State<SettingsView> {
     final allowCommandRules = settingsController.aiAllowCommandRules;
     final denyCommandRules = settingsController.aiDenyCommandRules;
     final compressionControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>('settingsCompressionThresholdField'),
@@ -2338,7 +2338,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>(
               'settingsCompressionThresholdSaveButton',
@@ -2354,7 +2354,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final toolResultCompressionControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>(
@@ -2376,7 +2376,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>(
               'settingsToolResultCompressionThresholdSaveButton',
@@ -2392,7 +2392,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final toolResultCompressionEnabledControl = Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerEnd,
       child: _SettingsSwitch(
         key: const ValueKey<String>(
           'settingsToolResultCompressionEnabledSwitch',
@@ -2404,7 +2404,7 @@ class _SettingsViewState extends State<SettingsView> {
       ),
     );
     final microCompressionEnabledControl = Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerEnd,
       child: _SettingsSwitch(
         key: const ValueKey<String>('settingsMicroCompressionEnabledSwitch'),
         value: settingsController.aiMicroCompressionEnabled,
@@ -2495,7 +2495,7 @@ class _SettingsViewState extends State<SettingsView> {
     final translationSettings = settingsController.aiTranslationSettings;
     final offlineSpeechSettings = settingsController.offlineSpeechSettings;
     final ttsEnabledControl = Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerEnd,
       child: _SettingsSwitch(
         key: const ValueKey<String>('settingsAiTtsEnabledSwitch'),
         value: ttsSettings.enabled,
@@ -2505,7 +2505,7 @@ class _SettingsViewState extends State<SettingsView> {
       ),
     );
     final translationEnabledControl = Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerEnd,
       child: _SettingsSwitch(
         key: const ValueKey<String>('settingsAiTranslationEnabledSwitch'),
         value: translationSettings.enabled,
@@ -2515,7 +2515,7 @@ class _SettingsViewState extends State<SettingsView> {
       ),
     );
     final toolResultCompressionHeadTailWindowControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>(
@@ -2537,7 +2537,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>(
               'settingsToolResultCompressionHeadTailWindowSaveButton',
@@ -2553,7 +2553,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final toolResultCompressionMaxPathHitsControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>(
@@ -2575,7 +2575,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>(
               'settingsToolResultCompressionMaxPathHitsSaveButton',
@@ -2591,7 +2591,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final writeToolSummaryMaxCharsControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>('settingsWriteToolSummaryMaxCharsField'),
@@ -2610,7 +2610,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>(
               'settingsWriteToolSummaryMaxCharsSaveButton',
@@ -2626,7 +2626,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final toolCallLimitControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>('settingsToolCallLimitField'),
@@ -2647,7 +2647,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>('settingsToolCallLimitSaveButton'),
             onPressed: () =>
@@ -2659,7 +2659,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final sequentialToolRoundLimitControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>('settingsSequentialToolRoundLimitField'),
@@ -2680,7 +2680,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>(
               'settingsSequentialToolRoundLimitSaveButton',
@@ -2696,7 +2696,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final maxRecentErrorsControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>('settingsMaxRecentErrorsField'),
@@ -2714,7 +2714,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>('settingsMaxRecentErrorsSaveButton'),
             onPressed: () =>
@@ -2726,7 +2726,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final maxPlanHistoryEntriesControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>('settingsMaxPlanHistoryEntriesField'),
@@ -2744,7 +2744,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>(
               'settingsMaxPlanHistoryEntriesSaveButton',
@@ -2760,7 +2760,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final maxTruncationContinuationsControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>(
@@ -2782,7 +2782,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>(
               'settingsMaxTruncationContinuationsSaveButton',
@@ -2798,7 +2798,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final estimatedCharactersPerTokenControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>(
@@ -2820,7 +2820,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>(
               'settingsEstimatedCharactersPerTokenSaveButton',
@@ -2836,7 +2836,7 @@ class _SettingsViewState extends State<SettingsView> {
       ],
     );
     final imageSizeLimitControl = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
           key: const ValueKey<String>('settingsImageSizeLimitField'),
@@ -2858,7 +2858,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap12,
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
             key: const ValueKey<String>('settingsImageSizeLimitSaveButton'),
             onPressed: () =>
@@ -2891,7 +2891,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsMaximumWaitTimeToEstablishThe,
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     TextField(
                       controller: _connectTimeoutController,
@@ -2912,7 +2912,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     kOpenHandGap12,
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: FilledButton.icon(
                         onPressed: () => _saveConnectTimeout(
                           context,
@@ -2935,7 +2935,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsMaximumWaitForACompleteResponse,
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     TextField(
                       controller: _responseTimeoutController,
@@ -2956,7 +2956,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     kOpenHandGap12,
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: FilledButton.icon(
                         onPressed: () => _saveResponseTimeout(
                           context,
@@ -2979,7 +2979,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsMaximumIdleWaitBetweenStreamChunks,
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     TextField(
                       controller: _streamIdleTimeoutController,
@@ -3000,7 +3000,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     kOpenHandGap12,
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: FilledButton.icon(
                         onPressed: () => _saveStreamIdleTimeout(
                           context,
@@ -3050,7 +3050,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ja: '文字とカードのスロットリングの一括スイッチです。オフにすると AI 出力は実際の速度で全速描画されます。',
                 ),
                 control: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: _SettingsSwitch(
                     value: settingsController.aiStreamThrottleEnabled,
                     onChanged: (v) =>
@@ -3080,10 +3080,10 @@ class _SettingsViewState extends State<SettingsView> {
                   ja: 'プラットフォームに応じて速度を自動選択します。デスクトップ ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 文字/秒、モバイル ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 文字/秒、カードは ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。直近 1 秒の FPS が 55 未満ならさらに 50% 低下します。オンの間は下の手動設定を無視します。',
                 ),
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: _SettingsSwitch(
                         value: settingsController.aiStreamThrottleAutoMode,
                         onChanged: settingsController.aiStreamThrottleEnabled
@@ -3114,7 +3114,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ja: 'AI が高速に文字を出力する場合、UI はこの速度で均等に追加し、カードの差分描画のカクつきやリスト揺れを避けます。0 は無効化、既定は 10 です。',
                 ),
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     TextField(
                       controller: _streamMaxCharsPerSecondController,
@@ -3147,7 +3147,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ],
                     kOpenHandGap12,
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: FilledButton.icon(
                         onPressed: () => _saveStreamMaxCharsPerSecond(
                           context,
@@ -3178,7 +3178,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ja: 'AI が短時間に複数のツール/アシスタントカードを追加する場合、この速度で均等に表示し、会話画面の上下揺れを抑えます。0 は無効化、既定は 1 です。',
                 ),
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     TextField(
                       controller: _streamMaxMessageCardsPerSecondController,
@@ -3212,7 +3212,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ],
                     kOpenHandGap12,
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: FilledButton.icon(
                         onPressed: () => _saveStreamMaxMessageCardsPerSecond(
                           context,
@@ -3243,7 +3243,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ja: 'この時間中は文字/カードの速度を均等化します。終了後の残りは AI の実際の受信ペースで追加されます。0 = 継続スロットリング（既定）。',
                 ),
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     TextField(
                       controller: _streamThrottleDurationController,
@@ -3277,7 +3277,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ],
                     kOpenHandGap12,
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: FilledButton.icon(
                         onPressed: () => _saveStreamThrottleDurationSeconds(
                           context,
@@ -3371,7 +3371,7 @@ class _SettingsViewState extends State<SettingsView> {
                 title: l10n.settingsAutoTitle,
                 subtitle: l10n.settingsWhenEnabledATitleIsAutomatically,
                 control: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: _SettingsSwitch(
                     value: settingsController.aiAutoTitleEnabled,
                     onChanged: (value) =>
@@ -3510,7 +3510,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsWhenEnabledNewSessionsStartIn,
                 control: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: _SettingsSwitch(
                     value: settingsController.aiDefaultFullAccessPermission,
                     onChanged: (value) => settingsController
@@ -3525,7 +3525,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsMaintainAGlobalUserProfileLanguage,
                 control: const Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: _UserProfileSettingsButton(),
                 ),
               ),
@@ -3538,7 +3538,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsThreadSessionManagementSubtitle,
                 control: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: FilledButton.tonalIcon(
                     onPressed: () => showThreadSessionManagementDialog(context),
                     icon: const Icon(Icons.dynamic_feed_outlined),
@@ -3930,7 +3930,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsDisabledByDefaultWhenEnabledEvery,
                 control: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: _SettingsSwitch(
                     key: const ValueKey<String>(
                       'settingsAiInputCacheEnabledSwitch',
@@ -3952,7 +3952,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsChooseTheSlidingUnitForThe,
                 control: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: AnimatedDropdownButton<String>(
                     key: const ValueKey<String>(
                       'settingsAiInputCacheUpdateModeDropdown',
@@ -4005,7 +4005,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsDefault10MeaningDependsOnThe,
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     TextField(
                       key: const ValueKey<String>(
@@ -4026,7 +4026,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     kOpenHandGap12,
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: FilledButton.icon(
                         key: const ValueKey<String>(
                           'settingsAiInputCacheUpdateIntervalSaveButton',
@@ -4052,7 +4052,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsDefault4Range14Anthropic,
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     TextField(
                       key: const ValueKey<String>(
@@ -4073,7 +4073,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     kOpenHandGap12,
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: FilledButton.icon(
                         key: const ValueKey<String>(
                           'settingsAiInputCacheBreakpointCountSaveButton',
@@ -4101,7 +4101,7 @@ class _SettingsViewState extends State<SettingsView> {
                   context,
                 )!.settingsAiBudgetUsdPerSessionBody,
                 control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     TextField(
                       key: const ValueKey<String>(
@@ -4121,7 +4121,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     kOpenHandGap12,
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: FilledButton.icon(
                         key: const ValueKey<String>(
                           'settingsAiBudgetUsdPerSessionSaveButton',
@@ -5101,7 +5101,7 @@ class _SettingsViewState extends State<SettingsView> {
           title: l10n.mcpAutoProbeConcurrencyLabel,
           subtitle: l10n.mcpAutoProbeConcurrencyBody,
           control: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               TextField(
                 key: const ValueKey<String>(
@@ -5123,7 +5123,7 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               kOpenHandGap12,
               Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerEnd,
                 child: FilledButton.icon(
                   key: const ValueKey<String>(
                     'settingsMcpAutoProbeConcurrencySaveButton',
@@ -5153,7 +5153,7 @@ class _SettingsViewState extends State<SettingsView> {
         _McpLazyLoadingHelpBanner(text: l10n.mcpLazyLoadingHowItWorks),
         kOpenHandGap8,
         Align(
-          alignment: AlignmentDirectional.centerStart,
+          alignment: AlignmentDirectional.centerEnd,
           child: OutlinedButton.icon(
             onPressed: () => _openCurrentSessionLoadedToolsDialog(context),
             icon: const Icon(Icons.search_rounded, size: 18),
@@ -5162,7 +5162,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         kOpenHandGap8,
         Align(
-          alignment: AlignmentDirectional.centerStart,
+          alignment: AlignmentDirectional.centerEnd,
           child: TextButton.icon(
             onPressed: () => _resetToolSearchExportLastDir(context),
             icon: const Icon(Icons.restart_alt_rounded, size: 18),
@@ -5171,7 +5171,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         // 恢复入口：重发上次在反悔窗口中取消的 ToolSearch 操作。
         Align(
-          alignment: AlignmentDirectional.centerStart,
+          alignment: AlignmentDirectional.centerEnd,
           child: ValueListenableBuilder<bool>(
             valueListenable: context
                 .read<ToolSearchReplayDispatcher>()
@@ -5232,7 +5232,7 @@ class _SettingsViewState extends State<SettingsView> {
           subtitle: l10n.mcpLazyLoadingThresholdBody,
           controlMaxWidth: 360,
           control: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               TextField(
                 key: const ValueKey<String>(
@@ -5254,7 +5254,7 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               kOpenHandGap12,
               Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerEnd,
                 child: FilledButton.icon(
                   key: const ValueKey<String>(
                     'settingsMcpLazyLoadingThresholdSaveButton',
@@ -5307,7 +5307,7 @@ class _SettingsViewState extends State<SettingsView> {
       subtitle: l10n.settingsHarnessToolSearchHistoryCapBody,
       controlMaxWidth: 360,
       control: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Row(
             children: [
@@ -5387,7 +5387,7 @@ class _SettingsViewState extends State<SettingsView> {
       subtitle: l10n.settingsToolSearchReplayCancelWindowBody,
       controlMaxWidth: 360,
       control: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Row(
             children: [
@@ -7205,7 +7205,7 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
         ),
         kOpenHandGap8,
         Align(
-          alignment: AlignmentDirectional.centerStart,
+          alignment: AlignmentDirectional.centerEnd,
           child: TextButton.icon(
             onPressed: onReconnect,
             icon: const Icon(Icons.restart_alt_rounded, size: 18),
@@ -8192,7 +8192,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Align(
-            alignment: AlignmentDirectional.centerStart,
+            alignment: AlignmentDirectional.centerEnd,
             child: SegmentedButton<ThrottleCloudSyncProvider>(
               expandedInsets: EdgeInsets.zero,
               segments: <ButtonSegment<ThrottleCloudSyncProvider>>[
