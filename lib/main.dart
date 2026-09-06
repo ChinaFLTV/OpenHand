@@ -16,6 +16,7 @@ import 'app/state/settings_controller.dart';
 import 'app/support/app_runtime_cleanup_registry.dart';
 import 'app/support/app_runtime_context.dart';
 import 'app/support/input_repair_service.dart';
+import 'app/support/openhand_single_instance.dart';
 import 'app/support/safe_subprocess.dart';
 import 'app/support/silent_log.dart';
 import 'app/support/system_proxy.dart';
@@ -65,8 +66,27 @@ Future<void> _bootstrap() async {
     cleanupTimeout: const Duration(seconds: 5),
     totalTimeout: kOpenHandApplicationRuntimeCleanupTotalTimeout,
   );
+  OpenHandSingleInstance? singleInstance;
+  Future<void>? shutdownFuture;
+
+  Future<void> shutdown() {
+    return shutdownFuture ??= _shutdownApplication(
+      runtimeCleanup,
+      singleInstance,
+    );
+  }
+
   try {
-    await _bootstrapRuntime(runtimeCleanup);
+    try {
+      singleInstance = await OpenHandSingleInstance.acquire();
+    } catch (error, stack) {
+      silentLog('main', '取得 OpenHand 单实例运行权', error, stack);
+      await runtimeCleanup.dispose();
+      await killAllTrackedChildren();
+      return;
+    }
+    _installProcessSignalHandlers(runtimeCleanup, shutdown);
+    await _bootstrapRuntime(runtimeCleanup, shutdown);
   } catch (error, stack) {
     silentLog('main', '应用启动失败', error, stack);
     OpenHandFpsMonitor.instance.stop();
@@ -101,6 +121,7 @@ Future<void> _bootstrap() async {
             en: 'If the issue persists, inspect the first startup error in the runtime log.',
           ),
         ],
+        onShutdown: shutdown,
       ),
     );
     _runMainBackgroundTask(() async {
@@ -110,7 +131,10 @@ Future<void> _bootstrap() async {
   }
 }
 
-Future<void> _bootstrapRuntime(AppRuntimeCleanupRegistry runtimeCleanup) async {
+Future<void> _bootstrapRuntime(
+  AppRuntimeCleanupRegistry runtimeCleanup,
+  Future<void> Function() shutdown,
+) async {
   MediaKit.ensureInitialized();
   iaw.PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   // 节流自动模式与 UI 卡顿降级会读取 recentFps。
@@ -211,6 +235,7 @@ Future<void> _bootstrapRuntime(AppRuntimeCleanupRegistry runtimeCleanup) async {
             en: 'If needed, back up and remove openhand.db so the app can rebuild it.',
           ),
         ],
+        onShutdown: shutdown,
       ),
     );
     _runMainBackgroundTask(() async {
@@ -606,42 +631,6 @@ Future<void> _bootstrapRuntime(AppRuntimeCleanupRegistry runtimeCleanup) async {
       () => settingsController.removeListener(syncRuntimeSettings),
     );
 
-  // 所有资源登记完成后再安装信号监听，避免启动期信号先锁定注册表，
-  // 导致后续资源无法登记或清理。
-  if (!Platform.isWindows) {
-    Future<void>? signalShutdownFuture;
-    Future<void> shutdownForSignal() {
-      return signalShutdownFuture ??= () async {
-        try {
-          await runtimeCleanup.dispose();
-        } catch (error, stack) {
-          silentLog('main', '信号触发后释放运行时资源', error, stack);
-        }
-        try {
-          await killAllTrackedChildren();
-        } catch (error, stack) {
-          silentLog('main', '信号触发后清理子进程', error, stack);
-        }
-        exit(0);
-      }();
-    }
-
-    for (final sig in <ProcessSignal>[
-      ProcessSignal.sigint,
-      ProcessSignal.sigterm,
-    ]) {
-      try {
-        final subscription = sig.watch().listen(
-          (_) => unawaited(shutdownForSignal()),
-        );
-        runtimeCleanup.register('进程信号订阅', subscription.cancel);
-      } catch (error, stack) {
-        // 某些沙箱 / 测试环境不允许安装信号处理器，忽略。
-        silentLog('main', '安装信号处理器', error, stack);
-      }
-    }
-  }
-
   runApp(
     MultiProvider(
       providers: [
@@ -671,7 +660,7 @@ Future<void> _bootstrapRuntime(AppRuntimeCleanupRegistry runtimeCleanup) async {
         ),
         Provider<AppInfo>.value(value: appInfo),
       ],
-      child: OpenHandApp(onShutdown: runtimeCleanup.dispose),
+      child: OpenHandApp(onShutdown: shutdown),
     ),
   );
   developer.Timeline.instantSync('openhand.boot.runApp_called');
@@ -684,6 +673,48 @@ Future<void> _bootstrapRuntime(AppRuntimeCleanupRegistry runtimeCleanup) async {
       '清理内联媒体缓存',
     );
   });
+}
+
+Future<void> _shutdownApplication(
+  AppRuntimeCleanupRegistry runtimeCleanup,
+  OpenHandSingleInstance? singleInstance,
+) async {
+  try {
+    await runtimeCleanup.dispose();
+  } catch (error, stack) {
+    silentLog('main', '释放应用运行时资源', error, stack);
+  }
+  try {
+    await killAllTrackedChildren();
+  } catch (error, stack) {
+    silentLog('main', '清理应用子进程', error, stack);
+  }
+  try {
+    await singleInstance?.dispose();
+  } catch (error, stack) {
+    silentLog('main', '释放 OpenHand 单实例登记', error, stack);
+  }
+}
+
+void _installProcessSignalHandlers(
+  AppRuntimeCleanupRegistry runtimeCleanup,
+  Future<void> Function() shutdown,
+) {
+  if (Platform.isWindows) return;
+  for (final signal in <ProcessSignal>[
+    ProcessSignal.sigint,
+    ProcessSignal.sigterm,
+  ]) {
+    try {
+      final subscription = signal.watch().listen((_) {
+        unawaited(shutdown().whenComplete(() => exit(0)));
+      });
+      runtimeCleanup.register('进程信号订阅', subscription.cancel);
+    } catch (error, stack) {
+      // 某些沙箱环境不允许安装信号处理器，退出时仍由应用生命周期清理。
+      silentLog('main', '安装进程信号处理器', error, stack);
+    }
+  }
 }
 
 void _runMainBackgroundTask<T>(Future<T> task, String action) {

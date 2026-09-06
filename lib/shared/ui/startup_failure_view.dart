@@ -1,4 +1,9 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+
+import '../../app/support/silent_log.dart';
 
 import 'motion_durations.dart';
 import 'openhand_spacing.dart';
@@ -14,12 +19,14 @@ class OpenHandStartupFailureApp extends StatelessWidget {
     required this.reason,
     required this.suggestionsTitle,
     required this.suggestions,
+    this.onShutdown,
   });
 
   final String title;
   final String reason;
   final String suggestionsTitle;
   final List<String> suggestions;
+  final Future<void> Function()? onShutdown;
 
   @override
   Widget build(BuildContext context) {
@@ -27,12 +34,15 @@ class OpenHandStartupFailureApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
-      home: Scaffold(
-        body: _StartupFailureBody(
-          title: title,
-          reason: reason,
-          suggestionsTitle: suggestionsTitle,
-          suggestions: suggestions,
+      home: _StartupFailureLifecycleHost(
+        onShutdown: onShutdown,
+        child: Scaffold(
+          body: _StartupFailureBody(
+            title: title,
+            reason: reason,
+            suggestionsTitle: suggestionsTitle,
+            suggestions: suggestions,
+          ),
         ),
       ),
     );
@@ -50,6 +60,57 @@ class OpenHandStartupFailureApp extends StatelessWidget {
       scaffoldBackgroundColor: scheme.surface,
     );
   }
+}
+
+class _StartupFailureLifecycleHost extends StatefulWidget {
+  const _StartupFailureLifecycleHost({
+    required this.onShutdown,
+    required this.child,
+  });
+
+  final Future<void> Function()? onShutdown;
+  final Widget child;
+
+  @override
+  State<_StartupFailureLifecycleHost> createState() =>
+      _StartupFailureLifecycleHostState();
+}
+
+class _StartupFailureLifecycleHostState
+    extends State<_StartupFailureLifecycleHost> {
+  late final AppLifecycleListener _lifecycleListener;
+  Future<void>? _shutdownFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(
+      onExitRequested: () async {
+        await _shutdown();
+        return AppExitResponse.exit;
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    unawaited(_shutdown());
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  Future<void> _shutdown() {
+    return _shutdownFuture ??= () async {
+      try {
+        await widget.onShutdown?.call();
+      } catch (error, stack) {
+        silentLog('startup_failure', '关闭启动失败页面', error, stack);
+      }
+    }();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _StartupFailureBody extends StatelessWidget {
