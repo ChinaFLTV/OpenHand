@@ -20,6 +20,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
   /// "204 No Content" 探针。
   static const String _defaultTestEndpoint =
       AppProxySettings.defaultTestEndpoint;
+  static const double _testEndpointControlHeight = 60;
 
   late final TextEditingController _hostCtrl;
   late final TextEditingController _portCtrl;
@@ -473,23 +474,37 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
             ),
             kOpenHandHGap12,
             Expanded(
-              child: TextField(
-                controller: _testEndpointCtrl,
-                focusNode: _testEndpointFocus,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  hintText: _defaultTestEndpoint,
+              child: SizedBox(
+                height: _testEndpointControlHeight,
+                child: TextField(
+                  controller: _testEndpointCtrl,
+                  focusNode: _testEndpointFocus,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: _defaultTestEndpoint,
+                  ),
+                  onSubmitted: (_) => _saveTestEndpoint(),
                 ),
-                onSubmitted: (_) => _saveTestEndpoint(),
               ),
             ),
             kOpenHandHGap8,
-            IconButton(
-              tooltip: Localizations.localeOf(context).languageCode == 'en'
-                  ? 'Save Test URL'
-                  : '保存测试 URL',
-              icon: const Icon(Icons.save_outlined),
-              onPressed: _saveTestEndpoint,
+            SizedBox.square(
+              dimension: _testEndpointControlHeight,
+              child: IconButton.filledTonal(
+                tooltip: Localizations.localeOf(context).languageCode == 'en'
+                    ? 'Save Test URL'
+                    : '保存测试 URL',
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(_testEndpointControlHeight),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: kOpenHandBorderRadius16,
+                  ),
+                ),
+                icon: const Icon(Icons.save_outlined),
+                onPressed: _saveTestEndpoint,
+              ),
             ),
           ],
         ),
@@ -761,7 +776,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
       title: l10n.inputRepairTitle,
       description: l10n.inputRepairBody,
       child: Align(
-        alignment: AlignmentDirectional.centerEnd,
+        alignment: AlignmentDirectional.centerStart,
         child: OutlinedButton.icon(
           onPressed: _repairing ? null : () => _runRepair(context),
           style: OutlinedButton.styleFrom(
