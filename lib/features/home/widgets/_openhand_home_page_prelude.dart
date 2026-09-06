@@ -32,8 +32,6 @@ const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // 长会话先显示最新窗口，按需展开旧记录，保持当前滚动范围稳定。
 const int _transcriptWindowIncrement =
     TranscriptListWindowing.defaultWindowIncrement;
-const int _transcriptOpenFirstPaintCap =
-    TranscriptListWindowing.defaultOpenFirstPaintCap;
 const int _transcriptWarmupMaxPerFrame = 1;
 const int _transcriptWarmupSignatureCacheLimit = 256;
 const int _transcriptWarmupCharacterBudget = 12000;

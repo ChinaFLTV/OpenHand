@@ -470,16 +470,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int? _warmupContextSignature;
   final Set<int> _warmupSignatures = <int>{};
   final Queue<int> _warmupSignatureOrder = Queue<int>();
-  bool _isHoldingOpenFirstPaint = true;
-  int _windowExpandGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _syncWindowStartIndex(forceReset: true);
     _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
-    // 首帧仅渲染活动窗口尾部，其余行后续逐帧展开，避免同时挂载大量富文本卡片。
-    _materializeOpenWindow(progressive: true);
+    // 初始窗口最多 8 条消息，直接完整物化并在不可见阶段完成贴底，避免正文
+    // 淡入后再向列表顶部插入消息，引发滚动条和卡片短暂跳动。
+    _materializeOpenWindow();
     _syncVisibleError();
     _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
   }
@@ -619,18 +618,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
         setState(() {
-          _materializeOpenWindow(progressive: true);
+          _materializeOpenWindow();
         });
       });
       unawaited(
         _awaitEndOfFrameBounded().then((_) {
           if (!mounted || _renderEntries.isNotEmpty) return;
           setState(() {
-            _materializeOpenWindow(progressive: true);
+            _materializeOpenWindow();
           });
         }),
       );
-      // jumpToBottomOnInit 由父级 jumpTo 单独保证；这里不再做多帧 settle。
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
       final previousWindowStartIndex = _windowStartIndex;
@@ -733,8 +731,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _scrollRequestGeneration += 1;
     _activeScrollFuture = null;
     _activeScrollTargetId = null;
-    _isHoldingOpenFirstPaint = true;
-    _windowExpandGeneration += 1;
   }
 
   void _setInitialRevealPhase(_TranscriptInitialRevealPhase next) {
@@ -742,9 +738,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
     _initialRevealPhase = next;
-    if (next == _TranscriptInitialRevealPhase.ready) {
-      _scheduleProgressiveWindowExpansion();
-    }
   }
 
   void _handleInitialPlaceholderDismissed() {
@@ -814,131 +807,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return displayMessages.sublist(range.start, range.end);
   }
 
-  int _activeRenderCount() {
-    var count = 0;
-    for (final entry in _renderEntries) {
-      if (!entry.exiting) count += 1;
-    }
-    return count;
-  }
-
-  List<AiSessionMessage> _messagesToMaterialize() {
-    final window = _visibleMessagesForWindow();
-    if (!_isHoldingOpenFirstPaint) {
-      return window;
-    }
-    final painted = _activeRenderCount();
-    final cap = painted <= 0
-        ? TranscriptListWindowing.openFirstPaintCount(window.length)
-        : math.min(window.length, painted);
-    return TranscriptListWindowing.tailSlice(window, cap);
-  }
-
-  bool _transcriptIsNearBottom() {
-    if (!widget.controller.hasClients || widget.controller.positions.isEmpty) {
-      return true;
-    }
-    final position = widget.controller.positions.last;
-    return (position.maxScrollExtent - position.pixels).abs() <=
-        _autoFollowResumeDistance;
-  }
-
-  void _releaseOpenFirstPaintHold() {
-    _isHoldingOpenFirstPaint = false;
-    _windowExpandGeneration += 1;
-  }
-
-  void _materializeOpenWindow({required bool progressive}) {
+  void _materializeOpenWindow() {
     final visibleMessages = _visibleMessagesForWindow();
-    if (!progressive ||
-        visibleMessages.length <= _transcriptOpenFirstPaintCap) {
-      _isHoldingOpenFirstPaint = false;
-      _replaceRenderEntries(visibleMessages, animate: false);
-      return;
-    }
-    _isHoldingOpenFirstPaint = true;
-    _replaceRenderEntries(
-      TranscriptListWindowing.tailSlice(
-        visibleMessages,
-        TranscriptListWindowing.openFirstPaintCount(visibleMessages.length),
-      ),
-      animate: false,
-    );
-  }
-
-  void _scheduleProgressiveWindowExpansion() {
-    if (!_isHoldingOpenFirstPaint) {
-      return;
-    }
-    final generation = ++_windowExpandGeneration;
-    final sessionId = widget.session.id;
-    var stepsRemaining = TranscriptListWindowing.defaultMaxMaterializedWindow;
-    void expand() {
-      if (!mounted ||
-          generation != _windowExpandGeneration ||
-          widget.session.id != sessionId ||
-          !_isHoldingOpenFirstPaint ||
-          _initialRevealPhase != _TranscriptInitialRevealPhase.ready) {
-        return;
-      }
-      if (_isTranscriptScrollActive(context)) {
-        return;
-      }
-      final fullWindow = _visibleMessagesForWindow();
-      final currentCount = _activeRenderCount();
-      if (fullWindow.length <= currentCount) {
-        _isHoldingOpenFirstPaint = false;
-        return;
-      }
-      if (stepsRemaining <= 0) {
-        setState(() {
-          _replaceRenderEntries(fullWindow, animate: false);
-          _isHoldingOpenFirstPaint = false;
-        });
-        return;
-      }
-      stepsRemaining -= 1;
-      final nextCount = TranscriptListWindowing.progressiveRenderCount(
-        currentCount: currentCount,
-        targetCount: fullWindow.length,
-      );
-      if (nextCount <= currentCount) {
-        _isHoldingOpenFirstPaint = false;
-        return;
-      }
-      final nextMessages = TranscriptListWindowing.tailSlice(
-        fullWindow,
-        nextCount,
-      );
-      final pinToBottom = _transcriptIsNearBottom();
-      final anchor = pinToBottom ? null : _capturePrependAnchor();
-      setState(() {
-        _replaceRenderEntries(nextMessages, animate: false);
-        if (nextCount >= fullWindow.length) {
-          _isHoldingOpenFirstPaint = false;
-        }
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || generation != _windowExpandGeneration) {
-          return;
-        }
-        if (pinToBottom &&
-            widget.controller.hasClients &&
-            widget.controller.positions.isNotEmpty) {
-          final position = widget.controller.positions.last;
-          widget.onProgrammaticScrollCorrection(
-            () => position.jumpTo(position.maxScrollExtent),
-          );
-        } else if (anchor != null) {
-          _restorePrependAnchor(anchor);
-        }
-        if (_isHoldingOpenFirstPaint) {
-          expand();
-        }
-      });
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => expand());
+    _replaceRenderEntries(visibleMessages, animate: false);
   }
 
   void _replaceRenderEntries(
@@ -957,7 +828,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _syncRenderEntriesAfterHistoryPrepend() {
-    _releaseOpenFirstPaintHold();
     final visibleMessages = _visibleMessagesForWindow();
     if (_renderEntries.isEmpty || visibleMessages.isEmpty) {
       _replaceRenderEntries(visibleMessages, animate: false);
@@ -1334,7 +1204,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _syncRenderEntries({bool forceReset = false}) {
-    final visibleMessages = _messagesToMaterialize();
+    final visibleMessages = _visibleMessagesForWindow();
     if (forceReset || _renderEntries.isEmpty) {
       _replaceRenderEntries(visibleMessages, animate: false);
       return;
@@ -1448,7 +1318,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _warmupGeneration += 1;
     _activeRevealOlderFuture = null;
     _warmupScheduler.clear();
-    _windowExpandGeneration += 1;
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
     _bubbleRegistry.clear();
     super.dispose();
@@ -1565,7 +1434,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         );
         if (nextStart != _windowStartIndex) {
           setState(() {
-            _releaseOpenFirstPaintHold();
             _windowStartIndex = nextStart;
             _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
           });
@@ -1674,10 +1542,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (activity.value) {
       _cancelPendingViewportRestore();
       return;
-    }
-    if (_isHoldingOpenFirstPaint &&
-        _initialRevealPhase == _TranscriptInitialRevealPhase.ready) {
-      _scheduleProgressiveWindowExpansion();
     }
     if (!widget.controller.hasClients || widget.controller.positions.isEmpty) {
       return;
@@ -2263,7 +2127,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final nextStart = TranscriptListWindowing.latestWindowStart(displayCount);
     if (nextStart == _windowStartIndex) return;
     setState(() {
-      _releaseOpenFirstPaintHold();
       _windowStartIndex = nextStart;
       _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
     });
@@ -3160,7 +3023,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       range.start,
       range.end,
     );
-    // build-stage 同步首屏 fallback：
+    // build-stage 同步初始窗口 fallback：
     // 当 didUpdateWidget 把 `_renderEntries` 重置为空、且 post-frame
     // callback 因 mount 抖动尚未触发时，直接同步物化首屏，避免
     // 「displayMessages 非空 → empty short-circuit」连续 K 帧白屏。
@@ -3168,8 +3031,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 字段赋值（与 didUpdateWidget 内的同名调用一致），赋值后
     // 当前帧即拿到新 `_renderEntries` 用于绘制，不破坏 build 不变量。
     if (_renderEntries.isEmpty && visibleMessages.isNotEmpty) {
-      // 构建阶段仅同步实体化首帧尾部，其余有界窗口由渐进任务补齐。
-      _materializeOpenWindow(progressive: true);
+      _materializeOpenWindow();
     }
     if (_renderEntries.isEmpty && visibleMessages.isEmpty) {
       // Header-only 会话正在按需水合消息时，显示加载占位而非空会话。

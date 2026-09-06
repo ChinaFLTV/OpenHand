@@ -324,6 +324,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   /// 最近一次量到的 composer panel 高度，供折叠/展开时反向补偿 transcript scroll。
   double? _lastComposerHeight;
+  String? _lastComposerHeightSessionId;
   bool _composerLayoutMeasureScheduled = false;
   bool _autoFollowEnabled = true;
   // 自动跟随开启但用户离开底部时进入暂停态，输入区按钮用于恢复并跳到底部。
@@ -3402,6 +3403,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _lastScrollActivityAt = null;
     _transcriptScrollActivity.markInactive();
     _clearPendingAutoFollowState();
+    if (switchingSessions) {
+      // 新会话输入区可能恢复不同高度的草稿或创作选项。丢弃旧会话的高度
+      // 基线与过渡测量，避免它们在新 transcript 首帧上反向修正滚动位置。
+      _lastComposerHeight = null;
+      _lastComposerHeightSessionId = null;
+      _composerTransitionMeasurePassesRemaining = 0;
+    }
 
     // 会话选择是同步界面意图，不等待无关音频清理或帧回调。
     if (_selectedSection != AppSection.workspace) {
@@ -8597,8 +8605,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return (compensated: false, grew: false);
     }
     final newHeight = renderObject.size.height;
-    final prev = _lastComposerHeight;
+    final sessionId = context.read<AiSessionController>().currentSessionId;
+    final prev = _lastComposerHeightSessionId == sessionId
+        ? _lastComposerHeight
+        : null;
     _lastComposerHeight = newHeight;
+    _lastComposerHeightSessionId = sessionId;
     if (prev == null) return (compensated: false, grew: false);
     final delta = newHeight - prev;
     if (delta.abs() <= 0.5) {
@@ -8617,12 +8629,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return (compensated: false, grew: grew);
     }
     // 反向偏移 scroll position：composer 长高 → pixels +delta，让"上方"内容
-    // 视觉上往上挪同等距离 = 像是被新出现的 composer 顶上去；反之 composer
-    // 收起 → 内容自然滑下来填补空间。correctBy 不做 clamp，由下一帧
-    // _maybeAutoFollowSession / ballistic settle 兜底；越界量在动画下一帧
-    // 自动回拉，体感上是 Q 弹自然的回弹而非硬截断。
+    // 视觉上往上挪同等距离；反之自然下移填补空间。修正量必须限制在当前
+    // 滚动范围内，避免越界后由弹道回拉造成可见的二次跳动。
+    final target = (position.pixels + delta)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    final correction = target - position.pixels;
+    if (correction.abs() <= 0.5) {
+      return (compensated: false, grew: grew);
+    }
     _composerScrollCompensationInProgress = true;
-    position.correctBy(delta);
+    position.correctBy(correction);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _composerScrollCompensationInProgress = false;
