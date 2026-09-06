@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:charset_converter/charset_converter.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
@@ -223,7 +227,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   static const Duration runtimeCleanupTimeout =
       kOpenHandServiceRuntimeCleanupTimeout;
-  static const String testSampleText = '你好，这是一段 OpenHand 本地语音朗读测试。';
+  static const String testSampleText = '你好，这是一段 OpenHand 语音朗读测试。';
   static const Duration _runtimeStartTimeout = Duration(minutes: 5);
   static const Duration _inferenceTimeout = Duration(minutes: 5);
   static const Duration _realtimeConnectTimeout = Duration(seconds: 10);
@@ -232,8 +236,13 @@ class OfflineSpeechModelService extends ChangeNotifier {
   static const Duration _runtimeInstallTimeout = Duration(minutes: 45);
   static const Duration _downloadNotifyInterval = Duration(milliseconds: 80);
   static const Duration _downloadIdleTimeout = Duration(seconds: 60);
+  static const Duration _onlineAudioFrameInterval = Duration(milliseconds: 40);
+  static const Duration _onlineIdleTimeout = Duration(seconds: 30);
   static const int _runtimeNetworkAttempts = 2;
   static const int _runtimeErrorCharacters = 8 * 1024;
+  static const int _onlineAudioFrameBytes = 1280;
+  static const int _maxOnlineAudioBytes = 64 * 1024 * 1024;
+  static const int _maxOnlineEventCharacters = 16 * 1024 * 1024;
   static const List<String> _proxyEnvironmentKeys = <String>[
     'HTTP_PROXY',
     'HTTPS_PROXY',
@@ -401,6 +410,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration,
   ) {
+    if (model.isOnline) return _onlineAvailability(model, configuration);
     final profile = _hardwareProfile;
     if (profile == null) {
       return const OfflineSpeechModelAvailability(
@@ -476,17 +486,109 @@ class OfflineSpeechModelService extends ChangeNotifier {
     );
   }
 
+  OfflineSpeechModelAvailability _onlineAvailability(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration,
+  ) {
+    final endpoint = Uri.tryParse(
+      _configurationText(configuration, 'endpoint'),
+    );
+    if (endpoint == null ||
+        endpoint.scheme != 'wss' ||
+        endpoint.host.trim().isEmpty) {
+      return const OfflineSpeechModelAvailability(
+        available: false,
+        reason: '请填写有效的 WSS 服务地址。',
+      );
+    }
+    final missing = <String>[];
+    void require(String key, String label) {
+      if (_configurationText(configuration, key).isEmpty) missing.add(label);
+    }
+
+    switch (model.onlineService) {
+      case OnlineSpeechService.xfyunRtasr:
+        require('appid', 'APPID');
+        require('api_key', 'APIKey');
+      case OnlineSpeechService.xfyunRtasrLlm:
+        require('app_id', 'App ID');
+        require('access_key_id', 'AccessKey ID');
+        require('access_key_secret', 'AccessKey Secret');
+        if (_configurationText(configuration, 'audio_encode') != 'pcm_s16le') {
+          return const OfflineSpeechModelAvailability(
+            available: false,
+            reason: '当前麦克风输入为 PCM，请将音频编码设为 PCM 16-bit。',
+          );
+        }
+      case OnlineSpeechService.xfyunTts:
+        require('app_id', 'APPID');
+        final audioEncoding = _configurationText(configuration, 'aue');
+        final sampleRate = _configurationText(configuration, 'auf');
+        if (audioEncoding == 'lame' &&
+            !_configurationBool(configuration, 'sfl')) {
+          return const OfflineSpeechModelAvailability(
+            available: false,
+            reason: 'MP3 编码必须开启 MP3 流式返回。',
+          );
+        }
+        final requires8k =
+            audioEncoding == 'opus' ||
+            audioEncoding == 'speex' ||
+            audioEncoding == 'speex-org-nb';
+        final requires16k =
+            audioEncoding == 'opus-wb' ||
+            audioEncoding == 'speex-wb' ||
+            audioEncoding == 'speex-org-wb';
+        if ((requires8k && !sampleRate.contains('8000')) ||
+            (requires16k && !sampleRate.contains('16000'))) {
+          return OfflineSpeechModelAvailability(
+            available: false,
+            reason: requires8k
+                ? '当前音频编码需要选择 8 kHz 采样率。'
+                : '当前音频编码需要选择 16 kHz 采样率。',
+          );
+        }
+        if (_configurationText(configuration, 'auth_mode') == 'api_password') {
+          require('api_password', 'API Password');
+        } else {
+          require('api_key', 'APIKey');
+          require('api_secret', 'APISecret');
+        }
+      case null:
+        return const OfflineSpeechModelAvailability(
+          available: false,
+          reason: '在线语音服务类型无效。',
+        );
+    }
+    if (missing.isNotEmpty) {
+      return OfflineSpeechModelAvailability(
+        available: false,
+        reason: '请补全讯飞配置：${missing.join('、')}。',
+      );
+    }
+    return const OfflineSpeechModelAvailability(
+      available: true,
+      reason: '在线服务配置完整，将通过加密 WebSocket 连接讯飞。',
+    );
+  }
+
   String modelDirectory(OfflineSpeechModelDefinition model) =>
       p.join(modelsRoot, model.id);
 
   bool isRunning(OfflineSpeechModelDefinition model) =>
-      _processes.containsKey(model.id);
+      !model.isOnline && _processes.containsKey(model.id);
 
   bool isRuntimeReady(OfflineSpeechModelDefinition model) =>
-      isRunning(model) &&
-      stateOf(model).lifecycle == OfflineSpeechLifecycle.running;
+      model.isOnline ||
+      (isRunning(model) &&
+          stateOf(model).lifecycle == OfflineSpeechLifecycle.running);
 
   OfflineSpeechModelState stateOf(OfflineSpeechModelDefinition model) {
+    if (model.isOnline) {
+      return const OfflineSpeechModelState(
+        lifecycle: OfflineSpeechLifecycle.installed,
+      );
+    }
     final current = _states[model.id];
     if (current != null) return current;
     return OfflineSpeechModelState(
@@ -500,6 +602,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
   }
 
   bool isInstalled(OfflineSpeechModelDefinition model) {
+    if (model.isOnline) return true;
     return File(
       p.join(modelDirectory(model), 'openhand-model.json'),
     ).existsSync();
@@ -509,6 +612,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration,
   ) {
+    if (model.isOnline) return false;
     return requiresModelFilesForConfiguration(model, configuration) ||
         requiresRuntimePreparation(model);
   }
@@ -517,6 +621,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration,
   ) {
+    if (model.isOnline) return false;
     final manifest = File(p.join(modelDirectory(model), 'openhand-model.json'));
     if (!manifest.existsSync()) return true;
     final expected = _artifactConfiguration(model, configuration);
@@ -536,10 +641,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
   }
 
   bool requiresRuntimePreparation(OfflineSpeechModelDefinition model) {
+    if (model.isOnline) return false;
     return !_isRuntimeReady(model.runtime);
   }
 
   String runtimePreparationSizeLabel(OfflineSpeechModelDefinition model) {
+    if (model.isOnline) return '无需本地运行环境';
     final size = _runtimeSpecs[model.runtime]!.estimatedStorageGiB;
     return '约 ${size == size.roundToDouble() ? size.toInt() : size} GB';
   }
@@ -548,6 +655,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     OfflineSpeechModelDefinition model,
     Map<String, Object?> configuration,
   ) async {
+    if (model.isOnline) return;
     _throwIfShuttingDown();
     if (_downloadCancellations.containsKey(model.id)) return;
     await SystemProxyResolver.instance.initialize();
@@ -720,6 +828,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
   }
 
   Future<void> remove(OfflineSpeechModelDefinition model) async {
+    if (model.isOnline) return;
     cancelDownload(model);
     await stop(model);
     final target = Directory(modelDirectory(model));
@@ -760,6 +869,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
     ]);
     if (await isCancelSignalCompleted(effectiveCancelSignal)) {
       throw const OfflineSpeechTestCancelled();
+    }
+    if (model.isOnline) {
+      final availability = availabilityFor(model, configuration);
+      if (!availability.available) throw StateError(availability.reason);
+      return;
     }
     await _inspectHardware();
     if (await isCancelSignalCompleted(effectiveCancelSignal)) {
@@ -934,13 +1048,27 @@ class OfflineSpeechModelService extends ChangeNotifier {
     return operation;
   }
 
+  bool supportsRealtimeSynthesis(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration,
+  ) {
+    if (model.kind != OfflineSpeechKind.synthesis ||
+        model.synthesisTransport != OfflineSpeechSynthesisTransport.webSocket) {
+      return false;
+    }
+    return model.onlineService != OnlineSpeechService.xfyunTts ||
+        _configurationText(configuration, 'aue') == 'raw';
+  }
+
   Future<OfflineSpeechAudioStream> streamSynthesis(
     OfflineSpeechModelDefinition model,
     String text, {
+    required Map<String, Object?> configuration,
     Future<void>? cancelSignal,
   }) async {
     final stream = await startSynthesisStream(
       model,
+      configuration: configuration,
       cancelSignal: cancelSignal,
     );
     try {
@@ -955,12 +1083,25 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   Future<OfflineSpeechAudioStream> startSynthesisStream(
     OfflineSpeechModelDefinition model, {
+    required Map<String, Object?> configuration,
     Future<void>? cancelSignal,
   }) async {
     _throwIfShuttingDown();
     if (model.kind != OfflineSpeechKind.synthesis ||
-        model.synthesisTransport != OfflineSpeechSynthesisTransport.webSocket) {
+        !supportsRealtimeSynthesis(model, configuration)) {
       throw StateError('当前朗读模型不支持实时语音通道。');
+    }
+    if (model.onlineService == OnlineSpeechService.xfyunTts) {
+      final availability = availabilityFor(model, configuration);
+      if (!availability.available) throw StateError(availability.reason);
+      return _startXfyunSynthesisStream(
+        model,
+        configuration,
+        cancelSignal: combineCancelSignals(<Future<void>?>[
+          cancelSignal,
+          _shutdownSignal.future,
+        ]),
+      );
     }
     final session = _processes[model.id];
     if (session == null) throw StateError('模型运行时尚未就绪。');
@@ -1165,6 +1306,17 @@ class OfflineSpeechModelService extends ChangeNotifier {
       cancelSignal,
       _shutdownSignal.future,
     ]);
+    if (model.isOnline) {
+      final availability = availabilityFor(model, configuration);
+      if (!availability.available) throw StateError(availability.reason);
+      return _testOnline(
+        model,
+        configuration,
+        audioPath: audioPath,
+        sampleText: sampleText,
+        cancelSignal: effectiveCancelSignal,
+      );
+    }
     final wasRunning = _processes.containsKey(model.id);
     if (!wasRunning) {
       if (!startIfNeeded) throw StateError('模型尚未运行。');
@@ -1197,6 +1349,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         final stream = await streamSynthesis(
           model,
           sampleText,
+          configuration: configuration,
           cancelSignal: effectiveCancelSignal,
         );
         final pcm = BytesBuilder(copy: false);
@@ -1242,6 +1395,711 @@ class OfflineSpeechModelService extends ChangeNotifier {
       if (!wasRunning) await stop(model);
     }
   }
+
+  Future<OfflineSpeechTestResult> _testOnline(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration, {
+    String? audioPath,
+    required String sampleText,
+    Future<void>? cancelSignal,
+  }) async {
+    switch (model.onlineService) {
+      case OnlineSpeechService.xfyunRtasr:
+      case OnlineSpeechService.xfyunRtasrLlm:
+        final source = audioPath?.trim() ?? '';
+        if (source.isEmpty || !await File(source).exists()) {
+          throw StateError('没有可识别的录音文件。');
+        }
+        final wav = await _readPcm16Wav(source);
+        var pcm = wav.pcm;
+        var sampleRate = wav.sampleRate;
+        if (model.onlineService == OnlineSpeechService.xfyunRtasrLlm &&
+            _configurationText(configuration, 'samplerate') == '8000') {
+          pcm = _downsamplePcm16(pcm, from: sampleRate, to: 8000);
+          sampleRate = 8000;
+        }
+        if (sampleRate != 16000 &&
+            model.onlineService == OnlineSpeechService.xfyunRtasr) {
+          throw StateError('讯飞实时语音转写标准版仅支持 16 kHz PCM 音频。');
+        }
+        final transcript = await _recognizeWithXfyun(
+          model,
+          configuration,
+          pcm,
+          sampleRate: sampleRate,
+          cancelSignal: cancelSignal,
+        );
+        return OfflineSpeechTestResult.recognition(transcript);
+      case OnlineSpeechService.xfyunTts:
+        final generated = await _synthesizeXfyunText(
+          configuration,
+          sampleText,
+          cancelSignal: cancelSignal,
+        );
+        if (generated.bytes.isEmpty) throw StateError('讯飞没有返回有效音频。');
+        final directory = await Directory.systemTemp.createTemp(
+          'openhand_speech_test_',
+        );
+        final path = p.join(directory.path, 'sample${generated.extension}');
+        final bytes = generated.extension == '.pcm'
+            ? _pcm16Wav(generated.bytes, generated.sampleRate, 1)
+            : generated.bytes;
+        final outputPath = generated.extension == '.pcm'
+            ? p.join(directory.path, 'sample.wav')
+            : path;
+        await File(outputPath).writeAsBytes(bytes, flush: true);
+        return OfflineSpeechTestResult.synthesis(outputPath);
+      case null:
+        throw StateError('在线语音服务类型无效。');
+    }
+  }
+
+  Future<OfflineSpeechAudioStream> _startXfyunSynthesisStream(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration, {
+    Future<void>? cancelSignal,
+  }) async {
+    final audio = StreamController<Uint8List>();
+    final done = Completer<void>();
+    final localCancellation = Completer<void>();
+    final queue = <String>[];
+    final sampleRate = _xfyunSampleRate(configuration);
+    var processing = false;
+    var finishing = false;
+    var closed = false;
+
+    void fail(Object error, StackTrace stack) {
+      if (!audio.isClosed) {
+        audio.addError(error, stack);
+        unawaited(audio.close());
+      }
+      if (!done.isCompleted) done.completeError(error, stack);
+    }
+
+    Future<void> pump() async {
+      if (processing || closed) return;
+      processing = true;
+      try {
+        while (queue.isNotEmpty && !closed) {
+          final text = queue.removeAt(0);
+          await _synthesizeXfyunText(
+            configuration,
+            text,
+            cancelSignal: combineCancelSignals(<Future<void>?>[
+              cancelSignal,
+              localCancellation.future,
+            ]),
+            onAudio: (chunk) {
+              if (!closed && !audio.isClosed) audio.add(chunk);
+            },
+          );
+        }
+        if (finishing && !closed) {
+          if (!audio.isClosed) await audio.close();
+          if (!done.isCompleted) done.complete();
+        }
+      } catch (error, stack) {
+        if (!closed) fail(error, stack);
+      } finally {
+        processing = false;
+        if (queue.isNotEmpty && !closed) unawaited(pump());
+      }
+    }
+
+    void addText(String text) {
+      final source = text.trim();
+      if (source.isEmpty) return;
+      if (closed || finishing) throw StateError('实时语音通道已结束。');
+      if (queue.length >= 256) throw StateError('待朗读文本队列已满。');
+      queue.add(source);
+      unawaited(pump());
+    }
+
+    Future<void> finish() async {
+      if (closed || finishing) return;
+      finishing = true;
+      await pump();
+      await done.future;
+    }
+
+    Future<void> close() async {
+      if (closed) return;
+      closed = true;
+      queue.clear();
+      if (!localCancellation.isCompleted) localCancellation.complete();
+      if (!audio.isClosed) await audio.close();
+      if (!done.isCompleted) done.complete();
+    }
+
+    final stream = OfflineSpeechAudioStream._(
+      sampleRate: sampleRate,
+      channels: 1,
+      audio: audio.stream,
+      done: done.future,
+      addText: addText,
+      finish: finish,
+      close: close,
+    );
+    _activeAudioStreams[stream] = model.id;
+    unawaited(
+      stream.done.then<void>(
+        (_) => _activeAudioStreams.remove(stream),
+        onError: (Object _, StackTrace _) => _activeAudioStreams.remove(stream),
+      ),
+    );
+    if (cancelSignal != null) {
+      unawaited(cancelSignal.then<void>((_) => close()));
+    }
+    return stream;
+  }
+
+  Future<String> _recognizeWithXfyun(
+    OfflineSpeechModelDefinition model,
+    Map<String, Object?> configuration,
+    Uint8List pcm, {
+    required int sampleRate,
+    Future<void>? cancelSignal,
+  }) async {
+    await SystemProxyResolver.instance.initialize();
+    final endpoint = Uri.parse(_configurationText(configuration, 'endpoint'));
+    final largeModel = model.onlineService == OnlineSpeechService.xfyunRtasrLlm;
+    final uuid = _configurationText(configuration, 'uuid').isEmpty
+        ? const Uuid().v4()
+        : _configurationText(configuration, 'uuid');
+    final parameters = largeModel
+        ? _xfyunLlmRecognitionParameters(
+            endpoint,
+            configuration,
+            uuid,
+            sampleRate,
+          )
+        : _xfyunStandardRecognitionParameters(endpoint, configuration);
+    final uri = endpoint.replace(queryParameters: parameters);
+    final client = SystemProxyResolver.instance.createRawHttpClient(
+      connectionTimeout: _onlineIdleTimeout,
+    );
+    WebSocket? socket;
+    try {
+      final connecting = WebSocket.connect(
+        uri.toString(),
+        customClient: client,
+      ).timeout(_onlineIdleTimeout);
+      socket = await awaitWithCancelSignal<WebSocket>(
+        connecting,
+        cancelSignal: cancelSignal,
+      );
+      if (socket == null) throw const OfflineSpeechTestCancelled();
+      final activeSocket = socket;
+      final completed = SplayTreeMap<int, String>();
+      final partial = SplayTreeMap<int, String>();
+
+      Future<void> receive() async {
+        await for (final event in activeSocket.timeout(_onlineIdleTimeout)) {
+          if (event is! String) continue;
+          if (event.length > _maxOnlineEventCharacters) {
+            throw const FormatException('讯飞语音识别响应超过安全上限。');
+          }
+          final payload = jsonDecode(event);
+          if (payload is! Map) continue;
+          if (_consumeXfyunRecognitionPayload(payload, completed, partial)) {
+            break;
+          }
+        }
+      }
+
+      final receiving = receive();
+      for (
+        var offset = 0;
+        offset < pcm.length;
+        offset += _onlineAudioFrameBytes
+      ) {
+        if (offset > 0) {
+          final waited = await awaitWithCancelSignal<bool>(
+            Future<bool>.delayed(_onlineAudioFrameInterval, () => true),
+            cancelSignal: cancelSignal,
+          );
+          if (waited != true) throw const OfflineSpeechTestCancelled();
+        }
+        final end = math.min(offset + _onlineAudioFrameBytes, pcm.length);
+        activeSocket.add(pcm.sublist(offset, end));
+      }
+      activeSocket.add(
+        utf8.encode(
+          largeModel
+              ? jsonEncode(<String, Object?>{'end': true, 'sessionId': uuid})
+              : jsonEncode(const <String, Object?>{'end': true}),
+        ),
+      );
+      final received = await awaitWithCancelSignal<bool>(
+        receiving.then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_inferenceTimeout);
+      if (received != true) throw const OfflineSpeechTestCancelled();
+      final keys = <int>{...completed.keys, ...partial.keys}.toList()..sort();
+      return keys
+          .map((key) => completed[key] ?? partial[key] ?? '')
+          .join()
+          .trim();
+    } finally {
+      try {
+        await socket
+            ?.close(WebSocketStatus.normalClosure)
+            .timeout(_realtimeCloseTimeout);
+      } catch (_) {}
+      client.close(force: true);
+    }
+  }
+
+  Map<String, String> _xfyunStandardRecognitionParameters(
+    Uri endpoint,
+    Map<String, Object?> configuration,
+  ) {
+    final appId = _configurationText(configuration, 'appid');
+    final apiKey = _configurationText(configuration, 'api_key');
+    final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final digest = md5.convert(utf8.encode('$appId$timestamp')).toString();
+    final signature = base64Encode(
+      Hmac(sha1, utf8.encode(apiKey)).convert(utf8.encode(digest)).bytes,
+    );
+    final parameters = <String, String>{
+      ...endpoint.queryParameters,
+      'appid': appId,
+      'ts': '$timestamp',
+      'signa': signature,
+      'lang': _configurationText(configuration, 'lang'),
+      'vadMdn': _configurationText(configuration, 'vad_mdn'),
+      'roleType': _configurationText(configuration, 'role_type'),
+      'engLangType': _configurationText(configuration, 'eng_lang_type'),
+    };
+    final targetLanguage = _configurationText(configuration, 'target_lang');
+    if (targetLanguage.isNotEmpty) {
+      parameters.addAll(<String, String>{
+        'transType': _configurationText(configuration, 'trans_type'),
+        'transStrategy': _configurationText(configuration, 'trans_strategy'),
+        'targetLang': targetLanguage,
+      });
+    }
+    _addNonEmptyParameter(parameters, 'punc', configuration, 'punc');
+    _addNonEmptyParameter(parameters, 'pd', configuration, 'pd');
+    return parameters;
+  }
+
+  Map<String, String> _xfyunLlmRecognitionParameters(
+    Uri endpoint,
+    Map<String, Object?> configuration,
+    String uuid,
+    int sampleRate,
+  ) {
+    final now = DateTime.now().toUtc();
+    final utc =
+        '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}T'
+        '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}:'
+        '${now.second.toString().padLeft(2, '0')}+0000';
+    final parameters = <String, String>{
+      ...endpoint.queryParameters,
+      'appId': _configurationText(configuration, 'app_id'),
+      'accessKeyId': _configurationText(configuration, 'access_key_id'),
+      'uuid': uuid,
+      'utc': utc,
+      'lang': _configurationText(configuration, 'lang'),
+      'audio_encode': 'pcm_s16le',
+      'samplerate': '$sampleRate',
+      'role_type': _configurationText(configuration, 'role_type'),
+      'eng_spk_match': _configurationText(configuration, 'eng_spk_match'),
+      'eng_vad_mdn': _configurationText(configuration, 'eng_vad_mdn'),
+    };
+    if (parameters['lang'] == 'autominor') {
+      _addNonEmptyParameter(
+        parameters,
+        'recognized_language',
+        configuration,
+        'recognized_language',
+      );
+    }
+    _addNonEmptyParameter(
+      parameters,
+      'feature_ids',
+      configuration,
+      'feature_ids',
+    );
+    _addNonEmptyParameter(parameters, 'pd', configuration, 'pd');
+    _addNonEmptyParameter(parameters, 'eng_punc', configuration, 'eng_punc');
+    final sortedQuery = _sortedQuery(parameters);
+    parameters['signature'] = base64Encode(
+      Hmac(
+        sha1,
+        utf8.encode(_configurationText(configuration, 'access_key_secret')),
+      ).convert(utf8.encode(sortedQuery)).bytes,
+    );
+    return parameters;
+  }
+
+  bool _consumeXfyunRecognitionPayload(
+    Map payload,
+    SplayTreeMap<int, String> completed,
+    SplayTreeMap<int, String> partial,
+  ) {
+    final code = '${payload['code'] ?? '0'}';
+    final action = '${payload['action'] ?? ''}';
+    if ((action == 'error' || code != '0') && code != 'null') {
+      throw StateError(
+        '讯飞语音识别失败（$code）：${payload['desc'] ?? payload['message'] ?? '未知错误'}',
+      );
+    }
+    Object? data = payload['data'];
+    if (data is String && data.trim().isNotEmpty) {
+      data = jsonDecode(data);
+    }
+    if (data is! Map) return false;
+    if (data['biz'] == 'trans') {
+      final segment = _integerValue(data['segId']);
+      final text = '${data['dst'] ?? data['src'] ?? ''}'.trim();
+      final finalResult = _integerValue(data['type']) == 0;
+      (finalResult ? completed : partial)[segment] = text;
+      if (finalResult) partial.remove(segment);
+      return data['isEnd'] == true;
+    }
+    final segment = _integerValue(data['seg_id']);
+    final st = data['cn'] is Map ? (data['cn'] as Map)['st'] : null;
+    if (st is Map) {
+      final text = _xfyunRecognitionWords(st['rt']);
+      final finalResult = '${st['type'] ?? '1'}' == '0';
+      (finalResult ? completed : partial)[segment] = text;
+      if (finalResult) partial.remove(segment);
+    }
+    return data['ls'] == true;
+  }
+
+  String _xfyunRecognitionWords(Object? raw) {
+    if (raw is! List) return '';
+    final output = StringBuffer();
+    for (final result in raw) {
+      if (result is! Map || result['ws'] is! List) continue;
+      for (final word in result['ws'] as List) {
+        if (word is! Map ||
+            word['cw'] is! List ||
+            (word['cw'] as List).isEmpty) {
+          continue;
+        }
+        final candidate = (word['cw'] as List).first;
+        if (candidate is! Map) continue;
+        final role = _integerValue(candidate['rl']);
+        if (role > 0) {
+          if (output.isNotEmpty) output.write('\n');
+          output.write('说话人$role：');
+        }
+        output.write('${candidate['w'] ?? ''}');
+      }
+    }
+    return output.toString();
+  }
+
+  Future<({Uint8List bytes, int sampleRate, String extension})>
+  _synthesizeXfyunText(
+    Map<String, Object?> configuration,
+    String text, {
+    Future<void>? cancelSignal,
+    void Function(Uint8List chunk)? onAudio,
+  }) async {
+    final source = text.trim();
+    if (source.isEmpty) throw StateError('没有可合成的文本。');
+    final encoding = _configurationText(configuration, 'tte');
+    late final Uint8List encodedText;
+    try {
+      encodedText = await CharsetConverter.encode(
+        _xfyunCharsetName(encoding),
+        source,
+      );
+    } catch (_) {
+      throw StateError('当前系统不支持 $encoding 文本编码，请改用 UTF-8。');
+    }
+    if (encodedText.length >= 8000) {
+      throw StateError('讯飞单次合成文本必须小于 8000 字节。');
+    }
+    await SystemProxyResolver.instance.initialize();
+    var endpoint = Uri.parse(_configurationText(configuration, 'endpoint'));
+    final binaryOutput = _configurationBool(configuration, 'binary_output');
+    if (binaryOutput) {
+      endpoint = endpoint.replace(
+        queryParameters: <String, String>{
+          ...endpoint.queryParameters,
+          'output_proto': 'binary',
+        },
+      );
+    }
+    final headers = <String, dynamic>{};
+    if (_configurationText(configuration, 'auth_mode') == 'api_password') {
+      headers['x-api-key'] = _configurationText(configuration, 'api_password');
+    } else {
+      endpoint = _xfyunTtsAuthorizedUri(endpoint, configuration);
+    }
+    final client = SystemProxyResolver.instance.createRawHttpClient(
+      connectionTimeout: _onlineIdleTimeout,
+    );
+    WebSocket? socket;
+    try {
+      final connecting = WebSocket.connect(
+        endpoint.toString(),
+        headers: headers,
+        customClient: client,
+      ).timeout(_onlineIdleTimeout);
+      socket = await awaitWithCancelSignal<WebSocket>(
+        connecting,
+        cancelSignal: cancelSignal,
+      );
+      if (socket == null) throw const OfflineSpeechTestCancelled();
+      final activeSocket = socket;
+      final format = _xfyunAudioEncoding(configuration);
+      final business = <String, Object?>{
+        'aue': format,
+        'auf': _configurationText(configuration, 'auf'),
+        'vcn': _configurationText(configuration, 'vcn'),
+        'speed': _integerValue(configuration['speed']).clamp(0, 100),
+        'volume': _integerValue(configuration['volume']).clamp(0, 100),
+        'pitch': _integerValue(configuration['pitch']).clamp(0, 100),
+        'bgs': _integerValue(configuration['bgs']),
+        'tte': encoding,
+        'reg': _configurationText(configuration, 'reg'),
+        'rdn': _configurationText(configuration, 'rdn'),
+      };
+      if (format == 'lame' && _configurationBool(configuration, 'sfl')) {
+        business['sfl'] = 1;
+      }
+      activeSocket.add(
+        jsonEncode(<String, Object?>{
+          'common': <String, Object?>{
+            'app_id': _configurationText(configuration, 'app_id'),
+          },
+          'business': business,
+          'data': <String, Object?>{
+            'status': 2,
+            'text': base64Encode(encodedText),
+          },
+        }),
+      );
+      final bytes = onAudio == null ? BytesBuilder(copy: false) : null;
+      var receivedAudioBytes = 0;
+      var binaryPrefixBytes = 0;
+
+      void appendAudio(Uint8List chunk) {
+        if (chunk.isEmpty) return;
+        receivedAudioBytes += chunk.length;
+        if (receivedAudioBytes > _maxOnlineAudioBytes) {
+          throw const FormatException('讯飞语音合成结果超过安全上限。');
+        }
+        bytes?.add(chunk);
+        onAudio?.call(chunk);
+      }
+
+      Future<void> receive() async {
+        await for (final event in activeSocket.timeout(_onlineIdleTimeout)) {
+          if (event is String) {
+            if (event.length > _maxOnlineEventCharacters) {
+              throw const FormatException('讯飞语音合成响应超过安全上限。');
+            }
+            final payload = jsonDecode(event);
+            if (payload is! Map) continue;
+            final code = _integerValue(payload['code']);
+            if (code != 0) {
+              throw StateError(
+                '讯飞语音合成失败（$code）：${payload['message'] ?? '未知错误'}',
+              );
+            }
+            final data = payload['data'];
+            if (data is Map) {
+              final cid = '${payload['cid'] ?? ''}';
+              final audioStream = '${data['audio_stream'] ?? ''}';
+              binaryPrefixBytes = utf8.encode(cid + audioStream).length;
+              final encodedAudio = data['audio'];
+              if (encodedAudio is String && encodedAudio.isNotEmpty) {
+                appendAudio(Uint8List.fromList(base64Decode(encodedAudio)));
+              }
+              if (data['status'] == 2) break;
+            }
+          } else if (event is List<int>) {
+            if (event.length > _maxOnlineAudioBytes) {
+              throw const FormatException('讯飞语音合成二进制帧超过安全上限。');
+            }
+            final offset = binaryPrefixBytes.clamp(0, event.length);
+            appendAudio(Uint8List.fromList(event.sublist(offset)));
+          }
+        }
+      }
+
+      final received = await awaitWithCancelSignal<bool>(
+        receive().then((_) => true),
+        cancelSignal: cancelSignal,
+      ).timeout(_inferenceTimeout);
+      if (received != true) throw const OfflineSpeechTestCancelled();
+      return (
+        bytes: bytes?.takeBytes() ?? Uint8List(0),
+        sampleRate: _xfyunSampleRate(configuration),
+        extension: _xfyunAudioExtension(format),
+      );
+    } finally {
+      try {
+        await socket
+            ?.close(WebSocketStatus.normalClosure)
+            .timeout(_realtimeCloseTimeout);
+      } catch (_) {}
+      client.close(force: true);
+    }
+  }
+
+  Uri _xfyunTtsAuthorizedUri(Uri endpoint, Map<String, Object?> configuration) {
+    final date = HttpDate.format(DateTime.now().toUtc());
+    final path = endpoint.path.isEmpty ? '/v2/tts' : endpoint.path;
+    final signatureOrigin =
+        'host: ${endpoint.host}\ndate: $date\nGET $path HTTP/1.1';
+    final signature = base64Encode(
+      Hmac(
+        sha256,
+        utf8.encode(_configurationText(configuration, 'api_secret')),
+      ).convert(utf8.encode(signatureOrigin)).bytes,
+    );
+    final authorization =
+        'api_key="${_configurationText(configuration, 'api_key')}", '
+        'algorithm="hmac-sha256", headers="host date request-line", '
+        'signature="$signature"';
+    return endpoint.replace(
+      queryParameters: <String, String>{
+        ...endpoint.queryParameters,
+        'authorization': base64Encode(utf8.encode(authorization)),
+        'date': date,
+        'host': endpoint.host,
+      },
+    );
+  }
+
+  static Future<({Uint8List pcm, int sampleRate})> _readPcm16Wav(
+    String path,
+  ) async {
+    final file = File(path);
+    final length = await file.length();
+    if (length <= 44 || length > _maxOnlineAudioBytes) {
+      throw StateError('录音文件为空或超过 64 MB 上限。');
+    }
+    final bytes = await file.readAsBytes();
+    if (ascii.decode(bytes.sublist(0, 4), allowInvalid: true) != 'RIFF' ||
+        ascii.decode(bytes.sublist(8, 12), allowInvalid: true) != 'WAVE') {
+      throw StateError('录音必须为 WAV 格式。');
+    }
+    final view = ByteData.sublistView(bytes);
+    var offset = 12;
+    var sampleRate = 0;
+    var validFormat = false;
+    Uint8List? pcm;
+    while (offset + 8 <= bytes.length) {
+      final id = ascii.decode(
+        bytes.sublist(offset, offset + 4),
+        allowInvalid: true,
+      );
+      final chunkSize = view.getUint32(offset + 4, Endian.little);
+      final dataOffset = offset + 8;
+      final dataEnd = dataOffset + chunkSize;
+      if (dataEnd > bytes.length) throw StateError('WAV 数据块不完整。');
+      if (id == 'fmt ' && chunkSize >= 16) {
+        final audioFormat = view.getUint16(dataOffset, Endian.little);
+        final channels = view.getUint16(dataOffset + 2, Endian.little);
+        sampleRate = view.getUint32(dataOffset + 4, Endian.little);
+        final bits = view.getUint16(dataOffset + 14, Endian.little);
+        validFormat = audioFormat == 1 && channels == 1 && bits == 16;
+      } else if (id == 'data') {
+        pcm = Uint8List.fromList(bytes.sublist(dataOffset, dataEnd));
+      }
+      offset = dataEnd + (chunkSize.isOdd ? 1 : 0);
+    }
+    if (!validFormat || pcm == null || pcm.isEmpty) {
+      throw StateError('录音必须为单声道 16-bit PCM WAV。');
+    }
+    return (pcm: pcm, sampleRate: sampleRate);
+  }
+
+  static Uint8List _downsamplePcm16(
+    Uint8List source, {
+    required int from,
+    required int to,
+  }) {
+    if (from == to) return source;
+    if (from != 16000 || to != 8000) {
+      throw StateError('仅支持将 16 kHz PCM 转换为 8 kHz。');
+    }
+    final output = Uint8List((source.length ~/ 4) * 2);
+    for (
+      var input = 0, target = 0;
+      input + 1 < source.length && target + 1 < output.length;
+      input += 4, target += 2
+    ) {
+      output[target] = source[input];
+      output[target + 1] = source[input + 1];
+    }
+    return output;
+  }
+
+  static String _sortedQuery(Map<String, String> parameters) {
+    final keys = parameters.keys.toList()..sort();
+    return keys
+        .map(
+          (key) =>
+              '${Uri.encodeQueryComponent(key)}='
+              '${Uri.encodeQueryComponent(parameters[key]!)}',
+        )
+        .join('&');
+  }
+
+  static void _addNonEmptyParameter(
+    Map<String, String> target,
+    String targetKey,
+    Map<String, Object?> source,
+    String sourceKey,
+  ) {
+    final value = _configurationText(source, sourceKey);
+    if (value.isNotEmpty) target[targetKey] = value;
+  }
+
+  static String _configurationText(
+    Map<String, Object?> configuration,
+    String key,
+  ) => '${configuration[key] ?? ''}'.trim();
+
+  static bool _configurationBool(
+    Map<String, Object?> configuration,
+    String key,
+  ) => configuration[key] == true;
+
+  static int _integerValue(Object? value) =>
+      value is num ? value.round() : int.tryParse('$value') ?? 0;
+
+  static int _xfyunSampleRate(Map<String, Object?> configuration) =>
+      _configurationText(configuration, 'auf').contains('8000') ? 8000 : 16000;
+
+  static String _xfyunAudioEncoding(Map<String, Object?> configuration) {
+    final format = _configurationText(configuration, 'aue');
+    if (!format.startsWith('speex')) return format;
+    final level = _integerValue(
+      configuration['compression_level'],
+    ).clamp(1, 10);
+    return '$format;$level';
+  }
+
+  static String _xfyunAudioExtension(String format) {
+    if (format == 'raw') return '.pcm';
+    if (format == 'lame') return '.mp3';
+    if (format.startsWith('opus')) return '.opus';
+    return '.spx';
+  }
+
+  static String _xfyunCharsetName(String encoding) => switch (encoding) {
+    'GB2312' => 'gb2312',
+    'GBK' => 'gbk',
+    'BIG5' => 'big5',
+    'UNICODE' => 'utf-16-le',
+    'GB18030' => 'gb18030',
+    _ => 'utf-8',
+  };
 
   Future<void> shutdown() => _shutdownOnce.run(_shutdown);
 

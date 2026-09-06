@@ -18,6 +18,10 @@ enum OfflineSpeechRuntime {
   qwenTts,
 }
 
+enum OfflineSpeechDeployment { local, online }
+
+enum OnlineSpeechService { xfyunRtasr, xfyunRtasrLlm, xfyunTts }
+
 enum OfflineSpeechSynthesisTransport {
   http('HTTP'),
   webSocket('WSS');
@@ -27,7 +31,15 @@ enum OfflineSpeechSynthesisTransport {
   final String label;
 }
 
-enum OfflineSpeechParameterType { text, integer, decimal, toggle, choice, path }
+enum OfflineSpeechParameterType {
+  text,
+  secret,
+  integer,
+  decimal,
+  toggle,
+  choice,
+  path,
+}
 
 class OfflineSpeechOption {
   const OfflineSpeechOption(this.value, this.label);
@@ -66,7 +78,9 @@ class OfflineSpeechParameter {
       OfflineSpeechParameterType.integer => _number(value, integer: true),
       OfflineSpeechParameterType.decimal => _number(value, integer: false),
       OfflineSpeechParameterType.choice => _choice(value),
-      OfflineSpeechParameterType.text || OfflineSpeechParameterType.path =>
+      OfflineSpeechParameterType.text ||
+      OfflineSpeechParameterType.secret ||
+      OfflineSpeechParameterType.path =>
         value is String ? value.trim() : '$defaultValue',
     };
   }
@@ -94,23 +108,36 @@ class OfflineSpeechModelDefinition {
     required this.id,
     required this.name,
     required this.kind,
-    required this.runtime,
+    OfflineSpeechRuntime? runtime,
     required this.repository,
     required this.description,
     required this.sizeLabel,
     required this.parameters,
+    this.deployment = OfflineSpeechDeployment.local,
+    this.onlineService,
     this.synthesisTransport = OfflineSpeechSynthesisTransport.http,
-  });
+  }) : _runtime = runtime,
+       assert(
+         deployment == OfflineSpeechDeployment.local
+             ? onlineService == null && runtime != null
+             : onlineService != null,
+       );
 
   final String id;
   final String name;
   final OfflineSpeechKind kind;
-  final OfflineSpeechRuntime runtime;
+  final OfflineSpeechRuntime? _runtime;
   final String repository;
   final String description;
   final String sizeLabel;
   final List<OfflineSpeechParameter> parameters;
+  final OfflineSpeechDeployment deployment;
+  final OnlineSpeechService? onlineService;
   final OfflineSpeechSynthesisTransport synthesisTransport;
+
+  bool get isOnline => deployment == OfflineSpeechDeployment.online;
+  OfflineSpeechRuntime get runtime =>
+      _runtime ?? (throw StateError('在线语音服务没有本地运行时。'));
 
   Map<String, Object?> defaults() => <String, Object?>{
     for (final parameter in parameters) parameter.key: parameter.defaultValue,
@@ -430,6 +457,55 @@ abstract final class OfflineSpeechModelCatalog {
     OfflineSpeechOption('coreml', 'Core ML'),
     OfflineSpeechOption('cuda', 'CUDA'),
   ];
+  static const _xfyunTranslationLanguages = <OfflineSpeechOption>[
+    OfflineSpeechOption('', '关闭翻译'),
+    OfflineSpeechOption('cn', '中文'),
+    OfflineSpeechOption('en', '英语'),
+    OfflineSpeechOption('ja', '日语'),
+    OfflineSpeechOption('ko', '韩语'),
+    OfflineSpeechOption('ru', '俄语'),
+    OfflineSpeechOption('fr', '法语'),
+    OfflineSpeechOption('es', '西班牙语'),
+    OfflineSpeechOption('vi', '越南语'),
+    OfflineSpeechOption('cn_cantonese', '粤语'),
+    OfflineSpeechOption('de', '德语'),
+    OfflineSpeechOption('it', '意大利语'),
+    OfflineSpeechOption('ar', '阿拉伯语'),
+  ];
+  static const _xfyunDomains = <OfflineSpeechOption>[
+    OfflineSpeechOption('', '通用'),
+    OfflineSpeechOption('court', '法律／法院'),
+    OfflineSpeechOption('finance', '金融'),
+    OfflineSpeechOption('medical', '医疗'),
+    OfflineSpeechOption('tech', '科技'),
+    OfflineSpeechOption('sport', '体育'),
+    OfflineSpeechOption('edu', '教育'),
+    OfflineSpeechOption('isp', '运营商'),
+    OfflineSpeechOption('gov', '政府'),
+    OfflineSpeechOption('game', '游戏'),
+    OfflineSpeechOption('ecom', '电商'),
+    OfflineSpeechOption('mil', '军事'),
+    OfflineSpeechOption('com', '企业'),
+    OfflineSpeechOption('life', '生活'),
+    OfflineSpeechOption('ent', '娱乐'),
+    OfflineSpeechOption('culture', '人文历史'),
+    OfflineSpeechOption('car', '汽车'),
+  ];
+  static const _xfyunStandardDomains = <OfflineSpeechOption>[
+    OfflineSpeechOption('', '通用'),
+    OfflineSpeechOption('court', '法院'),
+    OfflineSpeechOption('edu', '教育'),
+    OfflineSpeechOption('finance', '金融'),
+    OfflineSpeechOption('medical', '医疗'),
+    OfflineSpeechOption('tech', '科技'),
+    OfflineSpeechOption('isp', '运营商'),
+    OfflineSpeechOption('gov', '政府'),
+    OfflineSpeechOption('ecom', '电商'),
+    OfflineSpeechOption('mil', '军事'),
+    OfflineSpeechOption('com', '企业'),
+    OfflineSpeechOption('life', '生活'),
+    OfflineSpeechOption('car', '汽车'),
+  ];
   static const _asrCommon = <OfflineSpeechParameter>[
     OfflineSpeechParameter(
       key: 'language',
@@ -585,6 +661,277 @@ abstract final class OfflineSpeechModelCatalog {
   ];
 
   static const models = <OfflineSpeechModelDefinition>[
+    OfflineSpeechModelDefinition(
+      id: 'xfyun-rtasr',
+      name: '讯飞实时语音转写 · 标准版',
+      kind: OfflineSpeechKind.recognition,
+      repository: 'https://www.xfyun.cn/doc/asr/rtasr/API.html',
+      sizeLabel: 'WSS',
+      description: '云端实时中英文、方言和小语种转写，可选翻译、领域优化与角色分离。',
+      deployment: OfflineSpeechDeployment.online,
+      onlineService: OnlineSpeechService.xfyunRtasr,
+      parameters: <OfflineSpeechParameter>[
+        OfflineSpeechParameter(
+          key: 'endpoint',
+          label: '服务地址',
+          description: '官方实时语音转写 WebSocket 地址。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'wss://rtasr.xfyun.cn/v1/ws',
+        ),
+        OfflineSpeechParameter(
+          key: 'appid',
+          label: 'APPID',
+          description: '讯飞开放平台应用 ID。',
+          type: OfflineSpeechParameterType.secret,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'api_key',
+          label: 'APIKey',
+          description: '实时语音转写服务的 APIKey，用于 HMAC-SHA1 签名。',
+          type: OfflineSpeechParameterType.secret,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'lang',
+          label: '识别语种',
+          description: '默认 cn；英语填 en，已开通的方言或小语种填写控制台显示的参数值。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'cn',
+        ),
+        OfflineSpeechParameter(
+          key: 'trans_type',
+          label: '翻译类型',
+          description: '开通翻译功能后可使用普通翻译。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'normal',
+          options: <OfflineSpeechOption>[OfflineSpeechOption('normal', '普通翻译')],
+        ),
+        OfflineSpeechParameter(
+          key: 'trans_strategy',
+          label: '翻译策略',
+          description: '策略 2 会返回中间过程，官方建议优先使用。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '2',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('1', 'VAD 结果直接翻译'),
+            OfflineSpeechOption('2', '返回中间结果 · 推荐'),
+            OfflineSpeechOption('3', '按结束性标点拆分'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'target_lang',
+          label: '目标翻译语种',
+          description: '留空关闭翻译；非中文语种之间会以中文为过渡语种。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '',
+          options: _xfyunTranslationLanguages,
+        ),
+        OfflineSpeechParameter(
+          key: 'punc',
+          label: '标点',
+          description: '默认返回标点，也可过滤识别结果中的标点。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('', '返回标点 · 默认'),
+            OfflineSpeechOption('0', '过滤标点'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'pd',
+          label: '领域优化',
+          description: '优化特定垂直领域的识别效果。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '',
+          options: _xfyunStandardDomains,
+        ),
+        OfflineSpeechParameter(
+          key: 'vad_mdn',
+          label: '收音场景',
+          description: '远场为默认值，近场适合贴近麦克风说话。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '1',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('1', '远场 · 默认'),
+            OfflineSpeechOption('2', '近场'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'role_type',
+          label: '角色分离',
+          description: '识别并区分不同说话人。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '0',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('0', '关闭 · 默认'),
+            OfflineSpeechOption('2', '开启'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'eng_lang_type',
+          label: '中英文模式',
+          description: '控制中文场景中的英文识别范围。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '1',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('1', '自动中英文 · 默认'),
+            OfflineSpeechOption('2', '中文为主，允许少量英文'),
+            OfflineSpeechOption('4', '纯中文'),
+          ],
+        ),
+      ],
+    ),
+    OfflineSpeechModelDefinition(
+      id: 'xfyun-rtasr-llm',
+      name: '讯飞实时语音转写 · 大模型版',
+      kind: OfflineSpeechKind.recognition,
+      repository: 'https://www.xfyun.cn/doc/spark/asr_llm/rtasr_llm.html',
+      sizeLabel: 'WSS',
+      description: '云端大模型实时转写，支持中英与 202 种方言免切及 37 个语种免切识别。',
+      deployment: OfflineSpeechDeployment.online,
+      onlineService: OnlineSpeechService.xfyunRtasrLlm,
+      parameters: <OfflineSpeechParameter>[
+        OfflineSpeechParameter(
+          key: 'endpoint',
+          label: '服务地址',
+          description: '官方实时语音转写大模型 WebSocket 地址。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue:
+              'wss://office-api-ast-dx.iflyaisol.com/ast/communicate/v1',
+        ),
+        OfflineSpeechParameter(
+          key: 'app_id',
+          label: 'App ID',
+          description: '讯飞开放平台应用 ID。',
+          type: OfflineSpeechParameterType.secret,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'access_key_id',
+          label: 'AccessKey ID',
+          description: '实时语音转写大模型服务的应用 Key。',
+          type: OfflineSpeechParameterType.secret,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'access_key_secret',
+          label: 'AccessKey Secret',
+          description: '用于 HMAC-SHA1 签名的应用密钥。',
+          type: OfflineSpeechParameterType.secret,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'uuid',
+          label: '用户标识',
+          description: '可选业务用户标识；留空时每次请求自动生成 UUID。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'lang',
+          label: '免切识别模式',
+          description: '方言模式覆盖中英与 202 种方言；多语种模式覆盖 37 个语种。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'autodialect',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('autodialect', '中英＋202 种方言'),
+            OfflineSpeechOption('autominor', '37 个语种'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'recognized_language',
+          label: '目标语种',
+          description:
+              '仅多语种模式有效；逗号分隔。支持 cn、en、ja、ko、ru、fr、es、ar、de、th、vi、hi、pt、it、ms、id、fil、tr、el、cs、ur、bn、ta、uk、kk、uz、pl、mn、sw、ha、fa、nl、sv、ro、bg、cn_uyghur、cn_tibetan。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'cn,en',
+        ),
+        OfflineSpeechParameter(
+          key: 'audio_encode',
+          label: '音频编码',
+          description: '语音沟通录音使用 PCM；Speex 与 Opus 适合已编码的外部音频流。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'pcm_s16le',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('pcm_s16le', 'PCM 16-bit'),
+            OfflineSpeechOption('speex-7', 'Speex 7'),
+            OfflineSpeechOption('speex-10', 'Speex 10'),
+            OfflineSpeechOption('opus-wb', 'Opus 16k · 推荐'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'samplerate',
+          label: '采样率',
+          description: 'PCM 音频必须指定；语音沟通固定产生 16 kHz 音频。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '16000',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('16000', '16 kHz'),
+            OfflineSpeechOption('8000', '8 kHz'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'role_type',
+          label: '说话人分离',
+          description: '盲分模式可与注册声纹配合使用。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '0',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('0', '关闭 · 默认'),
+            OfflineSpeechOption('2', '实时角色分离'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'feature_ids',
+          label: '声纹 ID',
+          description: '多个已注册声纹 ID 使用英文逗号分隔；需开启说话人分离。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'eng_spk_match',
+          label: '仅匹配注册声纹',
+          description: '开启后，角色信息全部来自已注册声纹库。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '0',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('0', '关闭 · 默认'),
+            OfflineSpeechOption('1', '开启'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'pd',
+          label: '领域优化',
+          description: '优化特定垂直领域的识别效果。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '',
+          options: _xfyunDomains,
+        ),
+        OfflineSpeechParameter(
+          key: 'eng_punc',
+          label: '标点',
+          description: '默认返回标点，也可过滤识别结果中的标点。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('', '返回标点 · 默认'),
+            OfflineSpeechOption('0', '过滤标点'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'eng_vad_mdn',
+          label: '收音场景',
+          description: '远场为默认值，近场适合贴近麦克风说话。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '1',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('1', '远场 · 默认'),
+            OfflineSpeechOption('2', '近场'),
+          ],
+        ),
+      ],
+    ),
     OfflineSpeechModelDefinition(
       id: 'sensevoice-small',
       name: 'SenseVoice Small',
@@ -846,6 +1193,202 @@ abstract final class OfflineSpeechModelCatalog {
             OfflineSpeechOption('float16', 'FP16'),
             OfflineSpeechOption('float32', 'FP32'),
           ],
+        ),
+      ],
+    ),
+    OfflineSpeechModelDefinition(
+      id: 'xfyun-online-tts',
+      name: '讯飞在线语音合成',
+      kind: OfflineSpeechKind.synthesis,
+      repository: 'https://www.xfyun.cn/doc/tts/online_tts/API.html',
+      sizeLabel: 'WSS',
+      description: '云端 WebSocket 流式语音合成，支持多语种、方言、语速、音量和音高控制。',
+      deployment: OfflineSpeechDeployment.online,
+      onlineService: OnlineSpeechService.xfyunTts,
+      synthesisTransport: OfflineSpeechSynthesisTransport.webSocket,
+      parameters: <OfflineSpeechParameter>[
+        OfflineSpeechParameter(
+          key: 'endpoint',
+          label: '服务地址',
+          description: '官方在线语音合成 WebSocket 地址。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'wss://tts-api.xfyun.cn/v2/tts',
+        ),
+        OfflineSpeechParameter(
+          key: 'auth_mode',
+          label: '鉴权方式',
+          description: '支持 API Password 或 APPID、APIKey、APISecret 签名。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'hmac',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('hmac', 'HMAC-SHA256 签名'),
+            OfflineSpeechOption('api_password', 'API Password'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'app_id',
+          label: 'APPID',
+          description: '讯飞开放平台应用 ID；两种鉴权方式都需要。',
+          type: OfflineSpeechParameterType.secret,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'api_key',
+          label: 'APIKey',
+          description: 'HMAC-SHA256 签名鉴权所需。',
+          type: OfflineSpeechParameterType.secret,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'api_secret',
+          label: 'APISecret',
+          description: 'HMAC-SHA256 签名鉴权所需。',
+          type: OfflineSpeechParameterType.secret,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'api_password',
+          label: 'API Password',
+          description: 'API Password 鉴权所需，从在线语音合成控制台获取。',
+          type: OfflineSpeechParameterType.secret,
+          defaultValue: '',
+        ),
+        OfflineSpeechParameter(
+          key: 'aue',
+          label: '音频编码',
+          description: 'PCM 可边生成边播放；其他编码通过 WebSocket 完整接收后播放。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'raw',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('raw', 'PCM · 低延迟推荐'),
+            OfflineSpeechOption('lame', 'MP3'),
+            OfflineSpeechOption('opus', 'Opus 8k'),
+            OfflineSpeechOption('opus-wb', 'Opus 16k'),
+            OfflineSpeechOption('speex-org-wb', '开源 Speex 16k'),
+            OfflineSpeechOption('speex-org-nb', '开源 Speex 8k'),
+            OfflineSpeechOption('speex', '讯飞 Speex 8k'),
+            OfflineSpeechOption('speex-wb', '讯飞 Speex 16k'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'compression_level',
+          label: 'Speex 压缩等级',
+          description: '选择 Speex 时生效，取值 1–10，默认 7。',
+          type: OfflineSpeechParameterType.integer,
+          defaultValue: 7,
+          min: 1,
+          max: 10,
+        ),
+        OfflineSpeechParameter(
+          key: 'sfl',
+          label: 'MP3 流式返回',
+          description: '选择 MP3 编码时开启，官方接口要求值为 1。',
+          type: OfflineSpeechParameterType.toggle,
+          defaultValue: true,
+        ),
+        OfflineSpeechParameter(
+          key: 'auf',
+          label: '采样率',
+          description: '选择 8 kHz 或 16 kHz 合成音频。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'audio/L16;rate=16000',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('audio/L16;rate=16000', '16 kHz · 默认'),
+            OfflineSpeechOption('audio/L16;rate=8000', '8 kHz'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'vcn',
+          label: '发音人',
+          description:
+              '填写控制台已开通发音人的参数值；常用值：x4_xiaoyan、xiaoyan、aisjiuxu、aisxping、aisjinger、aisbabyxu、x2_xiaofeng。',
+          type: OfflineSpeechParameterType.text,
+          defaultValue: 'x4_xiaoyan',
+        ),
+        OfflineSpeechParameter(
+          key: 'speed',
+          label: '语速',
+          description: '取值 0–100，默认 50。',
+          type: OfflineSpeechParameterType.integer,
+          defaultValue: 50,
+          min: 0,
+          max: 100,
+        ),
+        OfflineSpeechParameter(
+          key: 'volume',
+          label: '音量',
+          description: '取值 0–100，默认 50。',
+          type: OfflineSpeechParameterType.integer,
+          defaultValue: 50,
+          min: 0,
+          max: 100,
+        ),
+        OfflineSpeechParameter(
+          key: 'pitch',
+          label: '音高',
+          description: '取值 0–100，默认 50。',
+          type: OfflineSpeechParameterType.integer,
+          defaultValue: 50,
+          min: 0,
+          max: 100,
+        ),
+        OfflineSpeechParameter(
+          key: 'bgs',
+          label: '背景音',
+          description: '控制是否为合成音频添加背景音。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '0',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('0', '无背景音 · 默认'),
+            OfflineSpeechOption('1', '有背景音'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'tte',
+          label: '文本编码',
+          description: '小语种建议使用 UTF-8。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: 'UTF8',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('UTF8', 'UTF-8 · 推荐'),
+            OfflineSpeechOption('GB2312', 'GB2312'),
+            OfflineSpeechOption('GBK', 'GBK'),
+            OfflineSpeechOption('BIG5', 'BIG5'),
+            OfflineSpeechOption('UNICODE', 'Unicode UTF-16LE'),
+            OfflineSpeechOption('GB18030', 'GB18030'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'reg',
+          label: '英文发音方式',
+          description: '控制无法确定的英文内容按单词还是字母朗读。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '0',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('0', '自动，优先按单词 · 默认'),
+            OfflineSpeechOption('1', '全部按字母'),
+            OfflineSpeechOption('2', '自动，优先按字母'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'rdn',
+          label: '数字发音方式',
+          description: '控制数字按数值还是字符串朗读。',
+          type: OfflineSpeechParameterType.choice,
+          defaultValue: '0',
+          options: <OfflineSpeechOption>[
+            OfflineSpeechOption('0', '自动判断 · 默认'),
+            OfflineSpeechOption('1', '完全数值'),
+            OfflineSpeechOption('2', '完全字符串'),
+            OfflineSpeechOption('3', '字符串优先'),
+          ],
+        ),
+        OfflineSpeechParameter(
+          key: 'binary_output',
+          label: '二进制音频帧',
+          description: '使用 output_proto=binary 接收二进制音频帧。',
+          type: OfflineSpeechParameterType.toggle,
+          defaultValue: false,
         ),
       ],
     ),

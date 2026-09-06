@@ -1,4 +1,6 @@
 PODS:
+  - charset_converter (2.4.0):
+    - FlutterMacOS
   - file_selector_macos (0.0.1):
     - FlutterMacOS
   - flutter_inappwebview_macos (0.0.1):
@@ -21,6 +23,7 @@ PODS:
     - FlutterMacOS
 
 DEPENDENCIES:
+  - charset_converter (from `Flutter/ephemeral/.symlinks/plugins/charset_converter/macos`)
   - file_selector_macos (from `Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos`)
   - flutter_inappwebview_macos (from `Flutter/ephemeral/.symlinks/plugins/flutter_inappwebview_macos/macos`)
   - flutter_pty (from `Flutter/ephemeral/.symlinks/plugins/flutter_pty/macos`)
@@ -36,6 +39,8 @@ SPEC REPOS:
     - OrderedSet
 
 EXTERNAL SOURCES:
+  charset_converter:
+    :path: Flutter/ephemeral/.symlinks/plugins/charset_converter/macos
   file_selector_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos
   flutter_inappwebview_macos:
@@ -56,6 +61,7 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin
 
 SPEC CHECKSUMS:
+  charset_converter: 1181fdf66cb99c88eeaea212f3fcbc734546cb15
   file_selector_macos: 9e9e068e90ebee155097d00e89ae91edb2374db7
   flutter_inappwebview_macos: c2d68649f9f8f1831bfcd98d73fd6256366d9d1d
   flutter_pty: 1e360feaf8b1a213d2d50da3c076005b8eef1eee

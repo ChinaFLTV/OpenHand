@@ -606,7 +606,8 @@ class AiVoiceConversationService extends ChangeNotifier {
       _finalizeUtterance(force: true);
       return;
     }
-    if (_utterance.length >= _minimumRecognitionBytes &&
+    if (!(_recognitionModel?.isOnline ?? false) &&
+        _utterance.length >= _minimumRecognitionBytes &&
         _partialRecognitionTimer == null) {
       _partialRecognitionTimer = startSafeTimer(
         _partialRecognitionInterval,
@@ -1083,8 +1084,12 @@ class AiVoiceConversationService extends ChangeNotifier {
     if (_speechGenerationActive) return;
     _speechGenerationActive = true;
     try {
-      if (_synthesisModel?.synthesisTransport ==
-          OfflineSpeechSynthesisTransport.webSocket) {
+      final synthesisModel = _synthesisModel;
+      if (synthesisModel != null &&
+          _modelService.supportsRealtimeSynthesis(
+            synthesisModel,
+            _synthesisConfiguration,
+          )) {
         await _streamSpeechResponse(sessionSerial, speechSerial);
         return;
       }
@@ -1158,6 +1163,7 @@ class AiVoiceConversationService extends ChangeNotifier {
       }
       speech = await _modelService.startSynthesisStream(
         model,
+        configuration: _synthesisConfiguration,
         cancelSignal: cancelSignal,
       );
       if (!_isCurrentSession(sessionSerial) || speechSerial != _speechSerial) {

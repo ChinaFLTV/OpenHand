@@ -55,7 +55,8 @@ class _OfflineSpeechModelPanelState extends State<_OfflineSpeechModelPanel> {
         children: <Widget>[
           _OfflineSpeechPanelHeader(
             kind: widget.kind,
-            modelCount: models.length,
+            localCount: models.where((model) => !model.isOnline).length,
+            onlineCount: models.where((model) => model.isOnline).length,
           ),
           if (widget.kind == OfflineSpeechKind.recognition &&
               widget.silenceTimeoutSeconds != null &&
@@ -503,11 +504,13 @@ class _OfflineSpeechSelectorButton extends StatelessWidget {
 class _OfflineSpeechPanelHeader extends StatelessWidget {
   const _OfflineSpeechPanelHeader({
     required this.kind,
-    required this.modelCount,
+    required this.localCount,
+    required this.onlineCount,
   });
 
   final OfflineSpeechKind kind;
-  final int modelCount;
+  final int localCount;
+  final int onlineCount;
 
   @override
   Widget build(BuildContext context) {
@@ -528,20 +531,20 @@ class _OfflineSpeechPanelHeader extends StatelessWidget {
               ),
             ),
             _OfflineSpeechBadge(
-              label: '$modelCount 个本地模型',
+              label: '$localCount 个本地模型',
               color: theme.colorScheme.primary,
             ),
-            const _OfflineSpeechBadge(
-              label: '完全离线',
-              color: OpenHandStatusColors.success,
+            _OfflineSpeechBadge(
+              label: '$onlineCount 个在线服务',
+              color: theme.colorScheme.tertiary,
             ),
           ],
         ),
         kOpenHandGap5,
         Text(
           isRecognition
-              ? '下载并管理本地 ASR／STT 模型。全程离线，当前仅可启用一个识别模型。'
-              : '下载并管理本地 TTS 模型。全程离线，当前仅可启用一个朗读模型。',
+              ? '统一管理本地与在线 ASR／STT 服务，当前仅可启用一个识别服务。'
+              : '统一管理本地与在线 TTS 服务，当前仅可启用一个朗读服务。',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
             height: 1.4,
@@ -629,7 +632,10 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
         preparing ||
         state.lifecycle == OfflineSpeechLifecycle.starting ||
         state.lifecycle == OfflineSpeechLifecycle.stopping;
-    final accent = theme.colorScheme.primary;
+    final online = widget.model.isOnline;
+    final accent = online
+        ? theme.colorScheme.tertiary
+        : theme.colorScheme.primary;
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion260),
       curve: kOpenHandEmphasizedCurve,
@@ -668,10 +674,15 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                           ),
                         ),
                         _OfflineSpeechBadge(
-                          label: widget.model.sizeLabel,
+                          label: online ? '在线' : '本地',
                           color: accent,
                         ),
-                        if (widget.model.kind == OfflineSpeechKind.synthesis)
+                        _OfflineSpeechBadge(
+                          label: widget.model.sizeLabel,
+                          color: online ? OpenHandStatusColors.success : accent,
+                        ),
+                        if (!online &&
+                            widget.model.kind == OfflineSpeechKind.synthesis)
                           _OfflineSpeechBadge(
                             label: widget.model.synthesisTransport.label,
                             color:
@@ -680,9 +691,15 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                                 ? OpenHandStatusColors.success
                                 : theme.colorScheme.secondary,
                           ),
-                        _OfflineSpeechLifecycleBadge(state: state),
+                        if (!online) _OfflineSpeechLifecycleBadge(state: state),
                         _OfflineSpeechBadge(
-                          label: hardwareAvailable ? '设备可用' : '设备不可用',
+                          label: online
+                              ? hardwareAvailable
+                                    ? '配置就绪'
+                                    : '待补全'
+                              : hardwareAvailable
+                              ? '设备可用'
+                              : '设备不可用',
                           color: hardwareAvailable
                               ? OpenHandStatusColors.success
                               : theme.colorScheme.error,
@@ -722,71 +739,74 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                 alignment: WrapAlignment.end,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
-                  _OfflineSpeechActionButton(
-                    tooltip:
-                        state.lifecycle == OfflineSpeechLifecycle.downloading
-                        ? '正在下载模型'
-                        : preparing
-                        ? '正在准备隔离运行环境'
-                        : !hardwareAvailable
-                        ? availability.reason
-                        : repairingRuntime
-                        ? '补全隔离运行环境'
-                        : requiresUpdate
-                        ? '更新模型'
-                        : installed
-                        ? '移除模型'
-                        : '下载模型',
-                    onPressed:
-                        busy ||
-                            (!hardwareAvailable &&
-                                (!installed || requiresUpdate))
-                        ? null
-                        : requiresUpdate || !installed
-                        ? _showDownloadDialog
-                        : _confirmRemove,
-                    child:
-                        state.lifecycle == OfflineSpeechLifecycle.downloading ||
-                            preparing
-                        ? const SizedBox.square(
-                            dimension: 17,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            repairingRuntime
-                                ? Icons.settings_suggest_rounded
-                                : requiresUpdate
-                                ? Icons.system_update_alt_rounded
-                                : installed
-                                ? Icons.delete_outline_rounded
-                                : Icons.download_rounded,
-                            size: 22,
-                          ),
-                  ),
-                  if (requiresUpdate)
+                  if (!online)
+                    _OfflineSpeechActionButton(
+                      tooltip:
+                          state.lifecycle == OfflineSpeechLifecycle.downloading
+                          ? '正在下载模型'
+                          : preparing
+                          ? '正在准备隔离运行环境'
+                          : !hardwareAvailable
+                          ? availability.reason
+                          : repairingRuntime
+                          ? '补全隔离运行环境'
+                          : requiresUpdate
+                          ? '更新模型'
+                          : installed
+                          ? '移除模型'
+                          : '下载模型',
+                      onPressed:
+                          busy ||
+                              (!hardwareAvailable &&
+                                  (!installed || requiresUpdate))
+                          ? null
+                          : requiresUpdate || !installed
+                          ? _showDownloadDialog
+                          : _confirmRemove,
+                      child:
+                          state.lifecycle ==
+                                  OfflineSpeechLifecycle.downloading ||
+                              preparing
+                          ? const SizedBox.square(
+                              dimension: 17,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              repairingRuntime
+                                  ? Icons.settings_suggest_rounded
+                                  : requiresUpdate
+                                  ? Icons.system_update_alt_rounded
+                                  : installed
+                                  ? Icons.delete_outline_rounded
+                                  : Icons.download_rounded,
+                              size: 22,
+                            ),
+                    ),
+                  if (!online && requiresUpdate)
                     _OfflineSpeechActionButton(
                       tooltip: '移除模型',
                       onPressed: busy ? null : _confirmRemove,
                       child: const Icon(Icons.delete_outline_rounded, size: 22),
                     ),
-                  _OfflineSpeechActionButton(
-                    tooltip: !hardwareAvailable
-                        ? availability.reason
-                        : running
-                        ? '停止模型'
-                        : '运行模型',
-                    onPressed: runnable && !busy
-                        ? running
-                              ? _stop
-                              : _start
-                        : null,
-                    child: Icon(
-                      running
-                          ? Icons.stop_rounded
-                          : Icons.power_settings_new_rounded,
-                      size: 22,
+                  if (!online)
+                    _OfflineSpeechActionButton(
+                      tooltip: !hardwareAvailable
+                          ? availability.reason
+                          : running
+                          ? '停止模型'
+                          : '运行模型',
+                      onPressed: runnable && !busy
+                          ? running
+                                ? _stop
+                                : _start
+                          : null,
+                      child: Icon(
+                        running
+                            ? Icons.stop_rounded
+                            : Icons.power_settings_new_rounded,
+                        size: 22,
+                      ),
                     ),
-                  ),
                   _OfflineSpeechActionButton(
                     tooltip: hardwareAvailable
                         ? widget.model.kind == OfflineSpeechKind.synthesis
@@ -803,7 +823,7 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                   ),
                   _AiProviderCardExpandButton(
                     expanded: _expanded,
-                    enabled: _enabled && hardwareAvailable,
+                    enabled: online || (_enabled && hardwareAvailable),
                     onPressed: () {
                       setState(() => _expanded = !_expanded);
                       HapticFeedback.selectionClick();
@@ -812,10 +832,18 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
                   Tooltip(
                     message: !hardwareAvailable
                         ? _enabled
-                              ? '设备不可用，仅可禁用模型'
+                              ? online
+                                    ? '配置不完整，仅可禁用服务'
+                                    : '设备不可用，仅可禁用模型'
                               : availability.reason
                         : runnable
-                        ? (_enabled ? '禁用模型' : '启用模型')
+                        ? (_enabled
+                              ? online
+                                    ? '禁用在线服务'
+                                    : '禁用模型'
+                              : online
+                              ? '启用在线服务'
+                              : '启用模型')
                         : '下载当前配置后可启用',
                     child: _SettingsSwitch(
                       value: _enabled,
@@ -829,11 +857,12 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
             ],
           ),
           _AnimatedSettingReveal(
-            visible: hardwareAvailable && _enabled && _expanded,
+            visible: _expanded && (online || (hardwareAvailable && _enabled)),
             child: Padding(
               padding: const EdgeInsets.only(top: 14),
               child: _AiTtsProviderSection(
-                title: '模型配置 · ${widget.model.parameters.length} 项',
+                title:
+                    '${online ? '在线服务' : '模型'}配置 · ${widget.model.parameters.length} 项',
                 child: _AiTtsProviderFieldGrid(
                   children: <Widget>[
                     for (final parameter in widget.model.parameters)
@@ -983,9 +1012,9 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
         ),
       );
     } catch (error, stack) {
-      silentLog('settings_offline_speech', '测试离线语音模型', error, stack);
+      silentLog('settings_offline_speech', '测试语音服务', error, stack);
       if (!mounted) return;
-      _showOperationError('模型测试失败', error);
+      _showOperationError(widget.model.isOnline ? '在线服务测试失败' : '模型测试失败', error);
     } finally {
       if (mounted) setState(() => _testing = false);
     }
@@ -1078,10 +1107,12 @@ class _OfflineSpeechParameterField extends StatelessWidget {
         ),
       ),
       OfflineSpeechParameterType.text ||
+      OfflineSpeechParameterType.secret ||
       OfflineSpeechParameterType.path => _AiTtsProviderTextField(
         label: parameter.label,
         value: '$value',
         maxLines: parameter.type == OfflineSpeechParameterType.text ? 2 : 1,
+        obscure: parameter.type == OfflineSpeechParameterType.secret,
         onSubmitted: onChanged,
       ),
     };
@@ -1514,7 +1545,8 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
     _OfflineSpeechTestPhase.recognizing => '正在执行语音识别',
     _OfflineSpeechTestPhase.ready => _isRecognition ? '语音识别测试' : '语音朗读测试',
     _OfflineSpeechTestPhase.cancelled => '测试已终止',
-    _OfflineSpeechTestPhase.failed => '模型测试失败',
+    _OfflineSpeechTestPhase.failed =>
+      widget.model.isOnline ? '在线服务测试失败' : '模型测试失败',
   };
 
   Future<OfflineSpeechTestResult> _runModelTest({String? audioPath}) async {
@@ -1536,7 +1568,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
     try {
       final result = await _runModelTest();
       final path = result.audioPath;
-      if (path == null) throw StateError('模型没有返回试听音频。');
+      if (path == null) throw StateError('语音服务没有返回试听音频。');
       if (!mounted || _terminated) {
         await _deleteTemporaryPath(path);
         return;
@@ -1568,7 +1600,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       }
     } catch (error, stack) {
       if (error is! OfflineSpeechTestCancelled && !_terminated) {
-        silentLog('settings_offline_speech', '生成离线语音试听', error, stack);
+        silentLog('settings_offline_speech', '生成语音试听', error, stack);
       }
       _setFailure(error);
     }
@@ -1659,7 +1691,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       setState(() => _phase = _OfflineSpeechTestPhase.recording);
     } catch (error, stack) {
       if (!_terminated) {
-        silentLog('settings_offline_speech', '启动离线语音测试录音', error, stack);
+        silentLog('settings_offline_speech', '启动语音测试录音', error, stack);
       }
       await _disposeRecorder(cancel: true);
       await _deleteTemporaryAudio();
@@ -1702,7 +1734,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       });
     } catch (error, stack) {
       if (error is! OfflineSpeechTestCancelled && !_terminated) {
-        silentLog('settings_offline_speech', '执行离线语音识别测试', error, stack);
+        silentLog('settings_offline_speech', '执行语音识别测试', error, stack);
       }
       await _disposeRecorder(cancel: true);
       _setFailure(error);
@@ -1720,7 +1752,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
           .timeout(_offlineSpeechTestOperationTimeout);
       await player.play().timeout(_offlineSpeechTestOperationTimeout);
     } catch (error, stack) {
-      silentLog('settings_offline_speech', '重新播放离线语音试听', error, stack);
+      silentLog('settings_offline_speech', '重新播放语音试听', error, stack);
       _setFailure(error);
     }
   }
@@ -1755,7 +1787,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
     if (!mounted || _terminated || error is OfflineSpeechTestCancelled) return;
     setState(() {
       _phase = _OfflineSpeechTestPhase.failed;
-      _error = userFailureMessage(error, fallback: '模型测试失败。');
+      _error = userFailureMessage(error, fallback: '语音服务测试失败。');
       _finishingRecording = false;
     });
   }
@@ -1769,7 +1801,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
           _offlineSpeechTestOperationTimeout,
         );
       } catch (error, stack) {
-        silentLog('settings_offline_speech', '取消离线语音测试波形订阅', error, stack);
+        silentLog('settings_offline_speech', '取消语音测试波形订阅', error, stack);
       }
     }
     final recorder = _recorder;
@@ -1780,12 +1812,12 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
         await recorder.cancel().timeout(_offlineSpeechTestOperationTimeout);
       }
     } catch (error, stack) {
-      silentLog('settings_offline_speech', '取消离线语音测试录音', error, stack);
+      silentLog('settings_offline_speech', '取消语音测试录音', error, stack);
     }
     try {
       await recorder.dispose().timeout(_offlineSpeechTestOperationTimeout);
     } catch (error, stack) {
-      silentLog('settings_offline_speech', '释放离线语音测试录音器', error, stack);
+      silentLog('settings_offline_speech', '释放语音测试录音器', error, stack);
     }
   }
 
@@ -1794,7 +1826,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       try {
         await subscription.cancel().timeout(_offlineSpeechTestOperationTimeout);
       } catch (error, stack) {
-        silentLog('settings_offline_speech', '取消离线语音测试订阅', error, stack);
+        silentLog('settings_offline_speech', '取消语音测试订阅', error, stack);
       }
     }
     _subscriptions.clear();
@@ -1805,7 +1837,7 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       try {
         await player.dispose().timeout(_offlineSpeechTestOperationTimeout);
       } catch (error, stack) {
-        silentLog('settings_offline_speech', '释放离线语音测试播放器', error, stack);
+        silentLog('settings_offline_speech', '释放语音测试播放器', error, stack);
       }
     }
     await _deleteTemporaryAudio();
