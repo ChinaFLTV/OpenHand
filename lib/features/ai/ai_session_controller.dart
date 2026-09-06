@@ -212,6 +212,7 @@ class AiSessionController extends ChangeNotifier {
 
   static const Duration runtimeCleanupTimeout =
       kOpenHandServiceRuntimeCleanupTimeout;
+  static const int _shutdownCancellationConcurrency = 8;
 
   static const int maxManualTitleCharacters =
       AiSessionDataLimits.maxSessionTitleCharacters;
@@ -7145,23 +7146,22 @@ class AiSessionController extends ChangeNotifier {
     required Set<String> sessionIds,
     required List<Future<void>> pendingOperations,
   }) async {
-    final cancellationTasks = <Future<void>>[];
-    for (final entry in cancelHandlers) {
-      cancellationTasks.add(
-        _runShutdownCleanup('关闭会话取消处理器：${entry.key}', entry.value),
-      );
-    }
-    for (final sessionId in sessionIds) {
-      cancellationTasks.add(
-        _runShutdownCleanup(
+    final sessionIdList = sessionIds.toList(growable: false);
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: cancelHandlers.length + sessionIdList.length,
+      maxConcurrency: _shutdownCancellationConcurrency,
+      task: (index) {
+        if (index < cancelHandlers.length) {
+          final entry = cancelHandlers[index];
+          return _runShutdownCleanup('关闭会话取消处理器：${entry.key}', entry.value);
+        }
+        final sessionId = sessionIdList[index - cancelHandlers.length];
+        return _runShutdownCleanup(
           '关闭会话工具执行：$sessionId',
           () => AiToolExecutionRegistry.instance.cancelSession(sessionId),
-        ),
-      );
-    }
-    if (cancellationTasks.isNotEmpty) {
-      await Future.wait<void>(cancellationTasks);
-    }
+        );
+      },
+    );
     if (pendingOperations.isNotEmpty) {
       await _runShutdownCleanup(
         '等待会话操作结束',

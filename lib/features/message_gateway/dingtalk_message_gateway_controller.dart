@@ -379,8 +379,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       '钉钉回复必须完整、可直接发送。若声明查询、调用、重试或继续，立即完成对应动作；不得以冒号、半句或未闭合结构结束。';
   static const String _overloadBusyReply = 'AI 当前较忙，请稍后再试。';
   static const String _responseFailureReply = 'AI 响应失败，请稍后重试。';
+  static const String _conversationCapacityError =
+      '钉钉会话已达到 $kDingTalkMaxConversations 个上限，请删除不再需要的会话后重试。';
   static const int _maxConversationReconcileCount = 12;
   static const int _conversationReconcileConcurrency = 4;
+  static const int _responseCancellationConcurrency = 4;
   static const int _maxConversationReconcileFailureCount = 6;
   static final RegExp _mentionTrailingBoundary = RegExp(
     r'[\s，。！？、,:：;；）)\]】>…]',
@@ -1138,6 +1141,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   void openConversation(DingTalkConversationTarget target) {
     if (!isServiceEnabled || _conversations.containsKey(target.id)) return;
+    if (!_canCreateConversation()) return;
     final conversation = DingTalkConversation(
       id: target.id,
       type: target.type,
@@ -1374,20 +1378,30 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _responseCancellationVersions[normalizedId] = nextVersion;
     final conversation = _conversations[normalizedId];
     final sessionId = conversation?.aiSessionId;
-    if (sessionId == null || !_sessionController.canStopResponding(sessionId)) {
+    if (sessionId == null) {
       _responseInFlight.remove(normalizedId);
       _notify();
       return;
     }
     try {
+      await _stopSessionResponse(sessionId, operation: '停止钉钉 AI 响应');
+    } finally {
+      _responseInFlight.remove(normalizedId);
+      _notify();
+    }
+  }
+
+  Future<void> _stopSessionResponse(
+    String sessionId, {
+    required String operation,
+  }) async {
+    if (!_sessionController.canStopResponding(sessionId)) return;
+    try {
       await _sessionController
           .stopResponding(sessionId)
           .timeout(_stopResponseTimeout);
     } catch (error, stack) {
-      silentLog('dingtalk_gateway', '停止钉钉 AI 响应', error, stack);
-    } finally {
-      _responseInFlight.remove(normalizedId);
-      _notify();
+      silentLog('dingtalk_gateway', operation, error, stack);
     }
   }
 
@@ -1408,6 +1422,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (normalizedId.isEmpty) return false;
     final conversation = _conversations[normalizedId];
     if (conversation == null) return false;
+    if (conversation.messages.length >= kDingTalkMaxMessagesPerConversation) {
+      return false;
+    }
     final state = _conversationHistoryStates[normalizedId];
     if (state == null || !state.initialized) {
       return conversation.messages.isNotEmpty;
@@ -3461,7 +3478,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         (incoming.conversationType == DingTalkConversationType.group
             ? incoming.conversationId
             : allowedTarget.id);
-    final createdConversation = localConversation == null;
+    final createdConversation =
+        localConversation == null &&
+        !_conversations.containsKey(conversationId);
+    if (createdConversation && !_canCreateConversation()) return;
     final conversation =
         localConversation ??
         _conversations.putIfAbsent(
@@ -4160,7 +4180,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     bool allowResponses = true,
     DateTime? historicalMessageFloor,
   }) {
-    final initialMessageCount = conversation.messages.length;
     if (conversation.type == DingTalkConversationType.direct &&
         (conversation.openConversationId?.trim().isEmpty ?? true)) {
       final remoteConversationId = messages
@@ -4199,7 +4218,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _queuePersist();
       _notify();
     }
-    return math.max(0, conversation.messages.length - initialMessageCount);
+    return conversation.messages.where((message) {
+      final messageId = normalizeDingTalkMessageId(message.id);
+      return messageId.isNotEmpty && !knownIds.contains(messageId);
+    }).length;
   }
 
   void _rememberPendingRecall(String messageId) {
@@ -6578,16 +6600,8 @@ ${_markdownStructuredFields(response)}''';
         (_responseCancellationVersions[conversationId] ?? 0) + 1;
     final sessionId = _conversations[conversationId]?.aiSessionId;
     _notify();
-    if (sessionId == null || !_sessionController.canStopResponding(sessionId)) {
-      return;
-    }
-    try {
-      await _sessionController
-          .stopResponding(sessionId)
-          .timeout(_stopResponseTimeout);
-    } catch (error, stack) {
-      silentLog('dingtalk_gateway', '排除上下文消息时停止钉钉 AI 响应', error, stack);
-    }
+    if (sessionId == null) return;
+    await _stopSessionResponse(sessionId, operation: '排除上下文消息时停止钉钉 AI 响应');
   }
 
   Future<void> _cancelObsoleteAutomaticResponses() async {
@@ -6609,23 +6623,20 @@ ${_markdownStructuredFields(response)}''';
         .toSet();
     activeConversationIds.addAll(_activeResponseConversationIds);
     activeConversationIds.addAll(_responseInFlight);
-    await Future.wait<void>(
-      activeConversationIds.map((conversationId) async {
+    final activeConversationIdList = activeConversationIds.toList(
+      growable: false,
+    );
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: activeConversationIdList.length,
+      maxConcurrency: _responseCancellationConcurrency,
+      task: (index) async {
+        final conversationId = activeConversationIdList[index];
         _responseCancellationVersions[conversationId] =
             (_responseCancellationVersions[conversationId] ?? 0) + 1;
         final sessionId = _conversations[conversationId]?.aiSessionId;
-        if (sessionId == null ||
-            !_sessionController.canStopResponding(sessionId)) {
-          return;
-        }
-        try {
-          await _sessionController
-              .stopResponding(sessionId)
-              .timeout(_stopResponseTimeout);
-        } catch (error, stack) {
-          silentLog('dingtalk_gateway', '停止旧周期钉钉自动响应', error, stack);
-        }
-      }),
+        if (sessionId == null) return;
+        await _stopSessionResponse(sessionId, operation: '停止旧周期钉钉自动响应');
+      },
     );
     _activeAutomaticResponses.clear();
   }
@@ -6641,7 +6652,7 @@ ${_markdownStructuredFields(response)}''';
         .toSet();
     if (disallowedConversationIds.isEmpty) return;
 
-    final stopTasks = <Future<void>>[];
+    final sessionIdsToStop = <String>[];
     for (final conversationId in disallowedConversationIds) {
       final queue = _responseQueues[conversationId];
       final conversation = _conversations[conversationId];
@@ -6682,21 +6693,19 @@ ${_markdownStructuredFields(response)}''';
         mediaCancellation.complete();
       }
       final sessionId = conversation?.aiSessionId;
-      if (sessionId == null ||
-          !_sessionController.canStopResponding(sessionId)) {
-        continue;
-      }
-      stopTasks.add(() async {
-        try {
-          await _sessionController
-              .stopResponding(sessionId)
-              .timeout(_stopResponseTimeout);
-        } catch (error, stack) {
-          silentLog('dingtalk_gateway', '撤销白名单后停止钉钉自动响应', error, stack);
-        }
-      }());
+      if (sessionId == null) continue;
+      sessionIdsToStop.add(sessionId);
     }
-    await Future.wait(stopTasks);
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: sessionIdsToStop.length,
+      maxConcurrency: _responseCancellationConcurrency,
+      task: (index) async {
+        await _stopSessionResponse(
+          sessionIdsToStop[index],
+          operation: '撤销白名单后停止钉钉自动响应',
+        );
+      },
+    );
     _scheduleResponseWorkers();
   }
 
@@ -7375,11 +7384,24 @@ ${_markdownStructuredFields(response)}''';
     final normalized = normalizeDingTalkConversationMessages(
       conversation.messages,
     );
-    if (!normalized.changed) return false;
+    final overflow =
+        normalized.messages.length - kDingTalkMaxMessagesPerConversation;
+    if (!normalized.changed && overflow <= 0) return false;
     conversation.messages
       ..clear()
-      ..addAll(normalized.messages);
+      ..addAll(
+        overflow > 0 ? normalized.messages.skip(overflow) : normalized.messages,
+      );
     return true;
+  }
+
+  bool _canCreateConversation() {
+    if (_conversations.length < kDingTalkMaxConversations) return true;
+    if (_errorMessage != _conversationCapacityError) {
+      _errorMessage = _conversationCapacityError;
+      _notify();
+    }
+    return false;
   }
 
   void _appendMessage(
@@ -7589,15 +7611,17 @@ ${_markdownStructuredFields(response)}''';
     final activeResponseIds = _conversations.keys
         .where(isConversationResponding)
         .toList(growable: false);
-    await Future.wait<void>(
-      activeResponseIds.map(
-        (conversationId) => runAsyncCleanupBounded(
-          () => stopConversationResponse(conversationId),
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: activeResponseIds.length,
+      maxConcurrency: _responseCancellationConcurrency,
+      task: (index) async {
+        await runAsyncCleanupBounded(
+          () => stopConversationResponse(activeResponseIds[index]),
           timeout: _shutdownCleanupTimeout,
           onError: (error, stack) =>
               silentLog('dingtalk_gateway', '停止钉钉会话响应', error, stack),
-        ).then<void>((_) {}),
-      ),
+        );
+      },
     );
     for (final queue in _responseQueues.values) {
       for (final item in queue) {

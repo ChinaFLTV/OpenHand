@@ -485,6 +485,9 @@ String normalizeDingTalkReaction(Object? value) {
 
 const int kDingTalkMaxReactionTypes = 12;
 const int kDingTalkMaxReactionUsers = 50;
+const int kDingTalkMaxConversations = 200;
+const int kDingTalkMaxMessagesPerConversation = 1000;
+const int kDingTalkMaxMessageContentCharacters = 256 * kBytesPerKiB;
 
 /// 仅识别钉钉明确返回的本人标记，发送通道不代表消息发送人。
 bool isDingTalkMessageExplicitlyFromSelf(Map<String, Object?> message) =>

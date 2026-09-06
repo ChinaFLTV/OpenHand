@@ -30,9 +30,6 @@ class DingTalkMessageGatewayStore {
           );
 
   static const int _maxBytes = 512 * kBytesPerKiB;
-  static const int _maxConversations = 200;
-  static const int _maxMessagesPerConversation = 1000;
-  static const int _maxMessageContentLength = 256 * kBytesPerKiB;
   final String filePath;
   String? _expectedContent;
   bool _loaded = false;
@@ -65,7 +62,7 @@ class DingTalkMessageGatewayStore {
     final rawConversationList = rawConversations is List
         ? rawConversations
         : const <Object?>[];
-    if (rawConversationList.length > _maxConversations) {
+    if (rawConversationList.length > kDingTalkMaxConversations) {
       throw const FormatException('钉钉会话数量超过安全上限。');
     }
     final conversationIds = <String>{};
@@ -80,7 +77,7 @@ class DingTalkMessageGatewayStore {
         throw FormatException('钉钉会话[$index].messages 必须为列表。');
       }
       if (rawMessages is List) {
-        if (rawMessages.length > _maxMessagesPerConversation) {
+        if (rawMessages.length > kDingTalkMaxMessagesPerConversation) {
           throw FormatException('钉钉会话[$index]消息数量超过安全上限。');
         }
         if (rawMessages.any((message) => message is! Map)) {
@@ -97,7 +94,7 @@ class DingTalkMessageGatewayStore {
       }
       final messages = _keepRecentMessages(
         conversation.messages,
-        maxMessages: _maxMessagesPerConversation,
+        maxMessages: kDingTalkMaxMessagesPerConversation,
       );
       conversation.messages
         ..clear()
@@ -138,9 +135,9 @@ class DingTalkMessageGatewayStore {
     }
     final normalized = settings.normalized();
     final sourceConversations = conversations
-        .take(_maxConversations + 1)
+        .take(kDingTalkMaxConversations + 1)
         .toList(growable: false);
-    if (sourceConversations.length > _maxConversations) {
+    if (sourceConversations.length > kDingTalkMaxConversations) {
       throw const FormatException('钉钉会话数量超过安全上限。');
     }
     final conversationIds = <String>{};
@@ -151,7 +148,7 @@ class DingTalkMessageGatewayStore {
           }
           final messages = _keepRecentMessages(
             conversation.messages,
-            maxMessages: _maxMessagesPerConversation,
+            maxMessages: kDingTalkMaxMessagesPerConversation,
           );
           return conversation.snapshot(messages: messages);
         })
@@ -204,7 +201,8 @@ class DingTalkMessageGatewayStore {
   }) {
     final messages = source.toList(growable: true);
     if (messages.any(
-      (message) => message.content.length > _maxMessageContentLength,
+      (message) =>
+          message.content.length > kDingTalkMaxMessageContentCharacters,
     )) {
       throw const FormatException('钉钉消息内容超过安全上限。');
     }
