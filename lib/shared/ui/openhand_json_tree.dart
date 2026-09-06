@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../util/byte_size_format.dart';
 import '../util/localized_text.dart';
 import '../util/timer_safety.dart';
+import 'animated_dialog.dart';
 import 'animated_expandable.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
@@ -17,6 +19,8 @@ import 'openhand_typography.dart';
 const int kOpenHandJsonTreeMaxCharacters = 512 * kBytesPerKiB;
 const int kOpenHandJsonTreeMaxNodes = 4096;
 const int kOpenHandJsonTreeMaxDepth = 32;
+const int kOpenHandJsonTreeFullViewMinCharacters = 360;
+const double kOpenHandJsonTreePreviewMaxHeight = 260;
 const Duration kOpenHandJsonTreeCopyFeedbackDuration = Duration(seconds: 2);
 const Duration kOpenHandJsonTreeExpandDuration = kOpenHandMotion280;
 const Duration kOpenHandJsonTreeCollapseDuration = kOpenHandMotion220;
@@ -60,6 +64,60 @@ class OpenHandJsonTreeDocument {
 
   final Object value;
   final Set<String> containerPaths;
+}
+
+bool openHandJsonTreeNeedsFullView(String text) {
+  final trimmed = text.trim();
+  if (trimmed.length >= kOpenHandJsonTreeFullViewMinCharacters) return true;
+  return trimmed.endsWith('…') && trimmed.length >= 80;
+}
+
+String? tryPrettyOpenHandJsonText(String text) {
+  final trimmed = text.trim();
+  if (trimmed.length < 2 ||
+      !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
+          !(trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    return null;
+  }
+  try {
+    return const JsonEncoder.withIndent('  ').convert(jsonDecode(trimmed));
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> showOpenHandJsonFullViewDialog({
+  required BuildContext context,
+  required String text,
+  String? label,
+  bool error = false,
+  String logTag = 'json_tree',
+}) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      final media = MediaQuery.sizeOf(dialogContext);
+      final colorScheme = Theme.of(dialogContext).colorScheme;
+      final pretty = tryPrettyOpenHandJsonText(text);
+      return buildOpenHandDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        backgroundColor: colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius30,
+          side: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        maxWidth: kOpenHandDialogWidthWide,
+        height: math.min(kOpenHandDialogHeightTall, media.height * 0.86),
+        child: _OpenHandJsonFullViewDialog(
+          text: pretty ?? text,
+          sourceText: text,
+          label: label,
+          error: error,
+          logTag: logTag,
+        ),
+      );
+    },
+  );
 }
 
 OpenHandJsonTreeDocument? tryParseOpenHandJsonTreeDocument(String text) {
@@ -117,6 +175,7 @@ class OpenHandJsonTreeView extends StatefulWidget {
     this.emptyText = '',
     this.label,
     this.error = false,
+    this.enableFullView = true,
     this.logTag = 'json_tree',
   });
 
@@ -124,6 +183,7 @@ class OpenHandJsonTreeView extends StatefulWidget {
   final String emptyText;
   final String? label;
   final bool error;
+  final bool enableFullView;
   final String logTag;
 
   @override
@@ -166,6 +226,22 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
         (path) => path != r'$' && '/'.allMatches(path).length == 1,
       ),
     };
+  }
+
+  bool get _offersFullView =>
+      widget.enableFullView && openHandJsonTreeNeedsFullView(widget.text);
+
+  void _openFullView() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showOpenHandJsonFullViewDialog(
+        context: context,
+        text: widget.text,
+        label: widget.label,
+        error: widget.error,
+        logTag: widget.logTag,
+      );
+    });
   }
 
   Future<void> _copy() async {
@@ -323,6 +399,27 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
                   ),
                   kOpenHandHGap4,
                 ],
+                if (_offersFullView) ...[
+                  IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 30,
+                      height: 30,
+                    ),
+                    padding: EdgeInsets.zero,
+                    tooltip: openHandLocalizedText(
+                      context,
+                      zh: '显示全部内容',
+                      zhHant: '顯示全部內容',
+                      en: 'Show full content',
+                      fr: 'Afficher tout le contenu',
+                      de: 'Vollständigen Inhalt anzeigen',
+                      ja: 'すべての内容を表示',
+                    ),
+                    onPressed: _openFullView,
+                    icon: const Icon(Icons.open_in_full_rounded, size: 16),
+                  ),
+                  kOpenHandHGap4,
+                ],
                 IconButton(
                   constraints: const BoxConstraints.tightFor(
                     width: 30,
@@ -362,18 +459,22 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: document == null
-                ? SelectableText(
-                    widget.text,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: kOpenHandMonospaceFontFamily,
-                      color: widget.error ? colorScheme.error : null,
-                      height: 1.5,
-                    ),
-                  )
-                : _buildJsonRoot(context, document.value),
+          _jsonTreePreviewBody(
+            context: context,
+            clipped: _offersFullView,
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: document == null
+                  ? SelectableText(
+                      widget.text,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: kOpenHandMonospaceFontFamily,
+                        color: widget.error ? colorScheme.error : null,
+                        height: 1.5,
+                      ),
+                    )
+                  : _buildJsonRoot(context, document.value),
+            ),
           ),
         ],
       ),
@@ -700,4 +801,157 @@ Widget _jsonTreeAnimatedSize({
     alignment: Alignment.topCenter,
     child: child,
   );
+}
+
+Widget _jsonTreePreviewBody({
+  required BuildContext context,
+  required bool clipped,
+  required Widget child,
+}) {
+  if (!clipped) return child;
+  final fade = Theme.of(context).colorScheme.surfaceContainer;
+  return ClipRRect(
+    child: Stack(
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxHeight: kOpenHandJsonTreePreviewMaxHeight,
+          ),
+          child: SingleChildScrollView(
+            primary: false,
+            physics: openHandDialogAwareScrollPhysics(context),
+            child: child,
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 36,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    fade.withValues(alpha: 0),
+                    fade.withValues(alpha: 0.94),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _OpenHandJsonFullViewDialog extends StatelessWidget {
+  const _OpenHandJsonFullViewDialog({
+    required this.text,
+    required this.sourceText,
+    required this.error,
+    required this.logTag,
+    this.label,
+  });
+
+  final String text;
+  final String sourceText;
+  final String? label;
+  final bool error;
+  final String logTag;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final title = (label ?? '').trim().isEmpty
+        ? openHandLocalizedText(
+            context,
+            zh: '完整内容',
+            zhHant: '完整內容',
+            en: 'Full content',
+            fr: 'Contenu complet',
+            de: 'Vollständiger Inhalt',
+            ja: '完全な内容',
+          )
+        : label!.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: error
+                      ? colorScheme.errorContainer
+                      : colorScheme.primaryContainer,
+                  borderRadius: kOpenHandBorderRadius14,
+                ),
+                child: Icon(
+                  Icons.data_object_rounded,
+                  color: error ? colorScheme.error : colorScheme.primary,
+                ),
+              ),
+              kOpenHandHGap12,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '共 ${sourceText.trim().length} 字符 · 可滚动阅读与复制',
+                        zhHant: '共 ${sourceText.trim().length} 字元 · 可捲動閱讀與複製',
+                        en: '${sourceText.trim().length} characters · scroll and copy',
+                        fr: '${sourceText.trim().length} caractères · défiler et copier',
+                        de: '${sourceText.trim().length} Zeichen · scrollen und kopieren',
+                        ja: '${sourceText.trim().length} 文字 · スクロールとコピー',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filledTonal(
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: OpenHandJsonTreeView(
+              text: text,
+              label: label,
+              error: error,
+              enableFullView: false,
+              logTag: logTag,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -743,4 +743,7 @@ export const dict_en: Record<string, string> = {
   'trajectory.structured.copyJson': 'Copy JSON',
   'trajectory.structured.copyText': 'Copy text',
   'trajectory.structured.copied': 'Copied',
+  'trajectory.structured.showAll': 'Show full content',
+  'trajectory.structured.fullContent': 'Full content',
+  'trajectory.structured.fullHint': '{count} characters · scroll and copy',
 };

@@ -741,4 +741,7 @@ export const dict_ja: Record<string, string> = {
   'trajectory.structured.copyJson': 'JSON をコピー',
   'trajectory.structured.copyText': 'テキストをコピー',
   'trajectory.structured.copied': 'コピー済み',
+  'trajectory.structured.showAll': 'すべての内容を表示',
+  'trajectory.structured.fullContent': '完全な内容',
+  'trajectory.structured.fullHint': '{count} 文字 · スクロールとコピー',
 };

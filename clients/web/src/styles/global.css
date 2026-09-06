@@ -10604,6 +10604,7 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-json-tree {
+  position: relative;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 78%, transparent);
   border-radius: 7px;
@@ -10708,6 +10709,90 @@ button.oh-composer-pill:not(:disabled):hover {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   font: 10.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.oh-json-tree.is-preview > .oh-json-tree-body,
+.oh-json-tree.is-preview > .oh-json-tree-text {
+  max-height: 260px;
+  overflow: auto;
+}
+.oh-json-tree.is-preview::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 36px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--m3-surface-container) 94%, transparent));
+}
+.oh-json-full-dialog {
+  display: flex;
+  flex-direction: column;
+  background: var(--m3-surface);
+}
+.oh-json-full-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 16px 16px 20px;
+  background: var(--m3-surface-container-low);
+  border-bottom: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+}
+.oh-json-full-head-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 14px;
+  color: var(--m3-on-primary-container);
+  background: var(--m3-primary-container);
+  font: 780 13px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.oh-json-full-head h2 {
+  margin: 0;
+  color: var(--m3-on-surface);
+  font-size: clamp(17px, 2vw, 22px);
+  font-weight: 820;
+  letter-spacing: -.02em;
+}
+.oh-json-full-head p {
+  margin: 4px 0 0;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+}
+.oh-json-full-close {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 0;
+  border-radius: 14px;
+  color: var(--m3-on-surface-variant);
+  background: var(--m3-surface-container-highest);
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease, transform 220ms var(--oh-motion-spring);
+}
+.oh-json-full-close:hover {
+  color: var(--m3-on-surface);
+  transform: rotate(4deg) scale(1.04);
+}
+.oh-json-full-close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.oh-json-full-body {
+  min-height: 0;
+  flex: 1;
+  padding: 16px;
+  overflow: auto;
 }
 .oh-json-tree-body {
   padding: 8px 7px;

@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { useTransientFlag } from '../hooks/useTransientFlag';
 import { t, tFmt } from '../i18n';
 import { parseJsonSafely } from '../shared/util/value';
 import { copyTextToClipboard } from '../utils/clipboard';
+import {
+  DIALOG_OVERLAY_CENTER_CLASS,
+  DIALOG_OVERLAY_TOP_Z_INDEX,
+  DialogFrame,
+  createStandardDialogFrameAppearance,
+} from './DialogFrame';
 
 const JSON_TREE_MAX_CHARACTERS = 512 * 1024;
 const JSON_TREE_MAX_NODES = 4096;
 const JSON_TREE_MAX_DEPTH = 32;
+const JSON_TREE_FULL_VIEW_MIN_CHARACTERS = 360;
 const COPY_FEEDBACK_MS = 2000;
 
 interface JsonDocument {
@@ -19,19 +27,23 @@ export function StructuredJsonView({
   empty,
   error = false,
   label,
+  enableFullView = true,
 }: {
   text: string;
   empty?: string;
   error?: boolean;
   label?: string;
+  enableFullView?: boolean;
 }) {
   const document = useMemo(() => parseStructuredJsonDocument(text), [text]);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => initialExpandedPaths(document));
+  const [fullOpen, setFullOpen] = useState(false);
   const {
     active: copied,
     trigger: showCopied,
     reset: resetCopied,
   } = useTransientFlag(COPY_FEEDBACK_MS);
+  const offersFullView = enableFullView && needsJsonFullView(text);
 
   useEffect(() => {
     setExpandedPaths(initialExpandedPaths(document));
@@ -62,7 +74,7 @@ export function StructuredJsonView({
   });
 
   return (
-    <section class={`oh-json-tree${error ? ' is-error' : ''}${label ? ' has-label' : ''}`}>
+    <section class={`oh-json-tree${error ? ' is-error' : ''}${label ? ' has-label' : ''}${offersFullView ? ' is-preview' : ''}`}>
       <header>
         <span class="oh-json-tree-type" aria-hidden="true">{document ? '{}' : 'T'}</span>
         {label ? <em class="oh-json-tree-label">{label}</em> : null}
@@ -75,6 +87,16 @@ export function StructuredJsonView({
             onClick={() => setExpandedPaths(allExpanded ? new Set(['$']) : new Set(document.containerPaths))}
           >
             <UnfoldIcon collapse={allExpanded} />
+          </button>
+        ) : null}
+        {offersFullView ? (
+          <button
+            type="button"
+            title={t('trajectory.structured.showAll', '显示全部内容')}
+            aria-label={t('trajectory.structured.showAll', '显示全部内容')}
+            onClick={() => setFullOpen(true)}
+          >
+            <FullViewIcon />
           </button>
         ) : null}
         <button
@@ -95,6 +117,14 @@ export function StructuredJsonView({
           {copied ? <CheckIcon /> : <CopyIcon />}
         </button>
       </header>
+      {fullOpen ? (
+        <StructuredJsonFullDialog
+          text={text}
+          label={label}
+          error={error}
+          onClose={() => setFullOpen(false)}
+        />
+      ) : null}
       {document ? (
         <div class="oh-json-tree-body" role="tree">
           {rootEntries.length ? rootEntries.map(([key, child], index) => (
@@ -112,6 +142,77 @@ export function StructuredJsonView({
         <pre class="oh-json-tree-text">{text}</pre>
       )}
     </section>
+  );
+}
+
+function needsJsonFullView(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length >= JSON_TREE_FULL_VIEW_MIN_CHARACTERS) return true;
+  return trimmed.endsWith('…') && trimmed.length >= 80;
+}
+
+function tryPrettyJsonText(text: string): string | null {
+  const trimmed = text.trim();
+  if (
+    trimmed.length < 2
+    || !((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))
+  ) return null;
+  const decoded = parseJsonSafely(trimmed);
+  if (decoded == null) return null;
+  try {
+    return JSON.stringify(decoded, null, 2);
+  } catch {
+    return null;
+  }
+}
+
+function StructuredJsonFullDialog({
+  text,
+  label,
+  error = false,
+  onClose,
+}: {
+  text: string;
+  label?: string;
+  error?: boolean;
+  onClose: () => void;
+}) {
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+  const pretty = tryPrettyJsonText(text) ?? text;
+  const title = label?.trim() || t('trajectory.structured.fullContent', '完整内容');
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      {...createStandardDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
+        overlayTone: 'strong',
+        overlayBlurPx: 5,
+        overlayZIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
+        panelClassName: 'oh-json-full-dialog',
+        panelBorder: 'outlineVariant',
+        panelSurface: {
+          width: 'min(880px, calc(100vw - 28px))',
+          maxHeight: 'min(86dvh, 800px)',
+          overflow: 'hidden',
+        },
+      })}
+      ariaLabel={title}
+    >
+      <header class="oh-json-full-head">
+        <span class="oh-json-full-head-icon" aria-hidden="true">{'{}'}</span>
+        <div class="min-w-0 flex-1">
+          <h2>{title}</h2>
+          <p>{tFmt('trajectory.structured.fullHint', { count: text.trim().length }, `${text.trim().length} characters · scroll and copy`)}</p>
+        </div>
+        <button type="button" class="oh-json-full-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
+          <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+      </header>
+      <div class="oh-json-full-body oh-overlay-scroll">
+        <StructuredJsonView text={pretty} error={error} label={label} enableFullView={false} />
+      </div>
+    </DialogFrame>
   );
 }
 
@@ -264,4 +365,12 @@ function UnfoldIcon({ collapse }: { collapse: boolean }) {
   return collapse
     ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5-5 5 5M7 14l5 5 5-5" /></svg>
     : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 8 5 5 5-5M7 16l5-5 5 5" /></svg>;
+}
+
+function FullViewIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8 3H4v4M16 3h4v4M8 21H4v-4M16 21h4v-4" />
+    </svg>
+  );
 }

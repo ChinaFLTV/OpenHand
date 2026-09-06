@@ -742,4 +742,7 @@ export const dict_zh: Record<string, string> = {
   'trajectory.structured.copyJson': '复制 JSON',
   'trajectory.structured.copyText': '复制文本',
   'trajectory.structured.copied': '已复制',
+  'trajectory.structured.showAll': '显示全部内容',
+  'trajectory.structured.fullContent': '完整内容',
+  'trajectory.structured.fullHint': '共 {count} 字符 · 可滚动阅读与复制',
 };

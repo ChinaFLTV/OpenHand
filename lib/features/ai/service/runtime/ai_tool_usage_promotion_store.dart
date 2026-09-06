@@ -345,9 +345,9 @@ final class AiToolUsagePromotionStore {
   static const int _maxRecentEvents = 384;
   static const int _maxRecentEventsPerLevel = _maxRecentEvents;
   static const int _maxSubResourcesPerResource = 256;
-  static const int _maxSummaryLength = 4096;
+  static const int _maxSummaryLength = 32 * kBytesPerKiB;
   static const int _maxErrorSummaryLength = 480;
-  static const int _maxMetadataLength = 4096;
+  static const int _maxMetadataLength = 16 * kBytesPerKiB;
   static const int _periodTrimBatchSize = 8;
   static const List<String> _nestedSessionMarkers = <String>[
     '::parallel-',

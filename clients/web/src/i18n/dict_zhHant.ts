@@ -741,4 +741,7 @@ export const dict_zhHant: Record<string, string> = {
   'trajectory.structured.copyJson': '複製 JSON',
   'trajectory.structured.copyText': '複製文字',
   'trajectory.structured.copied': '已複製',
+  'trajectory.structured.showAll': '顯示全部內容',
+  'trajectory.structured.fullContent': '完整內容',
+  'trajectory.structured.fullHint': '共 {count} 字元 · 可捲動閱讀與複製',
 };
