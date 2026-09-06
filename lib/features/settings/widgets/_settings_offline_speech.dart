@@ -4,6 +4,11 @@ const double _offlineSpeechModelListMaxHeight = 560;
 const Duration _offlineSpeechTestOperationTimeout = Duration(seconds: 15);
 const Duration _offlineSpeechMaxRecordingDuration = Duration(seconds: 30);
 const Duration _offlineSpeechMinimumRecordingDuration = Duration(seconds: 1);
+const double _offlineSpeechSuggestionMenuGap = 8;
+const double _offlineSpeechSuggestionMenuMargin = 12;
+const double _offlineSpeechSuggestionMenuMaxHeight = 380;
+const double _offlineSpeechSuggestionMenuMinHeight = 144;
+const int _offlineSpeechSuggestionResultLimit = 80;
 
 class _OfflineSpeechModelPanel extends StatefulWidget {
   const _OfflineSpeechModelPanel({
@@ -1137,57 +1142,90 @@ class _OfflineSpeechParameterField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final control = switch (parameter.type) {
-      OfflineSpeechParameterType.toggle => _AiTtsToggleField(
-        label: parameter.label,
-        value: value as bool,
-        onChanged: onChanged,
-      ),
-      OfflineSpeechParameterType.choice => _SettingsStringDropdown(
+    final Widget control;
+    if (parameter.type == OfflineSpeechParameterType.text &&
+        parameter.options.isNotEmpty) {
+      control = _OfflineSpeechSuggestionField(
         label: parameter.label,
         value: '$value',
-        options: <_SettingsStringDropdownOption>[
-          for (final option in parameter.options)
-            _SettingsStringDropdownOption(option.value, option.label),
-        ],
+        options: parameter.options,
+        maxLines: 2,
         onChanged: onChanged,
-      ),
-      OfflineSpeechParameterType.multiChoice => _OfflineSpeechMultiChoiceField(
+      );
+    } else if (parameter.type == OfflineSpeechParameterType.choice &&
+        parameter.options.any((option) => option.hasDetails)) {
+      control = _OfflineSpeechRichChoiceField(
         label: parameter.label,
         value: '$value',
         options: parameter.options,
         onChanged: onChanged,
-      ),
-      OfflineSpeechParameterType.integer ||
-      OfflineSpeechParameterType.decimal => _AiTtsProviderNumberField(
-        label: parameter.label,
-        value: (value as num).toDouble(),
-        range: _TtsNumberRange(
-          parameter.min ?? 0,
-          parameter.max ?? 100,
-          step: parameter.type == OfflineSpeechParameterType.integer ? 1 : 0.05,
-        ),
-        onChanged: (next) => onChanged(
-          parameter.type == OfflineSpeechParameterType.integer
-              ? next.round()
-              : next,
-        ),
-      ),
-      OfflineSpeechParameterType.text ||
-      OfflineSpeechParameterType.json ||
-      OfflineSpeechParameterType.secret ||
-      OfflineSpeechParameterType.path => _AiTtsProviderTextField(
-        label: parameter.label,
+      );
+    } else if (parameter.type == OfflineSpeechParameterType.path) {
+      control = _OfflineSpeechPathField(
+        parameter: parameter,
         value: '$value',
-        maxLines: parameter.type == OfflineSpeechParameterType.json
-            ? 5
-            : parameter.type == OfflineSpeechParameterType.text
-            ? 2
-            : 1,
-        obscure: parameter.type == OfflineSpeechParameterType.secret,
-        onSubmitted: onChanged,
-      ),
-    };
+        onChanged: onChanged,
+      );
+    } else {
+      control = switch (parameter.type) {
+        OfflineSpeechParameterType.toggle => _AiTtsToggleField(
+          label: parameter.label,
+          value: value as bool,
+          onChanged: onChanged,
+        ),
+        OfflineSpeechParameterType.choice => _SettingsStringDropdown(
+          label: parameter.label,
+          value: '$value',
+          options: <_SettingsStringDropdownOption>[
+            for (final option in parameter.options)
+              _SettingsStringDropdownOption(option.value, option.label),
+          ],
+          onChanged: onChanged,
+        ),
+        OfflineSpeechParameterType.multiChoice =>
+          _OfflineSpeechMultiChoiceField(
+            label: parameter.label,
+            value: '$value',
+            options: parameter.options,
+            onChanged: onChanged,
+          ),
+        OfflineSpeechParameterType.integer ||
+        OfflineSpeechParameterType.decimal => _AiTtsProviderNumberField(
+          label: parameter.label,
+          value: (value as num).toDouble(),
+          range: _TtsNumberRange(
+            parameter.min ?? 0,
+            parameter.max ?? 100,
+            step: parameter.type == OfflineSpeechParameterType.integer
+                ? 1
+                : 0.05,
+          ),
+          onChanged: (next) => onChanged(
+            parameter.type == OfflineSpeechParameterType.integer
+                ? next.round()
+                : next,
+          ),
+        ),
+        OfflineSpeechParameterType.text ||
+        OfflineSpeechParameterType.json ||
+        OfflineSpeechParameterType.secret => _AiTtsProviderTextField(
+          label: parameter.label,
+          value: '$value',
+          maxLines: parameter.type == OfflineSpeechParameterType.json
+              ? 5
+              : parameter.type == OfflineSpeechParameterType.text
+              ? 2
+              : 1,
+          obscure: parameter.type == OfflineSpeechParameterType.secret,
+          onSubmitted: onChanged,
+        ),
+        OfflineSpeechParameterType.path => _AiTtsProviderTextField(
+          label: parameter.label,
+          value: '$value',
+          onSubmitted: onChanged,
+        ),
+      };
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -1205,6 +1243,756 @@ class _OfflineSpeechParameterField extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _OfflineSpeechRichChoiceField extends StatelessWidget {
+  const _OfflineSpeechRichChoiceField({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<OfflineSpeechOption> options;
+  final ValueChanged<Object?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final selected = options
+        .where((option) => option.value == value)
+        .firstOrNull;
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: AnimatedPopupMenuButton<String>(
+        tooltip: '选择$label',
+        constraints: const BoxConstraints(minWidth: 360, maxWidth: 520),
+        onSelected: onChanged,
+        itemBuilder: (context) => <PopupMenuEntry<String>>[
+          for (final option in options)
+            PopupMenuItem<String>(
+              value: option.value,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              child: IgnorePointer(
+                child: _OfflineSpeechSuggestionTile(
+                  option: option,
+                  selected: option.value == value,
+                  highlighted: false,
+                  onTap: () {},
+                  onHover: (_) {},
+                ),
+              ),
+            ),
+        ],
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    selected?.label ?? value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                  if (selected != null) ...<Widget>[
+                    kOpenHandGap3,
+                    Text(
+                      <String>[
+                        selected.value,
+                        if (selected.language.isNotEmpty) selected.language,
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            kOpenHandHGap8,
+            const Icon(Icons.expand_more_rounded),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OfflineSpeechSuggestionField extends StatefulWidget {
+  const _OfflineSpeechSuggestionField({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.maxLines = 1,
+  });
+
+  final String label;
+  final String value;
+  final List<OfflineSpeechOption> options;
+  final ValueChanged<Object?> onChanged;
+  final int maxLines;
+
+  @override
+  State<_OfflineSpeechSuggestionField> createState() =>
+      _OfflineSpeechSuggestionFieldState();
+}
+
+class _OfflineSpeechSuggestionFieldState
+    extends State<_OfflineSpeechSuggestionField> {
+  final LayerLink _layerLink = LayerLink();
+  final GlobalKey _anchorKey = GlobalKey();
+  final AnimatedOverlayEntryController _overlay =
+      AnimatedOverlayEntryController();
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
+  late final FocusNode _focusNode = FocusNode()..addListener(_handleFocus);
+  String _query = '';
+  String? _lastCommittedValue;
+  int _selectedIndex = 0;
+
+  @override
+  void didUpdateWidget(covariant _OfflineSpeechSuggestionField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _syncControllerText(_controller, widget.value);
+      if (_overlay.hasEntry) _overlay.markNeedsBuild();
+    }
+  }
+
+  @override
+  void dispose() {
+    _overlay.dispose();
+    _focusNode
+      ..removeListener(_handleFocus)
+      ..dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onKeyEvent: _handleKeyEvent,
+      child: CompositedTransformTarget(
+        key: _anchorKey,
+        link: _layerLink,
+        child: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          maxLines: widget.maxLines,
+          textInputAction: widget.maxLines > 1
+              ? TextInputAction.newline
+              : TextInputAction.done,
+          decoration: InputDecoration(
+            labelText: widget.label,
+            suffixIcon: MicroPressFeedback(
+              scale: 0.9,
+              child: IconButton(
+                tooltip: '搜索候选项',
+                onPressed: _toggleMenu,
+                icon: AnimatedRotation(
+                  turns: _overlay.hasEntry ? 0.5 : 0,
+                  duration: openHandMotionDuration(context, kOpenHandMotion180),
+                  curve: Curves.easeOutBack,
+                  child: const Icon(Icons.expand_more_rounded),
+                ),
+              ),
+            ),
+          ),
+          onTap: _showMenu,
+          onChanged: _handleChanged,
+          onSubmitted: _commit,
+          onEditingComplete: () => _commit(_controller.text),
+        ),
+      ),
+    );
+  }
+
+  List<OfflineSpeechOption> get _visibleOptions {
+    final normalized = _query.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return widget.options
+          .take(_offlineSpeechSuggestionResultLimit)
+          .toList(growable: false);
+    }
+    final terms = normalized.split(RegExp(r'\s+'));
+    return widget.options
+        .where((option) {
+          final searchable = <String>[
+            option.value,
+            option.label,
+            option.language,
+            option.description,
+          ].join(' ').toLowerCase();
+          return terms.every(searchable.contains);
+        })
+        .take(_offlineSpeechSuggestionResultLimit)
+        .toList(growable: false);
+  }
+
+  void _handleChanged(String value) {
+    _query = value;
+    _selectedIndex = 0;
+    _showMenu(resetQuery: false);
+  }
+
+  void _handleFocus() {
+    if (_focusNode.hasFocus) return;
+    _commit(_controller.text);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_focusNode.hasFocus) _dismissMenu();
+    });
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
+    if (event is! KeyDownEvent || !_overlay.hasEntry) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _moveSelection(1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _moveSelection(-1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      final options = _visibleOptions;
+      if (options.isEmpty) {
+        _commit(_controller.text);
+        _dismissMenu();
+      } else {
+        _select(options[_selectedIndex]);
+      }
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      _dismissMenu();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _moveSelection(int delta) {
+    final options = _visibleOptions;
+    if (options.isEmpty) return;
+    _selectedIndex = (_selectedIndex + delta).clamp(0, options.length - 1);
+    _overlay.markNeedsBuild();
+  }
+
+  void _toggleMenu() {
+    HapticFeedback.selectionClick();
+    if (_overlay.hasEntry) {
+      _dismissMenu();
+      return;
+    }
+    _focusNode.requestFocus();
+    _showMenu();
+  }
+
+  void _showMenu({bool resetQuery = true}) {
+    if (resetQuery && !_overlay.hasEntry) {
+      _query = '';
+      final visibleCount = math.min(
+        widget.options.length,
+        _offlineSpeechSuggestionResultLimit,
+      );
+      _selectedIndex = visibleCount == 0
+          ? 0
+          : widget.options
+                .indexWhere((option) => option.value == _controller.text.trim())
+                .clamp(0, visibleCount - 1);
+    }
+    _overlay.show(
+      overlay: Overlay.of(context, rootOverlay: true),
+      builder: (context, visibility, onExitCompleted) =>
+          _OfflineSpeechSuggestionMenu(
+            link: _layerLink,
+            anchorKey: _anchorKey,
+            options: _visibleOptions,
+            selectedValue: _controller.text.trim(),
+            selectedIndex: _selectedIndex,
+            totalCount: widget.options.length,
+            filtering: _query.trim().isNotEmpty,
+            visibility: visibility,
+            onSelected: _select,
+            onHighlighted: (index) {
+              if (_selectedIndex == index) return;
+              _selectedIndex = index;
+              _overlay.markNeedsBuild();
+            },
+            onDismiss: _dismissMenu,
+            onExitCompleted: onExitCompleted,
+          ),
+      onRemoved: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _select(OfflineSpeechOption option) {
+    HapticFeedback.selectionClick();
+    _syncControllerText(_controller, option.value);
+    _query = '';
+    _commit(option.value);
+    _dismissMenu();
+    _focusNode.requestFocus();
+  }
+
+  void _commit(String raw) {
+    final value = raw.trim();
+    if (value == _lastCommittedValue || value == widget.value) return;
+    _lastCommittedValue = value;
+    widget.onChanged(value);
+  }
+
+  void _dismissMenu() {
+    _overlay.close(immediately: !mounted);
+    if (mounted) setState(() {});
+  }
+}
+
+class _OfflineSpeechSuggestionMenu extends StatefulWidget {
+  const _OfflineSpeechSuggestionMenu({
+    required this.link,
+    required this.anchorKey,
+    required this.options,
+    required this.selectedValue,
+    required this.selectedIndex,
+    required this.totalCount,
+    required this.filtering,
+    required this.visibility,
+    required this.onSelected,
+    required this.onHighlighted,
+    required this.onDismiss,
+    required this.onExitCompleted,
+  });
+
+  final LayerLink link;
+  final GlobalKey anchorKey;
+  final List<OfflineSpeechOption> options;
+  final String selectedValue;
+  final int selectedIndex;
+  final int totalCount;
+  final bool filtering;
+  final ValueListenable<bool> visibility;
+  final ValueChanged<OfflineSpeechOption> onSelected;
+  final ValueChanged<int> onHighlighted;
+  final VoidCallback onDismiss;
+  final VoidCallback onExitCompleted;
+
+  @override
+  State<_OfflineSpeechSuggestionMenu> createState() =>
+      _OfflineSpeechSuggestionMenuState();
+}
+
+class _OfflineSpeechSuggestionMenuState
+    extends State<_OfflineSpeechSuggestionMenu> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = _resolveLayout(context);
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return OpenHandAnchoredAnimatedOverlay(
+      link: widget.link,
+      targetAnchor: layout.$1,
+      followerAnchor: layout.$2,
+      offset: layout.$3,
+      constraints: BoxConstraints(
+        minWidth: layout.$4,
+        maxWidth: layout.$4,
+        maxHeight: layout.$5,
+      ),
+      onDismiss: widget.onDismiss,
+      visibility: widget.visibility,
+      onExitCompleted: widget.onExitCompleted,
+      child: Material(
+        elevation: 10,
+        shadowColor: colors.shadow.withValues(alpha: 0.22),
+        color: colors.surfaceContainerHigh,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kOpenHandRadius16),
+          side: BorderSide(
+            color: colors.outlineVariant.withValues(alpha: 0.72),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: <Color>[
+                    colors.primaryContainer.withValues(alpha: 0.72),
+                    colors.tertiaryContainer.withValues(alpha: 0.48),
+                  ],
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.manage_search_rounded,
+                      size: 20,
+                      color: colors.onPrimaryContainer,
+                    ),
+                    kOpenHandHGap8,
+                    Expanded(
+                      child: Text(
+                        widget.filtering
+                            ? '找到 ${widget.options.length} 个候选'
+                            : '${widget.totalCount} 个可搜索候选',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: colors.onPrimaryContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '可继续手动输入',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onPrimaryContainer.withValues(
+                          alpha: 0.78,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Flexible(
+              child: widget.options.isEmpty
+                  ? SizedBox(
+                      height: 108,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Icon(
+                              Icons.search_off_rounded,
+                              color: colors.onSurfaceVariant,
+                            ),
+                            kOpenHandGap6,
+                            Text(
+                              '没有匹配候选，可直接使用当前输入',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : OpenHandSafeScrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      thickness: 5,
+                      radius: kOpenHandPillRadius,
+                      notificationPredicate: (notification) =>
+                          notification.metrics.axis == Axis.vertical,
+                      child: ListView.separated(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(8),
+                        shrinkWrap: true,
+                        itemCount: widget.options.length,
+                        separatorBuilder: (_, _) => kOpenHandGap4,
+                        itemBuilder: (context, index) {
+                          final option = widget.options[index];
+                          return _OfflineSpeechSuggestionTile(
+                            option: option,
+                            selected: option.value == widget.selectedValue,
+                            highlighted: index == widget.selectedIndex,
+                            onTap: () => widget.onSelected(option),
+                            onHover: (hovering) {
+                              if (hovering) widget.onHighlighted(index);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  (Alignment, Alignment, Offset, double, double) _resolveLayout(
+    BuildContext context,
+  ) {
+    final box =
+        widget.anchorKey.currentContext?.findRenderObject() as RenderBox?;
+    final media = MediaQuery.of(context);
+    if (box == null || !box.hasSize) {
+      return const (
+        Alignment.bottomLeft,
+        Alignment.topLeft,
+        Offset(0, _offlineSpeechSuggestionMenuGap),
+        _settingsStandardFieldWidth,
+        _offlineSpeechSuggestionMenuMaxHeight,
+      );
+    }
+    final position = box.localToGlobal(Offset.zero);
+    final bottomLimit = media.size.height - media.padding.bottom;
+    final spaceBelow = bottomLimit - position.dy - box.size.height;
+    final spaceAbove = position.dy - media.padding.top;
+    final showBelow = spaceBelow >= 220 || spaceBelow >= spaceAbove;
+    final available =
+        (showBelow ? spaceBelow : spaceAbove) -
+        _offlineSpeechSuggestionMenuGap -
+        _offlineSpeechSuggestionMenuMargin;
+    return (
+      showBelow ? Alignment.bottomLeft : Alignment.topLeft,
+      showBelow ? Alignment.topLeft : Alignment.bottomLeft,
+      Offset(
+        0,
+        showBelow
+            ? _offlineSpeechSuggestionMenuGap
+            : -_offlineSpeechSuggestionMenuGap,
+      ),
+      box.size.width,
+      math.max(
+        _offlineSpeechSuggestionMenuMinHeight,
+        math.min(_offlineSpeechSuggestionMenuMaxHeight, available),
+      ),
+    );
+  }
+}
+
+class _OfflineSpeechSuggestionTile extends StatelessWidget {
+  const _OfflineSpeechSuggestionTile({
+    required this.option,
+    required this.selected,
+    required this.highlighted,
+    required this.onTap,
+    required this.onHover,
+  });
+
+  final OfflineSpeechOption option;
+  final bool selected;
+  final bool highlighted;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onHover;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final emphasized = selected || highlighted;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        onHover: onHover,
+        borderRadius: kOpenHandBorderRadius12,
+        child: AnimatedContainer(
+          duration: openHandMotionDuration(context, kOpenHandMotion120),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: emphasized
+                ? colors.primaryContainer.withValues(
+                    alpha: selected ? 0.72 : 0.38,
+                  )
+                : Colors.transparent,
+            borderRadius: kOpenHandBorderRadius12,
+            border: Border.all(
+              color: selected
+                  ? colors.primary.withValues(alpha: 0.42)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Flexible(
+                          child: Text(
+                            option.label,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (option.language.isNotEmpty) ...<Widget>[
+                          kOpenHandHGap8,
+                          _OfflineSpeechOptionPill(
+                            label: option.language,
+                            color: colors.tertiary,
+                          ),
+                        ],
+                      ],
+                    ),
+                    kOpenHandGap5,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 5,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: <Widget>[
+                        _OfflineSpeechOptionPill(
+                          label: option.value.isEmpty ? '空值' : option.value,
+                          color: colors.primary,
+                          monospace: true,
+                        ),
+                        if (option.description.isNotEmpty)
+                          Text(
+                            option.description,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              height: 1.3,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (selected) ...<Widget>[
+                kOpenHandHGap8,
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: 20,
+                  color: colors.primary,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OfflineSpeechOptionPill extends StatelessWidget {
+  const _OfflineSpeechOptionPill({
+    required this.label,
+    required this.color,
+    this.monospace = false,
+  });
+
+  final String label;
+  final Color color;
+  final bool monospace;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontFamily: monospace ? 'monospace' : null,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _OfflineSpeechPathField extends StatelessWidget {
+  const _OfflineSpeechPathField({
+    required this.parameter,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final OfflineSpeechParameter parameter;
+  final String value;
+  final ValueChanged<Object?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: _AiTtsProviderTextField(
+            label: parameter.label,
+            value: value,
+            onSubmitted: onChanged,
+          ),
+        ),
+        kOpenHandHGap8,
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: MicroPressFeedback(
+            scale: 0.92,
+            child: IconButton.filledTonal(
+              tooltip: '选择${parameter.label}',
+              onPressed: () => unawaited(_pickFile(context)),
+              icon: const Icon(Icons.folder_open_rounded),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickFile(BuildContext context) async {
+    final hotwordFile = parameter.key == 'hotwords_file';
+    try {
+      final file = await openFile(
+        acceptedTypeGroups: <XTypeGroup>[
+          XTypeGroup(
+            label: hotwordFile ? '热词文件' : '音频文件',
+            extensions: hotwordFile
+                ? const <String>['txt']
+                : const <String>['wav', 'mp3', 'm4a', 'flac', 'ogg', 'aac'],
+          ),
+        ],
+      );
+      if (file == null || !context.mounted) return;
+      await HapticFeedback.selectionClick();
+      onChanged(file.path);
+    } catch (error, stack) {
+      silentLog('settings_offline_speech', '选择语音配置文件', error, stack);
+      if (context.mounted) {
+        showOpenHandErrorSnack(
+          context,
+          userFailureMessage(error, fallback: '无法打开文件选择器。'),
+        );
+      }
+    }
   }
 }
 
@@ -1251,6 +2039,7 @@ class _OfflineSpeechMultiChoiceField extends StatelessWidget {
           for (final option in options)
             PopupMenuItem<String>(
               value: option.value,
+              height: option.hasDetails ? 58 : kMinInteractiveDimension,
               child: Row(
                 children: <Widget>[
                   Icon(
@@ -1266,7 +2055,27 @@ class _OfflineSpeechMultiChoiceField extends StatelessWidget {
                         : theme.colorScheme.onSurfaceVariant,
                   ),
                   kOpenHandHGap10,
-                  Expanded(child: Text(option.label)),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(option.label),
+                        if (option.hasDetails)
+                          Text(
+                            <String>[
+                              option.value,
+                              if (option.language.isNotEmpty) option.language,
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

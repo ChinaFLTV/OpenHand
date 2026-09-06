@@ -43,6 +43,7 @@ import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/animated_overlay.dart';
 import '../../../shared/ui/app_update_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
