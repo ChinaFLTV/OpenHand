@@ -4,6 +4,7 @@ const Set<String> _machineTerminalAdditionalTextExtensions = <String>{
   '.properties',
 };
 const int _machineTerminalVisibleEntryLimit = 2000;
+const Duration _machineTerminalPreviewIoTimeout = Duration(seconds: 15);
 const BoundedDeletePolicy _machineTerminalPreviewDeletePolicy =
     BoundedDeletePolicy(
       maxEntries: 4,
@@ -126,15 +127,12 @@ class _MachineTerminalMediaPreviewFile {
 Future<void> _cleanupMachineTerminalPreviewDirectory(
   Directory directory,
 ) async {
-  try {
-    await deletePathBounded(
-      p.absolute(directory.path),
-      policy: _machineTerminalPreviewDeletePolicy,
-      allowedRoot: p.absolute(Directory.systemTemp.path),
-    );
-  } catch (error, stack) {
-    silentLog('machine_terminal_file', '清理媒体预览临时文件', error, stack);
-  }
+  await deleteTemporaryDirectoryBounded(
+    directory,
+    policy: _machineTerminalPreviewDeletePolicy,
+    onError: (error, stack) =>
+        silentLog('machine_terminal_file', '清理媒体预览临时文件', error, stack),
+  );
 }
 
 class _MachineTerminalFileManagerDialog extends StatefulWidget {
@@ -1037,8 +1035,9 @@ class _MachineTerminalFileManagerDialogState
             load: (onProgress, isCancelled) async {
               Directory? directory;
               try {
-                directory = await Directory.systemTemp.createTemp(
-                  'openhand-terminal-preview-',
+                directory = await createTemporaryDirectoryBounded(
+                  prefix: 'openhand-terminal-preview-',
+                  timeout: _machineTerminalPreviewIoTimeout,
                 );
                 final rawExtension = p.extension(entry.name).toLowerCase();
                 final extension =

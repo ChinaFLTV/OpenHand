@@ -8,7 +8,10 @@ import 'package:path/path.dart' as p;
 import 'package:record/record.dart';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/net/bounded_server_bind.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_delete.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/offline_speech_model.dart';
@@ -148,6 +151,7 @@ class AiVoiceConversationService extends ChangeNotifier {
   static const Duration _playbackTimeout = Duration(minutes: 1);
   static const Duration _realtimePlaybackTimeout = Duration(minutes: 5);
   static const Duration _playbackCompletionGrace = Duration(seconds: 15);
+  static const Duration _temporaryAudioIoTimeout = Duration(seconds: 10);
   static const int _initialSpeechChunkTerminalLimit = 8;
   static const int _initialSpeechChunkSoftLimit = 24;
   static const int _initialSpeechChunkHardLimit = 40;
@@ -799,24 +803,27 @@ class AiVoiceConversationService extends ChangeNotifier {
     _setSnapshot(
       _snapshot.copyWith(phase: AiVoiceConversationPhase.recognizing),
     );
-    final directory = await Directory.systemTemp.createTemp(
-      'openhand_voice_input_',
+    final input = await writeNewTemporaryFileBytesBounded(
+      directoryPrefix: 'openhand_voice_input_',
+      fileName: 'speech.wav',
+      bytes: _wavBytes(pcm),
+      timeout: _temporaryAudioIoTimeout,
     );
-    final path = p.join(directory.path, 'speech.wav');
     try {
-      await File(path).writeAsBytes(_wavBytes(pcm), flush: true);
       final result = await _modelService.test(
         model,
         _recognitionConfiguration,
-        audioPath: path,
+        audioPath: input.path,
         cancelSignal: _sessionCancellation?.future,
         startIfNeeded: false,
       );
       return result.transcript?.trim() ?? '';
     } finally {
-      try {
-        if (await directory.exists()) await directory.delete(recursive: true);
-      } catch (_) {}
+      await deleteTemporaryDirectoryBounded(
+        input.parent,
+        onError: (error, stack) =>
+            silentLog('voice_conversation', '清理语音识别临时文件', error, stack),
+      );
     }
   }
 
@@ -1701,16 +1708,24 @@ class AiVoiceConversationService extends ChangeNotifier {
   }
 
   Future<void> _deleteGeneratedAudio(String path) async {
+    final file = File(path);
+    final parent = file.parent;
+    if (p.basename(parent.path).startsWith('openhand_speech_test_')) {
+      await deleteTemporaryDirectoryBounded(
+        parent,
+        onError: (error, stack) =>
+            silentLog('voice_conversation', '清理语音朗读临时目录', error, stack),
+      );
+      return;
+    }
     try {
-      final file = File(path);
-      final parent = file.parent;
-      if (await parent.exists() &&
-          p.basename(parent.path).startsWith('openhand_speech_test_')) {
-        await parent.delete(recursive: true);
-      } else if (await file.exists()) {
-        await file.delete();
-      }
-    } catch (_) {}
+      await deletePathBounded(
+        p.absolute(file.path),
+        allowedRoot: p.absolute(Directory.systemTemp.path),
+      );
+    } catch (error, stack) {
+      silentLog('voice_conversation', '清理语音朗读临时文件', error, stack);
+    }
   }
 
   @override
@@ -1738,10 +1753,25 @@ class AiVoiceConversationService extends ChangeNotifier {
 
 class _StreamingPcmAudioSource {
   _StreamingPcmAudioSource._(this._server, this._audio, this._token) {
-    _requests = _server.listen((request) {
-      unawaited(_serve(request));
-    });
+    _requests = _server.listen(
+      _dispatch,
+      onError: (Object error, StackTrace stack) {
+        if (!_closed && !_done.isCompleted) {
+          _done.completeError(error, stack);
+        }
+      },
+      onDone: () {
+        if (!_closed && !_done.isCompleted) {
+          _done.completeError(StateError('实时语音本地服务意外关闭。'));
+        }
+      },
+    );
   }
+
+  static const Duration _bindTimeout = Duration(seconds: 10);
+  static const Duration _requestIdleTimeout = Duration(seconds: 30);
+  static const int _listenBacklog = 8;
+  static const int _maxConcurrentRequests = 8;
 
   static Future<_StreamingPcmAudioSource> start(
     Stream<Uint8List> audio, {
@@ -1751,7 +1781,15 @@ class _StreamingPcmAudioSource {
     if (sampleRate <= 0 || channels <= 0) {
       throw StateError('实时音频参数无效。');
     }
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final server = await bindHttpServerBounded(
+      InternetAddress.loopbackIPv4,
+      0,
+      timeout: _bindTimeout,
+      backlog: _listenBacklog,
+    );
+    server
+      ..idleTimeout = _requestIdleTimeout
+      ..autoCompress = false;
     final random = math.Random.secure();
     final token = List<int>.generate(
       24,
@@ -1768,6 +1806,7 @@ class _StreamingPcmAudioSource {
   HttpResponse? _activeResponse;
   bool _claimed = false;
   bool _closed = false;
+  int _activeRequests = 0;
   final Completer<void> _done = Completer<void>();
 
   Future<void> get done => _done.future;
@@ -1778,6 +1817,27 @@ class _StreamingPcmAudioSource {
     port: _server.port,
     pathSegments: <String>['speech', '$_token.pcm'],
   );
+
+  void _dispatch(HttpRequest request) {
+    if (_activeRequests >= _maxConcurrentRequests) {
+      request.response.statusCode = HttpStatus.tooManyRequests;
+      unawaited(runAsyncCleanupBounded(request.response.close));
+      return;
+    }
+    _activeRequests += 1;
+    unawaited(
+      _serve(request)
+          .whenComplete(() => _activeRequests -= 1)
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              if (!_closed && !_done.isCompleted) {
+                _done.completeError(error, stack);
+              }
+            },
+          ),
+    );
+  }
 
   Future<void> _serve(HttpRequest request) async {
     final response = request.response;
@@ -1818,15 +1878,13 @@ class _StreamingPcmAudioSource {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    try {
-      await _requests.cancel();
-    } catch (_) {}
-    try {
-      await _server.close(force: true);
-    } catch (_) {}
-    try {
-      await _activeResponse?.close().timeout(const Duration(seconds: 1));
-    } catch (_) {}
+    final activeResponse = _activeResponse;
+    _activeResponse = null;
+    await runAsyncCleanupBounded(_requests.cancel);
+    if (activeResponse != null) {
+      await runAsyncCleanupBounded(activeResponse.close);
+    }
+    await runAsyncCleanupBounded(() => _server.close(force: true));
     if (!_done.isCompleted) _done.complete();
   }
 }

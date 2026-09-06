@@ -2603,8 +2603,9 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
       if (!permitted) {
         throw StateError('未获得麦克风权限，请在系统设置中允许 OpenHand 使用麦克风。');
       }
-      final directory = await Directory.systemTemp.createTemp(
-        'openhand_asr_test_',
+      final directory = await createTemporaryDirectoryBounded(
+        prefix: 'openhand_asr_test_',
+        timeout: _offlineSpeechTestOperationTimeout,
       );
       final path = p.join(directory.path, 'recording.wav');
       _temporaryDirectory = directory;
@@ -2816,11 +2817,11 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
     final directory = _temporaryDirectory;
     _temporaryDirectory = null;
     if (directory != null) {
-      try {
-        if (await directory.exists()) await directory.delete(recursive: true);
-      } catch (error, stack) {
-        silentLog('settings_offline_speech', '清理语音识别测试录音', error, stack);
-      }
+      await deleteTemporaryDirectoryBounded(
+        directory,
+        onError: (error, stack) =>
+            silentLog('settings_offline_speech', '清理语音识别测试录音', error, stack),
+      );
       return;
     }
     if (path != null) await _deleteTemporaryPath(path);
@@ -2828,11 +2829,11 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
 
   Future<void> _deleteTemporaryPath(String path) async {
     final directory = File(path).parent;
-    try {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    } catch (error, stack) {
-      silentLog('settings_offline_speech', '清理语音朗读测试音频', error, stack);
-    }
+    await deleteTemporaryDirectoryBounded(
+      directory,
+      onError: (error, stack) =>
+          silentLog('settings_offline_speech', '清理语音朗读测试音频', error, stack),
+    );
   }
 
   static String _formatDuration(Duration value) {

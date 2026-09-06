@@ -15,6 +15,9 @@ import 'dart:io';
 ///      异步回调异常。
 ///   6. Web 模态弹窗与 Portal 必须经统一框架构建，保持全局动效、焦点
 ///      管理、Escape 关闭和全屏投射行为一致。
+///   7. 网络服务绑定必须使用有界入口，确保绑定超时后接管迟到资源。
+///   8. 子进程启动必须使用统一安全入口，确保超时、输出和进程树受控。
+///   9. 临时目录必须使用有界入口，确保创建超时后清理迟到目录。
 ///
 /// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
 ///
@@ -162,6 +165,24 @@ List<_RestrictedApiRule> _restrictedApiRules() => <_RestrictedApiRule>[
     },
     fallbackApiName: 'Timer',
     advice: '请使用 shared/util/timer_safety.dart 的安全计时工具',
+  ),
+  _RestrictedApiRule(
+    pattern: RegExp(r'\b(HttpServer|ServerSocket)\s*\.\s*bind\s*\('),
+    allowedRelativePaths: const <String>{'shared/net/bounded_server_bind.dart'},
+    fallbackApiName: '网络服务绑定 API',
+    advice: '请使用 shared/net/bounded_server_bind.dart 的有界绑定入口',
+  ),
+  _RestrictedApiRule(
+    pattern: RegExp(r'\bProcess\s*\.\s*(run|runSync|start)\s*\('),
+    allowedRelativePaths: const <String>{'app/support/safe_subprocess.dart'},
+    fallbackApiName: '子进程启动 API',
+    advice: '请使用 app/support/safe_subprocess.dart 的安全进程入口',
+  ),
+  _RestrictedApiRule(
+    pattern: RegExp(r'\.createTemp\s*\('),
+    allowedRelativePaths: const <String>{'shared/util/bounded_file_io.dart'},
+    fallbackApiName: '临时目录创建 API',
+    advice: '请使用 shared/util/bounded_file_io.dart 的有界创建入口',
   ),
 ];
 

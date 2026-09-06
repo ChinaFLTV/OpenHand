@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:openhand/shared/net/http_status_utils.dart';
 import 'package:openhand/shared/net/loopback_hosts.dart';
+import 'package:openhand/shared/util/bounded_file_io.dart';
 import 'package:openhand/shared/util/bounded_json_conversion.dart';
 import 'package:openhand/shared/util/date_time_format.dart';
 import 'package:openhand/shared/util/exponential_backoff.dart';
@@ -11,7 +12,7 @@ import 'package:openhand/shared/util/message_frame_scan.dart';
 import 'package:openhand/shared/util/xml_escape.dart';
 
 /// 直接驱动抽出的共享实现：代表输入进、真实返回值出。
-void main() {
+Future<void> main() async {
   var failures = 0;
   failures += _checkJsonDecode();
   failures += _checkContentLength();
@@ -23,11 +24,43 @@ void main() {
   failures += _checkRgbHex();
   failures += _checkXmlEscape();
   failures += _checkCompactDuration();
+  failures += await _checkTemporaryDirectoryLifecycle();
   if (failures > 0) {
     stderr.writeln('[共享辅助检查] 失败 $failures 项。');
     exit(1);
   }
   stdout.writeln('[共享辅助检查] 通过。');
+}
+
+Future<int> _checkTemporaryDirectoryLifecycle() async {
+  Directory? directory;
+  try {
+    directory = await createTemporaryDirectoryBounded(
+      prefix: 'openhand-shared-check-',
+      timeout: const Duration(seconds: 2),
+    );
+    final invalidRoot = '${directory.parent.path}${Platform.pathSeparator}拒绝';
+    final refused = await deleteTemporaryDirectoryBounded(
+      directory,
+      allowedRoot: invalidRoot,
+    );
+    if (refused || !await directory.exists()) {
+      stderr.writeln('deleteTemporaryDirectoryBounded 未拒绝越界清理');
+      return 1;
+    }
+    final deleted = await deleteTemporaryDirectoryBounded(directory);
+    if (!deleted || await directory.exists()) {
+      stderr.writeln('deleteTemporaryDirectoryBounded 未清理受管临时目录');
+      return 1;
+    }
+    directory = null;
+    return 0;
+  } catch (error) {
+    stderr.writeln('临时目录生命周期检查失败：$error');
+    return 1;
+  } finally {
+    await deleteTemporaryDirectoryBounded(directory);
+  }
 }
 
 int _checkJsonDecode() {

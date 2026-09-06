@@ -13,8 +13,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
+import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/timer_safety.dart';
 import '../../model/offline_speech_model.dart';
 
 enum OfflineSpeechLifecycle {
@@ -238,6 +242,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
   static const Duration _downloadIdleTimeout = Duration(seconds: 60);
   static const Duration _onlineAudioFrameInterval = Duration(milliseconds: 40);
   static const Duration _onlineIdleTimeout = Duration(seconds: 30);
+  static const Duration _temporaryAudioIoTimeout = Duration(seconds: 10);
   static const int _runtimeNetworkAttempts = 2;
   static const int _runtimeErrorCharacters = 8 * 1024;
   static const int _onlineAudioFrameBytes = 1280;
@@ -1722,7 +1727,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
       if (session == null) throw StateError('模型运行时尚未就绪。');
       if (model.kind == OfflineSpeechKind.recognition) {
         final source = audioPath?.trim() ?? '';
-        if (source.isEmpty || !await File(source).exists()) {
+        final sourceSize = source.isEmpty
+            ? null
+            : await probeFileSizeBounded(File(source));
+        if (sourceSize == null ||
+            sourceSize <= 44 ||
+            sourceSize > _maxOnlineAudioBytes) {
           throw StateError('没有可识别的录音文件。');
         }
         final response = await session.request(
@@ -1734,8 +1744,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
           '${response['transcript'] ?? ''}'.trim(),
         );
       }
-      outputDirectory = await Directory.systemTemp.createTemp(
-        'openhand_speech_test_',
+      outputDirectory = await createTemporaryDirectoryBounded(
+        prefix: 'openhand_speech_test_',
+        timeout: _temporaryAudioIoTimeout,
       );
       final outputPath = p.join(outputDirectory.path, 'sample.wav');
       if (model.synthesisTransport ==
@@ -1746,21 +1757,23 @@ class OfflineSpeechModelService extends ChangeNotifier {
           configuration: configuration,
           cancelSignal: effectiveCancelSignal,
         );
-        final pcm = BytesBuilder(copy: false);
         try {
-          await for (final chunk in stream.audio) {
-            pcm.add(chunk);
-          }
-          await stream.done;
+          final bytes = await readBoundedByteStream(
+            stream.audio,
+            maxBytes: _maxOnlineAudioBytes,
+            idleTimeout: _onlineIdleTimeout,
+            totalTimeout: _inferenceTimeout,
+          );
+          await stream.done.timeout(_onlineIdleTimeout);
+          if (bytes.isEmpty) throw StateError('模型没有生成有效音频。');
+          await writeTemporaryFileBytesBounded(
+            File(outputPath),
+            _pcm16Wav(bytes, stream.sampleRate, stream.channels),
+            timeout: _temporaryAudioIoTimeout,
+          );
         } finally {
           await stream.close();
         }
-        final bytes = pcm.takeBytes();
-        if (bytes.isEmpty) throw StateError('模型没有生成有效音频。');
-        await File(outputPath).writeAsBytes(
-          _pcm16Wav(bytes, stream.sampleRate, stream.channels),
-          flush: true,
-        );
         return OfflineSpeechTestResult.synthesis(outputPath);
       }
       final response = await session.request(
@@ -1772,18 +1785,23 @@ class OfflineSpeechModelService extends ChangeNotifier {
         timeout: _inferenceTimeout,
         cancelSignal: effectiveCancelSignal,
         onDiscardedResponse: () =>
-            unawaited(_deleteTemporaryDirectory(outputDirectory)),
+            unawaited(deleteTemporaryDirectoryBounded(outputDirectory)),
       );
       final generatedPath = '${response['audio_path'] ?? ''}'.trim();
       final generated = File(generatedPath);
-      if (generatedPath.isEmpty ||
-          !await generated.exists() ||
-          await generated.length() == 0) {
+      final generatedSize =
+          generatedPath.isEmpty ||
+              !p.equals(p.absolute(generatedPath), p.absolute(outputPath))
+          ? null
+          : await probeFileSizeBounded(generated);
+      if (generatedSize == null ||
+          generatedSize <= 44 ||
+          generatedSize > _maxOnlineAudioBytes) {
         throw StateError('模型没有生成有效音频。');
       }
       return OfflineSpeechTestResult.synthesis(generatedPath);
     } catch (error) {
-      await _deleteTemporaryDirectory(outputDirectory);
+      await deleteTemporaryDirectoryBounded(outputDirectory);
       rethrow;
     } finally {
       if (!wasRunning) await stop(model);
@@ -1831,18 +1849,18 @@ class OfflineSpeechModelService extends ChangeNotifier {
           cancelSignal: cancelSignal,
         );
         if (generated.bytes.isEmpty) throw StateError('讯飞没有返回有效音频。');
-        final directory = await Directory.systemTemp.createTemp(
-          'openhand_speech_test_',
-        );
-        final path = p.join(directory.path, 'sample${generated.extension}');
         final bytes = generated.extension == '.pcm'
             ? _pcm16Wav(generated.bytes, generated.sampleRate, 1)
             : generated.bytes;
-        final outputPath = generated.extension == '.pcm'
-            ? p.join(directory.path, 'sample.wav')
-            : path;
-        await File(outputPath).writeAsBytes(bytes, flush: true);
-        return OfflineSpeechTestResult.synthesis(outputPath);
+        final output = await writeNewTemporaryFileBytesBounded(
+          directoryPrefix: 'openhand_speech_test_',
+          fileName: generated.extension == '.pcm'
+              ? 'sample.wav'
+              : 'sample${generated.extension}',
+          bytes: bytes,
+          timeout: _temporaryAudioIoTimeout,
+        );
+        return OfflineSpeechTestResult.synthesis(output.path);
       case OnlineSpeechService.bailianTaskAsr:
       case OnlineSpeechService.bailianRealtimeAsr:
         final source = audioPath?.trim() ?? '';
@@ -1876,21 +1894,16 @@ class OfflineSpeechModelService extends ChangeNotifier {
         if (generated.bytes.isEmpty) {
           throw StateError('阿里云百炼没有返回有效音频。');
         }
-        final directory = await Directory.systemTemp.createTemp(
-          'openhand_speech_test_',
-        );
         final pcm = generated.extension == '.pcm';
-        final outputPath = p.join(
-          directory.path,
-          'sample${pcm ? '.wav' : generated.extension}',
-        );
-        await File(outputPath).writeAsBytes(
-          pcm
+        final output = await writeNewTemporaryFileBytesBounded(
+          directoryPrefix: 'openhand_speech_test_',
+          fileName: 'sample${pcm ? '.wav' : generated.extension}',
+          bytes: pcm
               ? _pcm16Wav(generated.bytes, generated.sampleRate, 1)
               : generated.bytes,
-          flush: true,
+          timeout: _temporaryAudioIoTimeout,
         );
-        return OfflineSpeechTestResult.synthesis(outputPath);
+        return OfflineSpeechTestResult.synthesis(output.path);
       case null:
         throw StateError('在线语音服务类型无效。');
     }
@@ -3635,11 +3648,15 @@ class OfflineSpeechModelService extends ChangeNotifier {
     String path,
   ) async {
     final file = File(path);
-    final length = await file.length();
-    if (length <= 44 || length > _maxOnlineAudioBytes) {
+    final bytes = await readBoundedFileBytes(
+      file,
+      maxBytes: _maxOnlineAudioBytes,
+      idleTimeout: defaultBoundedFileReadIdleTimeout,
+      totalTimeout: defaultBoundedFileReadTotalTimeout,
+    );
+    if (bytes.length <= 44) {
       throw StateError('录音文件为空或超过 64 MB 上限。');
     }
-    final bytes = await file.readAsBytes();
     if (ascii.decode(bytes.sublist(0, 4), allowInvalid: true) != 'RIFF' ||
         ascii.decode(bytes.sublist(8, 12), allowInvalid: true) != 'WAVE') {
       throw StateError('录音必须为 WAV 格式。');
@@ -3881,13 +3898,6 @@ class OfflineSpeechModelService extends ChangeNotifier {
     if (_managedStorageCleanupInProgress) {
       throw StateError('语音模型资源正在清理，请稍后重试。');
     }
-  }
-
-  static Future<void> _deleteTemporaryDirectory(Directory? directory) async {
-    if (directory == null) return;
-    try {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    } catch (_) {}
   }
 
   static Uint8List _pcm16Wav(Uint8List pcm, int sampleRate, int channels) {
@@ -4844,13 +4854,17 @@ class _OfflineSpeechRuntimeSession {
 
   static const String _responsePrefix = 'OPENHAND_响应 ';
   static const String _realtimePrefix = 'OPENHAND_实时通道 ';
+  static const Duration _discardedResponseRetention = Duration(minutes: 10);
+  static const int _maxPendingRequests = 32;
+  static const int _maxDiscardedResponseHandlers = 32;
 
   final Process process;
   final Completer<void> ready = Completer<void>();
   final Map<String, Completer<Map<String, Object?>>> _pending =
       <String, Completer<Map<String, Object?>>>{};
-  final Map<String, void Function()> _discardedResponseHandlers =
-      <String, void Function()>{};
+  final Map<String, ({void Function() handler, Timer retentionTimer})>
+  _discardedResponseHandlers =
+      <String, ({void Function() handler, Timer retentionTimer})>{};
   int _requestSequence = 0;
   String errors = '';
   Uri? realtimeEndpoint;
@@ -4861,6 +4875,9 @@ class _OfflineSpeechRuntimeSession {
     Future<void>? cancelSignal,
     void Function()? onDiscardedResponse,
   }) async {
+    if (_pending.length >= _maxPendingRequests) {
+      throw StateError('模型运行时并发请求已达到上限。');
+    }
     final id = '${++_requestSequence}';
     final completer = Completer<Map<String, Object?>>();
     _pending[id] = completer;
@@ -4892,10 +4909,14 @@ class _OfflineSpeechRuntimeSession {
       if (!completer.isCompleted) completer.completeError(error);
     }
     _pending.clear();
-    for (final handler in _discardedResponseHandlers.values) {
-      handler();
-    }
+    final discardedHandlers = _discardedResponseHandlers.values.toList(
+      growable: false,
+    );
     _discardedResponseHandlers.clear();
+    for (final entry in discardedHandlers) {
+      entry.retentionTimer.cancel();
+      _runDiscardedResponseHandler(entry.handler);
+    }
   }
 
   void _handleOutput(String line) {
@@ -4930,9 +4951,10 @@ class _OfflineSpeechRuntimeSession {
       final payload = jsonDecode(decoded);
       if (payload is! Map) return;
       final id = '${payload['id'] ?? ''}';
-      final discardedHandler = _discardedResponseHandlers.remove(id);
-      if (discardedHandler != null) {
-        discardedHandler();
+      final discarded = _discardedResponseHandlers.remove(id);
+      if (discarded != null) {
+        discarded.retentionTimer.cancel();
+        _runDiscardedResponseHandler(discarded.handler);
         return;
       }
       final completer = _pending[id];
@@ -4965,9 +4987,38 @@ class _OfflineSpeechRuntimeSession {
     _pending.remove(id);
     if (handler == null) return;
     if (completer.isCompleted) {
-      handler();
+      _runDiscardedResponseHandler(handler);
     } else {
-      _discardedResponseHandlers[id] = handler;
+      if (_discardedResponseHandlers.length >= _maxDiscardedResponseHandlers) {
+        final oldestId = _discardedResponseHandlers.keys.first;
+        final oldest = _discardedResponseHandlers.remove(oldestId);
+        if (oldest != null) {
+          oldest.retentionTimer.cancel();
+          _runDiscardedResponseHandler(oldest.handler);
+        }
+      }
+      late final Timer retentionTimer;
+      retentionTimer = startSafeTimer(_discardedResponseRetention, () {
+        final retained = _discardedResponseHandlers[id];
+        if (retained == null ||
+            !identical(retained.retentionTimer, retentionTimer)) {
+          return;
+        }
+        _discardedResponseHandlers.remove(id);
+        _runDiscardedResponseHandler(retained.handler);
+      });
+      _discardedResponseHandlers[id] = (
+        handler: handler,
+        retentionTimer: retentionTimer,
+      );
+    }
+  }
+
+  void _runDiscardedResponseHandler(void Function() handler) {
+    try {
+      handler();
+    } catch (error, stack) {
+      silentLog('offline_speech_runtime', '清理已丢弃的模型响应', error, stack);
     }
   }
 }

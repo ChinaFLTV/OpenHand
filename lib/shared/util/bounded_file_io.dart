@@ -184,17 +184,41 @@ Future<Directory> createTemporaryDirectoryBounded({
     if (!waitTimedOut) rethrow;
     unawaited(
       create.then<void>(
-        (directory) => _deleteTemporaryDirectory(
+        (directory) => deleteTemporaryDirectoryBounded(
           directory,
           policy: cleanupPolicy,
           allowedRoot: p.absolute(allowedRoot ?? root.path),
-          onSecondaryError: onSecondaryError,
+          onError: onSecondaryError,
         ),
         onError: (Object error, StackTrace stack) =>
             _reportSecondaryFileError(onSecondaryError, error, stack),
       ),
     );
     rethrow;
+  }
+}
+
+/// 删除受管临时目录，不跟随符号链接，并限制条目、深度和总耗时。
+///
+/// 清理失败返回 `false`，同时可通过 [onError] 记录错误；默认只允许删除系统
+/// 临时目录内的目标。
+Future<bool> deleteTemporaryDirectoryBounded(
+  Directory? directory, {
+  BoundedDeletePolicy policy = _temporaryDirectoryCleanupPolicy,
+  String? allowedRoot,
+  OpenHandAsyncCleanupErrorHandler? onError,
+}) async {
+  if (directory == null) return true;
+  try {
+    await deletePathBounded(
+      p.absolute(directory.path),
+      policy: policy,
+      allowedRoot: p.absolute(allowedRoot ?? Directory.systemTemp.path),
+    );
+    return true;
+  } catch (error, stack) {
+    _reportSecondaryFileError(onError, error, stack);
+    return false;
   }
 }
 
@@ -280,11 +304,10 @@ Future<File> _writeNewTemporaryFileBounded({
                   _reportSecondaryFileError(onSecondaryError, error, stack),
             )
             .whenComplete(
-              () => _deleteTemporaryDirectory(
+              () => deleteTemporaryDirectoryBounded(
                 created,
-                policy: _temporaryDirectoryCleanupPolicy,
                 allowedRoot: p.absolute(Directory.systemTemp.path),
-                onSecondaryError: onSecondaryError,
+                onError: onSecondaryError,
               ),
             ),
       );
@@ -294,33 +317,15 @@ Future<File> _writeNewTemporaryFileBounded({
   } catch (_) {
     final created = directory;
     if (created != null) {
-      await _deleteTemporaryDirectory(
+      await deleteTemporaryDirectoryBounded(
         created,
-        policy: _temporaryDirectoryCleanupPolicy,
         allowedRoot: p.absolute(Directory.systemTemp.path),
-        onSecondaryError: onSecondaryError,
+        onError: onSecondaryError,
       );
     }
     rethrow;
   } finally {
     deadline.stop();
-  }
-}
-
-Future<void> _deleteTemporaryDirectory(
-  Directory directory, {
-  required BoundedDeletePolicy policy,
-  required String allowedRoot,
-  required OpenHandAsyncCleanupErrorHandler? onSecondaryError,
-}) async {
-  try {
-    await deletePathBounded(
-      p.absolute(directory.path),
-      policy: policy,
-      allowedRoot: allowedRoot,
-    );
-  } catch (error, stack) {
-    _reportSecondaryFileError(onSecondaryError, error, stack);
   }
 }
 

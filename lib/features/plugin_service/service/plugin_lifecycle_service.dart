@@ -2131,9 +2131,12 @@ printf '%s\\n' ${posixShellQuote('$label 命令入口：$shimPath')}
     try {
       await _prepareAndroidReverseToolDirectories(<String>[target, binDir]);
       await _validateAndroidReverseToolFileDestination(shimPath);
-      stagingDirectory = await Directory(root)
-          .createTemp('anything-analyzer-install-')
-          .timeout(_pluginLifecycleProbeTimeout);
+      stagingDirectory = await createTemporaryDirectoryBounded(
+        parent: Directory(root),
+        prefix: 'anything-analyzer-install-',
+        timeout: _pluginLifecycleProbeTimeout,
+        allowedRoot: root,
+      );
       if (!await isPhysicalPathWithinOrEqual(root, stagingDirectory.path)) {
         throw StateError('Anything Analyzer 临时安装目录超出受管目录。');
       }
