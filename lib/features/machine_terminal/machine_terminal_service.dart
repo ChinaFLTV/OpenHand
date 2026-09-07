@@ -15,6 +15,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/bounded_text_buffer.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -81,6 +82,12 @@ const String _terminalRestoredFailureMessage = '上次终端运行异常，请�
 const int _machineTerminalHistoryStorageSchemaVersion = 2;
 const int _machineTerminalHistoryMaxBytes = 32 * kBytesPerMiB;
 const int _machineTerminalHistoryPayloadReserveBytes = 64 * kBytesPerKiB;
+const BoundedJsonConversionConfig _machineTerminalHistoryJsonConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 16,
+      maxContainerItems: 16384,
+      maxTotalNodes: 1048576,
+    );
 const String _terminalBusyError = '已有其他终端命令正在运行。';
 const String _terminalNotRunningError = '终端未运行。';
 const int _terminalUploadChunkBytes = 48 * kBytesPerKiB;
@@ -1420,13 +1427,15 @@ class MachineTerminalService extends ChangeNotifier {
       throw FileSystemException('终端历史记录不是普通文件。', file.path);
     }
     try {
-      final decoded = jsonDecode(
+      final raw = decodeJsonObjectTextUsingConfig(
         await readBoundedFileString(
           file,
           maxBytes: _machineTerminalHistoryMaxBytes,
         ),
+        maxTextCodeUnits: _machineTerminalHistoryMaxBytes,
+        config: _machineTerminalHistoryJsonConfig,
+        invalidRootMessage: '终端历史记录必须是 JSON 对象。',
       );
-      final raw = stringKeyedMapFromValue(decoded);
       final terminalsJson = raw['terminals'];
       if (terminalsJson is! List || terminalsJson.isEmpty) return null;
       final workspace = _MachineTerminalWorkspace(

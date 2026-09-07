@@ -316,7 +316,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     for (final fact in capabilityFacts)
-                      _CapabilityChip(
+                      OpenHandFactChip(
                         icon: fact.icon,
                         label: fact.label,
                         color: fact.color,
@@ -437,47 +437,6 @@ class _CompactProgress extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// 服务卡片的配置事实芯片：以图标 + 主题微色调呈现次级配置信息，
-/// 与上方状态度量胶囊形成清晰的层次，避免把配置折叠进省略号文本。
-class _CapabilityChip extends StatelessWidget {
-  const _CapabilityChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(kOpenHandRadius10),
-        border: Border.all(color: color.withValues(alpha: 0.26)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          kOpenHandHGap6,
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

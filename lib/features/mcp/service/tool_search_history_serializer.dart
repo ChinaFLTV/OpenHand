@@ -1,7 +1,8 @@
-import 'dart:convert';
-
+import '../../../shared/util/bounded_json_conversion.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/csv_encoding.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 
 /// 把 [AiToolSearchLoadHistoryEntry] 序列化为 CSV / Markdown 的纯函数集合。
@@ -22,6 +23,18 @@ import '../../ai/index.dart';
 ///   - 单元格内 `|` 转义为 `\|`、`\n` 折成空格，以避免破坏表格
 class ToolSearchHistorySerializer {
   const ToolSearchHistorySerializer._();
+
+  static const int maxImportBytes = 8 * kBytesPerMiB;
+  static const int _maxImportedJsonNodes =
+      2 +
+      McpLoadedToolsTracker.defaultMaxHistoryPerSession *
+          (7 + McpLoadedToolsTracker.defaultMaxNamesPerSession);
+  static const BoundedJsonConversionConfig _importJsonConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 4,
+        maxContainerItems: McpLoadedToolsTracker.defaultMaxNamesPerSession,
+        maxTotalNodes: _maxImportedJsonNodes,
+      );
 
   static String toCsv(List<AiToolSearchLoadHistoryEntry> entries) {
     final buf = StringBuffer()
@@ -99,46 +112,41 @@ class ToolSearchHistorySerializer {
   ///
   /// 返回的 entries 顺序与 JSON 中 `entries` 数组顺序一致（与 [toJson] 对称）。
   static List<AiToolSearchLoadHistoryEntry> fromJson(String source) {
-    final Object? decoded;
+    if (utf8ByteLength(source) > maxImportBytes) {
+      throw const FormatException('工具搜索历史文件超过安全上限。');
+    }
+    final Map<String, Object?> root;
     try {
-      decoded = jsonDecode(source);
+      root = decodeJsonObjectTextUsingConfig(
+        source,
+        maxTextCodeUnits: maxImportBytes,
+        config: _importJsonConfig,
+        invalidRootMessage: '工具搜索历史的根节点必须是 JSON 对象。',
+      );
     } on FormatException catch (e) {
-      throw FormatException(
-        'ToolSearchHistorySerializer.fromJson: ${e.message}',
-      );
+      throw FormatException('工具搜索历史格式无效：${e.message}');
     }
-    if (decoded is! Map) {
-      throw const FormatException(
-        'ToolSearchHistorySerializer.fromJson: root must be a JSON object',
-      );
-    }
-    final root = stringKeyedMapFromValue(decoded);
     final version = intFromValue(root['version'], fallback: -1);
     if (version != 1) {
-      throw FormatException(
-        'ToolSearchHistorySerializer.fromJson: unsupported version $version',
-      );
+      throw FormatException('不支持工具搜索历史版本 $version。');
     }
     final raw = root['entries'];
     if (raw is! List) {
-      throw const FormatException(
-        'ToolSearchHistorySerializer.fromJson: "entries" must be a JSON array',
-      );
+      throw const FormatException('工具搜索历史 entries 必须是 JSON 数组。');
+    }
+    if (raw.length > McpLoadedToolsTracker.defaultMaxHistoryPerSession) {
+      throw const FormatException('工具搜索历史条目数量超过安全上限。');
     }
     final result = <AiToolSearchLoadHistoryEntry>[];
     for (var i = 0; i < raw.length; i++) {
       final row = raw[i];
       if (row is! Map) {
-        throw FormatException(
-          'ToolSearchHistorySerializer.fromJson: entries[$i] must be a JSON object',
-        );
+        throw FormatException('工具搜索历史 entries[$i] 必须是 JSON 对象。');
       }
       final rowMap = stringKeyedMapFromValue(row);
       final tsRaw = rowMap['timestamp'];
-      if (tsRaw is! String) {
-        throw FormatException(
-          'ToolSearchHistorySerializer.fromJson: entries[$i].timestamp missing or not a string',
-        );
+      if (tsRaw is! String || tsRaw.length > 64) {
+        throw FormatException('工具搜索历史 entries[$i].timestamp 无效。');
       }
       final timestamp = DateTime.parse(tsRaw);
       final sourceName = rowMap['source'];
@@ -150,7 +158,29 @@ class ToolSearchHistorySerializer {
       final query = (rowMap['query'] is String)
           ? rowMap['query'] as String
           : '';
-      final addedNames = stringListFromValue(rowMap['added_names']);
+      if (query.length > McpLoadedToolsTracker.defaultMaxQueryCharacters) {
+        throw FormatException('工具搜索历史 entries[$i].query 超过安全上限。');
+      }
+      final rawAddedNames = rowMap['added_names'];
+      if (rawAddedNames != null && rawAddedNames is! List) {
+        throw FormatException('工具搜索历史 entries[$i].added_names 必须是数组。');
+      }
+      final addedNameValues = rawAddedNames as List? ?? const <Object?>[];
+      if (addedNameValues.length >
+          McpLoadedToolsTracker.defaultMaxNamesPerSession) {
+        throw FormatException('工具搜索历史 entries[$i].added_names 数量过多。');
+      }
+      final addedNames = <String>[];
+      for (final value in addedNameValues) {
+        if (value is! String) {
+          throw FormatException('工具搜索历史 entries[$i].added_names 包含无效名称。');
+        }
+        final name = value.trim();
+        if (name.length > McpLoadedToolsTracker.defaultMaxNameCharacters) {
+          throw FormatException('工具搜索历史 entries[$i].added_names 存在超长名称。');
+        }
+        if (name.isNotEmpty) addedNames.add(name);
+      }
       final totalDeferred = nonNegativeIntFromValue(
         rowMap['total_deferred'],
         fallback: 0,
@@ -165,6 +195,6 @@ class ToolSearchHistorySerializer {
         ),
       );
     }
-    return result;
+    return List<AiToolSearchLoadHistoryEntry>.unmodifiable(result);
   }
 }

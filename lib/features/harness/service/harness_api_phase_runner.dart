@@ -142,7 +142,6 @@ class HarnessApiPhaseRunner {
   final void Function({
     required String phaseSessionId,
     required List<String> loadedNames,
-    required int totalLoadedSoFar,
     required int totalDeferred,
     required String query,
   })?
@@ -162,6 +161,10 @@ class HarnessApiPhaseRunner {
   static const int _maxToolRoundsPerPhase = 64;
   static const int _maxToolCallsPerRound = 64;
   static const int _maxToolCallsPerPhase = 256;
+  static const int _maxTrackedToolNames =
+      McpLoadedToolsTracker.defaultMaxNamesPerSession;
+  static const int _maxTrackedToolNameCharacters =
+      McpLoadedToolsTracker.defaultMaxNameCharacters;
   static const int _maxToolArgumentsCharacters = 256 * kBytesPerKiB;
   static const int _maxErrorCharacters = 2000;
 
@@ -592,28 +595,37 @@ class HarnessApiPhaseRunner {
               () => <String>{},
             );
             final addedNames = <String>[];
-            for (final name in loadedNames) {
-              if (name is String && name.isNotEmpty) {
-                if (bucket.add(name)) {
+            for (final rawName in loadedNames.take(_maxTrackedToolNames * 2)) {
+              if (bucket.length >= _maxTrackedToolNames) break;
+              if (rawName is String) {
+                final name = rawName.trim();
+                if (name.isNotEmpty &&
+                    name.length <= _maxTrackedToolNameCharacters &&
+                    bucket.add(name)) {
                   addedNames.add(name);
                 }
               }
             }
             final cb = onToolSearchLoaded;
             if (cb != null && addedNames.isNotEmpty) {
+              addedNames.sort();
               final totalDeferredRaw =
                   result.metadata['tool_search_total_deferred'];
               final queryRaw = result.metadata['tool_search_query'];
               cb(
                 phaseSessionId: phaseSessionId,
                 loadedNames: List<String>.unmodifiable(addedNames),
-                totalLoadedSoFar: bucket.length,
-                totalDeferred: totalDeferredRaw is int
-                    ? totalDeferredRaw
-                    : (totalDeferredRaw is num
-                          ? totalDeferredRaw.toInt()
-                          : addedNames.length),
-                query: queryRaw is String ? queryRaw : '',
+                totalDeferred: nonNegativeIntFromValue(
+                  totalDeferredRaw,
+                  fallback: addedNames.length,
+                ),
+                query: queryRaw is String
+                    ? clipText(
+                        queryRaw.trim(),
+                        McpLoadedToolsTracker.defaultMaxQueryCharacters,
+                        suffix: '',
+                      )
+                    : '',
               );
             }
           }

@@ -10,6 +10,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -26,15 +27,18 @@ const int _jsonRpcCompactLinePreviewChars = 120;
 const int _jsonRpcToolDescriptionPreviewChars = 60;
 const int _stopAllConcurrency = 8;
 const int _shutdownStopAllConcurrency = 16;
+const int _jsonRpcMaxMessageCharacters = kBytesPerMiB;
 final Stopwatch _mcpStdioProcessStopwatch = Stopwatch()..start();
 
 Map<String, Object?>? _parseMcpStdioJsonRpcLine(String line) {
   final trimmed = nullIfBlank(line);
   if (trimmed == null || !trimmed.startsWith('{')) return null;
   try {
-    final decoded = jsonDecode(trimmed);
-    if (decoded is! Map) return null;
-    return stringKeyedMapFromValue(decoded);
+    return decodeJsonObjectTextUsingConfig(
+      trimmed,
+      maxTextCodeUnits: _jsonRpcMaxMessageCharacters,
+      config: kOpenHandProtocolJsonConversionConfig,
+    );
   } catch (_) {
     return null;
   }
@@ -140,7 +144,7 @@ class McpStdioProcessManager extends ChangeNotifier {
   static const Duration _shutdownGracefulStopTimeout = Duration(
     milliseconds: 250,
   );
-  static const int _defaultResponseBufferLimit = kBytesPerMiB;
+  static const int _defaultResponseBufferLimit = _jsonRpcMaxMessageCharacters;
   static const int _maxLogLineChars = 4 * kBytesPerKiB;
   static const int _maxManagedProcesses = 64;
   static const int _maxRuntimeCacheScanEntries = 20000;

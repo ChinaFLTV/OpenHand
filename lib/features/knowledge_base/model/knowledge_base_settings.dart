@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../shared/net/tcp_port_utils.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
@@ -9,6 +10,12 @@ import '../../../shared/util/text_clip.dart';
 const _skipDualCapabilityRerankJsonKey =
     'skip_model_rerank_when_embedding_supports_rerank';
 const int _maxKnowledgeBaseSettingsBytes = kBytesPerMiB;
+const BoundedJsonConversionConfig _knowledgeBaseSettingsJsonConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 8,
+      maxContainerItems: 256,
+      maxTotalNodes: 4096,
+    );
 final RegExp _knowledgeCollectionNameUnsafeCharsPattern = RegExp(
   '[^a-zA-Z0-9_]+',
 );
@@ -1231,11 +1238,12 @@ class KnowledgeBaseSettings {
     if (utf8ByteLength(text) > _maxKnowledgeBaseSettingsBytes) {
       throw const FormatException('知识库配置超过安全上限。');
     }
-    final decoded = jsonDecode(text);
-    if (decoded is! Map) {
-      throw const FormatException('知识库配置必须是 JSON 对象。');
-    }
-    final payload = stringKeyedMapFromValue(decoded);
+    final payload = decodeJsonObjectTextUsingConfig(
+      text,
+      maxTextCodeUnits: _maxKnowledgeBaseSettingsBytes,
+      config: _knowledgeBaseSettingsJsonConfig,
+      invalidRootMessage: '知识库配置必须是 JSON 对象。',
+    );
     _validateJson(payload);
     return KnowledgeBaseSettings.fromJson(payload);
   }
@@ -1245,9 +1253,9 @@ class KnowledgeBaseSettings {
       payload,
       payload,
       path: 'knowledge_base_settings',
-      maxDepth: 8,
-      maxContainerItems: 256,
-      maxTotalNodes: 4096,
+      maxDepth: _knowledgeBaseSettingsJsonConfig.maxDepth,
+      maxContainerItems: _knowledgeBaseSettingsJsonConfig.maxContainerItems,
+      maxTotalNodes: _knowledgeBaseSettingsJsonConfig.maxTotalNodes,
     );
   }
 

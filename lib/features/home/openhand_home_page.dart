@@ -495,6 +495,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static const int _maxOpenEditorTabs = 24;
   static const int _maxEditorTabPathCharacters = 16 * kBytesPerKiB;
   static const int _maxEditorTabsPayloadBytes = 512 * kBytesPerKiB;
+  static const BoundedJsonConversionConfig _editorTabsJsonConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 3,
+        maxContainerItems: _maxOpenEditorTabs,
+        maxTotalNodes: _maxOpenEditorTabs + 4,
+      );
   String? _activeFilePath;
   String? _editorTabsSessionId;
   late final OpenHandDebouncer _editorTabsSaveDebouncer = OpenHandDebouncer(
@@ -653,9 +659,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (utf8ByteLength(jsonStr) > _maxEditorTabsPayloadBytes) {
         throw const FormatException('编辑器标签页状态超过安全上限。');
       }
-      final decoded = jsonDecode(jsonStr);
-      if (decoded is! Map) return;
-      final payload = stringKeyedMapFromValue(decoded);
+      final payload = decodeJsonObjectTextUsingConfig(
+        jsonStr,
+        maxTextCodeUnits: _maxEditorTabsPayloadBytes,
+        config: _editorTabsJsonConfig,
+        invalidRootMessage: '编辑器标签页状态必须是 JSON 对象。',
+      );
       final openFiles = payload['open_files'];
       final activeFile = payload['active_file'];
       if (openFiles is List) {
@@ -1958,7 +1967,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _handleHarnessToolSearchLoaded({
     required String phaseSessionId,
     required List<String> loadedNames,
-    required int totalLoadedSoFar,
     required int totalDeferred,
     required String query,
   }) {

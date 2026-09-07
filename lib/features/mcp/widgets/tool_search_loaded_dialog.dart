@@ -32,7 +32,8 @@ import '../mcp_errors.dart';
 import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
 
-const int _toolSearchHistoryImportMaxBytes = 8 * kBytesPerMiB;
+const int _toolSearchHistoryImportMaxBytes =
+    ToolSearchHistorySerializer.maxImportBytes;
 const int _mcpGroupExpansionCacheMaxEntries = 128;
 const double _toolSearchDialogMaxWidth = 720;
 const double _toolSearchCardActionExtent = 36;

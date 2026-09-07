@@ -8,6 +8,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/physical_path_safety.dart';
 import '../../../shared/util/serial_task_queue.dart';
@@ -16,6 +17,13 @@ import '../model/knowledge_source.dart';
 const int _maxPendingKnowledgeSourceCleanups = 2048;
 const int _pendingKnowledgeSourceCleanupRetryBatch = 4;
 const int _knowledgeSourceIdMaxCharacters = 512;
+const int _knowledgeSourceCleanupMarkerMaxCharacters = 4096;
+const BoundedJsonConversionConfig _knowledgeSourceCleanupMarkerJsonConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 2,
+      maxContainerItems: 8,
+      maxTotalNodes: 16,
+    );
 const Duration _pendingKnowledgeSourceDeleteTimeout = Duration(seconds: 5);
 const Duration _pendingKnowledgeSourceLookupTimeout = Duration(seconds: 5);
 const Duration _pendingKnowledgeSourceRetryTimeout = Duration(seconds: 15);
@@ -193,8 +201,16 @@ _loadPendingKnowledgeSourceCleanups() async {
   for (final row in rows) {
     final markerKey = row['key'];
     try {
-      final decoded = jsonDecode('${row['value']}');
-      if (decoded is! Map) throw const FormatException('清理标记格式无效。');
+      final encoded = row['value'];
+      if (encoded is! String) {
+        throw const FormatException('清理标记格式无效。');
+      }
+      final decoded = decodeJsonObjectTextUsingConfig(
+        encoded,
+        maxTextCodeUnits: _knowledgeSourceCleanupMarkerMaxCharacters,
+        config: _knowledgeSourceCleanupMarkerJsonConfig,
+        invalidRootMessage: '清理标记格式无效。',
+      );
       final sourceId = '${decoded['source_id'] ?? ''}'.trim();
       final path = p.absolute('${decoded['path'] ?? ''}'.trim());
       final createdAtText = '${decoded['created_at'] ?? ''}'.trim();

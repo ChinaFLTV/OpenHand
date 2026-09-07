@@ -409,12 +409,6 @@ const double _kGatewayCardRadius = 22;
 const double _kGatewayIdentityExtent = 64;
 const double _kGatewayIdentityIconSize = 31;
 const double _kGatewayHeaderBreakpoint = 820;
-const double _kGatewayFactIconSize = 14;
-const double _kGatewayFactRadius = 10;
-const EdgeInsets _kGatewayFactPadding = EdgeInsets.symmetric(
-  horizontal: 10,
-  vertical: 6,
-);
 const EdgeInsets _kGatewayCardPadding = EdgeInsets.all(18);
 const EdgeInsets _kGatewayMetricsPadding = EdgeInsets.symmetric(
   horizontal: 14,
@@ -710,7 +704,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         ),
     ];
     final factChips = <Widget>[
-      _GatewayFactChip(
+      OpenHandFactChip(
         icon: Icons.rocket_launch_outlined,
         label: config.autoStartOnLaunch
             ? openHandLocalizedText(
@@ -733,7 +727,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
               ),
         color: config.autoStartOnLaunch ? cs.secondary : cs.onSurfaceVariant,
       ),
-      _GatewayFactChip(
+      OpenHandFactChip(
         icon: Icons.sync_rounded,
         label: config.autoReloadOnChange
             ? openHandLocalizedText(
@@ -756,7 +750,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
               ),
         color: config.autoReloadOnChange ? cs.tertiary : cs.onSurfaceVariant,
       ),
-      _GatewayFactChip(
+      OpenHandFactChip(
         icon: Icons.bolt_rounded,
         label: openHandLocalizedText(
           context,
@@ -769,7 +763,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         ),
         color: cs.primary,
       ),
-      _GatewayFactChip(
+      OpenHandFactChip(
         icon: Icons.chat_bubble_outline_rounded,
         label: openHandLocalizedText(
           context,
@@ -782,7 +776,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         ),
         color: cs.tertiary,
       ),
-      _GatewayFactChip(
+      OpenHandFactChip(
         icon: Icons.forum_outlined,
         label: openHandLocalizedText(
           context,
@@ -795,7 +789,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         ),
         color: cs.secondary,
       ),
-      _GatewayFactChip(
+      OpenHandFactChip(
         icon: Icons.manage_accounts_outlined,
         label: config.sessionManagementEnabled
             ? openHandLocalizedText(
@@ -820,7 +814,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
             ? cs.secondary
             : cs.onSurfaceVariant,
       ),
-      _GatewayFactChip(
+      OpenHandFactChip(
         icon: Icons.library_books_outlined,
         label: config.knowledgeBaseEnabled
             ? openHandLocalizedText(
@@ -843,7 +837,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
               ),
         color: config.knowledgeBaseEnabled ? cs.primary : cs.onSurfaceVariant,
       ),
-      _GatewayFactChip(
+      OpenHandFactChip(
         icon: Icons.folder_open_rounded,
         label: config.workspaceFileWriteEnabled
             ? openHandLocalizedText(
@@ -7774,46 +7768,6 @@ class _GatewayPlatformIdentity extends StatelessWidget {
   }
 }
 
-/// 配置事实芯片：次级信息，视觉权重低于状态胶囊。
-class _GatewayFactChip extends StatelessWidget {
-  const _GatewayFactChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: _kGatewayFactPadding,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(_kGatewayFactRadius),
-        border: Border.all(color: color.withValues(alpha: 0.26)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: _kGatewayFactIconSize, color: color),
-          kOpenHandHGap6,
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// 卡片底部运行指标条：一体式仪表盘分区，替代零散灰块。
 class _GatewayRuntimeMetricsStrip extends StatelessWidget {
   const _GatewayRuntimeMetricsStrip({required this.items});
@@ -11712,18 +11666,18 @@ class _DingTalkGatewayCard extends StatelessWidget {
             ),
         ];
         final factChips = <Widget>[
-          _GatewayFactChip(
+          OpenHandFactChip(
             icon: Icons.forum_outlined,
             label: '会话 ${ding.conversations.length}',
             color: cs.primary,
           ),
           if (ding.unreadCount > 0)
-            _GatewayFactChip(
+            OpenHandFactChip(
               icon: Icons.mark_email_unread_outlined,
               label: '未读 ${ding.unreadCount}',
               color: OpenHandStatusColors.warning,
             ),
-          _GatewayFactChip(
+          OpenHandFactChip(
             icon: ding.isInstalled
                 ? Icons.extension_rounded
                 : Icons.extension_off_outlined,

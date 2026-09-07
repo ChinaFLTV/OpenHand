@@ -1,0 +1,60 @@
+name: 应用质量检查
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    name: Flutter 静态与架构检查
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: 安装依赖
+        run: flutter pub get
+      - name: 检查格式
+        run: dart format --output=none --set-exit-if-changed lib scripts
+      - name: 检查架构边界
+        run: dart run scripts/check_imports.dart
+      - name: 检查共享辅助逻辑
+        run: dart run scripts/check_shared_helpers.dart
+      - name: 执行静态分析
+        run: flutter analyze
+
+  web:
+    name: Web 类型与产物检查
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+      - name: 重建 Web 产物
+        run: scripts/build_web.sh
+      - name: 校验已提交产物
+        run: git diff --exit-code -- assets/web

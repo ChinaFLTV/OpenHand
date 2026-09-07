@@ -120,6 +120,51 @@ class OpenHandStatusPill extends StatelessWidget {
   }
 }
 
+/// 卡片中的次级配置事实：视觉权重低于状态胶囊。
+class OpenHandFactChip extends StatelessWidget {
+  const OpenHandFactChip({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
+        border: Border.all(color: color.withValues(alpha: 0.26)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          kOpenHandHGap6,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 行内计量胶囊：高对比容器底上的一行次级小字，用于超时、条数这类数值标注。
 class OpenHandMetricChip extends StatelessWidget {
   const OpenHandMetricChip({super.key, required this.label, this.tooltip});
