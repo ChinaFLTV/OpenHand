@@ -2439,6 +2439,10 @@ class _E2bKeyValueDialogState extends State<_E2bKeyValueDialog> {
 
 const ButtonStyle _sandboxInputIconButtonStyle = ButtonStyle(
   backgroundColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+  overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+  shadowColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+  surfaceTintColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+  elevation: WidgetStatePropertyAll<double>(0),
 );
 
 class _E2bTextValueDialog extends StatefulWidget {
