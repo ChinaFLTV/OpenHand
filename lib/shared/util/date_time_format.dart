@@ -5,6 +5,10 @@ const int _minHourOfDay = 0;
 const int _maxHourOfDay = 23;
 const int _minMinuteOfHour = 0;
 const int _maxMinuteOfHour = 59;
+const int _monthsPerCalendarYear = 12;
+const int _maxCalendarYear = 9999;
+const int _maxCalendarMonthIndex =
+    _maxCalendarYear * _monthsPerCalendarYear - 1;
 
 String twoDigit(int value) => value.toString().padLeft(2, '0');
 
@@ -95,9 +99,14 @@ DateTime calendarDate(DateTime value) {
 
 /// 按日历月平移，自动夹到目标月最后一天（1 月 31 日减一个月 → 2 月 28/29 日）。
 DateTime shiftCalendarMonths(DateTime date, int months) {
-  final totalMonths = date.year * 12 + (date.month - 1) + months;
-  final year = (totalMonths ~/ 12).clamp(1, 9999);
-  final month = totalMonths - (totalMonths ~/ 12) * 12 + 1;
+  final sourceMonthIndex =
+      (date.year - 1) * _monthsPerCalendarYear + date.month - 1;
+  final targetMonthIndex = (sourceMonthIndex + months).clamp(
+    0,
+    _maxCalendarMonthIndex,
+  );
+  final year = targetMonthIndex ~/ _monthsPerCalendarYear + 1;
+  final month = targetMonthIndex % _monthsPerCalendarYear + 1;
   final lastDay = DateTime(year, month + 1, 0).day;
   final day = date.day > lastDay ? lastDay : date.day;
   return DateTime(year, month, day);
@@ -114,7 +123,10 @@ DateTime shiftCalendarMonths(DateTime date, int months) {
     return (start: shiftCalendarMonths(today, -monthsBack), end: today);
   }
   final offset = daysInclusive < 1 ? 0 : daysInclusive - 1;
-  return (start: today.subtract(Duration(days: offset)), end: today);
+  return (
+    start: DateTime(today.year, today.month, today.day - offset),
+    end: today,
+  );
 }
 
 String formatYearMonthDayRange(DateTime start, DateTime end) {

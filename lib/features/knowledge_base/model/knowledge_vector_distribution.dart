@@ -1,8 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:characters/characters.dart';
-
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 
 const int kKnowledgeVectorDistributionDefaultMaxPoints = 600;
 const int kKnowledgeVectorDistributionPageSize = 120;
@@ -331,10 +330,7 @@ class KnowledgeVectorProjector {
 
   static String _truncate(String value, int maxChars) {
     final normalized = value.trim();
-    if (normalized.isEmpty || maxChars <= 0) return '';
-    final chars = normalized.characters;
-    if (chars.length <= maxChars) return normalized;
-    return '${chars.take(maxChars)}...';
+    return clipText(normalized, maxChars);
   }
 }
 

@@ -9,9 +9,14 @@
 
 import { ignoreError, runIgnoringErrors } from '../shared/util/errors';
 import { NOTIFICATION_TAG_MESSAGE, SW_MESSAGE_TYPE_NOTIFY } from '../shared/util/storage_keys';
+import { truncateEndText } from '../shared/util/text';
 
 let _swRegistration: ServiceWorkerRegistration | null = null;
 let _permissionRequestedOnce = false;
+const NOTIFICATION_TITLE_MAX_CHARACTERS = 120;
+const NOTIFICATION_BODY_MAX_CHARACTERS = 600;
+const NOTIFICATION_TAG_MAX_CHARACTERS = 160;
+const NOTIFICATION_SESSION_ID_MAX_CHARACTERS = 256;
 
 export function registerServiceWorker(): void {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
@@ -70,33 +75,55 @@ export async function notifyIfHidden(opts: {
   sessionId?: string;
 }): Promise<void> {
   if (!_isHidden()) return;
+  const title = truncateEndText(
+    opts.title.trim(),
+    NOTIFICATION_TITLE_MAX_CHARACTERS,
+    { ellipsis: '' },
+  );
+  if (!title) return;
+  const body = truncateEndText(
+    opts.body?.trim() ?? '',
+    NOTIFICATION_BODY_MAX_CHARACTERS,
+  );
+  const sessionId = truncateEndText(
+    opts.sessionId?.trim() ?? '',
+    NOTIFICATION_SESSION_ID_MAX_CHARACTERS,
+    { ellipsis: '' },
+  );
   const ok = await _ensurePermission();
   if (!ok) return;
-  const tag = opts.sessionId ? `openhand-${opts.sessionId}` : NOTIFICATION_TAG_MESSAGE;
-  const controller = navigator.serviceWorker.controller;
+  const tag = truncateEndText(
+    sessionId ? `openhand-${sessionId}` : NOTIFICATION_TAG_MESSAGE,
+    NOTIFICATION_TAG_MAX_CHARACTERS,
+    { ellipsis: '' },
+  );
+  const controller =
+    typeof navigator !== 'undefined' && 'serviceWorker' in navigator
+      ? navigator.serviceWorker.controller
+      : null;
   if (_swRegistration && controller) {
     if (runIgnoringErrors(() => {
       controller.postMessage({
         type: SW_MESSAGE_TYPE_NOTIFY,
-        title: opts.title,
-        body: opts.body ?? '',
+        title,
+        body,
         tag,
-        sessionId: opts.sessionId,
+        sessionId,
       });
     })) {
       return;
     }
   }
   try {
-    const n = new Notification(opts.title, {
-      body: opts.body ?? '',
+    const n = new Notification(title, {
+      body,
       icon: '/openhand_logo.png',
       tag,
     });
     n.onclick = () => {
       runIgnoringErrors(() => window.focus());
-      if (opts.sessionId) {
-        location.href = `/threads/${encodeURIComponent(opts.sessionId)}`;
+      if (sessionId) {
+        location.href = `/threads/${encodeURIComponent(sessionId)}`;
       }
       n.close();
     };

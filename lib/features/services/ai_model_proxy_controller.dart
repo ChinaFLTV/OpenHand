@@ -59,6 +59,7 @@ class AiModelProxyController extends ChangeNotifier {
   int _runtimeRequestCount = 0;
   int _runtimeErrorCount = 0;
   DateTime? _startedAt;
+  final Stopwatch _runtimeUptime = Stopwatch();
   final Map<String, _LiveConnectionState> _liveConnections =
       <String, _LiveConnectionState>{};
   final Map<int, String> _runtimeRequests = <int, String>{};
@@ -102,13 +103,9 @@ class AiModelProxyController extends ChangeNotifier {
   int get runtimeRequestCount => _runtimeRequestCount;
   int get runtimeErrorCount => _runtimeErrorCount;
   DateTime? get startedAt => _startedAt;
-  Duration get uptime {
-    final start = _startedAt;
-    if (start == null || _lifecycle != AiModelProxyLifecycle.running) {
-      return Duration.zero;
-    }
-    return DateTime.now().difference(start);
-  }
+  Duration get uptime => _lifecycle == AiModelProxyLifecycle.running
+      ? _runtimeUptime.elapsed
+      : Duration.zero;
 
   /// 判断模型 Base URL 是否指向当前 OpenHand 中转站监听端点。
   ///
@@ -485,7 +482,7 @@ class AiModelProxyController extends ChangeNotifier {
         return;
       }
       if (!server.isRunning) throw StateError('中转站监听未能保持运行。');
-      _startedAt = DateTime.now();
+      _markRuntimeStarted();
       _settings = _settings.copyWith(enabled: true);
       _lifecycle = AiModelProxyLifecycle.running;
       _startTelemetrySampling();
@@ -494,7 +491,7 @@ class AiModelProxyController extends ChangeNotifier {
       _stopTelemetrySampling();
       await _httpServer?.stop();
       if (_disposed) return;
-      _startedAt = null;
+      _clearRuntimeStarted();
       _resetRuntimeOccupancy();
       _resetRateLimitWindows();
       _settings = _settings.copyWith(enabled: false);
@@ -522,7 +519,7 @@ class AiModelProxyController extends ChangeNotifier {
     try {
       await _httpServer?.stop();
       if (_disposed) return;
-      _startedAt = null;
+      _clearRuntimeStarted();
       _resetRuntimeOccupancy();
       _resetRateLimitWindows();
       _settings = _settings.copyWith(enabled: false);
@@ -554,7 +551,7 @@ class AiModelProxyController extends ChangeNotifier {
     await _httpServer?.dispose();
     _httpServer = null;
     _lifecycle = AiModelProxyLifecycle.stopped;
-    _startedAt = null;
+    _clearRuntimeStarted();
     _resetRuntimeOccupancy();
     _resetRateLimitWindows();
     await _flushTelemetry();
@@ -733,7 +730,7 @@ class AiModelProxyController extends ChangeNotifier {
             _lifecycle != AiModelProxyLifecycle.running)) {
       return;
     }
-    _startedAt = null;
+    _clearRuntimeStarted();
     _stopTelemetrySampling();
     _resetRuntimeOccupancy();
     _resetRateLimitWindows();
@@ -985,7 +982,7 @@ class AiModelProxyController extends ChangeNotifier {
     _telemetryFlushTimer?.cancel();
     _telemetryFlushTimer = null;
     unawaited(_flushTelemetry());
-    _startedAt = null;
+    _clearRuntimeStarted();
     _resetRuntimeOccupancy();
     _resetRateLimitWindows();
     unawaited(
@@ -1039,6 +1036,7 @@ class AiModelProxyController extends ChangeNotifier {
       if (server == null) throw StateError('中转站 HTTP 服务未初始化。');
       await server.stop();
       if (_disposed) return;
+      _clearRuntimeStarted();
       _resetRuntimeOccupancy();
       _resetRateLimitWindows();
       await server.start();
@@ -1047,9 +1045,11 @@ class AiModelProxyController extends ChangeNotifier {
         return;
       }
       if (!server.isRunning) throw StateError('中转站监听未能保持运行。');
+      _markRuntimeStarted();
       _lifecycle = AiModelProxyLifecycle.running;
     } catch (error) {
       if (_disposed) return;
+      _clearRuntimeStarted();
       _stopTelemetrySampling();
       _lifecycle = AiModelProxyLifecycle.error;
       _errorMessage = '重新绑定中转站端口失败：$error';
@@ -1090,6 +1090,20 @@ class AiModelProxyController extends ChangeNotifier {
     _runtimeOutboundBytes = 0;
     _runtimeRequestCount = 0;
     _runtimeErrorCount = 0;
+  }
+
+  void _markRuntimeStarted() {
+    _startedAt = DateTime.now();
+    _runtimeUptime
+      ..reset()
+      ..start();
+  }
+
+  void _clearRuntimeStarted() {
+    _startedAt = null;
+    _runtimeUptime
+      ..stop()
+      ..reset();
   }
 
   static void _validateSecuritySettings(AiModelProxySettings settings) {

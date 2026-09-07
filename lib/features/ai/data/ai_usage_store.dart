@@ -676,17 +676,17 @@ class AiUsageStore {
       durationMs: _int(row['duration_ms']),
       firstTokenMs: _nullableInt(row['first_token_ms']),
       status: '${row['status'] ?? ''}',
-      errorType: _nullableString(row['error_type']),
-      errorMessage: _nullableString(row['error_message']),
+      errorType: optionalStringFromValue(row['error_type']),
+      errorMessage: optionalStringFromValue(row['error_message']),
       httpStatusCode: _nullableInt(row['http_status_code']),
       timeoutMs: _nullableInt(row['timeout_ms']),
-      timeoutPhase: _nullableString(row['timeout_phase']),
+      timeoutPhase: optionalStringFromValue(row['timeout_phase']),
       metadataJson: '${row['metadata_json'] ?? '{}'}',
       surface: '${row['surface'] ?? ''}',
       source: '${row['source'] ?? ''}',
       operation: '${row['operation'] ?? ''}',
-      sessionId: _nullableString(row['session_id']),
-      threadTemplateId: _nullableString(row['thread_template_id']),
+      sessionId: optionalStringFromValue(row['session_id']),
+      threadTemplateId: optionalStringFromValue(row['thread_template_id']),
       providerName: '${row['provider_name'] ?? ''}',
       modelId: '${row['model_id'] ?? ''}',
       apiFamily: '${row['api_family'] ?? ''}',
@@ -842,8 +842,3 @@ double _finiteUsageDouble(String value) {
 }
 
 double? _nullableDouble(Object? value) => value == null ? null : _double(value);
-
-String? _nullableString(Object? value) {
-  final text = '$value'.trim();
-  return value == null || text.isEmpty ? null : text;
-}

@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'preact/hooks';
 interface MonacoStub {
   editor: {
     create(el: HTMLElement, opts: Record<string, unknown>): MonacoEditor;
+    setModelLanguage(model: unknown, language: string): void;
     setTheme(name: string): void;
   };
 }
@@ -12,6 +13,7 @@ interface MonacoStub {
 interface MonacoEditor {
   dispose(): void;
   getValue(): string;
+  getModel(): unknown | null;
   setValue(v: string): void;
   updateOptions(opts: Record<string, unknown>): void;
   onDidChangeModelContent(cb: () => void): { dispose(): void };
@@ -21,6 +23,7 @@ let monacoLoadPromise: Promise<MonacoStub> | null = null;
 
 const MONACO_VERSION = '0.52.2';
 const MONACO_BASE = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min/vs`;
+const MONACO_LOAD_TIMEOUT_MS = 30_000;
 const LANGUAGE_SUFFIX_RULES: ReadonlyArray<{
   suffixes: readonly string[];
   language: string;
@@ -65,21 +68,34 @@ function loadMonaco(): Promise<MonacoStub> {
     const loaderScript = document.createElement('script');
     loaderScript.src = `${MONACO_BASE}/loader.js`;
     loaderScript.async = true;
-    const cleanupLoaderScript = () => {
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      loaderScript.remove();
+      rejectLoader(new Error('Monaco 编辑器加载超时'));
+    }, MONACO_LOAD_TIMEOUT_MS);
+    const cleanupLoader = () => {
+      window.clearTimeout(timeoutId);
       loaderScript.onerror = null;
       loaderScript.onload = null;
     };
     const rejectLoader = (error: Error) => {
-      cleanupLoaderScript();
+      if (settled) return;
+      settled = true;
+      cleanupLoader();
       monacoLoadPromise = null;
       reject(error);
     };
+    const resolveLoader = (monaco: MonacoStub) => {
+      if (settled) return;
+      settled = true;
+      cleanupLoader();
+      resolve(monaco);
+    };
     loaderScript.onerror = () => {
       loaderScript.remove();
-      rejectLoader(new Error('failed to load Monaco loader'));
+      rejectLoader(new Error('Monaco 加载器下载失败'));
     };
     loaderScript.onload = () => {
-      cleanupLoaderScript();
       const w = window as unknown as {
         require?: {
           config(opts: { paths: Record<string, string> }): void;
@@ -89,17 +105,17 @@ function loadMonaco(): Promise<MonacoStub> {
       };
       const requireFn = w.require;
       if (!requireFn) {
-        rejectLoader(new Error('AMD require not present after loader.js'));
+        rejectLoader(new Error('Monaco 加载器初始化失败'));
         return;
       }
       requireFn.config({ paths: { vs: MONACO_BASE } });
       requireFn(['vs/editor/editor.main'], () => {
         const m = w.monaco;
         if (!m) {
-          rejectLoader(new Error('window.monaco missing after editor.main load'));
+          rejectLoader(new Error('Monaco 编辑器模块不可用'));
           return;
         }
-        resolve(m);
+        resolveLoader(m);
       }, (e) => rejectLoader(e));
     };
     document.head.appendChild(loaderScript);
@@ -135,8 +151,13 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<MonacoEditor | null>(null);
+  const monacoRef = useRef<MonacoStub | null>(null);
   const valueRef = useRef<string>(value);
+  const filenameRef = useRef(filename);
+  const readOnlyRef = useRef(readOnly);
   const onChangeRef = useRef<typeof onChange>(onChange);
+  filenameRef.current = filename;
+  readOnlyRef.current = readOnly;
   onChangeRef.current = onChange;
 
   // 初始化
@@ -145,11 +166,12 @@ export function CodeEditor({
     let subscription: { dispose(): void } | null = null;
     void loadMonaco().then((monaco) => {
       if (disposed || !containerRef.current) return;
+      monacoRef.current = monaco;
       const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const editor = monaco.editor.create(containerRef.current, {
-        value,
-        language: languageFromFilename(filename),
-        readOnly,
+        value: valueRef.current,
+        language: languageFromFilename(filenameRef.current),
+        readOnly: readOnlyRef.current,
         theme: isDark ? 'vs-dark' : 'vs',
         automaticLayout: true,
         fontSize: 13,
@@ -169,7 +191,7 @@ export function CodeEditor({
     }).catch((e) => {
       if (containerRef.current) {
         containerRef.current.innerText =
-          'Failed to load Monaco: ' + (e instanceof Error ? e.message : String(e));
+          '编辑器加载失败：' + (e instanceof Error ? e.message : String(e));
       }
     });
     return () => {
@@ -177,18 +199,30 @@ export function CodeEditor({
       subscription?.dispose();
       editorRef.current?.dispose();
       editorRef.current = null;
+      monacoRef.current = null;
     };
   }, []);
 
   // 外部 value 同步
   useEffect(() => {
     const ed = editorRef.current;
-    if (!ed) return;
+    if (!ed) {
+      valueRef.current = value;
+      return;
+    }
     if (value !== valueRef.current) {
       valueRef.current = value;
       ed.setValue(value);
     }
   }, [value]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    const model = editor?.getModel();
+    if (monaco == null || model == null) return;
+    monaco.editor.setModelLanguage(model, languageFromFilename(filename));
+  }, [filename]);
 
   useEffect(() => {
     const ed = editorRef.current;

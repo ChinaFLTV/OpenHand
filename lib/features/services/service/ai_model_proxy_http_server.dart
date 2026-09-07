@@ -1944,7 +1944,7 @@ class AiModelProxyHttpServer {
     HttpRequest request, {
     required bool headOnly,
   }) async {
-    final started = DateTime.now();
+    final elapsed = Stopwatch()..start();
     var status = 200;
     var html = '';
     final look = _controller.resolveThemeLook();
@@ -1988,7 +1988,7 @@ class AiModelProxyHttpServer {
     );
     _recordStatusSurface(
       request,
-      started: started,
+      elapsed: elapsed,
       statusCode: status,
       outboundBytes: outbound,
       error: status < 400 ? null : 'status_page_unavailable',
@@ -1999,7 +1999,7 @@ class AiModelProxyHttpServer {
     HttpRequest request, {
     required bool headOnly,
   }) async {
-    final started = DateTime.now();
+    final elapsed = Stopwatch()..start();
     var status = 200;
     var body = '{}';
     var etag = '';
@@ -2051,7 +2051,7 @@ class AiModelProxyHttpServer {
     );
     _recordStatusSurface(
       request,
-      started: started,
+      elapsed: elapsed,
       statusCode: responseStatus,
       outboundBytes: outbound,
       error: status < 400 ? null : 'status_snapshot_unavailable',
@@ -2060,13 +2060,13 @@ class AiModelProxyHttpServer {
 
   void _recordStatusSurface(
     HttpRequest request, {
-    required DateTime started,
+    required Stopwatch elapsed,
     required int statusCode,
     required int outboundBytes,
     String? error,
   }) {
     final headers = _headers(request);
-    final durationMs = DateTime.now().difference(started).inMilliseconds;
+    final durationMs = elapsed.elapsedMilliseconds;
     unawaited(
       _controller.recordRequest(
         AiModelProxyRequestRecord.capture(

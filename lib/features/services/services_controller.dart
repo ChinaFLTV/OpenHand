@@ -912,7 +912,12 @@ class ServicesController extends ChangeNotifier {
         return;
       }
       _notify();
-      await Future<void>.delayed(interval);
+      if (attempt + 1 >= maxAttempts) break;
+      final stillCurrent = await delayWhileContinuing(
+        interval,
+        () => !_disposed && _isCurrentClient(client),
+      );
+      if (!stillCurrent) return;
     }
     // 轮询耗尽仍未进入终态：记录警告但不阻塞用户操作，允许手动刷新。
     _appendLog(
@@ -1929,18 +1934,18 @@ class ServicesController extends ChangeNotifier {
         return;
       }
       _eventStreamReconnectAttempts += 1;
-      await Future<void>.delayed(
+      final stillCurrent = await delayWhileContinuing(
         Duration(
           milliseconds:
               _kEventStreamReconnectBaseDelay.inMilliseconds *
               _eventStreamReconnectAttempts,
         ),
+        () =>
+            !_disposed &&
+            _client != null &&
+            generation == _eventSubscriptionGeneration,
       );
-      if (_disposed ||
-          _client == null ||
-          generation != _eventSubscriptionGeneration) {
-        return;
-      }
+      if (!stillCurrent) return;
       await _watchJob(jobId, reconnecting: true);
     } catch (error, stack) {
       if (_disposed ||

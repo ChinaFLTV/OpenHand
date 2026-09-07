@@ -23,6 +23,26 @@ function nextCharacterEnd(value: string, index: number): number {
     : index + 1;
 }
 
+function characterPrefix(value: string, maxCharacters: number): string {
+  let count = 0;
+  let end = 0;
+  while (end < value.length && count < maxCharacters) {
+    end = nextCharacterEnd(value, end);
+    count += 1;
+  }
+  return end >= value.length ? value : value.slice(0, end);
+}
+
+function characterCount(value: string): number {
+  let count = 0;
+  let index = 0;
+  while (index < value.length) {
+    index = nextCharacterEnd(value, index);
+    count += 1;
+  }
+  return count;
+}
+
 export function textExceedsLength(value: string, maxCharacters: number): boolean {
   const limit = normalizeTextLimit(maxCharacters);
   let count = 0;
@@ -41,15 +61,10 @@ export function truncateEndText(
   { ellipsis = '…', trimEnd = false }: TruncateEndTextOptions = {},
 ): string {
   const safeMaxCharacters = normalizeTextLimit(maxCharacters);
-  let count = 0;
-  let end = 0;
-  while (end < value.length) {
-    if (count >= safeMaxCharacters) {
-      const truncated = value.slice(0, end);
-      return `${trimEnd ? truncated.trimEnd() : truncated}${ellipsis}`;
-    }
-    count += 1;
-    end = nextCharacterEnd(value, end);
-  }
-  return value;
+  if (!textExceedsLength(value, safeMaxCharacters)) return value;
+  if (safeMaxCharacters === 0) return '';
+  const safeEllipsis = characterPrefix(ellipsis, safeMaxCharacters);
+  const contentLimit = safeMaxCharacters - characterCount(safeEllipsis);
+  const content = characterPrefix(value, contentLimit);
+  return `${trimEnd ? content.trimEnd() : content}${safeEllipsis}`;
 }

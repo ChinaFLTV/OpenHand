@@ -9,12 +9,14 @@ import 'package:openhand/shared/util/exponential_backoff.dart';
 import 'package:openhand/shared/util/hex_encoding.dart';
 import 'package:openhand/shared/util/input_value_parsing.dart';
 import 'package:openhand/shared/util/message_frame_scan.dart';
+import 'package:openhand/shared/util/text_clip.dart';
 import 'package:openhand/shared/util/xml_escape.dart';
 
 /// 直接驱动抽出的共享实现：代表输入进、真实返回值出。
 Future<void> main() async {
   var failures = 0;
   failures += _checkJsonDecode();
+  failures += _checkJsonMapKeyCollision();
   failures += _checkContentLength();
   failures += _checkBackoff();
   failures += _checkLoopback();
@@ -24,6 +26,8 @@ Future<void> main() async {
   failures += _checkRgbHex();
   failures += _checkXmlEscape();
   failures += _checkCompactDuration();
+  failures += _checkCalendarDateMath();
+  failures += _checkTextClip();
   failures += await _checkSynchronousBoundedFileRead();
   failures += await _checkTemporaryDirectoryLifecycle();
   if (failures > 0) {
@@ -149,6 +153,21 @@ int _checkJsonDecode() {
     // 符合预期。
   }
   return failures;
+}
+
+int _checkJsonMapKeyCollision() {
+  final converted = convertToJsonSafeMap(<Object?, Object?>{
+    1: '首项',
+    '1': '冲突项',
+  });
+  if (converted['1'] != '首项' ||
+      !converted.containsValue(
+        const BoundedJsonConversionConfig().truncatedPlaceholder,
+      )) {
+    stderr.writeln('convertToJsonSafeMap 未显式处理字符串化键冲突');
+    return 1;
+  }
+  return 0;
 }
 
 int _checkContentLength() {
@@ -360,6 +379,51 @@ int _checkCompactDuration() {
   if (formatCompactDurationMs(250) !=
       formatCompactDuration(const Duration(milliseconds: 250))) {
     stderr.writeln('formatCompactDurationMs 应与 Duration 形式一致');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkCalendarDateMath() {
+  final leapFebruary = shiftCalendarMonths(DateTime(2024, 3, 31), -1);
+  if (leapFebruary != DateTime(2024, 2, 29)) {
+    stderr.writeln('shiftCalendarMonths 未正确夹到闰年二月末');
+    return 1;
+  }
+  final minimum = shiftCalendarMonths(DateTime(1, 1, 31), -1000);
+  if (minimum != DateTime(1, 1, 31)) {
+    stderr.writeln('shiftCalendarMonths 未正确限制最小日历月份');
+    return 1;
+  }
+  final maximum = shiftCalendarMonths(DateTime(9999, 12, 31), 1000);
+  if (maximum != DateTime(9999, 12, 31)) {
+    stderr.writeln('shiftCalendarMonths 未正确限制最大日历月份');
+    return 1;
+  }
+  final window = rollingCalendarDateWindow(
+    DateTime(2026, 3, 10, 18),
+    daysInclusive: 3,
+  );
+  if (window.start != DateTime(2026, 3, 8) ||
+      window.end != DateTime(2026, 3, 10)) {
+    stderr.writeln('rollingCalendarDateWindow 未按本地日历日生成窗口');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkTextClip() {
+  final clipped = clipText('12345678', 7);
+  if (clipped != '1234...' || clipped.length > 7) {
+    stderr.writeln('clipText 返回值超过字符上限');
+    return 1;
+  }
+  if (clipText('内容', 2) != '内容' || clipText('内容', 0).isNotEmpty) {
+    stderr.writeln('clipText 未正确处理边界长度');
+    return 1;
+  }
+  if (clipText('👨‍👩‍👧‍👦尾', 1, suffix: '') != '👨‍👩‍👧‍👦') {
+    stderr.writeln('clipText 拆分了扩展字符');
     return 1;
   }
   return 0;

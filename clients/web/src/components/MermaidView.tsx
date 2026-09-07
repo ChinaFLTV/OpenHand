@@ -74,7 +74,12 @@ function svgMarkupOf(value: unknown): string | null {
 let mermaidLoader: Promise<typeof import('mermaid').default> | null = null;
 function loadMermaid(): Promise<typeof import('mermaid').default> {
   if (mermaidLoader != null) return mermaidLoader;
-  mermaidLoader = import('mermaid').then((mod) => mod.default);
+  mermaidLoader = import('mermaid')
+    .then((mod) => mod.default)
+    .catch((error) => {
+      mermaidLoader = null;
+      throw error;
+    });
   return mermaidLoader;
 }
 

@@ -10,8 +10,12 @@
  * 内容 hash 文件名, 可安全 cache-first。
  */
 const SHELL_CACHE_PREFIX = 'openhand-shell-';
-const CACHE_VERSION = `${SHELL_CACHE_PREFIX}1efa5596aec168a8`;
+const CACHE_VERSION = `${SHELL_CACHE_PREFIX}a2779ff8a956697c`;
 const NETWORK_TIMEOUT_MS = 12_000;
+const NOTIFICATION_TITLE_MAX_CODE_UNITS = 120;
+const NOTIFICATION_BODY_MAX_CODE_UNITS = 600;
+const NOTIFICATION_TAG_MAX_CODE_UNITS = 160;
+const NOTIFICATION_SESSION_ID_MAX_CODE_UNITS = 256;
 const APP_SHELL_PRECACHE = [
   '/',
   '/app.js',
@@ -39,6 +43,22 @@ const CACHE_FIRST_PREFIXES = [
   '/threads/chunks/',
   '/threads/assets/',
 ];
+
+function boundedText(value, maxCodeUnits) {
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim();
+  if (normalized.length <= maxCodeUnits) return normalized;
+  let end = maxCodeUnits;
+  const previous = normalized.charCodeAt(end - 1);
+  const next = normalized.charCodeAt(end);
+  if (
+    previous >= 0xd800 && previous <= 0xdbff &&
+    next >= 0xdc00 && next <= 0xdfff
+  ) {
+    end -= 1;
+  }
+  return normalized.slice(0, end);
+}
 
 async function cacheResponse(req, res) {
   if (res && res.status === 200 && res.type === 'basic') {
@@ -157,14 +177,20 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   const data = event.data;
   if (!data || data.type !== 'openhand-notify') return;
-  const { title, body, tag, sessionId } = data;
-  if (typeof title !== 'string' || title.length === 0) return;
+  const title = boundedText(data.title, NOTIFICATION_TITLE_MAX_CODE_UNITS);
+  if (!title) return;
+  const body = boundedText(data.body, NOTIFICATION_BODY_MAX_CODE_UNITS);
+  const tag = boundedText(data.tag, NOTIFICATION_TAG_MAX_CODE_UNITS);
+  const sessionId = boundedText(
+    data.sessionId,
+    NOTIFICATION_SESSION_ID_MAX_CODE_UNITS,
+  );
   event.waitUntil(
     self.registration.showNotification(title, {
-      body: typeof body === 'string' ? body : '',
+      body,
       icon: '/openhand_logo.png',
       badge: '/openhand_logo.png',
-      tag: typeof tag === 'string' ? tag : 'openhand-message',
+      tag: tag || 'openhand-message',
       data: { sessionId },
     }),
   );
@@ -173,7 +199,10 @@ self.addEventListener('message', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const rawSessionId = event.notification.data && event.notification.data.sessionId;
-  const sessionId = typeof rawSessionId === 'string' ? rawSessionId.trim() : '';
+  const sessionId = boundedText(
+    rawSessionId,
+    NOTIFICATION_SESSION_ID_MAX_CODE_UNITS,
+  );
   const target = sessionId ? `/threads/${encodeURIComponent(sessionId)}` : '/threads';
   event.waitUntil(
     (async () => {

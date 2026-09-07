@@ -329,23 +329,31 @@ final class _BoundedJsonConverter {
       final result = <String, Object?>{};
       final iterator = value.entries.iterator;
       var itemCount = 0;
+      var keyCollision = false;
       while (itemCount < config.maxContainerItems &&
           _visitedNodes < config.maxTotalNodes &&
           _hasStringBudget &&
           iterator.moveNext()) {
         final entry = iterator.current;
         final key = '${entry.key}';
+        final convertedKey = _convertString(key);
+        itemCount += 1;
+        if (result.containsKey(convertedKey)) {
+          keyCollision = true;
+          continue;
+        }
         final transformer = config.mapValueTransformer;
         final entryValue = transformer == null
             ? entry.value
             : transformer(key, entry.value);
-        result[_convertString(key)] = convert(entryValue, depth + 1);
-        itemCount += 1;
+        result[convertedKey] = convert(entryValue, depth + 1);
       }
-      if ((itemCount >= config.maxContainerItems ||
+      final hasUnvisitedEntry =
+          (itemCount >= config.maxContainerItems ||
               _visitedNodes >= config.maxTotalNodes ||
               !_hasStringBudget) &&
-          iterator.moveNext()) {
+          iterator.moveNext();
+      if (keyCollision || hasUnvisitedEntry) {
         result[_availableTruncationKey(result)] = config.truncatedPlaceholder;
       }
       return result;

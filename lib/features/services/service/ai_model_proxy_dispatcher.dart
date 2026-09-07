@@ -169,7 +169,7 @@ class AiModelProxyDispatcher {
       );
       if (prepared == null) continue;
       final (:backend, :provider, :model) = prepared;
-      final startedAt = DateTime.now();
+      final elapsed = Stopwatch()..start();
       var network = _emptyDirectProxyRoute;
       _RoutedChatClient? routedClient;
       var directRouteFallback = directFallback;
@@ -197,8 +197,7 @@ class AiModelProxyDispatcher {
             creationRequest: AiCreationRequest.none,
           ),
         );
-        final endedAt = DateTime.now();
-        final durationMs = endedAt.difference(startedAt).inMilliseconds;
+        final durationMs = elapsed.elapsedMilliseconds;
         _forgetProxyFailure(network.selected?.url);
         await _recordDispatch(
           context: recordContext,
@@ -226,7 +225,7 @@ class AiModelProxyDispatcher {
         lastError = error;
         await _recordFailedAttempt(
           context: recordContext,
-          startedAt: startedAt,
+          elapsed: elapsed,
           providerId: provider.id,
           modelId: backend.modelId,
           error: error,
@@ -297,7 +296,7 @@ class AiModelProxyDispatcher {
       );
       if (prepared == null) continue;
       final (:backend, :provider, :model) = prepared;
-      final startedAt = DateTime.now();
+      final elapsed = Stopwatch()..start();
       var network = _emptyDirectProxyRoute;
       _RoutedChatClient? routedClient;
       var directRouteFallback = directFallback;
@@ -334,9 +333,7 @@ class AiModelProxyDispatcher {
                   await _recordDispatch(
                     context: recordContext,
                     success: !result.wasCancelled,
-                    durationMs: DateTime.now()
-                        .difference(startedAt)
-                        .inMilliseconds,
+                    durationMs: elapsed.elapsedMilliseconds,
                     providerId: provider.id,
                     modelId: backend.modelId,
                     error: result.wasCancelled ? cancelledError.message : null,
@@ -357,7 +354,7 @@ class AiModelProxyDispatcher {
                   }
                   await _recordFailedAttempt(
                     context: recordContext,
-                    startedAt: startedAt,
+                    elapsed: elapsed,
                     providerId: provider.id,
                     modelId: backend.modelId,
                     error: error,
@@ -379,7 +376,7 @@ class AiModelProxyDispatcher {
         lastError = error;
         await _recordFailedAttempt(
           context: recordContext,
-          startedAt: startedAt,
+          elapsed: elapsed,
           providerId: provider.id,
           modelId: backend.modelId,
           error: error,
@@ -407,7 +404,7 @@ class AiModelProxyDispatcher {
 
   Future<void> _recordFailedAttempt({
     required _ProxyRequestContext context,
-    required DateTime startedAt,
+    required Stopwatch elapsed,
     required String providerId,
     required String modelId,
     required Object error,
@@ -417,7 +414,7 @@ class AiModelProxyDispatcher {
     return _recordDispatch(
       context: context,
       success: false,
-      durationMs: DateTime.now().difference(startedAt).inMilliseconds,
+      durationMs: elapsed.elapsedMilliseconds,
       providerId: providerId,
       modelId: modelId,
       error: '$error',
