@@ -1434,6 +1434,26 @@ class DingTalkGatewayMedia {
 
 enum DingTalkReminderMode { none, inApp, sound }
 
+/// 钉钉 AI 消息正文的远端呈现方式。
+enum DingTalkMessageOutputEffect {
+  typewriter('typewriter'),
+  allAtOnce('all_at_once');
+
+  const DingTalkMessageOutputEffect(this.storageValue);
+
+  final String storageValue;
+
+  static DingTalkMessageOutputEffect fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    return values.firstWhere(
+      (item) =>
+          item.storageValue == normalized ||
+          item.name.toLowerCase() == normalized,
+      orElse: () => DingTalkMessageOutputEffect.typewriter,
+    );
+  }
+}
+
 /// 允许同步回显到钉钉的 AI 消息卡片类型。
 enum DingTalkResponseEchoType {
   thinking('thinking'),
@@ -1526,6 +1546,7 @@ class DingTalkGatewaySettings {
     this.responseWorkerCount = defaultResponseWorkerCount,
     this.overloadStrategy = DingTalkOverloadStrategy.queue,
     this.reminderMode = DingTalkReminderMode.inApp,
+    this.messageOutputEffect = DingTalkMessageOutputEffect.typewriter,
     this.responseMode = DingTalkResponseMode.allowlist,
     this.responseModelKey = '',
     this.workingDirectory = '',
@@ -1566,6 +1587,9 @@ class DingTalkGatewaySettings {
         json['overload_strategy'],
       ),
       reminderMode: mode,
+      messageOutputEffect: DingTalkMessageOutputEffect.fromStorage(
+        json['message_output_effect'],
+      ),
       responseMode: DingTalkResponseMode.fromStorage(json['response_mode']),
       responseModelKey: '${json['response_model_key'] ?? ''}',
       workingDirectory: '${json['working_directory'] ?? ''}',
@@ -1612,6 +1636,7 @@ class DingTalkGatewaySettings {
   final int responseWorkerCount;
   final DingTalkOverloadStrategy overloadStrategy;
   final DingTalkReminderMode reminderMode;
+  final DingTalkMessageOutputEffect messageOutputEffect;
   final DingTalkResponseMode responseMode;
   final String responseModelKey;
   final String workingDirectory;
@@ -1677,6 +1702,7 @@ class DingTalkGatewaySettings {
     responseWorkerCount: normalizeResponseWorkerCount(responseWorkerCount),
     overloadStrategy: overloadStrategy,
     reminderMode: reminderMode,
+    messageOutputEffect: messageOutputEffect,
     responseMode: responseMode,
     responseModelKey: responseModelKey.trim(),
     workingDirectory: Directory(
@@ -1734,6 +1760,7 @@ class DingTalkGatewaySettings {
     int? responseWorkerCount,
     DingTalkOverloadStrategy? overloadStrategy,
     DingTalkReminderMode? reminderMode,
+    DingTalkMessageOutputEffect? messageOutputEffect,
     DingTalkResponseMode? responseMode,
     String? responseModelKey,
     String? workingDirectory,
@@ -1762,6 +1789,7 @@ class DingTalkGatewaySettings {
     ),
     overloadStrategy: overloadStrategy ?? this.overloadStrategy,
     reminderMode: reminderMode ?? this.reminderMode,
+    messageOutputEffect: messageOutputEffect ?? this.messageOutputEffect,
     responseMode: responseMode ?? this.responseMode,
     responseModelKey: responseModelKey ?? this.responseModelKey,
     workingDirectory: workingDirectory ?? this.workingDirectory,
@@ -1794,6 +1822,7 @@ class DingTalkGatewaySettings {
     'response_worker_count': responseWorkerCount,
     'overload_strategy': overloadStrategy.storageValue,
     'reminder_mode': reminderMode.name,
+    'message_output_effect': messageOutputEffect.storageValue,
     'response_mode': responseMode.storageValue,
     'response_model_key': responseModelKey,
     'working_directory': workingDirectory,

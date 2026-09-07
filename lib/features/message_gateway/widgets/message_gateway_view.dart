@@ -23647,6 +23647,8 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       widget.controller.settings.overloadStrategy;
   late DingTalkReminderMode _reminderMode =
       widget.controller.settings.reminderMode;
+  late DingTalkMessageOutputEffect _messageOutputEffect =
+      widget.controller.settings.messageOutputEffect;
   late DingTalkResponseMode _responseMode =
       widget.controller.settings.responseMode;
   late final Set<DingTalkResponseEchoType> _responseEchoTypes = widget
@@ -23859,12 +23861,43 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     ),
                   ),
                   kOpenHandGap14,
+                  AnimatedDropdownButtonFormField<DingTalkMessageOutputEffect>(
+                    initialValue: _messageOutputEffect,
+                    decoration: InputDecoration(
+                      labelText: '消息内容输出效果',
+                      helperText: switch (_messageOutputEffect) {
+                        DingTalkMessageOutputEffect.typewriter =>
+                          '生成过程中智能节流编辑同一条消息，并为钉钉 99 次编辑上限预留终态余量',
+                        DingTalkMessageOutputEffect.allAtOnce =>
+                          '每条思考、过程、工具调用或正式响应完成后，再发送完整内容',
+                      },
+                      prefixIcon: const Icon(Icons.auto_awesome_motion_rounded),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: DingTalkMessageOutputEffect.typewriter,
+                        child: Text('打字机效果'),
+                      ),
+                      DropdownMenuItem(
+                        value: DingTalkMessageOutputEffect.allAtOnce,
+                        child: Text('一次性输出'),
+                      ),
+                    ],
+                    onChanged: (value) => setState(
+                      () => _messageOutputEffect =
+                          value ?? DingTalkMessageOutputEffect.typewriter,
+                    ),
+                  ),
+                  kOpenHandGap14,
                   _DingTalkSettingsCard(
                     icon: Icons.reply_all_rounded,
                     title: '响应消息类型',
-                    subtitle:
-                        '选择同步回显到钉钉的 AI 消息；正式响应与过程消息随生成进度流式更新，'
-                        '工具调用仅在执行终态回显，至少保留一项。',
+                    subtitle: switch (_messageOutputEffect) {
+                      DingTalkMessageOutputEffect.typewriter =>
+                        '选择同步回显到钉钉的 AI 消息；内容随生成进度增量更新，至少保留一项。',
+                      DingTalkMessageOutputEffect.allAtOnce =>
+                        '选择同步回显到钉钉的 AI 消息；每条内容完成后一次性发送，至少保留一项。',
+                    },
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -24865,6 +24898,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
           responseWorkerCount: workerCount,
           overloadStrategy: _overloadStrategy,
           reminderMode: _reminderMode,
+          messageOutputEffect: _messageOutputEffect,
           responseMode: _responseMode,
           responseModelKey: _modelKey,
           workingDirectory: workingDirectory,

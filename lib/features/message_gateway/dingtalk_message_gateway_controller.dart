@@ -5012,6 +5012,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             mediaRequest != null ||
             configuredCapabilityUnavailableForRequest,
         requiredToolGroups: echoRequiredToolGroups,
+        outputEffect: _settings.messageOutputEffect,
         isTypeEnabled: (type) => _settings.responseEchoTypes.contains(type),
         typeOf: (message, messages) {
           if (mediaRequest != null &&
@@ -7777,6 +7778,7 @@ class _DingTalkEchoCoordinator {
     required this._deliveredSourceMessageIds,
     required this._expectToolActivity,
     required this._requiredToolGroups,
+    required this._outputEffect,
     required this._isTypeEnabled,
     required this._typeOf,
     required this._textFor,
@@ -7794,15 +7796,20 @@ class _DingTalkEchoCoordinator {
   static const Duration _remoteIdResolveRetryDelay = Duration(
     milliseconds: 800,
   );
-  // 钉钉单条消息最多编辑 99 次。流式阶段固定两秒更新一次，并为终态收敛
-  // 与平台侧计数偏差保留余量，确保最终正文仍能完整追平。
-  static const Duration _editInterval = Duration(seconds: 2);
+  // 钉钉单条消息最多编辑 99 次；额外保留终态、重试和平台计数偏差余量。
   static const int _messageEditLimit = 99;
   static const int _editSafetyReserve = 12;
   static const int _finalEditReserve = 3;
   static const int _maxRemoteEditCount = _messageEditLimit - _editSafetyReserve;
   static const int _maxStreamingRemoteEditCount =
       _maxRemoteEditCount - _finalEditReserve;
+  // 前段高频呈现打字机效果，长响应逐步降频，避免提前耗尽编辑额度。
+  static const List<(int, Duration)> _streamingEditCadence = <(int, Duration)>[
+    (20, Duration(milliseconds: 700)),
+    (48, Duration(milliseconds: 1200)),
+    (72, Duration(milliseconds: 2400)),
+    (_maxStreamingRemoteEditCount, Duration(seconds: 5)),
+  ];
   static const int _maxTrackedMessages = 96;
   static const int _maxRemoteIdResolveAttempts = 4;
   static const int _maxRemoteEditRetryAttempts = 3;
@@ -7811,6 +7818,7 @@ class _DingTalkEchoCoordinator {
   final Set<String> _deliveredSourceMessageIds;
   final bool _expectToolActivity;
   final List<Set<String>> _requiredToolGroups;
+  final DingTalkMessageOutputEffect _outputEffect;
   final bool Function(DingTalkResponseEchoType type) _isTypeEnabled;
   final _DingTalkEchoTypeResolver _typeOf;
   final _DingTalkEchoTextBuilder _textFor;
@@ -7871,12 +7879,15 @@ class _DingTalkEchoCoordinator {
       final queued = _pending[message.id];
       final resolvedType = _typeOf(message, session.messages);
       final terminal = _isTerminal(message);
-      // 正式回复至少等待当前模型流完成；否则未完整的中间文本会先被当成
-      // 最终答案发送，后续即使自动续接也会留下突兀的半句。
-      if (state == null &&
+      final waitsForRequiredTool =
           resolvedType == DingTalkResponseEchoType.finalResponse &&
+          _expectToolActivity &&
+          !followsRequiredToolActivity;
+      final waitsForCompleteContent =
+          _outputEffect == DingTalkMessageOutputEffect.allAtOnce && !terminal;
+      if (state == null &&
           !finalizing &&
-          (!terminal || _expectToolActivity && !followsRequiredToolActivity)) {
+          (waitsForRequiredTool || waitsForCompleteContent)) {
         _pending.remove(message.id);
         continue;
       }
@@ -7914,6 +7925,7 @@ class _DingTalkEchoCoordinator {
                   now: now,
                   state: state,
                   immediate:
+                      _outputEffect == DingTalkMessageOutputEffect.allAtOnce ||
                       message.kind == AiSessionMessageKind.toolCall ||
                       message.kind == AiSessionMessageKind.hook,
                 );
@@ -7948,7 +7960,14 @@ class _DingTalkEchoCoordinator {
     if (state == null) {
       return immediate ? now : now.add(_initialStreamDelay);
     }
-    final next = state.lastMutationAt.add(_editInterval);
+    var interval = _streamingEditCadence.last.$2;
+    for (final cadence in _streamingEditCadence) {
+      if (state.remoteEditAttemptCount < cadence.$1) {
+        interval = cadence.$2;
+        break;
+      }
+    }
+    final next = state.lastMutationAt.add(interval);
     return next.isAfter(now) ? next : now;
   }
 
@@ -8050,10 +8069,9 @@ class _DingTalkEchoCoordinator {
     }
     final remoteEditBudgetExhausted =
         state.sent &&
-        (state.successfulRemoteEditCount >= _maxRemoteEditCount ||
+        (state.remoteEditAttemptCount >= _maxRemoteEditCount ||
             !pending.finalizing &&
-                state.successfulRemoteEditCount >=
-                    _maxStreamingRemoteEditCount);
+                state.remoteEditAttemptCount >= _maxStreamingRemoteEditCount);
     if (state.remoteEditingDisabled || remoteEditBudgetExhausted) {
       state.lastMutationAt = DateTime.now();
       if (pending.terminal && _deliveryFailures.add(sourceId)) {
@@ -8075,7 +8093,11 @@ class _DingTalkEchoCoordinator {
       if (_disposed || _isCancelled()) return;
       if (!state.sent) {
         // 插入本地气泡前先标记流式，避免正文先完整展开再收缩渐显。
-        _markStreaming(sourceId, true);
+        _markStreaming(
+          sourceId,
+          _outputEffect == DingTalkMessageOutputEffect.typewriter &&
+              !pending.terminal,
+        );
         final sent = await _send(
           pending.source,
           pending.type,
@@ -8114,9 +8136,10 @@ class _DingTalkEchoCoordinator {
           _settle(sourceId, state, pending);
           return;
         }
+        // 发起即占用额度：即使响应丢失，平台也可能已经成功执行编辑。
+        state.remoteEditAttemptCount++;
         await _edit(sourceId, messageId, pending.text);
         if (_disposed || _isCancelled()) return;
-        state.successfulRemoteEditCount++;
         state.remoteEditRetryAttempts = 0;
         _deliveryFailures.remove(sourceId);
       }
@@ -8170,7 +8193,12 @@ class _DingTalkEchoCoordinator {
     _PendingDingTalkEcho pending,
   ) {
     state.finished = pending.terminal;
-    _markStreaming(sourceId, state.sent && !state.finished);
+    _markStreaming(
+      sourceId,
+      _outputEffect == DingTalkMessageOutputEffect.typewriter &&
+          state.sent &&
+          !state.finished,
+    );
   }
 
   /// 发送接口先返回任务标识时，编辑前按有限次数补齐远端消息标识。
@@ -8277,7 +8305,7 @@ class _DingTalkEchoDeliveryState {
   String lastText = '';
   DateTime lastMutationAt = DateTime.fromMillisecondsSinceEpoch(0);
   int remoteIdResolveAttempts = 0;
-  int successfulRemoteEditCount = 0;
+  int remoteEditAttemptCount = 0;
   int remoteEditRetryAttempts = 0;
   bool sent = false;
   bool finished = false;
