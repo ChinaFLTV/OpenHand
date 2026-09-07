@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -21,6 +20,12 @@ const int _maxUsageTextCharacters = 16 * kBytesPerKiB;
 const int _maxUsageErrorCharacters = 16 * kBytesPerKiB;
 const int _maxUsageInteger = 1 << 40;
 const double _maxUsageCost = 1e15;
+const BoundedJsonConversionConfig _usageMetadataJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 16,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+    );
 const Set<String> _validUsageStatuses = <String>{
   AiUsageRequestStatus.success,
   AiUsageRequestStatus.failed,
@@ -776,18 +781,11 @@ class AiUsageStore {
     if (utf8ByteLength(metadataJson) > aiUsageMaxMetadataBytes) {
       throw const FormatException('AI 用量元数据超过安全上限。');
     }
-    final metadata = jsonDecode(metadataJson);
-    if (metadata is! Map) {
-      throw const FormatException('AI 用量元数据必须为对象。');
-    }
-    final payload = stringKeyedMapFromValue(metadata);
-    validateCanonicalJsonSubset(
-      payload,
-      payload,
-      path: 'ai_usage.metadata',
-      maxDepth: 16,
-      maxContainerItems: 4096,
-      maxTotalNodes: 32768,
+    decodeJsonObjectTextUsingConfig(
+      metadataJson,
+      maxTextCodeUnits: aiUsageMaxMetadataBytes,
+      config: _usageMetadataJsonConversionConfig,
+      invalidRootMessage: 'AI 用量元数据必须为对象。',
     );
   }
 
@@ -806,8 +804,11 @@ class AiUsageStore {
     return (usedTokens: 0, windowTokens: 0);
   }
   try {
-    final metadata = jsonDecode(value);
-    if (metadata is! Map) return (usedTokens: 0, windowTokens: 0);
+    final metadata = decodeJsonObjectTextUsingConfig(
+      value,
+      maxTextCodeUnits: aiUsageMaxMetadataBytes,
+      config: _usageMetadataJsonConversionConfig,
+    );
     return (
       usedTokens: _int(metadata[aiContextUsedTokensMetadataKey]),
       windowTokens: _int(metadata[aiContextWindowTokensMetadataKey]),

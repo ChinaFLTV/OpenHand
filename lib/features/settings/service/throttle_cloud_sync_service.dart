@@ -558,7 +558,7 @@ class ThrottleCloudSyncService {
     }
     try {
       final json = prettyPrintJson(_configPayload(config, updatedAtMs));
-      final payloadBytes = utf8.encode(json).length;
+      final payloadBytes = utf8ByteLength(json);
       if (payloadBytes > _maxRequestBytes) {
         return ThrottleCloudSyncResult.failure(
           'iCloud 配置超过 $_maxRequestBytes 字节上限。',
@@ -610,7 +610,7 @@ class ThrottleCloudSyncService {
       if (!ok || raw.isEmpty) {
         return ThrottleCloudSyncResult.failure('当前 iCloud 账户尚无节流配置。');
       }
-      if (utf8.encode(raw).length > _maxResponseBytes) {
+      if (utf8ByteLength(raw) > _maxResponseBytes) {
         return ThrottleCloudSyncResult.failure(
           'iCloud 配置超过 $_maxResponseBytes 字节上限。',
         );

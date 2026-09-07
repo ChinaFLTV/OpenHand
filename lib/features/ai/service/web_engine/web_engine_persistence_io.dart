@@ -12,6 +12,7 @@ import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/serial_task_queue.dart';
+import '../../../../shared/util/text_clip.dart';
 import 'web_engine_json_utils.dart';
 
 const int webEngineMaxJsonFileBytes = 16 * kBytesPerMiB;
@@ -254,7 +255,7 @@ Future<String> readWebEnginePayloadFile(
 
 Future<void> writeWebEngineJsonFile(File file, Object? value) async {
   final content = jsonEncode(value);
-  if (utf8.encode(content).length > webEngineMaxJsonFileBytes) {
+  if (utf8ByteLength(content) > webEngineMaxJsonFileBytes) {
     throw const FileSystemException('Web 引擎 JSON 超过 16 MiB 持久化上限。');
   }
   await writeFileAtomically(file, content);

@@ -10,7 +10,9 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/db/legacy_persistence.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/user_memory_entry.dart';
 
 class MemoryPersistenceIssue {
@@ -37,6 +39,7 @@ class MemoryStore {
   static const String _multipleProfilesMessage = '存储中存在多个用户资料。';
   static const String _invalidMigrationMarkerMessage = '记忆迁移标记无效。';
   static const int _snapshotPageSize = 64;
+  static const int _maxMigrationMarkerBytes = 64 * kBytesPerKiB;
   static const int _maxTagsJsonBytes =
       UserMemoryEntry.maxTags * (UserMemoryEntry.maxTagCharacters * 6 + 3) + 2;
   static const int maxEntries = 1024;
@@ -51,6 +54,27 @@ class MemoryStore {
     legacyMigrationStatusTargetPresent,
     legacyMigrationStatusExplicitClear,
   };
+  static const BoundedJsonConversionConfig _legacyJsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 16,
+        maxContainerItems: maxEntries,
+        maxTotalNodes: 32768,
+      );
+  static const BoundedJsonConversionConfig _markerJsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 4,
+        maxContainerItems: 16,
+        maxTotalNodes: 32,
+      );
+  static const BoundedJsonConversionConfig _tagsJsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 1,
+        maxContainerItems: UserMemoryEntry.maxTags,
+        maxTotalNodes: UserMemoryEntry.maxTags + 1,
+        maxStringCodeUnits: UserMemoryEntry.maxTagCharacters,
+        maxTotalStringCodeUnits:
+            UserMemoryEntry.maxTags * UserMemoryEntry.maxTagCharacters,
+      );
 
   Database get _db => _database ?? DatabaseService.instance.database;
 
@@ -169,7 +193,13 @@ class MemoryStore {
         sourceFile,
         maxBytes: maxLegacyMemoryBytes,
       );
-      parsed = _parseLegacyMemories(jsonDecode(raw));
+      parsed = _parseLegacyMemories(
+        decodeJsonTextUsingConfig(
+          raw,
+          maxTextCodeUnits: maxLegacyMemoryBytes,
+          config: _legacyJsonConversionConfig,
+        ),
+      );
     }
 
     final didMigrate = await _db.transaction<bool>((txn) async {
@@ -228,10 +258,12 @@ class MemoryStore {
       if (value is! String) {
         throw const FormatException('设置迁移标记无效。');
       }
-      final decoded = jsonDecode(value);
-      if (decoded is! Map) {
-        throw const FormatException('设置迁移标记无效。');
-      }
+      final decoded = decodeJsonObjectTextUsingConfig(
+        value,
+        maxTextCodeUnits: _maxMigrationMarkerBytes,
+        config: _markerJsonConversionConfig,
+        invalidRootMessage: '设置迁移标记无效。',
+      );
       final rawPath = decoded['memory_file_path'];
       if (rawPath != null) {
         if (rawPath is! String) {
@@ -517,7 +549,11 @@ class MemoryStore {
     }
     final Object? decoded;
     try {
-      decoded = jsonDecode(raw);
+      decoded = decodeJsonTextUsingConfig(
+        raw,
+        maxTextCodeUnits: _maxTagsJsonBytes,
+        config: _tagsJsonConversionConfig,
+      );
     } on FormatException {
       throw const FormatException('已存储记忆标签 JSON 无效。');
     }
@@ -622,13 +658,18 @@ class MemoryStore {
     if (value is! String) {
       throw const FormatException(_invalidMigrationMarkerMessage);
     }
-    final Object? decoded;
+    final Map<String, Object?> decoded;
     try {
-      decoded = jsonDecode(value);
+      decoded = decodeJsonObjectTextUsingConfig(
+        value,
+        maxTextCodeUnits: _maxMigrationMarkerBytes,
+        config: _markerJsonConversionConfig,
+        invalidRootMessage: _invalidMigrationMarkerMessage,
+      );
     } on FormatException {
       throw const FormatException(_invalidMigrationMarkerMessage);
     }
-    if (decoded is! Map<String, dynamic> || jsonEncode(decoded) != value) {
+    if (jsonEncode(decoded) != value) {
       throw const FormatException('记忆迁移标记格式不规范。');
     }
     final status = decoded['status'];
@@ -718,7 +759,7 @@ class MemoryStore {
       if (value is! String) {
         throw FormatException('记忆字段 $key 不是文本。');
       }
-      total += utf8.encode(value).length;
+      total += utf8ByteLength(value);
     }
     return total;
   }

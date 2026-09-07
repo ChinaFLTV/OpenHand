@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -16,6 +17,12 @@ const int _maxOpenRouterProfileBatchCount = 5000;
 const int _maxOpenRouterModelIdCharacters = 1024;
 const int _maxOpenRouterProfileBytes = 512 * kBytesPerKiB;
 const int _maxOpenRouterProfileTotalBytes = 64 * kBytesPerMiB;
+const BoundedJsonConversionConfig _profileJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 16,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+    );
 
 /// OpenRouter 模型档案的本地缓存。缓存独立于应用设置，避免设置 JSON 过大。
 class OpenRouterModelProfileStore {
@@ -69,11 +76,12 @@ class OpenRouterModelProfileStore {
           utf8ByteLength(encoded) > _maxOpenRouterProfileBytes) {
         throw const FormatException('OpenRouter 模型档案字段无效。');
       }
-      final decoded = jsonDecode(encoded);
-      if (decoded is! Map) {
-        throw FormatException('OpenRouter 模型档案必须为对象：$modelId');
-      }
-      final source = stringKeyedMapFromValue(decoded);
+      final source = decodeJsonObjectTextUsingConfig(
+        encoded,
+        maxTextCodeUnits: _maxOpenRouterProfileBytes,
+        config: _profileJsonConversionConfig,
+        invalidRootMessage: 'OpenRouter 模型档案必须为对象：$modelId',
+      );
       final profile = AiModelProfile.fromJson(source);
       validateCanonicalJsonSubset(
         source,

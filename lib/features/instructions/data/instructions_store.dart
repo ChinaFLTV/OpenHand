@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../model/user_instruction_entry.dart';
 
 class InstructionsStore {
@@ -179,7 +180,18 @@ class InstructionsStore {
     if (raw is! String) {
       throw const FormatException('用户指令列表字段必须是 JSON 文本。');
     }
-    final decoded = jsonDecode(raw);
+    final maxTextCodeUnits = maxItems * (maxItemLength * 6 + 3) + 2;
+    final decoded = decodeJsonTextUsingConfig(
+      raw,
+      maxTextCodeUnits: maxTextCodeUnits,
+      config: BoundedJsonConversionConfig(
+        maxDepth: 1,
+        maxContainerItems: maxItems,
+        maxTotalNodes: maxItems + 1,
+        maxStringCodeUnits: maxItemLength,
+        maxTotalStringCodeUnits: maxItems * maxItemLength,
+      ),
+    );
     if (decoded is! List || decoded.any((item) => item is! String)) {
       throw const FormatException('用户指令列表字段必须是数组。');
     }

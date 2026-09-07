@@ -4,10 +4,12 @@ import 'package:xml/xml.dart';
 import 'package:yaml/yaml.dart';
 
 import 'bounded_json_conversion.dart';
+import 'byte_size_format.dart';
 import 'input_value_parsing.dart';
 
 enum StructuredTextFormat { json, xml, yaml }
 
+const int kStructuredTextFormatMaxCodeUnits = 4 * kBytesPerMiB;
 const BoundedJsonConversionConfig _structuredTextConversionConfig =
     BoundedJsonConversionConfig(
       maxContainerItems: 4096,
@@ -56,6 +58,9 @@ StructuredTextFormatResult formatStructuredTextForDisplay(String text) {
   if (trimmed.isEmpty) {
     return StructuredTextFormatResult(text: trimmed);
   }
+  if (trimmed.length > kStructuredTextFormatMaxCodeUnits) {
+    return StructuredTextFormatResult(text: trimmed);
+  }
   for (final strategy in _formatStrategies) {
     final formatted = strategy.tryFormat(trimmed);
     if (formatted != null) return formatted;
@@ -82,7 +87,11 @@ final class _JsonTextFormatterStrategy
   StructuredTextFormatResult? tryFormat(String trimmed) {
     if (!_looksLikeJson(trimmed)) return null;
     try {
-      final decoded = jsonDecode(trimmed);
+      final decoded = decodeJsonTextUsingConfig(
+        trimmed,
+        maxTextCodeUnits: kStructuredTextFormatMaxCodeUnits,
+        config: _structuredTextConversionConfig,
+      );
       return StructuredTextFormatResult(
         text: prettyPrintJson(decoded),
         format: StructuredTextFormat.json,

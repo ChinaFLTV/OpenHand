@@ -651,8 +651,7 @@ class AiClaudeHookService {
   }) {
     final normalized = capturedText.trim();
     final preview = clipText(normalized, previewCharacters, suffix: '').trim();
-    final captureReachedLimit =
-        utf8.encode(capturedText).length >= captureBytes;
+    final captureReachedLimit = utf8ByteLength(capturedText) >= captureBytes;
     if (preview == normalized && !captureReachedLimit) return normalized;
     return preview.isEmpty ? '...[已截断]' : '$preview\n...[已截断]';
   }

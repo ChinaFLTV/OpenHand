@@ -6964,7 +6964,7 @@ class WebMessagePlatformService {
     );
     final relative = _string(body['path'], '');
     final content = _string(body['content'], '');
-    if (utf8.encode(content).length > _config.workspaceFileMaxBytes) {
+    if (utf8ByteLength(content) > _config.workspaceFileMaxBytes) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'content_too_large',
         'limit_bytes': _config.workspaceFileMaxBytes,

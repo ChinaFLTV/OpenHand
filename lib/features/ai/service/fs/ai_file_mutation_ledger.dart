@@ -32,6 +32,7 @@ import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/serial_task_queue.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/unified_diff.dart' as unified_diff;
 import '../../model/ai_session_message.dart';
 
@@ -925,13 +926,13 @@ class AiFileMutationLedger {
       int beforeSize = 0;
       if (beforeContent != null) {
         beforeSha = _sha256Of(beforeContent);
-        beforeSize = utf8.encode(beforeContent).length;
+        beforeSize = utf8ByteLength(beforeContent);
       }
       String? afterSha;
       int afterSize = 0;
       if (afterContent != null) {
         afterSha = _sha256Of(afterContent);
-        afterSize = utf8.encode(afterContent).length;
+        afterSize = utf8ByteLength(afterContent);
       }
 
       final recordId =
@@ -952,7 +953,7 @@ class AiFileMutationLedger {
       final ledger = _ledgerFile(normalizedSessionId);
       final line = '${jsonEncode(record.toJson())}\n';
       final config = await loadConfig();
-      final lineBytes = utf8.encode(line).length;
+      final lineBytes = utf8ByteLength(line);
       if (!await _ensureLedgerCapacity(
         normalizedSessionId,
         ledger,
@@ -2035,7 +2036,7 @@ class AiFileMutationLedger {
     if (!isLowercaseSha256Hex(sha) || _sha256Of(content) != sha) {
       throw const FormatException('Blob 内容与其 SHA-256 键不匹配。');
     }
-    if (utf8.encode(content).length > _blobRecoveryMaxBytes) {
+    if (utf8ByteLength(content) > _blobRecoveryMaxBytes) {
       throw const FileSystemException('Blob 大小超过 $_blobRecoveryMaxBytes 字节上限。');
     }
     final shard = sha.substring(0, 2);
@@ -2529,7 +2530,7 @@ class AiFileMutationLedger {
             added += 1;
           }
           final updatedLedger = buffer.toString();
-          if (utf8.encode(updatedLedger).length > _maxLedgerBytes) return 0;
+          if (utf8ByteLength(updatedLedger) > _maxLedgerBytes) return 0;
           await writeFileAtomically(ledger, updatedLedger);
           _invalidateSessionCache(sid);
           // 还原 undone 集合：合并存在的 undone 列表。

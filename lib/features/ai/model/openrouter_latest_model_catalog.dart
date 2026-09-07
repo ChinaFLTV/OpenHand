@@ -9,7 +9,8 @@ final Map<String, AiModelProfile>
 openRouterLatestModelProfiles = <String, AiModelProfile>{
   "aion-labs/aion-3.0": AiModelProfile(
     displayName: "Aion-3.0",
-    description: "Aion-3.0 is a multi-model roleplaying and storytelling system from AionLabs, built on the GLM family of models. It uses a collaborative generation process in which multiple specialized models each contribute...",
+    description:
+        "Aion-3.0 is a multi-model roleplaying and storytelling system from AionLabs, built on the GLM family of models. It uses a collaborative generation process in which multiple specialized models each contribute...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 131072,
     maxOutputLength: 32768,
@@ -42,7 +43,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "aion-labs/aion-3.0-mini": AiModelProfile(
     displayName: "Aion-3.0-Mini",
-    description: "Aion-3.0 Mini is a multi-model roleplaying and storytelling system from AionLabs, built on the DeepSeek family of models. It uses a collaborative generation process in which multiple specialized models each...",
+    description:
+        "Aion-3.0 Mini is a multi-model roleplaying and storytelling system from AionLabs, built on the DeepSeek family of models. It uses a collaborative generation process in which multiple specialized models each...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 131072,
     maxOutputLength: 32768,
@@ -75,7 +77,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-fable-5": AiModelProfile(
     displayName: "Claude Fable 5",
-    description: "Claude Fable 5 is a Mythos-class model from Anthropic, built for autonomous knowledge work and coding. It supports text, image, and file inputs with text output, with reasoning support and...",
+    description:
+        "Claude Fable 5 is a Mythos-class model from Anthropic, built for autonomous knowledge work and coding. It supports text, image, and file inputs with text output, with reasoning support and...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -131,7 +134,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-fable-5.1": AiModelProfile(
     displayName: "Claude Fable 5.1",
-    description: "Claude Fable 5.1 improves on Claude Fable 5 across the board, with the biggest gains in agentic coding, long-running agentic workflows, and knowledge work: long code refactors, front-end and visual...",
+    description:
+        "Claude Fable 5.1 improves on Claude Fable 5 across the board, with the biggest gains in agentic coding, long-running agentic workflows, and knowledge work: long code refactors, front-end and visual...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -178,7 +182,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-fable-5.1:batch": AiModelProfile(
     displayName: "Claude Fable 5.1 (batch)",
-    description: "Claude Fable 5.1 improves on Claude Fable 5 across the board, with the biggest gains in agentic coding, long-running agentic workflows, and knowledge work: long code refactors, front-end and visual...",
+    description:
+        "Claude Fable 5.1 improves on Claude Fable 5 across the board, with the biggest gains in agentic coding, long-running agentic workflows, and knowledge work: long code refactors, front-end and visual...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -225,7 +230,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-fable-5:batch": AiModelProfile(
     displayName: "Claude Fable 5 (batch)",
-    description: "Claude Fable 5 is a Mythos-class model from Anthropic, built for autonomous knowledge work and coding. It supports text, image, and file inputs with text output, with reasoning support and...",
+    description:
+        "Claude Fable 5 is a Mythos-class model from Anthropic, built for autonomous knowledge work and coding. It supports text, image, and file inputs with text output, with reasoning support and...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -280,7 +286,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-haiku-4.5:batch": AiModelProfile(
     displayName: "Claude Haiku 4.5 (batch)",
-    description: "Claude Haiku 4.5 is Anthropic’s fastest and most efficient model, delivering near-frontier intelligence at a fraction of the cost and latency of larger Claude models. Matching Claude Sonnet 4’s performance...",
+    description:
+        "Claude Haiku 4.5 is Anthropic’s fastest and most efficient model, delivering near-frontier intelligence at a fraction of the cost and latency of larger Claude models. Matching Claude Sonnet 4’s performance...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -330,7 +337,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-opus-4.1:batch": AiModelProfile(
     displayName: "Claude Opus 4.1 (batch)",
-    description: "Claude Opus 4.1 is an updated version of Anthropic’s flagship model, offering improved performance in coding, reasoning, and agentic tasks. It achieves 74.5% on SWE-bench Verified and shows notable gains...",
+    description:
+        "Claude Opus 4.1 is an updated version of Anthropic’s flagship model, offering improved performance in coding, reasoning, and agentic tasks. It achieves 74.5% on SWE-bench Verified and shows notable gains...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -379,7 +387,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-opus-4.5:batch": AiModelProfile(
     displayName: "Claude Opus 4.5 (batch)",
-    description: "Claude Opus 4.5 is Anthropic’s frontier reasoning model optimized for complex software engineering, agentic workflows, and long-horizon computer use. It offers strong multimodal capabilities, competitive performance across real-world coding and...",
+    description:
+        "Claude Opus 4.5 is Anthropic’s frontier reasoning model optimized for complex software engineering, agentic workflows, and long-horizon computer use. It offers strong multimodal capabilities, competitive performance across real-world coding and...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -420,7 +429,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-opus-4.6:batch": AiModelProfile(
     displayName: "Claude Opus 4.6 (batch)",
-    description: "Opus 4.6 is Anthropic’s strongest model for coding and long-running professional tasks. It is built for agents that operate across entire workflows rather than single prompts, making it especially effective...",
+    description:
+        "Opus 4.6 is Anthropic’s strongest model for coding and long-running professional tasks. It is built for agents that operate across entire workflows rather than single prompts, making it especially effective...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -468,7 +478,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-opus-4.7:batch": AiModelProfile(
     displayName: "Claude Opus 4.7 (batch)",
-    description: "Opus 4.7 is the next generation of Anthropic's Opus family, built for long-running, asynchronous agents. Building on the coding and agentic strengths of Opus 4.6, it delivers stronger performance on...",
+    description:
+        "Opus 4.7 is the next generation of Anthropic's Opus family, built for long-running, asynchronous agents. Building on the coding and agentic strengths of Opus 4.6, it delivers stronger performance on...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -514,7 +525,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-opus-4.8:batch": AiModelProfile(
     displayName: "Claude Opus 4.8 (batch)",
-    description: "Claude Opus 4.8 is Anthropic's most capable generally available model in the Opus family. It supports text, image, and file inputs with text output, with reasoning support and a 1M-token...",
+    description:
+        "Claude Opus 4.8 is Anthropic's most capable generally available model in the Opus family. It supports text, image, and file inputs with text output, with reasoning support and a 1M-token...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -560,7 +572,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-opus-5": AiModelProfile(
     displayName: "Claude Opus 5",
-    description: "Claude Opus 5 is Anthropic’s flagship model for demanding reasoning, coding, and long-horizon agentic work. It is particularly strong at end-to-end software tasks, code review and bug finding, visual analysis...",
+    description:
+        "Claude Opus 5 is Anthropic’s flagship model for demanding reasoning, coding, and long-horizon agentic work. It is particularly strong at end-to-end software tasks, code review and bug finding, visual analysis...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -609,7 +622,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-opus-5-fast": AiModelProfile(
     displayName: "Claude Opus 5 (Fast)",
-    description: "Fast-mode variant of [Opus 5](/anthropic/claude-opus-5) - identical capabilities with higher output speed at 2x pricing relative to regular Opus 5.\n\nLearn more in Anthropic's docs: https://platform.claude.com/docs/en/build-with-claude/fast-mode",
+    description:
+        "Fast-mode variant of [Opus 5](/anthropic/claude-opus-5) - identical capabilities with higher output speed at 2x pricing relative to regular Opus 5.\n\nLearn more in Anthropic's docs: https://platform.claude.com/docs/en/build-with-claude/fast-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -656,7 +670,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-opus-5:batch": AiModelProfile(
     displayName: "Claude Opus 5 (batch)",
-    description: "Claude Opus 5 is Anthropic’s flagship model for demanding reasoning, coding, and long-horizon agentic work. It is particularly strong at end-to-end software tasks, code review and bug finding, visual analysis...",
+    description:
+        "Claude Opus 5 is Anthropic’s flagship model for demanding reasoning, coding, and long-horizon agentic work. It is particularly strong at end-to-end software tasks, code review and bug finding, visual analysis...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -703,7 +718,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-sonnet-4.5:batch": AiModelProfile(
     displayName: "Claude Sonnet 4.5 (batch)",
-    description: "Claude Sonnet 4.5 is Anthropic’s most advanced Sonnet model to date, optimized for real-world agents and coding workflows. It delivers state-of-the-art performance on coding benchmarks such as SWE-bench Verified, with...",
+    description:
+        "Claude Sonnet 4.5 is Anthropic’s most advanced Sonnet model to date, optimized for real-world agents and coding workflows. It delivers state-of-the-art performance on coding benchmarks such as SWE-bench Verified, with...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -754,7 +770,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-sonnet-4.6:batch": AiModelProfile(
     displayName: "Claude Sonnet 4.6 (batch)",
-    description: "Sonnet 4.6 is Anthropic's most capable Sonnet-class model yet, with frontier performance across coding, agents, and professional work. It excels at iterative development, complex codebase navigation, end-to-end project management with...",
+    description:
+        "Sonnet 4.6 is Anthropic's most capable Sonnet-class model yet, with frontier performance across coding, agents, and professional work. It excels at iterative development, complex codebase navigation, end-to-end project management with...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -802,7 +819,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-sonnet-5": AiModelProfile(
     displayName: "Claude Sonnet 5",
-    description: "Sonnet 5 is Anthropic's most capable Sonnet-class model, with frontier performance across coding, agents, and professional work. It supports adaptive thinking with selectable reasoning effort levels (low, medium, high, max,...",
+    description:
+        "Sonnet 5 is Anthropic's most capable Sonnet-class model, with frontier performance across coding, agents, and professional work. It supports adaptive thinking with selectable reasoning effort levels (low, medium, high, max,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -850,7 +868,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "anthropic/claude-sonnet-5:batch": AiModelProfile(
     displayName: "Claude Sonnet 5 (batch)",
-    description: "Sonnet 5 is Anthropic's most capable Sonnet-class model, with frontier performance across coding, agents, and professional work. It supports adaptive thinking with selectable reasoning effort levels (low, medium, high, max,...",
+    description:
+        "Sonnet 5 is Anthropic's most capable Sonnet-class model, with frontier performance across coding, agents, and professional work. It supports adaptive thinking with selectable reasoning effort levels (low, medium, high, max,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -897,7 +916,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "bytedance-seed/seed-2-1-turbo": AiModelProfile(
     displayName: "Seed 2.1 Turbo",
-    description: "Seed 2.1 Turbo is a multimodal model from ByteDance Seed for coding and long-horizon agent workflows. It is suited for end-to-end software delivery, multi-step task execution, and understanding visual and...",
+    description:
+        "Seed 2.1 Turbo is a multimodal model from ByteDance Seed for coding and long-horizon agent workflows. It is suited for end-to-end software delivery, multi-step task execution, and understanding visual and...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -938,7 +958,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "bytedance-seed/seed-2.0-code": AiModelProfile(
     displayName: "Seed-2.0-Code",
-    description: "Seed 2.0 Code is a model from ByteDance Seed optimized for agentic coding. It is suited for frontend development, multilingual programming tasks, and coding-agent workflows in tools such as Claude...",
+    description:
+        "Seed 2.0 Code is a model from ByteDance Seed optimized for agentic coding. It is suited for frontend development, multilingual programming tasks, and coding-agent workflows in tools such as Claude...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -984,7 +1005,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "cognitivecomputations/dolphin-mistral-24b-venice-edition": AiModelProfile(
     displayName: "Uncensored",
-    description: "Venice Uncensored Dolphin Mistral 24B Venice Edition is a fine-tuned variant of Mistral-Small-24B-Instruct-2501, developed by dphn.ai in collaboration with Venice.ai. This model is designed as an “uncensored” instruct-tuned LLM, preserving...",
+    description:
+        "Venice Uncensored Dolphin Mistral 24B Venice Edition is a fine-tuned variant of Mistral-Small-24B-Instruct-2501, developed by dphn.ai in collaboration with Venice.ai. This model is designed as an “uncensored” instruct-tuned LLM, preserving...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 128000,
     maxOutputLength: 8192,
@@ -1016,7 +1038,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "cohere/north-mini-code:free": AiModelProfile(
     displayName: "North Mini Code (free)",
-    description: "North Mini Code is Cohere's first agentic coding model and the debut of its North family. A sparse mixture-of-experts model with 30B total parameters and 3B active, it is optimized...",
+    description:
+        "North Mini Code is Cohere's first agentic coding model and the debut of its North family. A sparse mixture-of-experts model with 30B total parameters and 3B active, it is optimized...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 256000,
     maxOutputLength: 64000,
@@ -1060,7 +1083,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "deepseek/deepseek-v4-flash-0731": AiModelProfile(
     displayName: "DeepSeek V4 Flash 0731",
-    description: "DeepSeek V4 Flash 0731 is a sparse mixture-of-experts model from DeepSeek, with 13B active parameters out of 284B total. This re-post-trained revision is suited for coding, reasoning, and agent workflows....",
+    description:
+        "DeepSeek V4 Flash 0731 is a sparse mixture-of-experts model from DeepSeek, with 13B active parameters out of 284B total. This re-post-trained revision is suited for coding, reasoning, and agent workflows....",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1310720,
     maxOutputLength: 943718,
@@ -1113,7 +1137,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "deepseek/deepseek-v4-flash-0731:batch": AiModelProfile(
     displayName: "DeepSeek V4 Flash 0731 (batch)",
-    description: "DeepSeek V4 Flash 0731 is a sparse mixture-of-experts model from DeepSeek, with 13B active parameters out of 284B total. This re-post-trained revision is suited for coding, reasoning, and agent workflows....",
+    description:
+        "DeepSeek V4 Flash 0731 is a sparse mixture-of-experts model from DeepSeek, with 13B active parameters out of 284B total. This re-post-trained revision is suited for coding, reasoning, and agent workflows....",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048576,
     maxOutputLength: 943718,
@@ -1161,7 +1186,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "deepseek/deepseek-v4-flash-vision-exp": AiModelProfile(
     displayName: "DeepSeek V4 Flash Vision Exp",
-    description: "DeepSeek V4 Flash Vision Exp is an experimental vision-enabled version of [DeepSeek V4 Flash 0731](https://openrouter.ai/deepseek/deepseek-v4-flash-0731) from DeepSeek, adding image understanding while matching the base model on text capabilities including agents,...",
+    description:
+        "DeepSeek V4 Flash Vision Exp is an experimental vision-enabled version of [DeepSeek V4 Flash 0731](https://openrouter.ai/deepseek/deepseek-v4-flash-0731) from DeepSeek, adding image understanding while matching the base model on text capabilities including agents,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1212,12 +1238,14 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
       "top_p",
     ],
     links: AiModelLinksMetadata(
-      details: "/api/v1/models/deepseek/deepseek-v4-flash-vision-exp-20260821/endpoints",
+      details:
+          "/api/v1/models/deepseek/deepseek-v4-flash-vision-exp-20260821/endpoints",
     ),
   ),
   "deepseek/deepseek-v4-pro-0813": AiModelProfile(
     displayName: "DeepSeek V4 Pro 0813",
-    description: "DeepSeek V4 Pro 0813 is a large-scale mixture-of-experts model from DeepSeek. This is the GA release of DeepSeek V4 Pro.",
+    description:
+        "DeepSeek V4 Pro 0813 is a large-scale mixture-of-experts model from DeepSeek. This is the GA release of DeepSeek V4 Pro.",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048576,
     maxOutputLength: 384000,
@@ -1268,7 +1296,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "deepseek/deepseek-v4-pro-0813:batch": AiModelProfile(
     displayName: "DeepSeek V4 Pro 0813 (batch)",
-    description: "DeepSeek V4 Pro 0813 is a large-scale mixture-of-experts model from DeepSeek. This is the GA release of DeepSeek V4 Pro.",
+    description:
+        "DeepSeek V4 Pro 0813 is a large-scale mixture-of-experts model from DeepSeek. This is the GA release of DeepSeek V4 Pro.",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048576,
     maxOutputLength: 943718,
@@ -1316,7 +1345,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "dots-studio/dots-3-note-preview:free": AiModelProfile(
     displayName: "Dots3-Note Preview (free)",
-    description: "Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...",
+    description:
+        "Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1355,7 +1385,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-2.5-flash-lite:batch": AiModelProfile(
     displayName: "Gemini 2.5 Flash Lite (batch)",
-    description: "Gemini 2.5 Flash-Lite is a lightweight reasoning model in the Gemini 2.5 family, optimized for ultra-low latency and cost efficiency. It offers improved throughput, faster token generation, and better performance...",
+    description:
+        "Gemini 2.5 Flash-Lite is a lightweight reasoning model in the Gemini 2.5 family, optimized for ultra-low latency and cost efficiency. It offers improved throughput, faster token generation, and better performance...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1404,7 +1435,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-2.5-flash:batch": AiModelProfile(
     displayName: "Gemini 2.5 Flash (batch)",
-    description: "Gemini 2.5 Flash is Google's state-of-the-art workhorse model, specifically designed for advanced reasoning, coding, mathematics, and scientific tasks. It includes built-in \"thinking\" capabilities, enabling it to provide responses with greater...",
+    description:
+        "Gemini 2.5 Flash is Google's state-of-the-art workhorse model, specifically designed for advanced reasoning, coding, mathematics, and scientific tasks. It includes built-in \"thinking\" capabilities, enabling it to provide responses with greater...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1456,7 +1488,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-2.5-pro:batch": AiModelProfile(
     displayName: "Gemini 2.5 Pro (batch)",
-    description: "Gemini 2.5 Pro is Google’s state-of-the-art AI model designed for advanced reasoning, coding, mathematics, and scientific tasks. It employs “thinking” capabilities, enabling it to reason through responses with enhanced accuracy...",
+    description:
+        "Gemini 2.5 Pro is Google’s state-of-the-art AI model designed for advanced reasoning, coding, mathematics, and scientific tasks. It employs “thinking” capabilities, enabling it to reason through responses with enhanced accuracy...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1506,7 +1539,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3-flash-preview:batch": AiModelProfile(
     displayName: "Gemini 3 Flash Preview (batch)",
-    description: "Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance. It delivers near Pro level reasoning and tool...",
+    description:
+        "Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance. It delivers near Pro level reasoning and tool...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1563,7 +1597,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3-pro-image": AiModelProfile(
     displayName: "Nano Banana Pro (Gemini 3 Pro Image)",
-    description: "Nano Banana Pro is Google’s most advanced image-generation and editing model, built on Gemini 3 Pro. It extends the original Nano Banana with significantly improved multimodal reasoning, real-world grounding, and...",
+    description:
+        "Nano Banana Pro is Google’s most advanced image-generation and editing model, built on Gemini 3 Pro. It extends the original Nano Banana with significantly improved multimodal reasoning, real-world grounding, and...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1606,7 +1641,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.1-flash-image": AiModelProfile(
     displayName: "Nano Banana 2 (Gemini 3.1 Flash Image)",
-    description: "Gemini 3.1 Flash Image, a.k.a. \"Nano Banana 2,\" is Google’s latest state of the art image generation and editing model, delivering Pro-level visual quality at Flash speed. It combines advanced...",
+    description:
+        "Gemini 3.1 Flash Image, a.k.a. \"Nano Banana 2,\" is Google’s latest state of the art image generation and editing model, delivering Pro-level visual quality at Flash speed. It combines advanced...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1651,7 +1687,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.1-flash-lite-image": AiModelProfile(
     displayName: "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)",
-    description: "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image) is Google's fastest, most cost-efficient Gemini image model, built for high-velocity developer pipelines and rapid-fire visual exploration. It delivers text-to-image generation...",
+    description:
+        "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image) is Google's fastest, most cost-efficient Gemini image model, built for high-velocity developer pipelines and rapid-fire visual exploration. It delivers text-to-image generation...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1690,12 +1727,14 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
     ],
     knowledgeCutoff: "2025-01-01",
     links: AiModelLinksMetadata(
-      details: "/api/v1/models/google/gemini-3.1-flash-lite-image-20260630/endpoints",
+      details:
+          "/api/v1/models/google/gemini-3.1-flash-lite-image-20260630/endpoints",
     ),
   ),
   "google/gemini-3.1-flash-lite:batch": AiModelProfile(
     displayName: "Gemini 3.1 Flash Lite (batch)",
-    description: "Gemini 3.1 Flash Lite is Google’s GA high-efficiency multimodal model optimized for low-latency, high-volume workloads. It supports text, image, video, audio, and PDF inputs, and is designed for lightweight agentic...",
+    description:
+        "Gemini 3.1 Flash Lite is Google’s GA high-efficiency multimodal model optimized for low-latency, high-volume workloads. It supports text, image, video, audio, and PDF inputs, and is designed for lightweight agentic...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1753,7 +1792,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.1-pro-preview:batch": AiModelProfile(
     displayName: "Gemini 3.1 Pro Preview (batch)",
-    description: "Gemini 3.1 Pro Preview is Google’s frontier reasoning model, delivering enhanced software engineering performance, improved agentic reliability, and more efficient token usage across complex workflows. Building on the multimodal foundation...",
+    description:
+        "Gemini 3.1 Pro Preview is Google’s frontier reasoning model, delivering enhanced software engineering performance, improved agentic reliability, and more efficient token usage across complex workflows. Building on the multimodal foundation...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1811,7 +1851,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.5-flash-lite": AiModelProfile(
     displayName: "Gemini 3.5 Flash Lite",
-    description: "Gemini 3.5 Flash Lite is a high-efficiency model from Google with upgraded agentic capabilities. It is suited for subagents that execute focused tasks within complex, multi-agent workflows.",
+    description:
+        "Gemini 3.5 Flash Lite is a high-efficiency model from Google with upgraded agentic capabilities. It is suited for subagents that execute focused tasks within complex, multi-agent workflows.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1870,7 +1911,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.5-flash-lite:batch": AiModelProfile(
     displayName: "Gemini 3.5 Flash Lite (batch)",
-    description: "Gemini 3.5 Flash Lite is a high-efficiency model from Google with upgraded agentic capabilities. It is suited for subagents that execute focused tasks within complex, multi-agent workflows.",
+    description:
+        "Gemini 3.5 Flash Lite is a high-efficiency model from Google with upgraded agentic capabilities. It is suited for subagents that execute focused tasks within complex, multi-agent workflows.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1926,7 +1968,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.5-flash:batch": AiModelProfile(
     displayName: "Gemini 3.5 Flash (batch)",
-    description: "Gemini 3.5 Flash is Google's high-efficiency multimodal model, bringing near-Pro level coding and reasoning at Flash-tier cost and speed. It is highly optimized for coding proficiency and parallel agentic execution...",
+    description:
+        "Gemini 3.5 Flash is Google's high-efficiency multimodal model, bringing near-Pro level coding and reasoning at Flash-tier cost and speed. It is highly optimized for coding proficiency and parallel agentic execution...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1985,7 +2028,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.6-flash": AiModelProfile(
     displayName: "Gemini 3.6 Flash",
-    description: "Gemini 3.6 Flash is a high-efficiency model from Google for coding, agentic workflows, and web and app development. It is designed to produce polished outputs with fewer unnecessary edits and...",
+    description:
+        "Gemini 3.6 Flash is a high-efficiency model from Google for coding, agentic workflows, and web and app development. It is designed to produce polished outputs with fewer unnecessary edits and...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -2044,7 +2088,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.6-flash:batch": AiModelProfile(
     displayName: "Gemini 3.6 Flash (batch)",
-    description: "Gemini 3.6 Flash is a high-efficiency model from Google for coding, agentic workflows, and web and app development. It is designed to produce polished outputs with fewer unnecessary edits and...",
+    description:
+        "Gemini 3.6 Flash is a high-efficiency model from Google for coding, agentic workflows, and web and app development. It is designed to produce polished outputs with fewer unnecessary edits and...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -2101,7 +2146,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.7-flash": AiModelProfile(
     displayName: "Gemini 3.7 Flash",
-    description: "Gemini 3.7 Flash is a multimodal model from Google for fast agentic workflows, coding, and complex multi-step reasoning. It is designed for tasks that require responsive performance and reliable multi-step...",
+    description:
+        "Gemini 3.7 Flash is a multimodal model from Google for fast agentic workflows, coding, and complex multi-step reasoning. It is designed for tasks that require responsive performance and reliable multi-step...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -2152,7 +2198,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.7-flash:batch": AiModelProfile(
     displayName: "Gemini 3.7 Flash (batch)",
-    description: "Gemini 3.7 Flash is a multimodal model from Google for fast agentic workflows, coding, and complex multi-step reasoning. It is designed for tasks that require responsive performance and reliable multi-step...",
+    description:
+        "Gemini 3.7 Flash is a multimodal model from Google for fast agentic workflows, coding, and complex multi-step reasoning. It is designed for tasks that require responsive performance and reliable multi-step...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -2201,7 +2248,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.8-flash": AiModelProfile(
     displayName: "Gemini 3.8 Flash",
-    description: "Gemini 3.8 Flash is Google's most intelligent Flash model with significant gains from 3.7 Flash across software engineering, agentic tasks, and multi-step reasoning.",
+    description:
+        "Gemini 3.8 Flash is Google's most intelligent Flash model with significant gains from 3.7 Flash across software engineering, agentic tasks, and multi-step reasoning.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -2252,7 +2300,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemini-3.8-flash:batch": AiModelProfile(
     displayName: "Gemini 3.8 Flash (batch)",
-    description: "Gemini 3.8 Flash is Google's most intelligent Flash model with significant gains from 3.7 Flash across software engineering, agentic tasks, and multi-step reasoning.",
+    description:
+        "Gemini 3.8 Flash is Google's most intelligent Flash model with significant gains from 3.7 Flash across software engineering, agentic tasks, and multi-step reasoning.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -2301,7 +2350,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "google/gemma-4-31b-it:batch": AiModelProfile(
     displayName: "Gemma 4 31B (batch)",
-    description: "Gemma 4 31B Instruct is Google DeepMind's 30.7B dense multimodal model supporting text and image input with text output. Features a 256K token context window, configurable thinking/reasoning mode, native function...",
+    description:
+        "Gemma 4 31B Instruct is Google DeepMind's 30.7B dense multimodal model supporting text and image input with text output. Features a 256K token context window, configurable thinking/reasoning mode, native function...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -2355,7 +2405,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "ibm-granite/granite-4.2-8b": AiModelProfile(
     displayName: "Granite 4.2 8B",
-    description: "Granite 4.2 8B is a dense reasoning model from IBM. It is suited for mathematics, code generation, multilingual dialogue, and agentic workflows that need multi-step reasoning. It supports full, low-effort,...",
+    description:
+        "Granite 4.2 8B is a dense reasoning model from IBM. It is suited for mathematics, code generation, multilingual dialogue, and agentic workflows that need multi-step reasoning. It supports full, low-effort,...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 131072,
     maxOutputLength: 117964,
@@ -2407,7 +2458,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "inception/mercury-2.5-preview": AiModelProfile(
     displayName: "Mercury 2.5 Preview",
-    description: "Mercury 2.5 is the fastest reasoning LLM, and the latest diffusion LLM (dLLM) from Inception. Instead of generating tokens sequentially, Mercury 2.5 produces and refines multiple tokens in parallel, achieving...",
+    description:
+        "Mercury 2.5 is the fastest reasoning LLM, and the latest diffusion LLM (dLLM) from Inception. Instead of generating tokens sequentially, Mercury 2.5 produces and refines multiple tokens in parallel, achieving...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 260000,
     maxOutputLength: 65536,
@@ -2448,7 +2500,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "inclusionai/ling-3.0-flash": AiModelProfile(
     displayName: "Ling 3.0 Flash",
-    description: "*Ling-3.0-flash* is a *124B-parameter Mixture-of-Experts (MoE) model*, with approximately *5.1B parameters activated per token*. The model is designed with *token efficiency and production-scale agentic inference* as key priorities, enabling developers...",
+    description:
+        "*Ling-3.0-flash* is a *124B-parameter Mixture-of-Experts (MoE) model*, with approximately *5.1B parameters activated per token*. The model is designed with *token efficiency and production-scale agentic inference* as key priorities, enabling developers...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 32768,
@@ -2492,7 +2545,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "inclusionai/ling-3.0-flash-fin": AiModelProfile(
     displayName: "Ling 3.0 Flash Fin",
-    description: "Ling 3.0 Flash Fin is a finance-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for real-world investment...",
+    description:
+        "Ling 3.0 Flash Fin is a finance-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for real-world investment...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 235929,
@@ -2535,7 +2589,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "inclusionai/ling-3.0-flash-fin:free": AiModelProfile(
     displayName: "Ling 3.0 Flash Fin (free)",
-    description: "Ling 3.0 Flash Fin is a finance-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for real-world investment...",
+    description:
+        "Ling 3.0 Flash Fin is a finance-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for real-world investment...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 32768,
@@ -2575,7 +2630,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "inclusionai/ling-3.0-flash-sante:free": AiModelProfile(
     displayName: "Ling 3.0 Flash Sante (free)",
-    description: "Ling 3.0 Flash Sante is a health and medicine-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for...",
+    description:
+        "Ling 3.0 Flash Sante is a health and medicine-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 32768,
@@ -2615,7 +2671,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "inclusionai/ling-3.0-flash:free": AiModelProfile(
     displayName: "Ling-3.0-flash (free)",
-    description: "*Ling-3.0-flash* is a *124B-parameter Mixture-of-Experts (MoE) model*, with approximately *5.1B parameters activated per token*. The model is designed with *token efficiency and production-scale agentic inference* as key priorities, enabling developers...",
+    description:
+        "*Ling-3.0-flash* is a *124B-parameter Mixture-of-Experts (MoE) model*, with approximately *5.1B parameters activated per token*. The model is designed with *token efficiency and production-scale agentic inference* as key priorities, enabling developers...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 32768,
@@ -2662,7 +2719,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "kwaipilot/kat-coder-air-v2.5": AiModelProfile(
     displayName: "KAT-Coder-Air V2.5",
-    description: "KAT-Coder-Air V2.5 is a flagship-level Agentic Coding model that can directly hand over an entire issue or an entire business workflow to it, allowing it to autonomously locate and make...",
+    description:
+        "KAT-Coder-Air V2.5 is a flagship-level Agentic Coding model that can directly hand over an entire issue or an entire business workflow to it, allowing it to autonomously locate and make...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 256000,
     maxOutputLength: 80000,
@@ -2705,7 +2763,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "kwaipilot/kat-coder-pro-v2.5": AiModelProfile(
     displayName: "KAT-Coder-Pro V2.5",
-    description: "KAT-Coder-Pro V2.5 is a flagship-level Agentic Coding model that can directly hand over an entire issue or an entire business workflow to it, allowing it to autonomously locate and make...",
+    description:
+        "KAT-Coder-Pro V2.5 is a flagship-level Agentic Coding model that can directly hand over an entire issue or an entire business workflow to it, allowing it to autonomously locate and make...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 235929,
@@ -2751,7 +2810,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "liquid/lfm-2.5-2.6b:free": AiModelProfile(
     displayName: "LFM2.5-2.6B (free)",
-    description: "LFM2.5-2.6B is a compact reasoning model from Liquid AI. It is suited for agent workflows, data extraction, RAG, and long-context processing. Liquid advises against using it for agentic coding or...",
+    description:
+        "LFM2.5-2.6B is a compact reasoning model from Liquid AI. It is suited for agent workflows, data extraction, RAG, and long-context processing. Liquid advises against using it for agentic coding or...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 65536,
     maxOutputLength: 8192,
@@ -2800,7 +2860,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "meituan/longcat-2.0": AiModelProfile(
     displayName: "LongCat 2.0",
-    description: "LongCat 2.0 is a sparse mixture-of-experts language model from Meituan, with 48B active parameters out of 1.6T total. It is suited for coding, repository-level changes, long-horizon problem solving, and agentic...",
+    description:
+        "LongCat 2.0 is a sparse mixture-of-experts language model from Meituan, with 48B active parameters out of 1.6T total. It is suited for coding, repository-level changes, long-horizon problem solving, and agentic...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048756,
     maxOutputLength: 262144,
@@ -2841,7 +2902,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "meta/muse-glimmer-30b": AiModelProfile(
     displayName: "Muse Glimmer 30B",
-    description: "Muse Glimmer 30B is a dense, open-weight multimodal model from Meta Superintelligence Labs, distilled from Muse Spark and optimized for autonomous agents on consumer hardware. It is suited for long-horizon...",
+    description:
+        "Muse Glimmer 30B is a dense, open-weight multimodal model from Meta Superintelligence Labs, distilled from Muse Spark and optimized for autonomous agents on consumer hardware. It is suited for long-horizon...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -2902,7 +2964,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "meta/muse-glimmer-30b:batch": AiModelProfile(
     displayName: "Muse Glimmer 30B (batch)",
-    description: "Muse Glimmer 30B is a dense, open-weight multimodal model from Meta Superintelligence Labs, distilled from Muse Spark and optimized for autonomous agents on consumer hardware. It is suited for long-horizon...",
+    description:
+        "Muse Glimmer 30B is a dense, open-weight multimodal model from Meta Superintelligence Labs, distilled from Muse Spark and optimized for autonomous agents on consumer hardware. It is suited for long-horizon...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -2960,7 +3023,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "meta/muse-spark-1.1": AiModelProfile(
     displayName: "Muse Spark 1.1",
-    description: "Muse Spark 1.1 is a multimodal reasoning model from Meta, built for agentic tasks. It accepts text, images, video, audio, and PDF documents and returns text, with a 1M-token context...",
+    description:
+        "Muse Spark 1.1 is a multimodal reasoning model from Meta, built for agentic tasks. It accepts text, images, video, audio, and PDF documents and returns text, with a 1M-token context...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3010,7 +3074,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "meta/muse-spark-1.2": AiModelProfile(
     displayName: "Muse Spark 1.2",
-    description: "Muse Spark 1.2 is a reasoning model from Meta, designed for complex agentic tasks. It accepts text, images, video, audio, and PDF documents, returns text, and offers a 1M-token context...",
+    description:
+        "Muse Spark 1.2 is a reasoning model from Meta, designed for complex agentic tasks. It accepts text, images, video, audio, and PDF documents, returns text, and offers a 1M-token context...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3060,7 +3125,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "meta/muse-spark-1.2-contributor": AiModelProfile(
     displayName: "Muse Spark 1.2 Contributor",
-    description: "Muse Spark 1.2 contributor tier is a reasoning model from Meta designed for developers who want to start building at an even lower cost. It’s meaningfully cheaper than Muse Spark...",
+    description:
+        "Muse Spark 1.2 contributor tier is a reasoning model from Meta designed for developers who want to start building at an even lower cost. It’s meaningfully cheaper than Muse Spark...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3111,7 +3177,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "meta/muse-spark-1.3": AiModelProfile(
     displayName: "Muse Spark 1.3",
-    description: "Muse Spark 1.3 is a multimodal reasoning model from Meta for long-running agentic, multi-agent, and coding workflows. It is designed to keep track of information across extended tasks, work through...",
+    description:
+        "Muse Spark 1.3 is a multimodal reasoning model from Meta for long-running agentic, multi-agent, and coding workflows. It is designed to keep track of information across extended tasks, work through...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3161,7 +3228,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "meta/muse-spark-1.3-contributor": AiModelProfile(
     displayName: "Muse Spark 1.3 Contributor",
-    description: "Muse Spark 1.3 Contributor is the cost-efficient contributor tier of Meta’s multimodal reasoning model for experimentation, learning, and early-stage agentic, multi-agent, and coding workflows. It is designed to track information...",
+    description:
+        "Muse Spark 1.3 Contributor is the cost-efficient contributor tier of Meta’s multimodal reasoning model for experimentation, learning, and early-stage agentic, multi-agent, and coding workflows. It is designed to track information...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3212,7 +3280,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "minimax/minimax-m2.7:free": AiModelProfile(
     displayName: "MiniMax M2.7 (free)",
-    description: "MiniMax-M2.7 is a next-generation large language model designed for autonomous, real-world productivity and continuous improvement. Built to actively participate in its own evolution, M2.7 integrates advanced agentic capabilities through multi-agent...",
+    description:
+        "MiniMax-M2.7 is a next-generation large language model designed for autonomous, real-world productivity and continuous improvement. Built to actively participate in its own evolution, M2.7 integrates advanced agentic capabilities through multi-agent...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 196608,
     maxOutputLength: 176947,
@@ -3254,7 +3323,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "minimax/minimax-m3": AiModelProfile(
     displayName: "MiniMax M3",
-    description: "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
+    description:
+        "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3312,7 +3382,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "minimax/minimax-m3:batch": AiModelProfile(
     displayName: "MiniMax M3 (batch)",
-    description: "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
+    description:
+        "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3367,7 +3438,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "minimax/minimax-m3:free": AiModelProfile(
     displayName: "MiniMax M3 (free)",
-    description: "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
+    description:
+        "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3414,7 +3486,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "mistralai/mistral-medium-3-5:batch": AiModelProfile(
     displayName: "Mistral Medium 3.5 (batch)",
-    description: "Mistral Medium 3.5 is a dense 128B instruction-following model from Mistral AI. It supports text and image inputs with text output, and is designed for agentic workflows, coding, and complex...",
+    description:
+        "Mistral Medium 3.5 is a dense 128B instruction-following model from Mistral AI. It supports text and image inputs with text output, and is designed for agentic workflows, coding, and complex...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3470,7 +3543,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "moonshotai/kimi-k2.7-code": AiModelProfile(
     displayName: "Kimi K2.7 Code",
-    description: "MoonshotAI: Kimi K2.7 Code is a coding-focused model in Moonshot AI's Kimi K2 family, built to complete end-to-end programming tasks reliably over long contexts. It uses a native multimodal mixture-of-experts...",
+    description:
+        "MoonshotAI: Kimi K2.7 Code is a coding-focused model in Moonshot AI's Kimi K2 family, built to complete end-to-end programming tasks reliably over long contexts. It uses a native multimodal mixture-of-experts...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3529,7 +3603,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "moonshotai/kimi-k3": AiModelProfile(
     displayName: "Kimi K3",
-    description: "Kimi K3 is a 2.8T parameter open-weight multimodal reasoning model from Moonshot AI. It is suited for complex coding, knowledge work, and long-horizon agentic workflows, and is particularly strong at...",
+    description:
+        "Kimi K3 is a 2.8T parameter open-weight multimodal reasoning model from Moonshot AI. It is suited for complex coding, knowledge work, and long-horizon agentic workflows, and is particularly strong at...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3594,7 +3669,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "moonshotai/kimi-k3:batch": AiModelProfile(
     displayName: "Kimi K3 (batch)",
-    description: "Kimi K3 is a 2.8T parameter open-weight multimodal reasoning model from Moonshot AI. It is suited for complex coding, knowledge work, and long-horizon agentic workflows, and is particularly strong at...",
+    description:
+        "Kimi K3 is a 2.8T parameter open-weight multimodal reasoning model from Moonshot AI. It is suited for complex coding, knowledge work, and long-horizon agentic workflows, and is particularly strong at...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3656,7 +3732,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "nex-agi/nex-n2-mini": AiModelProfile(
     displayName: "Nex-N2-Mini",
-    description: "Nex-N2-Mini is an open-source agentic mixture-of-experts model from Nex AGI, the smaller sibling in the Nex-N2 series. It accepts text and image input and is built for coding, tool use,...",
+    description:
+        "Nex-N2-Mini is an open-source agentic mixture-of-experts model from Nex AGI, the smaller sibling in the Nex-N2 series. It accepts text and image input and is built for coding, tool use,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3707,7 +3784,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "nex-agi/nex-n2-pro": AiModelProfile(
     displayName: "Nex-N2-Pro",
-    description: "Nex-N2-Pro is an agentic mixture-of-experts model from Nex AGI, with 17B active parameters out of 397B total. Built on the Qwen3.5 architecture, it accepts text and image input and produces...",
+    description:
+        "Nex-N2-Pro is an agentic mixture-of-experts model from Nex AGI, with 17B active parameters out of 397B total. Built on the Qwen3.5 architecture, it accepts text and image input and produces...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3757,7 +3835,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "nvidia/nemotron-3-ultra-550b-a55b": AiModelProfile(
     displayName: "Nemotron 3 Ultra",
-    description: "NVIDIA Nemotron 3 Ultra is an open frontier-reasoning and orchestration model from NVIDIA, with 55B active parameters out of 550B total (MoE). Built on a hybrid Transformer-Mamba mixture-of-experts architecture, it...",
+    description:
+        "NVIDIA Nemotron 3 Ultra is an open frontier-reasoning and orchestration model from NVIDIA, with 55B active parameters out of 550B total (MoE). Built on a hybrid Transformer-Mamba mixture-of-experts architecture, it...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 32768,
@@ -3815,7 +3894,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "nvidia/nemotron-3-ultra-550b-a55b:free": AiModelProfile(
     displayName: "Nemotron 3 Ultra (free)",
-    description: "NVIDIA Nemotron 3 Ultra is an open frontier-reasoning and orchestration model from NVIDIA, with 55B active parameters out of 550B total (MoE). Built on a hybrid Transformer-Mamba mixture-of-experts architecture, it...",
+    description:
+        "NVIDIA Nemotron 3 Ultra is an open frontier-reasoning and orchestration model from NVIDIA, with 55B active parameters out of 550B total (MoE). Built on a hybrid Transformer-Mamba mixture-of-experts architecture, it...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1000000,
     maxOutputLength: 65536,
@@ -3863,7 +3943,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "nvidia/nemotron-3.5-content-safety": AiModelProfile(
     displayName: "Nemotron 3.5 Content Safety",
-    description: "NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model from NVIDIA, fine-tuned from Google Gemma-3-4B. It moderates both inputs to and responses from LLMs and VLMs, accepting...",
+    description:
+        "NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model from NVIDIA, fine-tuned from Google Gemma-3-4B. It moderates both inputs to and responses from LLMs and VLMs, accepting...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3910,12 +3991,14 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
       "repetition_penalty": null,
     },
     links: AiModelLinksMetadata(
-      details: "/api/v1/models/nvidia/nemotron-3.5-content-safety-20260604/endpoints",
+      details:
+          "/api/v1/models/nvidia/nemotron-3.5-content-safety-20260604/endpoints",
     ),
   ),
   "nvidia/nemotron-3.5-content-safety:free": AiModelProfile(
     displayName: "Nemotron 3.5 Content Safety (free)",
-    description: "NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model from NVIDIA, fine-tuned from Google Gemma-3-4B. It moderates both inputs to and responses from LLMs and VLMs, accepting...",
+    description:
+        "NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model from NVIDIA, fine-tuned from Google Gemma-3-4B. It moderates both inputs to and responses from LLMs and VLMs, accepting...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -3954,12 +4037,14 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
       "repetition_penalty": null,
     },
     links: AiModelLinksMetadata(
-      details: "/api/v1/models/nvidia/nemotron-3.5-content-safety-20260604/endpoints",
+      details:
+          "/api/v1/models/nvidia/nemotron-3.5-content-safety-20260604/endpoints",
     ),
   ),
   "nvidia/nemotron-3.5-lightning": AiModelProfile(
     displayName: "Nemotron 3.5 Lightning",
-    description: "NVIDIA Nemotron 3.5 Lightning is an open mixture-of-experts model from NVIDIA, with 3B active parameters out of 30B total. It is suited for high-throughput agentic workloads and specialized tasks that...",
+    description:
+        "NVIDIA Nemotron 3.5 Lightning is an open mixture-of-experts model from NVIDIA, with 3B active parameters out of 30B total. It is suited for high-throughput agentic workloads and specialized tasks that...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 131072,
@@ -4004,7 +4089,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "nvidia/nemotron-3.5-lightning:free": AiModelProfile(
     displayName: "Nemotron 3.5 Lightning (free)",
-    description: "NVIDIA Nemotron 3.5 Lightning is an open mixture-of-experts model from NVIDIA, with 3B active parameters out of 30B total. It is suited for high-throughput agentic workloads and specialized tasks that...",
+    description:
+        "NVIDIA Nemotron 3.5 Lightning is an open mixture-of-experts model from NVIDIA, with 3B active parameters out of 30B total. It is suited for high-throughput agentic workloads and specialized tasks that...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1000000,
     maxOutputLength: 65536,
@@ -4037,7 +4123,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-3.5-turbo:batch": AiModelProfile(
     displayName: "GPT-3.5 Turbo (batch)",
-    description: "GPT-3.5 Turbo is OpenAI's fastest model. It can understand and generate natural language or code, and is optimized for chat and traditional completion tasks.\n\nTraining data up to Sep 2021.",
+    description:
+        "GPT-3.5 Turbo is OpenAI's fastest model. It can understand and generate natural language or code, and is optimized for chat and traditional completion tasks.\n\nTraining data up to Sep 2021.",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 16385,
     maxOutputLength: 4096,
@@ -4074,7 +4161,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-4-turbo:batch": AiModelProfile(
     displayName: "GPT-4 Turbo (batch)",
-    description: "The latest GPT-4 Turbo model with vision capabilities. Vision requests can now use JSON mode and function calling.\n\nTraining data: up to December 2023.",
+    description:
+        "The latest GPT-4 Turbo model with vision capabilities. Vision requests can now use JSON mode and function calling.\n\nTraining data: up to December 2023.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4116,7 +4204,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-4.1-mini:batch": AiModelProfile(
     displayName: "GPT-4.1 Mini (batch)",
-    description: "GPT-4.1 Mini is a mid-sized model delivering performance competitive with GPT-4o at substantially lower latency and cost. It retains a 1 million token context window and scores 45.1% on hard...",
+    description:
+        "GPT-4.1 Mini is a mid-sized model delivering performance competitive with GPT-4o at substantially lower latency and cost. It retains a 1 million token context window and scores 45.1% on hard...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4154,7 +4243,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-4.1-nano:batch": AiModelProfile(
     displayName: "GPT-4.1 Nano (batch)",
-    description: "For tasks that demand low latency, GPT‑4.1 nano is the fastest and cheapest model in the GPT-4.1 series. It delivers exceptional performance at a small size with its 1 million...",
+    description:
+        "For tasks that demand low latency, GPT‑4.1 nano is the fastest and cheapest model in the GPT-4.1 series. It delivers exceptional performance at a small size with its 1 million...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4192,7 +4282,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-4.1:batch": AiModelProfile(
     displayName: "GPT-4.1 (batch)",
-    description: "GPT-4.1 is a flagship large language model optimized for advanced instruction following, real-world software engineering, and long-context reasoning. It supports a 1 million token context window and outperforms GPT-4o and...",
+    description:
+        "GPT-4.1 is a flagship large language model optimized for advanced instruction following, real-world software engineering, and long-context reasoning. It supports a 1 million token context window and outperforms GPT-4o and...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4230,7 +4321,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-4o-mini:batch": AiModelProfile(
     displayName: "GPT-4o-mini (batch)",
-    description: "GPT-4o mini is OpenAI's newest model after [GPT-4 Omni](/models/openai/gpt-4o), supporting both text and image inputs with text outputs. As their most advanced small model, it is many multiples more affordable...",
+    description:
+        "GPT-4o mini is OpenAI's newest model after [GPT-4 Omni](/models/openai/gpt-4o), supporting both text and image inputs with text outputs. As their most advanced small model, it is many multiples more affordable...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4276,7 +4368,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-4o:batch": AiModelProfile(
     displayName: "GPT-4o (batch)",
-    description: "GPT-4o (\"o\" for \"omni\") is OpenAI's latest AI model, supporting both text and image inputs with text outputs. It maintains the intelligence level of [GPT-4 Turbo](/models/openai/gpt-4-turbo) while being twice as...",
+    description:
+        "GPT-4o (\"o\" for \"omni\") is OpenAI's latest AI model, supporting both text and image inputs with text outputs. It maintains the intelligence level of [GPT-4 Turbo](/models/openai/gpt-4-turbo) while being twice as...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4322,7 +4415,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5-mini:batch": AiModelProfile(
     displayName: "GPT-5 Mini (batch)",
-    description: "GPT-5 Mini is a compact version of GPT-5, designed to handle lighter-weight reasoning tasks. It provides the same instruction-following and safety-tuning benefits as GPT-5, but with reduced latency and cost....",
+    description:
+        "GPT-5 Mini is a compact version of GPT-5, designed to handle lighter-weight reasoning tasks. It provides the same instruction-following and safety-tuning benefits as GPT-5, but with reduced latency and cost....",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4376,7 +4470,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5-nano:batch": AiModelProfile(
     displayName: "GPT-5 Nano (batch)",
-    description: "GPT-5-Nano is the smallest and fastest variant in the GPT-5 system, optimized for developer tools, rapid interactions, and ultra-low latency environments. While limited in reasoning depth compared to its larger...",
+    description:
+        "GPT-5-Nano is the smallest and fastest variant in the GPT-5 system, optimized for developer tools, rapid interactions, and ultra-low latency environments. While limited in reasoning depth compared to its larger...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4430,7 +4525,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5-pro:batch": AiModelProfile(
     displayName: "GPT-5 Pro (batch)",
-    description: "GPT-5 Pro is OpenAI’s most advanced model, offering major improvements in reasoning, code quality, and user experience. It is optimized for complex tasks that require step-by-step reasoning, instruction following, and...",
+    description:
+        "GPT-5 Pro is OpenAI’s most advanced model, offering major improvements in reasoning, code quality, and user experience. It is optimized for complex tasks that require step-by-step reasoning, instruction following, and...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4480,7 +4576,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.1:batch": AiModelProfile(
     displayName: "GPT-5.1 (batch)",
-    description: "GPT-5.1 is the latest frontier-grade model in the GPT-5 series, offering stronger general-purpose reasoning, improved instruction adherence, and a more natural conversational style compared to GPT-5. It uses adaptive reasoning...",
+    description:
+        "GPT-5.1 is the latest frontier-grade model in the GPT-5 series, offering stronger general-purpose reasoning, improved instruction adherence, and a more natural conversational style compared to GPT-5. It uses adaptive reasoning...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4533,7 +4630,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.2-pro:batch": AiModelProfile(
     displayName: "GPT-5.2 Pro (batch)",
-    description: "GPT-5.2 Pro is OpenAI’s most advanced model, offering major improvements in agentic coding and long context performance over GPT-5 Pro. It is optimized for complex tasks that require step-by-step reasoning,...",
+    description:
+        "GPT-5.2 Pro is OpenAI’s most advanced model, offering major improvements in agentic coding and long context performance over GPT-5 Pro. It is optimized for complex tasks that require step-by-step reasoning,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4582,7 +4680,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.2:batch": AiModelProfile(
     displayName: "GPT-5.2 (batch)",
-    description: "GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1. It uses adaptive reasoning to allocate computation dynamically, responding quickly...",
+    description:
+        "GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1. It uses adaptive reasoning to allocate computation dynamically, responding quickly...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4634,7 +4733,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.4-mini:batch": AiModelProfile(
     displayName: "GPT-5.4 Mini (batch)",
-    description: "GPT-5.4 mini brings the core capabilities of GPT-5.4 to a faster, more efficient model optimized for high-throughput workloads. It supports text and image inputs with strong performance across reasoning, coding,...",
+    description:
+        "GPT-5.4 mini brings the core capabilities of GPT-5.4 to a faster, more efficient model optimized for high-throughput workloads. It supports text and image inputs with strong performance across reasoning, coding,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4687,7 +4787,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.4-nano:batch": AiModelProfile(
     displayName: "GPT-5.4 Nano (batch)",
-    description: "GPT-5.4 nano is the most lightweight and cost-efficient variant of the GPT-5.4 family, optimized for speed-critical and high-volume tasks. It supports text and image inputs and is designed for low-latency...",
+    description:
+        "GPT-5.4 nano is the most lightweight and cost-efficient variant of the GPT-5.4 family, optimized for speed-critical and high-volume tasks. It supports text and image inputs and is designed for low-latency...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4740,7 +4841,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.4-pro:batch": AiModelProfile(
     displayName: "GPT-5.4 Pro (batch)",
-    description: "GPT-5.4 Pro is OpenAI's most advanced model, building on GPT-5.4's unified architecture with enhanced reasoning capabilities for complex, high-stakes tasks. It features a 1M+ token context window (922K input, 128K...",
+    description:
+        "GPT-5.4 Pro is OpenAI's most advanced model, building on GPT-5.4's unified architecture with enhanced reasoning capabilities for complex, high-stakes tasks. It features a 1M+ token context window (922K input, 128K...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4792,7 +4894,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.4:batch": AiModelProfile(
     displayName: "GPT-5.4 (batch)",
-    description: "GPT-5.4 is OpenAI’s latest frontier model, unifying the Codex and GPT lines into a single system. It features a 1M+ token context window (922K input, 128K output) with support for...",
+    description:
+        "GPT-5.4 is OpenAI’s latest frontier model, unifying the Codex and GPT lines into a single system. It features a 1M+ token context window (922K input, 128K output) with support for...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4844,7 +4947,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.5-pro:batch": AiModelProfile(
     displayName: "GPT-5.5 Pro (batch)",
-    description: "GPT-5.5 Pro is OpenAI’s high-capability model optimized for deep reasoning and accuracy on complex, high-stakes workloads. It features a 1M+ token context window (922K input, 128K output) with support for...",
+    description:
+        "GPT-5.5 Pro is OpenAI’s high-capability model optimized for deep reasoning and accuracy on complex, high-stakes workloads. It features a 1M+ token context window (922K input, 128K output) with support for...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4897,7 +5001,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.5:batch": AiModelProfile(
     displayName: "GPT-5.5 (batch)",
-    description: "GPT-5.5 is OpenAI’s frontier model designed for complex professional workloads, building on GPT-5.4 with stronger reasoning, higher reliability, and improved token efficiency on hard tasks. It features a 1M+ token...",
+    description:
+        "GPT-5.5 is OpenAI’s frontier model designed for complex professional workloads, building on GPT-5.4 with stronger reasoning, higher reliability, and improved token efficiency on hard tasks. It features a 1M+ token...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -4951,7 +5056,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-luna": AiModelProfile(
     displayName: "GPT-5.6 Luna",
-    description: "GPT-5.6 Luna is a fast, cost-efficient model in OpenAI's GPT-5.6 series. It is suited for high-volume, latency-sensitive tasks such as chat, classification, and lightweight agentic workflows, providing capable reasoning for...",
+    description:
+        "GPT-5.6 Luna is a fast, cost-efficient model in OpenAI's GPT-5.6 series. It is suited for high-volume, latency-sensitive tasks such as chat, classification, and lightweight agentic workflows, providing capable reasoning for...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5007,7 +5113,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-luna-pro": AiModelProfile(
     displayName: "GPT-5.6 Luna Pro",
-    description: "GPT-5.6 Luna Pro is the same underlying model as [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    description:
+        "GPT-5.6 Luna Pro is the same underlying model as [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5063,7 +5170,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-luna-pro:batch": AiModelProfile(
     displayName: "GPT-5.6 Luna Pro (batch)",
-    description: "GPT-5.6 Luna Pro is the same underlying model as [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    description:
+        "GPT-5.6 Luna Pro is the same underlying model as [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5117,7 +5225,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-luna:batch": AiModelProfile(
     displayName: "GPT-5.6 Luna (batch)",
-    description: "GPT-5.6 Luna is a fast, cost-efficient model in OpenAI's GPT-5.6 series. It is suited for high-volume, latency-sensitive tasks such as chat, classification, and lightweight agentic workflows, providing capable reasoning for...",
+    description:
+        "GPT-5.6 Luna is a fast, cost-efficient model in OpenAI's GPT-5.6 series. It is suited for high-volume, latency-sensitive tasks such as chat, classification, and lightweight agentic workflows, providing capable reasoning for...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5171,7 +5280,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-sol": AiModelProfile(
     displayName: "GPT-5.6 Sol",
-    description: "GPT-5.6 Sol is the flagship model in OpenAI's GPT-5.6 series. It is suited for complex reasoning, coding, and agentic workflows, and is particularly strong at command-line and multi-step coding tasks...",
+    description:
+        "GPT-5.6 Sol is the flagship model in OpenAI's GPT-5.6 series. It is suited for complex reasoning, coding, and agentic workflows, and is particularly strong at command-line and multi-step coding tasks...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5227,7 +5337,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-sol-pro": AiModelProfile(
     displayName: "GPT-5.6 Sol Pro",
-    description: "GPT-5.6 Sol Pro is the same underlying model as [GPT-5.6 Sol](https://openrouter.ai/openai/gpt-5.6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    description:
+        "GPT-5.6 Sol Pro is the same underlying model as [GPT-5.6 Sol](https://openrouter.ai/openai/gpt-5.6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5283,7 +5394,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-sol-pro:batch": AiModelProfile(
     displayName: "GPT-5.6 Sol Pro (batch)",
-    description: "GPT-5.6 Sol Pro is the same underlying model as [GPT-5.6 Sol](https://openrouter.ai/openai/gpt-5.6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    description:
+        "GPT-5.6 Sol Pro is the same underlying model as [GPT-5.6 Sol](https://openrouter.ai/openai/gpt-5.6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5338,7 +5450,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-sol:batch": AiModelProfile(
     displayName: "GPT-5.6 Sol (batch)",
-    description: "GPT-5.6 Sol is the flagship model in OpenAI's GPT-5.6 series. It is suited for complex reasoning, coding, and agentic workflows, and is particularly strong at command-line and multi-step coding tasks...",
+    description:
+        "GPT-5.6 Sol is the flagship model in OpenAI's GPT-5.6 series. It is suited for complex reasoning, coding, and agentic workflows, and is particularly strong at command-line and multi-step coding tasks...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5393,7 +5506,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-terra": AiModelProfile(
     displayName: "GPT-5.6 Terra",
-    description: "GPT-5.6 Terra is a balanced model in OpenAI's GPT-5.6 series, positioned between the flagship Sol tier and the cost-efficient Luna tier. It is suited for everyday coding, reasoning, and agentic...",
+    description:
+        "GPT-5.6 Terra is a balanced model in OpenAI's GPT-5.6 series, positioned between the flagship Sol tier and the cost-efficient Luna tier. It is suited for everyday coding, reasoning, and agentic...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5449,7 +5563,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-terra-pro": AiModelProfile(
     displayName: "GPT-5.6 Terra Pro",
-    description: "GPT-5.6 Terra Pro is the same underlying model as [GPT-5.6 Terra](https://openrouter.ai/openai/gpt-5.6-terra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    description:
+        "GPT-5.6 Terra Pro is the same underlying model as [GPT-5.6 Terra](https://openrouter.ai/openai/gpt-5.6-terra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5505,7 +5620,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-terra-pro:batch": AiModelProfile(
     displayName: "GPT-5.6 Terra Pro (batch)",
-    description: "GPT-5.6 Terra Pro is the same underlying model as [GPT-5.6 Terra](https://openrouter.ai/openai/gpt-5.6-terra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    description:
+        "GPT-5.6 Terra Pro is the same underlying model as [GPT-5.6 Terra](https://openrouter.ai/openai/gpt-5.6-terra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5559,7 +5675,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5.6-terra:batch": AiModelProfile(
     displayName: "GPT-5.6 Terra (batch)",
-    description: "GPT-5.6 Terra is a balanced model in OpenAI's GPT-5.6 series, positioned between the flagship Sol tier and the cost-efficient Luna tier. It is suited for everyday coding, reasoning, and agentic...",
+    description:
+        "GPT-5.6 Terra is a balanced model in OpenAI's GPT-5.6 series, positioned between the flagship Sol tier and the cost-efficient Luna tier. It is suited for everyday coding, reasoning, and agentic...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5613,7 +5730,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-5:batch": AiModelProfile(
     displayName: "GPT-5 (batch)",
-    description: "GPT-5 is OpenAI’s most advanced model, offering major improvements in reasoning, code quality, and user experience. It is optimized for complex tasks that require step-by-step reasoning, instruction following, and accuracy...",
+    description:
+        "GPT-5 is OpenAI’s most advanced model, offering major improvements in reasoning, code quality, and user experience. It is optimized for complex tasks that require step-by-step reasoning, instruction following, and accuracy...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5667,7 +5785,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-6-astra": AiModelProfile(
     displayName: "GPT-6 Astra",
-    description: "GPT-6 Astra is OpenAI's flagship model for demanding end-to-end work. It is suited for advanced analysis, software engineering, deep research, scientific work, and document creation, with particular strengths in long-horizon...",
+    description:
+        "GPT-6 Astra is OpenAI's flagship model for demanding end-to-end work. It is suited for advanced analysis, software engineering, deep research, scientific work, and document creation, with particular strengths in long-horizon...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5714,7 +5833,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-6-astra-pro": AiModelProfile(
     displayName: "GPT-6 Astra Pro",
-    description: "GPT-6 Astra Pro is the same underlying model as [GPT-6 Astra](https://openrouter.ai/openai/gpt-6-astra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    description:
+        "GPT-6 Astra Pro is the same underlying model as [GPT-6 Astra](https://openrouter.ai/openai/gpt-6-astra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5761,7 +5881,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-6-astra-pro:batch": AiModelProfile(
     displayName: "GPT-6 Astra Pro (batch)",
-    description: "GPT-6 Astra Pro is the same underlying model as [GPT-6 Astra](https://openrouter.ai/openai/gpt-6-astra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    description:
+        "GPT-6 Astra Pro is the same underlying model as [GPT-6 Astra](https://openrouter.ai/openai/gpt-6-astra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5807,7 +5928,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-6-astra:batch": AiModelProfile(
     displayName: "GPT-6 Astra (batch)",
-    description: "GPT-6 Astra is OpenAI's flagship model for demanding end-to-end work. It is suited for advanced analysis, software engineering, deep research, scientific work, and document creation, with particular strengths in long-horizon...",
+    description:
+        "GPT-6 Astra is OpenAI's flagship model for demanding end-to-end work. It is suited for advanced analysis, software engineering, deep research, scientific work, and document creation, with particular strengths in long-horizon...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -5853,7 +5975,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-oss-120b:batch": AiModelProfile(
     displayName: "gpt-oss-120b (batch)",
-    description: "gpt-oss-120b is an open-weight, 117B-parameter Mixture-of-Experts (MoE) language model from OpenAI designed for high-reasoning, agentic, and general-purpose production use cases. It activates 5.1B parameters per forward pass and is optimized...",
+    description:
+        "gpt-oss-120b is an open-weight, 117B-parameter Mixture-of-Experts (MoE) language model from OpenAI designed for high-reasoning, agentic, and general-purpose production use cases. It activates 5.1B parameters per forward pass and is optimized...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 131072,
     maxOutputLength: 117964,
@@ -5906,7 +6029,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/gpt-oss-20b:batch": AiModelProfile(
     displayName: "gpt-oss-20b (batch)",
-    description: "gpt-oss-20b is an open-weight 21B parameter model released by OpenAI under the Apache 2.0 license. It uses a Mixture-of-Experts (MoE) architecture with 3.6B active parameters per forward pass, optimized for...",
+    description:
+        "gpt-oss-20b is an open-weight 21B parameter model released by OpenAI under the Apache 2.0 license. It uses a Mixture-of-Experts (MoE) architecture with 3.6B active parameters per forward pass, optimized for...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 131072,
     maxOutputLength: 117964,
@@ -5957,7 +6081,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/o3-mini:batch": AiModelProfile(
     displayName: "o3 Mini (batch)",
-    description: "OpenAI o3-mini is a cost-efficient language model optimized for STEM reasoning tasks, particularly excelling in science, mathematics, and coding. This model supports the `reasoning_effort` parameter, which can be set to...",
+    description:
+        "OpenAI o3-mini is a cost-efficient language model optimized for STEM reasoning tasks, particularly excelling in science, mathematics, and coding. This model supports the `reasoning_effort` parameter, which can be set to...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6003,7 +6128,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/o3:batch": AiModelProfile(
     displayName: "o3 (batch)",
-    description: "o3 is a well-rounded and powerful model across domains. It sets a new standard for math, science, coding, and visual reasoning tasks. It also excels at technical writing and instruction-following....",
+    description:
+        "o3 is a well-rounded and powerful model across domains. It sets a new standard for math, science, coding, and visual reasoning tasks. It also excels at technical writing and instruction-following....",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6042,7 +6168,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openai/o4-mini:batch": AiModelProfile(
     displayName: "o4 Mini (batch)",
-    description: "OpenAI o4-mini is a compact reasoning model in the o-series, optimized for fast, cost-efficient performance while retaining strong multimodal and agentic capabilities. It supports tool use and demonstrates competitive reasoning...",
+    description:
+        "OpenAI o4-mini is a compact reasoning model in the o-series, optimized for fast, cost-efficient performance while retaining strong multimodal and agentic capabilities. It supports tool use and demonstrates competitive reasoning...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6081,7 +6208,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openrouter/auto-beta": AiModelProfile(
     displayName: "Auto Router (Beta)",
-    description: "Auto Router (Beta) is a task-aware router from OpenRouter. It classifies each request, then routes it the [most popular model](/rankings#task-spend) for that task based on aggregate spend, filtered by your...",
+    description:
+        "Auto Router (Beta) is a task-aware router from OpenRouter. It classifies each request, then routes it the [most popular model](/rankings#task-spend) for that task based on aggregate spend, filtered by your...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6140,7 +6268,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "openrouter/fusion": AiModelProfile(
     displayName: "Fusion",
-    description: "Fusion turns your prompt into a small multi-model deliberation. A panel of expert models (see below) analyzes your prompt in parallel with web search and web fetch enabled, then a...",
+    description:
+        "Fusion turns your prompt into a small multi-model deliberation. A panel of expert models (see below) analyzes your prompt in parallel with web search and web fetch enabled, then a...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1000000,
     canonicalSlug: "openrouter/fusion",
@@ -6165,7 +6294,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "poolside/laguna-s-2.1": AiModelProfile(
     displayName: "Laguna S 2.1",
-    description: "Laguna S 2.1 is the latest coding agent model from [Poolside](<https://poolside.ai/>). Laguna S 2.1 is a 118B total parameter model with 8B active parameters, scoring 70.2% on Terminal-Bench 2.1 and...",
+    description:
+        "Laguna S 2.1 is the latest coding agent model from [Poolside](<https://poolside.ai/>). Laguna S 2.1 is a 118B total parameter model with 8B active parameters, scoring 70.2% on Terminal-Bench 2.1 and...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048576,
     maxOutputLength: 131072,
@@ -6197,7 +6327,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "poolside/laguna-s-2.1:free": AiModelProfile(
     displayName: "Laguna S 2.1 (free)",
-    description: "Laguna S 2.1 is the latest coding agent model from [Poolside](<https://poolside.ai/>). Laguna S 2.1 is a 118B total parameter model with 8B active parameters, scoring 70.2% on Terminal-Bench 2.1 and...",
+    description:
+        "Laguna S 2.1 is the latest coding agent model from [Poolside](<https://poolside.ai/>). Laguna S 2.1 is a 118B total parameter model with 8B active parameters, scoring 70.2% on Terminal-Bench 2.1 and...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 32768,
@@ -6228,7 +6359,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "poolside/laguna-xs-2.1": AiModelProfile(
     displayName: "Laguna XS 2.1",
-    description: "Laguna XS 2.1 is the latest coding agent model in the 33B-A3B category from [Poolside](https://poolside.ai/) and a step forward from their Laguna XS.2 model (released in April 2026). It combines...",
+    description:
+        "Laguna XS 2.1 is the latest coding agent model in the 33B-A3B category from [Poolside](https://poolside.ai/) and a step forward from their Laguna XS.2 model (released in April 2026). It combines...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 32768,
@@ -6260,7 +6392,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "poolside/laguna-xs-2.1:free": AiModelProfile(
     displayName: "Laguna XS 2.1 (free)",
-    description: "Laguna XS 2.1 is the latest coding agent model in the 33B-A3B category from [Poolside](https://poolside.ai/) and a step forward from their Laguna XS.2 model (released in April 2026). It combines...",
+    description:
+        "Laguna XS 2.1 is the latest coding agent model in the 33B-A3B category from [Poolside](https://poolside.ai/) and a step forward from their Laguna XS.2 model (released in April 2026). It combines...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 32768,
@@ -6291,7 +6424,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "qwen/qwen3.5-9b:batch": AiModelProfile(
     displayName: "Qwen3.5-9B (batch)",
-    description: "Qwen3.5-9B is a multimodal foundation model from the Qwen3.5 family, designed to deliver strong reasoning, coding, and visual understanding in an efficient 9B-parameter architecture. It uses a unified vision-language design...",
+    description:
+        "Qwen3.5-9B is a multimodal foundation model from the Qwen3.5 family, designed to deliver strong reasoning, coding, and visual understanding in an efficient 9B-parameter architecture. It uses a unified vision-language design...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6345,7 +6479,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "qwen/qwen3.7-flash": AiModelProfile(
     displayName: "Qwen3.7 Flash",
-    description: "Qwen3.7 Flash is a vision-language reasoning model from Alibaba. It is suited for multimodal agents, visual coding, search, and computer interaction, with strengths in object recognition, spatial understanding, and real-world...",
+    description:
+        "Qwen3.7 Flash is a vision-language reasoning model from Alibaba. It is suited for multimodal agents, visual coding, search, and computer interaction, with strengths in object recognition, spatial understanding, and real-world...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6397,7 +6532,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "qwen/qwen3.7-plus": AiModelProfile(
     displayName: "Qwen3.7 Plus",
-    description: "Qwen3.7-Plus is a cost-effective model in Alibaba's Qwen3.7 series. It supports text and image input with text output, building on the series' text capabilities with a comprehensive upgrade to its...",
+    description:
+        "Qwen3.7-Plus is a cost-effective model in Alibaba's Qwen3.7 series. It supports text and image input with text output, building on the series' text capabilities with a comprehensive upgrade to its...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6444,7 +6580,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "qwen/qwen3.8-2.4t-a95b": AiModelProfile(
     displayName: "Qwen3.8 2.4T A95B",
-    description: "Qwen3.8 2.4T A95B is an open-weight sparse mixture-of-experts model from Qwen and the open-weight variant of [Qwen3.8 Max](/qwen/qwen3.8-max), with 95 billion active parameters out of 2.4 trillion total. It is...",
+    description:
+        "Qwen3.8 2.4T A95B is an open-weight sparse mixture-of-experts model from Qwen and the open-weight variant of [Qwen3.8 Max](/qwen/qwen3.8-max), with 95 billion active parameters out of 2.4 trillion total. It is...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048576,
     maxOutputLength: 262144,
@@ -6500,7 +6637,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "qwen/qwen3.8-2.4t-a95b:batch": AiModelProfile(
     displayName: "Qwen3.8 2.4T A95B (batch)",
-    description: "Qwen3.8 2.4T A95B is an open-weight sparse mixture-of-experts model from Qwen and the open-weight variant of [Qwen3.8 Max](/qwen/qwen3.8-max), with 95 billion active parameters out of 2.4 trillion total. It is...",
+    description:
+        "Qwen3.8 2.4T A95B is an open-weight sparse mixture-of-experts model from Qwen and the open-weight variant of [Qwen3.8 Max](/qwen/qwen3.8-max), with 95 billion active parameters out of 2.4 trillion total. It is...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1010000,
     maxOutputLength: 909000,
@@ -6555,7 +6693,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "qwen/qwen3.8-27b": AiModelProfile(
     displayName: "Qwen3.8 27B",
-    description: "Qwen3.8 27B is an open-weight dense vision-language model from Qwen. It is suited for coding, professional workflows, research, multimodal interaction, and long-running agent tasks, with flexible thinking that can be...",
+    description:
+        "Qwen3.8 27B is an open-weight dense vision-language model from Qwen. It is suited for coding, professional workflows, research, multimodal interaction, and long-running agent tasks, with flexible thinking that can be...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6617,7 +6756,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "qwen/qwen3.8-flash": AiModelProfile(
     displayName: "Qwen3.8 Flash",
-    description: "Qwen3.8 Flash is a multimodal reasoning model from Alibaba. It is suited for coding assistance, agentic workflows, visual understanding, document and codebase analysis, desktop interaction, chart analysis, and long-video analysis.",
+    description:
+        "Qwen3.8 Flash is a multimodal reasoning model from Alibaba. It is suited for coding assistance, agentic workflows, visual understanding, document and codebase analysis, desktop interaction, chart analysis, and long-video analysis.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6666,7 +6806,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "qwen/qwen3.8-max": AiModelProfile(
     displayName: "Qwen3.8 Max",
-    description: "Qwen3.8 Max is the flagship model in Alibaba's Qwen3.8 series, the general-availability successor to the Qwen3.8 Max Preview. It is a multimodal reasoning model intended for complex reasoning, visual understanding,...",
+    description:
+        "Qwen3.8 Max is the flagship model in Alibaba's Qwen3.8 series, the general-availability successor to the Qwen3.8 Max Preview. It is a multimodal reasoning model intended for complex reasoning, visual understanding,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6720,7 +6861,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "qwen/qwen3.8-max-0902": AiModelProfile(
     displayName: "Qwen3.8 Max (0902)",
-    description: "Qwen3.8 Max 0902 is an updated snapshot of Qwen3.8 Max from Alibaba's Qwen team. It is a 2.4-trillion-parameter mixture-of-experts model that accepts text, image, and video input and returns text,...",
+    description:
+        "Qwen3.8 Max 0902 is an updated snapshot of Qwen3.8 Max from Alibaba's Qwen team. It is a 2.4-trillion-parameter mixture-of-experts model that accepts text, image, and video input and returns text,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6774,7 +6916,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "sakana/fugu-ultra": AiModelProfile(
     displayName: "Fugu Ultra",
-    description: "Fugu Ultra is the higher-performance model in Sakana AI's Fugu family. Rather than a single monolithic model, Fugu is a learned multi-agent orchestration system: a language model trained to route...",
+    description:
+        "Fugu Ultra is the higher-performance model in Sakana AI's Fugu family. Rather than a single monolithic model, Fugu is a learned multi-agent orchestration system: a language model trained to route...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6824,7 +6967,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "sakana/sakana-namazu": AiModelProfile(
     displayName: "Sakana Namazu",
-    description: "Sakana Namazu is a Japanese-specialized reasoning model from Sakana AI, based on Kimi K2.6 with additional training for Japanese language and business contexts. It is suited for Japanese instruction following,...",
+    description:
+        "Sakana Namazu is a Japanese-specialized reasoning model from Sakana AI, based on Kimi K2.6 with additional training for Japanese language and business contexts. It is suited for Japanese instruction following,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6867,7 +7011,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "tencent/hy-mt2-1.8b": AiModelProfile(
     displayName: "Hy-MT2-1.8B",
-    description: "Hy-MT2-1.8B is a compact 1.8B-parameter translation model from Tencent. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and style-guided...",
+    description:
+        "Hy-MT2-1.8B is a compact 1.8B-parameter translation model from Tencent. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and style-guided...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 8192,
     maxOutputLength: 4096,
@@ -6894,7 +7039,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "tencent/hy-mt2-30b-a3b": AiModelProfile(
     displayName: "Hy-MT2-30B-A3B",
-    description: "Hy-MT2-30B-A3B is Tencent's flagship translation model in the Hy-MT2 family. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and...",
+    description:
+        "Hy-MT2-30B-A3B is Tencent's flagship translation model in the Hy-MT2 family. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 8192,
     maxOutputLength: 4096,
@@ -6923,7 +7069,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "tencent/hy-mt2-7b": AiModelProfile(
     displayName: "Hy-MT2-7B",
-    description: "Hy-MT2-7B is a 7B-parameter translation model from Tencent. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and style-guided translation.",
+    description:
+        "Hy-MT2-7B is a 7B-parameter translation model from Tencent. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and style-guided translation.",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 8192,
     maxOutputLength: 4096,
@@ -6952,7 +7099,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "tencent/hy3": AiModelProfile(
     displayName: "Hy3",
-    description: "Hy3 is a 295B-parameter Mixture-of-Experts model from Tencent (21B active, 192 experts with top-8 routing) built for reasoning, agentic workflows, and real-world production use. It supports a configurable reasoning effort:...",
+    description:
+        "Hy3 is a 295B-parameter Mixture-of-Experts model from Tencent (21B active, 192 experts with top-8 routing) built for reasoning, agentic workflows, and real-world production use. It supports a configurable reasoning effort:...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 128000,
@@ -7010,7 +7158,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "tencent/hy4-preview": AiModelProfile(
     displayName: "Hy4 preview",
-    description: "Tencent: Hy4 preview is a mixture-of-experts model from Tencent, with 49B active parameters out of 770B total. It is designed for coding agents, complex tool-use workflows, and productivity tasks that...",
+    description:
+        "Tencent: Hy4 preview is a mixture-of-experts model from Tencent, with 49B active parameters out of 770B total. It is designed for coding agents, complex tool-use workflows, and productivity tasks that...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048576,
     maxOutputLength: 64000,
@@ -7051,7 +7200,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "thinkingmachines/inkling": AiModelProfile(
     displayName: "Inkling",
-    description: "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
+    description:
+        "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7113,7 +7263,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "thinkingmachines/inkling-small": AiModelProfile(
     displayName: "Inkling Small",
-    description: "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
+    description:
+        "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7177,7 +7328,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "thinkingmachines/inkling-small:batch": AiModelProfile(
     displayName: "Inkling Small (batch)",
-    description: "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
+    description:
+        "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7240,7 +7392,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "thinkingmachines/inkling-small:free": AiModelProfile(
     displayName: "Inkling Small (free)",
-    description: "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
+    description:
+        "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7296,7 +7449,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "thinkingmachines/inkling:batch": AiModelProfile(
     displayName: "Inkling (batch)",
-    description: "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
+    description:
+        "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7356,7 +7510,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "thinkingmachines/inkling:free": AiModelProfile(
     displayName: "Inkling (free)",
-    description: "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
+    description:
+        "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7411,7 +7566,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "upstage/solar-pro4": AiModelProfile(
     displayName: "Solar Pro 4",
-    description: "Solar Pro 4 is Upstage's cost-efficient large language model, featuring a 524K context window. It is built for long-horizon tasks and agentic workflows, with strong capabilities in office productivity, document-intensive...",
+    description:
+        "Solar Pro 4 is Upstage's cost-efficient large language model, featuring a 524K context window. It is built for long-horizon tasks and agentic workflows, with strong capabilities in office productivity, document-intensive...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 524288,
     maxOutputLength: 131072,
@@ -7447,7 +7603,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "x-ai/grok-4.3:batch": AiModelProfile(
     displayName: "Grok 4.3 (batch)",
-    description: "Grok 4.3 is a reasoning model from SpaceXAI. It accepts text and image inputs with text output, and is suited for agentic workflows, instruction-following tasks, and applications requiring high factual...",
+    description:
+        "Grok 4.3 is a reasoning model from SpaceXAI. It accepts text and image inputs with text output, and is suited for agentic workflows, instruction-following tasks, and applications requiring high factual...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7504,7 +7661,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "x-ai/grok-4.5": AiModelProfile(
     displayName: "Grok 4.5",
-    description: "Grok 4.5 is a model from SpaceXAI with frontier performance on coding, knowledge work, and STEM.",
+    description:
+        "Grok 4.5 is a model from SpaceXAI with frontier performance on coding, knowledge work, and STEM.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7553,7 +7711,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "x-ai/grok-4.6": AiModelProfile(
     displayName: "Grok 4.6",
-    description: "Grok 4.6 is SpaceXAI's smartest model with frontier performance on coding, knowledge work, and STEM.",
+    description:
+        "Grok 4.6 is SpaceXAI's smartest model with frontier performance on coding, knowledge work, and STEM.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7604,7 +7763,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "z-ai/glm-5.2": AiModelProfile(
     displayName: "GLM 5.2",
-    description: "GLM 5.2 is a large-scale reasoning model from Z.ai. It supports text input and output with a 1M-token context window, and is suited for long-horizon agent workflows, project-level software engineering,...",
+    description:
+        "GLM 5.2 is a large-scale reasoning model from Z.ai. It supports text input and output with a 1M-token context window, and is suited for long-horizon agent workflows, project-level software engineering,...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048576,
     maxOutputLength: 131072,
@@ -7664,7 +7824,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "z-ai/glm-5.2:free": AiModelProfile(
     displayName: "GLM 5.2 (free)",
-    description: "GLM 5.2 is a large-scale reasoning model from Z.ai. It supports text input and output with a 1M-token context window, and is suited for long-horizon agent workflows, project-level software engineering,...",
+    description:
+        "GLM 5.2 is a large-scale reasoning model from Z.ai. It supports text input and output with a 1M-token context window, and is suited for long-horizon agent workflows, project-level software engineering,...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 256000,
     maxOutputLength: 230400,
@@ -7719,7 +7880,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "z-ai/glm-5.3": AiModelProfile(
     displayName: "GLM 5.3",
-    description: "GLM-5.3 is a large-scale reasoning model from Z.ai, built for complex software engineering and long-horizon agent tasks. It supports text input and output with a 1M-token context window, and improves...",
+    description:
+        "GLM-5.3 is a large-scale reasoning model from Z.ai, built for complex software engineering and long-horizon agent tasks. It supports text input and output with a 1M-token context window, and improves...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1310720,
     maxOutputLength: 262144,
@@ -7772,7 +7934,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "z-ai/glm-5.3-flash": AiModelProfile(
     displayName: "GLM 5.3 Flash",
-    description: "GLM-5.3-Flash is a native multimodal model from Z.ai. It is suited for efficient coding and long-horizon agent tasks. Its hybrid sparse and linear attention architecture maintains accurate long-context behavior while...",
+    description:
+        "GLM-5.3-Flash is a native multimodal model from Z.ai. It is suited for efficient coding and long-horizon agent tasks. Its hybrid sparse and linear attention architecture maintains accurate long-context behavior while...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7831,7 +7994,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "z-ai/glm-5.3-flash:batch": AiModelProfile(
     displayName: "GLM 5.3 Flash (batch)",
-    description: "GLM-5.3-Flash is a native multimodal model from Z.ai. It is suited for efficient coding and long-horizon agent tasks. Its hybrid sparse and linear attention architecture maintains accurate long-context behavior while...",
+    description:
+        "GLM-5.3-Flash is a native multimodal model from Z.ai. It is suited for efficient coding and long-horizon agent tasks. Its hybrid sparse and linear attention architecture maintains accurate long-context behavior while...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7888,7 +8052,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "~anthropic/claude-fable-latest": AiModelProfile(
     displayName: "Claude Fable Latest",
-    description: "This model always redirects to the latest model in the Claude Fable family.",
+    description:
+        "This model always redirects to the latest model in the Claude Fable family.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7935,7 +8100,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "~deepseek/deepseek-v4-flash-latest": AiModelProfile(
     displayName: "DeepSeek V4 Flash Latest",
-    description: "This model always redirects to the latest model in the DeepSeek V4 Flash family.",
+    description:
+        "This model always redirects to the latest model in the DeepSeek V4 Flash family.",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1310720,
     maxOutputLength: 131072,
@@ -8039,7 +8205,8 @@ openRouterLatestModelProfiles = <String, AiModelProfile>{
   ),
   "~z-ai/glm-flash-latest": AiModelProfile(
     displayName: "GLM Flash Latest",
-    description: "This model always redirects to the latest model in the GLM Flash family.",
+    description:
+        "This model always redirects to the latest model in the GLM Flash family.",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{

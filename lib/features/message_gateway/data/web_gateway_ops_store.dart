@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -6,8 +5,10 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/web_gateway_runtime.dart';
 
 const int webGatewayOpsMaxPersistedSnapshots = 720;
@@ -28,6 +29,12 @@ class WebGatewayOpsStore {
   static const String _cleanupHistoryKey = 'cleanup_history';
   static const String _updatedAtKey = 'updated_at';
   static const int _maxStoreBytes = 32 * kBytesPerMiB;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 32,
+        maxContainerItems: webGatewayOpsMaxPersistedLogs,
+        maxTotalNodes: 262144,
+      );
   static const String _untrustedSnapshotMessage = 'Web 网关运维历史缺少可信快照。';
   static const String _externallyChangedMessage = 'Web 网关运维历史已被外部修改。';
   static const String _externallyRemovedMessage = 'Web 网关运维历史已被外部删除。';
@@ -64,7 +71,7 @@ class WebGatewayOpsStore {
       return;
     }
     final content = '${prettyPrintJson(data.toJson())}\n';
-    if (utf8.encode(content).length > _maxStoreBytes) {
+    if (utf8ByteLength(content) > _maxStoreBytes) {
       throw const FileSystemException('Web 网关运维历史超过大小上限。');
     }
     _decode(content);
@@ -94,7 +101,7 @@ class WebGatewayOpsStore {
       throw StateError(_externallyChangedMessage);
     }
     return WebGatewayOpsPersistenceReport(
-      bytes: utf8.encode(raw).length,
+      bytes: utf8ByteLength(raw),
       itemCount: _decode(raw).itemCount,
     );
   }
@@ -106,11 +113,12 @@ class WebGatewayOpsStore {
   }
 
   WebGatewayOpsHistoryData _decode(String raw) {
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) {
-      throw const FormatException('Web 网关运维历史根节点必须是对象。');
-    }
-    final source = stringKeyedMapFromValue(decoded);
+    final source = decodeJsonObjectTextUsingConfig(
+      raw,
+      maxTextCodeUnits: _maxStoreBytes,
+      config: _jsonConversionConfig,
+      invalidRootMessage: 'Web 网关运维历史根节点必须是对象。',
+    );
     _requireList(source, _snapshotsKey, webGatewayOpsMaxPersistedSnapshots);
     _requireList(source, _logsKey, webGatewayOpsMaxPersistedLogs);
     _requireList(source, _cleanupHistoryKey, webGatewayOpsMaxCleanupHistory);

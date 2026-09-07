@@ -10,9 +10,11 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
+import '../../../shared/util/text_clip.dart';
 import '../mcp_errors.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_tool.dart';
@@ -517,7 +519,7 @@ class McpKeywordIndexService {
 
   Future<void> _persist(McpKeywordIndex index) async {
     final content = jsonEncode(index.toJson());
-    if (utf8.encode(content).length + 1 > _maxPersistedBytes) {
+    if (utf8ByteLength(content) + 1 > _maxPersistedBytes) {
       throw StateError('MCP 关键词索引超过持久化大小上限。');
     }
     await writeFileAtomically(_file, '$content\n');
@@ -567,9 +569,13 @@ class McpKeywordIndexService {
         _file,
         maxBytes: _maxPersistedBytes,
       );
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return null;
-      return McpKeywordIndex.fromJson(stringKeyedMapFromValue(decoded));
+      final root = decodeJsonObjectTextUsingConfig(
+        raw,
+        maxTextCodeUnits: _maxPersistedBytes,
+        config: kOpenHandProtocolJsonConversionConfig,
+        invalidRootMessage: 'MCP 关键词索引根节点必须为对象。',
+      );
+      return McpKeywordIndex.fromJson(root);
     } catch (e, s) {
       silentLog('mcp_keyword_index', '从磁盘加载关键词索引', e, s);
       return null;

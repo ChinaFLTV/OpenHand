@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -8,6 +7,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -48,6 +48,12 @@ class McpStore {
 
   static const String _serversRootKey = 'mcpServers';
   static const int _maxServersFileBytes = 4 * kBytesPerMiB;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 48,
+        maxContainerItems: 4096,
+        maxTotalNodes: 65536,
+      );
   static const Set<String> _serverFields = <String>{
     'enabled',
     'probeEnabled',
@@ -87,7 +93,14 @@ class McpStore {
         maxBytes: _maxServersFileBytes,
       );
       try {
-        final parsed = _parseRoot(jsonDecode(raw));
+        final parsed = _parseRoot(
+          decodeJsonObjectTextUsingConfig(
+            raw,
+            maxTextCodeUnits: _maxServersFileBytes,
+            config: _jsonConversionConfig,
+            invalidRootMessage: 'MCP 根节点必须为对象。',
+          ),
+        );
         _acceptSnapshot(
           expectedContent: raw,
           rootExtraFields: parsed.rootExtraFields,
@@ -118,14 +131,6 @@ class McpStore {
   }
 
   _ParsedRoot _parseRoot(Object? decoded) {
-    validateCanonicalJsonSubset(
-      decoded,
-      decoded,
-      path: 'MCP 配置',
-      maxDepth: 48,
-      maxContainerItems: 4096,
-      maxTotalNodes: 65536,
-    );
     final root = _jsonObject(decoded, 'MCP 根对象');
     final rawServers = root[_serversRootKey];
     if (rawServers is! Map) {

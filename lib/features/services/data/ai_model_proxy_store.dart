@@ -4,6 +4,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -21,6 +22,14 @@ const int _maxTelemetryRowBytes = kBytesPerMiB;
 const int _maxTelemetryPageBytes = 64 * kBytesPerMiB;
 const int _maxTelemetryValue = 1 << 52;
 const int _telemetryScalarBytes = 15 * 8;
+const BoundedJsonConversionConfig _settingsJsonConversionConfig =
+    BoundedJsonConversionConfig(maxDepth: 16, maxContainerItems: 4096);
+const BoundedJsonConversionConfig _telemetryJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 16,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+    );
 
 class AiModelProxyStore {
   static const String _key = 'ai_model_proxy_settings_v1';
@@ -47,20 +56,13 @@ class AiModelProxyStore {
       if (utf8ByteLength(encoded) > _maxSettingsBytes) {
         throw const FormatException('模型中转站设置超过安全上限。');
       }
-      final decoded = jsonDecode(encoded);
-      if (decoded is! Map) {
-        throw const FormatException('模型中转站设置必须为对象。');
-      }
-      final payload = stringKeyedMapFromValue(decoded);
-      _validateSettingsPayload(payload);
-      validateCanonicalJsonSubset(
-        payload,
-        payload,
-        path: 'ai_model_proxy_settings',
-        maxDepth: 16,
-        maxContainerItems: 4096,
-        maxTotalNodes: 100000,
+      final payload = decodeJsonObjectTextUsingConfig(
+        encoded,
+        maxTextCodeUnits: _maxSettingsBytes,
+        config: _settingsJsonConversionConfig,
+        invalidRootMessage: '模型中转站设置必须为对象。',
       );
+      _validateSettingsPayload(payload);
       final settings = AiModelProxySettings.fromJson(payload);
       _validateSettings(settings);
       return settings;
@@ -324,16 +326,11 @@ class AiModelProxyStore {
         utf8ByteLength(value) > _maxTelemetryJsonBytes) {
       throw FormatException('$field 载荷无效。');
     }
-    final decoded = jsonDecode(value);
-    if (decoded is! Map) throw FormatException('$field 必须为对象。');
-    final map = stringKeyedMapFromValue(decoded);
-    validateCanonicalJsonSubset(
-      map,
-      map,
-      path: field,
-      maxDepth: 16,
-      maxContainerItems: 4096,
-      maxTotalNodes: 32768,
+    final map = decodeJsonObjectTextUsingConfig(
+      value,
+      maxTextCodeUnits: _maxTelemetryJsonBytes,
+      config: _telemetryJsonConversionConfig,
+      invalidRootMessage: '$field 必须为对象。',
     );
     return Map<String, Object?>.unmodifiable(map);
   }

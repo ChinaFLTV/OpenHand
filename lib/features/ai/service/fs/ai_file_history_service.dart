@@ -148,7 +148,7 @@ class AiFileHistoryService {
                 suffix: '',
               ),
         'created_at': timestamp.toIso8601String(),
-        'file_size_bytes': utf8.encode(content).length,
+        'file_size_bytes': utf8ByteLength(content),
       };
 
       // 保存内容文件

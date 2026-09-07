@@ -4,6 +4,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -16,6 +17,18 @@ const int _maxHealthRecordsTotalBytes = 64 * kBytesPerMiB;
 const int _maxHealthMetadataBytes = 512 * kBytesPerKiB;
 const int _maxHealthIdentifierCharacters = 2048;
 const int _maxHealthMessageCharacters = 256 * kBytesPerKiB;
+const BoundedJsonConversionConfig _healthSettingsJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 4,
+      maxContainerItems: 32,
+      maxTotalNodes: 64,
+    );
+const BoundedJsonConversionConfig _healthMetadataJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 16,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+    );
 const List<String> _healthRecordTextColumns = <String>[
   'id',
   'provider_config_id',
@@ -169,18 +182,11 @@ class AiModelHealthStore {
       allowEmpty: false,
       maxCharacters: _maxHealthMetadataBytes,
     );
-    final decodedMetadata = jsonDecode(metadataJson);
-    if (decodedMetadata is! Map) {
-      throw FormatException('模型健康记录元数据必须为对象：$id');
-    }
-    final metadata = stringKeyedMapFromValue(decodedMetadata);
-    validateCanonicalJsonSubset(
-      metadata,
-      metadata,
-      path: 'ai_model_health_records.$id.metadata',
-      maxDepth: 16,
-      maxContainerItems: 4096,
-      maxTotalNodes: 32768,
+    final metadata = decodeJsonObjectTextUsingConfig(
+      metadataJson,
+      maxTextCodeUnits: _maxHealthMetadataBytes,
+      config: _healthMetadataJsonConversionConfig,
+      invalidRootMessage: '模型健康记录元数据必须为对象：$id',
     );
     return AiModelHealthRecord(
       id: id,
@@ -266,11 +272,14 @@ class AiModelHealthStore {
     if (utf8ByteLength(value) > _maxHealthSettingsBytes) {
       throw const FormatException('模型健康巡检设置超过安全上限。');
     }
-    final decoded = jsonDecode(value);
-    if (decoded is! Map) {
-      throw const FormatException('模型健康巡检设置必须为对象。');
-    }
-    return _settingsFromPayload(stringKeyedMapFromValue(decoded));
+    return _settingsFromPayload(
+      decodeJsonObjectTextUsingConfig(
+        value,
+        maxTextCodeUnits: _maxHealthSettingsBytes,
+        config: _healthSettingsJsonConversionConfig,
+        invalidRootMessage: '模型健康巡检设置必须为对象。',
+      ),
+    );
   }
 
   static String _encodeSettings(AiModelHealthSettings settings) {

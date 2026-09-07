@@ -310,7 +310,7 @@ class HooksExecutor {
     var originalContextBytes = 0;
     try {
       contextJson = jsonEncode(payload);
-      originalContextBytes = utf8.encode(contextJson).length;
+      originalContextBytes = utf8ByteLength(contextJson);
       if (originalContextBytes > _maxContextJsonBytes) {
         contextJson = _contextSummaryJson(
           payload,
@@ -518,7 +518,7 @@ class HooksExecutor {
       suffix: '',
     ).trim();
     final captureReachedLimit =
-        utf8.encode(capturedText).length >= _maxHookCapturedOutputBytes;
+        utf8ByteLength(capturedText) >= _maxHookCapturedOutputBytes;
     if (preview == normalized && !captureReachedLimit) {
       return _CollectedOutput(text: normalized);
     }

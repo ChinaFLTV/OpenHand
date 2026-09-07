@@ -1,14 +1,19 @@
-import 'dart:convert';
-
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/workflow_definition.dart';
 
 class WorkflowsStore {
   WorkflowsStore({this._database});
 
   static const String _tableName = 'workflows';
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxContainerItems: 16384,
+        maxTotalNodes: 262144,
+      );
 
   final Database? _database;
 
@@ -69,11 +74,14 @@ class WorkflowsStore {
     if (raw is! String || _exceedsWorkflowEncodedLimit(raw)) {
       throw const FormatException('工作流配置大小无效。');
     }
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) throw const FormatException('工作流配置格式无效。');
-    return WorkflowDefinition.fromJson(<String, Object?>{
-      for (final entry in decoded.entries) '${entry.key}': entry.value,
-    });
+    return WorkflowDefinition.fromJson(
+      decodeJsonObjectTextUsingConfig(
+        raw,
+        maxTextCodeUnits: maxWorkflowEncodedBytes,
+        config: _jsonConversionConfig,
+        invalidRootMessage: '工作流配置格式无效。',
+      ),
+    );
   }
 
   Future<void> save(WorkflowDefinition workflow) async {
@@ -97,4 +105,4 @@ class WorkflowsStore {
 
 bool _exceedsWorkflowEncodedLimit(String value) =>
     value.length > maxWorkflowEncodedBytes ||
-    utf8.encode(value).length > maxWorkflowEncodedBytes;
+    utf8ByteLength(value) > maxWorkflowEncodedBytes;

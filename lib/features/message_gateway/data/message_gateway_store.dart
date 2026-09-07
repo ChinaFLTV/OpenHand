@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -7,8 +6,10 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/web_message_platform_config.dart';
 
 class MessageGatewayStore {
@@ -23,6 +24,12 @@ class MessageGatewayStore {
   static const int _maxConfigFileBytes = 4 * kBytesPerMiB;
   static const int _maxConfigContainerItems = 4096;
   static const int _maxConfigNodes = 32768;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 16,
+        maxContainerItems: _maxConfigContainerItems,
+        maxTotalNodes: _maxConfigNodes,
+      );
   static const String _allowedBuiltinToolNamesKey =
       'allowed_builtin_tool_names';
   static const String _retiredBuiltinToolNamePrefix = 'agent';
@@ -47,11 +54,12 @@ class MessageGatewayStore {
       file,
       maxBytes: _maxConfigFileBytes,
     );
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) {
-      throw const FormatException('消息网关配置根节点必须为对象。');
-    }
-    final source = stringKeyedMapFromValue(decoded);
+    final source = decodeJsonObjectTextUsingConfig(
+      raw,
+      maxTextCodeUnits: _maxConfigFileBytes,
+      config: _jsonConversionConfig,
+      invalidRootMessage: '消息网关配置根节点必须为对象。',
+    );
     final migrated = _removeRetiredConfig(source);
     final config = WebMessagePlatformConfig.fromJson(source);
     validateCanonicalJsonSubset(
@@ -137,7 +145,7 @@ class MessageGatewayStore {
       maxTotalNodes: _maxConfigNodes,
     );
     final content = '${prettyPrintJson(payload)}\n';
-    if (utf8.encode(content).length > _maxConfigFileBytes) {
+    if (utf8ByteLength(content) > _maxConfigFileBytes) {
       throw const FileSystemException('消息网关配置超过大小上限。');
     }
     await writeFileAtomically(file, content);

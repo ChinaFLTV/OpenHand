@@ -10,6 +10,7 @@ import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/serial_task_queue.dart';
+import '../../../../shared/util/text_clip.dart';
 import 'web_engine_json_utils.dart';
 import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
@@ -483,7 +484,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
           entry[payloadBytesField],
         );
       }
-      estimatedTotal += utf8.encode(jsonEncode(jsonSafeMap(root))).length;
+      estimatedTotal += utf8ByteLength(jsonEncode(jsonSafeMap(root)));
       if (estimatedTotal <= maxBytes) return;
 
       // 估算超阈值，再做真实磁盘读用于淘汰决策（孤儿文件 / index 字节字段缺失

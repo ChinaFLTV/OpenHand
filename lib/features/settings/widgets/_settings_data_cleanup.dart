@@ -1071,7 +1071,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       );
       if (!copied || !mounted) return;
       _cleanupPulse.value += 1;
-      final bytes = utf8.encode(json).length;
+      final bytes = utf8ByteLength(json);
       showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(

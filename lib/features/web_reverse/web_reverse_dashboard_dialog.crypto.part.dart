@@ -313,6 +313,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
     AppLocalizations? loc,
   ) {
     final t = _input.text;
+    final byteLength = utf8ByteLength(t);
     return ListView(
       key: const ValueKey('enc'),
       children: [
@@ -326,8 +327,8 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
           theme,
           cs,
           loc?.webReverseCryptoLengthLabel ?? 'Length',
-          loc?.webReverseCryptoLengthValue(t.length, utf8.encode(t).length) ??
-              'chars ${t.length} / bytes ${utf8.encode(t).length}',
+          loc?.webReverseCryptoLengthValue(t.length, byteLength) ??
+              'chars ${t.length} / bytes $byteLength',
           loc: loc,
         ),
       ],

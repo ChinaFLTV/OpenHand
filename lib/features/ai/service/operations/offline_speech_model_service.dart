@@ -23,6 +23,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/offline_speech_model.dart';
 
@@ -3523,7 +3524,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
             if (data is Map) {
               final cid = '${payload['cid'] ?? ''}';
               final audioStream = '${data['audio_stream'] ?? ''}';
-              binaryPrefixBytes = utf8.encode(cid + audioStream).length;
+              binaryPrefixBytes = utf8ByteLength(cid + audioStream);
               final encodedAudio = data['audio'];
               if (encodedAudio is String && encodedAudio.isNotEmpty) {
                 appendAudio(Uint8List.fromList(base64Decode(encodedAudio)));

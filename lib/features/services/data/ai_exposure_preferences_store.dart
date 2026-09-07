@@ -4,6 +4,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -16,6 +17,14 @@ const int _maxProxyRequestBatchCount = 50000;
 const int _maxProxyRequestPageBytes = 16 * kBytesPerMiB;
 const int _maxProxyTrendBuckets = 10000;
 const int _maxExternalAccessTokenCharacters = 64 * kBytesPerKiB;
+const BoundedJsonConversionConfig _proxyJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 16,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+    );
+const BoundedJsonConversionConfig _preferencesJsonConversionConfig =
+    BoundedJsonConversionConfig(maxDepth: 16, maxTotalNodes: 500000);
 
 String _encodeProxyJson(
   Object value, {
@@ -61,8 +70,12 @@ class AiExposurePreferencesStore {
         limit: 1,
       );
       if (rows.isEmpty) return AiExposurePreferences.defaults();
-      final decoded = jsonDecode(rows.first['value'] as String);
-      if (decoded is! Map) throw const FormatException('扫描服务设置格式无效。');
+      final decoded = decodeJsonObjectTextUsingConfig(
+        rows.first['value'] as String,
+        maxTextCodeUnits: _maxProxyPayloadTotalBytes,
+        config: _preferencesJsonConversionConfig,
+        invalidRootMessage: '扫描服务设置格式无效。',
+      );
       final preferences = AiExposurePreferences.fromJson(
         aiExposureJsonMap(decoded),
       );
@@ -78,17 +91,11 @@ class AiExposurePreferencesStore {
         if (url == null || encoded == null) {
           throw const FormatException('代理节点使用统计字段无效。');
         }
-        final decodedStatistics = jsonDecode(encoded);
-        if (decodedStatistics is! Map) {
-          throw const FormatException('代理节点使用统计必须为对象。');
-        }
-        validateCanonicalJsonSubset(
-          decodedStatistics,
-          decodedStatistics,
-          path: 'ai_exposure_proxy_statistics.$url',
-          maxDepth: 16,
-          maxContainerItems: 4096,
-          maxTotalNodes: 32768,
+        final decodedStatistics = decodeJsonObjectTextUsingConfig(
+          encoded,
+          maxTextCodeUnits: _maxProxyPayloadBytes,
+          config: _proxyJsonConversionConfig,
+          invalidRootMessage: '代理节点使用统计必须为对象。',
         );
         statisticsByUrl[url] = AiExposureProxyUsageStatistics.fromJson(
           decodedStatistics,
@@ -105,20 +112,16 @@ class AiExposurePreferencesStore {
         if (url == null || encoded == null) {
           throw const FormatException('代理节点巡检样本字段无效。');
         }
-        final decodedSamples = jsonDecode(encoded);
+        final decodedSamples = decodeJsonTextUsingConfig(
+          encoded,
+          maxTextCodeUnits: _maxProxyPayloadBytes,
+          config: _proxyJsonConversionConfig,
+        );
         if (decodedSamples is! List ||
             decodedSamples.length > kAiExposureProxyLatencySampleLimit ||
             decodedSamples.any((sample) => sample is! Map)) {
           throw const FormatException('代理节点巡检样本格式无效。');
         }
-        validateCanonicalJsonSubset(
-          decodedSamples,
-          decodedSamples,
-          path: 'ai_exposure_proxy_samples.$url',
-          maxDepth: 16,
-          maxContainerItems: 4096,
-          maxTotalNodes: 32768,
-        );
         final samples = decodedSamples
             .map(AiExposureProxyProbeSample.fromJson)
             .toList(growable: false);
@@ -445,17 +448,11 @@ class AiExposurePreferencesStore {
       if (endpointUrl == null || encoded == null) {
         throw const FormatException('代理请求明细字段无效。');
       }
-      final decoded = jsonDecode(encoded);
-      if (decoded is! Map) {
-        throw const FormatException('代理请求明细必须为对象。');
-      }
-      validateCanonicalJsonSubset(
-        decoded,
-        decoded,
-        path: 'ai_exposure_proxy_request_history',
-        maxDepth: 16,
-        maxContainerItems: 4096,
-        maxTotalNodes: 32768,
+      final decoded = decodeJsonObjectTextUsingConfig(
+        encoded,
+        maxTextCodeUnits: _maxProxyRequestSampleBytes,
+        config: _proxyJsonConversionConfig,
+        invalidRootMessage: '代理请求明细必须为对象。',
       );
       records.add(
         AiExposureProxyRequestRecord(
@@ -538,7 +535,12 @@ class AiExposurePreferencesStore {
       );
       if (rows.isNotEmpty) {
         return AiExposureToolSettings.fromJson(
-          jsonDecode(rows.first['value'] as String),
+          decodeJsonObjectTextUsingConfig(
+            rows.first['value'] as String,
+            maxTextCodeUnits: _maxProxyPayloadBytes,
+            config: _proxyJsonConversionConfig,
+            invalidRootMessage: '扫描工具设置格式无效。',
+          ),
         );
       }
       final legacy = await _loadLegacySourceCredentials();
@@ -554,10 +556,15 @@ class AiExposurePreferencesStore {
   }
 
   Future<void> saveToolSettings(AiExposureToolSettings settings) async {
+    final encoded = _encodeProxyJson(
+      settings.normalized().toJson(),
+      field: '扫描工具设置',
+      maxBytes: _maxProxyPayloadBytes,
+    );
     await _database.transaction((transaction) async {
       await transaction.insert('app_settings', <String, Object?>{
         'key': _toolSettingsKey,
-        'value': jsonEncode(settings.normalized().toJson()),
+        'value': encoded,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
       await transaction.delete(
         'app_settings',
@@ -576,14 +583,16 @@ class AiExposurePreferencesStore {
       limit: 1,
     );
     if (rows.isEmpty) return const <String, String>{};
-    final decoded = jsonDecode(rows.first['value'] as String);
-    if (decoded is! Map) return const <String, String>{};
+    final decoded = decodeJsonObjectTextUsingConfig(
+      rows.first['value'] as String,
+      maxTextCodeUnits: _maxProxyPayloadBytes,
+      config: _proxyJsonConversionConfig,
+      invalidRootMessage: '旧版扫描服务凭据格式无效。',
+    );
     return <String, String>{
       for (final entry in decoded.entries)
-        if (entry.key is String &&
-            entry.value is String &&
-            (entry.value as String).trim().isNotEmpty)
-          entry.key as String: (entry.value as String).trim(),
+        if (entry.value case final String value when value.trim().isNotEmpty)
+          entry.key: value.trim(),
     };
   }
 

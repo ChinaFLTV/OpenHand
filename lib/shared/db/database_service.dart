@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -8,6 +7,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../util/bounded_file_io.dart';
+import '../util/bounded_json_conversion.dart';
+import '../util/byte_size_format.dart';
 
 /// 应用级 SQLite 持久化服务。
 class DatabaseService {
@@ -28,6 +29,7 @@ class DatabaseService {
   static const Duration _databaseOpenTimeout = Duration(minutes: 2);
   static const Duration _databaseCloseTimeout = Duration(seconds: 10);
   static const int _databaseBusyTimeoutMilliseconds = 5000;
+  static const int _migrationJsonMaxCodeUnits = 4 * kBytesPerMiB;
   static const String _createUserInstructionsTableSql = '''
     CREATE TABLE IF NOT EXISTS user_instructions (
       id              TEXT PRIMARY KEY,
@@ -811,7 +813,11 @@ class DatabaseService {
         final encoded = row['sample_json'] as String?;
         if (recordId == null || encoded == null) continue;
         try {
-          final decoded = jsonDecode(encoded);
+          final decoded = decodeJsonTextUsingConfig(
+            encoded,
+            maxTextCodeUnits: _migrationJsonMaxCodeUnits,
+            config: kOpenHandCompactJsonConversionConfig,
+          );
           if (decoded is! Map) continue;
           final raw = decoded['responseTimeMs'];
           final value = raw is num ? raw.toInt() : int.tryParse('$raw');

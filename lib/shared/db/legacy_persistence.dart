@@ -6,6 +6,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../app/support/openhand_paths.dart';
 import '../util/bounded_file_io.dart';
+import '../util/bounded_json_conversion.dart';
 import '../util/byte_size_format.dart';
 
 const int maxSettingsDocumentBytes = 8 * kBytesPerMiB;
@@ -204,7 +205,11 @@ Future<File?> _firstExistingFile(Iterable<String> paths) async {
 
 Object? _parseLegacySettingValue(String rawValue) {
   if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
-    return jsonDecode(rawValue);
+    return decodeJsonTextUsingConfig(
+      rawValue,
+      maxTextCodeUnits: maxSettingsDocumentBytes,
+      config: kOpenHandCompactJsonConversionConfig,
+    );
   }
   final intValue = int.tryParse(rawValue);
   if (intValue != null) return intValue;

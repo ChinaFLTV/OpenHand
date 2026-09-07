@@ -92,17 +92,32 @@ export function useAsyncPolling(
       const controller = new AbortController();
       activeController = controller;
       const runId = ++activeRunId;
+      let taskSettled = false;
+      let scheduleWhenTaskSettles = false;
       try {
         await runWithAbortableTimeout(
-          (signal) =>
-            runTask(
-              () =>
+          (signal) => {
+            const taskCompletion = Promise.resolve().then(() =>
+              runTask(
+                () =>
+                  !stopped &&
+                  activeRunId === runId &&
+                  !signal.aborted &&
+                  !controller.signal.aborted,
+                signal,
+              ),
+            );
+            return taskCompletion.finally(() => {
+              taskSettled = true;
+              if (
+                scheduleWhenTaskSettles &&
                 !stopped &&
-                activeRunId === runId &&
-                !signal.aborted &&
-                !controller.signal.aborted,
-              signal,
-            ),
+                activeRunId === runId
+              ) {
+                schedule(delayMs);
+              }
+            });
+          },
           {
             timeoutMs,
             signal: controller.signal,
@@ -119,7 +134,14 @@ export function useAsyncPolling(
         if (activeController === controller) {
           activeController = null;
         }
-        if (!stopped) schedule(delayMs);
+        if (!stopped) {
+          // 任务忽略取消信号时，等它真正结束后再调度，避免超时任务无限叠加。
+          if (taskSettled) {
+            schedule(delayMs);
+          } else {
+            scheduleWhenTaskSettles = true;
+          }
+        }
       }
     };
 

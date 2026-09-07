@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
@@ -21,6 +21,12 @@ class McpServerOpsStore {
   static const int _maxStoreBytes = 16 * kBytesPerMiB;
   static const int _maxConfigCollectionItems = 4096;
   static const int _maxJsonNodes = 131072;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 32,
+        maxContainerItems: _maxConfigCollectionItems,
+        maxTotalNodes: _maxJsonNodes,
+      );
 
   final String _filePath;
   final SerialTaskQueue _writeQueue = SerialTaskQueue();
@@ -94,18 +100,11 @@ class McpServerOpsStore {
       return null;
     }
     final raw = await readBoundedFileString(file, maxBytes: _maxStoreBytes);
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) {
-      throw const FormatException('MCP 运维存储根节点必须为对象。');
-    }
-    final root = stringKeyedMapFromValue(decoded);
-    validateCanonicalJsonSubset(
-      root,
-      root,
-      path: 'MCP 运维存储',
-      maxDepth: 32,
-      maxContainerItems: _maxConfigCollectionItems,
-      maxTotalNodes: _maxJsonNodes,
+    final root = decodeJsonObjectTextUsingConfig(
+      raw,
+      maxTextCodeUnits: _maxStoreBytes,
+      config: _jsonConversionConfig,
+      invalidRootMessage: 'MCP 运维存储根节点必须为对象。',
     );
     _validateCollections(root);
     return root;

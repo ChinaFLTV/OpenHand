@@ -18,6 +18,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/storage_identifier.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../knowledge_base/index.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
@@ -139,6 +140,22 @@ class AiSessionStore {
   static const int _maxPendingSessionWrites = 512;
   static const int _pendingSessionCleanupRetryBatchSize = 4;
   static const int _pendingSessionCleanupMaxBytes = 256 * kBytesPerKiB;
+  static const int _maxStoredJsonCodeUnits = 64 * kBytesPerMiB;
+  static const int _maxUsageJsonCodeUnits = 64 * kBytesPerKiB;
+  static const BoundedJsonConversionConfig _compactMemoryJsonConversionConfig =
+      kOpenHandCompactJsonConversionConfig;
+  static const BoundedJsonConversionConfig _pendingCleanupJsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 2,
+        maxContainerItems: _maxPendingSessionCleanups,
+        maxTotalNodes: _maxPendingSessionCleanups + 2,
+      );
+  static const BoundedJsonConversionConfig _usageJsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 16,
+        maxContainerItems: 256,
+        maxTotalNodes: 1024,
+      );
   static const String _pendingSessionCleanupSettingPrefix =
       'ai_session_cleanup:';
   static const String _legacyEmptyEditorTabsPayload =
@@ -266,10 +283,10 @@ class AiSessionStore {
               ..writeln(checkpoint.content.trim()))
             .toString();
     final metadataJson = _prettyPrintMetadataJson(metadata);
-    if (utf8.encode(markdown).length > _compactMemoryMarkdownMaxBytes) {
+    if (utf8ByteLength(markdown) > _compactMemoryMarkdownMaxBytes) {
       throw const FileSystemException('压缩记忆 Markdown 超过 16 MiB 上限。');
     }
-    if (utf8.encode(metadataJson).length > _compactMemoryMetadataMaxBytes) {
+    if (utf8ByteLength(metadataJson) > _compactMemoryMetadataMaxBytes) {
       throw const FileSystemException('压缩记忆元数据超过 2 MiB 上限。');
     }
     await writeFileAtomically(File(markdownPath), markdown);
@@ -295,15 +312,16 @@ class AiSessionStore {
     Map<String, Object?> metadata = const <String, Object?>{};
     try {
       if (await regularFileExistsBounded(metadataFile)) {
-        final decoded = jsonDecode(
+        final decoded = decodeJsonObjectTextUsingConfig(
           await readBoundedFileString(
             metadataFile,
             maxBytes: _compactMemoryMetadataMaxBytes,
           ),
+          maxTextCodeUnits: _compactMemoryMetadataMaxBytes,
+          config: _compactMemoryJsonConversionConfig,
+          invalidRootMessage: '压缩记忆元数据根节点必须为对象。',
         );
-        if (decoded is Map) {
-          metadata = stringKeyedMapFromValue(decoded);
-        }
+        metadata = decoded;
       }
     } catch (error, stack) {
       silentLog('ai_session_store', '加载压缩记忆元数据', error, stack);
@@ -1914,13 +1932,16 @@ class AiSessionStore {
     try {
       await recoverAtomicWriteBackupIfNeeded(file);
       if (!await regularFileExistsBounded(file)) return;
-      final decoded = jsonDecode(
+      final decoded = decodeJsonObjectTextUsingConfig(
         await readBoundedFileString(
           file,
           maxBytes: _pendingSessionCleanupMaxBytes,
         ),
+        maxTextCodeUnits: _pendingSessionCleanupMaxBytes,
+        config: _pendingCleanupJsonConversionConfig,
+        invalidRootMessage: '待清理会话记录根节点必须为对象。',
       );
-      final rawIds = decoded is Map ? decoded['session_ids'] : null;
+      final rawIds = decoded['session_ids'];
       if (rawIds is! List) {
         await deleteFileAtomically(file);
         return;
@@ -2318,10 +2339,14 @@ class AiSessionStore {
     AiTokenUsage? usage;
     if (usageRaw != null && usageRaw.isNotEmpty) {
       try {
-        final decoded = jsonDecode(usageRaw);
-        if (decoded is Map) {
-          usage = AiTokenUsage.fromJson(stringKeyedMapFromValue(decoded));
-        }
+        usage = AiTokenUsage.fromJson(
+          decodeJsonObjectTextUsingConfig(
+            usageRaw,
+            maxTextCodeUnits: _maxUsageJsonCodeUnits,
+            config: _usageJsonConversionConfig,
+            invalidRootMessage: 'usage_json 根节点必须为对象。',
+          ),
+        );
       } catch (error, stack) {
         silentLog('ai_session_store', '解析 usage_json 列', error, stack);
       }
@@ -2453,8 +2478,11 @@ class AiSessionStore {
   static Map<String, Object?> _decodeJsonMap(Object? raw) {
     if (raw is String && raw.isNotEmpty) {
       try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) return stringKeyedMapFromValue(decoded);
+        return decodeJsonObjectTextUsingConfig(
+          raw,
+          maxTextCodeUnits: _maxStoredJsonCodeUnits,
+          config: kOpenHandProtocolJsonConversionConfig,
+        );
       } catch (error, stack) {
         silentLog('ai_session_store', '解析 JSON 对象', error, stack);
       }
@@ -2465,7 +2493,11 @@ class AiSessionStore {
   static List<Object?> _decodeJsonList(Object? raw) {
     if (raw is String && raw.isNotEmpty) {
       try {
-        final decoded = jsonDecode(raw);
+        final decoded = decodeJsonTextUsingConfig(
+          raw,
+          maxTextCodeUnits: _maxStoredJsonCodeUnits,
+          config: kOpenHandProtocolJsonConversionConfig,
+        );
         if (decoded is List) return decoded;
       } catch (error, stack) {
         silentLog('ai_session_store', '解析 JSON 列表', error, stack);

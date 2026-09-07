@@ -8,10 +8,12 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/stable_hash.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_tool.dart';
 
@@ -130,9 +132,12 @@ class McpToolCatalogCacheService {
         _file,
         maxBytes: _maxPersistedBytes,
       );
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return <String, McpCachedToolCatalog>{};
-      final root = stringKeyedMapFromValue(decoded);
+      final root = decodeJsonObjectTextUsingConfig(
+        raw,
+        maxTextCodeUnits: _maxPersistedBytes,
+        config: kOpenHandProtocolJsonConversionConfig,
+        invalidRootMessage: 'MCP 工具目录缓存根节点必须为对象。',
+      );
       final entries = stringKeyedMapFromValue(root['catalogs']);
       if (entries.length > kMcpMaxServerCount) {
         throw const FormatException('MCP 工具目录缓存的服务数量超过安全上限。');
@@ -163,7 +168,7 @@ class McpToolCatalogCacheService {
           entry.key: _entryToJson(entry.value),
       },
     });
-    if (utf8.encode(content).length + 1 > _maxPersistedBytes) {
+    if (utf8ByteLength(content) + 1 > _maxPersistedBytes) {
       throw StateError('MCP 工具目录缓存超过持久化大小上限。');
     }
     await writeFileAtomically(_file, '$content\n');

@@ -2599,7 +2599,7 @@ class _MachineTerminalFileEditorDialogState
       initialText: widget.initialContent,
       language: _language,
     );
-    _contentBytes = utf8.encode(widget.initialContent).length;
+    _contentBytes = utf8ByteLength(widget.initialContent);
   }
 
   @override
@@ -2713,7 +2713,7 @@ class _MachineTerminalFileEditorDialogState
                               ),
                           onChanged: (value) {
                             if (widget.readOnly) return;
-                            final bytes = utf8.encode(value).length;
+                            final bytes = utf8ByteLength(value);
                             final dirty = value != widget.initialContent;
                             if (_contentBytes == bytes && _dirty == dirty) {
                               return;

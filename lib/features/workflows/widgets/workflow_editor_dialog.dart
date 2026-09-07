@@ -19,6 +19,7 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../instructions/index.dart';
@@ -3524,7 +3525,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         if (node.stringSetting(WorkflowSettingKeys.code).trim().isEmpty) {
           return '代码执行节点的代码不能为空。';
         }
-        if (utf8.encode(node.stringSetting(WorkflowSettingKeys.code)).length >
+        if (utf8ByteLength(node.stringSetting(WorkflowSettingKeys.code)) >
             maxWorkflowCodeBytes) {
           return '代码执行节点的代码不能超过 512 KiB。';
         }

@@ -1240,7 +1240,7 @@ class WebReverseSessionController extends ChangeNotifier {
         if (e.method == 'HeapProfiler.addHeapSnapshotChunk') {
           if (tooLarge) return;
           final chunk = '${e.params['chunk'] ?? ''}';
-          final chunkBytes = utf8.encode(chunk).length;
+          final chunkBytes = utf8ByteLength(chunk);
           if (chunkBytes > _maxHeapSnapshotBytes - totalBytes) {
             tooLarge = true;
             if (!completer.isCompleted) completer.complete();

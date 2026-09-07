@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'byte_size_format.dart';
+import 'text_clip.dart';
 
 const int kUnifiedDiffDefaultMaxBytes = 256 * kBytesPerKiB;
 const int kUnifiedDiffDefaultMiniDiffBytes = 32 * kBytesPerKiB;
@@ -137,8 +138,8 @@ String unifiedDiffLineSummary(
   String? beforeSha,
   String? afterSha,
 }) {
-  final beforeBytes = _utf8ByteLength(before);
-  final afterBytes = _utf8ByteLength(after);
+  final beforeBytes = utf8ByteLength(before);
+  final afterBytes = utf8ByteLength(after);
   if (beforeBytes > maxBytes || afterBytes > maxBytes) {
     return '<file too large for inline diff; '
         'before=${beforeBytes}B${_shortShaTag(beforeSha)}, '
@@ -186,8 +187,6 @@ String _shortShaTag(String? sha) {
   if (sha == null || sha.isEmpty) return '';
   return ' sha=${sha.length >= 12 ? sha.substring(0, 12) : sha}';
 }
-
-int _utf8ByteLength(String value) => utf8.encode(value).length;
 
 List<({String type, String text})> _myersDiffEdits(
   List<String> before,

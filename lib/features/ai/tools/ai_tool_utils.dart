@@ -1291,7 +1291,7 @@ class AiToolUtils {
   }) async {
     final String actualContent;
     try {
-      final expectedBytes = utf8.encode(expectedContent).length;
+      final expectedBytes = utf8ByteLength(expectedContent);
       actualContent = await readBoundedFileString(
         file,
         maxBytes: expectedBytes == 0 ? 1 : expectedBytes,

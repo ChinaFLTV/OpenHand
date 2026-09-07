@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../util/bounded_json_conversion.dart';
 import '../util/byte_size_format.dart';
 import '../util/localized_text.dart';
 import '../util/timer_safety.dart';
@@ -21,6 +22,14 @@ import 'openhand_typography.dart';
 const int kOpenHandJsonTreeMaxCharacters = 512 * kBytesPerKiB;
 const int kOpenHandJsonTreeMaxNodes = 4096;
 const int kOpenHandJsonTreeMaxDepth = 32;
+const BoundedJsonConversionConfig _openHandJsonTreeConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: kOpenHandJsonTreeMaxDepth,
+      maxContainerItems: kOpenHandJsonTreeMaxNodes,
+      maxTotalNodes: kOpenHandJsonTreeMaxNodes + 1,
+      maxStringCodeUnits: kOpenHandJsonTreeMaxCharacters,
+      maxTotalStringCodeUnits: kOpenHandJsonTreeMaxCharacters,
+    );
 const int kOpenHandJsonTreeFullViewMinCharacters = 360;
 const double kOpenHandJsonTreePreviewMaxHeight = 260;
 const Duration kOpenHandJsonTreeCopyFeedbackDuration = Duration(seconds: 2);
@@ -87,12 +96,18 @@ bool openHandJsonTreeNeedsFullView(String text) {
 String? tryPrettyOpenHandJsonText(String text) {
   final trimmed = text.trim();
   if (trimmed.length < 2 ||
+      trimmed.length > kOpenHandJsonTreeMaxCharacters ||
       !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
           !(trimmed.startsWith('[') && trimmed.endsWith(']'))) {
     return null;
   }
   try {
-    return const JsonEncoder.withIndent('  ').convert(jsonDecode(trimmed));
+    final decoded = decodeJsonTextUsingConfig(
+      trimmed,
+      maxTextCodeUnits: kOpenHandJsonTreeMaxCharacters,
+      config: _openHandJsonTreeConversionConfig,
+    );
+    return const JsonEncoder.withIndent('  ').convert(decoded);
   } catch (_) {
     return null;
   }
@@ -142,7 +157,11 @@ OpenHandJsonTreeDocument? tryParseOpenHandJsonTreeDocument(String text) {
   }
   Object? decoded;
   try {
-    decoded = jsonDecode(trimmed);
+    decoded = decodeJsonTextUsingConfig(
+      trimmed,
+      maxTextCodeUnits: kOpenHandJsonTreeMaxCharacters,
+      config: _openHandJsonTreeConversionConfig,
+    );
   } on FormatException {
     return null;
   }
@@ -150,11 +169,9 @@ OpenHandJsonTreeDocument? tryParseOpenHandJsonTreeDocument(String text) {
   final root = decoded as Object;
 
   final paths = <String>{r'$'};
-  final pending = <(Object?, String, int)>[(root, r'$', 0)];
-  var nodes = 0;
+  final pending = <(Object?, String)>[(root, r'$')];
   while (pending.isNotEmpty) {
     final current = pending.removeLast();
-    if (current.$3 > kOpenHandJsonTreeMaxDepth) return null;
     final value = current.$1;
     final children = value is Map
         ? value.values.toList(growable: false)
@@ -162,14 +179,12 @@ OpenHandJsonTreeDocument? tryParseOpenHandJsonTreeDocument(String text) {
         ? value
         : const <Object?>[];
     for (var index = 0; index < children.length; index += 1) {
-      nodes += 1;
-      if (nodes > kOpenHandJsonTreeMaxNodes) return null;
       final child = children[index];
       if ((child is Map && child.isNotEmpty) ||
           (child is List && child.isNotEmpty)) {
         final path = '${current.$2}/$index';
         paths.add(path);
-        pending.add((child, path, current.$3 + 1));
+        pending.add((child, path));
       }
     }
   }

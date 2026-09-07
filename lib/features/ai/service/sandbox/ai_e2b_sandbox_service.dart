@@ -10,6 +10,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/network_limits.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
 
@@ -138,8 +139,8 @@ class AiE2bSandboxService {
         !_isHostPort(config.egressProxyAddress)) {
       return 'E2B egressProxy.address 必须使用 host:port 格式。';
     }
-    if (utf8.encode(config.egressProxyUsername).length > 255 ||
-        utf8.encode(config.egressProxyPassword).length > 255) {
+    if (utf8ByteLength(config.egressProxyUsername) > 255 ||
+        utf8ByteLength(config.egressProxyPassword) > 255) {
       return 'E2B egressProxy 用户名和密码不能超过 255 字节。';
     }
     for (final value in config.denyOut) {

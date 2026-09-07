@@ -17,6 +17,7 @@ import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/duration_bounds.dart';
@@ -662,7 +663,11 @@ class McpServerOpsRuntime {
 
   bool _isInitializeAck(String body) {
     try {
-      final decoded = jsonDecode(body);
+      final decoded = decodeJsonTextUsingConfig(
+        body,
+        maxTextCodeUnits: _maxConnectivityResponseBytes,
+        config: kOpenHandProtocolJsonConversionConfig,
+      );
       if (decoded is! Map) return false;
       final result = decoded['result'];
       return result is Map && result['protocolVersion'] != null;
@@ -1029,12 +1034,16 @@ class McpServerOpsRuntime {
         'MCP request body was interrupted.',
       );
     }
-    final inboundBytes = utf8.encode(body).length;
+    final inboundBytes = utf8ByteLength(body);
     _inboundBytes += inboundBytes;
     final processingStopwatch = Stopwatch()..start();
     Object? decoded;
     try {
-      decoded = jsonDecode(body);
+      decoded = decodeJsonTextUsingConfig(
+        body,
+        maxTextCodeUnits: _maxRequestBodyBytes,
+        config: kOpenHandProtocolJsonConversionConfig,
+      );
     } catch (_) {
       _recordBlocked(
         request,
@@ -1439,7 +1448,7 @@ class McpServerOpsRuntime {
         if (result.isError) 'isError': true,
         if (result.metadata.isNotEmpty) 'structuredContent': result.metadata,
       };
-      final outboundBytes = utf8.encode(jsonEncode(payload)).length;
+      final outboundBytes = utf8ByteLength(jsonEncode(payload));
       _outboundBytes += outboundBytes;
       if (tool.isWrite && !result.isError) {
         _fileMutationCount += 1;
@@ -1921,7 +1930,7 @@ class McpServerOpsRuntime {
     }
   }
 
-  int _messageBytes(Object? message) => utf8.encode(jsonEncode(message)).length;
+  int _messageBytes(Object? message) => utf8ByteLength(jsonEncode(message));
 
   void _publishMetrics() {
     _setSnapshot(
@@ -1991,7 +2000,7 @@ class McpServerOpsRuntime {
     Map<String, String> headers = const <String, String>{},
   }) {
     final body = jsonEncode(value);
-    final bytes = utf8.encode(body).length;
+    final bytes = utf8ByteLength(body);
     if (!isHttpFailureStatus(statusCode)) {
       _outboundBytes += bytes;
     }

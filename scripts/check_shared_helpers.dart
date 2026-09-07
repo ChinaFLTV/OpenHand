@@ -94,6 +94,7 @@ Future<int> _checkTemporaryDirectoryLifecycle() async {
 }
 
 int _checkJsonDecode() {
+  var failures = 0;
   final decoded = decodeJsonTextUsingConfig(
     '{"a":1,"b":[true,null]}',
     maxTextCodeUnits: 64,
@@ -101,15 +102,53 @@ int _checkJsonDecode() {
   );
   if (decoded is! Map || decoded['a'] != 1) {
     stderr.writeln('decodeJsonTextUsingConfig 未解析出对象字段 a=1');
-    return 1;
+    failures++;
+  }
+  final object = decodeJsonObjectTextUsingConfig(
+    '{"name":"OpenHand"}',
+    maxTextCodeUnits: 64,
+  );
+  if (object['name'] != 'OpenHand') {
+    stderr.writeln('decodeJsonObjectTextUsingConfig 未解析出对象');
+    failures++;
   }
   try {
     decodeJsonTextUsingConfig('{"a":1}', maxTextCodeUnits: 3);
     stderr.writeln('decodeJsonTextUsingConfig 应对超长文本抛出 FormatException');
-    return 1;
+    failures++;
   } on FormatException {
-    return 0;
+    // 符合预期。
   }
+  try {
+    decodeJsonTextUsingConfig(
+      '{"a":"x"}',
+      maxTextCodeUnits: 32,
+      maxStringCodeUnits: 0,
+    );
+    stderr.writeln('decodeJsonTextUsingConfig 应严格执行零字符串预算');
+    failures++;
+  } on FormatException {
+    // 符合预期。
+  }
+  try {
+    decodeJsonTextUsingConfig(
+      '[[[0]]]',
+      maxTextCodeUnits: 32,
+      config: const BoundedJsonConversionConfig(maxDepth: 2),
+    );
+    stderr.writeln('decodeJsonTextUsingConfig 应拒绝超深 JSON');
+    failures++;
+  } on FormatException {
+    // 符合预期。
+  }
+  try {
+    decodeJsonObjectTextUsingConfig('[1,2]', maxTextCodeUnits: 16);
+    stderr.writeln('decodeJsonObjectTextUsingConfig 应拒绝非对象根节点');
+    failures++;
+  } on FormatException {
+    // 符合预期。
+  }
+  return failures;
 }
 
 int _checkContentLength() {

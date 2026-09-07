@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:path/path.dart' as p;
 
 import 'text_clip.dart';
@@ -125,7 +123,7 @@ bool isPortableFileNamePart(
       _reservedWindowsFileNamePattern.hasMatch(value)) {
     return false;
   }
-  return utf8.encode(value).length <= maxUtf8Bytes;
+  return utf8ByteLength(value) <= maxUtf8Bytes;
 }
 
 /// 清理单个跨平台文件名或目录名片段，不处理完整路径。

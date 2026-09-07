@@ -27,6 +27,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/reader_file_type.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_search.dart';
 import '../knowledge_base_controller.dart';
 import '../knowledge_base_errors.dart';
@@ -214,7 +215,7 @@ class _KnowledgeSourceContentDialogState
         _savedText = text;
         _snapshot = snapshot.copyWith(
           text: text,
-          loadedBytes: utf8.encode(text).length,
+          loadedBytes: utf8ByteLength(text),
           lineCount: _lineCount(text),
         );
       });
@@ -1099,7 +1100,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
     final showPreview = previewAvailable && preview;
     final text = contentController.text;
     final lineCount = _lineCount(text);
-    final byteCount = utf8.encode(text).length;
+    final byteCount = utf8ByteLength(text);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1544,7 +1545,7 @@ class _KnowledgeSourceContentSnapshot {
       editablePath: null,
       loadedFromFile: false,
       canEdit: false,
-      loadedBytes: utf8.encode(text).length,
+      loadedBytes: utf8ByteLength(text),
       lineCount: _lineCount(text),
       notice: text.trim().isEmpty
           ? _KnowledgeSourceContentNotice.empty

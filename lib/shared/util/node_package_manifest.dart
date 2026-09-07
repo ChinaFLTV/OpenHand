@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -7,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'argument_guards.dart';
 import 'async_concurrency.dart';
 import 'bounded_file_io.dart';
+import 'bounded_json_conversion.dart';
 import 'byte_size_format.dart';
 import 'physical_path_safety.dart';
 
@@ -34,13 +34,16 @@ Future<String?> resolveNodePackageBinEntry(
       followLinks: false,
     ).timeout(deadline.limit(idleTimeout));
     if (manifestType != FileSystemEntityType.file) return null;
-    final decoded = jsonDecode(
-      await readBoundedFileString(
-        manifest,
-        maxBytes: maxManifestBytes,
-        idleTimeout: deadline.limit(idleTimeout),
-        totalTimeout: deadline.remaining(),
-      ),
+    final content = await readBoundedFileString(
+      manifest,
+      maxBytes: maxManifestBytes,
+      idleTimeout: deadline.limit(idleTimeout),
+      totalTimeout: deadline.remaining(),
+    );
+    final decoded = decodeJsonTextUsingConfig(
+      content,
+      maxTextCodeUnits: maxManifestBytes,
+      config: kOpenHandCompactJsonConversionConfig,
     );
     if (decoded is! Map) return null;
 

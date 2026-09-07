@@ -11,6 +11,7 @@ import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/path_safety.dart';
@@ -375,6 +376,14 @@ final class AiToolUsagePromotionStore {
   static const int _maxPayloadDirectoryEntries = 2048;
   static const int _maxPayloadRedactDepth = 64;
   static const int _maxPayloadRedactNodes = 20000;
+  static const BoundedJsonConversionConfig _storeJsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 16,
+        maxContainerItems: 4096,
+        maxTotalNodes: 131072,
+      );
+  static const BoundedJsonConversionConfig _payloadJsonConversionConfig =
+      BoundedJsonConversionConfig(maxTotalNodes: _maxPayloadRedactNodes);
   static const String _payloadDirectoryName = 'resource_usage_payloads';
   static const int _periodTrimBatchSize = 8;
   static const List<String> _nestedSessionMarkers = <String>[
@@ -937,7 +946,14 @@ final class AiToolUsagePromotionStore {
           _file,
           maxBytes: _maxStoreBytes,
         );
-        _restore(jsonDecode(raw));
+        _restore(
+          decodeJsonObjectTextUsingConfig(
+            raw,
+            maxTextCodeUnits: _maxStoreBytes,
+            config: _storeJsonConversionConfig,
+            invalidRootMessage: '资源调用统计根节点必须为对象。',
+          ),
+        );
       }
     } catch (error, stack) {
       _sessions.clear();
@@ -1367,7 +1383,7 @@ final class AiToolUsagePromotionStore {
     var pruned = false;
     try {
       var content = _encodeState();
-      var contentBytes = utf8.encode(content).length;
+      var contentBytes = utf8ByteLength(content);
       while (contentBytes > _maxStoreBytes && _recentEvents.isNotEmpty) {
         final removeCount = (_recentEvents.length ~/ 4).clamp(
           1,
@@ -1376,7 +1392,7 @@ final class AiToolUsagePromotionStore {
         _recentEvents.removeRange(0, removeCount);
         pruned = true;
         content = _encodeState();
-        contentBytes = utf8.encode(content).length;
+        contentBytes = utf8ByteLength(content);
       }
       while (contentBytes > _maxStoreBytes && _sessions.length > 1) {
         final removeCount = (_sessions.length ~/ 8).clamp(
@@ -1388,12 +1404,12 @@ final class AiToolUsagePromotionStore {
         }
         pruned = true;
         content = _encodeState();
-        contentBytes = utf8.encode(content).length;
+        contentBytes = utf8ByteLength(content);
       }
       while (contentBytes > _maxStoreBytes && _trimOldestPeriodBuckets()) {
         pruned = true;
         content = _encodeState();
-        contentBytes = utf8.encode(content).length;
+        contentBytes = utf8ByteLength(content);
       }
       if (contentBytes > _maxStoreBytes) {
         throw const FileSystemException('资源调用统计文件超过大小上限');
@@ -1473,7 +1489,11 @@ final class AiToolUsagePromotionStore {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return '{}';
     try {
-      final decoded = jsonDecode(trimmed);
+      final decoded = decodeJsonTextUsingConfig(
+        trimmed,
+        maxTextCodeUnits: _maxPersistedPayloadChars,
+        config: _payloadJsonConversionConfig,
+      );
       if (decoded is Map) {
         return _encodeMetadata(<String, Object?>{
           for (final entry in decoded.entries) '${entry.key}': entry.value,
@@ -1491,7 +1511,12 @@ final class AiToolUsagePromotionStore {
     required int previewLimit,
     required String raw,
   }) async {
-    final redacted = _redactSensitiveText(raw);
+    final boundedRaw = clipTextByCodeUnits(
+      raw,
+      _maxPersistedPayloadChars,
+      suffix: '',
+    );
+    final redacted = _redactSensitiveText(boundedRaw);
     if (redacted.isEmpty || redacted.length <= previewLimit) return '';
     final full = clipTextByCodeUnits(
       _prettyOrRawJson(_redactSecretsInDecoded(redacted)),
@@ -1586,7 +1611,15 @@ final class AiToolUsagePromotionStore {
     if (normalized.isEmpty) return '';
     try {
       return _boundedSummary(
-        jsonEncode(_redactSummaryValue(jsonDecode(normalized))),
+        jsonEncode(
+          _redactSummaryValue(
+            decodeJsonTextUsingConfig(
+              normalized,
+              maxTextCodeUnits: _maxPersistedPayloadChars,
+              config: _payloadJsonConversionConfig,
+            ),
+          ),
+        ),
         _maxSummaryLength,
       );
     } catch (_) {
@@ -1654,7 +1687,13 @@ final class AiToolUsagePromotionStore {
       return value;
     }
     try {
-      return const JsonEncoder.withIndent('  ').convert(jsonDecode(trimmed));
+      return const JsonEncoder.withIndent('  ').convert(
+        decodeJsonTextUsingConfig(
+          trimmed,
+          maxTextCodeUnits: _maxPersistedPayloadChars,
+          config: _payloadJsonConversionConfig,
+        ),
+      );
     } catch (_) {
       return value;
     }
@@ -1662,7 +1701,11 @@ final class AiToolUsagePromotionStore {
 
   static String _redactSecretsInDecoded(String value) {
     try {
-      final decoded = jsonDecode(value);
+      final decoded = decodeJsonTextUsingConfig(
+        value,
+        maxTextCodeUnits: _maxPersistedPayloadChars,
+        config: _payloadJsonConversionConfig,
+      );
       return jsonEncode(_redactSecretsOnly(decoded));
     } catch (_) {
       return value;

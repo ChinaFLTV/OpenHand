@@ -10,6 +10,7 @@ import 'package:yaml/yaml.dart';
 
 import '../../../app/theme/openhand_theme_preset.dart';
 import '../../../shared/util/hex_encoding.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/xml_escape.dart';
 import '../model/workflow_definition.dart';
 import '../workflow_node_presentation.dart';
@@ -152,7 +153,7 @@ WorkflowDefinition decodeWorkflowYaml(String source) {
   }
   try {
     final definition = WorkflowDefinition.fromJson(workflow);
-    if (utf8.encode(definition.encode()).length > maxWorkflowEncodedBytes) {
+    if (utf8ByteLength(definition.encode()) > maxWorkflowEncodedBytes) {
       throw const WorkflowPortabilityException('工作流解码后的数据超过 4 MiB 安全上限。');
     }
     return definition;

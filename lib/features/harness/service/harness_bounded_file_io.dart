@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 
 /// Harness 提示词上下文读取与工作区扫描共用的安全限制。
@@ -217,7 +218,7 @@ class HarnessBoundedFileIo {
     if (maxJoinedBytes <= 0 || isExpired) return '';
 
     final scan = await scanFiles(directory, maxFiles: maxFiles);
-    final separatorBytes = utf8.encode(separator).length;
+    final separatorBytes = utf8ByteLength(separator);
     final buffer = StringBuffer();
     var joinedBytes = 0;
     var hasFile = false;

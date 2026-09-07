@@ -6,8 +6,10 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/dingtalk_message_gateway.dart';
 
 class DingTalkGatewayStoreSnapshot {
@@ -30,6 +32,12 @@ class DingTalkMessageGatewayStore {
           );
 
   static const int _maxBytes = 512 * kBytesPerKiB;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 32,
+        maxContainerItems: 4096,
+        maxTotalNodes: 65536,
+      );
   final String filePath;
   String? _expectedContent;
   bool _loaded = false;
@@ -50,9 +58,12 @@ class DingTalkMessageGatewayStore {
       );
     }
     final raw = await readBoundedFileString(file, maxBytes: _maxBytes);
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) throw const FormatException('钉钉网关配置必须为对象。');
-    final data = stringKeyedMapFromValue(decoded);
+    final data = decodeJsonObjectTextUsingConfig(
+      raw,
+      maxTextCodeUnits: _maxBytes,
+      config: _jsonConversionConfig,
+      invalidRootMessage: '钉钉网关配置必须为对象。',
+    );
     final settings = DingTalkGatewaySettings.fromJson(data);
     final conversations = <DingTalkConversation>[];
     final rawConversations = data['conversations'];
@@ -165,7 +176,7 @@ class DingTalkMessageGatewayStore {
     }
 
     var content = encodePayload();
-    while (utf8.encode(content).length > _maxBytes &&
+    while (utf8ByteLength(content) > _maxBytes &&
         limitedConversations.isNotEmpty) {
       var largestIndex = -1;
       var largestMessageCount = 0;
@@ -185,7 +196,7 @@ class DingTalkMessageGatewayStore {
       }
       content = encodePayload();
     }
-    if (utf8.encode(content).length > _maxBytes) {
+    if (utf8ByteLength(content) > _maxBytes) {
       throw const FileSystemException('钉钉网关配置超过大小上限。');
     }
     await writeFileAtomically(file, content);

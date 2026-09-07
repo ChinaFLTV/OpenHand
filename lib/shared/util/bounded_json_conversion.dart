@@ -97,9 +97,29 @@ Object? decodeJsonTextUsingConfig(
     maxDepth: config.maxDepth,
     maxContainerItems: config.maxContainerItems,
     maxTotalNodes: config.maxTotalNodes,
-    maxStringCodeUnits: perString < 1 ? maxTextCodeUnits : perString,
-    maxTotalStringCodeUnits: totalString < 1 ? maxTextCodeUnits : totalString,
+    maxStringCodeUnits: perString,
+    maxTotalStringCodeUnits: totalString,
   );
+}
+
+/// 用明确预算解码 JSON 对象，并返回可增长的字符串键映射。
+Map<String, Object?> decodeJsonObjectTextUsingConfig(
+  String text, {
+  required int maxTextCodeUnits,
+  BoundedJsonConversionConfig config = const BoundedJsonConversionConfig(),
+  int? maxStringCodeUnits,
+  int? maxTotalStringCodeUnits,
+  String invalidRootMessage = 'JSON 根节点必须为对象。',
+}) {
+  final decoded = decodeJsonTextUsingConfig(
+    text,
+    maxTextCodeUnits: maxTextCodeUnits,
+    config: config,
+    maxStringCodeUnits: maxStringCodeUnits,
+    maxTotalStringCodeUnits: maxTotalStringCodeUnits,
+  );
+  if (decoded is! Map) throw FormatException(invalidRootMessage);
+  return Map<String, Object?>.from(decoded);
 }
 
 /// 非递归校验 JSON 值的结构预算；超限、循环引用或非 JSON 类型返回 null。
@@ -114,8 +134,8 @@ JsonValueMetrics? measureJsonValueWithinBounds(
   requireNonNegativeInt(maxDepth, 'maxDepth');
   requirePositiveInt(maxContainerItems, 'maxContainerItems');
   requirePositiveInt(maxTotalNodes, 'maxTotalNodes');
-  requirePositiveInt(maxStringCodeUnits, 'maxStringCodeUnits');
-  requirePositiveInt(maxTotalStringCodeUnits, 'maxTotalStringCodeUnits');
+  requireNonNegativeInt(maxStringCodeUnits, 'maxStringCodeUnits');
+  requireNonNegativeInt(maxTotalStringCodeUnits, 'maxTotalStringCodeUnits');
 
   final pending = <({Object? value, int depth, bool exiting})>[
     (value: value, depth: 0, exiting: false),

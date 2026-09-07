@@ -919,7 +919,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     required Duration timeout,
     MachineTerminalCommandOutputCallback? onOutput,
   }) async {
-    final commandBytes = utf8.encode(command).length;
+    final commandBytes = utf8ByteLength(command);
     if (!Platform.isWindows &&
         commandBytes > _machineTerminalInlineCommandBytes) {
       if (commandBytes > _machineTerminalMaxStagedCommandBytes) {

@@ -20,7 +20,9 @@ import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/db/database_service.dart';
 import '../../shared/db/legacy_persistence.dart';
 import '../../shared/model/native_audio_playback_settings.dart';
+import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
@@ -62,6 +64,11 @@ class SettingsStore {
   static const String _invalidSettingsRootMessage = '设置 JSON 根节点必须是对象。';
   static const String _retiredBuiltinToolKindPrefix = 'agent';
   static const int _currentSchemaVersion = 6;
+  static const BoundedJsonConversionConfig _jsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxContainerItems: 16384,
+        maxTotalNodes: 262144,
+      );
 
   /// 保留该路径以兼容仍对外暴露路径的控制器。
   String get settingsFilePath => 'db://app_settings';
@@ -272,11 +279,12 @@ class SettingsStore {
       throw const FormatException(_emptySettingsJsonMessage);
     }
     _validateSettingsJsonSize(value);
-    final decoded = jsonDecode(value);
-    if (decoded is! Map) {
-      throw const FormatException(_invalidSettingsRootMessage);
-    }
-    return stringKeyedMapFromValue(decoded);
+    return decodeJsonObjectTextUsingConfig(
+      value,
+      maxTextCodeUnits: maxSettingsDocumentBytes,
+      config: _jsonConversionConfig,
+      invalidRootMessage: _invalidSettingsRootMessage,
+    );
   }
 
   static String _encodeSettingsSnapshot(AppSettingsSnapshot snapshot) {
@@ -287,7 +295,7 @@ class SettingsStore {
 
   static void _validateSettingsJsonSize(String value) {
     if (value.length > maxSettingsDocumentBytes ||
-        utf8.encode(value).length > maxSettingsDocumentBytes) {
+        utf8ByteLength(value) > maxSettingsDocumentBytes) {
       throw const FormatException('设置 JSON 超过存储安全上限。');
     }
   }
@@ -306,7 +314,11 @@ class SettingsStore {
       final value = json[key];
       if (value is! String || value.trim().isEmpty) continue;
       try {
-        json[key] = jsonDecode(value);
+        json[key] = decodeJsonTextUsingConfig(
+          value,
+          maxTextCodeUnits: maxSettingsDocumentBytes,
+          config: _jsonConversionConfig,
+        );
       } on FormatException {
         // 当前解析会为该字段应用生产默认值。
       }

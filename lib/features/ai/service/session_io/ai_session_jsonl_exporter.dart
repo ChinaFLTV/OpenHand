@@ -9,6 +9,7 @@ import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/stable_hash.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../harness/index.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_session.dart';
@@ -945,7 +946,7 @@ Future<ExportResult> _writeJsonlExport({
     void emit(Map<String, Object?> payload) {
       final encoded = _encodePayload(payload);
       buffer.writeln(encoded);
-      bytes += utf8.encode(encoded).length + 1;
+      bytes += utf8ByteLength(encoded) + 1;
       lines += 1;
     }
 
