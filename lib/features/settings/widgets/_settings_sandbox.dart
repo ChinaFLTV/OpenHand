@@ -2444,6 +2444,7 @@ const ButtonStyle _sandboxInputIconButtonStyle = ButtonStyle(
   surfaceTintColor: WidgetStatePropertyAll<Color>(Colors.transparent),
   elevation: WidgetStatePropertyAll<double>(0),
 );
+const double _sandboxDialogFieldHeight = 60;
 
 class _E2bTextValueDialog extends StatefulWidget {
   const _E2bTextValueDialog({
@@ -2790,9 +2791,10 @@ class _E2bNetworkRuleDialogState extends State<_E2bNetworkRuleDialog> {
                       ),
                     ],
                   ),
+                  kOpenHandGap12,
                   if (_headers.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.only(bottom: 16),
                       child: Text(
                         openHandLocalizedText(
                           context,
@@ -2828,12 +2830,17 @@ class _E2bNetworkRuleDialogState extends State<_E2bNetworkRuleDialog> {
                             ),
                           ),
                           kOpenHandHGap6,
-                          IconButton(
-                            tooltip: AppLocalizations.of(context)!.commonDelete,
-                            onPressed: () => setState(() {
-                              _headers.removeAt(index).dispose();
-                            }),
-                            icon: const Icon(Icons.delete_outline_rounded),
+                          SizedBox.square(
+                            dimension: _sandboxDialogFieldHeight,
+                            child: IconButton(
+                              tooltip: AppLocalizations.of(
+                                context,
+                              )!.commonDelete,
+                              onPressed: () => setState(() {
+                                _headers.removeAt(index).dispose();
+                              }),
+                              icon: const Icon(Icons.delete_outline_rounded),
+                            ),
                           ),
                         ],
                       ),
@@ -2852,7 +2859,6 @@ class _E2bNetworkRuleDialogState extends State<_E2bNetworkRuleDialog> {
         OpenHandDialogActionButton.primary(
           onPressed: _submit,
           label: AppLocalizations.of(context)!.settingsSave,
-          icon: Icons.check_rounded,
         ),
       ],
     );
@@ -3036,9 +3042,10 @@ class _E2bMcpServerDialogState extends State<_E2bMcpServerDialog> {
                       ),
                     ],
                   ),
+                  kOpenHandGap12,
                   if (_parameters.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.only(bottom: 16),
                       child: Text(
                         openHandLocalizedText(
                           context,
@@ -3066,7 +3073,6 @@ class _E2bMcpServerDialogState extends State<_E2bMcpServerDialog> {
         OpenHandDialogActionButton.primary(
           onPressed: _submit,
           label: AppLocalizations.of(context)!.settingsSave,
-          icon: Icons.check_rounded,
         ),
       ],
     );
@@ -3147,12 +3153,15 @@ class _E2bMcpServerDialogState extends State<_E2bMcpServerDialog> {
                 ),
               ),
               kOpenHandHGap6,
-              IconButton(
-                tooltip: AppLocalizations.of(context)!.commonDelete,
-                onPressed: () => setState(() {
-                  _parameters.removeAt(index).dispose();
-                }),
-                icon: const Icon(Icons.delete_outline_rounded),
+              SizedBox.square(
+                dimension: _sandboxDialogFieldHeight,
+                child: IconButton(
+                  tooltip: AppLocalizations.of(context)!.commonDelete,
+                  onPressed: () => setState(() {
+                    _parameters.removeAt(index).dispose();
+                  }),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
               ),
             ],
           ),
@@ -3407,7 +3416,6 @@ class _SandboxEnvironmentTestDialogState
                 zh: '终止测试',
                 en: 'Stop Test',
               ),
-              icon: Icons.stop_circle_outlined,
             )
           else ...<Widget>[
             OpenHandDialogActionButton.secondary(
@@ -3417,7 +3425,6 @@ class _SandboxEnvironmentTestDialogState
                 zh: '重新测试',
                 en: 'Test Again',
               ),
-              icon: Icons.refresh_rounded,
             ),
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(context).pop(),
@@ -3611,7 +3618,6 @@ class _SandboxResourceActionDialogState
                 zh: '终止任务',
                 en: 'Stop Task',
               ),
-              icon: Icons.stop_circle_outlined,
             ),
         ],
       ),
