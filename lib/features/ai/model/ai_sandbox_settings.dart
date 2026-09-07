@@ -4,6 +4,25 @@ import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_normalization.dart';
 import 'ai_command_rule.dart';
+import 'ai_e2b_sandbox_settings.dart';
+
+enum AiSandboxProvider {
+  operatingSystem('os'),
+  e2b('e2b');
+
+  const AiSandboxProvider(this.storageValue);
+
+  final String storageValue;
+
+  static AiSandboxProvider fromStorage(String value) {
+    return enumByStorageValueOr(
+      values,
+      value,
+      (provider) => provider.storageValue,
+      fallback: AiSandboxProvider.operatingSystem,
+    );
+  }
+}
 
 enum AiSandboxFileAccessMode {
   readOnly('ro'),
@@ -148,6 +167,9 @@ class AiSandboxSettings {
     if (json == null) return AiSandboxSettings.defaults();
     return AiSandboxSettings(
       enabled: boolFromValue(json['enabled']),
+      provider: AiSandboxProvider.fromStorage(
+        stringFromValue(json['provider']),
+      ),
       failIfUnavailable: boolFromValue(
         json['fail_if_unavailable'],
         defaultValue: true,
@@ -171,11 +193,13 @@ class AiSandboxSettings {
         json['allow_network_when_no_domain_rules'],
         defaultValue: true,
       ),
+      e2b: AiE2bSandboxSettings.fromJson(json['e2b']),
     );
   }
 
   const AiSandboxSettings({
     required this.enabled,
+    required this.provider,
     required this.failIfUnavailable,
     required this.allowUnsandboxedCommands,
     required this.autoAllowBashIfSandboxed,
@@ -187,10 +211,12 @@ class AiSandboxSettings {
     required this.httpProxyPort,
     required this.socksProxyPort,
     required this.allowNetworkWhenNoDomainRules,
+    required this.e2b,
   });
 
   static const AiSandboxSettings defaultValue = AiSandboxSettings(
     enabled: false,
+    provider: AiSandboxProvider.operatingSystem,
     failIfUnavailable: true,
     allowUnsandboxedCommands: false,
     autoAllowBashIfSandboxed: false,
@@ -210,9 +236,11 @@ class AiSandboxSettings {
     httpProxyPort: 0,
     socksProxyPort: 0,
     allowNetworkWhenNoDomainRules: true,
+    e2b: AiE2bSandboxSettings.defaultValue,
   );
 
   final bool enabled;
+  final AiSandboxProvider provider;
   final bool failIfUnavailable;
   final bool allowUnsandboxedCommands;
   final bool autoAllowBashIfSandboxed;
@@ -224,6 +252,7 @@ class AiSandboxSettings {
   final int httpProxyPort;
   final int socksProxyPort;
   final bool allowNetworkWhenNoDomainRules;
+  final AiE2bSandboxSettings e2b;
 
   bool get hasDomainRules =>
       allowedDomains.isNotEmpty || deniedDomains.isNotEmpty;
@@ -245,6 +274,7 @@ class AiSandboxSettings {
 
   AiSandboxSettings copyWith({
     bool? enabled,
+    AiSandboxProvider? provider,
     bool? failIfUnavailable,
     bool? allowUnsandboxedCommands,
     bool? autoAllowBashIfSandboxed,
@@ -256,9 +286,11 @@ class AiSandboxSettings {
     int? httpProxyPort,
     int? socksProxyPort,
     bool? allowNetworkWhenNoDomainRules,
+    AiE2bSandboxSettings? e2b,
   }) {
     return AiSandboxSettings(
       enabled: enabled ?? this.enabled,
+      provider: provider ?? this.provider,
       failIfUnavailable: failIfUnavailable ?? this.failIfUnavailable,
       allowUnsandboxedCommands:
           allowUnsandboxedCommands ?? this.allowUnsandboxedCommands,
@@ -274,12 +306,14 @@ class AiSandboxSettings {
       socksProxyPort: socksProxyPort ?? this.socksProxyPort,
       allowNetworkWhenNoDomainRules:
           allowNetworkWhenNoDomainRules ?? this.allowNetworkWhenNoDomainRules,
+      e2b: e2b ?? this.e2b,
     );
   }
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'enabled': enabled,
+      'provider': provider.storageValue,
       'fail_if_unavailable': failIfUnavailable,
       'allow_unsandboxed_commands': allowUnsandboxedCommands,
       'auto_allow_bash_if_sandboxed': autoAllowBashIfSandboxed,
@@ -299,6 +333,26 @@ class AiSandboxSettings {
       'http_proxy_port': httpProxyPort,
       'socks_proxy_port': socksProxyPort,
       'allow_network_when_no_domain_rules': allowNetworkWhenNoDomainRules,
+      'e2b': e2b.toJson(),
+    };
+  }
+
+  Map<String, Object?> toRuntimeJson() {
+    return <String, Object?>{
+      'enabled': enabled,
+      'provider': provider.storageValue,
+      'fail_if_unavailable': failIfUnavailable,
+      'allow_unsandboxed_commands': allowUnsandboxedCommands,
+      'auto_allow_bash_if_sandboxed': autoAllowBashIfSandboxed,
+      'sandboxed_builtin_tools': sandboxedBuiltinTools,
+      'filesystem_rule_count': filesystemRules.length,
+      'excluded_command_count': excludedCommands.length,
+      'allowed_domain_count': allowedDomains.length,
+      'denied_domain_count': deniedDomains.length,
+      'http_proxy_port': httpProxyPort,
+      'socks_proxy_port': socksProxyPort,
+      'allow_network_when_no_domain_rules': allowNetworkWhenNoDomainRules,
+      if (provider == AiSandboxProvider.e2b) 'e2b': e2b.toRuntimeJson(),
     };
   }
 
@@ -307,6 +361,7 @@ class AiSandboxSettings {
     return identical(this, other) ||
         other is AiSandboxSettings &&
             enabled == other.enabled &&
+            provider == other.provider &&
             failIfUnavailable == other.failIfUnavailable &&
             allowUnsandboxedCommands == other.allowUnsandboxedCommands &&
             autoAllowBashIfSandboxed == other.autoAllowBashIfSandboxed &&
@@ -318,12 +373,14 @@ class AiSandboxSettings {
             httpProxyPort == other.httpProxyPort &&
             socksProxyPort == other.socksProxyPort &&
             allowNetworkWhenNoDomainRules ==
-                other.allowNetworkWhenNoDomainRules;
+                other.allowNetworkWhenNoDomainRules &&
+            e2b == other.e2b;
   }
 
   @override
   int get hashCode => Object.hash(
     enabled,
+    provider,
     failIfUnavailable,
     allowUnsandboxedCommands,
     autoAllowBashIfSandboxed,
@@ -335,6 +392,7 @@ class AiSandboxSettings {
     httpProxyPort,
     socksProxyPort,
     allowNetworkWhenNoDomainRules,
+    e2b,
   );
 
   static List<String> _readUniqueStringList(Object? value) {

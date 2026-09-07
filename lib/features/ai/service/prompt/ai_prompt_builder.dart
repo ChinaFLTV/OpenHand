@@ -29,6 +29,7 @@ import '../../model/ai_context_usage.dart';
 import '../../model/ai_input_cache_policy.dart';
 import '../../model/ai_message_content_format.dart';
 import '../../model/ai_model_config.dart';
+import '../../model/ai_sandbox_settings.dart';
 import '../../model/ai_session.dart';
 import '../../model/ai_session_goal.dart';
 import '../../model/ai_session_message.dart';
@@ -1657,6 +1658,7 @@ class AiPromptBuilder {
     snapshot['sandbox'] = <String, Object?>{
       'enabled': sandbox.enabled,
       if (sandbox.enabled) ...<String, Object?>{
+        'provider': sandbox.provider.storageValue,
         'fail_if_unavailable': sandbox.failIfUnavailable,
         'allow_unsandboxed_commands': sandbox.allowUnsandboxedCommands,
         'auto_allow_bash_if_sandboxed': sandbox.autoAllowBashIfSandboxed,
@@ -1667,6 +1669,8 @@ class AiPromptBuilder {
         'denied_domain_count': sandbox.deniedDomains.length,
         'http_proxy_port': sandbox.httpProxyPort,
         'socks_proxy_port': sandbox.socksProxyPort,
+        if (sandbox.provider == AiSandboxProvider.e2b)
+          'e2b': sandbox.e2b.toRuntimeJson(),
       },
     };
     if (includeRepositorySnapshot) {

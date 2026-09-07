@@ -15,8 +15,12 @@ class _SandboxSettingsSection extends StatefulWidget {
 }
 
 class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
+  static const double _providerListMaxHeight = 560;
+
   late final TextEditingController _httpProxyPortController;
   late final TextEditingController _socksProxyPortController;
+  final ScrollController _providerScrollController = ScrollController();
+  final Set<AiSandboxProvider> _expandedProviders = <AiSandboxProvider>{};
   late AiSandboxService _sandboxService;
   late AiSandboxSettings _serviceSettings;
   Future<AiSandboxEnvironmentStatus>? _statusFuture;
@@ -56,6 +60,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
   void dispose() {
     _httpProxyPortController.dispose();
     _socksProxyPortController.dispose();
+    _providerScrollController.dispose();
+    unawaited(_sandboxService.shutdown());
     super.dispose();
   }
 
@@ -80,37 +86,38 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         kOpenHandGap24,
         Divider(color: colorScheme.outlineVariant),
         kOpenHandGap18,
-        Text(openHandSandboxLabel(context), style: theme.textTheme.titleMedium),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            Text(
+              openHandSandboxLabel(context),
+              style: theme.textTheme.titleMedium,
+            ),
+            _OfflineSpeechBadge(
+              label: '1 个本地服务',
+              color: theme.colorScheme.primary,
+            ),
+            _OfflineSpeechBadge(
+              label: '1 个在线服务',
+              color: theme.colorScheme.tertiary,
+            ),
+          ],
+        ),
         kOpenHandGap8,
         Text(
           openHandLocalizedText(
             context,
-            zh: '为命令类内建工具加一层 OS 沙盒：限制写入路径，记录沙盒状态，并在环境不可用时按策略阻断或降级。',
-            en: 'Add an OS sandbox around command-oriented built-ins: restrict writable paths, record sandbox status, and block or downgrade when unavailable.',
+            zh: '统一管理本地 OS 与在线 E2B 沙箱，任意时刻仅启用一种服务。',
+            en: 'Manage local OS and online E2B sandboxes. Only one service can be active at a time.',
           ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
         ),
         kOpenHandGap16,
-        _buildEnvironmentCard(context),
-        kOpenHandGap16,
-        _ResponsiveSettingRow(
-          title: openHandLocalizedText(
-            context,
-            zh: '启用沙盒',
-            en: 'Enable Sandbox',
-          ),
-          subtitle: openHandLocalizedText(
-            context,
-            zh: '默认关闭。开启后，仅你在下方多选的内建命令会进入沙盒。',
-            en: 'Off by default. When enabled, only selected built-in commands run in the sandbox.',
-          ),
-          control: Switch(
-            value: settings.enabled,
-            onChanged: (value) => _update(settings.copyWith(enabled: value)),
-          ),
-        ),
+        _buildProviderList(context, settings),
         kOpenHandGap14,
         _ResponsiveSettingRow(
           title: openHandLocalizedText(
@@ -123,7 +130,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             zh: '沙盒启用但依赖缺失时直接拦截命令，避免静默变成非沙盒执行。',
             en: 'Block commands when sandbox dependencies are missing instead of silently running unsandboxed.',
           ),
-          control: Switch(
+          control: _SettingsSwitch(
             value: settings.failIfUnavailable,
             onChanged: (value) =>
                 _update(settings.copyWith(failIfUnavailable: value)),
@@ -141,7 +148,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             zh: '关闭时，命中排除列表的命令会被拦截而不是降级执行。',
             en: 'When off, commands matching the exclusion list are blocked instead of downgraded.',
           ),
-          control: Switch(
+          control: _SettingsSwitch(
             value: settings.allowUnsandboxedCommands,
             onChanged: (value) =>
                 _update(settings.copyWith(allowUnsandboxedCommands: value)),
@@ -156,10 +163,10 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           ),
           subtitle: openHandLocalizedText(
             context,
-            zh: '仅在 OS 沙盒实际生效时跳过 Bash 写命令确认；默认关闭。',
-            en: 'Skip Bash write confirmation only when the OS sandbox is actually active. Off by default.',
+            zh: '仅在当前所选沙箱实际生效时跳过 Bash 与 BashBackground 写命令确认；默认关闭。',
+            en: 'Skip Bash and BashBackground write confirmation only when the selected sandbox is active. Off by default.',
           ),
-          control: Switch(
+          control: _SettingsSwitch(
             value: settings.autoAllowBashIfSandboxed,
             onChanged: (value) =>
                 _update(settings.copyWith(autoAllowBashIfSandboxed: value)),
@@ -174,10 +181,14 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           ),
           subtitle: openHandLocalizedText(
             context,
-            zh: '关闭后，无域名规则的沙盒命令会禁用网络；配置域名规则时会启动本地过滤代理。macOS 会阻断直连绕过；Linux 严格模式会阻断尚无法强制过滤的域名规则。',
-            en: 'When off, sandboxed commands without domain rules run with networking disabled. Domain rules start a local filtering proxy. macOS blocks direct bypass; Linux strict mode blocks domain rules that cannot be enforced yet.',
+            zh: settings.provider == AiSandboxProvider.e2b
+                ? '关闭后，无规则时将禁用 E2B 外网访问；下方允许/禁止规则会合并到 E2B network.allowOut / denyOut。'
+                : '关闭后，无域名规则的沙盒命令会禁用网络；配置域名规则时会启动本地过滤代理。macOS 会阻断直连绕过；Linux 严格模式会阻断尚无法强制过滤的域名规则。',
+            en: settings.provider == AiSandboxProvider.e2b
+                ? 'When off, E2B internet access is disabled without rules. Rules below merge into E2B network.allowOut and denyOut.'
+                : 'When off, sandboxed commands without domain rules run with networking disabled. Domain rules start a local filtering proxy. macOS blocks direct bypass; Linux strict mode blocks domain rules that cannot be enforced yet.',
           ),
-          control: Switch(
+          control: _SettingsSwitch(
             value: settings.allowNetworkWhenNoDomainRules,
             onChanged: (value) => _update(
               settings.copyWith(allowNetworkWhenNoDomainRules: value),
@@ -187,9 +198,11 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         kOpenHandGap18,
         _buildToolChips(context, settings),
         kOpenHandGap18,
-        _buildProxyPorts(context, settings),
-        kOpenHandGap20,
-        _buildFileRules(context, settings),
+        if (settings.provider == AiSandboxProvider.operatingSystem) ...[
+          _buildProxyPorts(context, settings),
+          kOpenHandGap20,
+          _buildFileRules(context, settings),
+        ],
         kOpenHandGap20,
         _buildPatternRules(
           context: context,
@@ -251,16 +264,25 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           context: context,
           title: openHandLocalizedText(
             context,
-            zh: '允许访问域名',
-            en: 'Allowed Domains',
+            zh: settings.provider == AiSandboxProvider.e2b
+                ? 'E2B 允许出站规则'
+                : '允许访问域名',
+            en: settings.provider == AiSandboxProvider.e2b
+                ? 'E2B Allow Out'
+                : 'Allowed Domains',
           ),
           body: openHandLocalizedText(
             context,
-            zh: '用于本地沙盒代理过滤。简单模式支持 *，正则模式按原样匹配 host 或 host:port。',
-            en: 'Used by the local sandbox proxy filter. Simple mode supports *, regex mode matches host or host:port as written.',
+            zh: settings.provider == AiSandboxProvider.e2b
+                ? '与 E2B network.allowOut 合并，支持域名、通配域名、IP 与 CIDR；E2B 不接受正则。'
+                : '用于本地沙盒代理过滤。简单模式支持 *，正则模式按原样匹配 host 或 host:port。',
+            en: settings.provider == AiSandboxProvider.e2b
+                ? 'Merged into E2B network.allowOut; supports domains, wildcard domains, IPs, and CIDRs.'
+                : 'Used by the local sandbox proxy filter. Simple mode supports *, regex mode matches host or host:port as written.',
           ),
           icon: Icons.public_rounded,
           rules: settings.allowedDomains,
+          simpleOnly: settings.provider == AiSandboxProvider.e2b,
           onAdd: () => _showPatternRuleDialog(
             title: openHandLocalizedText(
               context,
@@ -268,6 +290,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
               en: 'Add Allowed Domain',
             ),
             hint: '*.example.com',
+            simpleOnly: settings.provider == AiSandboxProvider.e2b,
             onSaved: (rule) => _update(
               settings.copyWith(
                 allowedDomains: <AiSandboxPatternRule>[
@@ -285,6 +308,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
             hint: '*.example.com',
             initialRule: rule,
+            simpleOnly: settings.provider == AiSandboxProvider.e2b,
             onSaved: (updated) => _update(
               settings.copyWith(
                 allowedDomains: _replacePatternRule(
@@ -307,23 +331,36 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           context: context,
           title: openHandLocalizedText(
             context,
-            zh: '禁止访问域名',
-            en: 'Denied Domains',
+            zh: settings.provider == AiSandboxProvider.e2b
+                ? 'E2B 禁止出站规则'
+                : '禁止访问域名',
+            en: settings.provider == AiSandboxProvider.e2b
+                ? 'E2B Deny Out'
+                : 'Denied Domains',
           ),
           body: openHandLocalizedText(
             context,
-            zh: '用于沙盒代理过滤；命中禁止列表的域名应被代理拒绝。',
-            en: 'Used by the sandbox proxy filter; matching domains should be rejected by the proxy.',
+            zh: settings.provider == AiSandboxProvider.e2b
+                ? '与 E2B network.denyOut 合并；官方仅支持 IP 与 CIDR。allowOut 与 denyOut 冲突时允许规则优先。'
+                : '用于沙盒代理过滤；命中禁止列表的域名应被代理拒绝。',
+            en: settings.provider == AiSandboxProvider.e2b
+                ? 'Merged into E2B network.denyOut; only IPs and CIDRs are supported.'
+                : 'Used by the sandbox proxy filter; matching domains should be rejected by the proxy.',
           ),
           icon: Icons.public_off_rounded,
           rules: settings.deniedDomains,
+          simpleOnly: settings.provider == AiSandboxProvider.e2b,
           onAdd: () => _showPatternRuleDialog(
             title: openHandLocalizedText(
               context,
               zh: '新增禁止域名',
               en: 'Add Denied Domain',
             ),
-            hint: '*.tracker.example',
+            hint: settings.provider == AiSandboxProvider.e2b
+                ? '10.0.0.0/8'
+                : '*.tracker.example',
+            simpleOnly: settings.provider == AiSandboxProvider.e2b,
+            ipOrCidrOnly: settings.provider == AiSandboxProvider.e2b,
             onSaved: (rule) => _update(
               settings.copyWith(
                 deniedDomains: <AiSandboxPatternRule>[
@@ -339,8 +376,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
               zh: '编辑禁止域名',
               en: 'Edit Denied Domain',
             ),
-            hint: '*.tracker.example',
+            hint: settings.provider == AiSandboxProvider.e2b
+                ? '10.0.0.0/8'
+                : '*.tracker.example',
             initialRule: rule,
+            simpleOnly: settings.provider == AiSandboxProvider.e2b,
+            ipOrCidrOnly: settings.provider == AiSandboxProvider.e2b,
             onSaved: (updated) => _update(
               settings.copyWith(
                 deniedDomains: _replacePatternRule(
@@ -359,6 +400,271 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildProviderList(BuildContext context, AiSandboxSettings settings) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: _providerListMaxHeight),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLowest.withValues(
+            alpha: 0.72,
+          ),
+          borderRadius: kOpenHandBorderRadius16,
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.52),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: OpenHandSafeScrollbar(
+            controller: _providerScrollController,
+            child: ListView.separated(
+              controller: _providerScrollController,
+              primary: false,
+              shrinkWrap: true,
+              padding: const EdgeInsets.only(right: 4),
+              itemCount: AiSandboxProvider.values.length,
+              separatorBuilder: (_, _) => kOpenHandGap12,
+              itemBuilder: (context, index) {
+                final provider = AiSandboxProvider.values[index];
+                return _buildProviderCard(context, settings, provider);
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProviderCard(
+    BuildContext context,
+    AiSandboxSettings settings,
+    AiSandboxProvider provider,
+  ) {
+    final theme = Theme.of(context);
+    final online = provider == AiSandboxProvider.e2b;
+    final selected = settings.provider == provider;
+    final enabled = selected && settings.enabled;
+    final expanded = _expandedProviders.contains(provider);
+    final accent = online
+        ? theme.colorScheme.tertiary
+        : theme.colorScheme.primary;
+    final configured = !online || settings.e2b.isConfigured;
+    final name = online ? 'E2B Cloud Sandbox' : 'OS Sandbox';
+    final description = online
+        ? openHandLocalizedText(
+            context,
+            zh: '通过 E2B 托管隔离环境执行命令，支持生命周期、网络、MCP、IAM 与卷挂载配置。',
+            en: 'Run commands in E2B-hosted isolation with lifecycle, network, MCP, IAM, and volume configuration.',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '使用 macOS sandbox-exec 或 Linux bubblewrap 限制本机命令的文件与网络访问。',
+            en: 'Restrict local command file and network access with macOS sandbox-exec or Linux bubblewrap.',
+          );
+    return AnimatedContainer(
+      key: ValueKey<AiSandboxProvider>(provider),
+      duration: openHandMotionDuration(context, kOpenHandMotion260),
+      curve: kOpenHandEmphasizedCurve,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(
+          color: enabled
+              ? accent.withValues(alpha: 0.3)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+        color: Color.alphaBlend(
+          accent.withValues(alpha: enabled ? 0.04 : 0),
+          theme.colorScheme.surfaceContainer,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: <Widget>[
+                        Text(
+                          name,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        _OfflineSpeechBadge(
+                          label: online ? '在线' : '本地',
+                          color: accent,
+                        ),
+                        _OfflineSpeechBadge(
+                          label: configured ? '配置就绪' : '待补全',
+                          color: configured
+                              ? OpenHandStatusColors.success
+                              : theme.colorScheme.error,
+                        ),
+                        if (enabled)
+                          const _OfflineSpeechBadge(
+                            label: '已启用',
+                            color: OpenHandStatusColors.success,
+                          ),
+                        if (selected)
+                          FutureBuilder<AiSandboxEnvironmentStatus>(
+                            future: _statusFuture,
+                            builder: (context, snapshot) {
+                              final status = snapshot.data;
+                              final waiting =
+                                  snapshot.connectionState ==
+                                  ConnectionState.waiting;
+                              return _OfflineSpeechBadge(
+                                label: waiting
+                                    ? '检测中'
+                                    : status?.available == true
+                                    ? '环境可用'
+                                    : '环境不可用',
+                                color: waiting
+                                    ? theme.colorScheme.secondary
+                                    : status?.available == true
+                                    ? OpenHandStatusColors.success
+                                    : theme.colorScheme.error,
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                    kOpenHandGap5,
+                    Text(
+                      description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                    if (selected)
+                      FutureBuilder<AiSandboxEnvironmentStatus>(
+                        future: _statusFuture,
+                        builder: (context, snapshot) {
+                          final status = snapshot.data;
+                          if (status == null || status.available) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 5),
+                            child: Text(
+                              status.unavailableReason,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.error,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              kOpenHandHGap8,
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: <Widget>[
+                  if (!online) ...<Widget>[
+                    _OfflineSpeechActionButton(
+                      tooltip: openHandInstallLabel(context),
+                      onPressed: () => _runEnvironmentAction(
+                        _sandboxService.installEnvironment,
+                      ),
+                      child: const Icon(Icons.download_rounded, size: 22),
+                    ),
+                    _OfflineSpeechActionButton(
+                      tooltip: openHandUpdateLabel(context),
+                      onPressed: () => _runEnvironmentAction(
+                        _sandboxService.updateEnvironment,
+                      ),
+                      child: const Icon(Icons.upgrade_rounded, size: 22),
+                    ),
+                    _OfflineSpeechActionButton(
+                      tooltip: openHandUninstallLabel(context),
+                      onPressed: () => _runEnvironmentAction(
+                        _sandboxService.uninstallEnvironment,
+                      ),
+                      child: const Icon(Icons.delete_outline_rounded, size: 22),
+                    ),
+                  ] else
+                    _OfflineSpeechActionButton(
+                      tooltip: selected ? '检测 E2B 服务' : '选择 E2B 后可检测',
+                      onPressed: selected
+                          ? () => setState(() {
+                              _statusFuture = _sandboxService.detectEnvironment(
+                                refresh: true,
+                              );
+                            })
+                          : null,
+                      child: const Icon(Icons.science_rounded, size: 22),
+                    ),
+                  _AiProviderCardExpandButton(
+                    expanded: expanded,
+                    enabled: true,
+                    onPressed: () {
+                      setState(() {
+                        expanded
+                            ? _expandedProviders.remove(provider)
+                            : _expandedProviders.add(provider);
+                      });
+                      HapticFeedback.selectionClick();
+                    },
+                  ),
+                  Tooltip(
+                    message: enabled ? '禁用沙箱' : '启用并切换到此沙箱',
+                    child: _SettingsSwitch(
+                      value: enabled,
+                      onChanged: (value) => _update(
+                        settings.copyWith(enabled: value, provider: provider),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          _AnimatedSettingReveal(
+            visible: expanded,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: online
+                  ? _E2bSandboxConfigEditor(
+                      key: const ValueKey<String>('e2bSandboxConfig'),
+                      settings: settings.e2b,
+                      onChanged: (value) =>
+                          _update(settings.copyWith(e2b: value)),
+                    )
+                  : selected
+                  ? _buildEnvironmentCard(context)
+                  : _AiTtsProviderSection(
+                      title: '本地环境',
+                      child: Text(
+                        _actionMessage.isEmpty
+                            ? '启用 OS Sandbox 后可检测当前平台环境。'
+                            : '$_actionMessage${_actionCommand.isEmpty ? '' : '\n$_actionCommand'}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -427,34 +733,6 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                 ),
                 kOpenHandGap8,
                 Text(body, style: theme.textTheme.bodySmall),
-                kOpenHandGap12,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () => _runEnvironmentAction(
-                        _sandboxService.installEnvironment,
-                      ),
-                      icon: const Icon(Icons.download_rounded),
-                      label: Text(openHandInstallLabel(context)),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _runEnvironmentAction(
-                        _sandboxService.updateEnvironment,
-                      ),
-                      icon: const Icon(Icons.upgrade_rounded),
-                      label: Text(openHandUpdateLabel(context)),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _runEnvironmentAction(
-                        _sandboxService.uninstallEnvironment,
-                      ),
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      label: Text(openHandUninstallLabel(context)),
-                    ),
-                  ],
-                ),
                 if (_actionMessage.isNotEmpty) ...[
                   kOpenHandGap12,
                   Text(_actionMessage, style: theme.textTheme.bodySmall),
@@ -654,6 +932,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     required VoidCallback onAdd,
     required void Function(AiSandboxPatternRule rule) onEdit,
     required void Function(AiSandboxPatternRule rule) onDelete,
+    bool simpleOnly = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -679,8 +958,10 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             title: openHandLocalizedText(context, zh: '暂无规则', en: 'No rules'),
             body: openHandLocalizedText(
               context,
-              zh: '添加简单匹配或正则匹配规则。',
-              en: 'Add simple or regex matching rules.',
+              zh: simpleOnly ? '添加符合 E2B 约束的简单规则。' : '添加简单匹配或正则匹配规则。',
+              en: simpleOnly
+                  ? 'Add a simple rule accepted by E2B.'
+                  : 'Add simple or regex matching rules.',
             ),
           )
         else
@@ -767,6 +1048,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     required String hint,
     required void Function(AiSandboxPatternRule rule) onSaved,
     AiSandboxPatternRule? initialRule,
+    bool simpleOnly = false,
+    bool ipOrCidrOnly = false,
   }) async {
     final result = await showAnimatedDialog<AiSandboxPatternRule>(
       context: context,
@@ -774,6 +1057,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         title: title,
         hint: hint,
         initialRule: initialRule,
+        simpleOnly: simpleOnly,
+        ipOrCidrOnly: ipOrCidrOnly,
       ),
     );
     if (result == null || !mounted) return;
@@ -788,6 +1073,417 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         .map((item) => item.id == updated.id ? updated : item)
         .toList(growable: false);
   }
+}
+
+class _E2bSandboxConfigEditor extends StatefulWidget {
+  const _E2bSandboxConfigEditor({
+    super.key,
+    required this.settings,
+    required this.onChanged,
+  });
+
+  final AiE2bSandboxSettings settings;
+  final Future<void> Function(AiE2bSandboxSettings settings) onChanged;
+
+  @override
+  State<_E2bSandboxConfigEditor> createState() =>
+      _E2bSandboxConfigEditorState();
+}
+
+class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final Map<String, TextEditingController> _controllers =
+      <String, TextEditingController>{};
+  late AiE2bSandboxSettings _draft;
+  bool _saving = false;
+  bool _showSecrets = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _draft = widget.settings;
+    _syncControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _E2bSandboxConfigEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings != widget.settings) {
+      _draft = widget.settings;
+      _syncControllers();
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _syncControllers() {
+    final values = <String, String>{
+      'apiKey': _draft.apiKey,
+      'domain': _draft.domain,
+      'apiUrl': _draft.apiUrl,
+      'sandboxUrl': _draft.sandboxUrl,
+      'requestTimeoutMs': '${_draft.requestTimeoutMs}',
+      'proxy': _draft.proxy,
+      'apiHeaders': _prettyJson(_draft.apiHeaders),
+      'templateId': _draft.templateId,
+      'timeoutSeconds': '${_draft.timeoutSeconds}',
+      'allowOut': _prettyJson(_draft.allowOut),
+      'denyOut': _prettyJson(_draft.denyOut),
+      'egressProxyAddress': _draft.egressProxyAddress,
+      'egressProxyUsername': _draft.egressProxyUsername,
+      'egressProxyPassword': _draft.egressProxyPassword,
+      'maskRequestHost': _draft.maskRequestHost,
+      'networkRules': _prettyJson(_draft.networkRules),
+      'metadata': _prettyJson(_draft.metadata),
+      'environmentVariables': _prettyJson(_draft.environmentVariables),
+      'mcp': _prettyJson(_draft.mcp),
+      'iamTokens': _prettyJson(_draft.iamTokens),
+      'volumeMounts': _prettyJson(
+        _draft.volumeMounts.map((item) => item.toJson()).toList(),
+      ),
+      'commandUser': _draft.commandUser,
+      'commandWorkingDirectory': _draft.commandWorkingDirectory,
+    };
+    for (final entry in values.entries) {
+      final controller = _controllers.putIfAbsent(
+        entry.key,
+        TextEditingController.new,
+      );
+      _syncControllerText(controller, entry.value);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _AiTtsProviderSection(
+            title: '连接配置',
+            child: _AiTtsProviderFieldGrid(
+              children: <Widget>[
+                _field(
+                  'apiKey',
+                  'E2B API Key',
+                  obscure: !_showSecrets,
+                  suffix: IconButton(
+                    tooltip: _showSecrets ? '隐藏密钥' : '显示密钥',
+                    onPressed: () => setState(() {
+                      _showSecrets = !_showSecrets;
+                    }),
+                    icon: Icon(
+                      _showSecrets
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                    ),
+                  ),
+                ),
+                _field('domain', 'Domain', required: true),
+                _field('apiUrl', 'API URL（可选）', url: true),
+                _field('sandboxUrl', 'Sandbox URL（可选）', url: true),
+                _field(
+                  'requestTimeoutMs',
+                  '请求超时（ms，0 使用 60000）',
+                  nonNegativeInteger: true,
+                ),
+                _field(
+                  'proxy',
+                  '客户端代理 URL（可选）',
+                  url: true,
+                  obscure: !_showSecrets,
+                ),
+                _jsonField('apiHeaders', 'API Headers · JSON 对象'),
+              ],
+            ),
+          ),
+          kOpenHandGap12,
+          _AiTtsProviderSection(
+            title: '创建与生命周期',
+            child: _AiTtsProviderFieldGrid(
+              children: <Widget>[
+                _field('templateId', 'templateID', required: true),
+                _field(
+                  'timeoutSeconds',
+                  'timeout（秒）',
+                  nonNegativeInteger: true,
+                ),
+                _toggle(
+                  'autoPause',
+                  _draft.autoPause,
+                  (value) => _setDraft(_draft.copyWith(autoPause: value)),
+                ),
+                _toggle(
+                  'autoPauseMemory',
+                  _draft.autoPauseMemory,
+                  (value) => _setDraft(_draft.copyWith(autoPauseMemory: value)),
+                ),
+                _toggle(
+                  'autoResume.enabled',
+                  _draft.autoResumeEnabled,
+                  (value) =>
+                      _setDraft(_draft.copyWith(autoResumeEnabled: value)),
+                ),
+                _toggle(
+                  'secure',
+                  _draft.secure,
+                  (value) => _setDraft(_draft.copyWith(secure: value)),
+                ),
+              ],
+            ),
+          ),
+          kOpenHandGap12,
+          _AiTtsProviderSection(
+            title: '网络配置',
+            child: _AiTtsProviderFieldGrid(
+              children: <Widget>[
+                _toggle(
+                  'allow_internet_access',
+                  _draft.allowInternetAccess,
+                  (value) =>
+                      _setDraft(_draft.copyWith(allowInternetAccess: value)),
+                ),
+                _toggle(
+                  'network.allowPublicTraffic',
+                  _draft.allowPublicTraffic,
+                  (value) =>
+                      _setDraft(_draft.copyWith(allowPublicTraffic: value)),
+                ),
+                _jsonField('allowOut', 'network.allowOut · JSON 数组'),
+                _jsonField('denyOut', 'network.denyOut · JSON 数组'),
+                _field('egressProxyAddress', 'network.egressProxy.address（可选）'),
+                _field(
+                  'egressProxyUsername',
+                  'network.egressProxy.username（可选）',
+                  maxLength: 255,
+                ),
+                _field(
+                  'egressProxyPassword',
+                  'network.egressProxy.password（可选）',
+                  obscure: !_showSecrets,
+                  maxLength: 255,
+                ),
+                _field('maskRequestHost', 'network.maskRequestHost（可选）'),
+                _jsonField('networkRules', 'network.rules · JSON 对象'),
+              ],
+            ),
+          ),
+          kOpenHandGap12,
+          _AiTtsProviderSection(
+            title: '运行时与集成',
+            child: _AiTtsProviderFieldGrid(
+              children: <Widget>[
+                _jsonField('metadata', 'metadata · JSON 字符串对象'),
+                _jsonField('environmentVariables', 'envVars · JSON 字符串对象'),
+                _jsonField('mcp', 'mcp · JSON 对象或 null'),
+                _jsonField('iamTokens', 'iam.tokens · JSON 对象'),
+                _jsonField(
+                  'volumeMounts',
+                  'volumeMounts · JSON 数组',
+                  hint: '[{"name":"volume","path":"/data"}]',
+                ),
+                _field('commandUser', '命令用户（可选）'),
+                _field('commandWorkingDirectory', '命令工作目录', required: true),
+              ],
+            ),
+          ),
+          if (_draft.autoPause &&
+              !_draft.autoPauseMemory &&
+              _draft.autoResumeEnabled) ...<Widget>[
+            kOpenHandGap10,
+            Text(
+              'autoResume 不能与仅文件系统快照的 autoPause 组合使用。',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          kOpenHandGap12,
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: _saving
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_rounded),
+              label: Text(AppLocalizations.of(context)!.settingsSave),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _field(
+    String key,
+    String label, {
+    bool required = false,
+    bool nonNegativeInteger = false,
+    bool url = false,
+    bool obscure = false,
+    int? maxLength,
+    Widget? suffix,
+  }) {
+    return TextFormField(
+      controller: _controllers[key],
+      obscureText: obscure,
+      maxLength: maxLength,
+      decoration: InputDecoration(labelText: label, suffixIcon: suffix),
+      validator: (raw) {
+        final value = (raw ?? '').trim();
+        if (required && value.isEmpty) return '$label 不能为空。';
+        if (nonNegativeInteger &&
+            (int.tryParse(value) == null || int.parse(value) < 0)) {
+          return '$label 必须为非负整数。';
+        }
+        if (url && value.isNotEmpty) {
+          final uri = Uri.tryParse(value);
+          if (uri == null ||
+              (uri.scheme != 'http' && uri.scheme != 'https') ||
+              uri.host.isEmpty) {
+            return '$label 必须是有效的 HTTP(S) URL。';
+          }
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _jsonField(String key, String label, {String? hint}) {
+    return TextFormField(
+      controller: _controllers[key],
+      minLines: 2,
+      maxLines: 5,
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(fontFamily: kOpenHandMonospaceFontFamily),
+      decoration: InputDecoration(labelText: label, hintText: hint),
+      validator: (value) {
+        try {
+          final decoded = jsonDecode((value ?? '').trim());
+          final expectsList =
+              key == 'allowOut' || key == 'denyOut' || key == 'volumeMounts';
+          if (expectsList && decoded is! List) return '$label 必须是 JSON 数组。';
+          if (!expectsList && key == 'mcp' && decoded == null) return null;
+          if (!expectsList && decoded is! Map) return '$label 必须是 JSON 对象。';
+          if ((key == 'allowOut' || key == 'denyOut') &&
+              (decoded as List).any((item) => item is! String)) {
+            return '$label 的成员必须是字符串。';
+          }
+          if ((key == 'apiHeaders' ||
+                  key == 'metadata' ||
+                  key == 'environmentVariables') &&
+              (decoded as Map).entries.any(
+                (entry) => entry.key is! String || entry.value is! String,
+              )) {
+            return '$label 的键和值必须是字符串。';
+          }
+          if (key == 'volumeMounts') {
+            for (final item in decoded as List) {
+              if (item is! Map ||
+                  '${item['name'] ?? ''}'.trim().isEmpty ||
+                  '${item['path'] ?? ''}'.trim().isEmpty) {
+                return '$label 的每项都需要非空 name 与 path。';
+              }
+            }
+          }
+          return null;
+        } catch (_) {
+          return '$label 不是有效 JSON。';
+        }
+      },
+    );
+  }
+
+  Widget _toggle(String label, bool value, ValueChanged<bool> onChanged) {
+    return _AiTtsToggleField(label: label, value: value, onChanged: onChanged);
+  }
+
+  void _setDraft(AiE2bSandboxSettings value) {
+    setState(() => _draft = value);
+  }
+
+  Future<void> _save() async {
+    if (_formKey.currentState?.validate() != true ||
+        (_draft.autoPause &&
+            !_draft.autoPauseMemory &&
+            _draft.autoResumeEnabled)) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final mcp = _decodeJson('mcp');
+      final volumes = (_decodeJson('volumeMounts') as List)
+          .whereType<Map>()
+          .map(
+            (item) => AiE2bVolumeMount.fromJson(item.cast<String, Object?>()),
+          )
+          .where((item) => item.name.isNotEmpty && item.path.isNotEmpty)
+          .toList(growable: false);
+      await widget.onChanged(
+        _draft.copyWith(
+          apiKey: _text('apiKey'),
+          domain: _text('domain'),
+          apiUrl: _text('apiUrl'),
+          sandboxUrl: _text('sandboxUrl'),
+          requestTimeoutMs: int.parse(_text('requestTimeoutMs')),
+          proxy: _text('proxy'),
+          apiHeaders: _stringMap('apiHeaders'),
+          templateId: _text('templateId'),
+          timeoutSeconds: int.parse(_text('timeoutSeconds')),
+          allowOut: _stringList('allowOut'),
+          denyOut: _stringList('denyOut'),
+          egressProxyAddress: _text('egressProxyAddress'),
+          egressProxyUsername: _text('egressProxyUsername'),
+          egressProxyPassword: _controllers['egressProxyPassword']!.text,
+          maskRequestHost: _text('maskRequestHost'),
+          networkRules: _objectMap('networkRules'),
+          metadata: _stringMap('metadata'),
+          environmentVariables: _stringMap('environmentVariables'),
+          mcp: mcp is Map ? mcp.cast<String, Object?>() : null,
+          clearMcp: mcp == null,
+          iamTokens: _objectMap('iamTokens'),
+          volumeMounts: volumes,
+          commandUser: _text('commandUser'),
+          commandWorkingDirectory: _text('commandWorkingDirectory'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  String _text(String key) => _controllers[key]!.text.trim();
+  Object? _decodeJson(String key) => jsonDecode(_controllers[key]!.text.trim());
+
+  List<String> _stringList(String key) => (_decodeJson(key) as List)
+      .map((item) => '$item'.trim())
+      .where((item) => item.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
+
+  Map<String, Object?> _objectMap(String key) =>
+      (_decodeJson(key) as Map).cast<String, Object?>();
+
+  Map<String, String> _stringMap(String key) => <String, String>{
+    for (final entry in (_decodeJson(key) as Map).entries)
+      '${entry.key}': '${entry.value}',
+  };
+
+  static String _prettyJson(Object? value) =>
+      const JsonEncoder.withIndent('  ').convert(value);
 }
 
 class _SandboxRuleTile extends StatelessWidget {
@@ -830,6 +1526,7 @@ Widget _buildSandboxMatchModeField(
   BuildContext context, {
   required AiCommandMatchMode value,
   required ValueChanged<AiCommandMatchMode> onChanged,
+  bool simpleOnly = false,
 }) {
   return AnimatedDropdownButtonFormField<AiCommandMatchMode>(
     initialValue: value,
@@ -839,10 +1536,11 @@ Widget _buildSandboxMatchModeField(
         value: AiCommandMatchMode.simple,
         child: Text(openHandLocalizedText(context, zh: '简单匹配', en: 'Simple')),
       ),
-      DropdownMenuItem(
-        value: AiCommandMatchMode.regex,
-        child: Text(openHandLocalizedText(context, zh: '正则匹配', en: 'Regex')),
-      ),
+      if (!simpleOnly)
+        DropdownMenuItem(
+          value: AiCommandMatchMode.regex,
+          child: Text(openHandLocalizedText(context, zh: '正则匹配', en: 'Regex')),
+        ),
     ],
     onChanged: (next) => onChanged(next ?? AiCommandMatchMode.simple),
   );
@@ -1001,11 +1699,15 @@ class _SandboxPatternRuleDialog extends StatefulWidget {
     required this.title,
     required this.hint,
     this.initialRule,
+    this.simpleOnly = false,
+    this.ipOrCidrOnly = false,
   });
 
   final String title;
   final String hint;
   final AiSandboxPatternRule? initialRule;
+  final bool simpleOnly;
+  final bool ipOrCidrOnly;
 
   @override
   State<_SandboxPatternRuleDialog> createState() =>
@@ -1027,7 +1729,9 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
     _noteController = TextEditingController(
       text: widget.initialRule?.note ?? '',
     );
-    _matchMode = widget.initialRule?.matchMode ?? AiCommandMatchMode.simple;
+    _matchMode = widget.simpleOnly
+        ? AiCommandMatchMode.simple
+        : widget.initialRule?.matchMode ?? AiCommandMatchMode.simple;
   }
 
   @override
@@ -1050,18 +1754,26 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
             labelText: 'Pattern',
             hintText: widget.hint,
           ),
-          validator: (value) => (value ?? '').trim().isEmpty
-              ? openHandLocalizedText(
-                  context,
-                  zh: '请输入匹配表达式。',
-                  en: 'Enter a pattern.',
-                )
-              : null,
+          validator: (value) {
+            final normalized = (value ?? '').trim();
+            if (normalized.isEmpty) {
+              return openHandLocalizedText(
+                context,
+                zh: '请输入匹配表达式。',
+                en: 'Enter a pattern.',
+              );
+            }
+            if (widget.ipOrCidrOnly && !_isSandboxIpOrCidr(normalized)) {
+              return 'E2B denyOut 仅支持 IP 或 CIDR。';
+            }
+            return null;
+          },
         ),
         kOpenHandGap14,
         _buildSandboxMatchModeField(
           context,
           value: _matchMode,
+          simpleOnly: widget.simpleOnly,
           onChanged: (value) => setState(() => _matchMode = value),
         ),
         kOpenHandGap14,
@@ -1085,6 +1797,20 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
 
 String _newSandboxRuleId() =>
     'sandbox-${DateTime.now().microsecondsSinceEpoch}';
+
+bool _isSandboxIpOrCidr(String value) {
+  final parts = value.trim().split('/');
+  if (parts.isEmpty || parts.length > 2) return false;
+  try {
+    final address = InternetAddress(parts.first);
+    if (parts.length == 1) return true;
+    final prefix = int.tryParse(parts[1]);
+    final max = address.type == InternetAddressType.IPv4 ? 32 : 128;
+    return prefix != null && prefix >= 0 && prefix <= max;
+  } on ArgumentError {
+    return false;
+  }
+}
 
 String _settingsSandboNoteLabel(BuildContext context) {
   return openHandNoteLabel(context);

@@ -12,10 +12,12 @@ import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_deny_command_rule.dart';
+import '../../model/ai_sandbox_settings.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/hook/ai_claude_hook_service.dart';
 import '../../service/runtime/ai_tool_execution_registry.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/sandbox/ai_e2b_sandbox_service.dart';
 import '../../service/sandbox/ai_sandbox_proxy_service.dart';
 import '../../service/sandbox/ai_sandbox_service.dart';
 import '../ai_tool.dart';
@@ -29,12 +31,12 @@ import 'ai_bash_write_confirmation_gate.dart';
 const Utf8Decoder _backgroundOutputDecoder = Utf8Decoder(allowMalformed: true);
 const int _maxPendingBackgroundStdinWrites = 16;
 
-/// 长跑后台 Shell 工具。把 `Process.start` 启动的常驻进程拆解为 5 个 action：
+/// 长跑后台 Shell 工具。把本地或 E2B 常驻进程拆解为 5 个 action：
 /// `start` / `write` / `read` / `stop` / `list`。
 ///
 /// 用途：跑 dev server / REPL / 长任务等阻塞型命令，主 Bash 工具受单次超时
-/// 限制无法承载。每个 handle 持有独立 Process + 64 KB 滚动输出缓冲；
-/// 工具实例销毁（[dispose]）时统一 SIGKILL。
+/// 限制无法承载。每个 handle 持有独立进程与 64 KB 滚动输出缓冲；
+/// 工具实例销毁（[dispose]）时统一终止。
 ///
 /// 设计原则：
 /// - 出于安全考虑，仍受 [AiToolExecutionContext.denyCommandRules] 制约。
@@ -293,7 +295,10 @@ class AiBashBackgroundTool extends AiTool {
               'cmd: $cmd',
           targetPath: _directoryConfirmationTarget(cwd),
           requireWriteConfirmation:
-              context.requireWriteCommandConfirmation || forceWriteConfirmation,
+              forceWriteConfirmation ||
+              (context.requireWriteCommandConfirmation &&
+                  !(launchSpec.applied &&
+                      _sandboxService.settings.autoAllowBashIfSandboxed)),
           confirmWriteCommand: confirmationGate.callback,
           cancelSignal: context.cancelSignal,
           timeoutMs: context.writeConfirmationTimeoutMs,
@@ -333,6 +338,23 @@ class AiBashBackgroundTool extends AiTool {
       if (!reservationHeld) return;
       reservationHeld = false;
       _releaseStartReservation();
+    }
+
+    if (launchSpec.remote) {
+      try {
+        launchProxyTransferred = true;
+        return await _startRemoteSession(
+          context: context,
+          command: cmd,
+          launchSpec: launchSpec,
+          reservationGeneration: reservationGeneration,
+          writeAnalysis: writeAnalysis,
+          forceWriteConfirmation: forceWriteConfirmation,
+          writeConfirmationMetadata: writeConfirmationMetadata,
+        );
+      } finally {
+        releaseStartReservation();
+      }
     }
 
     final startedAt = Stopwatch()..start();
@@ -383,7 +405,7 @@ class AiBashBackgroundTool extends AiTool {
     var sessionSetupCompleted = false;
     try {
       session = await runBeforeLaunchProxyTransfer('创建后台会话异常', () {
-        final value = _BgSession(
+        final value = _BgSession.local(
           handle: handle,
           ownerSessionId: context.sessionId,
           command: cmd,
@@ -517,6 +539,17 @@ class AiBashBackgroundTool extends AiTool {
     required bool dangerouslyDisableSandbox,
   }) {
     if (Platform.isWindows) {
+      if (_sandboxService.settings.enabled &&
+          _sandboxService.settings.provider == AiSandboxProvider.e2b) {
+        return _sandboxService.prepareShellCommand(
+          toolName: 'BashBackground',
+          command: cmd,
+          shellExecutable: 'cmd',
+          shellArguments: <String>['/d', '/c', cmd],
+          workingDirectory: cwd,
+          dangerouslyDisableSandbox: dangerouslyDisableSandbox,
+        );
+      }
       // Windows 也需要继承用户级代理 env（curl/git/ssh 等仍依赖标准变量）。
       final proxyEnv = SystemProxyResolver.instance
           .resolveSubprocessEnvironment();
@@ -537,6 +570,132 @@ class AiBashBackgroundTool extends AiTool {
       shellArguments: <String>['-lc', cmd],
       workingDirectory: cwd,
       dangerouslyDisableSandbox: dangerouslyDisableSandbox,
+    );
+  }
+
+  Future<AiToolExecutionResult> _startRemoteSession({
+    required AiToolExecutionContext context,
+    required String command,
+    required AiSandboxLaunchSpec launchSpec,
+    required int reservationGeneration,
+    required BashWriteAnalysis writeAnalysis,
+    required bool forceWriteConfirmation,
+    required Map<String, Object?> writeConfirmationMetadata,
+  }) async {
+    final startedAt = Stopwatch()..start();
+    final earlyStdout = StringBuffer();
+    final earlyStderr = StringBuffer();
+    _BgSession? session;
+    late final AiE2bCommandHandle remote;
+    try {
+      remote = await _sandboxService.startRemoteCommand(
+        command: command,
+        launchSpec: launchSpec,
+        timeoutMs: 0,
+        keepStdinOpen: true,
+        onStdout: (chunk) => session == null
+            ? earlyStdout.write(chunk)
+            : session.appendStdout(chunk, _maxBufferBytes),
+        onStderr: (chunk) => session == null
+            ? earlyStderr.write(chunk)
+            : session.appendStderr(chunk, _maxBufferBytes),
+      );
+    } catch (error, stack) {
+      silentLog('ai_bash_background', '启动 E2B 后台进程', error, stack);
+      return AiToolUtils.invalidResult(
+        'BashBackground',
+        '创建 E2B 后台进程失败：$error',
+      );
+    }
+    if (_disposed || reservationGeneration != _lifecycleGeneration) {
+      await remote.kill().catchError((_) {});
+      await remote.disconnect();
+      return AiToolUtils.invalidResult(
+        'BashBackground',
+        '进程启动期间 BashBackground 已关闭。',
+      );
+    }
+    _handleCounter += 1;
+    final handle = 'bg_$_handleCounter';
+    session = _BgSession.remote(
+      handle: handle,
+      ownerSessionId: context.sessionId,
+      command: command,
+      workingDirectory: launchSpec.workingDirectory,
+      remoteHandle: remote,
+      startedAtMs: DateTime.now().millisecondsSinceEpoch,
+    );
+    session
+      ..appendStdout(earlyStdout.toString(), _maxBufferBytes)
+      ..appendStderr(earlyStderr.toString(), _maxBufferBytes);
+    final activeSession = session;
+    _sessions[handle] = activeSession;
+    final toolCallId = context.toolCall.id.trim();
+    if (toolCallId.isNotEmpty) {
+      AiToolExecutionRegistry.instance.attachPid(toolCallId, remote.pid);
+      AiToolExecutionRegistry.instance.attachKiller(toolCallId, () async {
+        final removed = _sessions.remove(handle);
+        await (removed ?? activeSession).close(kill: true);
+      });
+    }
+    unawaited(
+      remote.result.then<void>(
+        (result) async {
+          activeSession.exitCode = result.exitCode;
+          if (result.error.isNotEmpty) {
+            activeSession.appendStderr(result.error, _maxBufferBytes);
+          }
+          activeSession
+            ..markStdoutDone()
+            ..markStderrDone();
+          await activeSession.finishOutputAfterExit();
+          await remote.disconnect();
+          activeSession.touch();
+          _pruneExitedSessions();
+        },
+        onError: (Object error, StackTrace stack) async {
+          silentLog('ai_bash_background', 'E2B 后台进程退出 $handle', error, stack);
+          activeSession
+            ..exitCode = -1
+            ..appendStderr('$error', _maxBufferBytes)
+            ..markStdoutDone()
+            ..markStderrDone();
+          await activeSession.finishOutputAfterExit();
+          await remote.disconnect();
+          _pruneExitedSessions();
+        },
+      ),
+    );
+    final output = StringBuffer()
+      ..writeln('status: started')
+      ..writeln('handle: $handle')
+      ..writeln('pid: ${remote.pid}')
+      ..writeln('cwd: ${launchSpec.workingDirectory}')
+      ..writeln('cmd: $command')
+      ..writeln('sandbox: applied')
+      ..writeln('sandbox_backend: e2b');
+    return AiToolUtils.simpleSuccessResult(
+      command: 'BashBackground start $handle',
+      output: output.toString().trimRight(),
+      durationMs: startedAt.elapsedMilliseconds,
+      workingDirectory: launchSpec.workingDirectory,
+      isWriteCommand: writeAnalysis.isWrite || forceWriteConfirmation,
+      writeAnalysisReason: writeAnalysis.reason,
+      metadata: <String, Object?>{
+        ...launchSpec.metadata,
+        ...writeConfirmationMetadata,
+        'bg_handle': handle,
+        'bg_pid': remote.pid,
+        'bg_cmd': command,
+        if (writeAnalysis.isWrite || forceWriteConfirmation)
+          'file_mutation_kind': 'bash_background_write',
+        if (writeAnalysis.isWrite || forceWriteConfirmation)
+          'file_mutation_working_directory': launchSpec.workingDirectory,
+        if (writeAnalysis.isWrite || forceWriteConfirmation)
+          'file_mutation_command_char_count': command.length,
+        if (writeAnalysis.isWrite || forceWriteConfirmation)
+          'file_mutation_write_reason': writeAnalysis.reason,
+      },
     );
   }
 
@@ -676,7 +835,7 @@ class AiBashBackgroundTool extends AiTool {
       out
         ..writeln('retrieval_status: $retrievalStatus')
         ..writeln('task_id: $handle')
-        ..writeln('task_type: local_bash');
+        ..writeln('task_type: ${session.taskType}');
     }
     out
       ..writeln('handle: $handle')
@@ -700,7 +859,7 @@ class AiBashBackgroundTool extends AiTool {
         if (isTaskOutputAlias) ...<String, Object?>{
           'task_output_alias': true,
           'task_id': handle,
-          'task_type': 'local_bash',
+          'task_type': session.taskType,
           'task_output_retrieval_status': retrievalStatus,
           'task_output_block': block,
           'task_output_timeout_ms': timeoutMs,
@@ -737,7 +896,7 @@ class AiBashBackgroundTool extends AiTool {
         ? 'status: ${killed ? "killed" : "already_exited"}\n'
               'handle: $handle\n'
               'task_id: $handle\n'
-              'task_type: local_bash'
+              'task_type: ${session.taskType}'
         : 'status: ${killed ? "killed" : "already_exited"}\nhandle: $handle';
     return AiToolUtils.simpleSuccessResult(
       command: isTaskStopAlias
@@ -752,7 +911,7 @@ class AiBashBackgroundTool extends AiTool {
         if (isTaskStopAlias) ...<String, Object?>{
           'task_stop_alias': true,
           'task_id': handle,
-          'task_type': 'local_bash',
+          'task_type': session.taskType,
         },
       },
     );
@@ -773,7 +932,7 @@ class AiBashBackgroundTool extends AiTool {
     final lines = <String>['status: ok', 'sessions:'];
     for (final session in sessions) {
       lines.add(
-        '  - handle: ${session.handle}, pid: ${session.process.pid}, alive: ${session.alive}, '
+        '  - handle: ${session.handle}, pid: ${session.pid}, alive: ${session.alive}, '
         'exit_code: ${session.exitCode ?? -1}, cwd: ${session.workingDirectory}, cmd: ${session.command}',
       );
     }
@@ -931,7 +1090,7 @@ String _webReverseBashBackgroundCdpFirstStdout({
 }
 
 class _BgSession {
-  _BgSession({
+  _BgSession.local({
     required this.handle,
     required this.ownerSessionId,
     required this.command,
@@ -939,13 +1098,24 @@ class _BgSession {
     required this.process,
     required this.startedAtMs,
     this.proxyLease,
-  });
+  }) : remoteHandle = null;
+
+  _BgSession.remote({
+    required this.handle,
+    required this.ownerSessionId,
+    required this.command,
+    required this.workingDirectory,
+    required this.remoteHandle,
+    required this.startedAtMs,
+  }) : process = null,
+       proxyLease = null;
 
   final String handle;
   final String ownerSessionId;
   final String command;
   final String workingDirectory;
-  final Process process;
+  final Process? process;
+  final AiE2bCommandHandle? remoteHandle;
   final int startedAtMs;
   final AiSandboxProxyLease? proxyLease;
   static const Duration _cleanupTimeout = Duration(seconds: 2);
@@ -963,6 +1133,9 @@ class _BgSession {
   Future<void>? _proxyCloseFuture;
   Future<void>? _closeFuture;
   late int lastTouchedAtMs = startedAtMs;
+
+  int get pid => remoteHandle?.pid ?? process!.pid;
+  String get taskType => remoteHandle == null ? 'local_bash' : 'e2b_bash';
 
   void touch() {
     lastTouchedAtMs = DateTime.now().millisecondsSinceEpoch;
@@ -995,9 +1168,16 @@ class _BgSession {
   }) {
     return _stdinWrites.enqueue(() async {
       if (!alive) throw StateError('后台进程已退出。');
-      process.stdin.add(bytes);
-      if (appendNewline) process.stdin.add(const <int>[10]);
-      await process.stdin.flush().timeout(timeout);
+      final remote = remoteHandle;
+      if (remote != null) {
+        await remote
+            .write(<int>[...bytes, if (appendNewline) 10])
+            .timeout(timeout);
+        return;
+      }
+      process!.stdin.add(bytes);
+      if (appendNewline) process!.stdin.add(const <int>[10]);
+      await process!.stdin.flush().timeout(timeout);
     });
   }
 
@@ -1007,9 +1187,12 @@ class _BgSession {
     final cleanup = <Future<bool>>[];
     if (kill && alive) {
       alive = false;
+      final remote = remoteHandle;
       cleanup.add(
         runAsyncCleanupBounded(
-          () => terminateTrackedProcessTree(process),
+          () => remote != null
+              ? remote.kill()
+              : terminateTrackedProcessTree(process!),
           onError: (error, stack) =>
               silentLog('ai_bash_background', '终止后台进程', error, stack),
         ),
@@ -1043,6 +1226,10 @@ class _BgSession {
     markStdoutDone();
     markStderrDone();
     cleanup.add(closeProxy().then<bool>((_) => true));
+    final remote = remoteHandle;
+    if (remote != null) {
+      cleanup.add(remote.disconnect().then<bool>((_) => true));
+    }
     return _closeFuture = Future.wait<bool>(cleanup).then<void>((_) {});
   }
 

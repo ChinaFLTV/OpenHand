@@ -10,6 +10,7 @@ import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/platform_shell.dart';
 import '../../model/ai_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
+import 'ai_e2b_sandbox_service.dart';
 import 'ai_sandbox_proxy_service.dart';
 
 class AiSandboxEnvironmentStatus {
@@ -20,6 +21,7 @@ class AiSandboxEnvironmentStatus {
     required this.backend,
     required this.missingDependencies,
     required this.warnings,
+    this.reason = '',
   });
 
   final String platform;
@@ -28,9 +30,11 @@ class AiSandboxEnvironmentStatus {
   final String backend;
   final List<String> missingDependencies;
   final List<String> warnings;
+  final String reason;
 
   String get unavailableReason {
     if (available) return '';
+    if (reason.isNotEmpty) return reason;
     if (!supported) {
       return 'Sandbox is not supported on $platform.';
     }
@@ -48,6 +52,7 @@ class AiSandboxEnvironmentStatus {
       'backend': backend,
       'missing_dependencies': missingDependencies,
       'warnings': warnings,
+      if (reason.isNotEmpty) 'reason': reason,
     };
   }
 }
@@ -78,6 +83,7 @@ class AiSandboxLaunchSpec {
     required this.metadata,
     this.proxyLease,
     this.reason = '',
+    this.remote = false,
   });
 
   factory AiSandboxLaunchSpec.unsandboxed({
@@ -128,13 +134,16 @@ class AiSandboxLaunchSpec {
   final bool applied;
   final bool blocked;
   final String reason;
+  final bool remote;
   final Map<String, Object?> metadata;
   final AiSandboxProxyLease? proxyLease;
 }
 
 class AiSandboxService {
   AiSandboxService({AiSandboxSettings? settings})
-    : _settings = settings ?? AiSandboxSettings.defaults();
+    : _settings = settings ?? AiSandboxSettings.defaults() {
+    _e2bService = AiE2bSandboxService(settings: _settings);
+  }
 
   static const String _linuxDomainFilterUnavailableReason =
       'Linux bubblewrap cannot strictly enforce sandbox domain allow/deny rules yet because direct network access cannot be restricted to the OpenHand local proxy without an additional network bridge.';
@@ -144,6 +153,7 @@ class AiSandboxService {
       'Sandbox refused to grant writable access to an unsafe working directory root.';
 
   AiSandboxSettings _settings;
+  late final AiE2bSandboxService _e2bService;
   final AiSandboxProxyService _proxyService = AiSandboxProxyService();
   AiSandboxEnvironmentStatus? _cachedStatus;
 
@@ -155,6 +165,7 @@ class AiSandboxService {
   set settings(AiSandboxSettings value) {
     if (_settings == value) return;
     _settings = value;
+    _e2bService.settings = value;
     _cachedStatus = null;
   }
 
@@ -162,6 +173,41 @@ class AiSandboxService {
     bool refresh = false,
   }) async {
     if (!refresh && _cachedStatus != null) return _cachedStatus!;
+    if (settings.provider == AiSandboxProvider.e2b) {
+      final issue = _e2bService.configurationIssue;
+      if (issue.isNotEmpty) {
+        return _cachedStatus = AiSandboxEnvironmentStatus(
+          platform: 'cloud',
+          supported: true,
+          available: false,
+          backend: 'e2b',
+          missingDependencies: const <String>[],
+          warnings: const <String>[],
+          reason: issue,
+        );
+      }
+      try {
+        await _e2bService.probe();
+        return _cachedStatus = const AiSandboxEnvironmentStatus(
+          platform: 'cloud',
+          supported: true,
+          available: true,
+          backend: 'e2b',
+          missingDependencies: <String>[],
+          warnings: <String>[],
+        );
+      } catch (error) {
+        return _cachedStatus = AiSandboxEnvironmentStatus(
+          platform: 'cloud',
+          supported: true,
+          available: false,
+          backend: 'e2b',
+          missingDependencies: const <String>[],
+          warnings: const <String>[],
+          reason: 'E2B 服务不可用：$error',
+        );
+      }
+    }
     final platform = Platform.operatingSystem;
     final warnings = <String>[];
     final missing = <String>[];
@@ -403,6 +449,39 @@ class AiSandboxService {
       });
     }
 
+    if (settings.provider == AiSandboxProvider.e2b) {
+      return AiSandboxLaunchSpec(
+        executable: '/bin/bash',
+        arguments: <String>['-l', '-c', command],
+        workingDirectory: settings.e2b.commandWorkingDirectory,
+        environment: const <String, String>{},
+        applied: true,
+        blocked: false,
+        remote: true,
+        metadata: <String, Object?>{
+          ...baseMetadata,
+          'sandbox_applied': true,
+          'sandbox_platform': status.platform,
+          'sandbox_backend': status.backend,
+          'sandbox_filesystem_scope': 'remote',
+          'sandbox_allowed_domain_count': settings.allowedDomains.length,
+          'sandbox_denied_domain_count': settings.deniedDomains.length,
+          'sandbox_network_direct_blocked':
+              !settings.e2b.allowInternetAccess ||
+              (!settings.allowNetworkWhenNoDomainRules &&
+                  !settings.hasDomainRules &&
+                  settings.e2b.allowOut.isEmpty &&
+                  settings.e2b.denyOut.isEmpty &&
+                  settings.e2b.networkRules.isEmpty),
+          'sandbox_domain_filter_enforced':
+              settings.hasDomainRules ||
+              settings.e2b.allowOut.isNotEmpty ||
+              settings.e2b.denyOut.isNotEmpty ||
+              settings.e2b.networkRules.isNotEmpty,
+        },
+      );
+    }
+
     if (!await isDirectoryPath(normalizedWorkingDirectory, followLinks: true)) {
       return AiSandboxLaunchSpec.blocked(
         executable: shellExecutable,
@@ -574,6 +653,30 @@ class AiSandboxService {
       rethrow;
     }
   }
+
+  Future<AiE2bCommandHandle> startRemoteCommand({
+    required String command,
+    required AiSandboxLaunchSpec launchSpec,
+    required int timeoutMs,
+    required bool keepStdinOpen,
+    void Function(String chunk)? onStdout,
+    void Function(String chunk)? onStderr,
+  }) {
+    if (!launchSpec.remote) {
+      throw ArgumentError.value(launchSpec.remote, 'launchSpec.remote');
+    }
+    return _e2bService.startCommand(
+      command: command,
+      workingDirectory: launchSpec.workingDirectory,
+      environment: launchSpec.environment,
+      timeoutMs: timeoutMs,
+      keepStdinOpen: keepStdinOpen,
+      onStdout: onStdout,
+      onStderr: onStderr,
+    );
+  }
+
+  Future<void> shutdown() => _e2bService.shutdown();
 
   Future<bool> _commandExists(String command) async {
     final directCandidates = Platform.isMacOS && command == 'sandbox-exec'

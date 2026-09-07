@@ -20,6 +20,7 @@ export 'model/ai_cost_breakdown.dart';
 export 'model/ai_creation_mode.dart';
 export 'model/ai_deny_command_rule.dart';
 export 'model/ai_dingtalk_dws_command.dart';
+export 'model/ai_e2b_sandbox_settings.dart';
 export 'model/ai_endpoint_override.dart';
 export 'model/ai_input_cache_policy.dart';
 export 'model/ai_lsp_backend_catalog.dart';

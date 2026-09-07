@@ -13,7 +13,9 @@ import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_deny_command_rule.dart';
+import '../../model/ai_sandbox_settings.dart';
 import '../runtime/ai_tool_execution_registry.dart';
+import '../sandbox/ai_e2b_sandbox_service.dart';
 import '../sandbox/ai_sandbox_service.dart';
 
 const Utf8Decoder _shellOutputDecoder = Utf8Decoder(allowMalformed: true);
@@ -932,6 +934,20 @@ class AiBashToolService {
       }
     }
 
+    if (launchSpec.remote) {
+      launchProxyTransferred = true;
+      return _executeRemoteCommand(
+        command: normalizedCommand,
+        launchSpec: launchSpec,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysis.reason,
+        onUpdate: onUpdate,
+        cancelSignal: cancelSignal,
+        timeoutMs: timeoutMs,
+        toolCallId: toolCallId,
+      );
+    }
+
     final stopwatch = Stopwatch()..start();
     late final Process process;
     try {
@@ -1451,6 +1467,17 @@ class AiBashToolService {
     required bool dangerouslyDisableSandbox,
   }) {
     if (Platform.isWindows) {
+      if (sandboxService.settings.enabled &&
+          sandboxService.settings.provider == AiSandboxProvider.e2b) {
+        return sandboxService.prepareShellCommand(
+          toolName: 'Bash',
+          shellExecutable: 'cmd',
+          shellArguments: <String>['/c', command],
+          command: command,
+          workingDirectory: workingDirectory,
+          dangerouslyDisableSandbox: dangerouslyDisableSandbox,
+        );
+      }
       // Windows 一次性命令也注入用户级代理 env，让 curl/git/npm 等
       // 标准工具按系统设置走代理；sandbox 服务在 Windows 上目前不接管。
       final proxyEnv = SystemProxyResolver.instance
@@ -1472,6 +1499,166 @@ class AiBashToolService {
       command: command,
       workingDirectory: workingDirectory,
       dangerouslyDisableSandbox: dangerouslyDisableSandbox,
+    );
+  }
+
+  Future<BashToolExecutionResult> _executeRemoteCommand({
+    required String command,
+    required AiSandboxLaunchSpec launchSpec,
+    required bool isWriteCommand,
+    required String writeAnalysisReason,
+    required int timeoutMs,
+    void Function(BashToolExecutionUpdate update)? onUpdate,
+    Future<void>? cancelSignal,
+    String? toolCallId,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    final stdout = StringBuffer();
+    final stderr = StringBuffer();
+    var lastEmitMs = -1;
+
+    void emit(
+      BashToolExecutionPhase phase, {
+      int? exitCode,
+      bool force = false,
+    }) {
+      if (onUpdate == null) return;
+      final elapsed = stopwatch.elapsedMilliseconds;
+      if (!force && lastEmitMs >= 0 && elapsed - lastEmitMs < 160) return;
+      lastEmitMs = elapsed;
+      onUpdate(
+        BashToolExecutionUpdate(
+          phase: phase,
+          command: command,
+          workingDirectory: launchSpec.workingDirectory,
+          stdout: stdout.toString(),
+          stderr: stderr.toString(),
+          durationMs: elapsed,
+          exitCode: exitCode,
+        ),
+      );
+    }
+
+    late final AiE2bCommandHandle handle;
+    try {
+      handle = await sandboxService.startRemoteCommand(
+        command: command,
+        launchSpec: launchSpec,
+        timeoutMs: timeoutMs,
+        keepStdinOpen: false,
+        onStdout: (chunk) {
+          _appendCapturedOutput(stdout, chunk, maxCapturedCharacters);
+          emit(BashToolExecutionPhase.running);
+        },
+        onStderr: (chunk) {
+          _appendCapturedOutput(stderr, chunk, maxCapturedCharacters);
+          emit(BashToolExecutionPhase.running);
+        },
+      );
+    } catch (error) {
+      stopwatch.stop();
+      return BashToolExecutionResult(
+        status: error is TimeoutException
+            ? BashToolExecutionStatus.timedOut
+            : BashToolExecutionStatus.failed,
+        command: command,
+        workingDirectory: launchSpec.workingDirectory,
+        stdout: stdout.toString(),
+        stderr: '$error',
+        durationMs: stopwatch.elapsedMilliseconds,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysisReason,
+        sandboxMetadata: launchSpec.metadata,
+      );
+    }
+    final registeredToolCallId = toolCallId?.trim() ?? '';
+    if (registeredToolCallId.isNotEmpty) {
+      AiToolExecutionRegistry.instance.attachPid(
+        registeredToolCallId,
+        handle.pid,
+      );
+      AiToolExecutionRegistry.instance.attachKiller(
+        registeredToolCallId,
+        handle.kill,
+      );
+    }
+    emit(BashToolExecutionPhase.running, force: true);
+    final progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (
+      _,
+    ) {
+      emit(BashToolExecutionPhase.running, force: true);
+    });
+    var cancelled = false;
+    var timedOut = false;
+    AiE2bCommandResult? remoteResult;
+    try {
+      final resultFuture = handle.result.then<_RemoteBashCompletion>(
+        _RemoteBashCompletion.result,
+      );
+      final waits = <Future<_RemoteBashCompletion>>[
+        resultFuture,
+        Future<_RemoteBashCompletion>.delayed(
+          Duration(milliseconds: timeoutMs),
+          () => const _RemoteBashCompletion.timedOut(),
+        ),
+      ];
+      if (cancelSignal != null) {
+        waits.add(
+          cancelSignal.then<_RemoteBashCompletion>(
+            (_) => const _RemoteBashCompletion.cancelled(),
+            onError: (Object _, StackTrace _) =>
+                const _RemoteBashCompletion.cancelled(),
+          ),
+        );
+      }
+      final completion = await Future.any(waits);
+      remoteResult = completion.result;
+      cancelled = completion.cancelled;
+      timedOut = completion.timedOut;
+      if (cancelled || timedOut) {
+        try {
+          await handle.kill().timeout(const Duration(seconds: 2));
+        } catch (_) {
+          // 终止失败不覆盖取消或超时状态。
+        }
+      }
+    } catch (error) {
+      _appendCapturedOutput(stderr, '$error', maxCapturedCharacters);
+    } finally {
+      progressTimer.cancel();
+      await handle.disconnect();
+      stopwatch.stop();
+    }
+    final exitCode = remoteResult?.exitCode ?? (cancelled ? -2 : -1);
+    final remoteError = remoteResult?.error.trim() ?? '';
+    if (remoteError.isNotEmpty) {
+      _appendCapturedOutput(stderr, remoteError, maxCapturedCharacters);
+    }
+    emit(BashToolExecutionPhase.completed, exitCode: exitCode, force: true);
+    final status = cancelled
+        ? BashToolExecutionStatus.cancelled
+        : timedOut
+        ? BashToolExecutionStatus.timedOut
+        : remoteResult?.exited == true && exitCode == 0
+        ? BashToolExecutionStatus.success
+        : BashToolExecutionStatus.failed;
+    return BashToolExecutionResult(
+      status: status,
+      command: command,
+      workingDirectory: launchSpec.workingDirectory,
+      stdout: stdout.toString(),
+      stderr: stderr.toString().isEmpty
+          ? cancelled
+                ? '命令已被用户取消。'
+                : timedOut
+                ? '命令在完成前超时。'
+                : ''
+          : stderr.toString(),
+      durationMs: stopwatch.elapsedMilliseconds,
+      exitCode: exitCode,
+      isWriteCommand: isWriteCommand,
+      writeAnalysisReason: writeAnalysisReason,
+      sandboxMetadata: launchSpec.metadata,
     );
   }
 
@@ -2067,6 +2254,7 @@ class AiBashToolService {
                   _disposePersistentSession,
                   onError: (Object _, StackTrace _) {},
                 ),
+              sandboxService.shutdown(),
             ])
             .timeout(_persistentShutdownTimeout, onTimeout: () => <void>[])
             .then<void>((_) {});
@@ -2090,6 +2278,24 @@ class AiBashToolService {
       ),
     );
   }
+}
+
+class _RemoteBashCompletion {
+  const _RemoteBashCompletion.result(this.result)
+    : cancelled = false,
+      timedOut = false;
+  const _RemoteBashCompletion.cancelled()
+    : result = null,
+      cancelled = true,
+      timedOut = false;
+  const _RemoteBashCompletion.timedOut()
+    : result = null,
+      cancelled = false,
+      timedOut = true;
+
+  final AiE2bCommandResult? result;
+  final bool cancelled;
+  final bool timedOut;
 }
 
 class BashWriteAnalysis {

@@ -665,7 +665,7 @@ class AiSessionRuntimeContext {
       'allow_command_rules': allowCommandRules
           .map((item) => item.toJson())
           .toList(growable: false),
-      'sandbox': sandboxSettings.toJson(),
+      'sandbox': sandboxSettings.toRuntimeJson(),
       'available_mcp_server_count': availableMcpServers.length,
       'available_mcp_server_names': availableMcpServers
           .map((item) => item.name)
