@@ -964,29 +964,45 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           )
         else
-          Column(
-            children: [
-              for (final rule in settings.filesystemRules) ...[
-                _SandboxRuleTile(
-                  icon: rule.accessMode == AiSandboxFileAccessMode.readWrite
-                      ? Icons.edit_note_rounded
-                      : Icons.visibility_outlined,
-                  title: rule.path,
-                  subtitle:
-                      '${rule.accessMode.storageValue} · ${rule.matchMode.storageValue}${rule.note.trim().isEmpty ? '' : ' · ${rule.note.trim()}'}',
-                  onEdit: () =>
-                      _showFileRuleDialog(settings, initialRule: rule),
-                  onDelete: () => _update(
-                    settings.copyWith(
-                      filesystemRules: settings.filesystemRules
-                          .where((item) => item.id != rule.id)
-                          .toList(growable: false),
+          OpenHandRemovableListScope(
+            builder: (context, removal) => Column(
+              children: <Widget>[
+                for (final rule in settings.filesystemRules)
+                  SettingsAwareAppearOnce(
+                    key: ValueKey<String>('sandbox-file-rule-${rule.id}'),
+                    child: OpenHandListRemovalTransition(
+                      collapsed: removal.isRemoving(rule.id),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _SandboxRuleTile(
+                          icon:
+                              rule.accessMode ==
+                                  AiSandboxFileAccessMode.readWrite
+                              ? Icons.edit_note_rounded
+                              : Icons.visibility_outlined,
+                          title: rule.path,
+                          subtitle:
+                              '${rule.accessMode.storageValue} · ${rule.matchMode.storageValue}${rule.note.trim().isEmpty ? '' : ' · ${rule.note.trim()}'}',
+                          onEdit: () =>
+                              _showFileRuleDialog(settings, initialRule: rule),
+                          onDelete: () => unawaited(
+                            removal.run(
+                              rule.id,
+                              () => _update(
+                                settings.copyWith(
+                                  filesystemRules: settings.filesystemRules
+                                      .where((item) => item.id != rule.id)
+                                      .toList(growable: false),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                kOpenHandGap10,
               ],
-            ],
+            ),
           ),
       ],
     );
@@ -1000,7 +1016,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     required List<AiSandboxPatternRule> rules,
     required VoidCallback onAdd,
     required void Function(AiSandboxPatternRule rule) onEdit,
-    required void Function(AiSandboxPatternRule rule) onDelete,
+    required Future<void> Function(AiSandboxPatternRule rule) onDelete,
     bool simpleOnly = false,
   }) {
     return Column(
@@ -1034,20 +1050,31 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           )
         else
-          Column(
-            children: [
-              for (final rule in rules) ...[
-                _SandboxRuleTile(
-                  icon: icon,
-                  title: rule.pattern,
-                  subtitle:
-                      '${rule.matchMode.storageValue}${rule.note.trim().isEmpty ? '' : ' · ${rule.note.trim()}'}',
-                  onEdit: () => onEdit(rule),
-                  onDelete: () => onDelete(rule),
-                ),
-                kOpenHandGap10,
+          OpenHandRemovableListScope(
+            builder: (context, removal) => Column(
+              children: <Widget>[
+                for (final rule in rules)
+                  SettingsAwareAppearOnce(
+                    key: ValueKey<String>('sandbox-pattern-rule-${rule.id}'),
+                    child: OpenHandListRemovalTransition(
+                      collapsed: removal.isRemoving(rule.id),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _SandboxRuleTile(
+                          icon: icon,
+                          title: rule.pattern,
+                          subtitle:
+                              '${rule.matchMode.storageValue}${rule.note.trim().isEmpty ? '' : ' · ${rule.note.trim()}'}',
+                          onEdit: () => onEdit(rule),
+                          onDelete: () => unawaited(
+                            removal.run(rule.id, () => onDelete(rule)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
-            ],
+            ),
           ),
       ],
     );
@@ -2191,7 +2218,7 @@ class _E2bStructuredField extends StatelessWidget {
   final List<_E2bStructuredEntry> entries;
   final VoidCallback onAdd;
   final ValueChanged<String> onEdit;
-  final ValueChanged<String> onDelete;
+  final FutureOr<void> Function(String id) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -2270,38 +2297,52 @@ class _E2bStructuredField extends StatelessWidget {
                         ),
                       ),
                     )
-                  : Column(
-                      key: ValueKey<int>(entries.length),
-                      children: <Widget>[
-                        kOpenHandGap10,
-                        for (final entry in entries)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Material(
-                              color: theme.colorScheme.surfaceContainer,
-                              borderRadius: kOpenHandBorderRadius12,
-                              child: ListTile(
-                                dense: true,
-                                title: Text(entry.title),
-                                subtitle: Text(
-                                  entry.subtitle,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: _SandboxEditDeleteActions(
-                                  editTooltip: AppLocalizations.of(
-                                    context,
-                                  )!.commonEdit,
-                                  deleteTooltip: AppLocalizations.of(
-                                    context,
-                                  )!.commonDelete,
-                                  onEdit: () => onEdit(entry.id),
-                                  onDelete: () => onDelete(entry.id),
+                  : OpenHandRemovableListScope(
+                      key: const ValueKey<String>('entries'),
+                      builder: (context, removal) => Column(
+                        children: <Widget>[
+                          kOpenHandGap10,
+                          for (final entry in entries)
+                            SettingsAwareAppearOnce(
+                              key: ValueKey<String>(
+                                'e2b-structured-entry-${entry.id}',
+                              ),
+                              child: OpenHandListRemovalTransition(
+                                collapsed: removal.isRemoving(entry.id),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Material(
+                                    color: theme.colorScheme.surfaceContainer,
+                                    borderRadius: kOpenHandBorderRadius12,
+                                    child: ListTile(
+                                      dense: true,
+                                      title: Text(entry.title),
+                                      subtitle: Text(
+                                        entry.subtitle,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      trailing: _SandboxEditDeleteActions(
+                                        editTooltip: AppLocalizations.of(
+                                          context,
+                                        )!.commonEdit,
+                                        deleteTooltip: AppLocalizations.of(
+                                          context,
+                                        )!.commonDelete,
+                                        onEdit: () => onEdit(entry.id),
+                                        onDelete: () => unawaited(
+                                          removal.run(entry.id, () async {
+                                            await onDelete(entry.id);
+                                          }),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
             ),
           ],
