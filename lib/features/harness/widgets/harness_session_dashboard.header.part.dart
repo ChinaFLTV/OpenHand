@@ -831,7 +831,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                                 ? 'URL/API · ${_heDescribeAiModelConfig(context, aiModels, entry.$2.aiModelConfigId, urlModeModelId: entry.$2.urlModeModelId)}'
                                 : entry.$2.isConfigured
                                 ? '${entry.$2.cliName} · ${describeHarnessCliModel(entry.$2.modelId, locale: Localizations.localeOf(context))}'
-                                : _heHarnessNotConfiguredText(context),
+                                : openHandNotConfiguredLabel(context),
                           ),
                       ],
                     ),

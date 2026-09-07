@@ -3336,10 +3336,6 @@ String _wrEditLabel(BuildContext context) {
   );
 }
 
-String _wrExportCsvLabel(BuildContext context) {
-  return openHandExportCsvLabel(context);
-}
-
 String _wrNewTabLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

@@ -814,7 +814,7 @@ String _navigationDestinationLabel(BuildContext context, AppSection section) {
     AppSection.crons => 'Crons',
     AppSection.instructions => openHandInstructionsLabel(context),
     AppSection.messageGateway => l10n.settingsMessageGatewayTitle,
-    AppSection.pluginService => _homePluginsLabel(context),
+    AppSection.pluginService => openHandPluginsLabel(context),
     AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
     AppSection.workflows => l10n.workflowsTitle,
     AppSection.services => l10n.servicesTitle,

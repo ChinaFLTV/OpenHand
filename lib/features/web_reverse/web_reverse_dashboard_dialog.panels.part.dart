@@ -455,7 +455,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                     ? null
                     : _exportCsv,
                 icon: const Icon(Icons.table_view_rounded, size: 18),
-                label: Text(_wrExportCsvLabel(context)),
+                label: Text(openHandExportCsvLabel(context)),
               ),
               kOpenHandHGap10,
               OutlinedButton.icon(

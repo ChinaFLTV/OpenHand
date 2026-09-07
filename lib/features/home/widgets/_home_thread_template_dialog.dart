@@ -636,8 +636,8 @@ String _localizedMetadataField(BuildContext context, String field) {
   return switch (field) {
     'session_id' => openHandSessionIdLabel(context),
     'template' => openHandTemplateLabel(context),
-    'created_at' => _homeCreatedAtLabel(context),
-    'updated_at' => _homeUpdatedAtLabel(context),
+    'created_at' => openHandCreatedAtLabel(context),
+    'updated_at' => openHandUpdatedAtLabel(context),
     'last_model' => openHandLocalizedText(
       context,
       zh: '最近模型',

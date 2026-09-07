@@ -2381,7 +2381,7 @@ Color _terminalStatusColor(ColorScheme cs, MachineTerminalStatus status) {
 String _statusLabel(BuildContext context, MachineTerminalStatus status) {
   return switch (status) {
     MachineTerminalStatus.running => openHandRunningLabel(context),
-    MachineTerminalStatus.starting => _homeStartingLabel(context),
+    MachineTerminalStatus.starting => openHandStartingLabel(context),
     MachineTerminalStatus.stopped => openHandStoppedLabel(context),
     MachineTerminalStatus.failed => _homeFailedLabel(context),
     MachineTerminalStatus.idle => openHandLocalizedText(

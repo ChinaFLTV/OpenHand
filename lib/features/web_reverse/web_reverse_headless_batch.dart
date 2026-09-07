@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../app/support/url_validation.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/argument_guards.dart';
 import '../../shared/util/async_concurrency.dart';
@@ -448,11 +449,7 @@ class WebReverseHeadlessBatch {
   }
 
   static bool _isHttpUrl(String url) {
-    if (url.length > _kHeadlessMaxUrlCharacters) return false;
-    final uri = Uri.tryParse(url);
-    return uri != null &&
-        (uri.scheme == 'http' || uri.scheme == 'https') &&
-        uri.host.isNotEmpty;
+    return url.length <= _kHeadlessMaxUrlCharacters && isValidHttpUrl(url);
   }
 }
 

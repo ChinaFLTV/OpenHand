@@ -449,7 +449,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
 
     return buildOpenHandAlertDialog(
       title: Text(
-        _openhandHomePaGenerateAiTitleLabel(context),
+        openHandGenerateAiTitleLabel(context),
         style: theme.textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.w800,
           letterSpacing: 0,
@@ -659,7 +659,7 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
       canPop: false,
       child: buildOpenHandAlertDialog(
         title: Text(
-          _openhandHomePaGenerateAiTitleLabel(context),
+          openHandGenerateAiTitleLabel(context),
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
             letterSpacing: 0,
@@ -1689,8 +1689,4 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
 
 String _openhandHomePaAutoLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '默认', en: 'Auto');
-}
-
-String _openhandHomePaGenerateAiTitleLabel(BuildContext context) {
-  return openHandGenerateAiTitleLabel(context);
 }

@@ -5930,7 +5930,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         if (data.evidence.isNotEmpty) ...[
           kOpenHandGap12,
           _GoalMessageBulletList(
-            label: _homeEvidenceLabel(context),
+            label: openHandEvidenceLabel(context),
             values: data.evidence,
             textColor: textColor,
             accent: OpenHandStatusColors.success,

@@ -414,7 +414,7 @@ class _WriteCommandDirectoryPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _homeWorkingDirectoryLabel(context),
+                  openHandWorkingDirectoryLabel(context),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w800,

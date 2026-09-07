@@ -2701,7 +2701,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   OutlinedButton.icon(
                     onPressed: _exportSeriesCsv,
                     icon: const Icon(Icons.download_rounded, size: 16),
-                    label: Text(_wrExportCsvLabel(context)),
+                    label: Text(openHandExportCsvLabel(context)),
                   ),
                 if (_tab == 3 && _events.isNotEmpty)
                   OutlinedButton.icon(

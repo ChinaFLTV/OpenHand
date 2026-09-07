@@ -1359,11 +1359,11 @@ Widget _buildMachineTerminalMetadataSection(
         value: _metadataDisplayValue(metadata['default_working_directory']),
       ),
       OpenHandMetadataEntryRow(
-        label: _homeCreatedAtLabel(context),
+        label: openHandCreatedAtLabel(context),
         value: _metadataDisplayValue(metadata['created_at']),
       ),
       OpenHandMetadataEntryRow(
-        label: _homeUpdatedAtLabel(context),
+        label: openHandUpdatedAtLabel(context),
         value: _metadataDisplayValue(metadata['updated_at']),
       ),
       if (activeTerminal.isNotEmpty)
@@ -1574,7 +1574,7 @@ String _terminalSizeText(Map<String, Object?> terminal) {
 String _machineTerminalStatusLabel(BuildContext context, String? status) {
   return switch (status) {
     'running' => openHandRunningLabel(context),
-    'starting' => _homeStartingLabel(context),
+    'starting' => openHandStartingLabel(context),
     'stopped' => openHandStoppedLabel(context),
     'failed' => _homeFailedLabel(context),
     'idle' => openHandLocalizedText(context, zh: '空闲', en: 'Idle'),

@@ -470,7 +470,7 @@ class _ActiveThreadBadge extends StatelessWidget {
       ),
       AiSendPhase.sendingMessage => openHandSendingLabel(context),
       AiSendPhase.responding => openHandActiveLabel(context),
-      AiSendPhase.awaitingApproval => _homeAwaitingApprovalLabel(context),
+      AiSendPhase.awaitingApproval => openHandAwaitingApprovalLabel(context),
       AiSendPhase.idle => '',
     };
     return _SweepBadge(

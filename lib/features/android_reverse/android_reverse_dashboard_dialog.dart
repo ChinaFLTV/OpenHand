@@ -5359,7 +5359,7 @@ fi
             de: 'Deinstalliert $packageName vom aktuellen Gerät.',
             ja: '現在のデバイスから $packageName をアンインストールします。',
           ),
-          confirmLabel: _androidReverseUninstallLabel(context),
+          confirmLabel: openHandUninstallLabel(context),
         );
         if (!confirmed) return;
         await _runDeviceAction(
@@ -6694,7 +6694,7 @@ fi
                         _uninstallAndroidMcpCapability(capability, matches),
                       ),
                 icon: Icons.delete_outline_rounded,
-                label: _androidReverseUninstallLabel(context),
+                label: openHandUninstallLabel(context),
               ),
             ],
           ),
@@ -6867,7 +6867,7 @@ fi
         ja: '$capabilityLabel の server を OpenHand MCP 設定から削除します: $names。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: _androidReverseUninstallLabel(context),
+      confirmLabel: openHandUninstallLabel(context),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -7217,7 +7217,7 @@ fi
         de: 'Deaktivieren',
         ja: '無効化',
       ),
-      _RuntimePluginAction.uninstall => _androidReverseUninstallLabel(context),
+      _RuntimePluginAction.uninstall => openHandUninstallLabel(context),
     };
   }
 
@@ -9941,9 +9941,7 @@ fi
     return switch (action) {
       _ToolchainCommandAction.install => openHandInstallLabel(context),
       _ToolchainCommandAction.update => openHandUpdateLabel(context),
-      _ToolchainCommandAction.uninstall => _androidReverseUninstallLabel(
-        context,
-      ),
+      _ToolchainCommandAction.uninstall => openHandUninstallLabel(context),
       _ToolchainCommandAction.reference => openHandLocalizedText(
         context,
         zh: '查看信息',
@@ -11078,7 +11076,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                     icon: Icons.construction_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: _androidReverseNameLabel(context),
+                        label: openHandNameLabel(context),
                         value: probe.label,
                       ),
                       _DashboardDetailRow(label: 'ID', value: probe.id),
@@ -11205,7 +11203,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                         monospace: true,
                       ),
                       _DashboardDetailRow(
-                        label: _androidReverseUninstallLabel(context),
+                        label: openHandUninstallLabel(context),
                         value: _commandText(probe.uninstallCommand),
                         monospace: true,
                       ),
@@ -11239,7 +11237,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                       icon: Icons.extension_rounded,
                       children: [
                         _DashboardDetailRow(
-                          label: _androidReverseNameLabel(context),
+                          label: openHandNameLabel(context),
                           value: plugin!.name,
                         ),
                         _DashboardDetailRow(label: 'ID', value: plugin!.id),
@@ -11336,7 +11334,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                     icon: Icons.info_outline_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: _androidReverseNameLabel(context),
+                        label: openHandNameLabel(context),
                         value: plugin.name,
                       ),
                       _DashboardDetailRow(label: 'ID', value: plugin.id),
@@ -11794,10 +11792,6 @@ String _androidReverseLaunchAppLabel(BuildContext context) {
   );
 }
 
-String _androidReverseNameLabel(BuildContext context) {
-  return openHandNameLabel(context);
-}
-
 String _androidReverseNoOutputLabel(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -11880,8 +11874,4 @@ String _androidReverseStatusLabel(BuildContext context) {
     de: 'Status',
     ja: '状態',
   );
-}
-
-String _androidReverseUninstallLabel(BuildContext context) {
-  return openHandUninstallLabel(context);
 }

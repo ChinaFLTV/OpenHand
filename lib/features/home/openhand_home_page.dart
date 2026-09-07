@@ -8969,7 +8969,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '消息网关',
         en: 'Message Gateway',
       ),
-      AppSection.pluginService => _homePluginsLabel(context),
+      AppSection.pluginService => openHandPluginsLabel(context),
       AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
       AppSection.workflows => AppLocalizations.of(context)!.workflowsTitle,
       AppSection.services => AppLocalizations.of(context)!.servicesTitle,
@@ -10829,18 +10829,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
 // 本库内复用的文案。
 
-String _homeAwaitingApprovalLabel(BuildContext context) {
-  return openHandAwaitingApprovalLabel(context);
-}
-
-String _homeCreatedAtLabel(BuildContext context) {
-  return openHandCreatedAtLabel(context);
-}
-
-String _homeEvidenceLabel(BuildContext context) {
-  return openHandEvidenceLabel(context);
-}
-
 String _homeExportSessionDataLabel(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -10881,10 +10869,6 @@ String _homePlatformLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '平台', en: 'Platform');
 }
 
-String _homePluginsLabel(BuildContext context) {
-  return openHandPluginsLabel(context);
-}
-
 String _homeRenameThreadLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '重命名线程', en: 'Rename Thread');
 }
@@ -10893,24 +10877,12 @@ String _homeSessionsDirectoryLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '会话目录', en: 'Sessions Directory');
 }
 
-String _homeStartingLabel(BuildContext context) {
-  return openHandStartingLabel(context);
-}
-
 String _homeTerminalLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '终端', en: 'Terminal');
 }
 
 String _homeTerminalsLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '终端数量', en: 'Terminals');
-}
-
-String _homeUpdatedAtLabel(BuildContext context) {
-  return openHandUpdatedAtLabel(context);
-}
-
-String _homeWorkingDirectoryLabel(BuildContext context) {
-  return openHandWorkingDirectoryLabel(context);
 }
 
 String _openhandHomePaTitleGenerationFailedLabel(BuildContext context) {

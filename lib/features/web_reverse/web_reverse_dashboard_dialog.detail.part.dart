@@ -301,7 +301,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           ja: 'ヘッダー',
         ),
         _DetailTab.preview => openHandPreviewLabel(context),
-        _DetailTab.response => _webReverseDashResponseLabel(context),
+        _DetailTab.response => openHandResponseLabel(context),
         _DetailTab.initiator => _webReverseDashInitiatorLabel(context),
         _DetailTab.timing => openHandLocalizedText(
           context,
@@ -1338,7 +1338,7 @@ class _TimingTab extends StatelessWidget {
           value: _fmt(start),
         ),
         _MetaRow(
-          label: _webReverseDashResponseLabel(context),
+          label: openHandResponseLabel(context),
           value: responseAt == null ? '-' : _fmt(responseAt),
         ),
         _MetaRow(
@@ -2223,8 +2223,4 @@ String _webReverseDashOpenInSourcesLabel(BuildContext context) {
     de: 'In Sources öffnen',
     ja: 'Sources で開く',
   );
-}
-
-String _webReverseDashResponseLabel(BuildContext context) {
-  return openHandResponseLabel(context);
 }

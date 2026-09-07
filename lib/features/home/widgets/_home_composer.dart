@@ -1509,7 +1509,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ),
             AiSendPhase.sendingMessage => l10n.chatSending,
             AiSendPhase.responding => _homeComposerStopResponseLabel(context),
-            AiSendPhase.awaitingApproval => _homeAwaitingApprovalLabel(context),
+            AiSendPhase.awaitingApproval => openHandAwaitingApprovalLabel(
+              context,
+            ),
             AiSendPhase.idle => l10n.composerSend,
           };
 
@@ -2905,7 +2907,7 @@ class _ComposerFullAccessModeButtonState
             children: [
               const Icon(Icons.admin_panel_settings_outlined, size: 20),
               kOpenHandHGap12,
-              Expanded(child: Text(_homeComposerDefaultAccessLabel(context))),
+              Expanded(child: Text(openHandDefaultAccessLabel(context))),
               if (!widget.fullAccess)
                 const Icon(Icons.check_rounded, size: 20)
               else
@@ -2919,7 +2921,7 @@ class _ComposerFullAccessModeButtonState
             children: [
               const Icon(Icons.gpp_maybe_outlined, size: 20),
               kOpenHandHGap12,
-              Expanded(child: Text(_homeComposerFullAccessLabel(context))),
+              Expanded(child: Text(openHandFullAccessLabel(context))),
               if (widget.fullAccess)
                 const Icon(Icons.check_rounded, size: 20)
               else
@@ -2939,8 +2941,8 @@ class _ComposerFullAccessModeButtonState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final modeLabel = widget.fullAccess
-        ? _homeComposerFullAccessLabel(context)
-        : _homeComposerDefaultAccessLabel(context);
+        ? openHandFullAccessLabel(context)
+        : openHandDefaultAccessLabel(context);
     final backgroundColor = !widget.enabled
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
         : widget.fullAccess
@@ -4907,14 +4909,6 @@ class _ComposerShortcutsHost extends StatelessWidget {
       ),
     ];
   }
-}
-
-String _homeComposerDefaultAccessLabel(BuildContext context) {
-  return openHandDefaultAccessLabel(context);
-}
-
-String _homeComposerFullAccessLabel(BuildContext context) {
-  return openHandFullAccessLabel(context);
 }
 
 String _homeComposerStopResponseLabel(BuildContext context) {

@@ -1573,7 +1573,7 @@ class _RoleConfigRow extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: _SearchableModelSelector(
-                    label: _harnessEngineeApiModelLabel(context),
+                    label: openHandApiModelLabel(context),
                     settingsModels: settingsModels,
                     selectedAiModelConfigId: selectedAiModelConfigId,
                     selectedUrlModeModelId: selectedUrlModeModelId,
@@ -2030,7 +2030,7 @@ class _QuickApplyBar extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: _SearchableModelSelector(
-                  label: _harnessEngineeApiModelLabel(context),
+                  label: openHandApiModelLabel(context),
                   settingsModels: settingsModels,
                   selectedAiModelConfigId: selectedAiModelConfigId,
                   selectedUrlModeModelId: selectedUrlModeModelId,
@@ -2309,10 +2309,6 @@ class _SearchableModelSelectorState extends State<_SearchableModelSelector> {
       ),
     );
   }
-}
-
-String _harnessEngineeApiModelLabel(BuildContext context) {
-  return openHandApiModelLabel(context);
 }
 
 String _harnessEngineeBrowseFolderLabel(BuildContext context) {

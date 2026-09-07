@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 import '../../../../app/support/system_proxy.dart';
+import '../../../../app/support/url_validation.dart';
 import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/network_limits.dart';
@@ -108,13 +109,13 @@ class AiE2bSandboxService {
       return 'E2B timeout 不能超过 int32 上限。';
     }
     if (config.domain.trim().isEmpty) return 'E2B Domain 不能为空。';
-    if (config.apiUrl.isNotEmpty && !_isHttpUrl(config.apiUrl)) {
+    if (config.apiUrl.isNotEmpty && !isValidHttpUrl(config.apiUrl)) {
       return 'E2B API URL 必须是有效的 HTTP(S) URL。';
     }
-    if (config.sandboxUrl.isNotEmpty && !_isHttpUrl(config.sandboxUrl)) {
+    if (config.sandboxUrl.isNotEmpty && !isValidHttpUrl(config.sandboxUrl)) {
       return 'E2B Sandbox URL 必须是有效的 HTTP(S) URL。';
     }
-    if (config.proxy.isNotEmpty && !_isHttpUrl(config.proxy)) {
+    if (config.proxy.isNotEmpty && !isValidHttpUrl(config.proxy)) {
       return 'E2B 客户端代理必须是有效的 HTTP(S) URL。';
     }
     if (!_isDomain(config.domain)) return 'E2B Domain 必须是有效的主机名。';
@@ -144,7 +145,7 @@ class AiE2bSandboxService {
       return 'E2B egressProxy 用户名和密码不能超过 255 字节。';
     }
     for (final value in config.denyOut) {
-      if (!_isIpOrCidr(value)) return 'E2B denyOut 仅支持 IP 或 CIDR：$value';
+      if (!isValidIpOrCidr(value)) return 'E2B denyOut 仅支持 IP 或 CIDR：$value';
     }
     final networkIssue = _validateNetworkRules(config.networkRules);
     if (networkIssue.isNotEmpty) return networkIssue;
@@ -162,7 +163,7 @@ class AiE2bSandboxService {
     }
     for (final rule in settings.deniedDomains) {
       if (rule.matchMode == AiCommandMatchMode.regex ||
-          !_isIpOrCidr(rule.pattern)) {
+          !isValidIpOrCidr(rule.pattern)) {
         return 'E2B denyOut 仅支持 IP 或 CIDR：${rule.pattern}';
       }
     }
@@ -711,27 +712,6 @@ class AiE2bSandboxService {
       );
     }
     return IOClient(raw);
-  }
-
-  static bool _isIpOrCidr(String value) {
-    final parts = value.trim().split('/');
-    if (parts.isEmpty || parts.length > 2) return false;
-    try {
-      final address = InternetAddress(parts.first);
-      if (parts.length == 1) return true;
-      final prefix = int.tryParse(parts[1]);
-      final max = address.type == InternetAddressType.IPv4 ? 32 : 128;
-      return prefix != null && prefix >= 0 && prefix <= max;
-    } on ArgumentError {
-      return false;
-    }
-  }
-
-  static bool _isHttpUrl(String value) {
-    final uri = Uri.tryParse(value.trim());
-    return uri != null &&
-        (uri.scheme == 'http' || uri.scheme == 'https') &&
-        uri.host.isNotEmpty;
   }
 
   static bool _isDomain(String value) {

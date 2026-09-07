@@ -80,6 +80,17 @@ bool isValidHttpUrl(String rawValue, {bool allowUserInfo = false}) {
   return tryParseValidHttpUrl(rawValue, allowUserInfo: allowUserInfo) != null;
 }
 
+bool isValidIpOrCidr(String rawValue) {
+  final parts = rawValue.trim().split('/');
+  if (parts.length > 2) return false;
+  final address = InternetAddress.tryParse(parts.first);
+  if (address == null) return false;
+  if (parts.length == 1) return true;
+  final prefix = int.tryParse(parts.last);
+  final maxPrefixLength = address.type == InternetAddressType.IPv4 ? 32 : 128;
+  return prefix != null && prefix >= 0 && prefix <= maxPrefixLength;
+}
+
 String? firstHttpUrlFromText(String? rawText, {bool allowUserInfo = false}) {
   final text = nullIfBlank(rawText);
   if (text == null) return null;

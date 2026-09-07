@@ -41,22 +41,8 @@ final class BoundedCopyPolicy {
   }
 }
 
-final class BoundedDirectoryCopyResult {
-  const BoundedDirectoryCopyResult({
-    required this.entryCount,
-    required this.fileCount,
-    required this.directoryCount,
-    required this.totalBytes,
-  });
-
-  final int entryCount;
-  final int fileCount;
-  final int directoryCount;
-  final int totalBytes;
-}
-
 /// 通过有界预检后再复制目录树；先写入同级暂存目录，再以重命名原子发布。
-Future<BoundedDirectoryCopyResult> copyDirectoryBounded(
+Future<void> copyDirectoryBounded(
   Directory source,
   Directory target, {
   required BoundedCopyPolicy policy,
@@ -143,13 +129,6 @@ Future<BoundedDirectoryCopyResult> copyDirectoryBounded(
       _retainLateDirectoryRename(renameFuture, staged);
       rethrow;
     }
-
-    return BoundedDirectoryCopyResult(
-      entryCount: plan.entryCount,
-      fileCount: plan.files.length,
-      directoryCount: plan.directories.length,
-      totalBytes: plan.totalBytes,
-    );
   } catch (_) {
     final staged = stagingDirectory;
     if (staged != null) {
@@ -319,12 +298,7 @@ Future<_DirectoryCopyPlan> _buildDirectoryPlan(
     }
   }
 
-  return _DirectoryCopyPlan(
-    directories: directories,
-    files: files,
-    entryCount: entryCount,
-    totalBytes: totalBytes,
-  );
+  return _DirectoryCopyPlan(directories: directories, files: files);
 }
 
 Future<File> _copyPlannedFile(
@@ -532,15 +506,8 @@ final class _PlannedFile {
 }
 
 final class _DirectoryCopyPlan {
-  const _DirectoryCopyPlan({
-    required this.directories,
-    required this.files,
-    required this.entryCount,
-    required this.totalBytes,
-  });
+  const _DirectoryCopyPlan({required this.directories, required this.files});
 
   final List<String> directories;
   final List<_PlannedFile> files;
-  final int entryCount;
-  final int totalBytes;
 }

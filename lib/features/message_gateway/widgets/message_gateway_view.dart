@@ -5796,7 +5796,7 @@ class _WebOpsDashboardStats {
   List<OpenHandChartSeries> requestTrendSeries(BuildContext context) {
     return <OpenHandChartSeries>[
       OpenHandChartSeries(
-        label: _messageGatewaySuccessLabel(context),
+        label: openHandSuccessLabel(context),
         values: successBuckets,
         color: OpenHandStatusColors.success,
       ),
@@ -5842,7 +5842,7 @@ class _WebOpsDashboardStats {
     WebGatewayRuntimeSnapshot snapshot,
   ) {
     return <String, int>{
-      _messageGatewaySuccessLabel(context): snapshot.successTotal,
+      openHandSuccessLabel(context): snapshot.successTotal,
       _messageGatewayBlockedLabel(context): snapshot.effectiveBlockedTotal,
       _messageGatewayFailedLabel(context): snapshot.failedRequests,
     }..removeWhere((_, value) => value <= 0);
@@ -7575,9 +7575,7 @@ Widget _webOpsFlagChip(
   final color = enabled ? OpenHandStatusColors.success : cs.onSurfaceVariant;
   return _OpsPill(
     label,
-    enabled
-        ? _messageGatewayOnLabel(context)
-        : _messageGatewayOffLabel(context),
+    enabled ? openHandOnLabel(context) : openHandOffLabel(context),
     color: color,
   );
 }
@@ -7624,8 +7622,8 @@ String _webOpsHealthEndpoint(
       ? ''
       : '?${_formatQueryParameters(config.healthCheck.queryParameters)}';
   final enabled = config.healthCheck.enabled
-      ? _messageGatewayOnLabel(context)
-      : _messageGatewayOffLabel(context);
+      ? openHandOnLabel(context)
+      : openHandOffLabel(context);
   return '$enabled · ${config.healthCheck.method} ${config.healthCheck.path}$query · ${config.healthCheck.timeoutMs}ms · ${config.healthCheck.expectedStatusCode}';
 }
 
@@ -11520,14 +11518,6 @@ String _messageGatewayNoLatencySamplesLabel(BuildContext context) {
   );
 }
 
-String _messageGatewayOffLabel(BuildContext context) {
-  return openHandOffLabel(context);
-}
-
-String _messageGatewayOnLabel(BuildContext context) {
-  return openHandOnLabel(context);
-}
-
 String _messageGatewayP95LatencyLabel(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -11618,10 +11608,6 @@ String _messageGatewayStatusMixLabel(BuildContext context) {
     de: 'Statusverteilung',
     ja: 'ステータス分布',
   );
-}
-
-String _messageGatewaySuccessLabel(BuildContext context) {
-  return openHandSuccessLabel(context);
 }
 
 String _messageGatewayThreadsLabel(BuildContext context) {

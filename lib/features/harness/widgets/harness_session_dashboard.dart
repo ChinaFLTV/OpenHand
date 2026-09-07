@@ -220,10 +220,6 @@ String _heHarnessPhaseLabel(BuildContext context, HarnessPhase phase) {
   };
 }
 
-String _heHarnessNotConfiguredText(BuildContext context) {
-  return openHandNotConfiguredLabel(context);
-}
-
 String _heDescribeAiModelConfig(
   BuildContext context,
   List<AiModelConfig> settingsModels,
@@ -232,7 +228,7 @@ String _heDescribeAiModelConfig(
 }) {
   final trimmedConfigId = configId?.trim() ?? '';
   if (trimmedConfigId.isEmpty) {
-    return _heHarnessNotConfiguredText(context);
+    return openHandNotConfiguredLabel(context);
   }
 
   final matchedConfig = settingsModels

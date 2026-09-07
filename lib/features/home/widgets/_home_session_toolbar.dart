@@ -1847,7 +1847,7 @@ class _GoalEvaluationRow extends StatelessWidget {
             if (evaluation.evidence.isNotEmpty) ...[
               kOpenHandGap8,
               _GoalInlineList(
-                label: _homeEvidenceLabel(context),
+                label: openHandEvidenceLabel(context),
                 values: evaluation.evidence,
                 color: OpenHandStatusColors.success,
               ),
@@ -1946,7 +1946,7 @@ class _GoalEnvironmentSection extends StatelessWidget {
         ),
         _GoalKeyValue(_homePlatformLabel(context), environment.platform),
         _GoalKeyValue(
-          _homeWorkingDirectoryLabel(context),
+          openHandWorkingDirectoryLabel(context),
           environment.applicationDirectory,
         ),
         _GoalKeyValue(

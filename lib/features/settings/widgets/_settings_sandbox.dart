@@ -2538,7 +2538,7 @@ class _E2bTextValueDialogState extends State<_E2bTextValueDialog> {
           validator: (value) {
             final requiredError = _requiredDialogValue(context, value);
             if (requiredError != null) return requiredError;
-            if (widget.ipOrCidrOnly && !_isSandboxIpOrCidr(value!)) {
+            if (widget.ipOrCidrOnly && !isValidIpOrCidr(value!)) {
               return openHandLocalizedText(
                 context,
                 zh: '请输入有效的 IP 地址或 CIDR。',
@@ -3957,9 +3957,7 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
         kOpenHandGap14,
         TextFormField(
           controller: _noteController,
-          decoration: InputDecoration(
-            labelText: _settingsSandboNoteLabel(context),
-          ),
+          decoration: InputDecoration(labelText: openHandNoteLabel(context)),
           maxLines: 2,
         ),
       ],
@@ -4043,7 +4041,7 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
                 en: 'Enter a pattern.',
               );
             }
-            if (widget.ipOrCidrOnly && !_isSandboxIpOrCidr(normalized)) {
+            if (widget.ipOrCidrOnly && !isValidIpOrCidr(normalized)) {
               return 'E2B denyOut 仅支持 IP 或 CIDR。';
             }
             return null;
@@ -4059,9 +4057,7 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
         kOpenHandGap14,
         TextFormField(
           controller: _noteController,
-          decoration: InputDecoration(
-            labelText: _settingsSandboNoteLabel(context),
-          ),
+          decoration: InputDecoration(labelText: openHandNoteLabel(context)),
           maxLines: 2,
         ),
       ],
@@ -4077,21 +4073,3 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
 
 String _newSandboxRuleId() =>
     'sandbox-${DateTime.now().microsecondsSinceEpoch}';
-
-bool _isSandboxIpOrCidr(String value) {
-  final parts = value.trim().split('/');
-  if (parts.isEmpty || parts.length > 2) return false;
-  try {
-    final address = InternetAddress(parts.first);
-    if (parts.length == 1) return true;
-    final prefix = int.tryParse(parts[1]);
-    final max = address.type == InternetAddressType.IPv4 ? 32 : 128;
-    return prefix != null && prefix >= 0 && prefix <= max;
-  } on ArgumentError {
-    return false;
-  }
-}
-
-String _settingsSandboNoteLabel(BuildContext context) {
-  return openHandNoteLabel(context);
-}
