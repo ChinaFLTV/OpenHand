@@ -1362,6 +1362,7 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
                   _textFor(zh: 'E2B 接口密钥', en: 'E2B API Key'),
                   obscure: !_showSecrets,
                   suffix: IconButton(
+                    style: _sandboxInputIconButtonStyle,
                     tooltip: _showSecrets
                         ? _textFor(zh: '隐藏密钥', en: 'Hide Secret')
                         : _textFor(zh: '显示密钥', en: 'Show Secret'),
@@ -2406,6 +2407,18 @@ class _E2bKeyValueDialogState extends State<_E2bKeyValueDialog> {
             labelText: openHandLocalizedText(context, zh: '值', en: 'Value'),
             suffixIcon: widget.secret
                 ? IconButton(
+                    style: _sandboxInputIconButtonStyle,
+                    tooltip: _showValue
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '隐藏内容',
+                            en: 'Hide Value',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '显示内容',
+                            en: 'Show Value',
+                          ),
                     onPressed: () => setState(() => _showValue = !_showValue),
                     icon: Icon(
                       _showValue
@@ -2423,6 +2436,10 @@ class _E2bKeyValueDialogState extends State<_E2bKeyValueDialog> {
     );
   }
 }
+
+const ButtonStyle _sandboxInputIconButtonStyle = ButtonStyle(
+  backgroundColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+);
 
 class _E2bTextValueDialog extends StatefulWidget {
   const _E2bTextValueDialog({
