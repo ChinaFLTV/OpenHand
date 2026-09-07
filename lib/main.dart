@@ -144,24 +144,7 @@ Future<void> _bootstrapRuntime(
   final originalOnError = FlutterError.onError;
   final originalPlatformOnError = PlatformDispatcher.instance.onError;
   FlutterError.onError = (FlutterErrorDetails details) {
-    if (_shouldSilenceHighlightFormattingError(
-      details.exception,
-      details.stack,
-    )) {
-      return;
-    }
-    if (_isRecoverableOverlayPortalHitTestRace(
-      details.exception,
-      details.stack,
-    )) {
-      return;
-    }
-    // 平台 IME 选区越界断言会在 reportError 后再次抛出；这里转为轻量恢复。
-    if (_isComposerImeRangeOverflow(details.exception, details.stack)) {
-      _triggerComposerImeSoftRecovery();
-      return;
-    }
-    if (_shouldSilenceMcpLifecycleError(details.exception)) {
+    if (_handleRecoverableRuntimeError(details.exception, details.stack)) {
       return;
     }
     if (details.exceptionAsString().contains(
@@ -178,19 +161,7 @@ Future<void> _bootstrapRuntime(
 
   // 吃掉平台分发器上报的可恢复异步异常，避免单次渲染噪声触发连续重建。
   PlatformDispatcher.instance.onError = (error, stack) {
-    if (_shouldSilenceHighlightFormattingError(error, stack)) {
-      return true;
-    }
-    if (_isRecoverableOverlayPortalHitTestRace(error, stack)) {
-      return true;
-    }
-    if (_isComposerImeRangeOverflow(error, stack)) {
-      _triggerComposerImeSoftRecovery();
-      return true;
-    }
-    if (_shouldSilenceMcpLifecycleError(error)) {
-      return true;
-    }
+    if (_handleRecoverableRuntimeError(error, stack)) return true;
     return originalPlatformOnError?.call(error, stack) ?? false;
   };
 
@@ -737,14 +708,18 @@ Future<AppInfo> _loadAppInfo() async {
   }
 }
 
-/// 仅过滤 highlight 已知的数字解析噪声，其他格式异常必须继续上报。
+const List<String> _highlightFormattingNoiseMarkers = <String>[
+  'FormatException: Invalid number',
+  'FormatException: Invalid radix-10 number',
+  'FormatException: Invalid radix-16 number',
+];
+
+bool _containsHighlightFormattingNoise(String value) {
+  return _highlightFormattingNoiseMarkers.any(value.contains);
+}
+
 bool _shouldSilenceHighlightFormattingError(Object error, StackTrace? stack) {
-  final message = error.toString();
-  final isKnownFormattingNoise =
-      message.contains('FormatException: Invalid number') ||
-      message.contains('FormatException: Invalid radix-10 number') ||
-      message.contains('FormatException: Invalid radix-16 number');
-  if (!isKnownFormattingNoise) return false;
+  if (!_containsHighlightFormattingNoise(error.toString())) return false;
   final trace = stack?.toString() ?? '';
   return trace.contains('package:highlight/') ||
       trace.contains('package:flutter_highlight/');
@@ -752,9 +727,7 @@ bool _shouldSilenceHighlightFormattingError(Object error, StackTrace? stack) {
 
 /// 过滤 highlight 格式化异常和 media_kit 初始化跟踪输出，避免刷屏和首屏卡顿。
 bool _shouldSilencePrintLine(String line) {
-  return line.contains('FormatException: Invalid number') ||
-      line.contains('FormatException: Invalid radix-10 number') ||
-      line.contains('FormatException: Invalid radix-16 number') ||
+  return _containsHighlightFormattingNoise(line) ||
       line.startsWith('media_kit: NativeReferenceHolder: Allocated ') ||
       line.startsWith('media_kit: NativeReferenceHolder: Located ');
 }
@@ -812,19 +785,7 @@ void _triggerComposerImeSoftRecovery() {
 }
 
 void _handleUncaughtZoneError(Object error, StackTrace stack) {
-  if (_shouldSilenceHighlightFormattingError(error, stack)) {
-    return;
-  }
-  if (_isRecoverableOverlayPortalHitTestRace(error, stack)) {
-    return;
-  }
-  if (_isComposerImeRangeOverflow(error, stack)) {
-    _triggerComposerImeSoftRecovery();
-    return;
-  }
-  if (_shouldSilenceMcpLifecycleError(error)) {
-    return;
-  }
+  if (_handleRecoverableRuntimeError(error, stack)) return;
   FlutterError.reportError(
     FlutterErrorDetails(
       exception: error,
@@ -835,6 +796,14 @@ void _handleUncaughtZoneError(Object error, StackTrace stack) {
   );
 }
 
-bool _shouldSilenceMcpLifecycleError(Object error) {
+bool _handleRecoverableRuntimeError(Object error, StackTrace? stack) {
+  if (_shouldSilenceHighlightFormattingError(error, stack) ||
+      _isRecoverableOverlayPortalHitTestRace(error, stack)) {
+    return true;
+  }
+  if (_isComposerImeRangeOverflow(error, stack)) {
+    _triggerComposerImeSoftRecovery();
+    return true;
+  }
   return isExpectedMcpToolDiscoveryLifecycleError(error);
 }

@@ -1686,8 +1686,6 @@ int _lineCount(String text) {
   return '\n'.allMatches(text).length + 1;
 }
 
-// 本文件内复用文案。
-
 String _knowledgeSourcFindLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

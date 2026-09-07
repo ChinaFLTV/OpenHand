@@ -99,6 +99,15 @@ Future<int> _checkTemporaryDirectoryLifecycle() async {
 
 int _checkJsonDecode() {
   var failures = 0;
+  final validNull = tryDecodeJsonValue('null');
+  if (!validNull.success || validNull.value != null) {
+    stderr.writeln('tryDecodeJsonValue 未识别合法 JSON null');
+    failures++;
+  }
+  if (tryDecodeJsonValue('{').success) {
+    stderr.writeln('tryDecodeJsonValue 未拒绝无效 JSON');
+    failures++;
+  }
   final decoded = decodeJsonTextUsingConfig(
     '{"a":1,"b":[true,null]}',
     maxTextCodeUnits: 64,

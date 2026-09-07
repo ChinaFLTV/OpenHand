@@ -8404,8 +8404,6 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
   }
 }
 
-// 本库内复用的文案。
-
 String _settingsClearLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '确认清空', en: 'Clear');
 }

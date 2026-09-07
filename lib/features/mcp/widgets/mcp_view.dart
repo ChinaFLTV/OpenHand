@@ -14715,11 +14715,8 @@ List<Object?> _schemaEnumValues(String text) {
 }
 
 Object? _schemaEnumValue(String value) {
-  try {
-    return jsonDecode(value);
-  } catch (_) {
-    return value;
-  }
+  final decoded = tryDecodeJsonValue(value);
+  return decoded.success ? decoded.value : value;
 }
 
 String _schemaTypeLabel(BuildContext context, String type) {

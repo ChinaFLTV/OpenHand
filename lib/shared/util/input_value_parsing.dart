@@ -125,19 +125,20 @@ const Set<String> _falsyBoolTexts = <String>{
   'disabled',
 };
 
-({bool ok, Object? value}) _tryDecodeJsonText(String value) {
+/// 尝试解析 JSON，并区分解析失败与合法的 `null` 值。
+({bool success, Object? value}) tryDecodeJsonValue(String value) {
   try {
-    return (ok: true, value: jsonDecode(value));
+    return (success: true, value: jsonDecode(value));
   } on FormatException {
-    return (ok: false, value: null);
+    return (success: false, value: null);
   }
 }
 
 /// 尝试解析 JSON；空输入或解析失败时返回 `null`。
 Object? tryDecodeJson(String value) {
   if (value.isEmpty) return null;
-  final decoded = _tryDecodeJsonText(value);
-  return decoded.ok ? decoded.value : null;
+  final decoded = tryDecodeJsonValue(value);
+  return decoded.success ? decoded.value : null;
 }
 
 /// 全局复用的双空格缩进 JSON 编码器。
@@ -245,8 +246,8 @@ List<String>? optionalStringListFromJsonText(
 }) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return const <String>[];
-  final decoded = _tryDecodeJsonText(trimmed);
-  if (!decoded.ok) return null;
+  final decoded = tryDecodeJsonValue(trimmed);
+  if (!decoded.success) return null;
   if (requireList && decoded.value is! List) return null;
   return stringListFromValue(decoded.value, separator: separator, limit: limit);
 }
@@ -548,7 +549,7 @@ List<Map<String, Object?>>? optionalStringKeyedMapListFromValueOrJsonText(
   if (value is String) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return const <Map<String, Object?>>[];
-    final decoded = _tryDecodeJsonText(trimmed);
+    final decoded = tryDecodeJsonValue(trimmed);
     if (decoded.value is List) {
       return stringKeyedMapListFromValue(
         decoded.value,
@@ -579,7 +580,7 @@ Map<String, Object?>? optionalStringKeyedMapFromValueOrJsonText(Object? value) {
 Map<String, Object?>? optionalStringKeyedMapFromJsonText(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return null;
-  final decoded = _tryDecodeJsonText(trimmed);
+  final decoded = tryDecodeJsonValue(trimmed);
   if (decoded.value is Map) return stringKeyedMapFromValue(decoded.value);
   return null;
 }

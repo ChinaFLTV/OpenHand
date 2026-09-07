@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+import '../../../../shared/util/input_value_parsing.dart';
 import 'ai_tool_usage_promotion_store.dart';
 
 enum AiResourceUsagePayloadField {
@@ -141,13 +140,11 @@ String _persistedPathOf(
 String? _toolOutputPath(String metadataJson) {
   final raw = metadataJson.trim();
   if (raw.isEmpty || raw == '{}') return null;
-  try {
-    final decoded = jsonDecode(raw);
-    if (decoded is Map) {
-      final path = '${decoded['tool_output_persisted_path'] ?? ''}'.trim();
-      if (path.isNotEmpty) return path;
-    }
-  } catch (_) {}
+  final decoded = tryDecodeJson(raw);
+  if (decoded is Map) {
+    final path = '${decoded['tool_output_persisted_path'] ?? ''}'.trim();
+    if (path.isNotEmpty) return path;
+  }
   return RegExp(
     r'"tool_output_persisted_path"\s*:\s*"([^"]+)"',
   ).firstMatch(raw)?.group(1);

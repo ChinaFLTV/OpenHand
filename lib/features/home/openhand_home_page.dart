@@ -10835,8 +10835,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 }
 
-// 本库内复用的文案。
-
 String _homeExportSessionDataLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

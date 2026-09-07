@@ -365,12 +365,8 @@ String _prettyToolArguments(String arguments) {
   if (trimmed.isEmpty) {
     return '{}';
   }
-  try {
-    final decoded = jsonDecode(trimmed);
-    return prettyPrintJson(decoded);
-  } catch (_) {
-    return trimmed;
-  }
+  final decoded = tryDecodeJsonValue(trimmed);
+  return decoded.success ? prettyPrintJson(decoded.value) : trimmed;
 }
 
 bool _isTerminalToolExecutionStatus(String status) {

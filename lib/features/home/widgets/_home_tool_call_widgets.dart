@@ -2871,11 +2871,8 @@ String? _tryFormatJsonContent(String content) {
   if (!_looksLikeJsonContent(content)) {
     return null;
   }
-  try {
-    return prettyPrintJson(jsonDecode(content));
-  } catch (_) {
-    return null;
-  }
+  final decoded = tryDecodeJsonValue(content);
+  return decoded.success ? prettyPrintJson(decoded.value) : null;
 }
 
 bool _looksLikeJsonContent(String content) {
@@ -3059,22 +3056,18 @@ String _toolArgumentsPreview(AiSessionMessage message) {
   }
   final rawArguments = '${message.metadata['tool_arguments'] ?? ''}'.trim();
   if (rawArguments.isNotEmpty) {
-    try {
-      final decoded = jsonDecode(rawArguments);
-      if (decoded is Map) {
-        final entries = stringKeyedMapFromValue(decoded).entries.take(2);
-        final summary = entries
-            .map((entry) => '${entry.key}: ${entry.value}')
-            .join(', ');
-        if (summary.isNotEmpty) {
-          return summary;
-        }
+    final decoded = tryDecodeJson(rawArguments);
+    if (decoded is Map) {
+      final entries = stringKeyedMapFromValue(decoded).entries.take(2);
+      final summary = entries
+          .map((entry) => '${entry.key}: ${entry.value}')
+          .join(', ');
+      if (summary.isNotEmpty) {
+        return summary;
       }
-      if (decoded is List) {
-        return '[${decoded.length} items]';
-      }
-    } catch (_) {
-      // 失败时使用下方格式化文本预览。
+    }
+    if (decoded is List) {
+      return '[${decoded.length} items]';
     }
   }
   final preview = rawArguments.isEmpty ? '{}' : rawArguments;
@@ -3089,20 +3082,14 @@ List<({String key, String? valuePreview})> _parseArgumentKeys(
   if (trimmed.isEmpty) {
     return const <({String key, String? valuePreview})>[];
   }
-  try {
-    final decoded = jsonDecode(trimmed);
-    if (decoded is Map) {
-      return decoded.entries
-          .map(
-            (e) => (
-              key: '${e.key}',
-              valuePreview: _summarizeArgumentValue(e.value),
-            ),
-          )
-          .toList(growable: false);
-    }
-  } catch (_) {
-    // 流式中途允许 JSON 尚未完整。
+  final decoded = tryDecodeJson(trimmed);
+  if (decoded is Map) {
+    return decoded.entries
+        .map(
+          (e) =>
+              (key: '${e.key}', valuePreview: _summarizeArgumentValue(e.value)),
+        )
+        .toList(growable: false);
   }
   return const <({String key, String? valuePreview})>[];
 }

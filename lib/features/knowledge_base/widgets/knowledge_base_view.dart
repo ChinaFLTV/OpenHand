@@ -961,8 +961,6 @@ class _SmallPill extends StatelessWidget {
   }
 }
 
-// 本文件内复用文案。
-
 String _knowledgeBaseVNewNoteLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
@@ -713,15 +711,17 @@ class AiModelProfile {
       ),
       canonicalSlug: _readString(json['canonical_slug']),
       huggingFaceId: _readString(json['hugging_face_id']),
-      created: _readNullableInt(json['created']),
+      created: optionalIntFromValue(json['created']),
       architecture: json['architecture'] is Map
           ? AiModelArchitectureMetadata.fromJson(
               stringKeyedMapFromValue(json['architecture']),
             )
           : null,
-      supportedParameters: _parseStringList(json['supported_parameters']),
+      supportedParameters: stringListFromListValue(
+        json['supported_parameters'],
+      ),
       defaultParameters: _parseObjectMap(json['default_parameters']),
-      supportedVoices: _parseStringList(json['supported_voices']),
+      supportedVoices: stringListFromListValue(json['supported_voices']),
       knowledgeCutoff: _readString(json['knowledge_cutoff']),
       expirationDate: _readString(json['expiration_date']),
       links: json['links'] is Map
@@ -749,7 +749,9 @@ class AiModelProfile {
       embeddingDocumentModelId: _readString(
         json['embedding_document_model_id'],
       ),
-      embeddingInputTypes: _parseStringList(json['embedding_input_types']),
+      embeddingInputTypes: stringListFromListValue(
+        json['embedding_input_types'],
+      ),
       embeddingDefaultInputType: _readString(
         json['embedding_default_input_type'],
       ),
@@ -757,7 +759,7 @@ class AiModelProfile {
       embeddingDocumentInputType: _readString(
         json['embedding_document_input_type'],
       ),
-      embeddingSupportedTaskTypes: _parseStringList(
+      embeddingSupportedTaskTypes: stringListFromListValue(
         json['embedding_supported_task_types'],
       ),
       embeddingDefaultTaskType: _readString(
@@ -775,13 +777,15 @@ class AiModelProfile {
       embeddingDocumentTextPrefix: _readString(
         json['embedding_document_text_prefix'],
       ),
-      embeddingEncodingFormats: _parseStringList(
+      embeddingEncodingFormats: stringListFromListValue(
         json['embedding_encoding_formats'],
       ),
       embeddingDefaultEncodingFormat: _readString(
         json['embedding_default_encoding_format'],
       ),
-      embeddingOutputDTypes: _parseStringList(json['embedding_output_dtypes']),
+      embeddingOutputDTypes: stringListFromListValue(
+        json['embedding_output_dtypes'],
+      ),
       embeddingDefaultOutputDType: _readString(
         json['embedding_default_output_dtype'],
       ),
@@ -816,7 +820,7 @@ class AiModelProfile {
         json['rerank_max_documents'],
       ),
       rerankDefaultTopN: _readNullablePositiveInt(json['rerank_default_top_n']),
-      rerankSupportedParameters: _parseStringList(
+      rerankSupportedParameters: stringListFromListValue(
         json['rerank_supported_parameters'],
       ),
       rerankSupportsReturnDocuments:
@@ -828,10 +832,10 @@ class AiModelProfile {
           _readBool(json['rerank_supports_truncation']) ?? false,
       rerankDefaultTruncation: _readBool(json['rerank_default_truncation']),
       readerSourceTypes: ReaderFileType.normalizeList(
-        _parseStringList(json['reader_source_types']),
+        stringListFromListValue(json['reader_source_types']),
       ),
       readerTargetTypes: ReaderFileType.normalizeList(
-        _parseStringList(json['reader_target_types']),
+        stringListFromListValue(json['reader_target_types']),
       ),
     );
   }
@@ -1513,19 +1517,11 @@ class AiModelProfile {
     return result;
   }
 
-  static List<String> _parseStringList(Object? value) {
-    return stringListFromListValue(value);
-  }
-
   static Map<String, Object?> _parseObjectMap(Object? value) {
     if (value is Map) {
       return Map<String, Object?>.of(stringKeyedMapFromValue(value));
     }
     return const <String, Object?>{};
-  }
-
-  static int? _readNullableInt(Object? value) {
-    return optionalIntFromValue(value);
   }
 
   static int? _readNullablePositiveInt(Object? value) {
@@ -1544,11 +1540,7 @@ class AiModelProfile {
     if (value is String) {
       final trimmed = nullIfBlank(value);
       if (trimmed == null) return const <AiReasoningEffortOption>[];
-      try {
-        raw = jsonDecode(trimmed);
-      } catch (_) {
-        return const <AiReasoningEffortOption>[];
-      }
+      raw = tryDecodeJson(trimmed);
     }
     if (raw is! List) return const <AiReasoningEffortOption>[];
     final result = <AiReasoningEffortOption>[];
@@ -1599,7 +1591,8 @@ class AiModelConfig {
       name: stringFromValue(json['name']),
       officialWebsiteUrl: _readOfficialWebsiteUrl(json),
       baseUrl: _normalizeBaseUrl(stringFromValue(json['base_url'])),
-      autoCompleteBaseUrl: _readBool(json[_autoCompleteBaseUrlJsonKey]) ?? true,
+      autoCompleteBaseUrl:
+          optionalBoolFromValue(json[_autoCompleteBaseUrlJsonKey]) ?? true,
       authScheme: AiAuthScheme.fromStorage(
         stringFromValue(json['auth_scheme']),
       ),
@@ -1613,15 +1606,17 @@ class AiModelConfig {
         apiDialect: apiDialect,
         value: json[_explicitPromptCacheEnabledJsonKey],
       ),
-      maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
+      maxContextTokens: optionalPositiveIntFromValue(
+        json['max_context_tokens'],
+      ),
       availableModelIds: availableModelIds,
       defaultTitleModelId: stringFromValue(json['default_title_model_id']),
       isGlobalDefaultTitleModel:
-          _readBool(json['is_global_default_title_model']) ?? false,
+          optionalBoolFromValue(json['is_global_default_title_model']) ?? false,
       customHeaders: _parseCustomHeaders(json['custom_headers']),
       requestMethod: _parseRequestMethod(json['request_method']),
-      maxTokens: _readNullablePositiveInt(json['max_tokens']),
-      temperature: _readNullableDouble(json['temperature']),
+      maxTokens: optionalPositiveIntFromValue(json['max_tokens']),
+      temperature: optionalDoubleFromValue(json['temperature']),
       streamEnabled: optionalBoolFromValue(json['stream_enabled']) ?? true,
       modelProfiles: _parseModelProfiles(json['model_profiles']),
       endpointOverrides: parseAiEndpointOverrides(json['endpoint_overrides']),
@@ -2396,8 +2391,8 @@ class AiModelConfig {
       }
       if (entry.key == 'reasoning' && value is Map) {
         final reasoning = stringKeyedMapFromValue(value);
-        if (_readBool(reasoning['enabled']) == true) return true;
-        if (_readBool(reasoning['exclude']) == false) return true;
+        if (optionalBoolFromValue(reasoning['enabled']) == true) return true;
+        if (optionalBoolFromValue(reasoning['exclude']) == false) return true;
       }
       if (entry.key == 'thinking' && value is Map) {
         final thinking = stringKeyedMapFromValue(value);
@@ -2421,8 +2416,8 @@ class AiModelConfig {
       }
       if (entry.key == 'reasoning' && value is Map) {
         final reasoning = stringKeyedMapFromValue(value);
-        if (_readBool(reasoning['enabled']) == false) return true;
-        if (_readBool(reasoning['exclude']) == true) return true;
+        if (optionalBoolFromValue(reasoning['enabled']) == false) return true;
+        if (optionalBoolFromValue(reasoning['exclude']) == true) return true;
       }
       if (entry.key == 'thinking' && value is Map) {
         final thinking = stringKeyedMapFromValue(value);
@@ -2806,14 +2801,6 @@ class AiModelConfig {
     return '';
   }
 
-  static bool? _readBool(Object? value) {
-    return optionalBoolFromValue(value);
-  }
-
-  static int? _readNullablePositiveInt(Object? value) {
-    return optionalPositiveIntFromValue(value);
-  }
-
   static bool _readExplicitPromptCacheEnabled({
     required AiProtocolType protocolType,
     required AiApiDialect apiDialect,
@@ -2840,13 +2827,9 @@ class AiModelConfig {
     if (value is String) {
       final trimmed = nullIfBlank(value);
       if (trimmed == null) return const <String>[];
-      try {
-        final decoded = jsonDecode(trimmed);
-        if (decoded is List) {
-          return normalizeModelIds(trimmedNonEmptyStrings(decoded));
-        }
-      } catch (_) {
-        // 无效 JSON，忽略。
+      final decoded = tryDecodeJson(trimmed);
+      if (decoded is List) {
+        return normalizeModelIds(trimmedNonEmptyStrings(decoded));
       }
     }
     return const <String>[];
@@ -2868,20 +2851,12 @@ class AiModelConfig {
     if (value is String) {
       final trimmed = nullIfBlank(value);
       if (trimmed == null) return const <String, String>{};
-      try {
-        final decoded = jsonDecode(trimmed);
-        if (decoded is Map) {
-          return _parseCustomHeaders(decoded);
-        }
-      } catch (_) {
-        // 无效 JSON，忽略。
+      final decoded = tryDecodeJson(trimmed);
+      if (decoded is Map) {
+        return _parseCustomHeaders(decoded);
       }
     }
     return const <String, String>{};
-  }
-
-  static double? _readNullableDouble(Object? value) {
-    return optionalDoubleFromValue(value);
   }
 
   static String _parseRequestMethod(Object? value) {
@@ -2898,13 +2873,9 @@ class AiModelConfig {
     } else if (value is String) {
       final trimmed = nullIfBlank(value);
       if (trimmed == null) return const <String, AiModelProfile>{};
-      try {
-        final decoded = jsonDecode(trimmed);
-        if (decoded is Map) {
-          map = stringKeyedMapFromValue(decoded);
-        }
-      } catch (_) {
-        // 无效 JSON，忽略。
+      final decoded = tryDecodeJson(trimmed);
+      if (decoded is Map) {
+        map = stringKeyedMapFromValue(decoded);
       }
     }
     if (map == null) return const <String, AiModelProfile>{};
@@ -2940,13 +2911,9 @@ class AiModelConfig {
     if (value is String) {
       final trimmed = nullIfBlank(value);
       if (trimmed == null) return const <String, Object?>{};
-      try {
-        final decoded = jsonDecode(trimmed);
-        if (decoded is Map) {
-          return Map<String, Object?>.of(stringKeyedMapFromValue(decoded));
-        }
-      } catch (_) {
-        // 无效 JSON，忽略。
+      final decoded = tryDecodeJson(trimmed);
+      if (decoded is Map) {
+        return Map<String, Object?>.of(stringKeyedMapFromValue(decoded));
       }
     }
     return const <String, Object?>{};

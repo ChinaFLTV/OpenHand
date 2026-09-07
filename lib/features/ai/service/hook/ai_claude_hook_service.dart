@@ -608,11 +608,7 @@ class AiClaudeHookService {
     if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
       return null;
     }
-    try {
-      return jsonDecode(trimmed);
-    } on FormatException {
-      return null;
-    }
+    return tryDecodeJson(trimmed);
   }
 
   _AiShellCommand _resolveShellCommand(String command) {

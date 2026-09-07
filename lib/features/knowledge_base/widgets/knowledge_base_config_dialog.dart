@@ -4264,8 +4264,6 @@ class _KnowledgeConfigGridScope extends InheritedWidget {
   }
 }
 
-// 本文件内复用文案。
-
 String _knowledgeBaseCDefaultLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

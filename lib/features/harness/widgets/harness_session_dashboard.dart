@@ -2350,8 +2350,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   }
 }
 
-// 本库内复用的文案。
-
 String _heCancelLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

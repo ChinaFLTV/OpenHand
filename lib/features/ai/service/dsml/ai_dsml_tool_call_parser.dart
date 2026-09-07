@@ -351,17 +351,15 @@ Object? decodeDsmlParameterValue(
   if (trimmed.isEmpty) {
     return null;
   }
-  try {
-    return jsonDecode(trimmed);
-  } catch (_) {
-    final boolValue = optionalBoolFromValue(trimmed);
-    if (boolValue != null) return boolValue;
-    final numericValue = num.tryParse(trimmed);
-    if (numericValue != null) {
-      return numericValue;
-    }
-    return trimmed;
+  final decoded = tryDecodeJsonValue(trimmed);
+  if (decoded.success) return decoded.value;
+  final boolValue = optionalBoolFromValue(trimmed);
+  if (boolValue != null) return boolValue;
+  final numericValue = num.tryParse(trimmed);
+  if (numericValue != null) {
+    return numericValue;
   }
+  return trimmed;
 }
 
 final RegExp _cdataPattern = RegExp(

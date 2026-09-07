@@ -3307,8 +3307,6 @@ class _ShortcutsHelpDialog extends StatelessWidget {
   }
 }
 
-// 本库内复用的文案。
-
 String _wrConsoleLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

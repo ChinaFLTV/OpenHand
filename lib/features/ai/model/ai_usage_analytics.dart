@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import 'ai_token_usage.dart';
@@ -343,16 +341,12 @@ class AiUsageRequestRecord {
 }
 
 Map<String, Object?> _decodeMetadata(String value) {
-  try {
-    final decoded = jsonDecode(value);
-    if (decoded is Map) {
-      return Map<String, Object?>.unmodifiable(<String, Object?>{
-        for (final entry in decoded.entries)
-          if (entry.key is String) entry.key as String: entry.value,
-      });
-    }
-  } on Object {
-    // 历史记录可能没有结构化元数据，按空映射降级。
+  final decoded = tryDecodeJson(value);
+  if (decoded is Map) {
+    return Map<String, Object?>.unmodifiable(<String, Object?>{
+      for (final entry in decoded.entries)
+        if (entry.key is String) entry.key as String: entry.value,
+    });
   }
   return const <String, Object?>{};
 }

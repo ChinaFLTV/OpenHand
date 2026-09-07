@@ -1295,21 +1295,13 @@ String? cdpStringResultValue(Object? response) {
 }
 
 Map<String, Object?>? decodeStringKeyedJsonMap(String raw) {
-  try {
-    final decoded = jsonDecode(raw);
-    return decoded is Map ? stringKeyedMapFromValue(decoded) : null;
-  } catch (_) {
-    return null;
-  }
+  final decoded = tryDecodeJson(raw);
+  return decoded is Map ? stringKeyedMapFromValue(decoded) : null;
 }
 
 List<Object?>? decodeJsonList(String raw) {
-  try {
-    final decoded = jsonDecode(raw);
-    return decoded is List ? List<Object?>.of(decoded, growable: false) : null;
-  } catch (_) {
-    return null;
-  }
+  final decoded = tryDecodeJson(raw);
+  return decoded is List ? List<Object?>.of(decoded, growable: false) : null;
 }
 
 List<Map<String, Object?>>? decodeStringKeyedJsonMapList(String raw) {

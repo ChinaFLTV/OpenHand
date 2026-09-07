@@ -1226,8 +1226,6 @@ Future<void> _copyText(
   );
 }
 
-// 本文件内复用文案。
-
 String _knowledgeRetriHitChunkDetailLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

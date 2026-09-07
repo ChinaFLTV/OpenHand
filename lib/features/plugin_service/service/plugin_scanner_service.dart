@@ -364,16 +364,6 @@ class PluginScannerService {
     return match?.group(0);
   }
 
-  static Object? _decodeOptionalJson(String output) {
-    final trimmed = output.trim();
-    if (trimmed.isEmpty) return null;
-    try {
-      return jsonDecode(trimmed);
-    } on FormatException {
-      return null;
-    }
-  }
-
   Future<String?> _queryLatestNodeVersion({
     required String installedVersion,
     String? releaseHint,
@@ -409,7 +399,7 @@ class PluginScannerService {
       'curl -fsSL https://nodejs.org/dist/index.json',
     );
     if (result.exitCode != 0) return null;
-    final decoded = _decodeOptionalJson(result.stdout.toString());
+    final decoded = tryDecodeJson(result.stdout.toString());
     if (decoded is! List) return null;
     for (final entry in decoded) {
       if (entry is! Map<String, Object?>) continue;
@@ -497,7 +487,7 @@ class PluginScannerService {
   Future<String?> _queryBrewLatestVersionUncached(String formula) async {
     final result = await _shellRun('brew info --json=v2 $formula');
     if (result.exitCode != 0) return null;
-    final decoded = _decodeOptionalJson(result.stdout.toString());
+    final decoded = tryDecodeJson(result.stdout.toString());
     final formulae = decoded is Map<String, Object?>
         ? decoded['formulae']
         : null;
@@ -517,7 +507,7 @@ class PluginScannerService {
   Future<String?> _queryLatestPipVersionUncached() async {
     final result = await _shellRun('curl -fsSL https://pypi.org/pypi/pip/json');
     if (result.exitCode != 0) return null;
-    final decoded = _decodeOptionalJson(result.stdout.toString());
+    final decoded = tryDecodeJson(result.stdout.toString());
     if (decoded is! Map<String, Object?>) return null;
     final info = decoded['info'];
     if (info is! Map<String, Object?>) return null;
@@ -532,7 +522,7 @@ class PluginScannerService {
       'curl -fsSL https://pypi.org/pypi/$normalized/json',
     );
     if (result.exitCode != 0) return null;
-    final decoded = _decodeOptionalJson(result.stdout.toString());
+    final decoded = tryDecodeJson(result.stdout.toString());
     if (decoded is! Map<String, Object?>) return null;
     final info = decoded['info'];
     if (info is! Map<String, Object?>) return null;
@@ -592,7 +582,7 @@ class PluginScannerService {
           cancelSignal: _cancelSignal,
         );
         if (bytes == null) return null;
-        final decoded = _decodeOptionalJson(utf8.decode(bytes));
+        final decoded = tryDecodeJson(utf8.decode(bytes));
         final versions = decoded is Map<String, Object?>
             ? decoded['versions']
             : null;
@@ -695,7 +685,7 @@ class PluginScannerService {
       'docker image inspect ${posixShellQuote(image)}',
     );
     if (localResult.exitCode == 0) {
-      final decoded = _decodeOptionalJson(localResult.stdout.toString());
+      final decoded = tryDecodeJson(localResult.stdout.toString());
       if (decoded is List && decoded.isNotEmpty && decoded.first is Map) {
         localImage = stringKeyedMapFromValue(decoded.first);
       }
@@ -741,7 +731,7 @@ class PluginScannerService {
         '--format ${posixShellQuote(format)}',
       );
       if (remoteResult.exitCode == 0) {
-        final decoded = _decodeOptionalJson(remoteResult.stdout.toString());
+        final decoded = tryDecodeJson(remoteResult.stdout.toString());
         if (decoded is Map) {
           final remote = stringKeyedMapFromValue(decoded);
           remoteDigest = nullIfBlank('${remote['digest'] ?? ''}');
@@ -758,7 +748,7 @@ class PluginScannerService {
         'docker manifest inspect ${posixShellQuote(image)}',
       );
       final decoded = manifestResult.exitCode == 0
-          ? _decodeOptionalJson(manifestResult.stdout.toString())
+          ? tryDecodeJson(manifestResult.stdout.toString())
           : null;
       final manifest = decoded is Map
           ? stringKeyedMapFromValue(decoded)
@@ -1299,7 +1289,7 @@ class PluginScannerService {
           );
     if (result.exitCode != 0) return null;
     final output = result.stdout.toString();
-    final decoded = _decodeOptionalJson(output);
+    final decoded = tryDecodeJson(output);
     final tag = decoded is Map
         ? nullIfBlank('${stringKeyedMapFromValue(decoded)['tag_name'] ?? ''}')
         : null;
@@ -1584,7 +1574,7 @@ class PluginScannerService {
           'context': contextResult.stdout.toString().trim(),
       };
       if (infoResult.exitCode == 0) {
-        final decoded = _decodeOptionalJson(infoResult.stdout.toString());
+        final decoded = tryDecodeJson(infoResult.stdout.toString());
         if (decoded is Map) {
           final info = stringKeyedMapFromValue(decoded);
           metadata.addAll(<String, Object?>{
@@ -1659,7 +1649,7 @@ class PluginScannerService {
       if (inspectResult.exitCode != 0) {
         return _qdrantNotInstalled;
       }
-      final decoded = _decodeOptionalJson(inspectResult.stdout.toString());
+      final decoded = tryDecodeJson(inspectResult.stdout.toString());
       final metadata = _qdrantInspectMetadataFromDecoded(decoded);
       if (metadata == null) {
         return _qdrantNotInstalled.copyWith(
@@ -1677,7 +1667,7 @@ class PluginScannerService {
         );
         final healthText = health.stdout.toString().trim();
         metadata['health_response'] = healthText;
-        final healthJson = _decodeOptionalJson(healthText);
+        final healthJson = tryDecodeJson(healthText);
         if (healthJson is Map) {
           qdrantVersion = '${healthJson['version'] ?? ''}'.trim();
           metadata['health_title'] = '${healthJson['title'] ?? ''}'.trim();
@@ -1685,9 +1675,7 @@ class PluginScannerService {
         final collections = await _shellRun(
           'curl -fsS http://127.0.0.1:$qdrantRestPort/collections 2>/dev/null || true',
         );
-        final collectionsJson = _decodeOptionalJson(
-          collections.stdout.toString(),
-        );
+        final collectionsJson = tryDecodeJson(collections.stdout.toString());
         if (collectionsJson is Map) {
           final result = collectionsJson['result'];
           if (result is Map && result['collections'] is List) {
@@ -1797,7 +1785,7 @@ class PluginScannerService {
           );
           if (inspect.exitCode == 0) {
             final metadata = _managedDatabaseMetadataFromDecoded(
-              _decodeOptionalJson(inspect.stdout.toString()),
+              tryDecodeJson(inspect.stdout.toString()),
               containerName: containerName,
               endpoint: endpoint,
               dataDestination: dataDestination,
