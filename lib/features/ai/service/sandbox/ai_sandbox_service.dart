@@ -21,6 +21,10 @@ class AiSandboxEnvironmentStatus {
     required this.backend,
     required this.missingDependencies,
     required this.warnings,
+    this.resourceInstalled = false,
+    this.resourceManaged = false,
+    this.resourceUpdateAvailable = false,
+    this.resourceVersion = '',
     this.reason = '',
   });
 
@@ -30,6 +34,10 @@ class AiSandboxEnvironmentStatus {
   final String backend;
   final List<String> missingDependencies;
   final List<String> warnings;
+  final bool resourceInstalled;
+  final bool resourceManaged;
+  final bool resourceUpdateAvailable;
+  final String resourceVersion;
   final String reason;
 
   String get unavailableReason {
@@ -52,6 +60,10 @@ class AiSandboxEnvironmentStatus {
       'backend': backend,
       'missing_dependencies': missingDependencies,
       'warnings': warnings,
+      'resource_installed': resourceInstalled,
+      'resource_managed': resourceManaged,
+      'resource_update_available': resourceUpdateAvailable,
+      if (resourceVersion.isNotEmpty) 'resource_version': resourceVersion,
       if (reason.isNotEmpty) 'reason': reason,
     };
   }
@@ -70,6 +82,31 @@ class AiSandboxActionResult {
   final bool success;
   final String message;
   final String command;
+}
+
+enum AiSandboxResourceAction { install, update, uninstall }
+
+typedef AiSandboxActionProgress =
+    void Function(double progress, String message);
+
+class _LinuxSandboxPackageManager {
+  const _LinuxSandboxPackageManager({
+    required this.executable,
+    required this.installArguments,
+    required this.updateArguments,
+    required this.uninstallArguments,
+  });
+
+  final String executable;
+  final List<String> installArguments;
+  final List<String> updateArguments;
+  final List<String> uninstallArguments;
+
+  List<String> argumentsFor(AiSandboxResourceAction action) => switch (action) {
+    AiSandboxResourceAction.install => installArguments,
+    AiSandboxResourceAction.update => updateArguments,
+    AiSandboxResourceAction.uninstall => uninstallArguments,
+  };
 }
 
 class AiSandboxLaunchSpec {
@@ -213,16 +250,30 @@ class AiSandboxService {
     final missing = <String>[];
     String backend = '';
     var supported = false;
+    var resourceInstalled = false;
+    var resourceManaged = false;
+    var resourceUpdateAvailable = false;
+    var resourceVersion = '';
 
     if (Platform.isMacOS) {
       supported = true;
       backend = 'sandbox-exec';
-      if (!await _commandExists('sandbox-exec')) missing.add('sandbox-exec');
+      resourceInstalled = await _commandExists('sandbox-exec');
+      if (!resourceInstalled) missing.add('sandbox-exec');
     } else if (Platform.isLinux) {
       supported = true;
       backend = 'bubblewrap';
-      if (!await _commandExists('bwrap')) missing.add('bwrap');
+      resourceInstalled = await _commandExists('bwrap');
+      if (!resourceInstalled) missing.add('bwrap');
       if (!await _commandExists('sh')) missing.add('sh');
+      final packageManager = await _resolveLinuxPackageManager();
+      resourceManaged = packageManager != null;
+      if (resourceInstalled) {
+        resourceVersion = await _readBubblewrapVersion();
+        resourceUpdateAvailable =
+            packageManager != null &&
+            await _hasBubblewrapUpdate(packageManager);
+      }
       if (settings.filesystemRules.any(
         (rule) => rule.matchMode == AiCommandMatchMode.regex,
       )) {
@@ -255,82 +306,118 @@ class AiSandboxService {
       backend: backend,
       missingDependencies: List<String>.unmodifiable(missing),
       warnings: List<String>.unmodifiable(warnings),
+      resourceInstalled: resourceInstalled,
+      resourceManaged: resourceManaged,
+      resourceUpdateAvailable: resourceUpdateAvailable,
+      resourceVersion: resourceVersion,
     );
     _cachedStatus = status;
     return status;
   }
 
   Future<AiSandboxActionResult> installEnvironment() async {
-    if (Platform.isMacOS) {
-      final status = await detectEnvironment(refresh: true);
-      if (status.available) {
-        return const AiSandboxActionResult(
-          success: true,
-          message:
-              'macOS sandbox-exec is available; no installation is needed.',
-        );
-      }
-      return const AiSandboxActionResult(
-        success: false,
-        message:
-            'macOS sandbox-exec is provided by the system and cannot be installed by OpenHand.',
-      );
-    }
-    if (Platform.isLinux) {
-      return const AiSandboxActionResult(
-        success: false,
-        message: 'Install bubblewrap with your system package manager.',
-        command: 'sudo apt-get update && sudo apt-get install -y bubblewrap',
-      );
-    }
-    return AiSandboxActionResult(
-      success: false,
-      message:
-          'Sandbox installation is not supported on ${Platform.operatingSystem}.',
-    );
+    return performEnvironmentAction(AiSandboxResourceAction.install);
   }
 
   Future<AiSandboxActionResult> updateEnvironment() async {
-    if (Platform.isMacOS) {
-      return const AiSandboxActionResult(
-        success: true,
-        message: 'macOS sandbox-exec is updated with the operating system.',
-      );
-    }
-    if (Platform.isLinux) {
-      return const AiSandboxActionResult(
-        success: false,
-        message: 'Update bubblewrap with your system package manager.',
-        command:
-            'sudo apt-get update && sudo apt-get install --only-upgrade -y bubblewrap',
-      );
-    }
-    return AiSandboxActionResult(
-      success: false,
-      message:
-          'Sandbox update is not supported on ${Platform.operatingSystem}.',
-    );
+    return performEnvironmentAction(AiSandboxResourceAction.update);
   }
 
   Future<AiSandboxActionResult> uninstallEnvironment() async {
+    return performEnvironmentAction(AiSandboxResourceAction.uninstall);
+  }
+
+  Future<AiSandboxActionResult> performEnvironmentAction(
+    AiSandboxResourceAction action, {
+    AiSandboxActionProgress? onProgress,
+    Future<void>? cancelSignal,
+  }) async {
     if (Platform.isMacOS) {
-      return const AiSandboxActionResult(
-        success: false,
-        message:
-            'macOS sandbox-exec is a system component and cannot be uninstalled by OpenHand.',
+      final status = await detectEnvironment(refresh: true);
+      return AiSandboxActionResult(
+        success:
+            action != AiSandboxResourceAction.uninstall && status.available,
+        message: status.available
+            ? 'macOS 沙盒由系统提供，无需单独维护。'
+            : 'macOS 沙盒由系统提供，OpenHand 无法单独安装或移除。',
       );
     }
-    if (Platform.isLinux) {
+    if (!Platform.isLinux) {
       return const AiSandboxActionResult(
         success: false,
-        message: 'Remove bubblewrap with your system package manager.',
-        command: 'sudo apt-get remove -y bubblewrap',
+        message: '当前平台不支持维护本地沙盒资源。',
       );
     }
+    final manager = await _resolveLinuxPackageManager();
+    if (manager == null) {
+      return const AiSandboxActionResult(
+        success: false,
+        message: '未找到受支持的系统包管理器。',
+      );
+    }
+    onProgress?.call(0.08, '正在检查系统权限');
+    final userId = await runTrackedProcessOrFailed(
+      'id',
+      const <String>['-u'],
+      timeout: const Duration(seconds: 3),
+      tag: 'ai_sandbox.package_user',
+    );
+    final isRoot = userId.exitCode == 0 && '${userId.stdout}'.trim() == '0';
+    final canElevate = isRoot || await _commandExists('pkexec');
+    if (!canElevate) {
+      return const AiSandboxActionResult(
+        success: false,
+        message: '缺少图形化提权组件 pkexec，无法安全执行系统资源操作。',
+      );
+    }
+
+    onProgress?.call(0.16, '正在启动系统资源任务');
+    var latestMessage = '正在等待系统包管理器';
+    void handleLine(String line) {
+      final normalized = line.trim();
+      if (normalized.isEmpty) return;
+      latestMessage = normalized;
+      onProgress?.call(0.72, normalized);
+    }
+
+    final arguments = manager.argumentsFor(action);
+    final result = await runTrackedProcessWithLineLogging(
+      isRoot ? manager.executable : 'pkexec',
+      isRoot ? arguments : <String>[manager.executable, ...arguments],
+      timeout: const Duration(minutes: 15),
+      processStartTimeout: const Duration(seconds: 20),
+      cancelSignal: cancelSignal,
+      tag: 'ai_sandbox.package_action',
+      onStdoutLine: handleLine,
+      onStderrLine: handleLine,
+      maxCapturedLinesPerStream: 40,
+      maxCapturedCharactersPerStream: 16000,
+      trimStdoutLines: true,
+    );
+    _cachedStatus = null;
+    if (result.cancelled) {
+      return const AiSandboxActionResult(success: false, message: '资源任务已取消。');
+    }
+    if (result.timedOut) {
+      return const AiSandboxActionResult(
+        success: false,
+        message: '资源任务执行超时，相关进程已终止。',
+      );
+    }
+    if (result.exitCode != 0) {
+      return AiSandboxActionResult(
+        success: false,
+        message: latestMessage.isEmpty ? '系统包管理器执行失败。' : latestMessage,
+      );
+    }
+    onProgress?.call(1, '系统资源状态已更新');
     return AiSandboxActionResult(
-      success: false,
-      message:
-          'Sandbox uninstall is not supported on ${Platform.operatingSystem}.',
+      success: true,
+      message: switch (action) {
+        AiSandboxResourceAction.install => '本地沙盒资源已安装。',
+        AiSandboxResourceAction.update => '本地沙盒资源已更新。',
+        AiSandboxResourceAction.uninstall => '本地沙盒资源已卸载。',
+      },
     );
   }
 
@@ -677,6 +764,133 @@ class AiSandboxService {
   }
 
   Future<void> shutdown() => _e2bService.shutdown();
+
+  Future<_LinuxSandboxPackageManager?> _resolveLinuxPackageManager() async {
+    if (!Platform.isLinux) return null;
+    const managers = <_LinuxSandboxPackageManager>[
+      _LinuxSandboxPackageManager(
+        executable: 'apt-get',
+        installArguments: <String>['install', '-y', 'bubblewrap'],
+        updateArguments: <String>[
+          'install',
+          '--only-upgrade',
+          '-y',
+          'bubblewrap',
+        ],
+        uninstallArguments: <String>['remove', '-y', 'bubblewrap'],
+      ),
+      _LinuxSandboxPackageManager(
+        executable: 'dnf',
+        installArguments: <String>['install', '-y', 'bubblewrap'],
+        updateArguments: <String>['upgrade', '-y', 'bubblewrap'],
+        uninstallArguments: <String>['remove', '-y', 'bubblewrap'],
+      ),
+      _LinuxSandboxPackageManager(
+        executable: 'yum',
+        installArguments: <String>['install', '-y', 'bubblewrap'],
+        updateArguments: <String>['update', '-y', 'bubblewrap'],
+        uninstallArguments: <String>['remove', '-y', 'bubblewrap'],
+      ),
+      _LinuxSandboxPackageManager(
+        executable: 'pacman',
+        installArguments: <String>['-S', '--noconfirm', 'bubblewrap'],
+        updateArguments: <String>['-S', '--noconfirm', 'bubblewrap'],
+        uninstallArguments: <String>['-R', '--noconfirm', 'bubblewrap'],
+      ),
+      _LinuxSandboxPackageManager(
+        executable: 'zypper',
+        installArguments: <String>[
+          '--non-interactive',
+          'install',
+          'bubblewrap',
+        ],
+        updateArguments: <String>['--non-interactive', 'update', 'bubblewrap'],
+        uninstallArguments: <String>[
+          '--non-interactive',
+          'remove',
+          'bubblewrap',
+        ],
+      ),
+      _LinuxSandboxPackageManager(
+        executable: 'apk',
+        installArguments: <String>['add', 'bubblewrap'],
+        updateArguments: <String>['upgrade', 'bubblewrap'],
+        uninstallArguments: <String>['del', 'bubblewrap'],
+      ),
+    ];
+    for (final manager in managers) {
+      if (await _commandExists(manager.executable)) return manager;
+    }
+    return null;
+  }
+
+  Future<String> _readBubblewrapVersion() async {
+    final result = await runTrackedProcessOrFailed(
+      'bwrap',
+      const <String>['--version'],
+      timeout: const Duration(seconds: 3),
+      tag: 'ai_sandbox.version',
+    );
+    if (result.exitCode != 0) return '';
+    return '${result.stdout}'.trim();
+  }
+
+  Future<bool> _hasBubblewrapUpdate(_LinuxSandboxPackageManager manager) async {
+    if (manager.executable == 'apt-get') {
+      if (!await _commandExists('apt-cache')) return false;
+      final result = await runTrackedProcessOrFailed(
+        'apt-cache',
+        const <String>['policy', 'bubblewrap'],
+        tag: 'ai_sandbox.update_probe',
+      );
+      if (result.exitCode != 0) return false;
+      final output = '${result.stdout}';
+      final installed = RegExp(
+        r'^\s*Installed:\s*(\S+)',
+        multiLine: true,
+      ).firstMatch(output)?.group(1);
+      final candidate = RegExp(
+        r'^\s*Candidate:\s*(\S+)',
+        multiLine: true,
+      ).firstMatch(output)?.group(1);
+      return installed != null &&
+          candidate != null &&
+          installed != '(none)' &&
+          candidate != '(none)' &&
+          installed != candidate;
+    }
+    final probe = switch (manager.executable) {
+      'dnf' || 'yum' => <String>[
+        manager.executable,
+        '--cacheonly',
+        'check-update',
+        'bubblewrap',
+      ],
+      'pacman' => const <String>['pacman', '-Qu', 'bubblewrap'],
+      'zypper' => const <String>[
+        'zypper',
+        '--non-interactive',
+        'list-updates',
+        '--type',
+        'package',
+        'bubblewrap',
+      ],
+      'apk' => const <String>['apk', 'version', '-l', '<', 'bubblewrap'],
+      _ => const <String>[],
+    };
+    if (probe.isEmpty) return false;
+    final result = await runTrackedProcessOrFailed(
+      probe.first,
+      probe.skip(1).toList(growable: false),
+      timeout: const Duration(seconds: 5),
+      tag: 'ai_sandbox.update_probe',
+    );
+    final output = '${result.stdout}\n${result.stderr}'.toLowerCase();
+    if (manager.executable == 'dnf' || manager.executable == 'yum') {
+      return result.exitCode == 100 && output.contains('bubblewrap');
+    }
+    return result.exitCode == 0 && output.contains('bubblewrap');
+  }
 
   Future<bool> _commandExists(String command) async {
     final directCandidates = Platform.isMacOS && command == 'sandbox-exec'

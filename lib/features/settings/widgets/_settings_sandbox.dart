@@ -21,11 +21,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
   late final TextEditingController _socksProxyPortController;
   final ScrollController _providerScrollController = ScrollController();
   final Set<AiSandboxProvider> _expandedProviders = <AiSandboxProvider>{};
+  final Set<AiSandboxProvider> _testingProviders = <AiSandboxProvider>{};
   late AiSandboxService _sandboxService;
   late AiSandboxSettings _serviceSettings;
   Future<AiSandboxEnvironmentStatus>? _statusFuture;
-  String _actionMessage = '';
-  String _actionCommand = '';
+  late Future<AiSandboxEnvironmentStatus> _osStatusFuture;
+  late final OpenHandDebouncer _proxySaveDebouncer;
 
   static const List<String> _sandboxableTools = <String>[
     'Bash',
@@ -37,10 +38,14 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     super.initState();
     _httpProxyPortController = TextEditingController();
     _socksProxyPortController = TextEditingController();
+    _proxySaveDebouncer = OpenHandDebouncer(
+      delay: const Duration(milliseconds: 420),
+    );
     _serviceSettings = widget.settingsController.aiSandboxSettings;
     _sandboxService = AiSandboxService(settings: _serviceSettings);
     _syncControllers();
     _statusFuture = _sandboxService.detectEnvironment();
+    _osStatusFuture = _detectProvider(AiSandboxProvider.operatingSystem);
   }
 
   @override
@@ -53,6 +58,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
       _sandboxService.settings = settings;
       _syncControllers();
       _statusFuture = _sandboxService.detectEnvironment(refresh: true);
+      _osStatusFuture = _detectProvider(AiSandboxProvider.operatingSystem);
     }
   }
 
@@ -61,18 +67,21 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     _httpProxyPortController.dispose();
     _socksProxyPortController.dispose();
     _providerScrollController.dispose();
+    _proxySaveDebouncer.dispose();
     unawaited(_sandboxService.shutdown());
     super.dispose();
   }
 
   void _syncControllers() {
     final settings = widget.settingsController.aiSandboxSettings;
-    _httpProxyPortController.text = settings.httpProxyPort <= 0
-        ? ''
-        : '${settings.httpProxyPort}';
-    _socksProxyPortController.text = settings.socksProxyPort <= 0
-        ? ''
-        : '${settings.socksProxyPort}';
+    _syncControllerText(
+      _httpProxyPortController,
+      settings.httpProxyPort <= 0 ? '' : '${settings.httpProxyPort}',
+    );
+    _syncControllerText(
+      _socksProxyPortController,
+      settings.socksProxyPort <= 0 ? '' : '${settings.socksProxyPort}',
+    );
   }
 
   @override
@@ -96,11 +105,19 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
               style: theme.textTheme.titleMedium,
             ),
             _OfflineSpeechBadge(
-              label: '1 个本地服务',
+              label: openHandLocalizedText(
+                context,
+                zh: '1 个本地服务',
+                en: '1 Local Service',
+              ),
               color: theme.colorScheme.primary,
             ),
             _OfflineSpeechBadge(
-              label: '1 个在线服务',
+              label: openHandLocalizedText(
+                context,
+                zh: '1 个在线服务',
+                en: '1 Online Service',
+              ),
               color: theme.colorScheme.tertiary,
             ),
           ],
@@ -182,10 +199,10 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           subtitle: openHandLocalizedText(
             context,
             zh: settings.provider == AiSandboxProvider.e2b
-                ? '关闭后，无规则时将禁用 E2B 外网访问；下方允许/禁止规则会合并到 E2B network.allowOut / denyOut。'
+                ? '关闭后，无规则时将禁用 E2B 外网访问；下方的允许与禁止规则会自动合并。'
                 : '关闭后，无域名规则的沙盒命令会禁用网络；配置域名规则时会启动本地过滤代理。macOS 会阻断直连绕过；Linux 严格模式会阻断尚无法强制过滤的域名规则。',
             en: settings.provider == AiSandboxProvider.e2b
-                ? 'When off, E2B internet access is disabled without rules. Rules below merge into E2B network.allowOut and denyOut.'
+                ? 'When off, E2B internet access is disabled without rules. The allow and deny rules below are merged automatically.'
                 : 'When off, sandboxed commands without domain rules run with networking disabled. Domain rules start a local filtering proxy. macOS blocks direct bypass; Linux strict mode blocks domain rules that cannot be enforced yet.',
           ),
           control: _SettingsSwitch(
@@ -274,10 +291,10 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           body: openHandLocalizedText(
             context,
             zh: settings.provider == AiSandboxProvider.e2b
-                ? '与 E2B network.allowOut 合并，支持域名、通配域名、IP 与 CIDR；E2B 不接受正则。'
+                ? '与 E2B 允许规则合并，支持域名、通配域名、IP 与 CIDR；E2B 不接受正则。'
                 : '用于本地沙盒代理过滤。简单模式支持 *，正则模式按原样匹配 host 或 host:port。',
             en: settings.provider == AiSandboxProvider.e2b
-                ? 'Merged into E2B network.allowOut; supports domains, wildcard domains, IPs, and CIDRs.'
+                ? 'Merged into E2B allow rules; supports domains, wildcard domains, IPs, and CIDRs.'
                 : 'Used by the local sandbox proxy filter. Simple mode supports *, regex mode matches host or host:port as written.',
           ),
           icon: Icons.public_rounded,
@@ -341,10 +358,10 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           body: openHandLocalizedText(
             context,
             zh: settings.provider == AiSandboxProvider.e2b
-                ? '与 E2B network.denyOut 合并；官方仅支持 IP 与 CIDR。allowOut 与 denyOut 冲突时允许规则优先。'
+                ? '与 E2B 禁止规则合并；仅支持 IP 与 CIDR。与允许规则冲突时，允许规则优先。'
                 : '用于沙盒代理过滤；命中禁止列表的域名应被代理拒绝。',
             en: settings.provider == AiSandboxProvider.e2b
-                ? 'Merged into E2B network.denyOut; only IPs and CIDRs are supported.'
+                ? 'Merged into E2B deny rules; only IPs and CIDRs are supported. Allow rules take precedence on conflicts.'
                 : 'Used by the sandbox proxy filter; matching domains should be rejected by the proxy.',
           ),
           icon: Icons.public_off_rounded,
@@ -453,7 +470,13 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         ? theme.colorScheme.tertiary
         : theme.colorScheme.primary;
     final configured = !online || settings.e2b.isConfigured;
-    final name = online ? 'E2B Cloud Sandbox' : 'OS Sandbox';
+    final name = online
+        ? openHandLocalizedText(
+            context,
+            zh: 'E2B 云端沙盒',
+            en: 'E2B Cloud Sandbox',
+          )
+        : openHandLocalizedText(context, zh: '操作系统沙盒', en: 'OS Sandbox');
     final description = online
         ? openHandLocalizedText(
             context,
@@ -504,18 +527,42 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                           ),
                         ),
                         _OfflineSpeechBadge(
-                          label: online ? '在线' : '本地',
+                          label: online
+                              ? openHandLocalizedText(
+                                  context,
+                                  zh: '在线',
+                                  en: 'Online',
+                                )
+                              : openHandLocalizedText(
+                                  context,
+                                  zh: '本地',
+                                  en: 'Local',
+                                ),
                           color: accent,
                         ),
                         _OfflineSpeechBadge(
-                          label: configured ? '配置就绪' : '待补全',
+                          label: configured
+                              ? openHandLocalizedText(
+                                  context,
+                                  zh: '配置就绪',
+                                  en: 'Configured',
+                                )
+                              : openHandLocalizedText(
+                                  context,
+                                  zh: '待补全',
+                                  en: 'Incomplete',
+                                ),
                           color: configured
                               ? OpenHandStatusColors.success
                               : theme.colorScheme.error,
                         ),
                         if (enabled)
-                          const _OfflineSpeechBadge(
-                            label: '已启用',
+                          _OfflineSpeechBadge(
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '已启用',
+                              en: 'Enabled',
+                            ),
                             color: OpenHandStatusColors.success,
                           ),
                         if (selected)
@@ -528,10 +575,22 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                                   ConnectionState.waiting;
                               return _OfflineSpeechBadge(
                                 label: waiting
-                                    ? '检测中'
+                                    ? openHandLocalizedText(
+                                        context,
+                                        zh: '检测中',
+                                        en: 'Testing',
+                                      )
                                     : status?.available == true
-                                    ? '环境可用'
-                                    : '环境不可用',
+                                    ? openHandLocalizedText(
+                                        context,
+                                        zh: '环境可用',
+                                        en: 'Available',
+                                      )
+                                    : openHandLocalizedText(
+                                        context,
+                                        zh: '环境不可用',
+                                        en: 'Unavailable',
+                                      ),
                                 color: waiting
                                     ? theme.colorScheme.secondary
                                     : status?.available == true
@@ -580,40 +639,59 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                 alignment: WrapAlignment.end,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
-                  if (!online) ...<Widget>[
-                    _OfflineSpeechActionButton(
-                      tooltip: openHandInstallLabel(context),
-                      onPressed: () => _runEnvironmentAction(
-                        _sandboxService.installEnvironment,
-                      ),
-                      child: const Icon(Icons.download_rounded, size: 22),
+                  if (!online)
+                    FutureBuilder<AiSandboxEnvironmentStatus>(
+                      future: _osStatusFuture,
+                      builder: (context, snapshot) {
+                        final status = snapshot.data;
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: <Widget>[
+                            if (status?.resourceManaged == true &&
+                                status?.resourceInstalled == false)
+                              _sandboxResourceButton(
+                                context,
+                                action: AiSandboxResourceAction.install,
+                              ),
+                            if (status?.resourceManaged == true &&
+                                status?.resourceInstalled == true &&
+                                status?.resourceUpdateAvailable == true)
+                              _sandboxResourceButton(
+                                context,
+                                action: AiSandboxResourceAction.update,
+                              ),
+                            if (status?.resourceManaged == true &&
+                                status?.resourceInstalled == true)
+                              _sandboxResourceButton(
+                                context,
+                                action: AiSandboxResourceAction.uninstall,
+                              ),
+                          ],
+                        );
+                      },
                     ),
-                    _OfflineSpeechActionButton(
-                      tooltip: openHandUpdateLabel(context),
-                      onPressed: () => _runEnvironmentAction(
-                        _sandboxService.updateEnvironment,
-                      ),
-                      child: const Icon(Icons.upgrade_rounded, size: 22),
+                  _OfflineSpeechActionButton(
+                    tooltip: openHandLocalizedText(
+                      context,
+                      zh: online ? '测试 E2B 沙盒' : '测试本地沙盒',
+                      en: online ? 'Test E2B Sandbox' : 'Test Local Sandbox',
                     ),
-                    _OfflineSpeechActionButton(
-                      tooltip: openHandUninstallLabel(context),
-                      onPressed: () => _runEnvironmentAction(
-                        _sandboxService.uninstallEnvironment,
-                      ),
-                      child: const Icon(Icons.delete_outline_rounded, size: 22),
-                    ),
-                  ] else
-                    _OfflineSpeechActionButton(
-                      tooltip: selected ? '检测 E2B 服务' : '选择 E2B 后可检测',
-                      onPressed: selected
-                          ? () => setState(() {
-                              _statusFuture = _sandboxService.detectEnvironment(
-                                refresh: true,
-                              );
-                            })
-                          : null,
-                      child: const Icon(Icons.science_rounded, size: 22),
-                    ),
+                    onPressed: _testingProviders.contains(provider)
+                        ? null
+                        : () => _showEnvironmentTest(provider, settings),
+                    child: _testingProviders.contains(provider)
+                        ? const SizedBox.square(
+                            dimension: 17,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.science_rounded,
+                            size: 22,
+                            weight: 500,
+                            opticalSize: 22,
+                          ),
+                  ),
                   _AiProviderCardExpandButton(
                     expanded: expanded,
                     enabled: true,
@@ -627,7 +705,17 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                     },
                   ),
                   Tooltip(
-                    message: enabled ? '禁用沙箱' : '启用并切换到此沙箱',
+                    message: enabled
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '禁用沙盒',
+                            en: 'Disable Sandbox',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '启用并切换到此沙盒',
+                            en: 'Enable and Select This Sandbox',
+                          ),
                     child: _SettingsSwitch(
                       value: enabled,
                       onChanged: (value) => _update(
@@ -647,17 +735,25 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                   ? _E2bSandboxConfigEditor(
                       key: const ValueKey<String>('e2bSandboxConfig'),
                       settings: settings.e2b,
-                      onChanged: (value) =>
-                          _update(settings.copyWith(e2b: value)),
+                      onChanged: (value) => _update(
+                        settings.copyWith(e2b: value),
+                        refreshEnvironment: false,
+                      ),
                     )
                   : selected
                   ? _buildEnvironmentCard(context)
                   : _AiTtsProviderSection(
-                      title: '本地环境',
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '本地环境',
+                        en: 'Local Environment',
+                      ),
                       child: Text(
-                        _actionMessage.isEmpty
-                            ? '启用 OS Sandbox 后可检测当前平台环境。'
-                            : '$_actionMessage${_actionCommand.isEmpty ? '' : '\n$_actionCommand'}',
+                        openHandLocalizedText(
+                          context,
+                          zh: '点击卡片右上角的测试按钮，可检测当前平台沙盒环境。',
+                          en: 'Use the test button in the card header to check the local sandbox environment.',
+                        ),
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
@@ -718,34 +814,10 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                     Expanded(
                       child: Text(title, style: theme.textTheme.titleSmall),
                     ),
-                    TextButton.icon(
-                      onPressed: () => setState(() {
-                        _statusFuture = _sandboxService.detectEnvironment(
-                          refresh: true,
-                        );
-                      }),
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(
-                        openHandLocalizedText(context, zh: '检测', en: 'Detect'),
-                      ),
-                    ),
                   ],
                 ),
                 kOpenHandGap8,
                 Text(body, style: theme.textTheme.bodySmall),
-                if (_actionMessage.isNotEmpty) ...[
-                  kOpenHandGap12,
-                  Text(_actionMessage, style: theme.textTheme.bodySmall),
-                  if (_actionCommand.isNotEmpty) ...[
-                    kOpenHandGap8,
-                    SelectableText(
-                      _actionCommand,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: kOpenHandMonospaceFontFamily,
-                      ),
-                    ),
-                  ],
-                ],
               ],
             );
           },
@@ -825,6 +897,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                 keyboardType: TextInputType.number,
                 inputFormatters: const <TextInputFormatter>[],
                 decoration: const InputDecoration(labelText: 'HTTP'),
+                onChanged: (_) => _scheduleProxySave(settings),
               ),
             ),
             SizedBox(
@@ -834,12 +907,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                 keyboardType: TextInputType.number,
                 inputFormatters: const <TextInputFormatter>[],
                 decoration: const InputDecoration(labelText: 'SOCKS'),
+                onChanged: (_) => _scheduleProxySave(settings),
               ),
-            ),
-            FilledButton.icon(
-              onPressed: () => _saveProxyPorts(settings),
-              icon: const Icon(Icons.save_rounded),
-              label: Text(AppLocalizations.of(context)!.settingsSave),
             ),
           ],
         ),
@@ -984,19 +1053,119 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     );
   }
 
-  Future<void> _runEnvironmentAction(
-    Future<AiSandboxActionResult> Function() action,
+  Widget _sandboxResourceButton(
+    BuildContext context, {
+    required AiSandboxResourceAction action,
+  }) {
+    final label = switch (action) {
+      AiSandboxResourceAction.install => openHandInstallLabel(context),
+      AiSandboxResourceAction.update => openHandUpdateLabel(context),
+      AiSandboxResourceAction.uninstall => openHandUninstallLabel(context),
+    };
+    final icon = switch (action) {
+      AiSandboxResourceAction.install => Icons.download_for_offline_outlined,
+      AiSandboxResourceAction.update => Icons.system_update_alt_rounded,
+      AiSandboxResourceAction.uninstall => Icons.delete_outline_rounded,
+    };
+    return _OfflineSpeechActionButton(
+      tooltip: label,
+      onPressed: () => _showResourceAction(action),
+      child: Icon(icon, size: 22, weight: 500, opticalSize: 22),
+    );
+  }
+
+  Future<void> _showEnvironmentTest(
+    AiSandboxProvider provider,
+    AiSandboxSettings settings,
   ) async {
-    final result = await action();
+    setState(() => _testingProviders.add(provider));
+    try {
+      await showOpenHandProfiledDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        dismissOnEscape: false,
+        transitionProfile: const OpenHandAnimationTransitionProfile(
+          fadeScaleBegin: 0.9,
+          elasticScaleBegin: 0.9,
+          springScaleBegin: 0.9,
+          slideUpOffset: Offset(0, 0.1),
+          slideDownOffset: Offset(0, -0.1),
+        ),
+        builder: (_) => _SandboxEnvironmentTestDialog(
+          provider: provider,
+          settings: settings.copyWith(provider: provider),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _testingProviders.remove(provider);
+          if (provider == settings.provider) {
+            _statusFuture = _sandboxService.detectEnvironment(refresh: true);
+          }
+          if (provider == AiSandboxProvider.operatingSystem) {
+            _osStatusFuture = _detectProvider(provider);
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _showResourceAction(AiSandboxResourceAction action) async {
+    final actionLabel = switch (action) {
+      AiSandboxResourceAction.install => openHandInstallLabel(context),
+      AiSandboxResourceAction.update => openHandUpdateLabel(context),
+      AiSandboxResourceAction.uninstall => openHandUninstallLabel(context),
+    };
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '$actionLabel本地沙盒资源？',
+        en: '$actionLabel Local Sandbox Resource?',
+      ),
+      message: openHandLocalizedText(
+        context,
+        zh: action == AiSandboxResourceAction.uninstall
+            ? '系统包管理器将移除 bubblewrap，完成后本地沙盒会暂时不可用。'
+            : '系统包管理器将维护 bubblewrap，过程中请保持网络连接并完成系统授权。',
+        en: action == AiSandboxResourceAction.uninstall
+            ? 'The system package manager will remove bubblewrap, making the local sandbox unavailable.'
+            : 'The system package manager will maintain bubblewrap. Keep the network connected and complete system authorization.',
+      ),
+      confirmLabel: actionLabel,
+      destructive: action == AiSandboxResourceAction.uninstall,
+    );
+    if (!confirmed || !mounted) return;
+    await showOpenHandProfiledDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      dismissOnEscape: false,
+      transitionProfile: const OpenHandAnimationTransitionProfile(
+        fadeScaleBegin: 0.9,
+        elasticScaleBegin: 0.9,
+        springScaleBegin: 0.9,
+        slideUpOffset: Offset(0, 0.1),
+        slideDownOffset: Offset(0, -0.1),
+      ),
+      builder: (_) => _SandboxResourceActionDialog(
+        service: _sandboxService,
+        action: action,
+      ),
+    );
     if (!mounted) return;
     setState(() {
-      _actionMessage = result.message;
-      _actionCommand = result.command;
-      _statusFuture = _sandboxService.detectEnvironment(refresh: true);
+      _osStatusFuture = _detectProvider(AiSandboxProvider.operatingSystem);
+      if (_serviceSettings.provider == AiSandboxProvider.operatingSystem) {
+        _statusFuture = _sandboxService.detectEnvironment(refresh: true);
+      }
     });
   }
 
-  Future<void> _update(AiSandboxSettings settings) async {
+  Future<void> _update(
+    AiSandboxSettings settings, {
+    bool refreshEnvironment = true,
+  }) async {
     final saved = await widget.settingsController.updateAiSandboxSettings(
       settings,
     );
@@ -1008,16 +1177,36 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     _serviceSettings = settings;
     _sandboxService.settings = settings;
     setState(() {
-      _statusFuture = _sandboxService.detectEnvironment(refresh: true);
+      if (refreshEnvironment) {
+        _statusFuture = _sandboxService.detectEnvironment(refresh: true);
+        _osStatusFuture = _detectProvider(AiSandboxProvider.operatingSystem);
+      }
     });
   }
 
-  void _saveProxyPorts(AiSandboxSettings settings) {
-    _update(
-      settings.copyWith(
-        httpProxyPort: _parsePort(_httpProxyPortController.text),
-        socksProxyPort: _parsePort(_socksProxyPortController.text),
+  Future<AiSandboxEnvironmentStatus> _detectProvider(
+    AiSandboxProvider provider,
+  ) async {
+    final service = AiSandboxService(
+      settings: _serviceSettings.copyWith(provider: provider),
+    );
+    try {
+      return await service.detectEnvironment(refresh: true);
+    } finally {
+      await service.shutdown();
+    }
+  }
+
+  void _scheduleProxySave(AiSandboxSettings settings) {
+    _proxySaveDebouncer.schedule(
+      () => _update(
+        settings.copyWith(
+          httpProxyPort: _parsePort(_httpProxyPortController.text),
+          socksProxyPort: _parsePort(_socksProxyPortController.text),
+        ),
       ),
+      onError: (error, stack) =>
+          silentLog('settings_sandbox', '自动保存沙盒代理端口', error, stack),
     );
   }
 
@@ -1095,20 +1284,26 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
   final Map<String, TextEditingController> _controllers =
       <String, TextEditingController>{};
   late AiE2bSandboxSettings _draft;
-  bool _saving = false;
   bool _showSecrets = false;
+  late final OpenHandDebouncer _saveDebouncer;
+  int _saveRevision = 0;
 
   @override
   void initState() {
     super.initState();
     _draft = widget.settings;
+    _saveDebouncer = OpenHandDebouncer(
+      delay: const Duration(milliseconds: 420),
+    );
     _syncControllers();
   }
 
   @override
   void didUpdateWidget(covariant _E2bSandboxConfigEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.settings != widget.settings) {
+    if (oldWidget.settings != widget.settings &&
+        widget.settings != _draft &&
+        !_saveDebouncer.isActive) {
       _draft = widget.settings;
       _syncControllers();
     }
@@ -1116,6 +1311,7 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
 
   @override
   void dispose() {
+    _saveDebouncer.dispose();
     for (final controller in _controllers.values) {
       controller.dispose();
     }
@@ -1130,23 +1326,12 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
       'sandboxUrl': _draft.sandboxUrl,
       'requestTimeoutMs': '${_draft.requestTimeoutMs}',
       'proxy': _draft.proxy,
-      'apiHeaders': _prettyJson(_draft.apiHeaders),
       'templateId': _draft.templateId,
       'timeoutSeconds': '${_draft.timeoutSeconds}',
-      'allowOut': _prettyJson(_draft.allowOut),
-      'denyOut': _prettyJson(_draft.denyOut),
       'egressProxyAddress': _draft.egressProxyAddress,
       'egressProxyUsername': _draft.egressProxyUsername,
       'egressProxyPassword': _draft.egressProxyPassword,
       'maskRequestHost': _draft.maskRequestHost,
-      'networkRules': _prettyJson(_draft.networkRules),
-      'metadata': _prettyJson(_draft.metadata),
-      'environmentVariables': _prettyJson(_draft.environmentVariables),
-      'mcp': _prettyJson(_draft.mcp),
-      'iamTokens': _prettyJson(_draft.iamTokens),
-      'volumeMounts': _prettyJson(
-        _draft.volumeMounts.map((item) => item.toJson()).toList(),
-      ),
       'commandUser': _draft.commandUser,
       'commandWorkingDirectory': _draft.commandWorkingDirectory,
     };
@@ -1164,19 +1349,22 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
     final theme = Theme.of(context);
     return Form(
       key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _AiTtsProviderSection(
-            title: '连接配置',
+            title: _textFor(zh: '连接配置', en: 'Connection'),
             child: _AiTtsProviderFieldGrid(
               children: <Widget>[
                 _field(
                   'apiKey',
-                  'E2B API Key',
+                  _textFor(zh: 'E2B 接口密钥', en: 'E2B API Key'),
                   obscure: !_showSecrets,
                   suffix: IconButton(
-                    tooltip: _showSecrets ? '隐藏密钥' : '显示密钥',
+                    tooltip: _showSecrets
+                        ? _textFor(zh: '隐藏密钥', en: 'Hide Secret')
+                        : _textFor(zh: '显示密钥', en: 'Show Secret'),
                     onPressed: () => setState(() {
                       _showSecrets = !_showSecrets;
                     }),
@@ -1187,111 +1375,220 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
                     ),
                   ),
                 ),
-                _field('domain', 'Domain', required: true),
-                _field('apiUrl', 'API URL（可选）', url: true),
-                _field('sandboxUrl', 'Sandbox URL（可选）', url: true),
+                _field(
+                  'domain',
+                  _textFor(zh: '服务域名', en: 'Service Domain'),
+                  required: true,
+                ),
+                _field(
+                  'apiUrl',
+                  _textFor(zh: '接口地址（可选）', en: 'API URL (Optional)'),
+                  url: true,
+                ),
+                _field(
+                  'sandboxUrl',
+                  _textFor(zh: '沙盒地址（可选）', en: 'Sandbox URL (Optional)'),
+                  url: true,
+                ),
                 _field(
                   'requestTimeoutMs',
-                  '请求超时（ms，0 使用 60000）',
+                  _textFor(
+                    zh: '请求超时（毫秒，0 使用 60000）',
+                    en: 'Request Timeout (ms, 0 Uses 60000)',
+                  ),
                   nonNegativeInteger: true,
                 ),
                 _field(
                   'proxy',
-                  '客户端代理 URL（可选）',
+                  _textFor(
+                    zh: '客户端代理地址（可选）',
+                    en: 'Client Proxy URL (Optional)',
+                  ),
                   url: true,
                   obscure: !_showSecrets,
                 ),
-                _jsonField('apiHeaders', 'API Headers · JSON 对象'),
+                _stringMapField(
+                  title: _textFor(zh: '接口请求头', en: 'API Headers'),
+                  description: _textFor(
+                    zh: '随 E2B 接口请求发送的自定义请求头。',
+                    en: 'Custom headers sent with E2B API requests.',
+                  ),
+                  values: _draft.apiHeaders,
+                  secret: true,
+                  onChanged: (value) =>
+                      _commit(_draft.copyWith(apiHeaders: value)),
+                ),
               ],
             ),
           ),
           kOpenHandGap12,
           _AiTtsProviderSection(
-            title: '创建与生命周期',
+            title: _textFor(zh: '创建与生命周期', en: 'Creation and Lifecycle'),
             child: _AiTtsProviderFieldGrid(
               children: <Widget>[
-                _field('templateId', 'templateID', required: true),
+                _field(
+                  'templateId',
+                  _textFor(zh: '模板标识', en: 'Template ID'),
+                  required: true,
+                ),
                 _field(
                   'timeoutSeconds',
-                  'timeout（秒）',
+                  _textFor(zh: '生存时间（秒）', en: 'Lifetime (Seconds)'),
                   nonNegativeInteger: true,
                 ),
                 _toggle(
-                  'autoPause',
+                  _textFor(zh: '超时后自动暂停', en: 'Auto-pause on Timeout'),
                   _draft.autoPause,
-                  (value) => _setDraft(_draft.copyWith(autoPause: value)),
+                  (value) => _commit(_draft.copyWith(autoPause: value)),
                 ),
                 _toggle(
-                  'autoPauseMemory',
+                  _textFor(zh: '暂停时保留内存', en: 'Preserve Memory When Paused'),
                   _draft.autoPauseMemory,
-                  (value) => _setDraft(_draft.copyWith(autoPauseMemory: value)),
+                  (value) => _commit(_draft.copyWith(autoPauseMemory: value)),
                 ),
                 _toggle(
-                  'autoResume.enabled',
+                  _textFor(zh: '允许自动恢复', en: 'Enable Auto-resume'),
                   _draft.autoResumeEnabled,
-                  (value) =>
-                      _setDraft(_draft.copyWith(autoResumeEnabled: value)),
+                  (value) => _commit(_draft.copyWith(autoResumeEnabled: value)),
                 ),
                 _toggle(
-                  'secure',
+                  _textFor(zh: '保护系统通信', en: 'Secure System Traffic'),
                   _draft.secure,
-                  (value) => _setDraft(_draft.copyWith(secure: value)),
+                  (value) => _commit(_draft.copyWith(secure: value)),
                 ),
               ],
             ),
           ),
           kOpenHandGap12,
           _AiTtsProviderSection(
-            title: '网络配置',
-            child: _AiTtsProviderFieldGrid(
+            title: _textFor(zh: '网络配置', en: 'Network'),
+            child: Column(
               children: <Widget>[
-                _toggle(
-                  'allow_internet_access',
-                  _draft.allowInternetAccess,
-                  (value) =>
-                      _setDraft(_draft.copyWith(allowInternetAccess: value)),
+                _AiTtsProviderFieldGrid(
+                  children: <Widget>[
+                    _toggle(
+                      _textFor(zh: '允许访问互联网', en: 'Allow Internet Access'),
+                      _draft.allowInternetAccess,
+                      (value) =>
+                          _commit(_draft.copyWith(allowInternetAccess: value)),
+                    ),
+                    _toggle(
+                      _textFor(
+                        zh: '允许公开访问沙盒地址',
+                        en: 'Allow Public Sandbox Traffic',
+                      ),
+                      _draft.allowPublicTraffic,
+                      (value) =>
+                          _commit(_draft.copyWith(allowPublicTraffic: value)),
+                    ),
+                    _field(
+                      'egressProxyAddress',
+                      _textFor(
+                        zh: '出站代理地址（可选）',
+                        en: 'Egress Proxy Address (Optional)',
+                      ),
+                    ),
+                    _field(
+                      'egressProxyUsername',
+                      _textFor(
+                        zh: '出站代理用户名（可选）',
+                        en: 'Egress Proxy Username (Optional)',
+                      ),
+                      maxLength: 255,
+                    ),
+                    _field(
+                      'egressProxyPassword',
+                      _textFor(
+                        zh: '出站代理密码（可选）',
+                        en: 'Egress Proxy Password (Optional)',
+                      ),
+                      obscure: !_showSecrets,
+                      maxLength: 255,
+                    ),
+                    _field(
+                      'maskRequestHost',
+                      _textFor(
+                        zh: '请求主机掩码（可选）',
+                        en: 'Request Host Mask (Optional)',
+                      ),
+                    ),
+                  ],
                 ),
-                _toggle(
-                  'network.allowPublicTraffic',
-                  _draft.allowPublicTraffic,
-                  (value) =>
-                      _setDraft(_draft.copyWith(allowPublicTraffic: value)),
+                kOpenHandGap12,
+                _stringListField(
+                  title: _textFor(zh: '允许的出站目标', en: 'Allowed Destinations'),
+                  description: _textFor(
+                    zh: '支持域名、通配域名、IP 地址和 CIDR。允许规则优先于禁止规则。',
+                    en: 'Supports domains, wildcard domains, IP addresses, and CIDR blocks. Allow rules take precedence.',
+                  ),
+                  values: _draft.allowOut,
+                  onChanged: (value) =>
+                      _commit(_draft.copyWith(allowOut: value)),
                 ),
-                _jsonField('allowOut', 'network.allowOut · JSON 数组'),
-                _jsonField('denyOut', 'network.denyOut · JSON 数组'),
-                _field('egressProxyAddress', 'network.egressProxy.address（可选）'),
-                _field(
-                  'egressProxyUsername',
-                  'network.egressProxy.username（可选）',
-                  maxLength: 255,
+                kOpenHandGap10,
+                _stringListField(
+                  title: _textFor(zh: '禁止的出站目标', en: 'Denied Destinations'),
+                  description: _textFor(
+                    zh: '官方仅支持 IP 地址和 CIDR。',
+                    en: 'Only IP addresses and CIDR blocks are supported.',
+                  ),
+                  values: _draft.denyOut,
+                  ipOrCidrOnly: true,
+                  onChanged: (value) =>
+                      _commit(_draft.copyWith(denyOut: value)),
                 ),
-                _field(
-                  'egressProxyPassword',
-                  'network.egressProxy.password（可选）',
-                  obscure: !_showSecrets,
-                  maxLength: 255,
-                ),
-                _field('maskRequestHost', 'network.maskRequestHost（可选）'),
-                _jsonField('networkRules', 'network.rules · JSON 对象'),
+                kOpenHandGap10,
+                _networkRulesField(),
               ],
             ),
           ),
           kOpenHandGap12,
           _AiTtsProviderSection(
-            title: '运行时与集成',
-            child: _AiTtsProviderFieldGrid(
+            title: _textFor(zh: '运行时与集成', en: 'Runtime and Integrations'),
+            child: Column(
               children: <Widget>[
-                _jsonField('metadata', 'metadata · JSON 字符串对象'),
-                _jsonField('environmentVariables', 'envVars · JSON 字符串对象'),
-                _jsonField('mcp', 'mcp · JSON 对象或 null'),
-                _jsonField('iamTokens', 'iam.tokens · JSON 对象'),
-                _jsonField(
-                  'volumeMounts',
-                  'volumeMounts · JSON 数组',
-                  hint: '[{"name":"volume","path":"/data"}]',
+                _AiTtsProviderFieldGrid(
+                  children: <Widget>[
+                    _field(
+                      'commandUser',
+                      _textFor(zh: '命令用户（可选）', en: 'Command User (Optional)'),
+                    ),
+                    _field(
+                      'commandWorkingDirectory',
+                      _textFor(zh: '命令工作目录', en: 'Command Working Directory'),
+                      required: true,
+                    ),
+                  ],
                 ),
-                _field('commandUser', '命令用户（可选）'),
-                _field('commandWorkingDirectory', '命令工作目录', required: true),
+                kOpenHandGap12,
+                _stringMapField(
+                  title: _textFor(zh: '沙盒元数据', en: 'Sandbox Metadata'),
+                  description: _textFor(
+                    zh: '附加到沙盒的字符串键值信息。',
+                    en: 'String key-value metadata attached to the sandbox.',
+                  ),
+                  values: _draft.metadata,
+                  onChanged: (value) =>
+                      _commit(_draft.copyWith(metadata: value)),
+                ),
+                kOpenHandGap10,
+                _stringMapField(
+                  title: _textFor(zh: '环境变量', en: 'Environment Variables'),
+                  description: _textFor(
+                    zh: '创建沙盒时注入的环境变量。',
+                    en: 'Environment variables injected when creating the sandbox.',
+                  ),
+                  values: _draft.environmentVariables,
+                  secret: true,
+                  onChanged: (value) =>
+                      _commit(_draft.copyWith(environmentVariables: value)),
+                ),
+                kOpenHandGap10,
+                _mcpField(),
+                kOpenHandGap10,
+                _iamTokensField(),
+                kOpenHandGap10,
+                _volumeMountsField(),
               ],
             ),
           ),
@@ -1300,26 +1597,35 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
               _draft.autoResumeEnabled) ...<Widget>[
             kOpenHandGap10,
             Text(
-              'autoResume 不能与仅文件系统快照的 autoPause 组合使用。',
+              _textFor(
+                zh: '仅保存文件系统快照时不能启用自动恢复。',
+                en: 'Auto-resume cannot be enabled with filesystem-only snapshots.',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ],
-          kOpenHandGap12,
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
-              icon: _saving
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_rounded),
-              label: Text(AppLocalizations.of(context)!.settingsSave),
-            ),
+          kOpenHandGap10,
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.cloud_done_outlined,
+                size: 17,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              kOpenHandHGap6,
+              Text(
+                _textFor(
+                  zh: '配置修改后自动保存',
+                  en: 'Configuration changes are saved automatically',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1343,66 +1649,231 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
       decoration: InputDecoration(labelText: label, suffixIcon: suffix),
       validator: (raw) {
         final value = (raw ?? '').trim();
-        if (required && value.isEmpty) return '$label 不能为空。';
+        if (required && value.isEmpty) {
+          return _textFor(zh: '$label 不能为空。', en: '$label cannot be empty.');
+        }
         if (nonNegativeInteger &&
             (int.tryParse(value) == null || int.parse(value) < 0)) {
-          return '$label 必须为非负整数。';
+          return _textFor(
+            zh: '$label 必须为非负整数。',
+            en: '$label must be a non-negative integer.',
+          );
         }
         if (url && value.isNotEmpty) {
           final uri = Uri.tryParse(value);
           if (uri == null ||
               (uri.scheme != 'http' && uri.scheme != 'https') ||
               uri.host.isEmpty) {
-            return '$label 必须是有效的 HTTP(S) URL。';
+            return _textFor(
+              zh: '$label 必须是有效的 HTTP(S) 地址。',
+              en: '$label must be a valid HTTP(S) URL.',
+            );
           }
         }
         return null;
       },
+      onChanged: (_) => _scheduleSave(),
     );
   }
 
-  Widget _jsonField(String key, String label, {String? hint}) {
-    return TextFormField(
-      controller: _controllers[key],
-      minLines: 2,
-      maxLines: 5,
-      style: Theme.of(
-        context,
-      ).textTheme.bodySmall?.copyWith(fontFamily: kOpenHandMonospaceFontFamily),
-      decoration: InputDecoration(labelText: label, hintText: hint),
-      validator: (value) {
-        try {
-          final decoded = jsonDecode((value ?? '').trim());
-          final expectsList =
-              key == 'allowOut' || key == 'denyOut' || key == 'volumeMounts';
-          if (expectsList && decoded is! List) return '$label 必须是 JSON 数组。';
-          if (!expectsList && key == 'mcp' && decoded == null) return null;
-          if (!expectsList && decoded is! Map) return '$label 必须是 JSON 对象。';
-          if ((key == 'allowOut' || key == 'denyOut') &&
-              (decoded as List).any((item) => item is! String)) {
-            return '$label 的成员必须是字符串。';
-          }
-          if ((key == 'apiHeaders' ||
-                  key == 'metadata' ||
-                  key == 'environmentVariables') &&
-              (decoded as Map).entries.any(
-                (entry) => entry.key is! String || entry.value is! String,
-              )) {
-            return '$label 的键和值必须是字符串。';
-          }
-          if (key == 'volumeMounts') {
-            for (final item in decoded as List) {
-              if (item is! Map ||
-                  '${item['name'] ?? ''}'.trim().isEmpty ||
-                  '${item['path'] ?? ''}'.trim().isEmpty) {
-                return '$label 的每项都需要非空 name 与 path。';
-              }
-            }
-          }
-          return null;
-        } catch (_) {
-          return '$label 不是有效 JSON。';
-        }
+  Widget _stringMapField({
+    required String title,
+    required String description,
+    required Map<String, String> values,
+    required ValueChanged<Map<String, String>> onChanged,
+    bool secret = false,
+  }) {
+    final entries = values.entries.toList(growable: false);
+    return _E2bStructuredField(
+      icon: Icons.key_rounded,
+      title: title,
+      description: description,
+      entries: <_E2bStructuredEntry>[
+        for (final entry in entries)
+          _E2bStructuredEntry(
+            id: entry.key,
+            title: entry.key,
+            subtitle: secret
+                ? _textFor(zh: '值已安全保存', en: 'Value Saved Securely')
+                : entry.value,
+          ),
+      ],
+      onAdd: () => _editStringMapEntry(
+        title: title,
+        values: values,
+        onChanged: onChanged,
+        secret: secret,
+      ),
+      onEdit: (id) => _editStringMapEntry(
+        title: title,
+        values: values,
+        onChanged: onChanged,
+        initialKey: id,
+        secret: secret,
+      ),
+      onDelete: (id) {
+        final updated = Map<String, String>.of(values)..remove(id);
+        onChanged(updated);
+      },
+    );
+  }
+
+  Widget _stringListField({
+    required String title,
+    required String description,
+    required List<String> values,
+    required ValueChanged<List<String>> onChanged,
+    bool ipOrCidrOnly = false,
+  }) {
+    return _E2bStructuredField(
+      icon: Icons.route_outlined,
+      title: title,
+      description: description,
+      entries: <_E2bStructuredEntry>[
+        for (var index = 0; index < values.length; index++)
+          _E2bStructuredEntry(
+            id: '$index',
+            title: values[index],
+            subtitle: _textFor(zh: '出站目标', en: 'Destination'),
+          ),
+      ],
+      onAdd: () => _editStringListEntry(
+        title: title,
+        values: values,
+        onChanged: onChanged,
+        ipOrCidrOnly: ipOrCidrOnly,
+      ),
+      onEdit: (id) => _editStringListEntry(
+        title: title,
+        values: values,
+        onChanged: onChanged,
+        initialIndex: int.tryParse(id),
+        ipOrCidrOnly: ipOrCidrOnly,
+      ),
+      onDelete: (id) {
+        final index = int.tryParse(id);
+        if (index == null || index < 0 || index >= values.length) return;
+        final updated = List<String>.of(values)..removeAt(index);
+        onChanged(updated);
+      },
+    );
+  }
+
+  Widget _networkRulesField() {
+    final rules = _readNetworkRules(_draft.networkRules);
+    return _E2bStructuredField(
+      icon: Icons.account_tree_outlined,
+      title: _textFor(zh: '按域名变换请求头', en: 'Per-domain Header Transformations'),
+      description: _textFor(
+        zh: '为匹配域名的出站 HTTP 请求注入或覆盖请求头；域名仍需加入允许列表。',
+        en: 'Inject or replace headers for matching outbound HTTP requests. The domain must also be allowed.',
+      ),
+      entries: <_E2bStructuredEntry>[
+        for (final rule in rules)
+          _E2bStructuredEntry(
+            id: rule.id,
+            title: rule.domain,
+            subtitle: _textFor(
+              zh: '${rule.headers.length} 个请求头',
+              en: '${rule.headers.length} Headers',
+            ),
+          ),
+      ],
+      onAdd: () => _editNetworkRule(rules: rules),
+      onEdit: (id) => _editNetworkRule(
+        rules: rules,
+        initial: rules.where((item) => item.id == id).firstOrNull,
+      ),
+      onDelete: (id) => _saveNetworkRules(
+        rules.where((item) => item.id != id).toList(growable: false),
+      ),
+    );
+  }
+
+  Widget _mcpField() {
+    final servers = _readMcpServers(_draft.mcp);
+    return _E2bStructuredField(
+      icon: Icons.hub_outlined,
+      title: _textFor(zh: 'MCP 服务', en: 'MCP Servers'),
+      description: _textFor(
+        zh: '配置由 E2B MCP 网关启动的服务及其参数；未添加时不启用 MCP。',
+        en: 'Configure servers and parameters started by the E2B MCP gateway. MCP stays disabled when empty.',
+      ),
+      entries: <_E2bStructuredEntry>[
+        for (final server in servers)
+          _E2bStructuredEntry(
+            id: server.name,
+            title: server.name,
+            subtitle: _textFor(
+              zh: '${server.parameters.length} 个参数',
+              en: '${server.parameters.length} Parameters',
+            ),
+          ),
+      ],
+      onAdd: () => _editMcpServer(servers: servers),
+      onEdit: (id) => _editMcpServer(
+        servers: servers,
+        initial: servers.where((item) => item.name == id).firstOrNull,
+      ),
+      onDelete: (id) => _saveMcpServers(
+        servers.where((item) => item.name != id).toList(growable: false),
+      ),
+    );
+  }
+
+  Widget _iamTokensField() {
+    final tokens = _readIamTokens(_draft.iamTokens);
+    return _E2bStructuredField(
+      icon: Icons.verified_user_outlined,
+      title: _textFor(zh: '工作负载身份令牌', en: 'Workload Identity Tokens'),
+      description: _textFor(
+        zh: '每个命名令牌都需要受众和令牌类型。至少配置一项才会启用工作负载身份。',
+        en: 'Each named token requires an audience and token type. Workload identity is enabled only when at least one token is configured.',
+      ),
+      entries: <_E2bStructuredEntry>[
+        for (final token in tokens)
+          _E2bStructuredEntry(
+            id: token.name,
+            title: token.name,
+            subtitle: '${token.audience} · ${token.tokenType}',
+          ),
+      ],
+      onAdd: () => _editIamToken(tokens: tokens),
+      onEdit: (id) => _editIamToken(
+        tokens: tokens,
+        initial: tokens.where((item) => item.name == id).firstOrNull,
+      ),
+      onDelete: (id) => _saveIamTokens(
+        tokens.where((item) => item.name != id).toList(growable: false),
+      ),
+    );
+  }
+
+  Widget _volumeMountsField() {
+    final mounts = _draft.volumeMounts;
+    return _E2bStructuredField(
+      icon: Icons.storage_rounded,
+      title: _textFor(zh: '卷挂载', en: 'Volume Mounts'),
+      description: _textFor(
+        zh: '将已存在的 E2B 卷挂载到沙盒内的指定路径。',
+        en: 'Mount existing E2B volumes at selected sandbox paths.',
+      ),
+      entries: <_E2bStructuredEntry>[
+        for (var index = 0; index < mounts.length; index++)
+          _E2bStructuredEntry(
+            id: '$index',
+            title: mounts[index].name,
+            subtitle: mounts[index].path,
+          ),
+      ],
+      onAdd: () => _editVolumeMount(mounts: mounts),
+      onEdit: (id) =>
+          _editVolumeMount(mounts: mounts, initialIndex: int.tryParse(id)),
+      onDelete: (id) {
+        final index = int.tryParse(id);
+        if (index == null || index < 0 || index >= mounts.length) return;
+        final updated = List<AiE2bVolumeMount>.of(mounts)..removeAt(index);
+        _commit(_draft.copyWith(volumeMounts: updated));
       },
     );
   }
@@ -1411,79 +1882,1786 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
     return _AiTtsToggleField(label: label, value: value, onChanged: onChanged);
   }
 
-  void _setDraft(AiE2bSandboxSettings value) {
-    setState(() => _draft = value);
-  }
-
-  Future<void> _save() async {
-    if (_formKey.currentState?.validate() != true ||
-        (_draft.autoPause &&
-            !_draft.autoPauseMemory &&
-            _draft.autoResumeEnabled)) {
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      final mcp = _decodeJson('mcp');
-      final volumes = (_decodeJson('volumeMounts') as List)
-          .whereType<Map>()
-          .map(
-            (item) => AiE2bVolumeMount.fromJson(item.cast<String, Object?>()),
-          )
-          .where((item) => item.name.isNotEmpty && item.path.isNotEmpty)
-          .toList(growable: false);
-      await widget.onChanged(
-        _draft.copyWith(
-          apiKey: _text('apiKey'),
-          domain: _text('domain'),
-          apiUrl: _text('apiUrl'),
-          sandboxUrl: _text('sandboxUrl'),
-          requestTimeoutMs: int.parse(_text('requestTimeoutMs')),
-          proxy: _text('proxy'),
-          apiHeaders: _stringMap('apiHeaders'),
-          templateId: _text('templateId'),
-          timeoutSeconds: int.parse(_text('timeoutSeconds')),
-          allowOut: _stringList('allowOut'),
-          denyOut: _stringList('denyOut'),
-          egressProxyAddress: _text('egressProxyAddress'),
-          egressProxyUsername: _text('egressProxyUsername'),
-          egressProxyPassword: _controllers['egressProxyPassword']!.text,
-          maskRequestHost: _text('maskRequestHost'),
-          networkRules: _objectMap('networkRules'),
-          metadata: _stringMap('metadata'),
-          environmentVariables: _stringMap('environmentVariables'),
-          mcp: mcp is Map ? mcp.cast<String, Object?>() : null,
-          clearMcp: mcp == null,
-          iamTokens: _objectMap('iamTokens'),
-          volumeMounts: volumes,
-          commandUser: _text('commandUser'),
-          commandWorkingDirectory: _text('commandWorkingDirectory'),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
+  String _textFor({required String zh, required String en}) =>
+      openHandLocalizedText(context, zh: zh, en: en);
 
   String _text(String key) => _controllers[key]!.text.trim();
-  Object? _decodeJson(String key) => jsonDecode(_controllers[key]!.text.trim());
 
-  List<String> _stringList(String key) => (_decodeJson(key) as List)
-      .map((item) => '$item'.trim())
-      .where((item) => item.isNotEmpty)
-      .toSet()
-      .toList(growable: false);
+  AiE2bSandboxSettings? _candidateFromInputs([AiE2bSandboxSettings? base]) {
+    final requestTimeoutMs = int.tryParse(_text('requestTimeoutMs'));
+    final timeoutSeconds = int.tryParse(_text('timeoutSeconds'));
+    if (requestTimeoutMs == null ||
+        requestTimeoutMs < 0 ||
+        timeoutSeconds == null ||
+        timeoutSeconds < 0 ||
+        _text('domain').isEmpty ||
+        _text('templateId').isEmpty ||
+        _text('commandWorkingDirectory').isEmpty) {
+      return null;
+    }
+    final source = base ?? _draft;
+    return source.copyWith(
+      apiKey: _text('apiKey'),
+      domain: _text('domain'),
+      apiUrl: _text('apiUrl'),
+      sandboxUrl: _text('sandboxUrl'),
+      requestTimeoutMs: requestTimeoutMs,
+      proxy: _text('proxy'),
+      templateId: _text('templateId'),
+      timeoutSeconds: timeoutSeconds,
+      egressProxyAddress: _text('egressProxyAddress'),
+      egressProxyUsername: _text('egressProxyUsername'),
+      egressProxyPassword: _controllers['egressProxyPassword']!.text,
+      maskRequestHost: _text('maskRequestHost'),
+      commandUser: _text('commandUser'),
+      commandWorkingDirectory: _text('commandWorkingDirectory'),
+    );
+  }
 
-  Map<String, Object?> _objectMap(String key) =>
-      (_decodeJson(key) as Map).cast<String, Object?>();
+  void _scheduleSave() {
+    _saveDebouncer.schedule(
+      () {
+        if (!mounted || _formKey.currentState?.validate() != true) return;
+        final candidate = _candidateFromInputs();
+        if (candidate != null) _persist(candidate);
+      },
+      onError: (error, stack) {
+        silentLog('settings_sandbox', '自动保存 E2B 沙盒配置', error, stack);
+      },
+    );
+  }
 
-  Map<String, String> _stringMap(String key) => <String, String>{
-    for (final entry in (_decodeJson(key) as Map).entries)
-      '${entry.key}': '${entry.value}',
+  void _commit(AiE2bSandboxSettings value) {
+    _saveDebouncer.cancel();
+    final candidate = _candidateFromInputs(value) ?? value;
+    setState(() => _draft = candidate);
+    if (candidate.autoPause &&
+        !candidate.autoPauseMemory &&
+        candidate.autoResumeEnabled) {
+      return;
+    }
+    _persist(candidate);
+  }
+
+  void _persist(AiE2bSandboxSettings value) {
+    if (value == widget.settings) return;
+    final revision = ++_saveRevision;
+    _draft = value;
+    unawaited(() async {
+      await widget.onChanged(value);
+      if (!mounted || revision != _saveRevision) return;
+      setState(() {});
+    }());
+  }
+
+  Future<void> _editStringMapEntry({
+    required String title,
+    required Map<String, String> values,
+    required ValueChanged<Map<String, String>> onChanged,
+    String? initialKey,
+    bool secret = false,
+  }) async {
+    final result = await showAnimatedDialog<_E2bKeyValueEntry>(
+      context: context,
+      builder: (_) => _E2bKeyValueDialog(
+        title: title,
+        initial: initialKey == null
+            ? null
+            : _E2bKeyValueEntry(initialKey, values[initialKey] ?? ''),
+        secret: secret,
+      ),
+    );
+    if (result == null || !mounted) return;
+    final updated = Map<String, String>.of(values);
+    if (initialKey != null && initialKey != result.key) {
+      updated.remove(initialKey);
+    }
+    updated[result.key] = result.value;
+    onChanged(updated);
+  }
+
+  Future<void> _editStringListEntry({
+    required String title,
+    required List<String> values,
+    required ValueChanged<List<String>> onChanged,
+    required bool ipOrCidrOnly,
+    int? initialIndex,
+  }) async {
+    final result = await showAnimatedDialog<String>(
+      context: context,
+      builder: (_) => _E2bTextValueDialog(
+        title: title,
+        initialValue: initialIndex == null ? '' : values[initialIndex],
+        ipOrCidrOnly: ipOrCidrOnly,
+      ),
+    );
+    if (result == null || !mounted) return;
+    final updated = List<String>.of(values);
+    if (initialIndex == null) {
+      if (!updated.contains(result)) updated.add(result);
+    } else {
+      updated[initialIndex] = result;
+    }
+    onChanged(updated.toSet().toList(growable: false));
+  }
+
+  List<_E2bNetworkRuleRecord> _readNetworkRules(Map<String, Object?> source) {
+    final result = <_E2bNetworkRuleRecord>[];
+    for (final domainEntry in source.entries) {
+      final rawRules = domainEntry.value;
+      if (rawRules is! List) continue;
+      for (var index = 0; index < rawRules.length; index++) {
+        final rule = rawRules[index];
+        if (rule is! Map) continue;
+        final transform = rule['transform'];
+        final headers = transform is Map ? transform['headers'] : null;
+        result.add(
+          _E2bNetworkRuleRecord(
+            id: '${domainEntry.key}\u0000$index',
+            domain: domainEntry.key,
+            headers: <String, String>{
+              if (headers is Map)
+                for (final entry in headers.entries)
+                  '${entry.key}': '${entry.value}',
+            },
+          ),
+        );
+      }
+    }
+    return result;
+  }
+
+  Future<void> _editNetworkRule({
+    required List<_E2bNetworkRuleRecord> rules,
+    _E2bNetworkRuleRecord? initial,
+  }) async {
+    final result = await showAnimatedDialog<_E2bNetworkRuleRecord>(
+      context: context,
+      builder: (_) => _E2bNetworkRuleDialog(initial: initial),
+    );
+    if (result == null || !mounted) return;
+    final updated =
+        rules.where((item) => item.id != initial?.id).toList(growable: true)
+          ..add(result);
+    _saveNetworkRules(updated);
+  }
+
+  void _saveNetworkRules(List<_E2bNetworkRuleRecord> rules) {
+    final grouped = <String, List<Object?>>{};
+    for (final rule in rules) {
+      grouped.putIfAbsent(rule.domain, () => <Object?>[]).add(<String, Object?>{
+        'transform': <String, Object?>{'headers': rule.headers},
+      });
+    }
+    _commit(_draft.copyWith(networkRules: grouped));
+  }
+
+  List<_E2bMcpServerRecord> _readMcpServers(Map<String, Object?>? source) =>
+      <_E2bMcpServerRecord>[
+        for (final entry in (source ?? const <String, Object?>{}).entries)
+          _E2bMcpServerRecord(
+            name: entry.key,
+            parameters: entry.value is Map
+                ? (entry.value as Map).cast<String, Object?>()
+                : const <String, Object?>{},
+          ),
+      ];
+
+  Future<void> _editMcpServer({
+    required List<_E2bMcpServerRecord> servers,
+    _E2bMcpServerRecord? initial,
+  }) async {
+    final result = await showAnimatedDialog<_E2bMcpServerRecord>(
+      context: context,
+      builder: (_) => _E2bMcpServerDialog(initial: initial),
+    );
+    if (result == null || !mounted) return;
+    final updated =
+        servers
+            .where((item) => item.name != initial?.name)
+            .toList(growable: true)
+          ..add(result);
+    _saveMcpServers(updated);
+  }
+
+  void _saveMcpServers(List<_E2bMcpServerRecord> servers) {
+    if (servers.isEmpty) {
+      _commit(_draft.copyWith(clearMcp: true));
+      return;
+    }
+    _commit(
+      _draft.copyWith(
+        mcp: <String, Object?>{
+          for (final server in servers) server.name: server.parameters,
+        },
+      ),
+    );
+  }
+
+  List<_E2bIamTokenRecord> _readIamTokens(Map<String, Object?> source) =>
+      <_E2bIamTokenRecord>[
+        for (final entry in source.entries)
+          if (entry.value is Map)
+            _E2bIamTokenRecord(
+              name: entry.key,
+              audience: '${(entry.value as Map)['audience'] ?? ''}',
+              tokenType: '${(entry.value as Map)['tokenType'] ?? ''}',
+            ),
+      ];
+
+  Future<void> _editIamToken({
+    required List<_E2bIamTokenRecord> tokens,
+    _E2bIamTokenRecord? initial,
+  }) async {
+    final result = await showAnimatedDialog<_E2bIamTokenRecord>(
+      context: context,
+      builder: (_) => _E2bIamTokenDialog(initial: initial),
+    );
+    if (result == null || !mounted) return;
+    final updated =
+        tokens
+            .where((item) => item.name != initial?.name)
+            .toList(growable: true)
+          ..add(result);
+    _saveIamTokens(updated);
+  }
+
+  void _saveIamTokens(List<_E2bIamTokenRecord> tokens) {
+    _commit(
+      _draft.copyWith(
+        iamTokens: <String, Object?>{
+          for (final token in tokens)
+            token.name: <String, Object?>{
+              'audience': token.audience,
+              'tokenType': token.tokenType,
+            },
+        },
+      ),
+    );
+  }
+
+  Future<void> _editVolumeMount({
+    required List<AiE2bVolumeMount> mounts,
+    int? initialIndex,
+  }) async {
+    final result = await showAnimatedDialog<AiE2bVolumeMount>(
+      context: context,
+      builder: (_) => _E2bVolumeMountDialog(
+        initial: initialIndex == null ? null : mounts[initialIndex],
+      ),
+    );
+    if (result == null || !mounted) return;
+    final updated = List<AiE2bVolumeMount>.of(mounts);
+    if (initialIndex == null) {
+      updated.add(result);
+    } else {
+      updated[initialIndex] = result;
+    }
+    _commit(_draft.copyWith(volumeMounts: updated));
+  }
+}
+
+class _E2bStructuredEntry {
+  const _E2bStructuredEntry({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+}
+
+class _E2bStructuredField extends StatelessWidget {
+  const _E2bStructuredField({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.entries,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final List<_E2bStructuredEntry> entries;
+  final VoidCallback onAdd;
+  final ValueChanged<String> onEdit;
+  final ValueChanged<String> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.72),
+      borderRadius: kOpenHandBorderRadius16,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withValues(
+                      alpha: 0.58,
+                    ),
+                    borderRadius: kOpenHandBorderRadius12,
+                  ),
+                  child: Icon(icon, size: 19, color: theme.colorScheme.primary),
+                ),
+                kOpenHandHGap10,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: AppLocalizations.of(context)!.settingsAddRule,
+                  child: IconButton.filledTonal(
+                    onPressed: onAdd,
+                    icon: const Icon(Icons.add_rounded),
+                  ),
+                ),
+              ],
+            ),
+            kOpenHandGap6,
+            Text(
+              description,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            AnimatedSwitcher(
+              duration: openHandMotionDuration(context, kOpenHandMotion260),
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SizeTransition(
+                  sizeFactor: animation,
+                  alignment: AlignmentDirectional.topCenter,
+                  child: child,
+                ),
+              ),
+              child: entries.isEmpty
+                  ? Padding(
+                      key: const ValueKey<String>('empty'),
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '暂未配置，点击右上角添加。',
+                          en: 'Not configured. Use Add in the upper-right.',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : Column(
+                      key: ValueKey<int>(entries.length),
+                      children: <Widget>[
+                        kOpenHandGap10,
+                        for (final entry in entries)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Material(
+                              color: theme.colorScheme.surfaceContainer,
+                              borderRadius: kOpenHandBorderRadius12,
+                              child: ListTile(
+                                dense: true,
+                                title: Text(entry.title),
+                                subtitle: Text(
+                                  entry.subtitle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: _SandboxEditDeleteActions(
+                                  editTooltip: AppLocalizations.of(
+                                    context,
+                                  )!.commonEdit,
+                                  deleteTooltip: AppLocalizations.of(
+                                    context,
+                                  )!.commonDelete,
+                                  onEdit: () => onEdit(entry.id),
+                                  onDelete: () => onDelete(entry.id),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _E2bKeyValueEntry {
+  const _E2bKeyValueEntry(this.key, this.value);
+
+  final String key;
+  final String value;
+}
+
+class _E2bNetworkRuleRecord {
+  const _E2bNetworkRuleRecord({
+    required this.id,
+    required this.domain,
+    required this.headers,
+  });
+
+  final String id;
+  final String domain;
+  final Map<String, String> headers;
+}
+
+class _E2bMcpServerRecord {
+  const _E2bMcpServerRecord({required this.name, required this.parameters});
+
+  final String name;
+  final Map<String, Object?> parameters;
+}
+
+class _E2bIamTokenRecord {
+  const _E2bIamTokenRecord({
+    required this.name,
+    required this.audience,
+    required this.tokenType,
+  });
+
+  final String name;
+  final String audience;
+  final String tokenType;
+}
+
+class _E2bKeyValueDialog extends StatefulWidget {
+  const _E2bKeyValueDialog({
+    required this.title,
+    required this.initial,
+    required this.secret,
+  });
+
+  final String title;
+  final _E2bKeyValueEntry? initial;
+  final bool secret;
+
+  @override
+  State<_E2bKeyValueDialog> createState() => _E2bKeyValueDialogState();
+}
+
+class _E2bKeyValueDialogState extends State<_E2bKeyValueDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _keyController;
+  late final TextEditingController _valueController;
+  bool _showValue = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _keyController = TextEditingController(text: widget.initial?.key ?? '');
+    _valueController = TextEditingController(text: widget.initial?.value ?? '');
+  }
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    _valueController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildSandboxRuleDialog<_E2bKeyValueEntry>(
+      context: context,
+      title: Text(widget.title),
+      formKey: _formKey,
+      fields: <Widget>[
+        TextFormField(
+          controller: _keyController,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: openHandLocalizedText(context, zh: '名称', en: 'Name'),
+          ),
+          validator: (value) => _requiredDialogValue(context, value),
+        ),
+        kOpenHandGap12,
+        TextFormField(
+          controller: _valueController,
+          obscureText: widget.secret && !_showValue,
+          decoration: InputDecoration(
+            labelText: openHandLocalizedText(context, zh: '值', en: 'Value'),
+            suffixIcon: widget.secret
+                ? IconButton(
+                    onPressed: () => setState(() => _showValue = !_showValue),
+                    icon: Icon(
+                      _showValue
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                    ),
+                  )
+                : null,
+          ),
+          validator: (value) => _requiredDialogValue(context, value),
+        ),
+      ],
+      createResult: () =>
+          _E2bKeyValueEntry(_keyController.text.trim(), _valueController.text),
+    );
+  }
+}
+
+class _E2bTextValueDialog extends StatefulWidget {
+  const _E2bTextValueDialog({
+    required this.title,
+    required this.initialValue,
+    required this.ipOrCidrOnly,
+  });
+
+  final String title;
+  final String initialValue;
+  final bool ipOrCidrOnly;
+
+  @override
+  State<_E2bTextValueDialog> createState() => _E2bTextValueDialogState();
+}
+
+class _E2bTextValueDialogState extends State<_E2bTextValueDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildSandboxRuleDialog<String>(
+      context: context,
+      title: Text(widget.title),
+      formKey: _formKey,
+      fields: <Widget>[
+        TextFormField(
+          controller: _controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: openHandLocalizedText(
+              context,
+              zh: '目标',
+              en: 'Destination',
+            ),
+          ),
+          validator: (value) {
+            final requiredError = _requiredDialogValue(context, value);
+            if (requiredError != null) return requiredError;
+            if (widget.ipOrCidrOnly && !_isSandboxIpOrCidr(value!)) {
+              return openHandLocalizedText(
+                context,
+                zh: '请输入有效的 IP 地址或 CIDR。',
+                en: 'Enter a valid IP address or CIDR block.',
+              );
+            }
+            return null;
+          },
+        ),
+      ],
+      createResult: () => _controller.text.trim(),
+    );
+  }
+}
+
+class _E2bIamTokenDialog extends StatefulWidget {
+  const _E2bIamTokenDialog({required this.initial});
+
+  final _E2bIamTokenRecord? initial;
+
+  @override
+  State<_E2bIamTokenDialog> createState() => _E2bIamTokenDialogState();
+}
+
+class _E2bIamTokenDialogState extends State<_E2bIamTokenDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _audienceController;
+  late final TextEditingController _typeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initial?.name ?? '');
+    _audienceController = TextEditingController(
+      text: widget.initial?.audience ?? '',
+    );
+    _typeController = TextEditingController(
+      text: widget.initial?.tokenType ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _audienceController.dispose();
+    _typeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildSandboxRuleDialog<_E2bIamTokenRecord>(
+      context: context,
+      title: Text(
+        openHandLocalizedText(
+          context,
+          zh: '工作负载身份令牌',
+          en: 'Workload Identity Token',
+        ),
+      ),
+      formKey: _formKey,
+      fields: <Widget>[
+        _dialogTextField(
+          context,
+          _nameController,
+          zh: '令牌名称',
+          en: 'Token Name',
+        ),
+        kOpenHandGap12,
+        _dialogTextField(
+          context,
+          _audienceController,
+          zh: '受众',
+          en: 'Audience',
+        ),
+        kOpenHandGap12,
+        _dialogTextField(
+          context,
+          _typeController,
+          zh: '令牌类型',
+          en: 'Token Type',
+        ),
+      ],
+      createResult: () => _E2bIamTokenRecord(
+        name: _nameController.text.trim(),
+        audience: _audienceController.text.trim(),
+        tokenType: _typeController.text.trim(),
+      ),
+    );
+  }
+}
+
+class _E2bVolumeMountDialog extends StatefulWidget {
+  const _E2bVolumeMountDialog({required this.initial});
+
+  final AiE2bVolumeMount? initial;
+
+  @override
+  State<_E2bVolumeMountDialog> createState() => _E2bVolumeMountDialogState();
+}
+
+class _E2bVolumeMountDialogState extends State<_E2bVolumeMountDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _pathController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initial?.name ?? '');
+    _pathController = TextEditingController(text: widget.initial?.path ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _pathController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildSandboxRuleDialog<AiE2bVolumeMount>(
+      context: context,
+      title: Text(
+        openHandLocalizedText(context, zh: '卷挂载', en: 'Volume Mount'),
+      ),
+      formKey: _formKey,
+      fields: <Widget>[
+        _dialogTextField(
+          context,
+          _nameController,
+          zh: '卷名称',
+          en: 'Volume Name',
+        ),
+        kOpenHandGap12,
+        _dialogTextField(
+          context,
+          _pathController,
+          zh: '沙盒路径',
+          en: 'Sandbox Path',
+        ),
+      ],
+      createResult: () => AiE2bVolumeMount(
+        name: _nameController.text.trim(),
+        path: _pathController.text.trim(),
+      ),
+    );
+  }
+}
+
+Widget _dialogTextField(
+  BuildContext context,
+  TextEditingController controller, {
+  required String zh,
+  required String en,
+}) {
+  return TextFormField(
+    controller: controller,
+    decoration: InputDecoration(
+      labelText: openHandLocalizedText(context, zh: zh, en: en),
+    ),
+    validator: (value) => _requiredDialogValue(context, value),
+  );
+}
+
+String? _requiredDialogValue(BuildContext context, String? value) {
+  return value == null || value.trim().isEmpty
+      ? openHandLocalizedText(
+          context,
+          zh: '此项不能为空。',
+          en: 'This field cannot be empty.',
+        )
+      : null;
+}
+
+class _E2bEditablePair {
+  _E2bEditablePair({required String key, required String value})
+    : keyController = TextEditingController(text: key),
+      valueController = TextEditingController(text: value);
+
+  final TextEditingController keyController;
+  final TextEditingController valueController;
+
+  void dispose() {
+    keyController.dispose();
+    valueController.dispose();
+  }
+}
+
+class _E2bNetworkRuleDialog extends StatefulWidget {
+  const _E2bNetworkRuleDialog({required this.initial});
+
+  final _E2bNetworkRuleRecord? initial;
+
+  @override
+  State<_E2bNetworkRuleDialog> createState() => _E2bNetworkRuleDialogState();
+}
+
+class _E2bNetworkRuleDialogState extends State<_E2bNetworkRuleDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _domainController;
+  final List<_E2bEditablePair> _headers = <_E2bEditablePair>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _domainController = TextEditingController(
+      text: widget.initial?.domain ?? '',
+    );
+    for (final entry
+        in widget.initial?.headers.entries ??
+            const <MapEntry<String, String>>[]) {
+      _headers.add(_E2bEditablePair(key: entry.key, value: entry.value));
+    }
+  }
+
+  @override
+  void dispose() {
+    _domainController.dispose();
+    for (final header in _headers) {
+      header.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return buildOpenHandAlertDialog(
+      icon: const Icon(Icons.account_tree_outlined),
+      title: Text(
+        openHandLocalizedText(
+          context,
+          zh: '按域名变换请求头',
+          en: 'Per-domain Header Transformation',
+        ),
+      ),
+      content: SizedBox(
+        width: 620,
+        child: Form(
+          key: _formKey,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 520),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  TextFormField(
+                    controller: _domainController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: openHandLocalizedText(
+                        context,
+                        zh: '匹配域名',
+                        en: 'Matching Domain',
+                      ),
+                      hintText: 'api.example.com',
+                    ),
+                    validator: (value) => _requiredDialogValue(context, value),
+                  ),
+                  kOpenHandGap16,
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '注入或覆盖的请求头',
+                            en: 'Headers to Inject or Replace',
+                          ),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => setState(() {
+                          _headers.add(_E2bEditablePair(key: '', value: ''));
+                        }),
+                        icon: const Icon(Icons.add_rounded),
+                        label: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '添加请求头',
+                            en: 'Add Header',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_headers.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '当前规则不修改请求头。',
+                          en: 'This rule does not modify headers.',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  for (var index = 0; index < _headers.length; index++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(
+                            child: _dialogTextField(
+                              context,
+                              _headers[index].keyController,
+                              zh: '请求头名称',
+                              en: 'Header Name',
+                            ),
+                          ),
+                          kOpenHandHGap10,
+                          Expanded(
+                            child: _dialogTextField(
+                              context,
+                              _headers[index].valueController,
+                              zh: '请求头值',
+                              en: 'Header Value',
+                            ),
+                          ),
+                          kOpenHandHGap6,
+                          IconButton(
+                            tooltip: AppLocalizations.of(context)!.commonDelete,
+                            onPressed: () => setState(() {
+                              _headers.removeAt(index).dispose();
+                            }),
+                            icon: const Icon(Icons.delete_outline_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: AppLocalizations.of(context)!.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: _submit,
+          label: AppLocalizations.of(context)!.settingsSave,
+          icon: Icons.check_rounded,
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    if (_formKey.currentState?.validate() != true) return;
+    final headers = <String, String>{};
+    for (final header in _headers) {
+      headers[header.keyController.text.trim()] = header.valueController.text;
+    }
+    Navigator.of(context).pop(
+      _E2bNetworkRuleRecord(
+        id: widget.initial?.id ?? _newSandboxRuleId(),
+        domain: _domainController.text.trim(),
+        headers: headers,
+      ),
+    );
+  }
+}
+
+enum _E2bMcpValueType {
+  text,
+  integer,
+  decimal,
+  toggle,
+  empty,
+  textList,
+  nested,
+}
+
+class _E2bMcpParameterRow {
+  _E2bMcpParameterRow({required String key, required Object? value})
+    : keyController = TextEditingController(text: key),
+      valueController = TextEditingController(text: _textValue(value)),
+      type = _typeOf(value),
+      toggleValue = value is bool && value,
+      originalValue = value;
+
+  final TextEditingController keyController;
+  final TextEditingController valueController;
+  final Object? originalValue;
+  _E2bMcpValueType type;
+  bool toggleValue;
+
+  Object? get value => switch (type) {
+    _E2bMcpValueType.text => valueController.text,
+    _E2bMcpValueType.integer => int.parse(valueController.text.trim()),
+    _E2bMcpValueType.decimal => double.parse(valueController.text.trim()),
+    _E2bMcpValueType.toggle => toggleValue,
+    _E2bMcpValueType.empty => null,
+    _E2bMcpValueType.textList =>
+      valueController.text
+          .split('\n')
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false),
+    _E2bMcpValueType.nested => originalValue,
   };
 
-  static String _prettyJson(Object? value) =>
-      const JsonEncoder.withIndent('  ').convert(value);
+  void dispose() {
+    keyController.dispose();
+    valueController.dispose();
+  }
+
+  static _E2bMcpValueType _typeOf(Object? value) {
+    if (value == null) return _E2bMcpValueType.empty;
+    if (value is bool) return _E2bMcpValueType.toggle;
+    if (value is int) return _E2bMcpValueType.integer;
+    if (value is double) return _E2bMcpValueType.decimal;
+    if (value is List && value.every((item) => item is String)) {
+      return _E2bMcpValueType.textList;
+    }
+    if (value is Map || value is List) return _E2bMcpValueType.nested;
+    return _E2bMcpValueType.text;
+  }
+
+  static String _textValue(Object? value) {
+    if (value is List && value.every((item) => item is String)) {
+      return value.join('\n');
+    }
+    return value is String || value is num ? '$value' : '';
+  }
+}
+
+class _E2bMcpServerDialog extends StatefulWidget {
+  const _E2bMcpServerDialog({required this.initial});
+
+  final _E2bMcpServerRecord? initial;
+
+  @override
+  State<_E2bMcpServerDialog> createState() => _E2bMcpServerDialogState();
+}
+
+class _E2bMcpServerDialogState extends State<_E2bMcpServerDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  final List<_E2bMcpParameterRow> _parameters = <_E2bMcpParameterRow>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initial?.name ?? '');
+    for (final entry
+        in widget.initial?.parameters.entries ??
+            const <MapEntry<String, Object?>>[]) {
+      _parameters.add(_E2bMcpParameterRow(key: entry.key, value: entry.value));
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    for (final parameter in _parameters) {
+      parameter.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return buildOpenHandAlertDialog(
+      icon: const Icon(Icons.hub_outlined),
+      title: Text(
+        openHandLocalizedText(context, zh: 'MCP 服务', en: 'MCP Server'),
+      ),
+      content: SizedBox(
+        width: 660,
+        child: Form(
+          key: _formKey,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 540),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  TextFormField(
+                    controller: _nameController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: openHandLocalizedText(
+                        context,
+                        zh: '服务标识',
+                        en: 'Server Identifier',
+                      ),
+                      hintText: 'arxiv',
+                    ),
+                    validator: (value) => _requiredDialogValue(context, value),
+                  ),
+                  kOpenHandGap16,
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '服务参数',
+                            en: 'Server Parameters',
+                          ),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => setState(() {
+                          _parameters.add(
+                            _E2bMcpParameterRow(key: '', value: ''),
+                          );
+                        }),
+                        icon: const Icon(Icons.add_rounded),
+                        label: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '添加参数',
+                            en: 'Add Parameter',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_parameters.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '此服务不需要额外参数。',
+                          en: 'This server has no additional parameters.',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  for (var index = 0; index < _parameters.length; index++)
+                    _buildParameter(index),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: AppLocalizations.of(context)!.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: _submit,
+          label: AppLocalizations.of(context)!.settingsSave,
+          icon: Icons.check_rounded,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildParameter(int index) {
+    final parameter = _parameters[index];
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: kOpenHandBorderRadius14,
+      ),
+      child: Column(
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: TextFormField(
+                  controller: parameter.keyController,
+                  decoration: InputDecoration(
+                    labelText: openHandLocalizedText(
+                      context,
+                      zh: '参数名称',
+                      en: 'Parameter Name',
+                    ),
+                  ),
+                  validator: (value) {
+                    final requiredError = _requiredDialogValue(context, value);
+                    if (requiredError != null) return requiredError;
+                    final normalized = value!.trim();
+                    if (_parameters
+                            .where(
+                              (item) =>
+                                  item.keyController.text.trim() == normalized,
+                            )
+                            .length >
+                        1) {
+                      return openHandLocalizedText(
+                        context,
+                        zh: '参数名称不能重复。',
+                        en: 'Parameter names must be unique.',
+                      );
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              kOpenHandHGap10,
+              SizedBox(
+                width: 180,
+                child: AnimatedDropdownButtonFormField<_E2bMcpValueType>(
+                  initialValue: parameter.type,
+                  decoration: InputDecoration(
+                    labelText: openHandLocalizedText(
+                      context,
+                      zh: '值类型',
+                      en: 'Value Type',
+                    ),
+                  ),
+                  items: <DropdownMenuItem<_E2bMcpValueType>>[
+                    for (final type in _E2bMcpValueType.values)
+                      if (type != _E2bMcpValueType.nested ||
+                          parameter.type == _E2bMcpValueType.nested)
+                        DropdownMenuItem<_E2bMcpValueType>(
+                          value: type,
+                          child: Text(_mcpValueTypeLabel(context, type)),
+                        ),
+                  ],
+                  onChanged: parameter.type == _E2bMcpValueType.nested
+                      ? null
+                      : (value) => setState(() {
+                          parameter.type = value ?? _E2bMcpValueType.text;
+                        }),
+                ),
+              ),
+              kOpenHandHGap6,
+              IconButton(
+                tooltip: AppLocalizations.of(context)!.commonDelete,
+                onPressed: () => setState(() {
+                  _parameters.removeAt(index).dispose();
+                }),
+                icon: const Icon(Icons.delete_outline_rounded),
+              ),
+            ],
+          ),
+          kOpenHandGap10,
+          if (parameter.type == _E2bMcpValueType.toggle)
+            _AiTtsToggleField(
+              label: openHandLocalizedText(
+                context,
+                zh: '参数值',
+                en: 'Parameter Value',
+              ),
+              value: parameter.toggleValue,
+              onChanged: (value) =>
+                  setState(() => parameter.toggleValue = value),
+            )
+          else if (parameter.type == _E2bMcpValueType.nested)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                openHandLocalizedText(
+                  context,
+                  zh: '原有嵌套配置已保留；如需替换，请删除此参数后重新添加。',
+                  en: 'The existing nested value is preserved. Delete and recreate this parameter to replace it.',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else if (parameter.type != _E2bMcpValueType.empty)
+            TextFormField(
+              controller: parameter.valueController,
+              minLines: parameter.type == _E2bMcpValueType.textList ? 2 : 1,
+              maxLines: parameter.type == _E2bMcpValueType.textList ? 5 : 1,
+              keyboardType:
+                  parameter.type == _E2bMcpValueType.integer ||
+                      parameter.type == _E2bMcpValueType.decimal
+                  ? const TextInputType.numberWithOptions(decimal: true)
+                  : TextInputType.text,
+              decoration: InputDecoration(
+                labelText: parameter.type == _E2bMcpValueType.textList
+                    ? openHandLocalizedText(
+                        context,
+                        zh: '参数值（每行一项）',
+                        en: 'Parameter Value (One Item per Line)',
+                      )
+                    : openHandLocalizedText(
+                        context,
+                        zh: '参数值',
+                        en: 'Parameter Value',
+                      ),
+              ),
+              validator: (value) {
+                if (parameter.type == _E2bMcpValueType.integer &&
+                    int.tryParse((value ?? '').trim()) == null) {
+                  return openHandLocalizedText(
+                    context,
+                    zh: '请输入有效整数。',
+                    en: 'Enter a valid integer.',
+                  );
+                }
+                if (parameter.type == _E2bMcpValueType.decimal &&
+                    double.tryParse((value ?? '').trim()) == null) {
+                  return openHandLocalizedText(
+                    context,
+                    zh: '请输入有效数值。',
+                    en: 'Enter a valid number.',
+                  );
+                }
+                return _requiredDialogValue(context, value);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _submit() {
+    if (_formKey.currentState?.validate() != true) return;
+    Navigator.of(context).pop(
+      _E2bMcpServerRecord(
+        name: _nameController.text.trim(),
+        parameters: <String, Object?>{
+          for (final parameter in _parameters)
+            parameter.keyController.text.trim(): parameter.value,
+        },
+      ),
+    );
+  }
+}
+
+String _mcpValueTypeLabel(BuildContext context, _E2bMcpValueType type) {
+  return switch (type) {
+    _E2bMcpValueType.text => openHandLocalizedText(
+      context,
+      zh: '文本',
+      en: 'Text',
+    ),
+    _E2bMcpValueType.integer => openHandLocalizedText(
+      context,
+      zh: '整数',
+      en: 'Integer',
+    ),
+    _E2bMcpValueType.decimal => openHandLocalizedText(
+      context,
+      zh: '数值',
+      en: 'Number',
+    ),
+    _E2bMcpValueType.toggle => openHandLocalizedText(
+      context,
+      zh: '开关',
+      en: 'Boolean',
+    ),
+    _E2bMcpValueType.empty => openHandLocalizedText(
+      context,
+      zh: '空值',
+      en: 'Null',
+    ),
+    _E2bMcpValueType.textList => openHandLocalizedText(
+      context,
+      zh: '文本列表',
+      en: 'Text List',
+    ),
+    _E2bMcpValueType.nested => openHandLocalizedText(
+      context,
+      zh: '嵌套配置',
+      en: 'Nested Value',
+    ),
+  };
+}
+
+class _SandboxEnvironmentTestDialog extends StatefulWidget {
+  const _SandboxEnvironmentTestDialog({
+    required this.provider,
+    required this.settings,
+  });
+
+  final AiSandboxProvider provider;
+  final AiSandboxSettings settings;
+
+  @override
+  State<_SandboxEnvironmentTestDialog> createState() =>
+      _SandboxEnvironmentTestDialogState();
+}
+
+class _SandboxEnvironmentTestDialogState
+    extends State<_SandboxEnvironmentTestDialog> {
+  late final AiSandboxService _service;
+  AiSandboxEnvironmentStatus? _status;
+  Object? _error;
+  bool _running = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = AiSandboxService(settings: widget.settings);
+    unawaited(_test());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_service.shutdown());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final available = _status?.available == true;
+    final accent = _running
+        ? theme.colorScheme.primary
+        : available
+        ? OpenHandStatusColors.success
+        : theme.colorScheme.error;
+    return PopScope(
+      child: buildOpenHandAlertDialog(
+        icon: AnimatedSwitcher(
+          duration: openHandMotionDuration(context, kOpenHandMotion200),
+          child: Icon(
+            _running
+                ? Icons.science_rounded
+                : available
+                ? Icons.check_circle_outline_rounded
+                : Icons.error_outline_rounded,
+            key: ValueKey<Object?>(_running ? 'running' : available),
+            color: accent,
+          ),
+        ),
+        title: Text(
+          openHandLocalizedText(
+            context,
+            zh: widget.provider == AiSandboxProvider.e2b
+                ? 'E2B 沙盒测试'
+                : '本地沙盒测试',
+            en: widget.provider == AiSandboxProvider.e2b
+                ? 'E2B Sandbox Test'
+                : 'Local Sandbox Test',
+          ),
+        ),
+        content: SizedBox(
+          width: 460,
+          child: AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion260),
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SizeTransition(
+                sizeFactor: animation,
+                alignment: AlignmentDirectional.topCenter,
+                child: child,
+              ),
+            ),
+            child: _running
+                ? Column(
+                    key: const ValueKey<String>('running'),
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: widget.provider == AiSandboxProvider.e2b
+                              ? '正在验证 E2B 凭据、接口连通性与沙盒列表权限。'
+                              : '正在验证当前平台、沙盒后端和运行依赖。',
+                          en: widget.provider == AiSandboxProvider.e2b
+                              ? 'Validating E2B credentials, API connectivity, and sandbox listing permissions.'
+                              : 'Validating the current platform, sandbox backend, and runtime dependencies.',
+                        ),
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      kOpenHandGap18,
+                      ClipRRect(
+                        borderRadius: kOpenHandBorderRadius12,
+                        child: LinearProgressIndicator(
+                          minHeight: 10,
+                          color: accent,
+                          backgroundColor: accent.withValues(alpha: 0.13),
+                        ),
+                      ),
+                    ],
+                  )
+                : _buildResult(theme, accent, available),
+          ),
+        ),
+        actions: <Widget>[
+          if (_running)
+            OpenHandDialogActionButton.destructive(
+              onPressed: () => Navigator.of(context).pop(),
+              label: openHandLocalizedText(
+                context,
+                zh: '终止测试',
+                en: 'Stop Test',
+              ),
+              icon: Icons.stop_circle_outlined,
+            )
+          else ...<Widget>[
+            OpenHandDialogActionButton.secondary(
+              onPressed: _test,
+              label: openHandLocalizedText(
+                context,
+                zh: '重新测试',
+                en: 'Test Again',
+              ),
+              icon: Icons.refresh_rounded,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(context).pop(),
+              label: openHandLocalizedText(context, zh: '完成', en: 'Done'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResult(ThemeData theme, Color accent, bool available) {
+    final status = _status;
+    final details = <String>[
+      if (status != null) '${status.backend} · ${status.platform}',
+      if (status?.resourceVersion.isNotEmpty == true) status!.resourceVersion,
+      if (!available && status?.unavailableReason.isNotEmpty == true)
+        status!.unavailableReason,
+      ...?status?.warnings,
+      if (_error != null) _settingsFullErrorText(context, _error!),
+    ];
+    return Container(
+      key: const ValueKey<String>('result'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: accent.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            available
+                ? openHandLocalizedText(
+                    context,
+                    zh: '沙盒环境可用',
+                    en: 'Sandbox Environment Is Available',
+                  )
+                : openHandLocalizedText(
+                    context,
+                    zh: '沙盒环境不可用',
+                    en: 'Sandbox Environment Is Unavailable',
+                  ),
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: accent,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          if (details.isNotEmpty) ...<Widget>[
+            kOpenHandGap8,
+            Text(details.join('\n'), style: theme.textTheme.bodyMedium),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _test() async {
+    if (mounted) {
+      setState(() {
+        _running = true;
+        _status = null;
+        _error = null;
+      });
+    }
+    try {
+      final status = await _service.detectEnvironment(refresh: true);
+      if (mounted) setState(() => _status = status);
+    } catch (error, stack) {
+      silentLog('settings_sandbox', '测试沙盒环境', error, stack);
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+  }
+}
+
+class _SandboxResourceActionDialog extends StatefulWidget {
+  const _SandboxResourceActionDialog({
+    required this.service,
+    required this.action,
+  });
+
+  final AiSandboxService service;
+  final AiSandboxResourceAction action;
+
+  @override
+  State<_SandboxResourceActionDialog> createState() =>
+      _SandboxResourceActionDialogState();
+}
+
+class _SandboxResourceActionDialogState
+    extends State<_SandboxResourceActionDialog> {
+  final Completer<void> _cancellation = Completer<void>();
+  double _progress = 0.03;
+  String _message = '';
+  AiSandboxActionResult? _result;
+
+  bool get _finished => _result != null;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_run());
+    });
+  }
+
+  @override
+  void dispose() {
+    if (!_cancellation.isCompleted) _cancellation.complete();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final success = _result?.success == true;
+    final accent = !_finished
+        ? theme.colorScheme.primary
+        : success
+        ? OpenHandStatusColors.success
+        : theme.colorScheme.error;
+    return PopScope(
+      canPop: _finished,
+      child: buildOpenHandAlertDialog(
+        icon: AnimatedSwitcher(
+          duration: openHandMotionDuration(context, kOpenHandMotion200),
+          child: Icon(
+            !_finished
+                ? _actionIcon
+                : success
+                ? Icons.check_circle_outline_rounded
+                : Icons.error_outline_rounded,
+            key: ValueKey<Object?>(_finished ? success : widget.action),
+            color: accent,
+          ),
+        ),
+        title: Text(_title),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion200),
+                child: Text(
+                  _finished ? _result!.message : _message,
+                  key: ValueKey<String>(_finished ? 'result' : _message),
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                ),
+              ),
+              if (!_finished) ...<Widget>[
+                kOpenHandGap18,
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: _progress),
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 520),
+                  ),
+                  curve: kOpenHandEmphasizedCurve,
+                  builder: (context, value, _) => ClipRRect(
+                    borderRadius: kOpenHandBorderRadius12,
+                    child: LinearProgressIndicator(
+                      value: value.clamp(0, 1),
+                      minHeight: 11,
+                      color: accent,
+                      backgroundColor: accent.withValues(alpha: 0.13),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          if (_finished)
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(context).pop(),
+              label: openHandLocalizedText(context, zh: '完成', en: 'Done'),
+            )
+          else
+            OpenHandDialogActionButton.destructive(
+              onPressed: _cancel,
+              label: openHandLocalizedText(
+                context,
+                zh: '终止任务',
+                en: 'Stop Task',
+              ),
+              icon: Icons.stop_circle_outlined,
+            ),
+        ],
+      ),
+    );
+  }
+
+  String get _title => switch (widget.action) {
+    AiSandboxResourceAction.install => openHandLocalizedText(
+      context,
+      zh: _finished ? '安装任务已结束' : '正在安装本地沙盒资源',
+      en: _finished ? 'Installation Finished' : 'Installing Local Sandbox',
+    ),
+    AiSandboxResourceAction.update => openHandLocalizedText(
+      context,
+      zh: _finished ? '更新任务已结束' : '正在更新本地沙盒资源',
+      en: _finished ? 'Update Finished' : 'Updating Local Sandbox',
+    ),
+    AiSandboxResourceAction.uninstall => openHandLocalizedText(
+      context,
+      zh: _finished ? '卸载任务已结束' : '正在卸载本地沙盒资源',
+      en: _finished ? 'Removal Finished' : 'Removing Local Sandbox',
+    ),
+  };
+
+  IconData get _actionIcon => switch (widget.action) {
+    AiSandboxResourceAction.install => Icons.download_for_offline_outlined,
+    AiSandboxResourceAction.update => Icons.system_update_alt_rounded,
+    AiSandboxResourceAction.uninstall => Icons.delete_outline_rounded,
+  };
+
+  Future<void> _run() async {
+    _message = openHandLocalizedText(
+      context,
+      zh: '正在准备系统资源任务',
+      en: 'Preparing the system resource task',
+    );
+    try {
+      final result = await widget.service.performEnvironmentAction(
+        widget.action,
+        cancelSignal: _cancellation.future,
+        onProgress: (progress, message) {
+          if (!mounted) return;
+          setState(() {
+            _progress = progress.clamp(_progress, 1);
+            _message = message;
+          });
+        },
+      );
+      if (mounted) setState(() => _result = result);
+    } catch (error, stack) {
+      silentLog('settings_sandbox', '维护本地沙盒资源', error, stack);
+      if (!mounted) return;
+      setState(() {
+        _result = AiSandboxActionResult(
+          success: false,
+          message: _settingsFullErrorText(context, error),
+        );
+      });
+    }
+  }
+
+  void _cancel() {
+    if (!_cancellation.isCompleted) _cancellation.complete();
+    setState(() {
+      _message = openHandLocalizedText(
+        context,
+        zh: '正在终止任务并清理进程',
+        en: 'Stopping the task and cleaning up processes',
+      );
+    });
+  }
 }
 
 class _SandboxRuleTile extends StatelessWidget {
@@ -1511,13 +3689,47 @@ class _SandboxRuleTile extends StatelessWidget {
         leading: Icon(icon),
         title: Text(title),
         subtitle: Text(subtitle),
-        trailing: OpenHandRowEditDeleteActions(
+        trailing: _SandboxEditDeleteActions(
           editTooltip: AppLocalizations.of(context)!.commonEdit,
           deleteTooltip: AppLocalizations.of(context)!.commonDelete,
           onEdit: onEdit,
           onDelete: onDelete,
         ),
       ),
+    );
+  }
+}
+
+class _SandboxEditDeleteActions extends StatelessWidget {
+  const _SandboxEditDeleteActions({
+    required this.editTooltip,
+    required this.deleteTooltip,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final String editTooltip;
+  final String deleteTooltip;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        IconButton(
+          onPressed: onEdit,
+          tooltip: editTooltip,
+          icon: const Icon(Icons.edit_outlined),
+        ),
+        kOpenHandHGap8,
+        IconButton(
+          onPressed: onDelete,
+          tooltip: deleteTooltip,
+          icon: const Icon(Icons.delete_outline_rounded),
+        ),
+      ],
     );
   }
 }
