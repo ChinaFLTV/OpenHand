@@ -362,6 +362,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const Duration _conversationReconcileLogInterval = Duration(
     minutes: 5,
   );
+  static const Duration _persistCoalesceDelay = Duration(milliseconds: 80);
   static const Duration _shutdownCleanupTimeout = Duration(seconds: 10);
   // 媒体只影响附件上下文，不能阻塞文本消息进入 AI 响应链路。
   static const Duration _mediaPreparationTimeout = Duration(seconds: 12);
@@ -464,6 +465,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void>? _shutdownInFlight;
   bool _persistQueued = false;
   Object? _persistenceError;
+  String? _persistenceErrorMessage;
   bool _pollInFlight = false;
   bool _usingPollingFallback = false;
   bool _responseSchedulingQueued = false;
@@ -7528,7 +7530,6 @@ ${_markdownStructuredFields(response)}''';
   void _queuePersist() {
     if (_disposed || _shutdownRequested) return;
     _persistQueued = true;
-    _persistenceError = null;
     if (_persistInFlight != null) return;
     final task = _drainPersistQueue();
     _persistInFlight = task;
@@ -7536,25 +7537,41 @@ ${_markdownStructuredFields(response)}''';
   }
 
   Future<void> _drainPersistQueue() async {
-    // 让出当前帧，避免消息到达时复制大量历史消息阻塞会话切换和滚动。
-    await Future<void>.delayed(Duration.zero);
-    while (_persistQueued && !_disposed) {
-      _persistQueued = false;
-      final conversations = _conversations.values
-          .map((conversation) => conversation.snapshot())
-          .toList(growable: false);
-      try {
-        await _store
-            .saveSnapshot(settings: _settings, conversations: conversations)
-            .timeout(_shutdownCleanupTimeout);
-      } catch (error, stack) {
-        _persistenceError = error;
-        _setError('保存钉钉网关数据', error, stack);
-        break;
+    // 合并短时间内的流式回显和状态变更，减少主线程快照复制与磁盘写放大。
+    await Future<void>.delayed(_persistCoalesceDelay);
+    try {
+      while (_persistQueued && !_disposed) {
+        _persistQueued = false;
+        try {
+          final conversations = _conversations.values
+              .map((conversation) => conversation.snapshot())
+              .toList(growable: false);
+          // 原子写入自身已有完整的锁等待和 I/O 时限。这里不能再套
+          // Future.timeout，否则超时后底层写入仍会继续，进而产生并发旧写入。
+          await _store.saveSnapshot(
+            settings: _settings,
+            conversations: conversations,
+          );
+          final previousErrorMessage = _persistenceErrorMessage;
+          _persistenceError = null;
+          _persistenceErrorMessage = null;
+          if (previousErrorMessage != null &&
+              _errorMessage == previousErrorMessage) {
+            _clearError();
+            _notify();
+          }
+        } catch (error, stack) {
+          _persistQueued = false;
+          _persistenceError = error;
+          _setError('保存钉钉网关数据', error, stack);
+          _persistenceErrorMessage = _errorMessage;
+          _notify();
+          break;
+        }
       }
+    } finally {
+      _persistInFlight = null;
     }
-    _persistInFlight = null;
-    if (_persistQueued && !_disposed) _queuePersist();
   }
 
   void _notify() {

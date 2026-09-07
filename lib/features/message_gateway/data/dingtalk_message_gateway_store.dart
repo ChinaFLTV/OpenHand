@@ -32,6 +32,7 @@ class DingTalkMessageGatewayStore {
           );
 
   static const int _maxBytes = 512 * kBytesPerKiB;
+  static const int _targetBytes = _maxBytes - 8 * kBytesPerKiB;
   static const BoundedJsonConversionConfig _jsonConversionConfig =
       BoundedJsonConversionConfig(
         maxDepth: 32,
@@ -176,27 +177,33 @@ class DingTalkMessageGatewayStore {
     }
 
     var content = encodePayload();
-    while (utf8ByteLength(content) > _maxBytes &&
-        limitedConversations.isNotEmpty) {
-      var largestIndex = -1;
-      var largestMessageCount = 0;
-      for (var index = 0; index < limitedConversations.length; index++) {
-        final count = limitedConversations[index].messages.length;
-        if (count > largestMessageCount) {
-          largestMessageCount = count;
-          largestIndex = index;
-        }
-      }
-      if (largestIndex >= 0) {
-        final messages = limitedConversations[largestIndex].messages;
-        final removeCount = (messages.length ~/ 4).clamp(1, messages.length);
-        messages.removeRange(0, removeCount);
+    var contentBytes = utf8ByteLength(content);
+    while (contentBytes > _maxBytes && limitedConversations.isNotEmpty) {
+      final messageCount = limitedConversations.fold<int>(
+        0,
+        (total, conversation) => total + conversation.messages.length,
+      );
+      if (messageCount > 0) {
+        final keepCount = (messageCount * _targetBytes ~/ contentBytes).clamp(
+          0,
+          messageCount - 1,
+        );
+        _keepRecentMessagesFairly(limitedConversations, keepCount);
       } else {
-        limitedConversations.removeLast();
+        final keepCount =
+            (limitedConversations.length * _targetBytes ~/ contentBytes).clamp(
+              0,
+              limitedConversations.length - 1,
+            );
+        limitedConversations.removeRange(
+          keepCount,
+          limitedConversations.length,
+        );
       }
       content = encodePayload();
+      contentBytes = utf8ByteLength(content);
     }
-    if (utf8ByteLength(content) > _maxBytes) {
+    if (contentBytes > _maxBytes) {
       throw const FileSystemException('钉钉网关配置超过大小上限。');
     }
     await writeFileAtomically(file, content);
@@ -204,6 +211,53 @@ class DingTalkMessageGatewayStore {
     _cachedConversations = List<DingTalkConversation>.unmodifiable(
       limitedConversations,
     );
+  }
+
+  void _keepRecentMessagesFairly(
+    List<DingTalkConversation> conversations,
+    int keepCount,
+  ) {
+    var low = 0;
+    var high = conversations.fold<int>(
+      0,
+      (largest, conversation) => conversation.messages.length > largest
+          ? conversation.messages.length
+          : largest,
+    );
+    while (low < high) {
+      final middle = (low + high + 1) ~/ 2;
+      final retained = conversations.fold<int>(
+        0,
+        (total, conversation) =>
+            total + conversation.messages.length.clamp(0, middle),
+      );
+      if (retained <= keepCount) {
+        low = middle;
+      } else {
+        high = middle - 1;
+      }
+    }
+
+    final retainedCounts = conversations
+        .map((conversation) => conversation.messages.length.clamp(0, low))
+        .toList(growable: false);
+    var remaining = keepCount - retainedCounts.fold<int>(0, (a, b) => a + b);
+    for (
+      var index = 0;
+      index < conversations.length && remaining > 0;
+      index++
+    ) {
+      if (retainedCounts[index] >= conversations[index].messages.length) {
+        continue;
+      }
+      retainedCounts[index] += 1;
+      remaining -= 1;
+    }
+    for (var index = 0; index < conversations.length; index++) {
+      final messages = conversations[index].messages;
+      final removeCount = messages.length - retainedCounts[index];
+      if (removeCount > 0) messages.removeRange(0, removeCount);
+    }
   }
 
   List<DingTalkGatewayMessage> _keepRecentMessages(
