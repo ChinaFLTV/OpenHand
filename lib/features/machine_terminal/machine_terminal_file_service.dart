@@ -747,7 +747,7 @@ class MachineTerminalFileService extends ChangeNotifier {
   }) async {
     _throwIfMachineTerminalTransferCancelled(isCancelled);
     final command = _listDirectoryCommand(path);
-    final progress = MachineTerminalDirectoryProgressTracker(onProgress);
+    final progress = _MachineTerminalDirectoryProgressTracker(onProgress);
     progress.reportPreparing();
     final output = await _runCommand(
       sessionId: sessionId,
@@ -1462,9 +1462,8 @@ MachineTerminalDirectorySnapshot parseMachineTerminalDirectoryProtocol(
   );
 }
 
-@visibleForTesting
-class MachineTerminalDirectoryProgressTracker {
-  MachineTerminalDirectoryProgressTracker(this._onProgress);
+class _MachineTerminalDirectoryProgressTracker {
+  _MachineTerminalDirectoryProgressTracker(this._onProgress);
 
   final MachineTerminalFileProgressCallback? _onProgress;
   String _output = '';

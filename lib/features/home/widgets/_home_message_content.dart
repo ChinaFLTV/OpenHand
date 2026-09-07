@@ -413,9 +413,7 @@ class _ReasoningBody extends StatelessWidget {
     }
     // 折叠态：展示前 5-6 行预览（maxHeight ≈ 142）并在底部叠渐隐遮罩，
     // 给用户「开始阅读」的锚点，与 WEB 端 ReasoningCollapsibleBody 对齐。
-    // 注意：这里继续不再额外套内部 AnimatedSize。当前外层 `_MessageBubble`
-    // 已恢复为单一尺寸动画壳，内部只保留 keyed 内容切换，把高度插值统一交给
-    // 外层，避免再次出现多层尺寸动画竞争。
+    // 高度动画统一由外层消息气泡处理，避免多层尺寸动画竞争。
     return expanded
         ? KeyedSubtree(
             key: const ValueKey<String>('reasoning-expanded'),

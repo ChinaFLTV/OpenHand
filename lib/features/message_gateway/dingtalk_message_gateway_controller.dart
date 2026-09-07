@@ -76,8 +76,7 @@ class _DingTalkEagerMcpTool {
 String _sanitizeDingTalkVisibleText(String value) =>
     stripImageSummaryMarkup(value);
 
-@visibleForTesting
-bool canMergeDingTalkOutgoingEcho({
+bool _canMergeDingTalkOutgoingEcho({
   required bool incomingIsSelf,
   required bool incomingIdentityUnresolved,
   required bool unresolvedOutgoing,
@@ -91,8 +90,7 @@ bool canMergeDingTalkOutgoingEcho({
             withinUnverifiedMatchWindow &&
             sameContent);
 
-@visibleForTesting
-bool matchesDingTalkOutgoingMedia(
+bool _matchesDingTalkOutgoingMedia(
   List<DingTalkGatewayMedia> local,
   List<DingTalkGatewayMedia> incoming,
   String incomingContent,
@@ -136,8 +134,7 @@ bool matchesDingTalkOutgoingMedia(
   return true;
 }
 
-@visibleForTesting
-List<DingTalkGatewayMedia> mergeDingTalkMediaCache(
+List<DingTalkGatewayMedia> _mergeDingTalkMediaCache(
   List<DingTalkGatewayMedia> current,
   List<DingTalkGatewayMedia> remote,
 ) {
@@ -192,16 +189,14 @@ List<DingTalkGatewayMedia> mergeDingTalkMediaCache(
       .toList(growable: false);
 }
 
-@visibleForTesting
-bool canResumeDingTalkQueuedResponse({
+bool _canResumeDingTalkQueuedResponse({
   required bool serviceEnabled,
   required bool queuePaused,
   required bool responseActive,
   required bool itemExists,
 }) => serviceEnabled && queuePaused && !responseActive && itemExists;
 
-@visibleForTesting
-bool prioritizeDingTalkQueuedResponse<T>(
+bool _prioritizeDingTalkQueuedResponse<T>(
   Queue<T> queue,
   bool Function(T item) matches,
 ) {
@@ -1255,7 +1250,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool canRespondToQueuedResponse(String conversationId, int sequence) {
     final normalizedId = conversationId.trim();
     final queue = _responseQueues[normalizedId];
-    return canResumeDingTalkQueuedResponse(
+    return _canResumeDingTalkQueuedResponse(
       serviceEnabled: isServiceEnabled,
       queuePaused: _pausedResponseQueueConversationIds.contains(normalizedId),
       responseActive: isConversationResponding(normalizedId),
@@ -1268,7 +1263,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final normalizedId = conversationId.trim();
     if (!canRespondToQueuedResponse(normalizedId, sequence)) return false;
     final queue = _responseQueues[normalizedId]!;
-    if (!prioritizeDingTalkQueuedResponse(
+    if (!_prioritizeDingTalkQueuedResponse(
       queue,
       (item) => item.sequence == sequence,
     )) {
@@ -1724,11 +1719,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final currentQuoted = current.quotedMessage;
       final hydratedQuoted = hydrated.quotedMessage;
       final updated = current.copyWith(
-        media: mergeDingTalkMediaCache(hydrated.media, current.media),
+        media: _mergeDingTalkMediaCache(hydrated.media, current.media),
         quotedMessage: hydratedQuoted?.copyWith(
           media: currentQuoted == null
               ? hydratedQuoted.media
-              : mergeDingTalkMediaCache(
+              : _mergeDingTalkMediaCache(
                   hydratedQuoted.media,
                   currentQuoted.media,
                 ),
@@ -2796,7 +2791,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       content: keepLocalContent ? null : remote.content,
       media: remote.media.isEmpty
           ? null
-          : mergeDingTalkMediaCache(local.media, remote.media),
+          : _mergeDingTalkMediaCache(local.media, remote.media),
       quotedMessage: remote.quotedMessage,
       fromSelf:
           local.fromSelf || remote.fromSelf || _isGeneratedMediaLocalEcho(local)
@@ -3215,12 +3210,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           incomingContentComparison.isNotEmpty &&
           (_matchesOutgoingEchoContent(local, incomingContentComparison) ||
               _sharesDingTalkToolCallIdentity(local, incoming));
-      final sameMedia = matchesDingTalkOutgoingMedia(
+      final sameMedia = _matchesDingTalkOutgoingMedia(
         local.media,
         incoming.media,
         incomingContent,
       );
-      if (!canMergeDingTalkOutgoingEcho(
+      if (!_canMergeDingTalkOutgoingEcho(
         incomingIsSelf: incomingIsSelf,
         incomingIdentityUnresolved: incomingIdentityUnresolved,
         unresolvedOutgoing: unresolvedOutgoing,
@@ -3303,7 +3298,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           continue;
         }
         if (!sameContent &&
-            !matchesDingTalkOutgoingMedia(
+            !_matchesDingTalkOutgoingMedia(
               local.media,
               remote.media,
               remote.content,
@@ -3706,7 +3701,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       history = nextHistory.toList(growable: false);
     }
     final media = mediaChanged
-        ? mergeDingTalkMediaCache(current.media, remote.media)
+        ? _mergeDingTalkMediaCache(current.media, remote.media)
         : null;
     if (mediaChanged) _mediaHydrationFailures.remove(remoteId);
     conversation.messages[index] = current.copyWith(
@@ -3720,7 +3715,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           ? remoteQuotedMessage.copyWith(
               media: currentQuotedMessage == null
                   ? remoteQuotedMessage.media
-                  : mergeDingTalkMediaCache(
+                  : _mergeDingTalkMediaCache(
                       currentQuotedMessage.media,
                       remoteQuotedMessage.media,
                     ),

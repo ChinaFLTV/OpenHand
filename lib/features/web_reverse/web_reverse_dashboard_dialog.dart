@@ -1452,8 +1452,7 @@ class _WebReverseDashboardDialogState
     final ctrl = widget.controller;
     final order = ctrl.pageTargetOrder;
     final currentId = ctrl.currentPageTargetId;
-    // 尝试拉每个 target 的真实 URL；失败则用 snapshot 里的。控制总耗时
-    // ≤ 500ms，超时即用 snapshot。
+    // 使用控制器快照持久化标签顺序与当前页面。
     final urls = <String, String>{};
     CdpPageTargetSnapshot? currentTarget;
     for (final t in ctrl.pageTargets) {
@@ -1475,15 +1474,13 @@ class _WebReverseDashboardDialogState
     );
   }
 
-  bool _isZh() => openHandIsChineseLocale(context);
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final reduceMotion = !_wrMotionEnabled(context);
     final ctrl = widget.controller;
-    final isZh = _isZh();
+    final isZh = openHandIsChineseLocale(context);
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         // Cmd+Shift+R / Ctrl+Shift+R 启停 Recorder。

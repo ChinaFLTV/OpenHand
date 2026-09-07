@@ -826,10 +826,10 @@ String buildAiModelProxyStatusPage({
   --primary-container: ${_cssHex(cs.primaryContainer)};
   --on-primary: ${_cssHex(cs.onPrimary)};
   --outline: ${_cssHex(cs.outlineVariant)};
-  --ok: ${_healthCss(OpenHandStatusColors.success)};
-  --caution: ${_healthCss(OpenHandStatusColors.caution)};
-  --warn: ${_healthCss(OpenHandStatusColors.warning)};
-  --bad: ${_healthCss(OpenHandStatusColors.error)};
+  --ok: ${_cssHex(OpenHandStatusColors.success)};
+  --caution: ${_cssHex(OpenHandStatusColors.caution)};
+  --warn: ${_cssHex(OpenHandStatusColors.warning)};
+  --bad: ${_cssHex(OpenHandStatusColors.error)};
   --idle: ${_cssHex(cs.onSurfaceVariant)};
   --banner: ${_cssHex(_bannerFill(cs, overall))};
   --banner-edge: ${_cssHex(_healthColor(overall))};
@@ -2319,10 +2319,10 @@ class _StatusPageView {
     'banner': <String, String>{'title': banner.$1, 'body': banner.$2},
     'bannerFill': _cssHex(_bannerFill(cs, overall)),
     'bannerEdge': _cssHex(_healthColor(overall)),
-    'ok': _healthCss(OpenHandStatusColors.success),
-    'caution': _healthCss(OpenHandStatusColors.caution),
-    'warn': _healthCss(OpenHandStatusColors.warning),
-    'bad': _healthCss(OpenHandStatusColors.error),
+    'ok': _cssHex(OpenHandStatusColors.success),
+    'caution': _cssHex(OpenHandStatusColors.caution),
+    'warn': _cssHex(OpenHandStatusColors.warning),
+    'bad': _cssHex(OpenHandStatusColors.error),
     'idle': _cssHex(cs.onSurfaceVariant),
     'components': [
       for (final component in components) component.toJson(days, copy),
@@ -2632,8 +2632,6 @@ String _percent(double rate) => '${(rate * 100).toStringAsFixed(1)}%';
 String _displayDay(DateTime value) => aiModelProxyDayKey(value);
 
 String _cssHex(Color color) => '#${rgbHexFromArgb32(color.toARGB32())}';
-
-String _healthCss(Color color) => _cssHex(color);
 
 String _jsonForScript(Object value) {
   return jsonEncode(value).replaceAll('<', r'\u003c');

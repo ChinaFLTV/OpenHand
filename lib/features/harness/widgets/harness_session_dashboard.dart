@@ -2182,8 +2182,8 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
                                 padding: const EdgeInsets.only(top: 8),
                                 child: _HePhaseActionBar(
                                   onCopyLog: () => _copyLog(context, log),
-                                  onReExecute: () =>
-                                      _reExecutePhase(phaseIndex),
+                                  onReExecute: () => widget.orchestrator
+                                      .reExecutePhase(phaseIndex),
                                   onDelete: () =>
                                       _deletePhaseLog(context, phaseIndex),
                                 ),
@@ -2280,10 +2280,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         logAction: '复制阶段日志',
       ),
     );
-  }
-
-  void _reExecutePhase(int phaseIndex) {
-    widget.orchestrator.reExecutePhase(phaseIndex);
   }
 
   Future<void> _deletePhaseLog(BuildContext context, int phaseIndex) async {

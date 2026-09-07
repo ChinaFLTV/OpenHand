@@ -3116,10 +3116,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     return List<WorkflowParameterReference>.unmodifiable(references);
   }
 
-  Map<String, Object?> _developmentVariables() {
-    return resolveWorkflowDevelopmentParameterValues(_developmentParameters);
-  }
-
   void _mergeDevelopmentNodeOutput(
     WorkflowNode node,
     WorkflowNodeExecutionResult result,
@@ -3182,7 +3178,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         workflowNodes: _nodes,
         workflowConnections: _connections,
         resources: _buildExecutionResources(cancellation: cancellation),
-        variables: _developmentVariables(),
+        variables: resolveWorkflowDevelopmentParameterValues(
+          _developmentParameters,
+        ),
         preferProvidedInputValues: true,
       );
       if (!mounted || !identical(_nodeTestCancellation, cancellation)) return;
@@ -4486,7 +4484,7 @@ class _HistoryMenuItem extends StatelessWidget {
                 ),
                 kOpenHandGap2,
                 Text(
-                  _historyTimeText(entry.createdAt),
+                  formatHourMinuteSecondLocal(entry.createdAt),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -4498,10 +4496,6 @@ class _HistoryMenuItem extends StatelessWidget {
       ),
     );
   }
-}
-
-String _historyTimeText(DateTime value) {
-  return formatHourMinuteSecondLocal(value);
 }
 
 class _WorkflowMetadataDialog extends StatefulWidget {

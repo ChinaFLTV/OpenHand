@@ -883,15 +883,12 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
   List<String> _splitCsv(String value) =>
       splitTrimmedNonEmpty(value, separator: RegExp('[,，;；]'));
 
-  List<String> _splitLines(String value) =>
-      splitTrimmedNonEmpty(value, separator: '\n');
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final l10n = AppLocalizations.of(context)!;
     setState(() => _saving = true);
     try {
-      final notes = _splitLines(_notes.text);
+      final notes = splitTrimmedNonEmpty(_notes.text, separator: '\n');
       final taskTypes = _splitCsv(_taskTypes.text);
       final keywords = _splitCsv(_keywords.text);
       final ok = widget.source == null

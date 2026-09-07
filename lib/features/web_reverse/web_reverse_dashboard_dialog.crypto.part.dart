@@ -77,7 +77,6 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
     }
   }
 
-  String _urlEncode(String s) => Uri.encodeComponent(s);
   String _urlDecode(String s) {
     try {
       return Uri.decodeComponent(s);
@@ -319,7 +318,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
       children: [
         _resultCard(theme, cs, 'Base64 Encode', _b64Encode(t), loc: loc),
         _resultCard(theme, cs, 'Base64 Decode', _b64Decode(t), loc: loc),
-        _resultCard(theme, cs, 'URL Encode', _urlEncode(t), loc: loc),
+        _resultCard(theme, cs, 'URL Encode', Uri.encodeComponent(t), loc: loc),
         _resultCard(theme, cs, 'URL Decode', _urlDecode(t), loc: loc),
         _resultCard(theme, cs, 'Hex Encode', _hexEncode(t), loc: loc),
         _resultCard(theme, cs, 'Hex Decode', _hexDecode(t), loc: loc),

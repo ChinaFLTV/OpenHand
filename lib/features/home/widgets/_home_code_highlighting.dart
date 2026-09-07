@@ -2649,7 +2649,6 @@ final OpenHandRetryableAsyncCache<String> _mermaidJsCache =
       () =>
           rootBundle.loadString('assets/tooling/mermaid.min.js', cache: false),
     );
-Future<String> _loadMermaidJs() => _mermaidJsCache.load();
 
 /// Mermaid 流程图渲染视图。在代码块 header 右上角的「视图/代码」toggle
 /// 按钮切到视图时启用：用 [WebView] + 内联 mermaid.js (assets 离线) 渲染 SVG,
@@ -2856,7 +2855,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       if (!Platform.isMacOS) {
         await controller.setBackgroundColor(Colors.transparent);
       }
-      final mermaidJs = await _loadMermaidJs();
+      final mermaidJs = await _mermaidJsCache.load();
       final themeColors = _computeMermaidThemeColors();
       // 关键：把 mermaid.js 内联到 HTML 里，走 loadFile 加载单文件。
       // WKWebView 对 loadFile(file://) 没有 inline script 体积限制

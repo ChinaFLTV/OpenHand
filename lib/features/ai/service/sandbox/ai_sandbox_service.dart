@@ -315,18 +315,6 @@ class AiSandboxService {
     return status;
   }
 
-  Future<AiSandboxActionResult> installEnvironment() async {
-    return performEnvironmentAction(AiSandboxResourceAction.install);
-  }
-
-  Future<AiSandboxActionResult> updateEnvironment() async {
-    return performEnvironmentAction(AiSandboxResourceAction.update);
-  }
-
-  Future<AiSandboxActionResult> uninstallEnvironment() async {
-    return performEnvironmentAction(AiSandboxResourceAction.uninstall);
-  }
-
   Future<AiSandboxActionResult> performEnvironmentAction(
     AiSandboxResourceAction action, {
     AiSandboxActionProgress? onProgress,

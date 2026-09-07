@@ -103,7 +103,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       de: 'Index',
                       ja: 'インデックス',
                     ): chunk.chunkIndex,
-                    if (_notBlank(chunk.parentChunkId))
+                    if (_hasValue(chunk.parentChunkId))
                       openHandLocalizedText(
                         context,
                         zh: '父分块 ID',
@@ -351,8 +351,6 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
   String _date(DateTime? value) {
     return value == null ? '-' : formatYearMonthDayHmsLocal(value);
   }
-
-  bool _notBlank(String? value) => value?.trim().isNotEmpty == true;
 
   bool _hasValue(Object? value) {
     return value != null && '$value'.trim().isNotEmpty;

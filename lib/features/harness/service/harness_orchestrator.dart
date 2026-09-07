@@ -1642,8 +1642,7 @@ class HarnessOrchestrator extends ChangeNotifier {
           log.status = HarnessPhaseStatus.cancelled;
         }
         notifyListeners();
-        // 收尾统一交给 finally：这里再调一次不仅重复落盘，而且因为没带
-        // promptFile，两次写入的日志内容还不一致（缺「调试 Prompt 文件」行）。
+        // finally 统一持久化并处理调试 Prompt 文件。
         return;
       }
 
