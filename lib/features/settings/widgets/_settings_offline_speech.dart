@@ -1455,40 +1455,25 @@ class _OfflineSpeechSuggestionFieldState
   }
 
   KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
-    if (event is! KeyDownEvent || !_overlay.hasEntry) {
-      return KeyEventResult.ignored;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      _moveSelection(1);
-      return KeyEventResult.handled;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      _moveSelection(-1);
-      return KeyEventResult.handled;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.enter ||
-        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-      final options = _visibleOptions;
-      if (options.isEmpty) {
-        _commit(_controller.text);
-        _dismissMenu();
-      } else {
-        _select(options[_selectedIndex]);
-      }
-      return KeyEventResult.handled;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.escape) {
-      _dismissMenu();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  void _moveSelection(int delta) {
-    final options = _visibleOptions;
-    if (options.isEmpty) return;
-    _selectedIndex = (_selectedIndex + delta).clamp(0, options.length - 1);
-    _overlay.markNeedsBuild();
+    return handleOpenHandSelectionOverlayKey<OfflineSpeechOption>(
+      event: event,
+      isOpen: _overlay.hasEntry,
+      items: () => _visibleOptions,
+      selectedIndex: _selectedIndex,
+      onSelectionChanged: (index) {
+        _selectedIndex = index;
+        _overlay.markNeedsBuild();
+      },
+      onSubmit: (option) {
+        if (option == null) {
+          _commit(_controller.text);
+          _dismissMenu();
+        } else {
+          _select(option);
+        }
+      },
+      onDismiss: _dismissMenu,
+    );
   }
 
   void _toggleMenu() {

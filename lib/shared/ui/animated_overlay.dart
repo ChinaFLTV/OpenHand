@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
@@ -20,6 +21,51 @@ typedef AnimatedOverlayEntryBuilder =
       ValueListenable<bool> visibility,
       VoidCallback onExitCompleted,
     );
+
+/// 统一处理候选浮层的方向键、确认和关闭行为。
+///
+/// 候选项在异步更新后会重新约束选中下标，避免回车确认时发生越界；非导航键
+/// 保持未处理状态，继续交给输入框和系统快捷键。
+KeyEventResult handleOpenHandSelectionOverlayKey<T>({
+  required KeyEvent event,
+  required bool isOpen,
+  required List<T> Function() items,
+  required int selectedIndex,
+  required ValueChanged<int> onSelectionChanged,
+  required ValueChanged<T?> onSubmit,
+  required VoidCallback onDismiss,
+}) {
+  if (event is! KeyDownEvent || !isOpen) return KeyEventResult.ignored;
+  final key = event.logicalKey;
+  if (key == LogicalKeyboardKey.escape) {
+    onDismiss();
+    return KeyEventResult.handled;
+  }
+  final isPrevious = key == LogicalKeyboardKey.arrowUp;
+  final isNext = key == LogicalKeyboardKey.arrowDown;
+  final isSubmit =
+      key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter;
+  if (!isPrevious && !isNext && !isSubmit) {
+    return KeyEventResult.ignored;
+  }
+
+  final candidates = items();
+  if (isSubmit) {
+    onSubmit(
+      candidates.isEmpty
+          ? null
+          : candidates[selectedIndex.clamp(0, candidates.length - 1)],
+    );
+    return KeyEventResult.handled;
+  }
+  if (candidates.isEmpty) return KeyEventResult.handled;
+  final nextIndex = (selectedIndex + (isNext ? 1 : -1)).clamp(
+    0,
+    candidates.length - 1,
+  );
+  if (nextIndex != selectedIndex) onSelectionChanged(nextIndex);
+  return KeyEventResult.handled;
+}
 
 /// 锚定到输入框等目标组件的动画浮层。
 ///

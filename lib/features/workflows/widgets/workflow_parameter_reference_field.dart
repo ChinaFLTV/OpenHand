@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../shared/ui/animated_overlay.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -173,40 +172,27 @@ class _WorkflowParameterReferenceFieldState
   }
 
   KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
-    if (event is! KeyDownEvent || !_overlay.hasEntry) {
-      return KeyEventResult.ignored;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      _moveSelection(1);
-      return KeyEventResult.handled;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      _moveSelection(-1);
-      return KeyEventResult.handled;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.enter ||
-        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-      final references = _visibleReferences;
-      if (references.isEmpty) {
+    return handleOpenHandSelectionOverlayKey<WorkflowParameterReference>(
+      event: event,
+      isOpen: _overlay.hasEntry,
+      items: () => _visibleReferences,
+      selectedIndex: _selectedIndex,
+      onSelectionChanged: (index) {
+        _selectedIndex = index;
+        _overlay.markNeedsBuild();
+      },
+      onSubmit: (reference) {
+        if (reference == null) {
+          _dismissMenu();
+        } else {
+          _selectReference(reference);
+        }
+      },
+      onDismiss: () {
         _dismissMenu();
-        return KeyEventResult.handled;
-      }
-      _selectReference(references[_selectedIndex]);
-      return KeyEventResult.handled;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.escape) {
-      _dismissMenu();
-      _focusNode.requestFocus();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  void _moveSelection(int delta) {
-    final references = _visibleReferences;
-    if (references.isEmpty) return;
-    _selectedIndex = (_selectedIndex + delta).clamp(0, references.length - 1);
-    _overlay.markNeedsBuild();
+        _focusNode.requestFocus();
+      },
+    );
   }
 
   void _updateSearchQuery(String value) {
