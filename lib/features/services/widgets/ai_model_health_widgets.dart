@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
@@ -8,6 +11,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
@@ -17,6 +21,7 @@ import '../model/ai_model_health.dart';
 
 // 与应用输入框主题边框一致的统一控件高度。
 const double _aiHealthControlHeight = 60;
+const double _aiHealthTimeoutStackBreakpoint = 560;
 
 class AiModelHealthSettingsPanel extends StatefulWidget {
   const AiModelHealthSettingsPanel({super.key, this.showRequestMode = false});
@@ -32,18 +37,30 @@ class _AiModelHealthSettingsPanelState
     extends State<AiModelHealthSettingsPanel> {
   late final TextEditingController _intervalController;
   late final FocusNode _intervalFocusNode;
+  late final TextEditingController _connectTimeoutController;
+  late final FocusNode _connectTimeoutFocusNode;
+  late final TextEditingController _responseTimeoutController;
+  late final FocusNode _responseTimeoutFocusNode;
 
   @override
   void initState() {
     super.initState();
     _intervalController = TextEditingController();
     _intervalFocusNode = FocusNode();
+    _connectTimeoutController = TextEditingController();
+    _connectTimeoutFocusNode = FocusNode();
+    _responseTimeoutController = TextEditingController();
+    _responseTimeoutFocusNode = FocusNode();
   }
 
   @override
   void dispose() {
     _intervalController.dispose();
     _intervalFocusNode.dispose();
+    _connectTimeoutController.dispose();
+    _connectTimeoutFocusNode.dispose();
+    _responseTimeoutController.dispose();
+    _responseTimeoutFocusNode.dispose();
     super.dispose();
   }
 
@@ -57,6 +74,15 @@ class _AiModelHealthSettingsPanelState
     if (!_intervalFocusNode.hasFocus &&
         _intervalController.text != '${settings.intervalMinutes}') {
       _intervalController.text = '${settings.intervalMinutes}';
+    }
+    if (!_connectTimeoutFocusNode.hasFocus &&
+        _connectTimeoutController.text != '${settings.connectTimeoutSeconds}') {
+      _connectTimeoutController.text = '${settings.connectTimeoutSeconds}';
+    }
+    if (!_responseTimeoutFocusNode.hasFocus &&
+        _responseTimeoutController.text !=
+            '${settings.responseTimeoutSeconds}') {
+      _responseTimeoutController.text = '${settings.responseTimeoutSeconds}';
     }
     final text = openHandTextResolver(context);
     final theme = Theme.of(context);
@@ -87,6 +113,9 @@ class _AiModelHealthSettingsPanelState
                 : const Icon(Icons.close_rounded, size: 16);
           }),
         ),
+        kOpenHandGap12,
+        _buildTimeoutFields(context),
+        kOpenHandGap12,
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -286,6 +315,184 @@ class _AiModelHealthSettingsPanelState
     );
   }
 
+  Widget _buildTimeoutFields(BuildContext context) {
+    final text = openHandTextResolver(context);
+    final theme = Theme.of(context);
+
+    Widget buildField({
+      required TextEditingController controller,
+      required FocusNode focusNode,
+      required String label,
+      required String helper,
+      required IconData icon,
+      required bool connection,
+    }) {
+      void save() {
+        focusNode.unfocus();
+        unawaited(_saveTimeout(controller: controller, connection: connection));
+      }
+
+      return TextField(
+        controller: controller,
+        focusNode: focusNode,
+        keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.done,
+        inputFormatters: <TextInputFormatter>[
+          FilteringTextInputFormatter.digitsOnly,
+        ],
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: helper,
+          prefixIcon: Icon(icon),
+          suffixText: 's',
+        ),
+        onSubmitted: (_) => save(),
+        onTapOutside: (_) => save(),
+      );
+    }
+
+    final connectionField = buildField(
+      controller: _connectTimeoutController,
+      focusNode: _connectTimeoutFocusNode,
+      label: text(zh: '连接超时（秒）', en: 'Connection timeout (seconds)'),
+      helper: text(
+        zh: '范围 ${AiModelProbeTimeoutPolicy.minConnectTimeoutSeconds}-${AiModelProbeTimeoutPolicy.maxConnectTimeoutSeconds} 秒。',
+        en: 'Range: ${AiModelProbeTimeoutPolicy.minConnectTimeoutSeconds}-${AiModelProbeTimeoutPolicy.maxConnectTimeoutSeconds} seconds.',
+      ),
+      icon: Icons.cable_rounded,
+      connection: true,
+    );
+    final responseField = buildField(
+      controller: _responseTimeoutController,
+      focusNode: _responseTimeoutFocusNode,
+      label: text(zh: '响应超时（秒）', en: 'Response timeout (seconds)'),
+      helper: text(
+        zh: '范围 ${AiModelProbeTimeoutPolicy.minResponseTimeoutSeconds}-${AiModelProbeTimeoutPolicy.maxResponseTimeoutSeconds} 秒。',
+        en: 'Range: ${AiModelProbeTimeoutPolicy.minResponseTimeoutSeconds}-${AiModelProbeTimeoutPolicy.maxResponseTimeoutSeconds} seconds.',
+      ),
+      icon: Icons.timer_outlined,
+      connection: false,
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.18),
+        borderRadius: kOpenHandBorderRadius20,
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.network_check_rounded,
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                kOpenHandHGap8,
+                Expanded(
+                  child: Text(
+                    text(
+                      zh: '模型测试与健康巡检超时',
+                      en: 'Model test and health-check timeouts',
+                    ),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            kOpenHandGap4,
+            Text(
+              text(
+                zh: '右上角测试按钮与健康检查按钮共用这两个配置。',
+                en: 'The provider test and health-check buttons share these values.',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            kOpenHandGap12,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < _aiHealthTimeoutStackBreakpoint) {
+                  return Column(
+                    children: [connectionField, kOpenHandGap12, responseField],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: connectionField),
+                    kOpenHandHGap12,
+                    Expanded(child: responseField),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveTimeout({
+    required TextEditingController controller,
+    required bool connection,
+  }) async {
+    final healthController = context.read<AiModelHealthController>();
+    final current = connection
+        ? healthController.settings.connectTimeoutSeconds
+        : healthController.settings.responseTimeoutSeconds;
+    final min = connection
+        ? AiModelProbeTimeoutPolicy.minConnectTimeoutSeconds
+        : AiModelProbeTimeoutPolicy.minResponseTimeoutSeconds;
+    final max = connection
+        ? AiModelProbeTimeoutPolicy.maxConnectTimeoutSeconds
+        : AiModelProbeTimeoutPolicy.maxResponseTimeoutSeconds;
+    final value = int.tryParse(controller.text.trim());
+    if (value == null || value < min || value > max) {
+      controller.text = '$current';
+      if (!mounted) return;
+      flashOpenHandSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '请输入 $min-$max 秒之间的整数。',
+          en: 'Enter a whole number between $min and $max seconds.',
+        ),
+        kind: OpenHandSnackKind.error,
+      );
+      return;
+    }
+    final saved = await healthController.updateSettings(
+      connectTimeoutSeconds: connection ? value : null,
+      responseTimeoutSeconds: connection ? null : value,
+    );
+    if (!mounted) return;
+    final persisted = connection
+        ? healthController.settings.connectTimeoutSeconds
+        : healthController.settings.responseTimeoutSeconds;
+    controller.text = '$persisted';
+    if (!saved) {
+      flashOpenHandSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '保存模型探测超时设置失败。',
+          en: 'Failed to save model probe timeout settings.',
+        ),
+        kind: OpenHandSnackKind.error,
+      );
+    }
+  }
+
   String _modeLabel(BuildContext context, AiModelHealthRequestMode mode) {
     return switch (mode) {
       AiModelHealthRequestMode.direct => openHandLocalizedText(
@@ -418,6 +625,78 @@ class _HealthBar extends StatelessWidget {
       AiModelHealthRequestMode.proxyPool => text(zh: '代理池代理', en: 'Proxy pool'),
     };
     final metadata = record.metadata;
+    final rawError = record.errorMessage.trim();
+    var failurePhase = '${metadata['failure_phase'] ?? ''}'.trim();
+    if (!record.success && failurePhase.isEmpty) {
+      failurePhase = classifyAiModelProbeFailurePhase(
+        rawError,
+        responseCode: record.responseCode,
+      );
+    }
+    final failureLabel = switch (failurePhase) {
+      'connection_timeout' => text(zh: '连接超时', en: 'Connection timeout'),
+      'response_timeout' => text(zh: '响应超时', en: 'Response timeout'),
+      'dns' => text(zh: 'DNS 解析', en: 'DNS resolution'),
+      'tls' => text(zh: 'TLS 握手或证书', en: 'TLS handshake or certificate'),
+      'connection' => text(zh: '网络连接', en: 'Network connection'),
+      'http_status' => text(zh: 'HTTP 响应', en: 'HTTP response'),
+      'response' => text(zh: '响应处理', en: 'Response handling'),
+      _ => text(zh: '未知阶段', en: 'Unknown stage'),
+    };
+    final verdictLabel = record.success
+        ? text(zh: '正常', en: 'Healthy')
+        : failurePhase == 'connection_timeout' ||
+              failurePhase == 'response_timeout'
+        ? text(zh: '超时', en: 'Timed out')
+        : text(zh: '异常', en: 'Unhealthy');
+    final connectTimeoutSeconds = int.tryParse(
+      '${metadata['connect_timeout_seconds'] ?? ''}',
+    );
+    final responseTimeoutSeconds = int.tryParse(
+      '${metadata['response_timeout_seconds'] ?? ''}',
+    );
+    final timeoutParts = <String>[
+      if (connectTimeoutSeconds != null)
+        text(
+          zh: '连接 ${connectTimeoutSeconds}s',
+          en: 'Connect ${connectTimeoutSeconds}s',
+        ),
+      if (responseTimeoutSeconds != null)
+        text(
+          zh: '响应 ${responseTimeoutSeconds}s',
+          en: 'Response ${responseTimeoutSeconds}s',
+        ),
+    ];
+    final failureAdvice = switch (failurePhase) {
+      'connection_timeout' => text(
+        zh: '建议检查目标域名、网络与代理；慢链路可提高上方连接超时。',
+        en: 'Check the host, network, and proxy. Increase the connection timeout for slow links.',
+      ),
+      'response_timeout' => text(
+        zh: '连接已建立但响应等待超时；可提高上方响应超时或检查服务负载。',
+        en: 'The connection opened but the response timed out. Increase the response timeout or inspect provider load.',
+      ),
+      'dns' => text(
+        zh: '请检查域名拼写、DNS 与代理解析能力。',
+        en: 'Check the host name, DNS, and proxy resolution.',
+      ),
+      'tls' => text(
+        zh: '请检查证书有效期、系统时间与 TLS 代理。',
+        en: 'Check the certificate, system time, and TLS proxy.',
+      ),
+      'connection' => text(
+        zh: '请检查服务端口、网络可达性与代理配置。',
+        en: 'Check the service port, network reachability, and proxy settings.',
+      ),
+      'http_status' => text(
+        zh: '服务已响应，请结合响应码检查鉴权、模型 ID 与接口路径。',
+        en: 'The service responded. Check authentication, model ID, and endpoint path against the status code.',
+      ),
+      _ => text(
+        zh: '请结合下方请求地址与原始错误检查提供商配置。',
+        en: 'Use the request URL and original error to inspect the provider configuration.',
+      ),
+    };
     final probeType = '${metadata['probe_type'] ?? ''}'.trim();
     final localizedProbeType = _localizedProbeType(context, probeType);
     final requestMethod = '${metadata['request_method'] ?? ''}'.trim();
@@ -429,28 +708,36 @@ class _HealthBar extends StatelessWidget {
       title: record.modelId,
       subtitle:
           '${record.providerName} · ${formatListDateTime(record.checkedAt)}',
-      badge: record.success
-          ? text(zh: '健康', en: 'Healthy')
-          : text(zh: '异常', en: 'Unhealthy'),
+      badge: record.success ? text(zh: '健康', en: 'Healthy') : verdictLabel,
       badgeColor: statusColor,
       summary: record.success
           ? text(
               zh: '本次模型健康巡检通过，请求链路可用。',
               en: 'This model health check passed and the request path is available.',
             )
+          : rawError.isEmpty
+          ? text(
+              zh: '失败阶段：$failureLabel\n未返回可用的现场错误信息。',
+              en: 'Failure stage: $failureLabel\nNo original error details were returned.',
+            )
           : text(
-              zh: '本次模型健康巡检未通过，请根据失败信息检查配置或服务状态。',
-              en: 'This model health check failed. Review the error and provider status.',
+              zh: '失败阶段：$failureLabel\n现场错误：$rawError',
+              en: 'Failure stage: $failureLabel\nOriginal error: $rawError',
             ),
       metrics: [
         OpenHandChartTooltipMetric(
           label: text(zh: '健康判定', en: 'Verdict'),
-          value: record.success
-              ? text(zh: '正常', en: 'Healthy')
-              : text(zh: '异常', en: 'Unhealthy'),
+          value: verdictLabel,
           icon: Icons.monitor_heart_rounded,
           color: statusColor,
         ),
+        if (!record.success)
+          OpenHandChartTooltipMetric(
+            label: text(zh: '失败阶段', en: 'Failure stage'),
+            value: failureLabel,
+            icon: Icons.error_outline_rounded,
+            color: statusColor,
+          ),
         OpenHandChartTooltipMetric(
           label: text(zh: '延迟', en: 'Latency'),
           value: '${record.latencyMs} ms',
@@ -498,9 +785,16 @@ class _HealthBar extends StatelessWidget {
           icon: Icons.dns_outlined,
           color: statusColor,
         ),
+        if (timeoutParts.isNotEmpty)
+          OpenHandChartTooltipMetric(
+            label: text(zh: '超时配置', en: 'Timeouts'),
+            value: timeoutParts.join(' · '),
+            icon: Icons.timer_outlined,
+            color: statusColor,
+          ),
       ],
       notes: [
-        if (record.errorMessage.trim().isNotEmpty) record.errorMessage.trim(),
+        if (!record.success) failureAdvice,
         if (probeType.isNotEmpty)
           text(
             zh: '探测类型：$localizedProbeType',

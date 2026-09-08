@@ -114,7 +114,10 @@ abstract class AiChatClient {
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   });
 
-  Future<AiModelTestResult> testModel(AiModelConfig model);
+  Future<AiModelTestResult> testModel(
+    AiModelConfig model, {
+    required Duration responseTimeout,
+  });
 
   void dispose();
 }
@@ -370,7 +373,12 @@ class AiChatService implements AiChatClient {
     http.Client? client,
     AiImageGenerationService? imageService,
     this._modelScanner,
-  }) : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
+    Duration connectionTimeout = const Duration(seconds: 15),
+  }) : _client =
+           client ??
+           SystemProxyResolver.instance.createHttpClient(
+             connectionTimeout: connectionTimeout,
+           ),
        _ownsClient = client == null,
        _imageService = imageService ?? AiImageGenerationService(client: client),
        _ownsImageService = imageService == null;
@@ -2982,7 +2990,10 @@ class AiChatService implements AiChatClient {
   }
 
   @override
-  Future<AiModelTestResult> testModel(AiModelConfig model) async {
+  Future<AiModelTestResult> testModel(
+    AiModelConfig model, {
+    required Duration responseTimeout,
+  }) async {
     if (model.normalizedBaseUrl.isEmpty) {
       throw const AiChatException('缺少 Base URL。');
     }
@@ -3010,7 +3021,7 @@ class AiChatService implements AiChatClient {
               content: _availabilityProbePrompt,
             ),
           ],
-          timeout: const Duration(seconds: 20),
+          timeout: responseTimeout,
           allowResponsesFallback: allowResponsesFallback,
         ),
       );
@@ -3069,7 +3080,7 @@ class AiChatService implements AiChatClient {
         throw await _decorateProviderProbeFailure(
           baseProbeModel,
           error,
-          timeout: const Duration(seconds: 12),
+          timeout: responseTimeout,
         );
       }
     }
@@ -3128,7 +3139,7 @@ class AiChatService implements AiChatClient {
       throw await _decorateProviderProbeFailure(
         chatProbeModel,
         combinedFailure,
-        timeout: const Duration(seconds: 12),
+        timeout: responseTimeout,
       );
     }
   }
@@ -3709,7 +3720,7 @@ extension on AiChatService {
     AiChatException error, {
     required Duration timeout,
   }) async {
-    final scanner = _modelScanner ?? AiModelScanner();
+    final scanner = _modelScanner ?? AiModelScanner(httpClient: _client);
     final ownsScanner = identical(scanner, _modelScanner) == false;
     String? probeDiagnosis;
     try {

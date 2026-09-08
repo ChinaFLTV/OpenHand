@@ -1278,9 +1278,15 @@ Future<void> testAiModelConfiguration(
     );
     return;
   }
-  final service = AiChatService();
+  final probeSettings = context.read<AiModelHealthController>().settings;
+  final service = AiChatService(
+    connectionTimeout: Duration(seconds: probeSettings.connectTimeoutSeconds),
+  );
   try {
-    final result = await service.testModel(model);
+    final result = await service.testModel(
+      model,
+      responseTimeout: Duration(seconds: probeSettings.responseTimeoutSeconds),
+    );
     if (!context.mounted) return;
     final remembersChatRoute =
         result.chatApiFamily == AiApiFamily.responses ||

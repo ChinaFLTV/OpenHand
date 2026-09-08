@@ -10,6 +10,7 @@ import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/net/http_response_utils.dart';
+import '../../shared/ui/error_source.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
@@ -21,8 +22,6 @@ import 'service/ai_exposure_proxy_client.dart';
 typedef AiModelHealthProxyResolver =
     AiExposureProxyEndpoint? Function({required String targetHost});
 
-const Duration _kModelHealthRequestTimeout = Duration(seconds: 20);
-const Duration _kModelHealthConnectionTimeout = Duration(seconds: 15);
 const int _kModelHealthMaxResponseBytes = kBytesPerMiB;
 
 /// 一次显式模型巡检的取消状态；取消时主动关闭本轮创建的客户端。
@@ -50,6 +49,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
   final AiModelHealthStore _store;
   final List<AiModelHealthRecord> _records = <AiModelHealthRecord>[];
   AiModelHealthSettings _settings = const AiModelHealthSettings();
+  AiModelHealthSettings _persistedSettings = const AiModelHealthSettings();
   List<AiModelConfig> Function()? _modelsProvider;
   AiModelHealthProxyResolver? _proxyResolver;
   final Set<http.Client> _activeClients = <http.Client>{};
@@ -85,6 +85,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
       useSystemProxy:
           loaded.requestMode == AiModelHealthRequestMode.systemProxy,
     );
+    _persistedSettings = _settings;
     _records
       ..clear()
       ..addAll(recent);
@@ -107,6 +108,8 @@ class AiModelHealthController extends ManagedChangeNotifier {
     bool? enabled,
     int? intervalMinutes,
     int? concurrency,
+    int? connectTimeoutSeconds,
+    int? responseTimeoutSeconds,
     bool? useSystemProxy,
     AiModelHealthRequestMode? requestMode,
     int? retentionDays,
@@ -116,6 +119,8 @@ class AiModelHealthController extends ManagedChangeNotifier {
       enabled: enabled,
       intervalMinutes: intervalMinutes,
       concurrency: concurrency,
+      connectTimeoutSeconds: connectTimeoutSeconds,
+      responseTimeoutSeconds: responseTimeoutSeconds,
       useSystemProxy: useSystemProxy,
       requestMode: requestMode,
       retentionDays: retentionDays,
@@ -133,23 +138,30 @@ class AiModelHealthController extends ManagedChangeNotifier {
       );
     }
     if (next == _settings) return true;
+    _settings = next;
+    _restartTimer();
+    notifyListeners();
     try {
-      await _store.saveSettings(next);
-      if (isDisposed) return true;
-      _settings = next;
-      _restartTimer();
-      notifyListeners();
-      unawaited(
-        _store.prune(next.retentionDays).catchError((
-          Object error,
-          StackTrace stack,
-        ) {
-          silentLog('ai_model_health_controller', '清理过期模型巡检记录', error, stack);
-        }),
-      );
-      return true;
+      return await enqueueOperation(() async {
+        await _store.saveSettings(next);
+        _persistedSettings = next;
+        unawaited(
+          _store.prune(next.retentionDays).catchError((
+            Object error,
+            StackTrace stack,
+          ) {
+            silentLog('ai_model_health_controller', '清理过期模型巡检记录', error, stack);
+          }),
+        );
+        return true;
+      });
     } catch (error, stack) {
       silentLog('ai_model_health_controller', '保存模型巡检设置', error, stack);
+      if (!isDisposed && _settings == next) {
+        _settings = _persistedSettings;
+        _restartTimer();
+        notifyListeners();
+      }
       return false;
     }
   }
@@ -244,9 +256,17 @@ class AiModelHealthController extends ManagedChangeNotifier {
     final model = provider.copyWith(modelId: selectedModelId);
     final stopwatch = Stopwatch()..start();
     final uri = Uri.tryParse(model.normalizedBaseUrl);
-    final mode = _effectiveMode;
+    final probeSettings = _settings;
+    final connectTimeout = Duration(
+      seconds: probeSettings.connectTimeoutSeconds,
+    );
+    final responseTimeout = Duration(
+      seconds: probeSettings.responseTimeoutSeconds,
+    );
+    final mode = _effectiveModeFor(probeSettings);
     var success = false;
     var status = 'failed';
+    var failurePhase = '';
     int? responseCode;
     var errorMessage = '';
     final modelKind = _modelKind(provider, selectedModelId);
@@ -258,12 +278,13 @@ class AiModelHealthController extends ManagedChangeNotifier {
         final client = _createClient(
           mode,
           uri?.host ?? '',
+          connectionTimeout: connectTimeout,
           cancellation: cancellation,
         );
         final service = AiChatService(client: client);
         try {
           final result = await _awaitCancellation(
-            service.testModel(model),
+            service.testModel(model, responseTimeout: responseTimeout),
             cancellation,
           );
           success = true;
@@ -273,12 +294,20 @@ class AiModelHealthController extends ManagedChangeNotifier {
           requestMethod = result.requestMethod;
           requestDurationMs = result.durationMs;
         } on AiChatException catch (error) {
-          errorMessage = error.message;
+          errorMessage = <String>[
+            error.message.trim(),
+            for (final source in error.sources ?? const <AiErrorSource>[])
+              '${source.label}：${source.body.trim()}',
+          ].where((item) => item.isNotEmpty).join('\n');
           responseCode = error.statusCode;
-          status = 'unhealthy';
           requestUrl = error.telemetry?.requestUrl;
           requestMethod = error.telemetry?.requestMethod;
           requestDurationMs = error.telemetry?.durationMs;
+          failurePhase = classifyAiModelProbeFailurePhase(
+            errorMessage,
+            responseCode: responseCode,
+          );
+          status = _statusForFailurePhase(failurePhase);
         } finally {
           service.dispose();
           _closeClient(client);
@@ -287,6 +316,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
         final client = _createClient(
           mode,
           uri?.host ?? '',
+          connectionTimeout: connectTimeout,
           cancellation: cancellation,
         );
         try {
@@ -295,12 +325,17 @@ class AiModelHealthController extends ManagedChangeNotifier {
           requestMethod = 'GET';
           final headers = _headers(model);
           var request = http.Request('GET', target)..headers.addAll(headers);
-          var response = await _awaitCancellation(
-            client.send(request).timeout(_kModelHealthRequestTimeout),
-            cancellation,
+          var response = await _sendProbeRequest(
+            client,
+            request,
+            responseTimeout: responseTimeout,
+            cancellation: cancellation,
           );
           responseCode = response.statusCode;
-          await _awaitCancellation(_drainProbeResponse(response), cancellation);
+          await _awaitCancellation(
+            _drainProbeResponse(response, responseTimeout),
+            cancellation,
+          );
           success = response.statusCode >= 200 && response.statusCode < 300;
           if (!success &&
               (response.statusCode == 404 || response.statusCode == 405)) {
@@ -323,13 +358,15 @@ class AiModelHealthController extends ManagedChangeNotifier {
               )..headers.addAll(headers);
               requestUrl = request.url.toString();
               requestMethod = 'OPTIONS';
-              response = await _awaitCancellation(
-                client.send(request).timeout(_kModelHealthRequestTimeout),
-                cancellation,
+              response = await _sendProbeRequest(
+                client,
+                request,
+                responseTimeout: responseTimeout,
+                cancellation: cancellation,
               );
               responseCode = response.statusCode;
               await _awaitCancellation(
-                _drainProbeResponse(response),
+                _drainProbeResponse(response, responseTimeout),
                 cancellation,
               );
               success = response.statusCode >= 200 && response.statusCode < 300;
@@ -372,20 +409,25 @@ class AiModelHealthController extends ManagedChangeNotifier {
                     ..body = jsonEncode(body);
               requestUrl = request.url.toString();
               requestMethod = 'POST';
-              response = await _awaitCancellation(
-                client.send(request).timeout(_kModelHealthRequestTimeout),
-                cancellation,
+              response = await _sendProbeRequest(
+                client,
+                request,
+                responseTimeout: responseTimeout,
+                cancellation: cancellation,
               );
               responseCode = response.statusCode;
               await _awaitCancellation(
-                _drainProbeResponse(response),
+                _drainProbeResponse(response, responseTimeout),
                 cancellation,
               );
               success = response.statusCode >= 200 && response.statusCode < 300;
             }
           }
           status = success ? 'healthy' : 'unhealthy';
-          if (!success) errorMessage = 'HTTP $responseCode';
+          if (!success) {
+            errorMessage = 'HTTP $responseCode';
+            failurePhase = 'http_status';
+          }
         } finally {
           _closeClient(client);
         }
@@ -393,7 +435,11 @@ class AiModelHealthController extends ManagedChangeNotifier {
     } catch (error) {
       if (cancellation?.cancelled == true) return null;
       errorMessage = '$error';
-      status = 'error';
+      failurePhase = classifyAiModelProbeFailurePhase(
+        errorMessage,
+        responseCode: responseCode,
+      );
+      status = _statusForFailurePhase(failurePhase);
     }
     stopwatch.stop();
     if (isDisposed || cancellation?.cancelled == true) return null;
@@ -430,6 +476,9 @@ class AiModelHealthController extends ManagedChangeNotifier {
         'request_method': requestMethod ?? '',
         'request_duration_ms': requestDurationMs,
         'probe_type': _probeType(modelKind, requestMethod),
+        'failure_phase': failurePhase,
+        'connect_timeout_seconds': probeSettings.connectTimeoutSeconds,
+        'response_timeout_seconds': probeSettings.responseTimeoutSeconds,
         'proxy_endpoint': _proxyEndpointFor(mode, uri?.host ?? ''),
         'platform': Platform.operatingSystem,
         'platform_version': Platform.operatingSystemVersion,
@@ -449,12 +498,12 @@ class AiModelHealthController extends ManagedChangeNotifier {
     return record;
   }
 
-  AiModelHealthRequestMode get _effectiveMode {
-    if (_settings.useSystemProxy &&
-        _settings.requestMode == AiModelHealthRequestMode.direct) {
+  AiModelHealthRequestMode _effectiveModeFor(AiModelHealthSettings settings) {
+    if (settings.useSystemProxy &&
+        settings.requestMode == AiModelHealthRequestMode.direct) {
       return AiModelHealthRequestMode.systemProxy;
     }
-    return _settings.requestMode;
+    return settings.requestMode;
   }
 
   List<String> _healthModelIds(AiModelConfig provider) {
@@ -564,15 +613,17 @@ class AiModelHealthController extends ManagedChangeNotifier {
   http.Client _createClient(
     AiModelHealthRequestMode mode,
     String host, {
+    required Duration connectionTimeout,
     AiModelHealthCancellation? cancellation,
   }) {
     if (isDisposed) throw StateError('模型健康巡检控制器已释放。');
     final http.Client client;
     if (mode == AiModelHealthRequestMode.systemProxy) {
-      client = SystemProxyResolver.instance.createHttpClient();
+      client = SystemProxyResolver.instance.createHttpClient(
+        connectionTimeout: connectionTimeout,
+      );
     } else {
-      final raw = HttpClient()
-        ..connectionTimeout = _kModelHealthConnectionTimeout;
+      final raw = HttpClient()..connectionTimeout = connectionTimeout;
       try {
         if (mode == AiModelHealthRequestMode.direct) {
           raw.findProxy = (_) => 'DIRECT';
@@ -596,19 +647,48 @@ class AiModelHealthController extends ManagedChangeNotifier {
     return client;
   }
 
+  Future<http.StreamedResponse> _sendProbeRequest(
+    http.Client client,
+    http.Request request, {
+    required Duration responseTimeout,
+    AiModelHealthCancellation? cancellation,
+  }) {
+    return _awaitCancellation(
+      client
+          .send(request)
+          .timeout(
+            responseTimeout,
+            onTimeout: () => throw TimeoutException(
+              '等待模型服务响应超过 ${responseTimeout.inSeconds} 秒。',
+              responseTimeout,
+            ),
+          ),
+      cancellation,
+    );
+  }
+
   void _closeClient(http.Client client) {
     _activeClients.remove(client);
     _activeCancellation?.clients.remove(client);
     client.close();
   }
 
-  Future<void> _drainProbeResponse(http.StreamedResponse response) {
+  Future<void> _drainProbeResponse(
+    http.StreamedResponse response,
+    Duration responseTimeout,
+  ) {
     return drainByteStreamWithTimeout(
       response.stream,
       maxBytes: _kModelHealthMaxResponseBytes,
-      idleTimeout: _kModelHealthRequestTimeout,
-      totalTimeout: _kModelHealthRequestTimeout,
+      idleTimeout: responseTimeout,
+      totalTimeout: responseTimeout,
     );
+  }
+
+  String _statusForFailurePhase(String phase) {
+    return phase == 'connection_timeout' || phase == 'response_timeout'
+        ? 'timeout'
+        : 'unhealthy';
   }
 
   Future<T> _awaitCancellation<T>(

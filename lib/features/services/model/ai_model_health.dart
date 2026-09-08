@@ -1,5 +1,14 @@
 import '../../../shared/util/input_value_parsing.dart';
 
+abstract final class AiModelProbeTimeoutPolicy {
+  static const int defaultConnectTimeoutSeconds = 30;
+  static const int minConnectTimeoutSeconds = 5;
+  static const int maxConnectTimeoutSeconds = 300;
+  static const int defaultResponseTimeoutSeconds = 30;
+  static const int minResponseTimeoutSeconds = 10;
+  static const int maxResponseTimeoutSeconds = 600;
+}
+
 enum AiModelHealthRequestMode {
   direct('direct'),
   systemProxy('system_proxy'),
@@ -17,11 +26,54 @@ enum AiModelHealthRequestMode {
       );
 }
 
+String classifyAiModelProbeFailurePhase(String message, {int? responseCode}) {
+  final normalized = message.toLowerCase();
+  if (responseCode == 408 || responseCode == 504) return 'http_status';
+  if (normalized.contains('connection timed out') ||
+      normalized.contains('connection timeout') ||
+      normalized.contains('连接超时')) {
+    return 'connection_timeout';
+  }
+  if (normalized.contains('timed out') ||
+      normalized.contains('timeout') ||
+      normalized.contains('请求时限') ||
+      normalized.contains('响应超时') ||
+      normalized.contains('请求超时')) {
+    return 'response_timeout';
+  }
+  if (normalized.contains('handshake') ||
+      normalized.contains('certificate') ||
+      normalized.contains('握手') ||
+      normalized.contains('证书')) {
+    return 'tls';
+  }
+  if (normalized.contains('failed host lookup') ||
+      normalized.contains('name or service not known') ||
+      normalized.contains('dns') ||
+      normalized.contains('域名解析') ||
+      normalized.contains('无法解析主机')) {
+    return 'dns';
+  }
+  if (normalized.contains('socketexception') ||
+      normalized.contains('connection refused') ||
+      normalized.contains('network is unreachable') ||
+      normalized.contains('连接被拒绝') ||
+      normalized.contains('网络不可达')) {
+    return 'connection';
+  }
+  if (responseCode != null) return 'http_status';
+  return 'response';
+}
+
 class AiModelHealthSettings {
   const AiModelHealthSettings({
     this.enabled = false,
     this.intervalMinutes = 30,
     this.concurrency = 8,
+    this.connectTimeoutSeconds =
+        AiModelProbeTimeoutPolicy.defaultConnectTimeoutSeconds,
+    this.responseTimeoutSeconds =
+        AiModelProbeTimeoutPolicy.defaultResponseTimeoutSeconds,
     this.useSystemProxy = false,
     this.requestMode = AiModelHealthRequestMode.direct,
     this.retentionDays = 90,
@@ -43,6 +95,18 @@ class AiModelHealthSettings {
         min: 1,
         max: 32,
       ),
+      connectTimeoutSeconds: clampedIntFromValue(
+        json['connect_timeout_seconds'],
+        fallback: AiModelProbeTimeoutPolicy.defaultConnectTimeoutSeconds,
+        min: AiModelProbeTimeoutPolicy.minConnectTimeoutSeconds,
+        max: AiModelProbeTimeoutPolicy.maxConnectTimeoutSeconds,
+      ),
+      responseTimeoutSeconds: clampedIntFromValue(
+        json['response_timeout_seconds'],
+        fallback: AiModelProbeTimeoutPolicy.defaultResponseTimeoutSeconds,
+        min: AiModelProbeTimeoutPolicy.minResponseTimeoutSeconds,
+        max: AiModelProbeTimeoutPolicy.maxResponseTimeoutSeconds,
+      ),
       useSystemProxy: optionalBoolFromValue(json['use_system_proxy']) ?? false,
       requestMode: AiModelHealthRequestMode.fromStorage(json['request_mode']),
       retentionDays: clampedIntFromValue(
@@ -57,6 +121,8 @@ class AiModelHealthSettings {
   final bool enabled;
   final int intervalMinutes;
   final int concurrency;
+  final int connectTimeoutSeconds;
+  final int responseTimeoutSeconds;
   final bool useSystemProxy;
   final AiModelHealthRequestMode requestMode;
   final int retentionDays;
@@ -65,6 +131,8 @@ class AiModelHealthSettings {
     bool? enabled,
     int? intervalMinutes,
     int? concurrency,
+    int? connectTimeoutSeconds,
+    int? responseTimeoutSeconds,
     bool? useSystemProxy,
     AiModelHealthRequestMode? requestMode,
     int? retentionDays,
@@ -82,6 +150,18 @@ class AiModelHealthSettings {
       min: 1,
       max: 32,
     ),
+    connectTimeoutSeconds: clampedIntFromValue(
+      connectTimeoutSeconds,
+      fallback: this.connectTimeoutSeconds,
+      min: AiModelProbeTimeoutPolicy.minConnectTimeoutSeconds,
+      max: AiModelProbeTimeoutPolicy.maxConnectTimeoutSeconds,
+    ),
+    responseTimeoutSeconds: clampedIntFromValue(
+      responseTimeoutSeconds,
+      fallback: this.responseTimeoutSeconds,
+      min: AiModelProbeTimeoutPolicy.minResponseTimeoutSeconds,
+      max: AiModelProbeTimeoutPolicy.maxResponseTimeoutSeconds,
+    ),
     useSystemProxy: useSystemProxy ?? this.useSystemProxy,
     requestMode: requestMode ?? this.requestMode,
     retentionDays: clampedIntFromValue(
@@ -96,6 +176,8 @@ class AiModelHealthSettings {
     'enabled': enabled,
     'interval_minutes': intervalMinutes,
     'concurrency': concurrency,
+    'connect_timeout_seconds': connectTimeoutSeconds,
+    'response_timeout_seconds': responseTimeoutSeconds,
     'use_system_proxy': useSystemProxy,
     'request_mode': requestMode.storageValue,
     'retention_days': retentionDays,
@@ -107,6 +189,8 @@ class AiModelHealthSettings {
       other.enabled == enabled &&
       other.intervalMinutes == intervalMinutes &&
       other.concurrency == concurrency &&
+      other.connectTimeoutSeconds == connectTimeoutSeconds &&
+      other.responseTimeoutSeconds == responseTimeoutSeconds &&
       other.useSystemProxy == useSystemProxy &&
       other.requestMode == requestMode &&
       other.retentionDays == retentionDays;
@@ -116,6 +200,8 @@ class AiModelHealthSettings {
     enabled,
     intervalMinutes,
     concurrency,
+    connectTimeoutSeconds,
+    responseTimeoutSeconds,
     useSystemProxy,
     requestMode,
     retentionDays,
