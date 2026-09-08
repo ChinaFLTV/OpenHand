@@ -107,6 +107,7 @@ const double _mcpToolDebugMenuGap = 8;
 const double _mcpToolDebugMenuMinWidth = 240;
 const double _mcpToolDebugMenuMaxWidth = 520;
 const double _mcpToolDebugMenuMaxHeight = 360;
+const double _mcpToolDebugCompactFieldHeight = 48;
 const double _mcpHeaderEditorRowHeight = 56;
 const double _mcpToolDebugPayloadMaxHeight = 560;
 const int _mcpToolDebugMaxArrayItems = 256;
@@ -14351,25 +14352,36 @@ class _McpArgumentMapEntryCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: entry.nameController,
-                  enabled: enabled,
-                  onChanged: (_) => onTextChanged(),
-                  decoration: _mcpOpsSchemaInputDecoration(
-                    context,
-                    label: _localizedText(
+                child: SizedBox(
+                  height: _mcpToolDebugCompactFieldHeight,
+                  child: TextField(
+                    controller: entry.nameController,
+                    enabled: enabled,
+                    onChanged: (_) => onTextChanged(),
+                    decoration: _mcpOpsSchemaInputDecoration(
                       context,
-                      zh: '参数名称 ${index + 1}',
-                      en: 'Argument name ${index + 1}',
+                      label: _localizedText(
+                        context,
+                        zh: '参数名称 ${index + 1}',
+                        en: 'Argument name ${index + 1}',
+                      ),
                     ),
                   ),
                 ),
               ),
               kOpenHandHGap8,
-              IconButton.filledTonal(
-                onPressed: enabled ? onRemove : null,
-                tooltip: _localizedText(context, zh: '删除参数', en: 'Remove'),
-                icon: const Icon(Icons.delete_outline_rounded),
+              SizedBox.square(
+                dimension: _mcpToolDebugCompactFieldHeight,
+                child: IconButton.filledTonal(
+                  style: IconButton.styleFrom(
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: kOpenHandBorderRadius14,
+                    ),
+                  ),
+                  onPressed: enabled ? onRemove : null,
+                  tooltip: _localizedText(context, zh: '删除参数', en: 'Remove'),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
               ),
             ],
           ),
