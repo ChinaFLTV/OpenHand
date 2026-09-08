@@ -310,13 +310,9 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
   void didUpdateWidget(covariant _WebFetchSettingsEditor old) {
     super.didUpdateWidget(old);
     _commonControllers.sync(
-      oldResultCount: old.value.resultCount,
       resultCount: widget.value.resultCount,
-      oldCacheTtlSeconds: old.value.cacheTtlSeconds,
       cacheTtlSeconds: widget.value.cacheTtlSeconds,
-      oldCacheMaxBytes: old.value.cacheMaxBytes,
       cacheMaxBytes: widget.value.cacheMaxBytes,
-      oldParallelWorkers: old.value.parallelWorkers,
       parallelWorkers: widget.value.parallelWorkers,
     );
   }
@@ -333,11 +329,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
 
   @override
   String get _cacheClearContentZh =>
-      '将立即删除所有已落盘的正文文件与映射索引 (index.json)，后续相同关键词需要重新发起网络搜索。';
+      '将立即删除所有已落盘的正文文件与映射索引 (index.json)，后续访问相同 URL 时需要重新发起网络抓取。';
 
   @override
   String get _cacheClearContentEn =>
-      'All persisted body files and the mapping index (index.json) will be deleted immediately. Future hits with the same query will need a fresh online search.';
+      'All persisted body files and the mapping index (index.json) will be deleted immediately. Future visits to the same URL will require a fresh network fetch.';
 
   void _emit(AiWebFetchSettings next) => widget.onChanged(next);
 

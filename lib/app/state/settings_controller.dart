@@ -2275,7 +2275,6 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 子进程 graceful shutdown 等待窗口（毫秒）。
   Future<bool> updateSubprocessGracefulShutdownMs(int value) async {
     return _commitMutation(() {
       final clamped = AppSettingsSnapshot.normalizeSubprocessGracefulShutdownMs(
@@ -2289,7 +2288,6 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 单次 bash 工具调用合并捕获 stdout+stderr 上限（字符）。
   Future<bool> updateBashOutputMaxBytes(int value) async {
     return _commitMutation(() {
       final clamped = AppSettingsSnapshot.normalizeBashOutputMaxBytes(value);
@@ -2301,7 +2299,6 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 同会话内并发派发工具调用的上限。
   Future<bool> updateMaxConcurrentTools(int value) async {
     return _commitMutation(() {
       final clamped = AppSettingsSnapshot.normalizeMaxConcurrentTools(value);

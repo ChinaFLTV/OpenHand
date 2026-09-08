@@ -454,6 +454,42 @@ class _SettingsSwitch extends StatelessWidget {
   }
 }
 
+class _SettingsScrollablePanel extends StatelessWidget {
+  const _SettingsScrollablePanel({
+    required this.maxHeight,
+    required this.children,
+  });
+
+  final double maxHeight;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLowest.withValues(alpha: 0.72),
+          borderRadius: kOpenHandBorderRadius16,
+          border: Border.all(
+            color: colors.outlineVariant.withValues(alpha: 0.52),
+          ),
+        ),
+        child: OpenHandSafeScrollbar(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AiTtsSettingsPanel extends StatelessWidget {
   const _AiTtsSettingsPanel({
     required this.settings,
@@ -471,82 +507,58 @@ class _AiTtsSettingsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 560),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLowest.withValues(
-            alpha: 0.72,
+    return _SettingsScrollablePanel(
+      maxHeight: 560,
+      children: [
+        _ResponsiveSettingRow(
+          title: openHandLocalizedText(context, zh: '朗读超时', en: 'Read Timeout'),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '单次朗读或服务调用的最长等待秒数，防止无限等待。',
+            en: 'Maximum seconds for one read attempt.',
           ),
-          borderRadius: kOpenHandBorderRadius16,
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.52),
+          control: _SettingsIntSlider(
+            value: settings.timeoutSeconds,
+            min: AiTtsSettings.minTimeoutSeconds,
+            max: AiTtsSettings.maxTimeoutSeconds,
+            step: 1,
+            suffix: 's',
+            onChanged: (value) =>
+                onChanged(settings.copyWith(timeoutSeconds: value)),
           ),
+          controlMaxWidth: _settingsStandardFieldWidth,
         ),
-        child: OpenHandSafeScrollbar(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ResponsiveSettingRow(
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '朗读超时',
-                    en: 'Read Timeout',
-                  ),
-                  subtitle: openHandLocalizedText(
-                    context,
-                    zh: '单次朗读或服务调用的最长等待秒数，防止无限等待。',
-                    en: 'Maximum seconds for one read attempt.',
-                  ),
-                  control: _SettingsIntSlider(
-                    value: settings.timeoutSeconds,
-                    min: AiTtsSettings.minTimeoutSeconds,
-                    max: AiTtsSettings.maxTimeoutSeconds,
-                    step: 1,
-                    suffix: 's',
-                    onChanged: (value) =>
-                        onChanged(settings.copyWith(timeoutSeconds: value)),
-                  ),
-                  controlMaxWidth: _settingsStandardFieldWidth,
-                ),
-                kOpenHandGap16,
-                _ResponsiveSettingRow(
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '最大朗读字符',
-                    en: 'Max Read Characters',
-                  ),
-                  subtitle: openHandLocalizedText(
-                    context,
-                    zh: '超出后自动截断，避免长消息占用朗读资源过久。',
-                    en: 'Long messages are truncated to keep playback bounded.',
-                  ),
-                  control: _SettingsIntSlider(
-                    value: settings.maxTextCharacters,
-                    min: AiTtsSettings.minMaxTextCharacters,
-                    max: AiTtsSettings.maxMaxTextCharacters,
-                    step: 20,
-                    onChanged: (value) =>
-                        onChanged(settings.copyWith(maxTextCharacters: value)),
-                  ),
-                  controlMaxWidth: _settingsStandardFieldWidth,
-                ),
-                kOpenHandGap16,
-                _AiTtsProviderDeck(
-                  settings: settings,
-                  onChanged: onChanged,
-                  playbackService: playbackService,
-                  availableModels: availableModels,
-                  recentModelSelections: recentModelSelections,
-                ),
-              ],
-            ),
+        kOpenHandGap16,
+        _ResponsiveSettingRow(
+          title: openHandLocalizedText(
+            context,
+            zh: '最大朗读字符',
+            en: 'Max Read Characters',
           ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '超出后自动截断，避免长消息占用朗读资源过久。',
+            en: 'Long messages are truncated to keep playback bounded.',
+          ),
+          control: _SettingsIntSlider(
+            value: settings.maxTextCharacters,
+            min: AiTtsSettings.minMaxTextCharacters,
+            max: AiTtsSettings.maxMaxTextCharacters,
+            step: 20,
+            onChanged: (value) =>
+                onChanged(settings.copyWith(maxTextCharacters: value)),
+          ),
+          controlMaxWidth: _settingsStandardFieldWidth,
         ),
-      ),
+        kOpenHandGap16,
+        _AiTtsProviderDeck(
+          settings: settings,
+          onChanged: onChanged,
+          playbackService: playbackService,
+          availableModels: availableModels,
+          recentModelSelections: recentModelSelections,
+        ),
+      ],
     );
   }
 }
@@ -566,137 +578,109 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 620),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLowest.withValues(
-            alpha: 0.72,
+    return _SettingsScrollablePanel(
+      maxHeight: 620,
+      children: [
+        _ResponsiveSettingRow(
+          title: openHandLocalizedText(
+            context,
+            zh: '待翻译语种',
+            en: 'Source Language',
           ),
-          borderRadius: kOpenHandBorderRadius16,
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.52),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '默认自动检测。传统翻译接口不支持自动检测时会按服务能力兜底。',
+            en: 'Defaults to auto-detect. Providers fall back by capability.',
           ),
-        ),
-        child: OpenHandSafeScrollbar(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ResponsiveSettingRow(
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '待翻译语种',
-                    en: 'Source Language',
-                  ),
-                  subtitle: openHandLocalizedText(
-                    context,
-                    zh: '默认自动检测。传统翻译接口不支持自动检测时会按服务能力兜底。',
-                    en: 'Defaults to auto-detect. Providers fall back by capability.',
-                  ),
-                  control: _SettingsStringDropdown(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '源语言',
-                      en: 'Source',
-                    ),
-                    value: settings.sourceLanguage,
-                    options: _translationLanguageDropdownOptions(
-                      context,
-                      AiTranslationProviderCatalogs.sourceLanguageOptions,
-                    ),
-                    onChanged: (value) =>
-                        onChanged(settings.copyWith(sourceLanguage: value)),
-                  ),
-                  controlMaxWidth: _settingsStandardFieldWidth,
-                ),
-                kOpenHandGap16,
-                _ResponsiveSettingRow(
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '目标语种',
-                    en: 'Target Language',
-                  ),
-                  subtitle: openHandLocalizedText(
-                    context,
-                    zh: '消息卡片会翻译为该语言，原始消息不被改写。',
-                    en: 'Message cards render into this language without mutating history.',
-                  ),
-                  control: _SettingsStringDropdown(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '目标语言',
-                      en: 'Target',
-                    ),
-                    value: settings.targetLanguage,
-                    options: _translationLanguageDropdownOptions(
-                      context,
-                      AiTranslationProviderCatalogs.targetLanguageOptions,
-                    ),
-                    onChanged: (value) =>
-                        onChanged(settings.copyWith(targetLanguage: value)),
-                  ),
-                  controlMaxWidth: _settingsStandardFieldWidth,
-                ),
-                kOpenHandGap16,
-                _ResponsiveSettingRow(
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '翻译超时',
-                    en: 'Translation Timeout',
-                  ),
-                  subtitle: openHandLocalizedText(
-                    context,
-                    zh: '单次翻译调用最长等待秒数，超时后按服务优先级回退。',
-                    en: 'Maximum seconds per translation attempt before fallback.',
-                  ),
-                  control: _SettingsIntSlider(
-                    value: settings.timeoutSeconds,
-                    min: AiTranslationSettings.minTimeoutSeconds,
-                    max: AiTranslationSettings.maxTimeoutSeconds,
-                    step: 1,
-                    suffix: 's',
-                    onChanged: (value) =>
-                        onChanged(settings.copyWith(timeoutSeconds: value)),
-                  ),
-                  controlMaxWidth: _settingsStandardFieldWidth,
-                ),
-                kOpenHandGap16,
-                _ResponsiveSettingRow(
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '最大翻译字符',
-                    en: 'Max Translation Characters',
-                  ),
-                  subtitle: openHandLocalizedText(
-                    context,
-                    zh: '长消息会被截断后翻译，避免接口长时间占用资源。',
-                    en: 'Long messages are truncated to keep translation bounded.',
-                  ),
-                  control: _SettingsIntSlider(
-                    value: settings.maxTextCharacters,
-                    min: AiTranslationSettings.minMaxTextCharacters,
-                    max: AiTranslationSettings.maxMaxTextCharacters,
-                    step: 20,
-                    onChanged: (value) =>
-                        onChanged(settings.copyWith(maxTextCharacters: value)),
-                  ),
-                  controlMaxWidth: _settingsStandardFieldWidth,
-                ),
-                kOpenHandGap16,
-                _AiTranslationProviderDeck(
-                  settings: settings,
-                  onChanged: onChanged,
-                  availableModels: availableModels,
-                  recentModelSelections: recentModelSelections,
-                ),
-              ],
+          control: _SettingsStringDropdown(
+            label: openHandLocalizedText(context, zh: '源语言', en: 'Source'),
+            value: settings.sourceLanguage,
+            options: _translationLanguageDropdownOptions(
+              context,
+              AiTranslationProviderCatalogs.sourceLanguageOptions,
             ),
+            onChanged: (value) =>
+                onChanged(settings.copyWith(sourceLanguage: value)),
           ),
+          controlMaxWidth: _settingsStandardFieldWidth,
         ),
-      ),
+        kOpenHandGap16,
+        _ResponsiveSettingRow(
+          title: openHandLocalizedText(
+            context,
+            zh: '目标语种',
+            en: 'Target Language',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '消息卡片会翻译为该语言，原始消息不被改写。',
+            en: 'Message cards render into this language without mutating history.',
+          ),
+          control: _SettingsStringDropdown(
+            label: openHandLocalizedText(context, zh: '目标语言', en: 'Target'),
+            value: settings.targetLanguage,
+            options: _translationLanguageDropdownOptions(
+              context,
+              AiTranslationProviderCatalogs.targetLanguageOptions,
+            ),
+            onChanged: (value) =>
+                onChanged(settings.copyWith(targetLanguage: value)),
+          ),
+          controlMaxWidth: _settingsStandardFieldWidth,
+        ),
+        kOpenHandGap16,
+        _ResponsiveSettingRow(
+          title: openHandLocalizedText(
+            context,
+            zh: '翻译超时',
+            en: 'Translation Timeout',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '单次翻译调用最长等待秒数，超时后按服务优先级回退。',
+            en: 'Maximum seconds per translation attempt before fallback.',
+          ),
+          control: _SettingsIntSlider(
+            value: settings.timeoutSeconds,
+            min: AiTranslationSettings.minTimeoutSeconds,
+            max: AiTranslationSettings.maxTimeoutSeconds,
+            step: 1,
+            suffix: 's',
+            onChanged: (value) =>
+                onChanged(settings.copyWith(timeoutSeconds: value)),
+          ),
+          controlMaxWidth: _settingsStandardFieldWidth,
+        ),
+        kOpenHandGap16,
+        _ResponsiveSettingRow(
+          title: openHandLocalizedText(
+            context,
+            zh: '最大翻译字符',
+            en: 'Max Translation Characters',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '长消息会被截断后翻译，避免接口长时间占用资源。',
+            en: 'Long messages are truncated to keep translation bounded.',
+          ),
+          control: _SettingsIntSlider(
+            value: settings.maxTextCharacters,
+            min: AiTranslationSettings.minMaxTextCharacters,
+            max: AiTranslationSettings.maxMaxTextCharacters,
+            step: 20,
+            onChanged: (value) =>
+                onChanged(settings.copyWith(maxTextCharacters: value)),
+          ),
+          controlMaxWidth: _settingsStandardFieldWidth,
+        ),
+        kOpenHandGap16,
+        _AiTranslationProviderDeck(
+          settings: settings,
+          onChanged: onChanged,
+          availableModels: availableModels,
+          recentModelSelections: recentModelSelections,
+        ),
+      ],
     );
   }
 }
@@ -6047,7 +6031,11 @@ final class _WebEngineEditorControllers {
     required int cacheTtlSeconds,
     required int cacheMaxBytes,
     required int parallelWorkers,
-  }) : resultCount = TextEditingController(text: '$resultCount'),
+  }) : _resultCountValue = resultCount,
+       _cacheTtlSecondsValue = cacheTtlSeconds,
+       _cacheMaxBytesValue = cacheMaxBytes,
+       _parallelWorkersValue = parallelWorkers,
+       resultCount = TextEditingController(text: '$resultCount'),
        cacheTtl = TextEditingController(text: '$cacheTtlSeconds'),
        cacheMaxBytes = TextEditingController(
          text: formatMegabytesInput(cacheMaxBytes),
@@ -6058,30 +6046,34 @@ final class _WebEngineEditorControllers {
   final TextEditingController cacheTtl;
   final TextEditingController cacheMaxBytes;
   final TextEditingController parallelWorkers;
+  int _resultCountValue;
+  int _cacheTtlSecondsValue;
+  int _cacheMaxBytesValue;
+  int _parallelWorkersValue;
 
   void sync({
-    required int oldResultCount,
     required int resultCount,
-    required int oldCacheTtlSeconds,
     required int cacheTtlSeconds,
-    required int oldCacheMaxBytes,
     required int cacheMaxBytes,
-    required int oldParallelWorkers,
     required int parallelWorkers,
   }) {
-    _syncControllerValue(this.resultCount, oldResultCount, resultCount);
-    _syncControllerValue(cacheTtl, oldCacheTtlSeconds, cacheTtlSeconds);
+    _syncControllerValue(this.resultCount, _resultCountValue, resultCount);
+    _syncControllerValue(cacheTtl, _cacheTtlSecondsValue, cacheTtlSeconds);
     _syncControllerValue(
       this.cacheMaxBytes,
-      oldCacheMaxBytes,
+      _cacheMaxBytesValue,
       cacheMaxBytes,
       format: formatMegabytesInput,
     );
     _syncControllerValue(
       this.parallelWorkers,
-      oldParallelWorkers,
+      _parallelWorkersValue,
       parallelWorkers,
     );
+    _resultCountValue = resultCount;
+    _cacheTtlSecondsValue = cacheTtlSeconds;
+    _cacheMaxBytesValue = cacheMaxBytes;
+    _parallelWorkersValue = parallelWorkers;
   }
 
   void dispose() {

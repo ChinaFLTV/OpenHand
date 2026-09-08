@@ -25,6 +25,7 @@ import {
   getSessionMessage,
   isGoalModeAllowedForTemplate,
   listMessages,
+  listSessions,
   listSessionTitleSourceMessages,
   pauseGoal,
   regenerateMessage,
@@ -70,7 +71,6 @@ import {
   SESSION_DETAIL_SHELL_CLASS,
 } from '../../../shared/ui/layout';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
-import { listSessions } from '../../../api/sessions';
 import { SessionGoneDialog } from '../../../components/SessionGoneDialog';
 import { RollingText } from '../../../components/RollingText';
 import { t } from '../../../i18n';

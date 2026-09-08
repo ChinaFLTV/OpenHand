@@ -151,13 +151,9 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
   void didUpdateWidget(covariant _WebSearchSettingsEditor old) {
     super.didUpdateWidget(old);
     _commonControllers.sync(
-      oldResultCount: old.value.resultCount,
       resultCount: widget.value.resultCount,
-      oldCacheTtlSeconds: old.value.cacheTtlSeconds,
       cacheTtlSeconds: widget.value.cacheTtlSeconds,
-      oldCacheMaxBytes: old.value.cacheMaxBytes,
       cacheMaxBytes: widget.value.cacheMaxBytes,
-      oldParallelWorkers: old.value.parallelWorkers,
       parallelWorkers: widget.value.parallelWorkers,
     );
     _syncControllerValue(

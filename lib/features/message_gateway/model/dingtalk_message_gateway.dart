@@ -37,6 +37,29 @@ final RegExp _dingtalkSelfLabeledMarkdownLinkPattern = RegExp(
 const int _dingtalkEnhancedLinkMaxProjectionLines = 3;
 const String _dingtalkEnhancedLinkSource = 'dd_link_enhance';
 const String _dingtalkDesktopLinkSource = 'dingcardslide';
+const List<String> _dingtalkReactionValueKeys = <String>[
+  'reaction',
+  'emoji',
+  'emoji_code',
+  'emojiCode',
+  'reaction_text',
+  'reactionText',
+  'reaction_name',
+  'reactionName',
+  'reaction_type',
+  'reactionType',
+  'type',
+  'value',
+  'content',
+];
+const List<String> _dingtalkReactionContainerKeys = <String>[
+  'details',
+  'emotionReplyList',
+  'emotion_reply_list',
+  'reactions',
+  'reactionList',
+  'reaction_list',
+];
 final RegExp _dingtalkMediaPlaceholderPattern = RegExp(
   r'\[(?:图片|图片消息|照片|图像|视频|视频消息|语音|语音消息|音频|音频消息|文件|文件消息|附件|媒体消息|image|image message|photo|picture|video|video message|voice|voice message|audio|audio message|file|file message|attachment|media|media message)\]'
   r'(?:\(\s*(?:mediaId|fileId)\s*=\s*[^)\s]+\s*\))?',
@@ -583,21 +606,7 @@ Map<String, List<String>> parseDingTalkReactionUsers(
     if (value is! Map) return;
     final map = stringKeyedMapFromValue(value);
     Object? reaction;
-    for (final key in const <String>[
-      'reaction',
-      'emoji',
-      'emoji_code',
-      'emojiCode',
-      'reaction_text',
-      'reactionText',
-      'reaction_name',
-      'reactionName',
-      'reaction_type',
-      'reactionType',
-      'type',
-      'value',
-      'content',
-    ]) {
+    for (final key in _dingtalkReactionValueKeys) {
       final candidate = map[key];
       if ((candidate is String || candidate is num) &&
           normalizeDingTalkReaction(candidate).isNotEmpty) {
@@ -614,14 +623,7 @@ Map<String, List<String>> parseDingTalkReactionUsers(
       'reactors',
     ].where(map.containsKey).expand((key) => <Object?>[map[key]]).toList();
     if (reaction != null && users.isNotEmpty) add(reaction, users);
-    for (final key in const <String>[
-      'details',
-      'emotionReplyList',
-      'emotion_reply_list',
-      'reactions',
-      'reactionList',
-      'reaction_list',
-    ]) {
+    for (final key in _dingtalkReactionContainerKeys) {
       if (map.containsKey(key)) visit(map[key], depth + 1);
     }
   }
@@ -657,31 +659,10 @@ List<String> parseDingTalkMessageReactions(Map<String, Object?> message) {
     }
     if (value is Map) {
       final map = stringKeyedMapFromValue(value);
-      for (final key in const <String>[
-        'details',
-        'emotionReplyList',
-        'emotion_reply_list',
-        'reactions',
-        'reactionList',
-        'reaction_list',
-      ]) {
+      for (final key in _dingtalkReactionContainerKeys) {
         if (map.containsKey(key)) visit(map[key], depth + 1);
       }
-      for (final key in const <String>[
-        'reaction',
-        'emoji',
-        'emoji_code',
-        'emojiCode',
-        'reaction_text',
-        'reactionText',
-        'reaction_name',
-        'reactionName',
-        'reaction_type',
-        'reactionType',
-        'type',
-        'value',
-        'content',
-      ]) {
+      for (final key in _dingtalkReactionValueKeys) {
         final candidate = map[key];
         if (candidate is! String && candidate is! num) continue;
         if (normalizeDingTalkReaction(candidate).isEmpty) continue;
