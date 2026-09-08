@@ -703,32 +703,10 @@ class PluginLifecycleService {
   static const String _qdrantImage = ManagedServiceDefaults.qdrantImage;
   static const int _qdrantRestPort = ManagedServiceDefaults.qdrantRestPort;
   static const int _qdrantGrpcPort = ManagedServiceDefaults.qdrantGrpcPort;
-  final Completer<void> _operationCancellation = Completer<void>();
+  final PluginProcessOperationRunner _processOperations =
+      PluginProcessOperationRunner(defaultTag: 'plugin_lifecycle');
 
-  Future<void> get _cancelSignal => _operationCancellation.future;
-
-  void cancelPendingOperations() {
-    if (!_operationCancellation.isCompleted) {
-      _operationCancellation.complete();
-    }
-  }
-
-  Future<ProcessResult> _runProcessOrFailed(
-    String executable,
-    List<String> arguments, {
-    required Duration timeout,
-    String tag = 'plugin_lifecycle',
-    Map<String, String>? environment,
-  }) {
-    return runTrackedProcessOrFailed(
-      executable,
-      arguments,
-      timeout: timeout,
-      cancelSignal: _cancelSignal,
-      tag: tag,
-      environment: environment,
-    );
-  }
+  void cancelPendingOperations() => _processOperations.cancel();
 
   static Map<String, String> _npmGlobalPackageEnv() {
     final proxy = pluginProxyEnvironment();
@@ -769,7 +747,7 @@ class PluginLifecycleService {
       executable,
       arguments,
       timeout: timeout,
-      cancelSignal: _cancelSignal,
+      cancelSignal: _processOperations.cancelSignal,
       tag: tag ?? 'plugin_lifecycle.command.$executable',
       environment: environment ?? pluginProxyEnvironment(),
     );
@@ -826,7 +804,7 @@ class PluginLifecycleService {
     String executable, {
     Map<String, String>? environment,
   }) async {
-    final result = await _runProcessOrFailed(
+    final result = await _processOperations.run(
       pluginShellExecutable(),
       [
         '-c',
@@ -872,7 +850,7 @@ class PluginLifecycleService {
     Duration timeout = _packageOperationTimeout,
   }) async {
     final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
-      cancelSignal: _cancelSignal,
+      cancelSignal: _processOperations.cancelSignal,
       tag: 'plugin_lifecycle.dingtalk_workspace_cli_path',
     );
     if (executable == null) {
@@ -948,7 +926,7 @@ class PluginLifecycleService {
   }
 
   Future<bool> _isExecutableAvailable(String executable) async {
-    final result = await _runProcessOrFailed(
+    final result = await _processOperations.run(
       pluginShellExecutable(),
       ['-c', pluginToolchainExecutableAvailabilityScript(executable)],
       timeout: _pluginLifecycleProbeTimeout,
@@ -963,7 +941,7 @@ class PluginLifecycleService {
       'docker',
       ['info'],
       timeout: _pluginLifecycleVerifyTimeout,
-      cancelSignal: _cancelSignal,
+      cancelSignal: _processOperations.cancelSignal,
       tag: 'plugin_lifecycle.docker_info',
       environment: pluginProxyEnvironment(),
     );
@@ -1140,7 +1118,7 @@ exit 4''';
 
   Future<bool> _isPyenvAvailable() async {
     if (await pluginPyenvInstallationExists()) return true;
-    final result = await _runProcessOrFailed(
+    final result = await _processOperations.run(
       pluginShellExecutable(),
       ['-c', '${pluginPyenvShellPrefix()}command -v pyenv'],
       timeout: _pluginLifecycleProbeTimeout,
@@ -1167,7 +1145,7 @@ exit 4''';
 
   Future<_PythonRuntimeContext?> _detectPyenvContext() async {
     if (!await _isPyenvAvailable()) return null;
-    final versionNameResult = await _runProcessOrFailed(
+    final versionNameResult = await _processOperations.run(
       pluginShellExecutable(),
       ['-c', '${pluginPyenvShellPrefix()}pyenv version-name'],
       timeout: _pluginLifecycleProbeTimeout,
@@ -1211,7 +1189,7 @@ exit 4''';
   }
 
   Future<String?> _resolveActivePythonPath() async {
-    final result = await _runProcessOrFailed(
+    final result = await _processOperations.run(
       pluginShellExecutable(),
       [
         '-c',
@@ -1230,7 +1208,7 @@ exit 4''';
 
   Future<String?> _resolvePyenvPythonPath() async {
     for (final command in const ['python3', 'python']) {
-      final result = await _runProcessOrFailed(
+      final result = await _processOperations.run(
         pluginShellExecutable(),
         ['-c', '${pluginPyenvShellPrefix()}pyenv which $command'],
         timeout: _pluginLifecycleProbeTimeout,
@@ -1246,7 +1224,7 @@ exit 4''';
   }
 
   Future<String?> _readPythonVersion(String executable) async {
-    final result = await _runProcessOrFailed(
+    final result = await _processOperations.run(
       executable,
       ['--version'],
       timeout: _pluginLifecycleProbeTimeout,
@@ -1257,7 +1235,7 @@ exit 4''';
   }
 
   Future<String?> _readPipVersion(String executable) async {
-    final result = await _runProcessOrFailed(
+    final result = await _processOperations.run(
       executable,
       ['-m', 'pip', '--version'],
       timeout: _pluginLifecycleVerifyTimeout,
@@ -1291,7 +1269,7 @@ exit 4''';
     if (parts.length < 2) return null;
     final majorMinor = '${parts[0]}.${parts[1]}';
     final proxyEnv = pluginProxyEnvironment();
-    final latestResult = await _runProcessOrFailed(
+    final latestResult = await _processOperations.run(
       pluginShellExecutable(),
       [
         '-c',
@@ -1307,7 +1285,7 @@ exit 4''';
     );
     if (quickVersion != null) return quickVersion;
 
-    final listResult = await _runProcessOrFailed(
+    final listResult = await _processOperations.run(
       pluginShellExecutable(),
       ['-c', '${pluginPyenvShellPrefix()}pyenv install --list'],
       timeout: const Duration(seconds: 15),
@@ -1325,7 +1303,7 @@ exit 4''';
   }
 
   Future<String?> _queryLatestHomebrewVersion(String formula) async {
-    final result = await _runProcessOrFailed(
+    final result = await _processOperations.run(
       pluginShellExecutable(),
       ['-c', '${pluginPyenvShellPrefix()}brew info --json=v2 $formula'],
       timeout: const Duration(seconds: 10),
@@ -1462,7 +1440,7 @@ exit 4''';
         timeout: _packageOperationTimeout,
       );
       if (result.exitCode == 0) {
-        final versionResult = await _runProcessOrFailed(
+        final versionResult = await _processOperations.run(
           pluginShellExecutable(),
           ['-c', '${pluginPyenvShellPrefix()}python3 --version'],
           timeout: _pluginLifecycleVerifyTimeout,
@@ -1696,7 +1674,7 @@ exit 4''';
       );
     }
     final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
-      cancelSignal: _cancelSignal,
+      cancelSignal: _processOperations.cancelSignal,
       tag: 'plugin_lifecycle.dingtalk_workspace_cli_install_path',
     );
     if (executable == null) {
@@ -1705,7 +1683,7 @@ exit 4''';
         message: 'DingTalk Workspace CLI 安装后未找到 dws 可执行文件。',
       );
     }
-    final verify = await _runProcessOrFailed(
+    final verify = await _processOperations.run(
       executable,
       const <String>['--version'],
       timeout: _pluginLifecycleVerifyTimeout,
@@ -1754,7 +1732,7 @@ exit 4''';
         message: 'Homebrew 安装 $label 失败: ${_processErrorMessage(result)}',
       );
     }
-    final verify = await _runProcessOrFailed(
+    final verify = await _processOperations.run(
       pluginShellExecutable(),
       ['-c', '${pluginPyenvShellPrefix()}command -v $verifyCommand'],
       timeout: _pluginLifecycleVerifyTimeout,
@@ -2943,7 +2921,7 @@ ${_managedDatabaseHealthWaitScript(containerName: spec.containerName, healthComm
       );
     }
     final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
-      cancelSignal: _cancelSignal,
+      cancelSignal: _processOperations.cancelSignal,
       tag: 'plugin_lifecycle.dingtalk_workspace_cli_update_path',
     );
     if (executable == null) {
@@ -2952,7 +2930,7 @@ ${_managedDatabaseHealthWaitScript(containerName: spec.containerName, healthComm
         message: 'DingTalk Workspace CLI 更新后未找到 dws 可执行文件。',
       );
     }
-    final verify = await _runProcessOrFailed(
+    final verify = await _processOperations.run(
       executable,
       const <String>['--version'],
       timeout: _pluginLifecycleVerifyTimeout,
@@ -3319,7 +3297,7 @@ ${_managedDatabaseHealthWaitScript(containerName: spec.containerName, healthComm
     void Function(String line)? onProgress,
   }) async {
     final npmInstallation = await resolvePluginDingtalkWorkspaceCliNpmPackage(
-      cancelSignal: _cancelSignal,
+      cancelSignal: _processOperations.cancelSignal,
       tag: 'plugin_lifecycle.dingtalk_workspace_cli_npm_root',
     );
     if (npmInstallation != null) {
@@ -3339,7 +3317,7 @@ ${_managedDatabaseHealthWaitScript(containerName: spec.containerName, healthComm
     }
 
     final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
-      cancelSignal: _cancelSignal,
+      cancelSignal: _processOperations.cancelSignal,
       tag: 'plugin_lifecycle.dingtalk_workspace_cli_uninstall_path',
     );
     if (executable != null) {
@@ -3967,7 +3945,7 @@ echo "已保留 ${spec.label} 数据目录：${posixShellQuote(dataDir)}"
   Future<List<String>> _remainingPyenvVersions({
     required String excluding,
   }) async {
-    final result = await _runProcessOrFailed(
+    final result = await _processOperations.run(
       pluginShellExecutable(),
       ['-c', '${pluginPyenvShellPrefix()}pyenv versions --bare'],
       timeout: _pluginLifecycleVerifyTimeout,
@@ -4003,7 +3981,7 @@ echo "已保留 ${spec.label} 数据目录：${posixShellQuote(dataDir)}"
         arguments,
         environment: mergedEnv,
         timeout: effectiveTimeout,
-        cancelSignal: _cancelSignal,
+        cancelSignal: _processOperations.cancelSignal,
         tag: 'plugin_lifecycle',
         streamDrainTimeout: _pluginLifecycleStreamDrainTimeout,
         trimStdoutLines: true,

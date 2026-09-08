@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -17,6 +18,37 @@ const String pluginDingtalkWorkspaceCliDocumentation =
     'https://open.dingtalk.com/document/development/dingtalk-cli-performing-tasks-within';
 const String pluginDingtalkWorkspaceCliInstallScriptBaseUrl =
     'https://raw.githubusercontent.com/DingTalk-Real-AI/dingtalk-workspace-cli/main/scripts';
+
+/// 插件服务共用的可取消进程运行器。
+final class PluginProcessOperationRunner {
+  PluginProcessOperationRunner({required this.defaultTag});
+
+  final String defaultTag;
+  final Completer<void> _cancellation = Completer<void>();
+
+  Future<void> get cancelSignal => _cancellation.future;
+
+  void cancel() {
+    if (!_cancellation.isCompleted) _cancellation.complete();
+  }
+
+  Future<ProcessResult> run(
+    String executable,
+    List<String> arguments, {
+    required Duration timeout,
+    String? tag,
+    Map<String, String>? environment,
+  }) {
+    return runTrackedProcessOrFailed(
+      executable,
+      arguments,
+      timeout: timeout,
+      cancelSignal: cancelSignal,
+      tag: tag ?? defaultTag,
+      environment: environment,
+    );
+  }
+}
 
 String pluginDingtalkWorkspaceCliInstallScriptUrl() {
   return Platform.isWindows
