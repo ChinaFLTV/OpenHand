@@ -203,15 +203,17 @@ class OpenHandJsonTreeView extends StatefulWidget {
     this.label,
     this.error = false,
     this.enableFullView = true,
+    this.bodyMaxHeight,
     this.logTag = 'json_tree',
     this.loadFullText,
-  });
+  }) : assert(bodyMaxHeight == null || bodyMaxHeight > 0);
 
   final String text;
   final String emptyText;
   final String? label;
   final bool error;
   final bool enableFullView;
+  final double? bodyMaxHeight;
   final String logTag;
   final OpenHandJsonFullTextLoader? loadFullText;
 
@@ -515,12 +517,16 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
                 Expanded(
                   child: _jsonTreeScrollableBody(context: context, child: body),
                 )
-              else
+              else if (_offersFullView || widget.bodyMaxHeight != null)
                 _jsonTreePreviewBody(
                   context: context,
                   clipped: _offersFullView,
+                  maxHeight:
+                      widget.bodyMaxHeight ?? kOpenHandJsonTreePreviewMaxHeight,
                   child: body,
-                ),
+                )
+              else
+                body,
             ],
           ),
         );
@@ -822,19 +828,19 @@ Widget _jsonTreeScrollableBody({
 Widget _jsonTreePreviewBody({
   required BuildContext context,
   required bool clipped,
+  required double maxHeight,
   required Widget child,
 }) {
-  if (!clipped) return child;
+  final constrainedBody = ConstrainedBox(
+    constraints: BoxConstraints(maxHeight: maxHeight),
+    child: _jsonTreeScrollableBody(context: context, child: child),
+  );
+  if (!clipped) return constrainedBody;
   final fade = Theme.of(context).colorScheme.surfaceContainer;
   return ClipRRect(
     child: Stack(
       children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxHeight: kOpenHandJsonTreePreviewMaxHeight,
-          ),
-          child: _jsonTreeScrollableBody(context: context, child: child),
-        ),
+        constrainedBody,
         Positioned(
           left: 0,
           right: 0,

@@ -39,6 +39,7 @@ import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_json_tree.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_ops_panel.dart';
@@ -106,6 +107,9 @@ const double _mcpToolDebugMenuGap = 8;
 const double _mcpToolDebugMenuMinWidth = 240;
 const double _mcpToolDebugMenuMaxWidth = 520;
 const double _mcpToolDebugMenuMaxHeight = 360;
+const double _mcpHeaderEditorRowHeight = 56;
+const double _mcpToolDebugPayloadMaxHeight = 280;
+const int _mcpToolDebugMaxArrayItems = 256;
 const double _mcpNoticeMaxMessageHeight = 320;
 const double _mcpToolDebugMenuItemInset = 8;
 const double _mcpToolDebugMenuItemRadius = 10;
@@ -2071,50 +2075,57 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: TextField(
-                          key: ValueKey<String>('mcpHeaderNameField-$index'),
-                          controller: row.nameController,
-                          enabled: !_isSaving,
-                          onChanged: (_) => _clearHeaderError(),
-                          decoration: InputDecoration(
-                            labelText: _localizedText(
-                              context,
-                              zh: 'Header 名称',
-                              en: 'Header Name',
-                            ),
-                            hintText: _localizedText(
-                              context,
-                              zh: '例如 Authorization',
-                              en: 'e.g. Authorization',
+                        child: SizedBox(
+                          height: _mcpHeaderEditorRowHeight,
+                          child: TextField(
+                            key: ValueKey<String>('mcpHeaderNameField-$index'),
+                            controller: row.nameController,
+                            enabled: !_isSaving,
+                            onChanged: (_) => _clearHeaderError(),
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                context,
+                                zh: 'Header 名称',
+                                en: 'Header Name',
+                              ),
+                              hintText: _localizedText(
+                                context,
+                                zh: '例如 Authorization',
+                                en: 'e.g. Authorization',
+                              ),
                             ),
                           ),
                         ),
                       ),
                       kOpenHandHGap12,
                       Expanded(
-                        child: TextField(
-                          key: ValueKey<String>('mcpHeaderValueField-$index'),
-                          controller: row.valueController,
-                          enabled: !_isSaving,
-                          onChanged: (_) => _clearHeaderError(),
-                          decoration: InputDecoration(
-                            labelText: _localizedText(
-                              context,
-                              zh: 'Header 值',
-                              en: 'Header Value',
-                            ),
-                            hintText: _localizedText(
-                              context,
-                              zh: '例如 Bearer token',
-                              en: 'e.g. Bearer token',
+                        child: SizedBox(
+                          height: _mcpHeaderEditorRowHeight,
+                          child: TextField(
+                            key: ValueKey<String>('mcpHeaderValueField-$index'),
+                            controller: row.valueController,
+                            enabled: !_isSaving,
+                            onChanged: (_) => _clearHeaderError(),
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                context,
+                                zh: 'Header 值',
+                                en: 'Header Value',
+                              ),
+                              hintText: _localizedText(
+                                context,
+                                zh: '例如 Bearer token',
+                                en: 'e.g. Bearer token',
+                              ),
                             ),
                           ),
                         ),
                       ),
                       kOpenHandHGap4,
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: IconButton(
+                      SizedBox(
+                        width: _mcpHeaderEditorRowHeight,
+                        height: _mcpHeaderEditorRowHeight,
+                        child: IconButton.filledTonal(
                           key: ValueKey<String>('mcpHeaderRemoveButton-$index'),
                           onPressed: _isSaving
                               ? null
@@ -12875,9 +12886,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
                       ),
                       kOpenHandGap14,
                     ],
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                    _ToolMetaGrid(
                       children: [
                         _ToolMetaTile(
                           label: _localizedText(
@@ -13018,7 +13027,7 @@ class _McpToolDebugDialog extends StatefulWidget {
 class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
     with _McpHeaderRowsState<_McpToolDebugDialog> {
   late McpTool? _selectedTool;
-  late final TextEditingController _argumentsController;
+  late _McpArgumentObjectDraft _argumentsDraft;
   final GlobalKey _toolMenuAnchorKey = GlobalKey();
   bool _useServerHeaders = true;
   McpToolCallResult? _result;
@@ -13034,17 +13043,15 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
         (widget.toolCatalog.tools.isEmpty
             ? null
             : widget.toolCatalog.tools.first);
-    _argumentsController = TextEditingController(
-      text: _selectedTool == null
-          ? '{}'
-          : _suggestedArgumentsJson(_selectedTool!),
+    _argumentsDraft = _McpArgumentObjectDraft.fromSchema(
+      _selectedTool?.inputSchema ?? const <String, Object?>{'type': 'object'},
     );
     _headerRows = _createEditableHeaderRows(widget.server.headers);
   }
 
   @override
   void dispose() {
-    _argumentsController.dispose();
+    _argumentsDraft.dispose();
     _disposeHeaderRows();
     super.dispose();
   }
@@ -13059,11 +13066,15 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
   }
 
   void _applySelectedTool(McpTool tool) {
+    final previousDraft = _argumentsDraft;
     _selectedTool = tool;
     _result = null;
     _errorMessage = null;
     _headerErrorMessage = null;
-    _argumentsController.text = _suggestedArgumentsJson(tool);
+    _argumentsDraft = _McpArgumentObjectDraft.fromSchema(tool.inputSchema);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => previousDraft.dispose(),
+    );
   }
 
   Future<void> _showToolMenu() async {
@@ -13159,26 +13170,13 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
       return;
     }
 
-    Map<String, Object?> arguments;
-    final rawArguments = _argumentsController.text.trim();
+    late final Map<String, Object?> arguments;
     try {
-      if (rawArguments.isEmpty) {
-        arguments = const <String, Object?>{};
-      } else {
-        final decoded = jsonDecode(rawArguments);
-        if (decoded is! Map) {
-          throw const FormatException('root-not-object');
-        }
-        arguments = stringKeyedMapFromValue(decoded);
-      }
-    } catch (_) {
+      arguments = _argumentsDraft.toArguments(context);
+    } on _McpArgumentValidationException catch (error) {
       setState(() {
         _result = null;
-        _errorMessage = _localizedText(
-          context,
-          zh: '参数必须是合法的 JSON 对象。',
-          en: 'Arguments must be a valid JSON object.',
-        );
+        _errorMessage = error.message;
       });
       return;
     }
@@ -13484,10 +13482,6 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
             normalizedSchema: tool.inputSchema,
             hasRawMetadata: tool.hasRawMetadata,
           );
-    final inputFields = tool == null
-        ? const <_SchemaField>[]
-        : _schemaFields(inputSchemaMetadata);
-
     return buildOpenHandResponsiveDialogShell(
       context: context,
       maxWidth: kOpenHandDialogWidthExtraWide,
@@ -13508,7 +13502,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                       Text(
                         _localizedText(
                           context,
-                          zh: '调试 MCP Tool',
+                          zh: '调试MCP工具',
                           en: 'Debug MCP Tool',
                         ),
                         style: theme.textTheme.headlineSmall,
@@ -13535,7 +13529,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                 child: OpenHandInlineEmptyState(
                   message: _localizedText(
                     context,
-                    zh: '当前服务还没有可调试的 Tool，请先刷新 Tool 列表。',
+                    zh: '当前服务还没有可调试的工具，请先刷新工具列表。',
                     en: 'No tools are available for debugging yet. Refresh the tool list first.',
                   ),
                 ),
@@ -13561,7 +13555,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                             decoration: InputDecoration(
                               labelText: _localizedText(
                                 context,
-                                zh: '选择 Tool',
+                                zh: '选择工具',
                                 en: 'Tool',
                               ),
                               border: const OutlineInputBorder(
@@ -13605,34 +13599,30 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                         kOpenHandGap14,
                       ],
                       Text(
-                        _localizedText(
-                          context,
-                          zh: '参数 JSON',
-                          en: 'Arguments JSON',
-                        ),
+                        _localizedText(context, zh: '参数配置', en: 'Arguments'),
                         style: theme.textTheme.titleLarge,
                       ),
+                      kOpenHandGap4,
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: '按工具 Schema 逐项填写，提交前会自动校验并组装参数。',
+                          en: 'Complete the schema-driven fields. Values are validated and assembled automatically.',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                       kOpenHandGap12,
-                      TextFormField(
-                        key: const ValueKey<String>(
-                          'mcpToolDebugArgumentsField',
-                        ),
-                        controller: _argumentsController,
-                        minLines: 8,
-                        maxLines: 16,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: _localizedText(
-                            context,
-                            zh: '请输入 JSON 对象，例如 {"page": 1}',
-                            en: 'Enter a JSON object, for example {"page": 1}',
-                          ),
-                          border: const OutlineInputBorder(
-                            borderRadius: kOpenHandBorderRadius18,
-                          ),
-                        ),
+                      _McpToolArgumentsForm(
+                        key: ObjectKey(_argumentsDraft),
+                        draft: _argumentsDraft,
+                        enabled: !_isRunning,
+                        onChanged: () {
+                          if (_errorMessage != null) {
+                            setState(() => _errorMessage = null);
+                          }
+                        },
                       ),
                       kOpenHandGap16,
                       if (widget.server.type == McpServerType.streamableHttp ||
@@ -13658,7 +13648,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                                   )
                                 : _localizedText(
                                     context,
-                                    zh: '执行 Tool',
+                                    zh: '执行工具',
                                     en: 'Run Tool',
                                   ),
                           ),
@@ -13666,10 +13656,18 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                             onPressed: _isRunning
                                 ? null
                                 : () {
+                                    final previousDraft = _argumentsDraft;
                                     setState(() {
-                                      _argumentsController.text =
-                                          _suggestedArgumentsJson(tool);
+                                      _argumentsDraft =
+                                          _McpArgumentObjectDraft.fromSchema(
+                                            tool.inputSchema,
+                                          );
+                                      _errorMessage = null;
                                     });
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback(
+                                          (_) => previousDraft.dispose(),
+                                        );
                                   },
                             icon: Icons.restart_alt_rounded,
                             label: _localizedText(
@@ -13695,35 +13693,22 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                       Text(
                         _localizedText(
                           context,
-                          zh: '参数参考',
-                          en: 'Parameter Reference',
+                          zh: '工具 Schema 定义',
+                          en: 'Tool Schema',
                         ),
                         style: theme.textTheme.titleLarge,
                       ),
                       kOpenHandGap12,
-                      if (inputFields.isEmpty)
-                        Text(
-                          _localizedText(
-                            context,
-                            zh: '该 Tool 未声明结构化参数字段。',
-                            en: 'This tool does not declare structured input fields.',
-                          ),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        )
-                      else
-                        Column(
-                          children: inputFields
-                              .map(
-                                (field) => _ToolSchemaFieldCard(field: field),
-                              )
-                              .toList(growable: false),
+                      _ToolSchemaPanel(
+                        schema:
+                            inputSchemaMetadata ??
+                            const <String, Object?>{'type': 'object'},
+                        label: _localizedText(
+                          context,
+                          zh: 'Schema',
+                          en: 'Schema',
                         ),
-                      if (inputSchemaMetadata != null) ...[
-                        kOpenHandGap12,
-                        _ToolSchemaPanel(schema: inputSchemaMetadata),
-                      ],
+                      ),
                       kOpenHandGap20,
                       Text(
                         _localizedText(context, zh: '执行结果', en: 'Result'),
@@ -13782,6 +13767,870 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _McpArgumentValidationException implements Exception {
+  const _McpArgumentValidationException(this.message);
+
+  final String message;
+}
+
+class _McpArgumentObjectDraft {
+  _McpArgumentObjectDraft({
+    required this.fields,
+    required this.allowAdditionalProperties,
+    required this.additionalPropertySchema,
+    required this.additionalProperties,
+  });
+
+  factory _McpArgumentObjectDraft.fromSchema(
+    Map<String, Object?> schema, {
+    Object? initialValue,
+  }) {
+    final properties =
+        optionalStringKeyedMapFromValue(schema['properties']) ??
+        const <String, Object?>{};
+    final requiredNames = _requiredFieldNames(schema['required']);
+    final initialMap = optionalStringKeyedMapFromValue(initialValue);
+    final fields = <_McpArgumentFieldDraft>[
+      for (final entry in properties.entries)
+        _McpArgumentFieldDraft.fromSchema(
+          name: entry.key,
+          schema: entry.value,
+          required: requiredNames.contains(entry.key),
+          initialValue: initialMap?[entry.key],
+        ),
+    ];
+    final additionalSetting = schema['additionalProperties'];
+    final additionalSchema = optionalStringKeyedMapFromValue(additionalSetting);
+    final additionalProperties = <_McpArgumentMapEntryDraft>[];
+    if (initialMap != null) {
+      for (final entry in initialMap.entries) {
+        if (!properties.containsKey(entry.key)) {
+          additionalProperties.add(
+            _McpArgumentMapEntryDraft(
+              name: entry.key,
+              schema:
+                  additionalSchema ?? const <String, Object?>{'type': 'string'},
+              initialValue: entry.value,
+            ),
+          );
+        }
+      }
+    }
+    return _McpArgumentObjectDraft(
+      fields: fields,
+      allowAdditionalProperties: additionalSetting != false,
+      additionalPropertySchema:
+          additionalSchema ?? const <String, Object?>{'type': 'string'},
+      additionalProperties: additionalProperties,
+    );
+  }
+
+  final List<_McpArgumentFieldDraft> fields;
+  final bool allowAdditionalProperties;
+  final Map<String, Object?> additionalPropertySchema;
+  final List<_McpArgumentMapEntryDraft> additionalProperties;
+
+  bool get isEmpty => fields.isEmpty && additionalProperties.isEmpty;
+
+  void addAdditionalProperty() {
+    additionalProperties.add(
+      _McpArgumentMapEntryDraft(name: '', schema: additionalPropertySchema),
+    );
+  }
+
+  _McpArgumentMapEntryDraft removeAdditionalProperty(int index) {
+    return additionalProperties.removeAt(index);
+  }
+
+  Map<String, Object?> toArguments(BuildContext context, {String path = ''}) {
+    final result = <String, Object?>{};
+    for (final field in fields) {
+      if (!field.included) continue;
+      final fieldPath = path.isEmpty ? field.name : '$path.${field.name}';
+      result[field.name] = field.value.toValue(context, fieldPath);
+    }
+    for (final entry in additionalProperties) {
+      final name = entry.nameController.text.trim();
+      if (name.isEmpty) {
+        throw _McpArgumentValidationException(
+          _localizedText(
+            context,
+            zh: path.isEmpty ? '自定义参数名称不能为空。' : '$path 中的自定义参数名称不能为空。',
+            en: path.isEmpty
+                ? 'Custom argument names cannot be empty.'
+                : 'Custom argument names under $path cannot be empty.',
+          ),
+        );
+      }
+      if (result.containsKey(name)) {
+        throw _McpArgumentValidationException(
+          _localizedText(
+            context,
+            zh: '参数“${path.isEmpty ? name : '$path.$name'}”重复。',
+            en: 'Argument "${path.isEmpty ? name : '$path.$name'}" is duplicated.',
+          ),
+        );
+      }
+      final fieldPath = path.isEmpty ? name : '$path.$name';
+      result[name] = entry.value.toValue(context, fieldPath);
+    }
+    return result;
+  }
+
+  void dispose() {
+    for (final field in fields) {
+      field.dispose();
+    }
+    for (final entry in additionalProperties) {
+      entry.dispose();
+    }
+  }
+}
+
+class _McpArgumentFieldDraft {
+  _McpArgumentFieldDraft({
+    required this.name,
+    required this.description,
+    required this.required,
+    required this.value,
+  }) : included = true;
+
+  factory _McpArgumentFieldDraft.fromSchema({
+    required String name,
+    required Object? schema,
+    required bool required,
+    Object? initialValue,
+  }) {
+    return _McpArgumentFieldDraft(
+      name: name,
+      description: _schemaDescription(schema),
+      required: required,
+      value: _McpArgumentValueDraft.fromSchema(
+        schema,
+        initialValue: initialValue,
+      ),
+    );
+  }
+
+  final String name;
+  final String description;
+  final bool required;
+  final _McpArgumentValueDraft value;
+  bool included;
+
+  void dispose() => value.dispose();
+}
+
+class _McpArgumentMapEntryDraft {
+  _McpArgumentMapEntryDraft({
+    required String name,
+    required Object? schema,
+    Object? initialValue,
+  }) : nameController = TextEditingController(text: name),
+       value = _McpArgumentValueDraft.fromSchema(
+         schema,
+         initialValue: initialValue,
+       );
+
+  final TextEditingController nameController;
+  final _McpArgumentValueDraft value;
+
+  void dispose() {
+    nameController.dispose();
+    value.dispose();
+  }
+}
+
+class _McpArgumentValueDraft {
+  _McpArgumentValueDraft._({
+    required this.type,
+    required this.schema,
+    required this.enumValues,
+    required this.enumIndex,
+    required this.textController,
+    required this.booleanValue,
+    required this.objectValue,
+    required this.arrayItemSchema,
+    required this.arrayItems,
+  });
+
+  factory _McpArgumentValueDraft.fromSchema(
+    Object? rawSchema, {
+    Object? initialValue,
+  }) {
+    final schema =
+        optionalStringKeyedMapFromValue(rawSchema) ??
+        const <String, Object?>{'type': 'string'};
+    final type = _mcpArgumentSchemaType(schema);
+    final enumValues = schema['enum'] is List
+        ? List<Object?>.from(schema['enum']! as List)
+        : const <Object?>[];
+    final seededValue = initialValue ?? _mcpArgumentSchemaSeed(schema, type);
+    var enumIndex = 0;
+    if (enumValues.isNotEmpty) {
+      final matchingIndex = enumValues.indexWhere(
+        (value) => _jsonFriendlyValue(value) == _jsonFriendlyValue(seededValue),
+      );
+      enumIndex = matchingIndex < 0 ? 0 : matchingIndex;
+    }
+
+    final objectValue = type == 'object'
+        ? _McpArgumentObjectDraft.fromSchema(schema, initialValue: seededValue)
+        : null;
+    final itemSchema = type == 'array'
+        ? optionalStringKeyedMapFromValue(schema['items']) ??
+              const <String, Object?>{'type': 'string'}
+        : null;
+    final initialItems = seededValue is List ? seededValue : const <Object?>[];
+    return _McpArgumentValueDraft._(
+      type: type,
+      schema: schema,
+      enumValues: enumValues,
+      enumIndex: enumIndex,
+      textController: type == 'string' || type == 'number' || type == 'integer'
+          ? TextEditingController(
+              text: seededValue == null ? '' : seededValue.toString(),
+            )
+          : null,
+      booleanValue: seededValue is bool && seededValue,
+      objectValue: objectValue,
+      arrayItemSchema: itemSchema,
+      arrayItems: itemSchema == null
+          ? <_McpArgumentValueDraft>[]
+          : <_McpArgumentValueDraft>[
+              for (final item in initialItems)
+                _McpArgumentValueDraft.fromSchema(
+                  itemSchema,
+                  initialValue: item,
+                ),
+            ],
+    );
+  }
+
+  final String type;
+  final Map<String, Object?> schema;
+  final List<Object?> enumValues;
+  int enumIndex;
+  final TextEditingController? textController;
+  bool booleanValue;
+  final _McpArgumentObjectDraft? objectValue;
+  final Map<String, Object?>? arrayItemSchema;
+  final List<_McpArgumentValueDraft> arrayItems;
+
+  bool get canAddArrayItem =>
+      type == 'array' && arrayItems.length < _mcpToolDebugMaxArrayItems;
+
+  void addArrayItem() {
+    final itemSchema = arrayItemSchema;
+    if (itemSchema == null || !canAddArrayItem) return;
+    arrayItems.add(_McpArgumentValueDraft.fromSchema(itemSchema));
+  }
+
+  _McpArgumentValueDraft removeArrayItem(int index) {
+    return arrayItems.removeAt(index);
+  }
+
+  Object? toValue(BuildContext context, String path) {
+    if (enumValues.isNotEmpty) {
+      return _jsonFriendlyValue(enumValues[enumIndex]);
+    }
+    switch (type) {
+      case 'boolean':
+        return booleanValue;
+      case 'integer':
+        final value = int.tryParse(textController!.text.trim());
+        if (value != null) return value;
+        throw _McpArgumentValidationException(
+          _mcpArgumentTypeError(context, path, zhType: '整数', enType: 'integer'),
+        );
+      case 'number':
+        final value = num.tryParse(textController!.text.trim());
+        if (value != null && value.isFinite) return value;
+        throw _McpArgumentValidationException(
+          _mcpArgumentTypeError(context, path, zhType: '数字', enType: 'number'),
+        );
+      case 'array':
+        return <Object?>[
+          for (var index = 0; index < arrayItems.length; index += 1)
+            arrayItems[index].toValue(context, '$path[${index + 1}]'),
+        ];
+      case 'object':
+        return objectValue!.toArguments(context, path: path);
+      default:
+        return textController?.text ?? '';
+    }
+  }
+
+  void dispose() {
+    textController?.dispose();
+    objectValue?.dispose();
+    for (final item in arrayItems) {
+      item.dispose();
+    }
+  }
+}
+
+class _McpToolArgumentsForm extends StatefulWidget {
+  const _McpToolArgumentsForm({
+    super.key,
+    required this.draft,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final _McpArgumentObjectDraft draft;
+  final bool enabled;
+  final VoidCallback onChanged;
+
+  @override
+  State<_McpToolArgumentsForm> createState() => _McpToolArgumentsFormState();
+}
+
+class _McpToolArgumentsFormState extends State<_McpToolArgumentsForm> {
+  void _rebuild() {
+    if (mounted) setState(() {});
+    widget.onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: kOpenHandBorderRadius18,
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.78),
+        ),
+      ),
+      child: _McpArgumentObjectFields(
+        draft: widget.draft,
+        enabled: widget.enabled,
+        onChanged: _rebuild,
+        onTextChanged: widget.onChanged,
+      ),
+    );
+  }
+}
+
+class _McpArgumentObjectFields extends StatelessWidget {
+  const _McpArgumentObjectFields({
+    required this.draft,
+    required this.enabled,
+    required this.onChanged,
+    required this.onTextChanged,
+  });
+
+  final _McpArgumentObjectDraft draft;
+  final bool enabled;
+  final VoidCallback onChanged;
+  final VoidCallback onTextChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (draft.isEmpty)
+          OpenHandInlineEmptyState.compact(
+            message: _localizedText(
+              context,
+              zh: draft.allowAdditionalProperties
+                  ? '暂无参数，可按需新增自定义参数。'
+                  : '该工具无需配置参数。',
+              en: draft.allowAdditionalProperties
+                  ? 'No arguments yet. Add custom arguments when needed.'
+                  : 'This tool does not require arguments.',
+            ),
+          ),
+        for (var index = 0; index < draft.fields.length; index += 1) ...[
+          _McpArgumentFieldCard(
+            field: draft.fields[index],
+            enabled: enabled,
+            onChanged: onChanged,
+            onTextChanged: onTextChanged,
+          ),
+          if (index < draft.fields.length - 1 ||
+              draft.additionalProperties.isNotEmpty)
+            kOpenHandGap10,
+        ],
+        for (
+          var index = 0;
+          index < draft.additionalProperties.length;
+          index += 1
+        ) ...[
+          _McpArgumentMapEntryCard(
+            index: index,
+            entry: draft.additionalProperties[index],
+            enabled: enabled,
+            onChanged: onChanged,
+            onTextChanged: onTextChanged,
+            onRemove: () {
+              final removed = draft.removeAdditionalProperty(index);
+              onChanged();
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => removed.dispose(),
+              );
+            },
+          ),
+          if (index < draft.additionalProperties.length - 1) kOpenHandGap10,
+        ],
+        if (draft.allowAdditionalProperties) ...[
+          if (!draft.isEmpty) kOpenHandGap10,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: enabled
+                  ? () {
+                      draft.addAdditionalProperty();
+                      onChanged();
+                    }
+                  : null,
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              label: Text(
+                _localizedText(
+                  context,
+                  zh: '新增自定义参数',
+                  en: 'Add custom argument',
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _McpArgumentFieldCard extends StatelessWidget {
+  const _McpArgumentFieldCard({
+    required this.field,
+    required this.enabled,
+    required this.onChanged,
+    required this.onTextChanged,
+  });
+
+  final _McpArgumentFieldDraft field;
+  final bool enabled;
+  final VoidCallback onChanged;
+  final VoidCallback onTextChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: kOpenHandSwitchInCurve,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: field.included
+            ? colorScheme.surfaceContainerHigh
+            : colorScheme.surfaceContainer.withValues(alpha: 0.56),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(
+          color: field.included
+              ? colorScheme.primary.withValues(alpha: 0.2)
+              : colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                _mcpArgumentTypeIcon(field.value.type),
+                size: 18,
+                color: field.included
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+              kOpenHandHGap8,
+              Expanded(
+                child: SelectableText(
+                  field.name,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _McpStatusChip(
+                icon: Icons.code_rounded,
+                label: _schemaTypeLabel(context, field.value.type),
+              ),
+              if (!field.required) ...[
+                kOpenHandHGap8,
+                Switch(
+                  value: field.included,
+                  onChanged: enabled
+                      ? (value) {
+                          field.included = value;
+                          onChanged();
+                        }
+                      : null,
+                ),
+              ] else ...[
+                kOpenHandHGap8,
+                _McpStatusChip(
+                  icon: Icons.priority_high_rounded,
+                  label: _localizedText(context, zh: '必填', en: 'Required'),
+                ),
+              ],
+            ],
+          ),
+          if (field.description.trim().isNotEmpty) ...[
+            kOpenHandGap6,
+            Text(
+              field.description,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+          ],
+          AnimatedSize(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            curve: kOpenHandSwitchInCurve,
+            alignment: Alignment.topCenter,
+            child: field.included
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _McpArgumentValueEditor(
+                      draft: field.value,
+                      enabled: enabled,
+                      label: field.name,
+                      onChanged: onChanged,
+                      onTextChanged: onTextChanged,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpArgumentMapEntryCard extends StatelessWidget {
+  const _McpArgumentMapEntryCard({
+    required this.index,
+    required this.entry,
+    required this.enabled,
+    required this.onChanged,
+    required this.onTextChanged,
+    required this.onRemove,
+  });
+
+  final int index;
+  final _McpArgumentMapEntryDraft entry;
+  final bool enabled;
+  final VoidCallback onChanged;
+  final VoidCallback onTextChanged;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: kOpenHandBorderRadius16,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: entry.nameController,
+                  enabled: enabled,
+                  onChanged: (_) => onTextChanged(),
+                  decoration: _mcpOpsSchemaInputDecoration(
+                    context,
+                    label: _localizedText(
+                      context,
+                      zh: '参数名称 ${index + 1}',
+                      en: 'Argument name ${index + 1}',
+                    ),
+                  ),
+                ),
+              ),
+              kOpenHandHGap8,
+              IconButton.filledTonal(
+                onPressed: enabled ? onRemove : null,
+                tooltip: _localizedText(context, zh: '删除参数', en: 'Remove'),
+                icon: const Icon(Icons.delete_outline_rounded),
+              ),
+            ],
+          ),
+          kOpenHandGap10,
+          _McpArgumentValueEditor(
+            draft: entry.value,
+            enabled: enabled,
+            label: _localizedText(context, zh: '参数值', en: 'Value'),
+            onChanged: onChanged,
+            onTextChanged: onTextChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpArgumentValueEditor extends StatelessWidget {
+  const _McpArgumentValueEditor({
+    required this.draft,
+    required this.enabled,
+    required this.label,
+    required this.onChanged,
+    required this.onTextChanged,
+  });
+
+  final _McpArgumentValueDraft draft;
+  final bool enabled;
+  final String label;
+  final VoidCallback onChanged;
+  final VoidCallback onTextChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (draft.enumValues.isNotEmpty) {
+      return AnimatedDropdownButtonFormField<int>(
+        initialValue: draft.enumIndex,
+        isExpanded: true,
+        decoration: _mcpOpsSchemaInputDecoration(
+          context,
+          label: _localizedText(context, zh: '选择 $label', en: label),
+        ),
+        items: [
+          for (var index = 0; index < draft.enumValues.length; index += 1)
+            DropdownMenuItem<int>(
+              value: index,
+              child: Text(_mcpArgumentValueLabel(draft.enumValues[index])),
+            ),
+        ],
+        onChanged: enabled
+            ? (value) {
+                if (value == null) return;
+                draft.enumIndex = value;
+                onChanged();
+              }
+            : null,
+      );
+    }
+    switch (draft.type) {
+      case 'boolean':
+        return SegmentedButton<bool>(
+          segments: const <ButtonSegment<bool>>[
+            ButtonSegment<bool>(value: true, label: Text('true')),
+            ButtonSegment<bool>(value: false, label: Text('false')),
+          ],
+          selected: <bool>{draft.booleanValue},
+          onSelectionChanged: enabled
+              ? (selection) {
+                  draft.booleanValue = selection.first;
+                  onChanged();
+                }
+              : null,
+        );
+      case 'object':
+        return _McpArgumentNestedPanel(
+          icon: Icons.account_tree_outlined,
+          label: _localizedText(
+            context,
+            zh: '$label 的子字段',
+            en: '$label fields',
+          ),
+          child: _McpArgumentObjectFields(
+            draft: draft.objectValue!,
+            enabled: enabled,
+            onChanged: onChanged,
+            onTextChanged: onTextChanged,
+          ),
+        );
+      case 'array':
+        return _McpArgumentArrayEditor(
+          draft: draft,
+          enabled: enabled,
+          label: label,
+          onChanged: onChanged,
+          onTextChanged: onTextChanged,
+        );
+      default:
+        return TextField(
+          controller: draft.textController,
+          enabled: enabled,
+          keyboardType: draft.type == 'integer' || draft.type == 'number'
+              ? TextInputType.numberWithOptions(
+                  decimal: draft.type == 'number',
+                  signed: true,
+                )
+              : TextInputType.text,
+          onChanged: (_) => onTextChanged(),
+          decoration: _mcpOpsSchemaInputDecoration(
+            context,
+            label: label,
+            hint: _mcpArgumentInputHint(context, draft.schema, draft.type),
+          ),
+        );
+    }
+  }
+}
+
+class _McpArgumentArrayEditor extends StatelessWidget {
+  const _McpArgumentArrayEditor({
+    required this.draft,
+    required this.enabled,
+    required this.label,
+    required this.onChanged,
+    required this.onTextChanged,
+  });
+
+  final _McpArgumentValueDraft draft;
+  final bool enabled;
+  final String label;
+  final VoidCallback onChanged;
+  final VoidCallback onTextChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _McpArgumentNestedPanel(
+      icon: Icons.data_array_rounded,
+      label: '$label · ${draft.arrayItems.length}',
+      trailing: TextButton.icon(
+        onPressed: enabled && draft.canAddArrayItem
+            ? () {
+                draft.addArrayItem();
+                onChanged();
+              }
+            : null,
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: Text(_localizedText(context, zh: '新增一项', en: 'Add item')),
+      ),
+      child: draft.arrayItems.isEmpty
+          ? OpenHandInlineEmptyState.compact(
+              message: _localizedText(
+                context,
+                zh: '当前数组为空。',
+                en: 'The array is empty.',
+              ),
+            )
+          : Column(
+              children: [
+                for (
+                  var index = 0;
+                  index < draft.arrayItems.length;
+                  index += 1
+                ) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                      borderRadius: kOpenHandBorderRadius14,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _localizedText(
+                                  context,
+                                  zh: '第 ${index + 1} 项',
+                                  en: 'Item ${index + 1}',
+                                ),
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: enabled
+                                  ? () {
+                                      final removed = draft.removeArrayItem(
+                                        index,
+                                      );
+                                      onChanged();
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback(
+                                            (_) => removed.dispose(),
+                                          );
+                                    }
+                                  : null,
+                              tooltip: _localizedText(
+                                context,
+                                zh: '删除此项',
+                                en: 'Remove item',
+                              ),
+                              icon: const Icon(Icons.delete_outline_rounded),
+                            ),
+                          ],
+                        ),
+                        _McpArgumentValueEditor(
+                          draft: draft.arrayItems[index],
+                          enabled: enabled,
+                          label: _localizedText(context, zh: '值', en: 'Value'),
+                          onChanged: onChanged,
+                          onTextChanged: onTextChanged,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (index < draft.arrayItems.length - 1) kOpenHandGap8,
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _McpArgumentNestedPanel extends StatelessWidget {
+  const _McpArgumentNestedPanel({
+    required this.icon,
+    required this.label,
+    required this.child,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String label;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer.withValues(alpha: 0.66),
+        borderRadius: kOpenHandBorderRadius14,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: colorScheme.primary),
+              kOpenHandHGap8,
+              Expanded(child: Text(label, style: theme.textTheme.labelLarge)),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          kOpenHandGap10,
+          child,
+        ],
       ),
     );
   }
@@ -13858,7 +14707,7 @@ class _ToolMetaTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      width: 180,
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
@@ -13877,6 +14726,39 @@ class _ToolMetaTile extends StatelessWidget {
           Text(value, style: Theme.of(context).textTheme.titleLarge),
         ],
       ),
+    );
+  }
+}
+
+class _ToolMetaGrid extends StatelessWidget {
+  const _ToolMetaGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 620) {
+          return Column(
+            children: [
+              for (var index = 0; index < children.length; index += 1) ...[
+                children[index],
+                if (index < children.length - 1) kOpenHandGap12,
+              ],
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var index = 0; index < children.length; index += 1) ...[
+              Expanded(child: children[index]),
+              if (index < children.length - 1) kOpenHandHGap12,
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -14064,31 +14946,19 @@ class _ToolSchemaFieldCard extends StatelessWidget {
 }
 
 class _ToolSchemaPanel extends StatelessWidget {
-  const _ToolSchemaPanel({required this.schema});
+  const _ToolSchemaPanel({required this.schema, this.label});
 
   final Object? schema;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
     final content = prettyPrintJson(_jsonFriendlyValue(schema));
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: _mcpOpsTerminalSurface,
-        borderRadius: kOpenHandBorderRadius18,
-      ),
-      padding: const EdgeInsets.all(14),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SelectableText(
-          content,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.white,
-            fontFamily: kOpenHandMonospaceFontFamily,
-            height: 1.45,
-          ),
-        ),
-      ),
+    return OpenHandJsonTreeView(
+      text: content,
+      label: label,
+      logTag: 'mcp',
+      bodyMaxHeight: _mcpToolDebugPayloadMaxHeight,
     );
   }
 }
@@ -14286,92 +15156,64 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: _mcpOpsTerminalSurface,
-        borderRadius: kOpenHandBorderRadius18,
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_formatBadge != null || _truncationNote != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  if (_formatBadge != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer.withValues(
-                          alpha: 0.5,
-                        ),
-                        borderRadius: kOpenHandBorderRadius8,
-                      ),
-                      child: Text(
-                        _formatBadge!,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                        ),
-                      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_truncationNote != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                    borderRadius: kOpenHandBorderRadius8,
+                  ),
+                  child: Text(
+                    _truncationNote!,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onTertiaryContainer,
                     ),
-                  if (_truncationNote != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.tertiaryContainer.withValues(
-                          alpha: 0.6,
-                        ),
-                        borderRadius: kOpenHandBorderRadius8,
-                      ),
-                      child: Text(
-                        _truncationNote!,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onTertiaryContainer,
-                        ),
-                      ),
-                    ),
-                ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (_isFormatting)
+          Container(
+            width: double.infinity,
+            height: 96,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainer,
+              borderRadius: kOpenHandBorderRadius18,
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.2),
               ),
             ),
-          if (_isFormatting)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.2),
-                ),
-              ),
-            )
-          else if (_displayText != null)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SelectableText(
-                _displayText!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
-                  fontFamily: kOpenHandMonospaceFontFamily,
-                  height: 1.45,
-                ),
-              ),
-            ),
-        ],
-      ),
+          )
+        else if (_displayText != null)
+          OpenHandJsonTreeView(
+            text: _displayText!,
+            label:
+                _formatBadge ??
+                _localizedText(context, zh: '响应内容', en: 'Response'),
+            error: widget.result.isError,
+            logTag: 'mcp',
+            bodyMaxHeight: _mcpToolDebugPayloadMaxHeight,
+          ),
+      ],
     );
   }
 }
@@ -14666,6 +15508,111 @@ String _schemaDescription(Object? schema) {
       '';
 }
 
+String _mcpArgumentSchemaType(Map<String, Object?> schema) {
+  const supportedTypes = <String>{
+    'string',
+    'number',
+    'integer',
+    'boolean',
+    'array',
+    'object',
+  };
+  final rawType = schema['type'];
+  if (rawType is String && supportedTypes.contains(rawType.toLowerCase())) {
+    return rawType.toLowerCase();
+  }
+  if (rawType is List) {
+    for (final value in rawType) {
+      final type = '$value'.toLowerCase();
+      if (type != 'null' && supportedTypes.contains(type)) return type;
+    }
+  }
+  if (optionalStringKeyedMapFromValue(schema['properties']) != null) {
+    return 'object';
+  }
+  if (schema.containsKey('items')) return 'array';
+  for (final keyword in const <String>['oneOf', 'anyOf', 'allOf']) {
+    final variants = schema[keyword];
+    if (variants is! List) continue;
+    for (final variant in variants) {
+      final variantSchema = optionalStringKeyedMapFromValue(variant);
+      if (variantSchema != null) return _mcpArgumentSchemaType(variantSchema);
+    }
+  }
+  final enumValues = schema['enum'];
+  if (enumValues is List && enumValues.isNotEmpty) {
+    return switch (enumValues.first) {
+      bool() => 'boolean',
+      int() => 'integer',
+      num() => 'number',
+      List() => 'array',
+      Map() => 'object',
+      _ => 'string',
+    };
+  }
+  return 'string';
+}
+
+Object? _mcpArgumentSchemaSeed(Map<String, Object?> schema, String type) {
+  if (schema.containsKey('default')) return schema['default'];
+  if (schema.containsKey('example')) return schema['example'];
+  final examples = schema['examples'];
+  if (examples is List && examples.isNotEmpty) return examples.first;
+  final enumValues = schema['enum'];
+  if (enumValues is List && enumValues.isNotEmpty) return enumValues.first;
+  return switch (type) {
+    'boolean' => false,
+    'number' || 'integer' => 0,
+    'array' => const <Object?>[],
+    'object' => const <String, Object?>{},
+    _ => '',
+  };
+}
+
+String _mcpArgumentTypeError(
+  BuildContext context,
+  String path, {
+  required String zhType,
+  required String enType,
+}) {
+  return _localizedText(
+    context,
+    zh: '参数“$path”必须填写有效的$zhType。',
+    en: 'Argument "$path" must be a valid $enType.',
+  );
+}
+
+IconData _mcpArgumentTypeIcon(String type) {
+  return switch (type) {
+    'boolean' => Icons.toggle_on_outlined,
+    'number' || 'integer' => Icons.numbers_rounded,
+    'array' => Icons.data_array_rounded,
+    'object' => Icons.account_tree_outlined,
+    _ => Icons.text_fields_rounded,
+  };
+}
+
+String _mcpArgumentValueLabel(Object? value) {
+  if (value is String) return value;
+  return jsonEncode(_jsonFriendlyValue(value));
+}
+
+String? _mcpArgumentInputHint(
+  BuildContext context,
+  Map<String, Object?> schema,
+  String type,
+) {
+  final format = stringFromValue(schema['format'], ignoreLiteralNull: true);
+  if (format.isNotEmpty) {
+    return _localizedText(context, zh: '格式：$format', en: 'Format: $format');
+  }
+  return switch (type) {
+    'integer' => _localizedText(context, zh: '请输入整数', en: 'Enter an integer'),
+    'number' => _localizedText(context, zh: '请输入数字', en: 'Enter a number'),
+    _ => null,
+  };
+}
+
 String _schemaEditableType(Object? schema) {
   final type = _schemaType(schema).toLowerCase().trim();
   if (_mcpOpsSchemaEditableTypes.contains(type)) {
@@ -14844,40 +15791,6 @@ String _schemaSummary(
     return _localizedText(context, zh: '枚举', en: 'Enum');
   }
   return _localizedText(context, zh: '原始元数据', en: 'Raw Metadata');
-}
-
-String _suggestedArgumentsJson(McpTool tool) {
-  final schemaMap = optionalStringKeyedMapFromValue(tool.inputSchema);
-  final properties = schemaMap == null
-      ? null
-      : optionalStringKeyedMapFromValue(schemaMap['properties']);
-  if (properties == null || properties.isEmpty) {
-    return '{}';
-  }
-  final suggested = <String, Object?>{};
-  for (final entry in properties.entries) {
-    suggested[entry.key] = _schemaExampleValue(entry.value);
-  }
-  return prettyPrintJson(suggested);
-}
-
-Object? _schemaExampleValue(Object? schema) {
-  final schemaMap = optionalStringKeyedMapFromValue(schema);
-  if (schemaMap == null) {
-    return '';
-  }
-  final enumValues = schemaMap['enum'];
-  if (enumValues is List && enumValues.isNotEmpty) {
-    return _jsonFriendlyValue(enumValues.first);
-  }
-  final type = _schemaType(schemaMap).toLowerCase();
-  return switch (type) {
-    'boolean' => false,
-    'number' || 'integer' => 0,
-    'array' => <Object?>[],
-    'object' => <String, Object?>{},
-    _ => '',
-  };
 }
 
 String _executionSummary(BuildContext context, McpTool tool) {
@@ -16776,7 +17689,7 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     ja: '削除',
   ),
   'Debug MCP Tool': _McpLocalizedFallback(
-    zhHant: '調試 MCP Tool',
+    zhHant: '調試 MCP 工具',
     fr: 'Déboguer le tool MCP',
     de: 'MCP-Tool debuggen',
     ja: 'MCP Tool をデバッグ',
@@ -16794,18 +17707,19 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     de: 'Tool',
     ja: 'Tool',
   ),
-  'Arguments JSON': _McpLocalizedFallback(
-    zhHant: '參數 JSON',
-    fr: 'Arguments JSON',
-    de: 'Argumente JSON',
-    ja: '引数 JSON',
+  'Arguments': _McpLocalizedFallback(
+    zhHant: '參數配置',
+    fr: 'Arguments',
+    de: 'Argumente',
+    ja: '引数設定',
   ),
-  'Enter a JSON object, for example {"page": 1}': _McpLocalizedFallback(
-    zhHant: '請輸入 JSON 物件，例如 {"page": 1}',
-    fr: 'Saisissez un objet JSON, par exemple {"page": 1}',
-    de: 'JSON-Objekt eingeben, z. B. {"page": 1}',
-    ja: 'JSON オブジェクトを入力します。例: {"page": 1}',
-  ),
+  'Complete the schema-driven fields. Values are validated and assembled automatically.':
+      _McpLocalizedFallback(
+        zhHant: '按工具 Schema 逐項填寫，提交前會自動校驗並組裝參數。',
+        fr: 'Renseignez les champs du schéma. Les valeurs sont validées et assemblées automatiquement.',
+        de: 'Füllen Sie die Schema-Felder aus. Die Werte werden automatisch validiert und zusammengestellt.',
+        ja: 'ツール Schema の各項目を入力します。送信前に自動検証して組み立てます。',
+      ),
   'Running': _McpLocalizedFallback(
     zhHant: '執行中',
     fr: 'Exécution',
@@ -16824,11 +17738,11 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     de: 'Beispiel zurücksetzen',
     ja: 'サンプルをリセット',
   ),
-  'Parameter Reference': _McpLocalizedFallback(
-    zhHant: '參數參考',
-    fr: 'Référence des paramètres',
-    de: 'Parameterreferenz',
-    ja: 'パラメータ参照',
+  'Tool Schema': _McpLocalizedFallback(
+    zhHant: '工具 Schema 定義',
+    fr: 'Schéma du tool',
+    de: 'Tool-Schema',
+    ja: 'ツール Schema 定義',
   ),
   'Result': _McpLocalizedFallback(
     zhHant: '執行結果',
