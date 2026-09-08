@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:path/path.dart' as p;
 
+import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/byte_size_format.dart';
@@ -32,7 +33,9 @@ final class OpenHandSingleInstance {
   static const String _applicationId = 'com.flwork.openhand';
   static const int _recordVersion = 1;
   static const int _maxInstanceRecords = 128;
+  static const int _maxInstanceDirectoryEntries = _maxInstanceRecords * 2;
   static const int _maxTrackedDescendants = 256;
+  static const int _maxLinuxProcessEntries = 65536;
   static const int _maxLinuxProcessStatBytes = 4 * kBytesPerKiB;
   static const int _maxInstanceRecordBytes = 4 * kBytesPerKiB;
   static const BoundedJsonConversionConfig _instanceRecordJsonConfig =
@@ -72,13 +75,17 @@ final class OpenHandSingleInstance {
     final instancesDirectory = Directory(
       p.join(runtimeDirectory.path, 'instances'),
     );
-    await instancesDirectory
-        .create(recursive: true)
-        .timeout(_fileOperationTimeout);
+    await createDirectoryBounded(
+      instancesDirectory,
+      timeout: _fileOperationTimeout,
+    );
 
-    final takeoverHandle = await File(
-      p.join(runtimeDirectory.path, 'instance-takeover.lock'),
-    ).open(mode: FileMode.append).timeout(_fileOperationTimeout);
+    final takeoverLease = await openBoundedRandomAccessFileLease(
+      File(p.join(runtimeDirectory.path, 'instance-takeover.lock')),
+      mode: FileMode.append,
+      timeout: _fileOperationTimeout,
+    );
+    final takeoverHandle = takeoverLease.file;
     var takeoverLocked = false;
     try {
       final stopwatch = Stopwatch()..start();
@@ -161,9 +168,10 @@ final class OpenHandSingleInstance {
         }
       }
       try {
-        await takeoverHandle.close().timeout(_fileOperationTimeout);
+        await takeoverLease.close(timeout: _fileOperationTimeout);
       } catch (error, stack) {
         silentLog('single_instance', '关闭单实例接管锁文件', error, stack);
+        await takeoverLease.cleanup();
       }
     }
   }
@@ -329,12 +337,15 @@ final class OpenHandSingleInstance {
 
   static Future<Map<int, _RunningProcess>> _loadLinuxProcesses() async {
     final processes = <int, _RunningProcess>{};
-    final entities = await Directory('/proc')
-        .list(followLinks: false)
-        .take(65536)
-        .toList()
-        .timeout(_processQueryTimeout);
-    for (final entity in entities) {
+    final listing = await listDirectoryBounded(
+      Directory('/proc'),
+      maxEntries: _maxLinuxProcessEntries,
+      totalTimeout: _processQueryTimeout,
+    );
+    if (listing.truncated) {
+      throw const OpenHandSingleInstanceException('系统进程列表读取不完整。');
+    }
+    for (final entity in listing.entries) {
       final processId = int.tryParse(p.basename(entity.path));
       if (processId == null || processId <= 0) continue;
       try {
@@ -411,21 +422,23 @@ Get-CimInstance Win32_Process | ForEach-Object {
   }
 
   static Future<List<File>> _listInstanceRecords(Directory directory) async {
-    final entities = await directory
-        .list(followLinks: false)
-        .where(
-          (entity) =>
-              entity is File &&
-              p.basename(entity.path).startsWith(_recordPrefix) &&
-              p.basename(entity.path).endsWith(_recordSuffix),
-        )
-        .take(_maxInstanceRecords + 1)
-        .toList()
-        .timeout(_fileOperationTimeout);
-    if (entities.length > _maxInstanceRecords) {
+    final listing = await listDirectoryBounded(
+      directory,
+      maxEntries: _maxInstanceDirectoryEntries,
+      idleTimeout: _fileOperationTimeout,
+      totalTimeout: _fileOperationTimeout,
+    );
+    final records = listing.entries
+        .whereType<File>()
+        .where((file) {
+          final name = p.basename(file.path);
+          return name.startsWith(_recordPrefix) && name.endsWith(_recordSuffix);
+        })
+        .toList(growable: false);
+    if (listing.truncated || records.length > _maxInstanceRecords) {
       throw const OpenHandSingleInstanceException('OpenHand 实例登记数量异常。');
     }
-    return entities.cast<File>();
+    return records;
   }
 
   static Future<_InstanceRecord?> _readInstanceRecord(File file) async {
@@ -455,26 +468,61 @@ Get-CimInstance Win32_Process | ForEach-Object {
     _InstanceRecord record,
   ) async {
     final temporary = File('${target.path}$_temporaryRecordSuffix');
+    final payload = utf8.encode(jsonEncode(record.toJson()));
+    if (payload.length > _maxInstanceRecordBytes) {
+      throw const OpenHandSingleInstanceException('OpenHand 实例登记内容过长。');
+    }
     try {
-      await temporary
-          .writeAsString(jsonEncode(record.toJson()), flush: true)
-          .timeout(_fileOperationTimeout);
-      await temporary.rename(target.path).timeout(_fileOperationTimeout);
+      await writeTemporaryFileBytesBounded(
+        temporary,
+        payload,
+        timeout: _fileOperationTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('single_instance', '清理实例临时登记', error, stack),
+      );
+    } catch (error, stack) {
+      silentLog('single_instance', '写入当前实例登记', error, stack);
+      throw const OpenHandSingleInstanceException('无法写入 OpenHand 实例登记。');
+    }
+
+    final publish = temporary.rename(target.path);
+    try {
+      await publish.timeout(_fileOperationTimeout);
+    } on TimeoutException catch (error, stack) {
+      _cleanupLateInstanceRecordPublish(publish, temporary);
+      silentLog('single_instance', '发布当前实例登记超时', error, stack);
+      throw const OpenHandSingleInstanceException('无法写入 OpenHand 实例登记。');
     } catch (error, stack) {
       await _deleteFileQuietly(temporary);
-      silentLog('single_instance', '写入当前实例登记', error, stack);
+      silentLog('single_instance', '发布当前实例登记', error, stack);
       throw const OpenHandSingleInstanceException('无法写入 OpenHand 实例登记。');
     }
   }
 
+  static void _cleanupLateInstanceRecordPublish(
+    Future<File> publish,
+    File temporary,
+  ) {
+    unawaited(
+      publish.then<void>(
+        _deleteFileQuietly,
+        onError: (Object error, StackTrace stack) async {
+          silentLog('single_instance', '延迟发布实例登记', error, stack);
+          await _deleteFileQuietly(temporary);
+        },
+      ),
+    );
+  }
+
   static Future<void> _pruneTemporaryRecords(Directory directory) async {
     try {
-      final entities = await directory
-          .list(followLinks: false)
-          .take(_maxInstanceRecords)
-          .toList()
-          .timeout(_fileOperationTimeout);
-      for (final entity in entities) {
+      final listing = await listDirectoryBounded(
+        directory,
+        maxEntries: _maxInstanceDirectoryEntries,
+        idleTimeout: _fileOperationTimeout,
+        totalTimeout: _fileOperationTimeout,
+      );
+      for (final entity in listing.entries) {
         if (entity is File &&
             p.basename(entity.path).startsWith(_recordPrefix) &&
             p.basename(entity.path).endsWith(_temporaryRecordSuffix)) {
