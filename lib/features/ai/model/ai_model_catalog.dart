@@ -1748,66 +1748,25 @@ class AiModelCatalog {
         maxDimensions: 3072,
       );
     }
-    if (id.startsWith('text-embedding-005')) {
-      return _embeddingP(
+    final textEmbedding = switch (id) {
+      _ when id.startsWith('text-embedding-005') => (
         name: 'text-embedding-005',
-        desc: 'Google text embedding model',
-        context: 2048,
-        dimensions: 768,
-        maxInputTokens: 2048,
-        customDimensions: true,
-        batchSize: 100,
-        specialBody: true,
-        supportedParameters: _geminiEmbeddingParameters,
-        taskTypes: const <String>[
-          'RETRIEVAL_QUERY',
-          'RETRIEVAL_DOCUMENT',
-          'SEMANTIC_SIMILARITY',
-          'CLASSIFICATION',
-          'CLUSTERING',
-          'QUESTION_ANSWERING',
-          'FACT_VERIFICATION',
-        ],
-        defaultTaskType: 'RETRIEVAL_DOCUMENT',
-        queryTaskType: 'RETRIEVAL_QUERY',
-        documentTaskType: 'RETRIEVAL_DOCUMENT',
-        outputsNormalized: true,
-        minDimensions: 128,
-        maxDimensions: 768,
-      );
-    }
-    if (id.startsWith('text-multilingual-embedding-002')) {
-      return _embeddingP(
+        description: 'Google text embedding model',
+      ),
+      _ when id.startsWith('text-multilingual-embedding-002') => (
         name: 'text-multilingual-embedding-002',
-        desc: 'Google multilingual text embedding model',
-        context: 2048,
-        dimensions: 768,
-        maxInputTokens: 2048,
-        customDimensions: true,
-        batchSize: 100,
-        specialBody: true,
-        supportedParameters: _geminiEmbeddingParameters,
-        taskTypes: const <String>[
-          'RETRIEVAL_QUERY',
-          'RETRIEVAL_DOCUMENT',
-          'SEMANTIC_SIMILARITY',
-          'CLASSIFICATION',
-          'CLUSTERING',
-          'QUESTION_ANSWERING',
-          'FACT_VERIFICATION',
-        ],
-        defaultTaskType: 'RETRIEVAL_DOCUMENT',
-        queryTaskType: 'RETRIEVAL_QUERY',
-        documentTaskType: 'RETRIEVAL_DOCUMENT',
-        outputsNormalized: true,
-        minDimensions: 128,
-        maxDimensions: 768,
-      );
-    }
-    if (id.startsWith('text-embedding-004')) {
-      return _embeddingP(
+        description: 'Google multilingual text embedding model',
+      ),
+      _ when id.startsWith('text-embedding-004') => (
         name: 'text-embedding-004',
-        desc: 'Google text embedding model',
+        description: 'Google text embedding model',
+      ),
+      _ => null,
+    };
+    if (textEmbedding != null) {
+      return _embeddingP(
+        name: textEmbedding.name,
+        desc: textEmbedding.description,
         context: 2048,
         dimensions: 768,
         maxInputTokens: 2048,
@@ -3876,51 +3835,30 @@ class AiModelCatalog {
         supportsTruncation: true,
       );
     }
-    if (id.startsWith('jina-embeddings-v5-omni')) {
+    if (id.startsWith('jina-embeddings-v5-omni') ||
+        id.startsWith('jina-embeddings-v5-text')) {
+      final omni = id.startsWith('jina-embeddings-v5-omni');
       final nano = id.contains('nano');
+      final familyLabel = omni ? 'Omni' : 'Text';
+      final sizeSuffix = nano ? ' Nano' : '';
       return _embeddingP(
-        name: nano ? 'Jina Embeddings v5 Omni Nano' : 'Jina Embeddings v5 Omni',
-        desc: 'Jina multilingual omni embedding model',
-        multimodal: true,
-        modalities: _allModalities,
+        name: 'Jina Embeddings v5 $familyLabel$sizeSuffix',
+        desc: omni
+            ? 'Jina multilingual omni embedding model'
+            : 'Jina multilingual text embedding model',
+        multimodal: omni,
+        modalities: omni
+            ? _allModalities
+            : const <AiModelModality>{AiModelModality.text},
         context: nano ? 8192 : 32768,
         dimensions: nano ? 768 : 1024,
         maxInputTokens: nano ? 8192 : 32768,
         customDimensions: true,
         batchSize: 64,
         supportedParameters: _jinaEmbeddingParameters,
-        inputTypes: const <String>['text', 'image', 'audio', 'video', 'file'],
-        taskTypes: const <String>[
-          'retrieval.query',
-          'retrieval.passage',
-          'text-matching',
-          'classification',
-          'clustering',
-        ],
-        defaultTaskType: 'retrieval.passage',
-        queryTaskType: 'retrieval.query',
-        documentTaskType: 'retrieval.passage',
-        encodingFormats: const <String>['float', 'base64', 'binary'],
-        defaultEncodingFormat: 'float',
-        outputDTypes: const <String>['float', 'binary'],
-        defaultOutputDType: 'float',
-        outputsNormalized: true,
-        minDimensions: 32,
-        maxDimensions: nano ? 768 : 1024,
-        supportsTruncation: true,
-      );
-    }
-    if (id.startsWith('jina-embeddings-v5-text')) {
-      final nano = id.contains('nano');
-      return _embeddingP(
-        name: nano ? 'Jina Embeddings v5 Text Nano' : 'Jina Embeddings v5 Text',
-        desc: 'Jina multilingual text embedding model',
-        context: nano ? 8192 : 32768,
-        dimensions: nano ? 768 : 1024,
-        maxInputTokens: nano ? 8192 : 32768,
-        customDimensions: true,
-        batchSize: 64,
-        supportedParameters: _jinaEmbeddingParameters,
+        inputTypes: omni
+            ? const <String>['text', 'image', 'audio', 'video', 'file']
+            : const <String>['text'],
         taskTypes: const <String>[
           'retrieval.query',
           'retrieval.passage',

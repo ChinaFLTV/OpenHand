@@ -85,6 +85,49 @@ enum _ProxyEndpointHealth {
 
 enum _ProxyCleanup { unavailable, highLatency, abnormal }
 
+mixin _ProxyTrendRangeState<T extends StatefulWidget> on State<T> {
+  Duration _range = _kProxyTrendDefaultRange;
+  Duration _interval = _kProxyTrendDefaultInterval;
+  Duration _scaleStartRange = _kProxyTrendDefaultRange;
+
+  Future<void> _loadTrend();
+
+  void _handleScaleStart(ScaleStartDetails _) {
+    _scaleStartRange = _range;
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    if ((details.scale - 1).abs() < 0.015) return;
+    final range = scaledDurationWithinRange(
+      _scaleStartRange,
+      details.scale,
+      min: _kProxyTrendMinRange,
+      max: _kProxyTrendMaxRange,
+    );
+    if (range == null) return;
+    final interval = _trendIntervalFor(range);
+    if (range == _range && interval == _interval) return;
+    setState(() {
+      _range = range;
+      _interval = interval;
+    });
+  }
+
+  void _handleScaleEnd(ScaleEndDetails _) => _loadTrend();
+
+  void _resetTrendRange() {
+    if (_range == _kProxyTrendDefaultRange &&
+        _interval == _kProxyTrendDefaultInterval) {
+      return;
+    }
+    setState(() {
+      _range = _kProxyTrendDefaultRange;
+      _interval = _kProxyTrendDefaultInterval;
+    });
+    _loadTrend();
+  }
+}
+
 Future<void> showAiExposureProxyDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
@@ -2173,12 +2216,10 @@ class _ProxyAverageResponseDialog extends StatefulWidget {
 }
 
 class _ProxyAverageResponseDialogState
-    extends State<_ProxyAverageResponseDialog> {
+    extends State<_ProxyAverageResponseDialog>
+    with _ProxyTrendRangeState<_ProxyAverageResponseDialog> {
   List<AiExposureProxyRequestTrendBucket> _trend =
       const <AiExposureProxyRequestTrendBucket>[];
-  Duration _range = _kProxyTrendDefaultRange;
-  Duration _interval = _kProxyTrendDefaultInterval;
-  Duration _scaleStartRange = _kProxyTrendDefaultRange;
   int _loadGeneration = 0;
   Timer? _refreshTimer;
   bool _loading = true;
@@ -2206,6 +2247,7 @@ class _ProxyAverageResponseDialogState
     super.dispose();
   }
 
+  @override
   Future<void> _loadTrend() async {
     if (!mounted) return;
     final generation = ++_loadGeneration;
@@ -2235,43 +2277,6 @@ class _ProxyAverageResponseDialogState
         );
       });
     }
-  }
-
-  void _handleScaleStart(ScaleStartDetails details) {
-    _scaleStartRange = _range;
-  }
-
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
-    if ((details.scale - 1).abs() < 0.015) return;
-    final range = scaledDurationWithinRange(
-      _scaleStartRange,
-      details.scale,
-      min: _kProxyTrendMinRange,
-      max: _kProxyTrendMaxRange,
-    );
-    if (range == null) return;
-    final interval = _trendIntervalFor(range);
-    if (range == _range && interval == _interval) return;
-    setState(() {
-      _range = range;
-      _interval = interval;
-    });
-  }
-
-  void _handleScaleEnd(ScaleEndDetails details) {
-    _loadTrend();
-  }
-
-  void _resetTrendRange() {
-    if (_range == _kProxyTrendDefaultRange &&
-        _interval == _kProxyTrendDefaultInterval) {
-      return;
-    }
-    setState(() {
-      _range = _kProxyTrendDefaultRange;
-      _interval = _kProxyTrendDefaultInterval;
-    });
-    _loadTrend();
   }
 
   @override
@@ -2774,14 +2779,12 @@ class _ProxyRequestTelemetryDialog extends StatefulWidget {
 }
 
 class _ProxyRequestTelemetryDialogState
-    extends State<_ProxyRequestTelemetryDialog> {
+    extends State<_ProxyRequestTelemetryDialog>
+    with _ProxyTrendRangeState<_ProxyRequestTelemetryDialog> {
   List<AiExposureProxyRequestRecord> _records =
       const <AiExposureProxyRequestRecord>[];
   List<AiExposureProxyRequestTrendBucket> _trend =
       const <AiExposureProxyRequestTrendBucket>[];
-  Duration _range = _kProxyTrendDefaultRange;
-  Duration _interval = _kProxyTrendDefaultInterval;
-  Duration _scaleStartRange = _kProxyTrendDefaultRange;
   int _page = 1;
   int _pageSize = kOpenHandTableDefaultPageSize;
   int _total = 0;
@@ -2902,6 +2905,7 @@ class _ProxyRequestTelemetryDialogState
     }
   }
 
+  @override
   Future<void> _loadTrend() async {
     final generation = ++_loadGeneration;
     setState(() => _trendLoading = true);
@@ -2921,43 +2925,6 @@ class _ProxyRequestTelemetryDialogState
         setState(() => _trendLoading = false);
       }
     }
-  }
-
-  void _handleScaleStart(ScaleStartDetails details) {
-    _scaleStartRange = _range;
-  }
-
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
-    if ((details.scale - 1).abs() < 0.015) return;
-    final range = scaledDurationWithinRange(
-      _scaleStartRange,
-      details.scale,
-      min: _kProxyTrendMinRange,
-      max: _kProxyTrendMaxRange,
-    );
-    if (range == null) return;
-    final interval = _trendIntervalFor(range);
-    if (range == _range && interval == _interval) return;
-    setState(() {
-      _range = range;
-      _interval = interval;
-    });
-  }
-
-  void _handleScaleEnd(ScaleEndDetails details) {
-    _loadTrend();
-  }
-
-  void _resetTrendRange() {
-    if (_range == _kProxyTrendDefaultRange &&
-        _interval == _kProxyTrendDefaultInterval) {
-      return;
-    }
-    setState(() {
-      _range = _kProxyTrendDefaultRange;
-      _interval = _kProxyTrendDefaultInterval;
-    });
-    _loadTrend();
   }
 
   @override

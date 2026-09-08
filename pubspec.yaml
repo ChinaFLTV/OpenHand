@@ -97,7 +97,8 @@ flutter:
     - assets/web/
     - assets/web/chunks/
     - assets/web/assets/
-    - assets/tooling/
+    - assets/tooling/mermaid.min.js
+    - assets/tooling/webfetch_scrapling_bridge.py
 
 # macOS 使用系统 SQLite，避免从 GitHub 下载二进制文件。
 hooks:

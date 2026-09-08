@@ -750,18 +750,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
             duration: duration,
             curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
-            child: AnimatedSwitcher(
+            child: OpenHandFadeSizeSwitcher(
               duration: duration,
-              switchInCurve: kOpenHandSwitchInCurve,
-              switchOutCurve: kOpenHandSwitchOutCurve,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SizeTransition(
-                  sizeFactor: animation,
-                  alignment: AlignmentDirectional.topStart,
-                  child: child,
-                ),
-              ),
               child: preview.chat.isEmpty
                   ? const SizedBox.shrink(
                       key: ValueKey<String>('endpoint-preview-empty'),

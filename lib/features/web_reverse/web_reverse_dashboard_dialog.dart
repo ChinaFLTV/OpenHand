@@ -1526,18 +1526,8 @@ class _WebReverseDashboardDialogState
               duration: reduceMotion ? Duration.zero : _kSwitchDuration,
               curve: kOpenHandSwitchInCurve,
               alignment: Alignment.topCenter,
-              child: AnimatedSwitcher(
+              child: OpenHandFadeSizeSwitcher(
                 duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-                switchInCurve: kOpenHandSwitchInCurve,
-                switchOutCurve: kOpenHandSwitchOutCurve,
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SizeTransition(
-                    sizeFactor: animation,
-                    alignment: AlignmentDirectional.topStart,
-                    child: child,
-                  ),
-                ),
                 child: (ctrl.errorMessage ?? '').trim().isNotEmpty
                     ? _DiagnosisBanner(
                         key: const ValueKey('diagnosis-banner'),

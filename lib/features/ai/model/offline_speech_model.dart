@@ -3495,6 +3495,33 @@ abstract final class OfflineSpeechModelCatalog {
     ),
   ];
 
+  static const _qwenAsrParameters = <OfflineSpeechParameter>[
+    ..._asrCommon,
+    ..._generation,
+    OfflineSpeechParameter(
+      key: 'streaming',
+      label: '流式识别',
+      description: '通过 vLLM 边说边输出。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: true,
+    ),
+    OfflineSpeechParameter(
+      key: 'timestamps',
+      label: '时间戳',
+      description: '离线识别时调用强制对齐器。',
+      type: OfflineSpeechParameterType.toggle,
+      defaultValue: false,
+    ),
+    OfflineSpeechParameter(
+      key: 'dtype',
+      label: '计算精度',
+      description: '降低精度可节省显存。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: 'auto',
+      options: _dtype,
+    ),
+  ];
+
   static const _qwenAsrModels = <OfflineSpeechModelDefinition>[
     OfflineSpeechModelDefinition(
       id: 'qwen3-asr-0.6b',
@@ -3504,32 +3531,7 @@ abstract final class OfflineSpeechModelCatalog {
       repository: 'Qwen/Qwen3-ASR-0.6B',
       sizeLabel: '约 1.8 GB',
       description: '兼顾准确率与资源占用的 52 语言及中文方言识别。',
-      parameters: <OfflineSpeechParameter>[
-        ..._asrCommon,
-        ..._generation,
-        OfflineSpeechParameter(
-          key: 'streaming',
-          label: '流式识别',
-          description: '通过 vLLM 边说边输出。',
-          type: OfflineSpeechParameterType.toggle,
-          defaultValue: true,
-        ),
-        OfflineSpeechParameter(
-          key: 'timestamps',
-          label: '时间戳',
-          description: '离线识别时调用强制对齐器。',
-          type: OfflineSpeechParameterType.toggle,
-          defaultValue: false,
-        ),
-        OfflineSpeechParameter(
-          key: 'dtype',
-          label: '计算精度',
-          description: '降低精度可节省显存。',
-          type: OfflineSpeechParameterType.choice,
-          defaultValue: 'auto',
-          options: _dtype,
-        ),
-      ],
+      parameters: _qwenAsrParameters,
     ),
     OfflineSpeechModelDefinition(
       id: 'qwen3-asr-1.7b',
@@ -3539,32 +3541,7 @@ abstract final class OfflineSpeechModelCatalog {
       repository: 'Qwen/Qwen3-ASR-1.7B',
       sizeLabel: '约 4.5 GB',
       description: '更高准确率的 52 语言、方言、歌曲和复杂声学环境识别。',
-      parameters: <OfflineSpeechParameter>[
-        ..._asrCommon,
-        ..._generation,
-        OfflineSpeechParameter(
-          key: 'streaming',
-          label: '流式识别',
-          description: '通过 vLLM 边说边输出。',
-          type: OfflineSpeechParameterType.toggle,
-          defaultValue: true,
-        ),
-        OfflineSpeechParameter(
-          key: 'timestamps',
-          label: '时间戳',
-          description: '离线识别时调用强制对齐器。',
-          type: OfflineSpeechParameterType.toggle,
-          defaultValue: false,
-        ),
-        OfflineSpeechParameter(
-          key: 'dtype',
-          label: '计算精度',
-          description: '降低精度可节省显存。',
-          type: OfflineSpeechParameterType.choice,
-          defaultValue: 'auto',
-          options: _dtype,
-        ),
-      ],
+      parameters: _qwenAsrParameters,
     ),
   ];
 

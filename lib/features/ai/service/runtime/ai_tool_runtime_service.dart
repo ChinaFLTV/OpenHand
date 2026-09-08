@@ -1288,6 +1288,44 @@ class AiToolRuntimeService {
     }
     var resolvedTool = catalogTool;
     var executionCatalog = catalog;
+
+    Future<AiToolExecutionResult> executeDelegatedTool({
+      required AiResolvedTool deferredTool,
+      required Map<String, Object?> arguments,
+      required Map<String, Object?> gatewayMetadata,
+    }) async {
+      final toolName = deferredTool.definition.name;
+      final delegatedResult = await execute(
+        sessionId: sessionId,
+        catalog: AiResolvedToolCatalog(
+          definitions: <AiToolDefinition>[deferredTool.definition],
+          toolsByName: <String, AiResolvedTool>{toolName: deferredTool},
+          notices: executionCatalog.notices,
+          mcpServerInstructionsByName:
+              executionCatalog.mcpServerInstructionsByName,
+        ),
+        toolCall: AiToolCall(
+          id: toolCall.id,
+          name: toolName,
+          arguments: jsonEncode(arguments),
+        ),
+        model: model,
+        previouslyReadFiles: previouslyReadFiles,
+        denyCommandRules: denyCommandRules,
+        requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+        confirmWriteCommand: confirmWriteCommand,
+        cancelSignal: cancelSignal,
+        onBashUpdate: onBashUpdate,
+        metadata: <String, Object?>{...metadata, ...gatewayMetadata},
+      );
+      return delegatedResult.copyWith(
+        metadata: <String, Object?>{
+          ...delegatedResult.metadata,
+          ...gatewayMetadata,
+        },
+      );
+    }
+
     if (resolvedTool.builtinKind == AiBuiltinToolKind.toolSearch) {
       executionCatalog = _toolSearchCatalogForTemplate(
         catalog: catalog,
@@ -1321,51 +1359,10 @@ class AiToolRuntimeService {
             '`arguments` 必须是符合目标工具 Schema 的 JSON 对象。',
           );
         }
-        final delegatedToolCall = AiToolCall(
-          id: toolCall.id,
-          name: deferredTool.definition.name,
-          arguments: jsonEncode(delegatedArguments),
-        );
-        final delegatedResult = await execute(
-          sessionId: sessionId,
-          catalog: AiResolvedToolCatalog(
-            definitions: <AiToolDefinition>[deferredTool.definition],
-            toolsByName: <String, AiResolvedTool>{
-              deferredTool.definition.name: deferredTool,
-            },
-            notices: executionCatalog.notices,
-            mcpServerInstructionsByName:
-                executionCatalog.mcpServerInstructionsByName,
-          ),
-          toolCall: delegatedToolCall,
-          model: model,
-          previouslyReadFiles: previouslyReadFiles,
-          denyCommandRules: denyCommandRules,
-          requireWriteCommandConfirmation: requireWriteCommandConfirmation,
-          confirmWriteCommand: confirmWriteCommand,
-          cancelSignal: cancelSignal,
-          onBashUpdate: onBashUpdate,
-          metadata: <String, Object?>{
-            ...metadata,
-            'tool_search_gateway': true,
-            'tool_search_gateway_tool_name': deferredTool.definition.name,
-          },
-        );
-        return AiToolExecutionResult(
-          status: delegatedResult.status,
-          command: delegatedResult.command,
-          workingDirectory: delegatedResult.workingDirectory,
-          stdout: delegatedResult.stdout,
-          stderr: delegatedResult.stderr,
-          durationMs: delegatedResult.durationMs,
-          resultText: delegatedResult.resultText,
-          exitCode: delegatedResult.exitCode,
-          matchedRuleId: delegatedResult.matchedRuleId,
-          matchedRulePattern: delegatedResult.matchedRulePattern,
-          isWriteCommand: delegatedResult.isWriteCommand,
-          writeAnalysisReason: delegatedResult.writeAnalysisReason,
-          metadata: <String, Object?>{
-            ...delegatedResult.metadata,
+        return executeDelegatedTool(
+          deferredTool: deferredTool,
+          arguments: delegatedArguments,
+          gatewayMetadata: <String, Object?>{
             'tool_search_gateway': true,
             'tool_search_gateway_tool_name': deferredTool.definition.name,
           },
@@ -1406,52 +1403,10 @@ class AiToolRuntimeService {
             '`arguments` 必须是符合目标工具 Schema 的 JSON 对象。',
           );
         }
-        final delegatedToolCall = AiToolCall(
-          id: toolCall.id,
-          name: deferredTool.definition.name,
-          arguments: jsonEncode(delegatedArguments),
-        );
-        final delegatedResult = await execute(
-          sessionId: sessionId,
-          catalog: AiResolvedToolCatalog(
-            definitions: <AiToolDefinition>[deferredTool.definition],
-            toolsByName: <String, AiResolvedTool>{
-              deferredTool.definition.name: deferredTool,
-            },
-            notices: executionCatalog.notices,
-            mcpServerInstructionsByName:
-                executionCatalog.mcpServerInstructionsByName,
-          ),
-          toolCall: delegatedToolCall,
-          model: model,
-          previouslyReadFiles: previouslyReadFiles,
-          denyCommandRules: denyCommandRules,
-          requireWriteCommandConfirmation: requireWriteCommandConfirmation,
-          confirmWriteCommand: confirmWriteCommand,
-          cancelSignal: cancelSignal,
-          onBashUpdate: onBashUpdate,
-          metadata: <String, Object?>{
-            ...metadata,
-            'dingtalk_tool_search_gateway': true,
-            'dingtalk_tool_search_gateway_tool_name':
-                deferredTool.definition.name,
-          },
-        );
-        return AiToolExecutionResult(
-          status: delegatedResult.status,
-          command: delegatedResult.command,
-          workingDirectory: delegatedResult.workingDirectory,
-          stdout: delegatedResult.stdout,
-          stderr: delegatedResult.stderr,
-          durationMs: delegatedResult.durationMs,
-          resultText: delegatedResult.resultText,
-          exitCode: delegatedResult.exitCode,
-          matchedRuleId: delegatedResult.matchedRuleId,
-          matchedRulePattern: delegatedResult.matchedRulePattern,
-          isWriteCommand: delegatedResult.isWriteCommand,
-          writeAnalysisReason: delegatedResult.writeAnalysisReason,
-          metadata: <String, Object?>{
-            ...delegatedResult.metadata,
+        return executeDelegatedTool(
+          deferredTool: deferredTool,
+          arguments: delegatedArguments,
+          gatewayMetadata: <String, Object?>{
             'dingtalk_tool_search_gateway': true,
             'dingtalk_tool_search_gateway_tool_name':
                 deferredTool.definition.name,
