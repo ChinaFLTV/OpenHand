@@ -323,5 +323,10 @@ if ! dart run scripts/check_shared_helpers.dart; then
   fail "共享辅助检查失败：请修复上方断言"
 fi
 
+log "跑 check_web_engine_runtime.dart"
+if ! dart run scripts/check_web_engine_runtime.dart; then
+  fail "Web 引擎运行时检查失败：请修复上方断言"
+fi
+
 BUILD_OK=1
 log "构建与架构检查通过 → $OUT_DIR/{index.html,app.js,app.css}"

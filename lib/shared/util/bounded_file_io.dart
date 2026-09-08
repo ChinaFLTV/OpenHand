@@ -13,7 +13,7 @@ import 'byte_size_format.dart';
 import 'path_safety.dart';
 import 'text_clip.dart';
 
-const int _boundedFileReadChunkBytes = 64 * kBytesPerKiB;
+const int _boundedFileIoChunkBytes = 64 * kBytesPerKiB;
 const Duration _boundedFileCleanupTimeout = Duration(seconds: 2);
 const BoundedDeletePolicy _temporaryDirectoryCleanupPolicy =
     BoundedDeletePolicy(
@@ -583,6 +583,100 @@ Future<BoundedRandomAccessFileLease> openBoundedRandomAccessFileLease(
   }
 }
 
+/// 把有界字节流写入临时文件；任一阶段失败时删除半文件。
+///
+/// 流等待、单次写入、刷新、关闭和总耗时均受限。底层写入超时后会等待该操作
+/// 真正结束再关闭句柄并补做删除，避免并发操作同一句柄或遗留损坏文件。
+Future<int> writeTemporaryByteStreamBounded(
+  File file,
+  Stream<List<int>> bytes, {
+  required int maxBytes,
+  required Duration idleTimeout,
+  required Duration totalTimeout,
+  void Function(int writtenBytes)? onProgress,
+  OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) async {
+  requirePositiveInt(maxBytes, 'maxBytes');
+  requirePositiveDuration(idleTimeout, 'idleTimeout');
+  requirePositiveDuration(totalTimeout, 'totalTimeout');
+
+  final deadline = MonotonicDeadline(
+    totalTimeout,
+    timeoutMessage: '临时字节流写入超过总时限。',
+  );
+  final iterator = StreamIterator<List<int>>(bytes);
+  BoundedRandomAccessFileLease? output;
+  var deleteAfterRelease = true;
+  var writtenBytes = 0;
+  try {
+    final openedOutput = await openBoundedRandomAccessFileLease(
+      file,
+      mode: FileMode.writeOnly,
+      timeout: deadline.limit(idleTimeout),
+      deleteIfOpenCompletesLate: true,
+      release: (handle) async {
+        try {
+          await handle.close();
+        } finally {
+          if (deleteAfterRelease) {
+            await _deleteTemporaryFileAfterWriteFailure(
+              file,
+              onSecondaryError: onSecondaryError,
+            );
+          }
+        }
+      },
+    );
+    output = openedOutput;
+
+    while (await iterator.moveNext().timeout(deadline.limit(idleTimeout))) {
+      final chunk = iterator.current;
+      if (chunk.isEmpty) continue;
+      if (chunk.length > maxBytes - writtenBytes) {
+        throw FileSystemException('字节流超过 $maxBytes 字节写入上限。', file.path);
+      }
+      var offset = 0;
+      while (offset < chunk.length) {
+        final candidateEnd = offset + _boundedFileIoChunkBytes;
+        final end = candidateEnd < chunk.length ? candidateEnd : chunk.length;
+        await openedOutput.run(
+          (handle) => handle.writeFrom(chunk, offset, end),
+          timeout: deadline.limit(idleTimeout),
+        );
+        writtenBytes += end - offset;
+        offset = end;
+        onProgress?.call(writtenBytes);
+      }
+    }
+
+    await openedOutput.run(
+      (handle) => handle.flush(),
+      timeout: deadline.limit(idleTimeout),
+    );
+    deleteAfterRelease = false;
+    try {
+      await openedOutput.close(timeout: deadline.limit(idleTimeout));
+    } catch (_) {
+      deleteAfterRelease = true;
+      rethrow;
+    }
+    output = null;
+    return writtenBytes;
+  } finally {
+    deadline.stop();
+    await runAsyncCleanupBounded(iterator.cancel, onError: onSecondaryError);
+    final incompleteOutput = output;
+    if (incompleteOutput != null) {
+      deleteAfterRelease = true;
+      await incompleteOutput.cleanup();
+      await _deleteTemporaryFileAfterWriteFailure(
+        file,
+        onSecondaryError: onSecondaryError,
+      );
+    }
+  }
+}
+
 Future<void> _cleanupLateOpenedFile(
   File file,
   Future<RandomAccessFile> openFuture, {
@@ -791,8 +885,8 @@ Future<Uint8List> readBoundedFileBytes(
     final bytes = Uint8List(retainedLength);
     var offset = 0;
     while (offset < retainedLength) {
-      final end = offset + _boundedFileReadChunkBytes < retainedLength
-          ? offset + _boundedFileReadChunkBytes
+      final end = offset + _boundedFileIoChunkBytes < retainedLength
+          ? offset + _boundedFileIoChunkBytes
           : retainedLength;
       final read = await activeLease.run(
         (input) => input.readInto(bytes, offset, end),

@@ -32,12 +32,67 @@ Future<void> main() async {
   failures += _checkCanonicalDateTime();
   failures += _checkTextClip();
   failures += await _checkSynchronousBoundedFileRead();
+  failures += await _checkTemporaryByteStreamWrite();
   failures += await _checkTemporaryDirectoryLifecycle();
   if (failures > 0) {
     stderr.writeln('[共享辅助检查] 失败 $failures 项。');
     exit(1);
   }
   stdout.writeln('[共享辅助检查] 通过。');
+}
+
+Future<int> _checkTemporaryByteStreamWrite() async {
+  Directory? directory;
+  try {
+    directory = await createTemporaryDirectoryBounded(
+      prefix: 'openhand-stream-write-check-',
+      timeout: const Duration(seconds: 2),
+    );
+    final output = File('${directory.path}${Platform.pathSeparator}stream.bin');
+    final progress = <int>[];
+    final written = await writeTemporaryByteStreamBounded(
+      output,
+      Stream<List<int>>.fromIterable(const <List<int>>[
+        <int>[1, 2],
+        <int>[3, 4, 5],
+      ]),
+      maxBytes: 5,
+      idleTimeout: const Duration(seconds: 1),
+      totalTimeout: const Duration(seconds: 2),
+      onProgress: progress.add,
+    );
+    if (written != 5 ||
+        progress.isEmpty ||
+        progress.last != 5 ||
+        readBoundedFileBytesSync(output, maxBytes: 5).join(',') !=
+            '1,2,3,4,5') {
+      stderr.writeln('writeTemporaryByteStreamBounded 未完整写入有界字节流');
+      return 1;
+    }
+
+    try {
+      await writeTemporaryByteStreamBounded(
+        output,
+        Stream<List<int>>.value(const <int>[1, 2, 3]),
+        maxBytes: 2,
+        idleTimeout: const Duration(seconds: 1),
+        totalTimeout: const Duration(seconds: 2),
+      );
+      stderr.writeln('writeTemporaryByteStreamBounded 应拒绝超长字节流');
+      return 1;
+    } on FileSystemException {
+      if (output.existsSync()) {
+        stderr.writeln('writeTemporaryByteStreamBounded 未清理失败半文件');
+        return 1;
+      }
+    }
+    return 0;
+  } catch (error) {
+    stderr.writeln('有界临时字节流写入检查失败：$error');
+    return 1;
+  } finally {
+    await deleteTemporaryDirectoryBounded(directory);
+  }
 }
 
 Future<int> _checkSynchronousBoundedFileRead() async {

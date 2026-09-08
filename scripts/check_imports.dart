@@ -20,6 +20,7 @@ import 'dart:io';
 ///   9. 临时目录必须使用有界入口，确保创建超时后清理迟到目录。
 ///  10. 业务文件读取必须使用有界入口，避免外部替换文件后无界占用内存。
 ///  11. 业务目录删除必须使用有界入口，避免递归清理永久占用资源。
+///  12. 业务字节流文件写入必须使用有界入口，确保句柄、容量和超时受控。
 ///
 /// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
 ///
@@ -197,6 +198,12 @@ List<_RestrictedApiRule> _restrictedApiRules() => <_RestrictedApiRule>[
     allowedRelativePaths: const <String>{'shared/util/bounded_delete.dart'},
     fallbackApiName: '递归目录删除 API',
     advice: '请使用 shared/util/bounded_delete.dart 的有界删除入口',
+  ),
+  _RestrictedApiRule(
+    pattern: RegExp(r'\.openWrite\s*\('),
+    allowedRelativePaths: const <String>{'shared/util/bounded_file_io.dart'},
+    fallbackApiName: 'openWrite',
+    advice: '请使用 shared/util/bounded_file_io.dart 的有界字节流写入入口',
   ),
 ];
 

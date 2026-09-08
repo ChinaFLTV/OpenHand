@@ -21,6 +21,7 @@ import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/network_limits.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
+import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -1026,7 +1027,13 @@ class OfflineSpeechModelService extends ChangeNotifier {
           cancellation,
         );
         if (files.isEmpty) throw StateError('模型仓库没有可下载的运行文件。');
+        if (files.any((file) => file.size < 0)) {
+          throw StateError('模型仓库文件清单包含无效大小。');
+        }
         totalBytes = files.fold<int>(0, (sum, file) => sum + file.size);
+        if (totalBytes > _maxModelDownloadBytes) {
+          throw StateError('模型下载总量超过安全上限。');
+        }
         totalFiles = files.length;
         final stopwatch = Stopwatch()..start();
         final downloadDeadline = MonotonicDeadline(
@@ -1042,30 +1049,44 @@ class OfflineSpeechModelService extends ChangeNotifier {
           for (final remote in files) {
             cancellation.throwIfCancelled();
             final file = File(p.join(staging.path, remote.path));
-            await file.parent.create(recursive: true);
-            final sink = file.openWrite();
-            var fileBytes = 0;
-            try {
-              final response = await _openDownload(
-                remote.uri,
-                client: downloadClient,
-                deadline: downloadDeadline,
-              );
-              await for (final chunk in limitByteStream(
+            await createDirectoryBounded(
+              file.parent,
+              timeout: downloadDeadline.limit(_downloadIdleTimeout),
+            );
+            final remainingDownloadBytes =
+                _maxModelDownloadBytes - receivedBytes;
+            if (remainingDownloadBytes <= 0 ||
+                remote.size > remainingDownloadBytes) {
+              throw StateError('模型下载总量超过安全上限。');
+            }
+            final response = await _openDownload(
+              remote.uri,
+              client: downloadClient,
+              deadline: downloadDeadline,
+            );
+            final maxFileBytes = remote.size > 0
+                ? remote.size
+                : math.min(
+                    kOpenHandMaxNetworkStreamBytes,
+                    remainingDownloadBytes,
+                  );
+            final receivedBeforeFile = receivedBytes;
+            final fileBytes = await writeTemporaryByteStreamBounded(
+              file,
+              limitByteStream(
                 response,
-                maxBytes: remote.size > 0
-                    ? remote.size
-                    : kOpenHandMaxNetworkStreamBytes,
+                maxBytes: maxFileBytes,
                 idleTimeout: _downloadIdleTimeout,
                 totalTimeout: downloadDeadline.remaining(),
-              )) {
+              ).map((chunk) {
                 cancellation.throwIfCancelled();
-                if (chunk.length > _maxModelDownloadBytes - receivedBytes) {
-                  throw StateError('模型下载总量超过安全上限。');
-                }
-                sink.add(chunk);
-                fileBytes += chunk.length;
-                receivedBytes += chunk.length;
+                return chunk;
+              }),
+              maxBytes: maxFileBytes,
+              idleTimeout: _downloadIdleTimeout,
+              totalTimeout: downloadDeadline.remaining(),
+              onProgress: (writtenBytes) {
+                receivedBytes = receivedBeforeFile + writtenBytes;
                 final elapsed = stopwatch.elapsed;
                 if (elapsed - lastNotified >= _downloadNotifyInterval) {
                   lastNotified = elapsed;
@@ -1084,11 +1105,10 @@ class OfflineSpeechModelService extends ChangeNotifier {
                     ),
                   );
                 }
-              }
-            } finally {
-              await sink.flush();
-              await sink.close();
-            }
+              },
+              onSecondaryError: (error, stack) =>
+                  silentLog('offline_speech', '清理未完成的模型文件', error, stack),
+            );
             if (remote.size > 0 && fileBytes != remote.size) {
               throw StateError('模型文件下载不完整：${remote.path}');
             }

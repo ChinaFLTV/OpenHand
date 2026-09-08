@@ -11,11 +11,14 @@ const int kWebEngineRetryCapMs = 4000;
 ///
 /// 两个领域的请求 (query / url+prompt) 长得不一样，但都需要可选的
 /// `cancelSignal`，所以抽出最小公共面用于在 [WebEngineBase.run] 中协作。
-abstract class WebEngineRequest {
+abstract class WebEngineRequest<TSelf extends WebEngineRequest<TSelf>> {
   const WebEngineRequest({this.cancelSignal});
 
   /// 调用方可通过完成该 future 中止当前请求及后续重试。
   final Future<void>? cancelSignal;
+
+  /// 为单次尝试派生独立取消信号，避免超时重试与迟到请求并行占用资源。
+  TSelf withCancelSignal(Future<void>? cancelSignal);
 }
 
 /// WebSearch / WebFetch 引擎共用的执行壳：
@@ -33,7 +36,7 @@ abstract class WebEngineRequest {
 abstract class WebEngineBase<
   TKind,
   TItem,
-  TRequest extends WebEngineRequest,
+  TRequest extends WebEngineRequest<TRequest>,
   TResult
 > {
   TKind get kind;
@@ -94,7 +97,10 @@ abstract class WebEngineBase<
         );
       } catch (error) {
         lastError = error;
-        if (attempt >= maxAttempts) break;
+        if (error is _WebEngineAttemptCleanupTimeout ||
+            attempt >= maxAttempts) {
+          break;
+        }
         final backoff = Duration(
           milliseconds: exponentialBackoffMs(
             attempt: attempt,
@@ -127,10 +133,58 @@ abstract class WebEngineBase<
   }
 
   Future<List<TItem>?> _fetchWithCancel(TRequest request) async {
-    final fetchFuture = fetch(request).timeout(fetchTimeout);
-    return awaitWithCancelSignal(
-      fetchFuture,
-      cancelSignal: request.cancelSignal,
+    final attemptCancellation = Completer<void>();
+    final attemptRequest = request.withCancelSignal(
+      combineCancelSignals(<Future<void>?>[
+        request.cancelSignal,
+        attemptCancellation.future,
+      ]),
     );
+    final fetchFuture = fetch(attemptRequest);
+    var attemptTimedOut = false;
+    try {
+      final result = await awaitWithCancelSignal(
+        fetchFuture.timeout(
+          fetchTimeout,
+          onTimeout: () {
+            attemptTimedOut = true;
+            throw TimeoutException('Web 引擎请求超时。', fetchTimeout);
+          },
+        ),
+        cancelSignal: request.cancelSignal,
+      );
+      if (result != null) return result;
+      _cancelAttempt(attemptCancellation);
+      await _waitForAttemptCleanup(fetchFuture);
+      return null;
+    } catch (_) {
+      if (!attemptTimedOut) rethrow;
+      _cancelAttempt(attemptCancellation);
+      if (!await _waitForAttemptCleanup(fetchFuture)) {
+        throw const _WebEngineAttemptCleanupTimeout();
+      }
+      rethrow;
+    } finally {
+      _cancelAttempt(attemptCancellation);
+    }
   }
+
+  Future<bool> _waitForAttemptCleanup(Future<List<TItem>> fetchFuture) {
+    final settled = fetchFuture.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return runAsyncCleanupBounded(() => settled);
+  }
+}
+
+void _cancelAttempt(Completer<void> cancellation) {
+  if (!cancellation.isCompleted) cancellation.complete();
+}
+
+final class _WebEngineAttemptCleanupTimeout implements Exception {
+  const _WebEngineAttemptCleanupTimeout();
+
+  @override
+  String toString() => 'Web 引擎请求超时后未及时停止，已终止重试。';
 }

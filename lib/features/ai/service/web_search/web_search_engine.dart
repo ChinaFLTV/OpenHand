@@ -56,7 +56,7 @@ double? webSearchScoreFromValue(Object? value) {
 }
 
 /// 调用引擎所需的请求信息（query + 过滤）。
-class WebSearchEngineRequest extends WebEngineRequest {
+class WebSearchEngineRequest extends WebEngineRequest<WebSearchEngineRequest> {
   const WebSearchEngineRequest({
     required this.query,
     required this.maxResults,
@@ -69,6 +69,17 @@ class WebSearchEngineRequest extends WebEngineRequest {
   final int maxResults;
   final List<String> allowedDomains;
   final List<String> blockedDomains;
+
+  @override
+  WebSearchEngineRequest withCancelSignal(Future<void>? cancelSignal) {
+    return WebSearchEngineRequest(
+      query: query,
+      maxResults: maxResults,
+      allowedDomains: allowedDomains,
+      blockedDomains: blockedDomains,
+      cancelSignal: cancelSignal,
+    );
+  }
 }
 
 /// 引擎执行结果包装：含命中数组 + 错误信息（若有）。

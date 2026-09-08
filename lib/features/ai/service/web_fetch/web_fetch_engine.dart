@@ -58,7 +58,7 @@ class WebFetchEngineContent {
   }
 }
 
-class WebFetchEngineRequest extends WebEngineRequest {
+class WebFetchEngineRequest extends WebEngineRequest<WebFetchEngineRequest> {
   const WebFetchEngineRequest({
     required this.url,
     required this.prompt,
@@ -71,6 +71,17 @@ class WebFetchEngineRequest extends WebEngineRequest {
   final String prompt;
   final int maxChars;
   final WebFetchUriBlockReason? uriBlockReason;
+
+  @override
+  WebFetchEngineRequest withCancelSignal(Future<void>? cancelSignal) {
+    return WebFetchEngineRequest(
+      url: url,
+      prompt: prompt,
+      maxChars: maxChars,
+      uriBlockReason: uriBlockReason,
+      cancelSignal: cancelSignal,
+    );
+  }
 }
 
 class WebFetchEngineResult {
