@@ -54,6 +54,7 @@ import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_ops_press_scale.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -16777,24 +16778,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   : openHandMotionDuration(context, kOpenHandMotion220);
               final contentTransitionDuration = widget.streaming
                   ? Duration.zero
-                  : openHandMotionDuration(context, kOpenHandMotion180);
-              final messageContent = AnimatedSwitcher(
+                  : kOpenHandMotion180;
+              final messageContent = OpenHandFadeSizeSwitcher(
                 duration: contentTransitionDuration,
-                switchInCurve: kOpenHandSwitchInCurve,
-                switchOutCurve: kOpenHandSwitchOutCurve,
-                layoutBuilder: (current, previous) => Stack(
-                  alignment: bubbleAlignment,
-                  children: <Widget>[...previous, if (current != null) current],
-                ),
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SizeTransition(
-                    sizeFactor: animation,
-                    alignment: AlignmentDirectional.topStart,
-                    fixedCrossAxisSizeFactor: 1,
-                    child: child,
-                  ),
-                ),
+                layoutAlignment: bubbleAlignment,
+                fixedCrossAxisSizeFactor: 1,
                 child: !contentExpanded
                     ? _buildCollapsedMessageContent(
                         context,
@@ -17737,25 +17725,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         : content;
     // 流式回显期间按字素簇渐显增量内容；生成结束后切回可选择的静态渲染。
     final streaming = widget.streaming && !_showRawContent;
-    return AnimatedSwitcher(
-      duration: widget.streaming
-          ? Duration.zero
-          : openHandMotionDuration(context, kOpenHandMotion220),
-      switchInCurve: kOpenHandSwitchInCurve,
-      switchOutCurve: kOpenHandSwitchOutCurve,
-      layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.topLeft,
-        children: <Widget>[...previous, if (current != null) current],
-      ),
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: SizeTransition(
-          sizeFactor: animation,
-          alignment: AlignmentDirectional.topStart,
-          fixedCrossAxisSizeFactor: 1,
-          child: child,
-        ),
-      ),
+    return OpenHandFadeSizeSwitcher(
+      duration: widget.streaming ? Duration.zero : kOpenHandMotion220,
+      fixedCrossAxisSizeFactor: 1,
       child: collapsed
           ? Semantics(
               key: const ValueKey<String>('dingtalk-long-message-collapsed'),
@@ -19628,29 +19600,9 @@ class _DingTalkForwardedChatDialogState
                   duration: openHandMotionDuration(context, kOpenHandMotion220),
                   curve: kOpenHandSwitchInCurve,
                   alignment: Alignment.topLeft,
-                  child: AnimatedSwitcher(
-                    duration: openHandMotionDuration(
-                      context,
-                      kOpenHandMotion180,
-                    ),
-                    switchInCurve: kOpenHandSwitchInCurve,
-                    switchOutCurve: kOpenHandSwitchOutCurve,
-                    layoutBuilder: (current, previous) => Stack(
-                      alignment: Alignment.topLeft,
-                      children: <Widget>[
-                        ...previous,
-                        if (current != null) current,
-                      ],
-                    ),
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SizeTransition(
-                        sizeFactor: animation,
-                        alignment: AlignmentDirectional.topStart,
-                        fixedCrossAxisSizeFactor: 1,
-                        child: child,
-                      ),
-                    ),
+                  child: OpenHandFadeSizeSwitcher(
+                    duration: kOpenHandMotion180,
+                    fixedCrossAxisSizeFactor: 1,
                     child: !contentExpanded
                         ? KeyedSubtree(
                             key: ValueKey<String>('ignored-collapsed:$itemKey'),

@@ -12,7 +12,6 @@ import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_spacing.dart';
 
-// ── Layout ──────────────────────────────────────────────────────────────────
 const double _kReasoningPopupWidth = 300;
 const double _kReasoningPopupEntryHeight = 142;
 const double _kReasoningPopupEstimatedHeight = 158;

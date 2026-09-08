@@ -1111,13 +1111,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         context: context,
         barrierDismissible: false,
         dismissOnEscape: false,
-        transitionProfile: const OpenHandAnimationTransitionProfile(
-          fadeScaleBegin: 0.9,
-          elasticScaleBegin: 0.9,
-          springScaleBegin: 0.9,
-          slideUpOffset: Offset(0, 0.1),
-          slideDownOffset: Offset(0, -0.1),
-        ),
+        transitionProfile: _settingsOperationDialogTransitionProfile,
         builder: (_) => _SandboxEnvironmentTestDialog(
           provider: provider,
           settings: settings.copyWith(provider: provider),
@@ -1168,13 +1162,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
       context: context,
       barrierDismissible: false,
       dismissOnEscape: false,
-      transitionProfile: const OpenHandAnimationTransitionProfile(
-        fadeScaleBegin: 0.9,
-        elasticScaleBegin: 0.9,
-        springScaleBegin: 0.9,
-        slideUpOffset: Offset(0, 0.1),
-        slideDownOffset: Offset(0, -0.1),
-      ),
+      transitionProfile: _settingsOperationDialogTransitionProfile,
       builder: (_) => _SandboxResourceActionDialog(
         service: _sandboxService,
         action: action,
@@ -2272,18 +2260,8 @@ class _E2bStructuredField extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-            AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion260),
-              switchInCurve: kOpenHandSwitchInCurve,
-              switchOutCurve: kOpenHandSwitchOutCurve,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SizeTransition(
-                  sizeFactor: animation,
-                  alignment: AlignmentDirectional.topCenter,
-                  child: child,
-                ),
-              ),
+            OpenHandVerticalRevealSwitcher(
+              duration: kOpenHandMotion260,
               child: entries.isEmpty
                   ? Padding(
                       key: const ValueKey<String>('empty'),
@@ -3406,18 +3384,8 @@ class _SandboxEnvironmentTestDialogState
         ),
         content: SizedBox(
           width: 460,
-          child: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion260),
-            switchInCurve: kOpenHandSwitchInCurve,
-            switchOutCurve: kOpenHandSwitchOutCurve,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SizeTransition(
-                sizeFactor: animation,
-                alignment: AlignmentDirectional.topCenter,
-                child: child,
-              ),
-            ),
+          child: OpenHandVerticalRevealSwitcher(
+            duration: kOpenHandMotion260,
             child: _running
                 ? Column(
                     key: const ValueKey<String>('running'),

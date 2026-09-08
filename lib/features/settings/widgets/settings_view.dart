@@ -146,6 +146,15 @@ const int _kSettingsToolResultCompressionWindowMaxChars = 8 * kBytesPerKiB;
 const int _kSettingsToolResultCompressionMaxPathHits = 200;
 const int _kSettingsWriteToolSummaryMaxChars = 8 * kBytesPerKiB;
 const int _kThrottleConfigImportMaxBytes = 1 * kBytesPerMiB;
+const _settingsOperationDialogTransitionProfile =
+    OpenHandAnimationTransitionProfile(
+      fadeScaleBegin: 0.9,
+      elasticScaleBegin: 0.9,
+      springScaleBegin: 0.9,
+      slideUpOffset: Offset(0, 0.1),
+      slideDownOffset: Offset(0, -0.1),
+    );
+
 bool _settingsMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
 }

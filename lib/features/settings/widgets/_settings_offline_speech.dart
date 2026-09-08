@@ -944,13 +944,7 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
       context: context,
       barrierDismissible: false,
       dismissOnEscape: false,
-      transitionProfile: const OpenHandAnimationTransitionProfile(
-        fadeScaleBegin: 0.9,
-        elasticScaleBegin: 0.9,
-        springScaleBegin: 0.9,
-        slideUpOffset: Offset(0, 0.1),
-        slideDownOffset: Offset(0, -0.1),
-      ),
+      transitionProfile: _settingsOperationDialogTransitionProfile,
       builder: (_) => _OfflineSpeechDownloadDialog(
         model: widget.model,
         configuration: _configuration,
@@ -1028,13 +1022,7 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
         context: context,
         barrierDismissible: false,
         dismissOnEscape: false,
-        transitionProfile: const OpenHandAnimationTransitionProfile(
-          fadeScaleBegin: 0.9,
-          elasticScaleBegin: 0.9,
-          springScaleBegin: 0.9,
-          slideUpOffset: Offset(0, 0.1),
-          slideDownOffset: Offset(0, -0.1),
-        ),
+        transitionProfile: _settingsOperationDialogTransitionProfile,
         builder: (_) => _OfflineSpeechTestDialog(
           model: widget.model,
           configuration: _configuration,
@@ -2191,18 +2179,8 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
         title: Text(_title),
         content: SizedBox(
           width: 520,
-          child: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion260),
-            switchInCurve: kOpenHandSwitchInCurve,
-            switchOutCurve: kOpenHandSwitchOutCurve,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SizeTransition(
-                sizeFactor: animation,
-                alignment: AlignmentDirectional.topCenter,
-                child: child,
-              ),
-            ),
+          child: OpenHandVerticalRevealSwitcher(
+            duration: kOpenHandMotion260,
             child: KeyedSubtree(
               key: ValueKey<_OfflineSpeechTestPhase>(_phase),
               child: _buildContent(theme, accent),

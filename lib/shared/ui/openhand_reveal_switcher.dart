@@ -231,6 +231,54 @@ class OpenHandCrossFadeSwitcher extends StatelessWidget {
   }
 }
 
+/// 保持横向尺寸稳定的淡入与纵向展开切换。
+///
+/// 适用于消息正文等需要按内容键切换、同时避免横向抖动的区域。
+class OpenHandFadeSizeSwitcher extends StatelessWidget {
+  const OpenHandFadeSizeSwitcher({
+    super.key,
+    required this.child,
+    required this.duration,
+    this.layoutAlignment = Alignment.topLeft,
+    this.sizeAlignment = AlignmentDirectional.topStart,
+    this.fixedCrossAxisSizeFactor,
+  });
+
+  final Widget child;
+  final Duration duration;
+  final AlignmentGeometry layoutAlignment;
+  final AlignmentGeometry sizeAlignment;
+  final double? fixedCrossAxisSizeFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveDuration = openHandMotionDuration(context, duration);
+    if (effectiveDuration == Duration.zero) return child;
+    return AnimatedSwitcher(
+      duration: effectiveDuration,
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: layoutAlignment,
+        children: <Widget>[
+          ...previousChildren,
+          if (currentChild != null) currentChild,
+        ],
+      ),
+      transitionBuilder: (transitionChild, animation) => FadeTransition(
+        opacity: animation,
+        child: SizeTransition(
+          sizeFactor: animation,
+          alignment: sizeAlignment,
+          fixedCrossAxisSizeFactor: fixedCrossAxisSizeFactor,
+          child: transitionChild,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 /// 内容态切换的默认时长。
 const Duration kOpenHandContentStateDuration = Duration(milliseconds: 220);
 

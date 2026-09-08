@@ -12868,26 +12868,20 @@ $tail''';
       'session_message_count': session?.messageTotalCount ?? 0,
       'session_mode': session?.mode.storageValue ?? '',
 
-      // ── Model info ──
       'model_id': session?.lastUsedModelId ?? '',
       'model_label': session?.lastUsedModelLabel ?? '',
 
-      // ── Environment ──
       'environment': session?.environment.toJson() ?? <String, Object?>{},
 
-      // ── Session metadata ──
       'session_metadata': session?.metadata ?? <String, Object?>{},
       'last_prompt_metadata':
           session?.lastPromptMetadata ?? <String, Object?>{},
 
-      // ── Statistics ──
       'statistics': session?.statistics.toJson() ?? <String, Object?>{},
 
-      // ── Paths (convenience shortcuts) ──
       'sessions_directory': _store.sessionsDirectoryPath,
       'working_directory': OpenHandPaths.applicationDirectoryPath(),
 
-      // ── Caller-supplied extra fields (e.g. prompt text, tool info) ──
       ...extra,
     };
     return context;
