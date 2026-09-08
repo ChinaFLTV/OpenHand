@@ -93,11 +93,12 @@ final RegExp _kRankCompactCellPattern = RegExp(
   caseSensitive: false,
 );
 
-KeyEventResult _handleChartNavigationKey({
+/// 统一处理可交互图表的方向键导航与键盘激活。
+KeyEventResult handleOpenHandChartNavigationKey({
   required KeyEvent event,
   required bool enabled,
   required ValueChanged<int> moveSelection,
-  required VoidCallback activateSelection,
+  VoidCallback? activateSelection,
 }) {
   if (!enabled || event is! KeyDownEvent) return KeyEventResult.ignored;
   final key = event.logicalKey;
@@ -107,8 +108,8 @@ KeyEventResult _handleChartNavigationKey({
   } else if (key == LogicalKeyboardKey.arrowLeft ||
       key == LogicalKeyboardKey.arrowUp) {
     moveSelection(-1);
-  } else if (key == LogicalKeyboardKey.enter ||
-      key == LogicalKeyboardKey.space) {
+  } else if (activateSelection != null &&
+      (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space)) {
     activateSelection();
   } else {
     return KeyEventResult.ignored;
@@ -1666,7 +1667,7 @@ class _OpenHandOperationalTrendChartState
         decreasedValue: hasDrawableData ? '上一个数据点' : null,
         child: Focus(
           autofocus: true,
-          onKeyEvent: (_, event) => _handleChartNavigationKey(
+          onKeyEvent: (_, event) => handleOpenHandChartNavigationKey(
             event: event,
             enabled: hasDrawableData,
             moveSelection: _moveSelection,
@@ -2222,7 +2223,7 @@ class _OpenHandOperationalDonutChartState
         decreasedValue: hasDrawableData ? '上一个分段' : null,
         child: Focus(
           autofocus: widget.autofocus,
-          onKeyEvent: (_, event) => _handleChartNavigationKey(
+          onKeyEvent: (_, event) => handleOpenHandChartNavigationKey(
             event: event,
             enabled: hasDrawableData,
             moveSelection: _moveSelection,

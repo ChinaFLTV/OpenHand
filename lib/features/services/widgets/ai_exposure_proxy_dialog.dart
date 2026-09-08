@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/silent_log.dart';
@@ -3930,20 +3930,12 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                 }
               });
             },
-            onKeyEvent: (node, event) {
-              if (event is! KeyDownEvent) return KeyEventResult.ignored;
-              if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                  event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                _moveSelection(1, points.length);
-                return KeyEventResult.handled;
-              }
-              if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-                  event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                _moveSelection(-1, points.length);
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
+            onKeyEvent: (_, event) => handleOpenHandChartNavigationKey(
+              event: event,
+              enabled: points.isNotEmpty,
+              moveSelection: (direction) =>
+                  _moveSelection(direction, points.length),
+            ),
             child: MouseRegion(
               cursor: points.isEmpty
                   ? MouseCursor.defer
@@ -6232,20 +6224,12 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
                   }
                 });
               },
-              onKeyEvent: (node, event) {
-                if (event is! KeyDownEvent) return KeyEventResult.ignored;
-                if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                    event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                  _moveSelection(1, samples.length);
-                  return KeyEventResult.handled;
-                }
-                if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-                    event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                  _moveSelection(-1, samples.length);
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
+              onKeyEvent: (_, event) => handleOpenHandChartNavigationKey(
+                event: event,
+                enabled: samples.isNotEmpty,
+                moveSelection: (direction) =>
+                    _moveSelection(direction, samples.length),
+              ),
               child: MouseRegion(
                 cursor: samples.isEmpty
                     ? MouseCursor.defer
