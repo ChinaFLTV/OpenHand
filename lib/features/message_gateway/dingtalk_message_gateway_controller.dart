@@ -509,6 +509,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool get isRealtimeListening => _isPolling && _eventSubscription != null;
   bool get isPollingFallback => _isPolling && _usingPollingFallback;
   bool get isSending => _isSending;
+  int get respondingUserMessageCount =>
+      _activeResponseConversationIds.fold<int>(0, (count, conversationId) {
+        final contextCount =
+            _activeResponseContextMessageIds[conversationId]?.length ?? 0;
+        return count + math.max(1, contextCount);
+      });
   int get unreadCount => _unreadCount;
   String? get errorMessage => _errorMessage;
   String? get warningMessage => _warningMessage;
@@ -6827,6 +6833,7 @@ ${_markdownStructuredFields(response)}''';
         _pausedResponseQueueConversationIds.remove(selectedConversationId);
       }
       _activeResponseConversationIds.add(selectedConversationId);
+      _notify();
       unawaited(_runResponseWorker(conversation, selectedItem));
     }
   }

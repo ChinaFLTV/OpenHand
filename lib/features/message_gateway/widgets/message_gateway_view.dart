@@ -31,6 +31,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
@@ -11658,6 +11659,9 @@ class _DingTalkGatewayCard extends StatelessWidget {
                       : cs.secondary)
                 : cs.outline,
           ),
+          _DingTalkResponseStatusPill(
+            respondingMessageCount: ding.respondingUserMessageCount,
+          ),
           if (ding.warningMessage != null)
             OpenHandStatusPill(
               icon: Icons.info_outline_rounded,
@@ -11863,6 +11867,68 @@ class _DingTalkGatewayCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _DingTalkResponseStatusPill extends StatelessWidget {
+  const _DingTalkResponseStatusPill({required this.respondingMessageCount});
+
+  final int respondingMessageCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final responding = respondingMessageCount > 0;
+    final colorScheme = Theme.of(context).colorScheme;
+    final motionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.chip,
+    );
+    final label = responding
+        ? 'AI 正在回复 · $respondingMessageCount 条消息'
+        : 'AI 当前空闲';
+    final pill = OpenHandStatusPill(
+      key: ValueKey<int>(respondingMessageCount),
+      icon: responding
+          ? Icons.auto_awesome_rounded
+          : Icons.check_circle_outline_rounded,
+      label: label,
+      color: responding ? colorScheme.primary : colorScheme.outline,
+    );
+    final child = openHandMotionDisabled(motionSettings)
+        ? pill
+        : AnimatedSize(
+            alignment: AlignmentDirectional.centerStart,
+            duration: motionSettings.entranceDuration,
+            reverseDuration: motionSettings.exitDuration,
+            curve: motionSettings.curve.curve,
+            child: AnimatedSwitcher(
+              duration: motionSettings.entranceDuration,
+              reverseDuration: motionSettings.exitDuration,
+              switchInCurve: motionSettings.curve.curve,
+              switchOutCurve: motionSettings.curve.reverseCurve,
+              transitionBuilder: (child, animation) =>
+                  buildAnimationStyleTransition(
+                    animation: animation,
+                    settings: motionSettings,
+                    profile: kOpenHandLayoutSafeTransitionProfile,
+                    child: child,
+                  ),
+              layoutBuilder: (currentChild, previousChildren) =>
+                  buildCollisionSafeAnimatedSwitcherLayout(
+                    currentChild,
+                    previousChildren,
+                    alignment: AlignmentDirectional.centerStart,
+                    sizeToCurrentChild: true,
+                  ),
+              child: pill,
+            ),
+          );
+    return Semantics(
+      liveRegion: true,
+      label: label,
+      excludeSemantics: true,
+      child: child,
     );
   }
 }
