@@ -33,6 +33,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../app/theme/openhand_theme.dart';
 import '../../../app/theme/openhand_theme_preset.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/db/atomic_file_operations.dart';

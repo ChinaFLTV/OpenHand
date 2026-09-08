@@ -5572,6 +5572,7 @@ class _AiModelTileState extends State<_AiModelTile>
     return MicroPressFeedback(
       child: InkWell(
         onTap: widget.onSelect,
+        hoverColor: kOpenHandSettingsItemHoverColor,
         borderRadius: BorderRadius.circular(kOpenHandRadius24),
         child: AnimatedContainer(
           duration: animationDuration,
@@ -6148,6 +6149,7 @@ class _WebEngineDispatchControls extends StatelessWidget {
             Expanded(
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                hoverColor: kOpenHandSettingsItemHoverColor,
                 title: Text(
                   openHandLocalizedText(
                     context,

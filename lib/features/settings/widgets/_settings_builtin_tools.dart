@@ -726,6 +726,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                     children: [
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
+                        hoverColor: kOpenHandSettingsItemHoverColor,
                         title: Text(l10n.builtinToolEnableTitle),
                         subtitle: Text(
                           l10n.builtinToolEnableBody,
@@ -832,6 +833,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
 
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
+                        hoverColor: kOpenHandSettingsItemHoverColor,
                         title: Text(l10n.builtinToolForceLoadTitle),
                         subtitle: Text(
                           l10n.builtinToolForceLoadBody,
@@ -889,6 +891,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           Expanded(
                             child: SwitchListTile(
                               contentPadding: EdgeInsets.zero,
+                              hoverColor: kOpenHandSettingsItemHoverColor,
                               title: Text(l10n.builtinToolRetryLabel),
                               subtitle: Text(
                                 l10n.builtinToolRetryBody,

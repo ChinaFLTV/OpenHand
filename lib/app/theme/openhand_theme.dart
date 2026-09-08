@@ -7,6 +7,9 @@ import '../../shared/ui/openhand_spacing.dart';
 import 'openhand_palette.dart';
 import 'openhand_theme_preset.dart';
 
+/// 设置条目保持平面，悬停时不绘制整行状态浮层。
+const Color kOpenHandSettingsItemHoverColor = Colors.transparent;
+
 abstract final class OpenHandTheme {
   /// 主题构造（ColorScheme.fromSeed + OpenHandPalette + 三十来个组件子主题）
   /// 开销不小，而 MaterialApp 会因为 SettingsController 的任意通知重建——

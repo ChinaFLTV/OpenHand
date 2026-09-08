@@ -5761,6 +5761,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 SwitchListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
+                  hoverColor: kOpenHandSettingsItemHoverColor,
                   title: Text(
                     openHandLocalizedText(
                       context,
@@ -5780,6 +5781,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 SwitchListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
+                  hoverColor: kOpenHandSettingsItemHoverColor,
                   title: Text(
                     openHandLocalizedText(
                       context,
@@ -5798,6 +5800,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 SwitchListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
+                  hoverColor: kOpenHandSettingsItemHoverColor,
                   title: Text(
                     openHandLocalizedText(
                       context,

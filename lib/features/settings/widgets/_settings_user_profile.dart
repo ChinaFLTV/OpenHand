@@ -44,6 +44,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () => _showUserProfileDialog(context),
+              hoverColor: kOpenHandSettingsItemHoverColor,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,

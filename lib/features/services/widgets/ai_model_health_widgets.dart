@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../app/theme/openhand_theme.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -67,6 +68,7 @@ class _AiModelHealthSettingsPanelState
       children: [
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
+          hoverColor: kOpenHandSettingsItemHoverColor,
           title: Text(
             text(zh: '定时健康巡检', en: 'Scheduled health checks'),
             style: settingTitleStyle,
@@ -214,6 +216,7 @@ class _AiModelHealthSettingsPanelState
         if (!widget.showRequestMode)
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            hoverColor: kOpenHandSettingsItemHoverColor,
             title: Text(
               text(zh: '使用系统代理', en: 'Use system proxy'),
               style: settingTitleStyle,

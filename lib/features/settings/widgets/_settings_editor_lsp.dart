@@ -797,6 +797,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
           child: InkWell(
             borderRadius: kOpenHandBorderRadius18,
             onTap: widget.onTap,
+            hoverColor: kOpenHandSettingsItemHoverColor,
             child: Ink(
               decoration: BoxDecoration(
                 color: colorScheme.surface,

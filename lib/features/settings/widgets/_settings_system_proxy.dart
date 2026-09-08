@@ -366,6 +366,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                 kOpenHandGap16,
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
+                  hoverColor: kOpenHandSettingsItemHoverColor,
                   title: Text(l10n.proxyAuthLabel),
                   subtitle: Text(
                     l10n.proxyAuthBody,
