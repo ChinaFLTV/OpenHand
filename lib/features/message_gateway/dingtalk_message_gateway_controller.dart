@@ -5006,11 +5006,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final echoCoordinator = _DingTalkEchoCoordinator(
         responseRoundId: responseRoundId,
         deliveredSourceMessageIds: deliveredSourceMessageIds,
-        expectToolActivity:
-            selectedMcp.isNotEmpty ||
-            dwsCatalog.isNotEmpty ||
-            mediaRequest != null ||
-            configuredCapabilityUnavailableForRequest,
         requiredToolGroups: echoRequiredToolGroups,
         outputEffect: _settings.messageOutputEffect,
         isTypeEnabled: (type) => _settings.responseEchoTypes.contains(type),
@@ -7772,7 +7767,6 @@ class _DingTalkEchoCoordinator {
   _DingTalkEchoCoordinator({
     required this._responseRoundId,
     required this._deliveredSourceMessageIds,
-    required this._expectToolActivity,
     required this._requiredToolGroups,
     required this._outputEffect,
     required this._isTypeEnabled,
@@ -7812,7 +7806,6 @@ class _DingTalkEchoCoordinator {
 
   final String _responseRoundId;
   final Set<String> _deliveredSourceMessageIds;
-  final bool _expectToolActivity;
   final List<Set<String>> _requiredToolGroups;
   final DingTalkMessageOutputEffect _outputEffect;
   final bool Function(DingTalkResponseEchoType type) _isTypeEnabled;
@@ -7874,10 +7867,16 @@ class _DingTalkEchoCoordinator {
       final state = _states[message.id];
       final queued = _pending[message.id];
       final resolvedType = _typeOf(message, session.messages);
-      final terminal = _isTerminal(message);
+      // 生成期间由协调器维持正式响应的流式状态，仅在轮次收敛时进入终态。
+      // 避免上游分片合并后过早标记完成，导致后续增量失去打字机回显。
+      final terminal =
+          _outputEffect == DingTalkMessageOutputEffect.typewriter &&
+              resolvedType == DingTalkResponseEchoType.finalResponse
+          ? finalizing
+          : _isTerminal(message);
       final waitsForRequiredTool =
           resolvedType == DingTalkResponseEchoType.finalResponse &&
-          _expectToolActivity &&
+          _requiredToolGroups.isNotEmpty &&
           !followsRequiredToolActivity;
       final waitsForCompleteContent =
           _outputEffect == DingTalkMessageOutputEffect.allAtOnce && !terminal;
