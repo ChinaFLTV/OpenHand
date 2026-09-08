@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -5889,7 +5890,22 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (local == null || local.content == completeText) return;
     final index = conversation.messages.indexOf(local);
     if (index < 0) return;
-    conversation.messages[index] = local.copyWith(content: completeText);
+    final history = <DingTalkMessageEditRecord>[...local.editHistory];
+    if (history.isEmpty || history.last.content != local.content) {
+      history.add(
+        DingTalkMessageEditRecord(
+          content: local.content,
+          editedAt: DateTime.now(),
+        ),
+      );
+    }
+    if (history.length > _maxMessageEditHistoryEntries) {
+      history.removeRange(0, history.length - _maxMessageEditHistoryEntries);
+    }
+    conversation.messages[index] = local.copyWith(
+      content: completeText,
+      editHistory: history.toList(growable: false),
+    );
     _queuePersist();
     _notify();
   }
@@ -7786,6 +7802,10 @@ class _DingTalkEchoCoordinator {
   static const Duration _remoteIdResolveRetryDelay = Duration(
     milliseconds: 800,
   );
+  static const Duration _fallbackTypewriterCadence = Duration(
+    milliseconds: 700,
+  );
+  static const int _fallbackTypewriterFrameCount = 4;
   // 钉钉单条消息最多编辑 99 次；额外保留终态、重试和平台计数偏差余量。
   static const int _messageEditLimit = 99;
   static const int _editSafetyReserve = 12;
@@ -8087,23 +8107,49 @@ class _DingTalkEchoCoordinator {
     try {
       if (_disposed || _isCancelled()) return;
       if (!state.sent) {
+        final fallbackFrames = _fallbackTypewriterFrames(pending);
+        final firstText = fallbackFrames?.first ?? pending.text;
         // 插入本地气泡前先标记流式，避免正文先完整展开再收缩渐显。
         _markStreaming(
           sourceId,
           _outputEffect == DingTalkMessageOutputEffect.typewriter &&
-              !pending.terminal,
+              (!pending.terminal || fallbackFrames != null),
         );
         final sent = await _send(
           pending.source,
           pending.type,
-          pending.text,
+          firstText,
           state.uuid,
         );
         state.remoteMessageId = sent?.messageId;
         state.remoteTaskId = sent?.taskId;
         if (_disposed || _isCancelled()) return;
         state.sent = true;
+        state.lastText = firstText;
+        state.lastMutationAt = DateTime.now();
         _deliveryFailures.remove(sourceId);
+        if (fallbackFrames != null) {
+          for (final frame in fallbackFrames.skip(1)) {
+            await Future<void>.delayed(_fallbackTypewriterCadence);
+            if (_disposed || _isCancelled()) return;
+            final messageId = await _remoteMessageIdForEdit(sourceId, state);
+            if (_disposed || _isCancelled()) return;
+            if (messageId.isEmpty) {
+              state.lastMutationAt = DateTime.now();
+              _pending[sourceId] = pending.copyWith(
+                readyAt: DateTime.now().add(_remoteIdResolveRetryDelay),
+              );
+              state.finished = false;
+              _markStreaming(sourceId, true);
+              return;
+            }
+            state.remoteEditAttemptCount++;
+            await _edit(sourceId, messageId, frame);
+            if (_disposed || _isCancelled()) return;
+            state.lastText = frame;
+            state.lastMutationAt = DateTime.now();
+          }
+        }
       } else {
         final messageId = await _remoteMessageIdForEdit(sourceId, state);
         if (_disposed || _isCancelled()) return;
@@ -8180,6 +8226,27 @@ class _DingTalkEchoCoordinator {
       if (!state.sent) _deliveryFailures.add(sourceId);
       _settle(sourceId, state, pending);
     }
+  }
+
+  /// 上游仅在结束前吐出可见正文时，仍分段发送终态，保证钉钉侧真实产生编辑记录。
+  List<String>? _fallbackTypewriterFrames(_PendingDingTalkEcho pending) {
+    if (_outputEffect != DingTalkMessageOutputEffect.typewriter ||
+        pending.type != DingTalkResponseEchoType.finalResponse ||
+        !pending.finalizing ||
+        !pending.terminal) {
+      return null;
+    }
+    final characters = pending.text.characters;
+    final length = characters.length;
+    if (length < 2) return null;
+    final frameCount = math.min(_fallbackTypewriterFrameCount, length);
+    final step = (length / frameCount).ceil();
+    final frames = <String>[];
+    for (var visible = step; visible < length; visible += step) {
+      frames.add(characters.take(visible).toString());
+    }
+    frames.add(pending.text);
+    return frames.length > 1 ? frames : null;
   }
 
   void _settle(
