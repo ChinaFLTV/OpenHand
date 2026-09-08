@@ -335,10 +335,14 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainer.withValues(alpha: 0.78),
             borderRadius: radius,
+          ),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: radius,
             border: Border.all(
               color: widget.error
-                  ? colorScheme.error.withValues(alpha: 0.38)
-                  : colorScheme.outlineVariant.withValues(alpha: 0.78),
+                  ? colorScheme.error.withValues(alpha: 0.56)
+                  : colorScheme.outlineVariant.withValues(alpha: 0.96),
+              width: 1.25,
             ),
           ),
           child: Column(
