@@ -1680,12 +1680,14 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
         if (required && value.isEmpty) {
           return _textFor(zh: '$label 不能为空。', en: '$label cannot be empty.');
         }
-        if (nonNegativeInteger &&
-            (int.tryParse(value) == null || int.parse(value) < 0)) {
-          return _textFor(
-            zh: '$label 必须为非负整数。',
-            en: '$label must be a non-negative integer.',
-          );
+        if (nonNegativeInteger) {
+          final parsed = int.tryParse(value);
+          if (parsed == null || parsed < 0) {
+            return _textFor(
+              zh: '$label 必须为非负整数。',
+              en: '$label must be a non-negative integer.',
+            );
+          }
         }
         if (url && value.isNotEmpty) {
           final uri = Uri.tryParse(value);
@@ -3265,7 +3267,7 @@ class _E2bMcpServerDialogState extends State<_E2bMcpServerDialog> {
                   );
                 }
                 if (parameter.type == _E2bMcpValueType.decimal &&
-                    double.tryParse((value ?? '').trim()) == null) {
+                    optionalDoubleFromValue(value) == null) {
                   return openHandLocalizedText(
                     context,
                     zh: '请输入有效数值。',

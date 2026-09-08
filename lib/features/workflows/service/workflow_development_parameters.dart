@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/workflow_definition.dart';
 import 'workflow_node_executor.dart';
 
@@ -140,11 +139,7 @@ Map<String, Object?> resolveWorkflowDevelopmentParameterValues(
 String workflowDevelopmentParameterValueText(Object? value) {
   if (value == null) return '';
   if (value is String) return value;
-  try {
-    return jsonEncode(value);
-  } catch (_) {
-    return '$value';
-  }
+  return jsonEncodeOrString(value);
 }
 
 String _developmentParameterFieldKey(WorkflowOutputField field) {

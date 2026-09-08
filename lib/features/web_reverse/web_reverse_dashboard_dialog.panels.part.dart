@@ -3958,7 +3958,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       if (v is String) return <String, Object?>{'type': 'string', 'string': v};
     }
     if (type == 'number') {
-      final n = value is num ? value : num.tryParse('${value ?? desc ?? ''}');
+      final n = optionalNumFromValue(value) ?? optionalNumFromValue(desc);
       if (n != null) {
         return <String, Object?>{'type': 'number', 'number': n};
       }

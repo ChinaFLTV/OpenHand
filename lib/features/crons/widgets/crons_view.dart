@@ -3179,7 +3179,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     final details = _detailEntries(change)
         .map((entry) => '**${_labelFor(entry.key, l10n)}**: ${entry.value}')
         .toList(growable: false);
-    final fallback = _jsonFallback(change);
+    final fallback = jsonEncodeOrString(change);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -3345,15 +3345,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     if (value == null) return '';
     if (value is String) return value.trim();
     if (value is num || value is bool) return '$value';
-    return _jsonFallback(value);
-  }
-
-  String _jsonFallback(Object? value) {
-    try {
-      return jsonEncode(value);
-    } catch (_) {
-      return '$value';
-    }
+    return jsonEncodeOrString(value);
   }
 }
 

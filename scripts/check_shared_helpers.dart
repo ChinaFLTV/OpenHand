@@ -16,17 +16,20 @@ import 'package:openhand/shared/util/xml_escape.dart';
 Future<void> main() async {
   var failures = 0;
   failures += _checkJsonDecode();
+  failures += _checkJsonEncodeFallback();
   failures += _checkJsonMapKeyCollision();
   failures += _checkContentLength();
   failures += _checkBackoff();
   failures += _checkLoopback();
   failures += _checkStringFromValue();
+  failures += _checkFiniteNumberParsing();
   failures += _checkGrowableStringKeyedMap();
   failures += _checkHttpRetryableStatus();
   failures += _checkRgbHex();
   failures += _checkXmlEscape();
   failures += _checkCompactDuration();
   failures += _checkCalendarDateMath();
+  failures += _checkCanonicalDateTime();
   failures += _checkTextClip();
   failures += await _checkSynchronousBoundedFileRead();
   failures += await _checkTemporaryDirectoryLifecycle();
@@ -164,6 +167,21 @@ int _checkJsonDecode() {
   return failures;
 }
 
+int _checkJsonEncodeFallback() {
+  if (jsonEncodeOrString(<String, Object?>{'state': '就绪'}) !=
+      '{"state":"就绪"}') {
+    stderr.writeln('jsonEncodeOrString 未优先输出 JSON');
+    return 1;
+  }
+  final cyclic = <Object?>[];
+  cyclic.add(cyclic);
+  if (jsonEncodeOrString(cyclic, fallback: '无法编码') != cyclic.toString()) {
+    stderr.writeln('jsonEncodeOrString 未在 JSON 编码失败后回退文本');
+    return 1;
+  }
+  return 0;
+}
+
 int _checkJsonMapKeyCollision() {
   final converted = convertToJsonSafeMap(<Object?, Object?>{
     1: '首项',
@@ -286,6 +304,22 @@ int _checkStringFromValue() {
   final map = stringKeyedMapFromValue(<Object?, Object?>{1: 'a'});
   if (map['1'] != 'a') {
     stderr.writeln('stringKeyedMapFromValue 未把键转为字符串');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkFiniteNumberParsing() {
+  if (optionalNumFromValue('42') != 42 ||
+      optionalNumFromValue('3.5') != 3.5 ||
+      optionalDoubleFromValue(7) != 7.0) {
+    stderr.writeln('有限数值解析结果错误');
+    return 1;
+  }
+  if (optionalNumFromValue('NaN') != null ||
+      optionalNumFromValue('Infinity') != null ||
+      optionalDoubleFromValue(double.negativeInfinity) != null) {
+    stderr.writeln('有限数值解析未拒绝非有限值');
     return 1;
   }
   return 0;
@@ -416,6 +450,30 @@ int _checkCalendarDateMath() {
   if (window.start != DateTime(2026, 3, 8) ||
       window.end != DateTime(2026, 3, 10)) {
     stderr.writeln('rollingCalendarDateWindow 未按本地日历日生成窗口');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkCanonicalDateTime() {
+  const utcText = '2026-09-08T12:34:56.000Z';
+  final utc = canonicalDateTimeFromValue(utcText, requireUtc: true);
+  if (utc == null || !utc.isUtc || utc.toIso8601String() != utcText) {
+    stderr.writeln('canonicalDateTimeFromValue 未接受规范 UTC 时间');
+    return 1;
+  }
+  if (canonicalDateTimeFromValue(
+        '2026-09-08T20:34:56.000+08:00',
+        requireUtc: true,
+      ) !=
+      null) {
+    stderr.writeln('canonicalDateTimeFromValue 应拒绝非规范 UTC 文本');
+    return 1;
+  }
+  const localText = '2026-09-08T12:34:56.000';
+  if (canonicalDateTimeFromValue(localText)?.toIso8601String() != localText ||
+      canonicalDateTimeFromValue(localText, requireUtc: true) != null) {
+    stderr.writeln('canonicalDateTimeFromValue 本地时间边界处理错误');
     return 1;
   }
   return 0;

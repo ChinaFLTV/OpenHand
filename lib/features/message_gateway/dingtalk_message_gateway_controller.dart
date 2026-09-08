@@ -6096,11 +6096,7 @@ ${_markdownStructuredFields(response)}''';
   String _prettyToolValue(Object? raw) {
     if (raw == null) return '';
     if (raw is String) return raw.trim();
-    try {
-      return jsonEncode(raw);
-    } catch (_) {
-      return '$raw'.trim();
-    }
+    return jsonEncodeOrString(raw).trim();
   }
 
   String _boundedToolLabel(Object? raw) {

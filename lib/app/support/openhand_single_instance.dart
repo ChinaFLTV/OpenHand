@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:path/path.dart' as p;
 
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/byte_size_format.dart';
 import 'openhand_paths.dart';
 import 'safe_subprocess.dart';
@@ -34,6 +35,12 @@ final class OpenHandSingleInstance {
   static const int _maxTrackedDescendants = 256;
   static const int _maxLinuxProcessStatBytes = 4 * kBytesPerKiB;
   static const int _maxInstanceRecordBytes = 4 * kBytesPerKiB;
+  static const BoundedJsonConversionConfig _instanceRecordJsonConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 3,
+        maxContainerItems: 16,
+        maxTotalNodes: 32,
+      );
   static const int _maxProcessListBytes = 4 * kBytesPerMiB;
   static const int _maxMacInfoPlistBytes = kBytesPerMiB;
   static const Duration _fileOperationTimeout = Duration(seconds: 2);
@@ -423,16 +430,17 @@ Get-CimInstance Win32_Process | ForEach-Object {
 
   static Future<_InstanceRecord?> _readInstanceRecord(File file) async {
     try {
-      final decoded = jsonDecode(
+      final decoded = decodeJsonObjectTextUsingConfig(
         await readBoundedFileString(
           file,
           maxBytes: _maxInstanceRecordBytes,
           idleTimeout: _fileOperationTimeout,
           totalTimeout: _fileOperationTimeout,
         ),
+        maxTextCodeUnits: _maxInstanceRecordBytes,
+        config: _instanceRecordJsonConfig,
       );
-      if (decoded is! Map) return null;
-      final record = _InstanceRecord.fromJson(decoded.cast<String, Object?>());
+      final record = _InstanceRecord.fromJson(decoded);
       return record.applicationId == _applicationId &&
               record.version == _recordVersion
           ? record

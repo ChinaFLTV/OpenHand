@@ -10,6 +10,7 @@ import '../../../shared/net/http_methods.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_base64.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart'
     show
@@ -3102,7 +3103,7 @@ $schema''';
         WorkflowOutputType.integer =>
           value is int
               ? value
-              : value is num && value == value.roundToDouble()
+              : value is num && value.isFinite && value == value.roundToDouble()
               ? value.toInt()
               : int.parse('$value'.trim()),
         WorkflowOutputType.number => _numberValue(value),
@@ -3428,12 +3429,11 @@ Object? _literalValue(String value) {
   }
   if (normalized == 'true') return true;
   if (normalized == 'false') return false;
-  return num.tryParse(normalized) ?? normalized;
+  return optionalNumFromValue(normalized) ?? normalized;
 }
 
 num _number(Object? value) {
-  if (value is num) return value;
-  return num.parse('$value'.trim());
+  return optionalNumFromValue(value) ?? (throw const FormatException());
 }
 
 bool _compareWorkflowValues(

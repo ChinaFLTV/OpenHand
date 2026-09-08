@@ -8,6 +8,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/user_instruction_entry.dart';
 
 class InstructionsStore {
@@ -215,8 +216,8 @@ class InstructionsStore {
 
   DateTime _dateTime(Map<String, Object?> row, String key) {
     final raw = _text(row, key);
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null || parsed.toUtc().toIso8601String() != raw) {
+    final parsed = canonicalDateTimeFromValue(raw, requireUtc: true);
+    if (parsed == null) {
       throw FormatException('用户指令字段 $key 无效。');
     }
     return parsed;

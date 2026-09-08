@@ -370,8 +370,8 @@ class CronsStore {
   DateTime? _dateTime(Map<String, Object?> row, String key) {
     final raw = _text(row, key);
     if (raw.isEmpty) return null;
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null || parsed.toIso8601String() != raw) {
+    final parsed = canonicalDateTimeFromValue(raw);
+    if (parsed == null) {
       throw FormatException('定时任务字段 $key 无效。');
     }
     return parsed;

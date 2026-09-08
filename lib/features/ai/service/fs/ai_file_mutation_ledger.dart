@@ -26,6 +26,7 @@ import '../../../../shared/util/bounded_base64.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/exponential_backoff.dart';
 import '../../../../shared/util/hex_encoding.dart';
@@ -399,6 +400,12 @@ class AiFileMutationLedger {
   static const int _legacyBlobRecoveryMaxFiles = 2000;
   static const int _blobRecoveryMaxBytes = 16 * kBytesPerMiB;
   static const int _maxConfigBytes = 64 * kBytesPerKiB;
+  static const BoundedJsonConversionConfig _configJsonConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 4,
+        maxContainerItems: 128,
+        maxTotalNodes: 512,
+      );
   static const int _maxStateBytes = 2 * kBytesPerMiB;
   static const int _maxLedgerBytes = 64 * kBytesPerMiB;
   static const int _maxBlobBase64Characters =
@@ -697,11 +704,13 @@ class AiFileMutationLedger {
       final raw = await readBoundedFileString(f, maxBytes: _maxConfigBytes);
       final text = nullIfBlank(raw);
       if (text == null) throw const FormatException('账本配置内容为空。');
-      final decoded = jsonDecode(text);
-      if (decoded is! Map) throw const FormatException('账本配置必须是对象。');
-      return _acceptLoadedConfig(
-        LedgerConfig.fromJson(stringKeyedMapFromValue(decoded)),
+      final decoded = decodeJsonObjectTextUsingConfig(
+        text,
+        maxTextCodeUnits: _maxConfigBytes,
+        config: _configJsonConversionConfig,
+        invalidRootMessage: '账本配置必须是对象。',
       );
+      return _acceptLoadedConfig(LedgerConfig.fromJson(decoded));
     } catch (error, stack) {
       _configLoadFailure = (error: error, stack: stack);
       _nextConfigLoadRetryAt = _retryStopwatch.elapsed + _configLoadRetryDelay;

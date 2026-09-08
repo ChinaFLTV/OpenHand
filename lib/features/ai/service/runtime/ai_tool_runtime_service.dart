@@ -2569,11 +2569,7 @@ class AiToolRuntimeService {
   }
 
   String _jsonishText(Map<String, Object?> value) {
-    try {
-      return jsonEncode(value);
-    } catch (_) {
-      return value.toString();
-    }
+    return jsonEncodeOrString(value);
   }
 
   Future<AiToolExecutionResult> _executeSkillTool({

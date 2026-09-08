@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_durations.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -145,7 +147,7 @@ class _OpenRouterModelSyncDialogState
             kOpenHandGap12,
             TweenAnimationBuilder<double>(
               tween: Tween<double>(end: _progress.fraction),
-              duration: const Duration(milliseconds: 260),
+              duration: openHandMotionDuration(context, kOpenHandMotion260),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) => LinearProgressIndicator(
                 value: isRunning && _progress.total == 0 ? null : value,

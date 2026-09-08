@@ -29,7 +29,7 @@ Object? coerceMcpPayloadValue(String value) {
   if (lower == 'true') return true;
   if (lower == 'false') return false;
   if (lower == 'null') return null;
-  return int.tryParse(trimmed) ?? double.tryParse(trimmed) ?? trimmed;
+  return optionalNumFromValue(trimmed) ?? trimmed;
 }
 
 Map<String, Object?>? parseMcpLoosePayloadMap(String text) {

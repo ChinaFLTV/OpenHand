@@ -141,6 +141,19 @@ Object? tryDecodeJson(String value) {
   return decoded.success ? decoded.value : null;
 }
 
+/// 优先编码为 JSON；遇到循环引用或不支持的对象时回退为可读文本。
+String jsonEncodeOrString(Object? value, {String fallback = ''}) {
+  try {
+    return jsonEncode(value);
+  } catch (_) {
+    try {
+      return '$value';
+    } catch (_) {
+      return fallback;
+    }
+  }
+}
+
 /// 全局复用的双空格缩进 JSON 编码器。
 const JsonEncoder kPrettyJsonEncoder = JsonEncoder.withIndent('  ');
 
@@ -677,6 +690,17 @@ DateTime? dateTimeFromValue(
   return null;
 }
 
+/// 仅接受 Dart 标准序列化可原样往返的 ISO-8601 时间文本。
+DateTime? canonicalDateTimeFromValue(Object? value, {bool requireUtc = false}) {
+  if (value is! String) return null;
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null || requireUtc && !parsed.isUtc) return null;
+  final canonical = requireUtc
+      ? parsed.toUtc().toIso8601String()
+      : parsed.toIso8601String();
+  return canonical == value ? parsed : null;
+}
+
 DateTime? utcDateTimeFromValue(
   Object? value, {
   DateTimeNumericTimestampMode numericTimestampMode =
@@ -746,18 +770,20 @@ double doubleFromValue(Object? value, {required double fallback}) {
   return optionalDoubleFromValue(value) ?? fallback;
 }
 
-double? optionalDoubleFromValue(Object? value) {
+num? optionalNumFromValue(Object? value) {
   if (value == null) return null;
-  if (value is double && value.isFinite) return value;
-  if (value is num && value.isFinite) return value.toDouble();
+  if (value is num) return value.isFinite ? value : null;
   if (value is String) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return null;
-    final parsed = double.tryParse(trimmed);
+    final parsed = num.tryParse(trimmed);
     return parsed != null && parsed.isFinite ? parsed : null;
   }
   return null;
 }
+
+double? optionalDoubleFromValue(Object? value) =>
+    optionalNumFromValue(value)?.toDouble();
 
 double? optionalNonNegativeDoubleFromValue(Object? value) {
   final parsed = optionalDoubleFromValue(value);

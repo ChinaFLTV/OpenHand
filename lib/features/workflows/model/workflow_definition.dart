@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 enum WorkflowNodeKind {
   start('start'),
@@ -1534,10 +1535,7 @@ class WorkflowNode {
   }
 
   double doubleSetting(String key, double fallback) {
-    final value = settings[key];
-    return value is num
-        ? value.toDouble()
-        : double.tryParse('$value') ?? fallback;
+    return optionalDoubleFromValue(settings[key]) ?? fallback;
   }
 
   bool boolSetting(String key, [bool fallback = false]) {

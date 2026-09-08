@@ -355,7 +355,7 @@ Object? decodeDsmlParameterValue(
   if (decoded.success) return decoded.value;
   final boolValue = optionalBoolFromValue(trimmed);
   if (boolValue != null) return boolValue;
-  final numericValue = num.tryParse(trimmed);
+  final numericValue = optionalNumFromValue(trimmed);
   if (numericValue != null) {
     return numericValue;
   }

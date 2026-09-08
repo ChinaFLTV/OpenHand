@@ -11,6 +11,7 @@ import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
@@ -56,6 +57,12 @@ class AiFileHistoryService {
   static const int _maxMetadataIdentifierCharacters = 512;
   static const int _maxHistoryContentBytes = 16 * kBytesPerMiB;
   static const int _maxHistoryMetadataBytes = 64 * kBytesPerKiB;
+  static const BoundedJsonConversionConfig _historyMetadataJsonConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 4,
+        maxContainerItems: 64,
+        maxTotalNodes: 256,
+      );
   static const int _maxHistoryDirectoryEntries = 4096;
   static const int _maxHistoryRootDirectories = 10000;
   static const int _maxSessionClearEntries = 100000;
@@ -635,8 +642,11 @@ class FileVersionInfo {
 }
 
 FileVersionInfo? _decodeVersionInfo(String content) {
-  final decoded = jsonDecode(content);
-  if (decoded is! Map) return null;
-  final info = FileVersionInfo.fromJson(stringKeyedMapFromValue(decoded));
+  final decoded = decodeJsonObjectTextUsingConfig(
+    content,
+    maxTextCodeUnits: AiFileHistoryService._maxHistoryMetadataBytes,
+    config: AiFileHistoryService._historyMetadataJsonConfig,
+  );
+  final info = FileVersionInfo.fromJson(decoded);
   return info.versionId.isEmpty ? null : info;
 }

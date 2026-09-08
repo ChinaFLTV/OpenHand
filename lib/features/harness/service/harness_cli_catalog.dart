@@ -12,6 +12,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -23,6 +24,12 @@ import '../../../shared/util/version_compare.dart';
 enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
 
 const int _localAuthStateMaxBytes = 2 * kBytesPerMiB;
+const BoundedJsonConversionConfig _localAuthStateJsonConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 32,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+    );
 const String _kDiagBeginMarker = '__OPENHAND_DIAG_BEGIN__';
 const String _kDiagEndMarker = '__OPENHAND_DIAG_END__';
 const BoundedDeletePolicy _localAuthStateDeletePolicy = BoundedDeletePolicy(
@@ -593,7 +600,11 @@ Future<bool?> _probeCliAuthFromLocalState(HarnessCli cli) async {
     if (key == null) {
       return true;
     }
-    final decoded = jsonDecode(raw);
+    final decoded = decodeJsonTextUsingConfig(
+      raw,
+      maxTextCodeUnits: _localAuthStateMaxBytes,
+      config: _localAuthStateJsonConfig,
+    );
     if (decoded is! Map) {
       return false;
     }

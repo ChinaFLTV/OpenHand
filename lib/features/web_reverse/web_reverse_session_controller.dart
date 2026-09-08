@@ -10415,7 +10415,7 @@ int _networkThroughputFromKbps(int kbps) {
 }
 
 int _networkKbpsFromThroughput(Object? value) {
-  final throughput = value is num ? value : num.tryParse('$value');
+  final throughput = optionalNumFromValue(value);
   if (throughput == null || throughput <= 0) return 0;
   return (throughput * 8 / kBytesPerKiB).round();
 }

@@ -11,6 +11,7 @@ import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -27,6 +28,12 @@ const int _machineTerminalMaxRestoredTransferCandidates =
     _machineTerminalMaxTransferRecords * 2;
 const int _machineTerminalTransferHistorySchemaVersion = 1;
 const int _machineTerminalTransferHistoryMaxBytes = 2 * kBytesPerMiB;
+const BoundedJsonConversionConfig _machineTerminalTransferHistoryJsonConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 8,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+    );
 const String _machineTerminalTransferHistoryFileName =
     'machine-terminal-transfers.json';
 const int _machineTerminalMaxQueuedOperations = 64;
@@ -1205,7 +1212,11 @@ class MachineTerminalFileService extends ChangeNotifier {
         file,
         maxBytes: _machineTerminalTransferHistoryMaxBytes,
       );
-      final decoded = jsonDecode(content);
+      final decoded = decodeJsonTextUsingConfig(
+        content,
+        maxTextCodeUnits: _machineTerminalTransferHistoryMaxBytes,
+        config: _machineTerminalTransferHistoryJsonConfig,
+      );
       final payload = stringKeyedMapFromValue(decoded);
       if (payload['schema_version'] !=
           _machineTerminalTransferHistorySchemaVersion) {

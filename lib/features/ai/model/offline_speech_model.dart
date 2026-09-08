@@ -118,7 +118,7 @@ class OfflineSpeechParameter {
   }
 
   Object _number(Object? value, {required bool integer}) {
-    final parsed = value is num ? value.toDouble() : double.tryParse('$value');
+    final parsed = optionalDoubleFromValue(value);
     final fallback = (defaultValue as num).toDouble();
     final normalized = (parsed ?? fallback).clamp(
       min ?? double.negativeInfinity,

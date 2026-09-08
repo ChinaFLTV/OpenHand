@@ -519,9 +519,9 @@ class AiResponsesService {
     if (ratio == null && size == null) return null;
     final parts = (ratio ?? size!.replaceFirst('x', ':')).split(':');
     if (parts.length != 2) return null;
-    final width = double.tryParse(parts.first);
-    final height = double.tryParse(parts.last);
-    if (width == null || height == null || width <= 0 || height <= 0) {
+    final width = optionalPositiveDoubleFromValue(parts.first);
+    final height = optionalPositiveDoubleFromValue(parts.last);
+    if (width == null || height == null) {
       return null;
     }
     if ((width - height).abs() / width < 0.08) return '1024x1024';

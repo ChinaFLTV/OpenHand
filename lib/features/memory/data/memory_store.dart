@@ -12,6 +12,7 @@ import '../../../shared/db/legacy_persistence.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../model/user_memory_entry.dart';
 
@@ -503,10 +504,11 @@ class MemoryStore {
     if (createdAt is! String) {
       throw FormatException('$source时间戳无效：$id');
     }
-    final parsedCreatedAt = DateTime.tryParse(createdAt);
-    if (parsedCreatedAt == null ||
-        !parsedCreatedAt.isUtc ||
-        parsedCreatedAt.toIso8601String() != createdAt) {
+    final parsedCreatedAt = canonicalDateTimeFromValue(
+      createdAt,
+      requireUtc: true,
+    );
+    if (parsedCreatedAt == null) {
       throw FormatException('$source时间戳不是规范 UTC 格式：$id');
     }
     if (content is! String ||
@@ -679,10 +681,11 @@ class MemoryStore {
         completedAt is! String) {
       throw const FormatException(_invalidMigrationMarkerMessage);
     }
-    final parsedCompletedAt = DateTime.tryParse(completedAt);
-    if (parsedCompletedAt == null ||
-        !parsedCompletedAt.isUtc ||
-        parsedCompletedAt.toIso8601String() != completedAt) {
+    final parsedCompletedAt = canonicalDateTimeFromValue(
+      completedAt,
+      requireUtc: true,
+    );
+    if (parsedCompletedAt == null) {
       throw const FormatException('记忆迁移标记时间无效。');
     }
     final expectedKeys = <String>{'status', 'completed_at'};

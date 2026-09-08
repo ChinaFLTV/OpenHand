@@ -425,8 +425,8 @@ class AiToolUtils {
       }
       if (schemaType == 'integer' || schemaType == 'number') {
         final decoded = tryDecodeJson(trimmed);
-        if (decoded is num) return decoded;
-        final parsed = num.tryParse(trimmed);
+        if (decoded is num && decoded.isFinite) return decoded;
+        final parsed = optionalNumFromValue(trimmed);
         if (parsed != null) return parsed;
       }
       if (schemaType == 'boolean') {

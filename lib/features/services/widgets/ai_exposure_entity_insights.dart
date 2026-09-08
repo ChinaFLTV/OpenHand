@@ -3374,8 +3374,8 @@ _entityDependencyMeter(
 ) {
   num? number(String key) {
     final value = telemetry[key];
-    if (value is num && value.isFinite && value >= 0) return value;
-    return num.tryParse('${value ?? ''}');
+    final parsed = optionalNumFromValue(value);
+    return parsed != null && parsed >= 0 ? parsed : null;
   }
 
   return switch (id) {

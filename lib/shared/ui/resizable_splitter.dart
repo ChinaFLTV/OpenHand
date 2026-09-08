@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../shared/ui/openhand_spacing.dart';
 import '../util/input_value_parsing.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 /// 通用左右分栏，可拖拽中缝调整左侧宽度（右侧自适应剩余空间）。
@@ -53,7 +54,7 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final handleMotionDuration = openHandTickerMotionEnabled(context)
-        ? const Duration(milliseconds: 140)
+        ? kOpenHandMotion140
         : Duration.zero;
     return LayoutBuilder(
       builder: (context, c) {
