@@ -70,6 +70,10 @@ final RegExp _dwsMediaDownloadHintPattern = RegExp(
   r'download-media\s*命令下载\s*$',
   caseSensitive: false,
 );
+final RegExp _dingtalkMediaFileUrlProjectionPattern = RegExp(
+  r'^fileName\s*[=:：]\s*(.{1,1024}?)\s+url\s*[=:：]\s*(\S{1,1024})$',
+  caseSensitive: false,
+);
 
 String _removeDingTalkDuplicatedLinkProjection(Object? value) {
   final text = _normalizedDingTalkString(value);
@@ -468,7 +472,7 @@ String stripDingTalkMediaPlaceholder(Object? value) {
   return text.replaceAll(_dingtalkWhitespacePattern, ' ').trim();
 }
 
-/// 清理媒体投影文本；投影后只剩附件名时同样视为无正文。
+/// 清理媒体投影文本；匹配附件的名称或 DWS 资源投影不作为正文。
 String normalizeDingTalkMediaText(
   Object? value,
   Iterable<DingTalkGatewayMedia> media,
@@ -481,6 +485,21 @@ String normalizeDingTalkMediaText(
   final text = stripDingTalkMediaPlaceholder(value);
   final normalized = normalizeDingTalkMessageContentForComparison(text);
   if (normalized.isEmpty) return '';
+  final projection = _dingtalkMediaFileUrlProjectionPattern.firstMatch(
+    normalized,
+  );
+  if (projection != null) {
+    final projectedName = projection.group(1)?.trim() ?? '';
+    final projectedId = normalizeDingTalkResourceId(projection.group(2));
+    final projectedKind = DingTalkMediaKindX.fromFileName(projectedName);
+    final matchesPreviewableMedia = items.any(
+      (item) =>
+          item.kind.isPreviewable &&
+          item.kind == projectedKind &&
+          normalizeDingTalkResourceId(item.resourceId) == projectedId,
+    );
+    if (matchesPreviewableMedia) return '';
+  }
   for (final item in items) {
     final name = normalizeDingTalkMessageContentForComparison(item.name);
     if (name.isNotEmpty && normalized == name) return '';
