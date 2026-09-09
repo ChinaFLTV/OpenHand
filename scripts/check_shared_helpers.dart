@@ -14,6 +14,7 @@ import 'package:openhand/shared/util/input_value_parsing.dart';
 import 'package:openhand/shared/util/message_frame_scan.dart';
 import 'package:openhand/shared/util/sensitive_data.dart';
 import 'package:openhand/shared/util/text_clip.dart';
+import 'package:openhand/shared/util/text_search.dart';
 import 'package:openhand/shared/util/xml_escape.dart';
 
 /// 直接驱动抽出的共享实现：代表输入进、真实返回值出。
@@ -35,6 +36,7 @@ Future<void> main() async {
   failures += _checkCalendarDateMath();
   failures += _checkCanonicalDateTime();
   failures += _checkTextClip();
+  failures += _checkTextSearch();
   failures += _checkSensitiveTextRedaction();
   failures += await _checkAbortableResponseLifetime();
   failures += await _checkSynchronousBoundedFileRead();
@@ -643,6 +645,25 @@ int _checkTextClip() {
   }
   if (clipText('👨‍👩‍👧‍👦尾', 1, suffix: '') != '👨‍👩‍👧‍👦') {
     stderr.writeln('clipText 拆分了扩展字符');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkTextSearch() {
+  final offsets = findTextMatchOffsets(
+    text: 'Alpha alpha',
+    query: 'alpha',
+    allowOverlapping: false,
+  );
+  if (offsets.join(',') != '0,6' ||
+      moveTextMatchIndex(currentIndex: -1, matchCount: 2, forward: true) != 0 ||
+      moveTextMatchIndex(currentIndex: -1, matchCount: 2, forward: false) !=
+          1 ||
+      moveTextMatchIndex(currentIndex: 1, matchCount: 2, forward: true) != 0 ||
+      moveTextMatchIndex(currentIndex: 0, matchCount: 2, forward: false) != 1 ||
+      moveTextMatchIndex(currentIndex: 0, matchCount: 0, forward: true) != -1) {
+    stderr.writeln('文本查找偏移或循环导航边界错误');
     return 1;
   }
   return 0;

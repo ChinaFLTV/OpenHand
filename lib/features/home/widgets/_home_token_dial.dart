@@ -400,7 +400,16 @@ class _TokenDialPopupOverlay extends StatelessWidget {
             overlaySize: overlaySize,
           );
           return CustomSingleChildLayout(
-            delegate: _TokenDialPopupLayoutDelegate(metrics),
+            delegate: OpenHandAnchoredPopupLayoutDelegate(
+              safeRect: metrics.safeRect,
+              anchorRect: metrics.anchorRect,
+              placedAbove: metrics.placedAbove,
+              anchorGap: _kTokenDialPopupAnchorGap,
+              minWidth: metrics.minWidth,
+              maxWidth: metrics.maxWidth,
+              maxHeight: metrics.maxHeight,
+              horizontalAlignment: OpenHandPopupHorizontalAlignment.right,
+            ),
             child: MouseRegion(
               onEnter: (_) => onEnter(),
               onExit: (_) => onExit(),
@@ -448,9 +457,16 @@ class _TokenDialPopupMetrics {
     required GlobalKey anchorKey,
     required Size overlaySize,
   }) {
-    final safeRect = _safePopupRect(overlaySize, MediaQuery.paddingOf(context));
+    final safeRect = openHandOverlaySafeRect(
+      overlaySize: overlaySize,
+      safePadding: MediaQuery.paddingOf(context),
+      viewportPadding: _kTokenDialPopupViewportPadding,
+    );
     final anchorRect =
-        _anchorRect(anchorKey, context) ??
+        openHandAnchorRectInOverlay(
+          anchorKey: anchorKey,
+          overlayContext: context,
+        ) ??
         Rect.fromLTWH(safeRect.right, safeRect.top, 0, 0);
     final belowHeight =
         safeRect.bottom - anchorRect.bottom - _kTokenDialPopupAnchorGap;
@@ -477,103 +493,6 @@ class _TokenDialPopupMetrics {
       minWidth: minWidth,
       maxWidth: maxWidth,
     );
-  }
-
-  static Rect _safePopupRect(Size size, EdgeInsets padding) {
-    final width = size.width.isFinite && size.width > 0 ? size.width : 0.0;
-    final height = size.height.isFinite && size.height > 0 ? size.height : 0.0;
-    final left = (padding.left + _kTokenDialPopupViewportPadding)
-        .clamp(0, width)
-        .toDouble();
-    final top = (padding.top + _kTokenDialPopupViewportPadding)
-        .clamp(0, height)
-        .toDouble();
-    final right = math.max(
-      left,
-      width - padding.right - _kTokenDialPopupViewportPadding,
-    );
-    final bottom = math.max(
-      top,
-      height - padding.bottom - _kTokenDialPopupViewportPadding,
-    );
-    return Rect.fromLTRB(left, top, right, bottom);
-  }
-
-  static Rect? _anchorRect(GlobalKey key, BuildContext overlayContext) {
-    final renderObject = key.currentContext?.findRenderObject();
-    final overlayObject = Overlay.maybeOf(
-      overlayContext,
-    )?.context.findRenderObject();
-    if (renderObject is! RenderBox ||
-        overlayObject is! RenderBox ||
-        !renderObject.attached ||
-        !overlayObject.attached ||
-        !renderObject.hasSize ||
-        !overlayObject.hasSize ||
-        renderObject.size.isEmpty) {
-      return null;
-    }
-    final size = renderObject.size;
-    final topLeft = renderObject.localToGlobal(
-      Offset.zero,
-      ancestor: overlayObject,
-    );
-    return topLeft & size;
-  }
-}
-
-double _clampTokenDialPopupCoordinate(
-  double value, {
-  required double lower,
-  required double upper,
-}) {
-  if (!value.isFinite) return lower;
-  if (upper <= lower) return lower;
-  return value.clamp(lower, upper);
-}
-
-class _TokenDialPopupLayoutDelegate extends SingleChildLayoutDelegate {
-  const _TokenDialPopupLayoutDelegate(this.metrics);
-
-  final _TokenDialPopupMetrics metrics;
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    return BoxConstraints(
-      minWidth: metrics.minWidth,
-      maxWidth: metrics.maxWidth,
-      maxHeight: metrics.maxHeight,
-    );
-  }
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) {
-    final safe = metrics.safeRect;
-    final rawLeft = metrics.anchorRect.right - childSize.width;
-    final left = _clampTokenDialPopupCoordinate(
-      rawLeft,
-      lower: safe.left,
-      upper: safe.right - childSize.width,
-    );
-    final rawTop = metrics.placedAbove
-        ? metrics.anchorRect.top - childSize.height - _kTokenDialPopupAnchorGap
-        : metrics.anchorRect.bottom + _kTokenDialPopupAnchorGap;
-    final top = _clampTokenDialPopupCoordinate(
-      rawTop,
-      lower: safe.top,
-      upper: safe.bottom - childSize.height,
-    );
-    return Offset(left, top);
-  }
-
-  @override
-  bool shouldRelayout(covariant _TokenDialPopupLayoutDelegate oldDelegate) {
-    return oldDelegate.metrics.safeRect != metrics.safeRect ||
-        oldDelegate.metrics.anchorRect != metrics.anchorRect ||
-        oldDelegate.metrics.placedAbove != metrics.placedAbove ||
-        oldDelegate.metrics.maxHeight != metrics.maxHeight ||
-        oldDelegate.metrics.minWidth != metrics.minWidth ||
-        oldDelegate.metrics.maxWidth != metrics.maxWidth;
   }
 }
 

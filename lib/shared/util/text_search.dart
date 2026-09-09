@@ -3,6 +3,19 @@ const _highSurrogateMax = 0xDBFF;
 const _lowSurrogateMin = 0xDC00;
 const _lowSurrogateMax = 0xDFFF;
 
+/// 在匹配列表中循环移动；当前索引失效时分别从首项或末项恢复。
+int moveTextMatchIndex({
+  required int currentIndex,
+  required int matchCount,
+  required bool forward,
+}) {
+  if (matchCount <= 0) return -1;
+  if (currentIndex < 0 || currentIndex >= matchCount) {
+    return forward ? 0 : matchCount - 1;
+  }
+  return (currentIndex + (forward ? 1 : -1)) % matchCount;
+}
+
 List<int> findTextMatchOffsets({
   required String text,
   required String query,

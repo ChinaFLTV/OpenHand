@@ -246,7 +246,7 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
         removeLeft: true,
         removeRight: true,
         child: CustomSingleChildLayout(
-          delegate: _AnchoredMenuRouteLayout(
+          delegate: _PopupMenuRouteLayout(
             position,
             textDirection,
             mediaPadding,
@@ -255,49 +255,6 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
         ),
       ),
     );
-  }
-}
-
-class _AnchoredMenuRouteLayout extends SingleChildLayoutDelegate {
-  const _AnchoredMenuRouteLayout(
-    this.position,
-    this.textDirection,
-    this.padding,
-  );
-
-  final RelativeRect position;
-  final TextDirection textDirection;
-  final EdgeInsets padding;
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    return BoxConstraints.loose(constraints.biggest).deflate(padding);
-  }
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) {
-    final preferredX = textDirection == TextDirection.rtl
-        ? size.width - position.right - childSize.width
-        : position.left;
-    return Offset(
-      _clampMenuCoordinate(
-        preferredX,
-        lower: padding.left,
-        upper: size.width - childSize.width - padding.right,
-      ),
-      _clampMenuCoordinate(
-        position.top,
-        lower: padding.top,
-        upper: size.height - childSize.height - padding.bottom,
-      ),
-    );
-  }
-
-  @override
-  bool shouldRelayout(covariant _AnchoredMenuRouteLayout oldDelegate) {
-    return position != oldDelegate.position ||
-        textDirection != oldDelegate.textDirection ||
-        padding != oldDelegate.padding;
   }
 }
 
@@ -625,7 +582,7 @@ class _MenuItemRenderObject extends RenderProxyBox {
 }
 
 class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
-  _PopupMenuRouteLayout(this.position, this.textDirection, this.padding);
+  const _PopupMenuRouteLayout(this.position, this.textDirection, this.padding);
 
   final RelativeRect position;
   final TextDirection textDirection;

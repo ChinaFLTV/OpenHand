@@ -3817,6 +3817,10 @@ export function SessionDetailPage() {
   const sessionIdRef = useRef(sessionId);
   const { scheduleTimer: scheduleComposerEditFocusTimer } =
     useTimeoutController();
+  const {
+    clearTimer: clearAutoTitleRefreshTimer,
+    scheduleTimer: scheduleAutoTitleRefreshTimer,
+  } = useTimeoutController();
 
   function resetSlashTriggerState(): void {
     slashDismissalRef.current = null;
@@ -3829,7 +3833,9 @@ export function SessionDetailPage() {
   }
   const mountedRef = useRef(true);
   const editingDraftMessageRef = useRef<SessionMessage | null>(null);
-  const autoTitleRefreshTimersRef = useRef<number[]>([]);
+  const autoTitleRefreshGenerationRef = useRef(0);
+  const autoTitleRefreshAttemptRef = useRef(0);
+  const autoTitleRefreshStartedAtRef = useRef(0);
   const composerChipExitTimersRef = useRef<number[]>([]);
   const queuedMessageExitTimersRef = useRef<number[]>([]);
   const queuedComposerMessagesRef = useRef<QueuedComposerMessage[]>([]);
@@ -5148,10 +5154,10 @@ export function SessionDetailPage() {
   }
 
   function clearAutoTitleRefreshTimers(): void {
-    for (const timer of autoTitleRefreshTimersRef.current) {
-      window.clearTimeout(timer);
-    }
-    autoTitleRefreshTimersRef.current = [];
+    autoTitleRefreshGenerationRef.current += 1;
+    autoTitleRefreshAttemptRef.current = 0;
+    autoTitleRefreshStartedAtRef.current = 0;
+    clearAutoTitleRefreshTimer();
   }
 
   function shouldWatchAutoTitleAfterSend(text: string): boolean {
@@ -5324,21 +5330,38 @@ export function SessionDetailPage() {
     return Boolean(fresh.session.is_title_manually_edited || fresh.session.auto_title_acquired || fresh.session.auto_title_generated_at);
   }
 
+  function scheduleNextAutoTitleRefresh(generation: number): void {
+    if (generation !== autoTitleRefreshGenerationRef.current) return;
+    const attempt = autoTitleRefreshAttemptRef.current;
+    const targetDelay = AUTO_TITLE_FOLLOW_UP_DELAYS_MS[attempt];
+    if (targetDelay == null) return;
+    autoTitleRefreshAttemptRef.current = attempt + 1;
+    const elapsed = Math.max(0, Date.now() - autoTitleRefreshStartedAtRef.current);
+    scheduleAutoTitleRefreshTimer(() => {
+      void refreshAutoTitleSummary()
+        .then((done) => {
+          if (generation !== autoTitleRefreshGenerationRef.current) return;
+          if (done) {
+            clearAutoTitleRefreshTimers();
+            return;
+          }
+          scheduleNextAutoTitleRefresh(generation);
+        })
+        .catch((error: unknown) => {
+          if (generation !== autoTitleRefreshGenerationRef.current) return;
+          if (handleAuthError(error) || handleSessionGoneError(error)) {
+            clearAutoTitleRefreshTimers();
+            return;
+          }
+          scheduleNextAutoTitleRefresh(generation);
+        });
+    }, Math.max(0, targetDelay - elapsed));
+  }
+
   function scheduleAutoTitleFollowUp(): void {
     clearAutoTitleRefreshTimers();
-    autoTitleRefreshTimersRef.current = AUTO_TITLE_FOLLOW_UP_DELAYS_MS.map((delay) =>
-      window.setTimeout(() => {
-        void refreshAutoTitleSummary()
-          .then((done) => {
-            if (done) clearAutoTitleRefreshTimers();
-          })
-          .catch((error: unknown) => {
-            if (handleAuthError(error) || handleSessionGoneError(error)) {
-              clearAutoTitleRefreshTimers();
-            }
-          });
-      }, delay),
-    );
+    autoTitleRefreshStartedAtRef.current = Date.now();
+    scheduleNextAutoTitleRefresh(autoTitleRefreshGenerationRef.current);
   }
 
   function loadDetail(): void {

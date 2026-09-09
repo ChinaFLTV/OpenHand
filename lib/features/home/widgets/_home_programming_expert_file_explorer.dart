@@ -4968,16 +4968,22 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   void _findNext() {
     if (_findMatchOffsets.isEmpty) return;
-    final next = (_currentMatchIndex + 1) % _findMatchOffsets.length;
+    final next = moveTextMatchIndex(
+      currentIndex: _currentMatchIndex,
+      matchCount: _findMatchOffsets.length,
+      forward: true,
+    );
     setState(() => _currentMatchIndex = next);
     _selectMatch(next);
   }
 
   void _findPrevious() {
     if (_findMatchOffsets.isEmpty) return;
-    final prev =
-        (_currentMatchIndex - 1 + _findMatchOffsets.length) %
-        _findMatchOffsets.length;
+    final prev = moveTextMatchIndex(
+      currentIndex: _currentMatchIndex,
+      matchCount: _findMatchOffsets.length,
+      forward: false,
+    );
     setState(() => _currentMatchIndex = prev);
     _selectMatch(prev);
   }
@@ -4988,10 +4994,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (controller == null) return;
     final offset = _findMatchOffsets[index];
     final length = _findController.text.length;
-    controller.selection = TextSelection(
-      baseOffset: offset,
-      extentOffset: offset + length,
-    );
+    final end = math.min(offset + length, controller.text.length);
+    if (offset < 0 || end <= offset) return;
+    controller.selection = TextSelection(baseOffset: offset, extentOffset: end);
     _updateCursorPosition(controller);
     final focusNode = _focusNodes[widget.activeFilePath];
     focusNode?.requestFocus();
@@ -5009,7 +5014,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final findLen = _findController.text.length;
     final replaceText = _replaceController.text;
     final text = controller.text;
-    controller.text = text.replaceRange(offset, offset + findLen, replaceText);
+    final end = math.min(offset + findLen, text.length);
+    if (findLen == 0 || offset < 0 || end <= offset) return;
+    controller.text = text.replaceRange(offset, end, replaceText);
     controller.selection = TextSelection.collapsed(
       offset: offset + replaceText.length,
     );

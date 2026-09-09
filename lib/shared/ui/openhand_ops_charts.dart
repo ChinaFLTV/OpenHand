@@ -17,6 +17,7 @@ import 'animated_dialog.dart';
 import 'appear_once.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
+import 'openhand_anchored_popup_layout.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_table_metric_cells.dart';
 import 'openhand_table_pagination.dart';
@@ -332,7 +333,15 @@ Widget _buildChartTooltipOverlay({
           anchor: anchor,
         );
         return CustomSingleChildLayout(
-          delegate: _HeatmapHoverLayoutDelegate(metrics),
+          delegate: OpenHandAnchoredPopupLayoutDelegate(
+            safeRect: metrics.safeRect,
+            anchorRect: metrics.anchorRect,
+            placedAbove: metrics.placedAbove,
+            anchorGap: _kHeatmapHoverAnchorGap,
+            minWidth: metrics.minWidth,
+            maxWidth: metrics.maxWidth,
+            maxHeight: metrics.maxHeight,
+          ),
           child: MouseRegion(
             onEnter: (_) => onEnter(),
             onExit: (_) => onExit(),
@@ -4579,37 +4588,14 @@ class _HeatmapHoverMetrics {
     required Rect? anchor,
   }) {
     final padding = MediaQuery.paddingOf(context);
-    final width = overlaySize.width.isFinite && overlaySize.width > 0
-        ? overlaySize.width
-        : 0.0;
-    final height = overlaySize.height.isFinite && overlaySize.height > 0
-        ? overlaySize.height
-        : 0.0;
-    final left = (padding.left + _kHeatmapHoverViewportPadding)
-        .clamp(0, width)
-        .toDouble();
-    final top = (padding.top + _kHeatmapHoverViewportPadding)
-        .clamp(0, height)
-        .toDouble();
-    final right = math.max(
-      left,
-      width - padding.right - _kHeatmapHoverViewportPadding,
+    final safeRect = openHandOverlaySafeRect(
+      overlaySize: overlaySize,
+      safePadding: padding,
+      viewportPadding: _kHeatmapHoverViewportPadding,
     );
-    final bottom = math.max(
-      top,
-      height - padding.bottom - _kHeatmapHoverViewportPadding,
-    );
-    final safeRect = Rect.fromLTRB(left, top, right, bottom);
-    final overlayBox = Overlay.maybeOf(context)?.context.findRenderObject();
-    Rect anchorRect;
-    if (anchor == null) {
-      anchorRect = Rect.fromLTWH(safeRect.left, safeRect.top, 0, 0);
-    } else if (overlayBox is RenderBox && overlayBox.attached) {
-      final origin = overlayBox.localToGlobal(Offset.zero);
-      anchorRect = anchor.translate(-origin.dx, -origin.dy);
-    } else {
-      anchorRect = anchor;
-    }
+    final anchorRect = anchor == null
+        ? Rect.fromLTWH(safeRect.left, safeRect.top, 0, 0)
+        : openHandGlobalRectInOverlay(context, anchor);
     final belowHeight =
         safeRect.bottom - anchorRect.bottom - _kHeatmapHoverAnchorGap;
     final aboveHeight = anchorRect.top - safeRect.top - _kHeatmapHoverAnchorGap;
@@ -4635,61 +4621,6 @@ class _HeatmapHoverMetrics {
       maxWidth: maxWidth,
     );
   }
-}
-
-class _HeatmapHoverLayoutDelegate extends SingleChildLayoutDelegate {
-  const _HeatmapHoverLayoutDelegate(this.metrics);
-
-  final _HeatmapHoverMetrics metrics;
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    return BoxConstraints(
-      minWidth: metrics.minWidth,
-      maxWidth: metrics.maxWidth,
-      maxHeight: metrics.maxHeight,
-    );
-  }
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) {
-    final safe = metrics.safeRect;
-    final rawLeft = metrics.anchorRect.center.dx - childSize.width / 2;
-    final left = _clampHeatmapCoord(
-      rawLeft,
-      lower: safe.left,
-      upper: safe.right - childSize.width,
-    );
-    final rawTop = metrics.placedAbove
-        ? metrics.anchorRect.top - childSize.height - _kHeatmapHoverAnchorGap
-        : metrics.anchorRect.bottom + _kHeatmapHoverAnchorGap;
-    final top = _clampHeatmapCoord(
-      rawTop,
-      lower: safe.top,
-      upper: safe.bottom - childSize.height,
-    );
-    return Offset(left, top);
-  }
-
-  @override
-  bool shouldRelayout(covariant _HeatmapHoverLayoutDelegate oldDelegate) {
-    return oldDelegate.metrics.safeRect != metrics.safeRect ||
-        oldDelegate.metrics.anchorRect != metrics.anchorRect ||
-        oldDelegate.metrics.placedAbove != metrics.placedAbove ||
-        oldDelegate.metrics.maxHeight != metrics.maxHeight ||
-        oldDelegate.metrics.minWidth != metrics.minWidth ||
-        oldDelegate.metrics.maxWidth != metrics.maxWidth;
-  }
-}
-
-double _clampHeatmapCoord(
-  double value, {
-  required double lower,
-  required double upper,
-}) {
-  if (!value.isFinite) return lower;
-  if (upper <= lower) return lower;
-  return value.clamp(lower, upper);
 }
 
 class _HeatmapHoverCard extends StatelessWidget {

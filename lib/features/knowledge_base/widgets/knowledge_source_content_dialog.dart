@@ -377,16 +377,22 @@ class _KnowledgeSourceContentDialogState
 
   void _findNext() {
     if (_findMatchOffsets.isEmpty) return;
-    final next = (_currentMatchIndex + 1) % _findMatchOffsets.length;
+    final next = moveTextMatchIndex(
+      currentIndex: _currentMatchIndex,
+      matchCount: _findMatchOffsets.length,
+      forward: true,
+    );
     setState(() => _currentMatchIndex = next);
     _selectMatch(next);
   }
 
   void _findPrevious() {
     if (_findMatchOffsets.isEmpty) return;
-    final previous =
-        (_currentMatchIndex - 1 + _findMatchOffsets.length) %
-        _findMatchOffsets.length;
+    final previous = moveTextMatchIndex(
+      currentIndex: _currentMatchIndex,
+      matchCount: _findMatchOffsets.length,
+      forward: false,
+    );
     setState(() => _currentMatchIndex = previous);
     _selectMatch(previous);
   }
