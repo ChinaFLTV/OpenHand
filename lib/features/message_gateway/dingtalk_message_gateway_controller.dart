@@ -509,12 +509,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool get isRealtimeListening => _isPolling && _eventSubscription != null;
   bool get isPollingFallback => _isPolling && _usingPollingFallback;
   bool get isSending => _isSending;
-  int get respondingUserMessageCount =>
-      _activeResponseConversationIds.fold<int>(0, (count, conversationId) {
-        final contextCount =
-            _activeResponseContextMessageIds[conversationId]?.length ?? 0;
-        return count + math.max(1, contextCount);
-      });
+  /// 当前实际执行的回复任务数。历史上下文只参与生成，不能计作正在回复的消息。
+  int get activeResponseCount => _activeResponseConversationIds.length;
   int get unreadCount => _unreadCount;
   String? get errorMessage => _errorMessage;
   String? get warningMessage => _warningMessage;

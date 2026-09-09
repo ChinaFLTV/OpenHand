@@ -11661,7 +11661,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                 : cs.outline,
           ),
           _DingTalkResponseStatusPill(
-            respondingMessageCount: ding.respondingUserMessageCount,
+            activeResponseCount: ding.activeResponseCount,
           ),
           if (ding.warningMessage != null)
             OpenHandStatusPill(
@@ -11873,23 +11873,23 @@ class _DingTalkGatewayCard extends StatelessWidget {
 }
 
 class _DingTalkResponseStatusPill extends StatelessWidget {
-  const _DingTalkResponseStatusPill({required this.respondingMessageCount});
+  const _DingTalkResponseStatusPill({required this.activeResponseCount});
 
-  final int respondingMessageCount;
+  final int activeResponseCount;
 
   @override
   Widget build(BuildContext context) {
-    final responding = respondingMessageCount > 0;
+    final responding = activeResponseCount > 0;
     final colorScheme = Theme.of(context).colorScheme;
     final motionSettings = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.chip,
     );
     final label = responding
-        ? 'AI 正在回复 · $respondingMessageCount 条消息'
+        ? 'AI 正在回复 · $activeResponseCount 条消息'
         : 'AI 当前空闲';
     final pill = OpenHandStatusPill(
-      key: ValueKey<int>(respondingMessageCount),
+      key: ValueKey<int>(activeResponseCount),
       icon: responding
           ? Icons.auto_awesome_rounded
           : Icons.check_circle_outline_rounded,
