@@ -14618,14 +14618,34 @@ $tail''';
     required String? fallbackMessageId,
     required AiModelConfig model,
   }) {
-    final targetIds = targetMessageIds
-        .where((messageId) => messageId.isNotEmpty)
-        .toSet();
-    if (!session.messages.any((message) => targetIds.contains(message.id))) {
-      final fallback = fallbackMessageId?.trim() ?? '';
-      if (fallback.isNotEmpty) targetIds.add(fallback);
+    return _mergeTelemetryIntoMessages(
+      session: session,
+      metadata: metadata,
+      targetMessageIds: targetMessageIds,
+      fallbackMessageId: fallbackMessageId,
+      model: model,
+    );
+  }
+
+  AiSession _mergeTelemetryIntoMessages({
+    required AiSession session,
+    required Map<String, Object?> metadata,
+    required Iterable<String?> targetMessageIds,
+    required AiModelConfig model,
+    String? fallbackMessageId,
+  }) {
+    if (metadata.isEmpty) return session;
+    final targetIds = <String>{
+      for (final messageId in targetMessageIds)
+        if (messageId != null && messageId.isNotEmpty) messageId,
+    };
+    final fallback = fallbackMessageId?.trim() ?? '';
+    if (fallback.isNotEmpty &&
+        !session.messages.any((message) => targetIds.contains(message.id))) {
+      targetIds.add(fallback);
     }
-    if (targetIds.isEmpty || metadata.isEmpty) return session;
+    if (targetIds.isEmpty) return session;
+
     var changed = false;
     final messages = <AiSessionMessage>[];
     for (final message in session.messages) {
@@ -14642,8 +14662,28 @@ $tail''';
       );
       changed = true;
     }
-    if (!changed) return session;
-    return session.copyWith(messages: messages, updatedAt: _clock().toUtc());
+    return changed
+        ? session.copyWith(messages: messages, updatedAt: _clock().toUtc())
+        : session;
+  }
+
+  Map<String, Object?> _requestFallbackTelemetry(List<String> fallbacks) {
+    if (fallbacks.isEmpty) return const <String, Object?>{};
+    return <String, Object?>{
+      'request_fallbacks': fallbacks,
+      'cache_affinity_degraded': fallbacks.contains(
+        aiChatRequestFallbackCacheAffinityRejected,
+      ),
+      'cache_retention_degraded': fallbacks.contains(
+        aiChatRequestFallbackCacheRetentionRejected,
+      ),
+      'thinking_markers_degraded': fallbacks.contains(
+        aiChatRequestFallbackThinkingMarkersRejected,
+      ),
+      'responses_api_degraded': fallbacks.contains(
+        aiChatRequestFallbackResponsesUnsupported,
+      ),
+    };
   }
 
   /// 构建回合结束后合并到消息中的遥测元数据，并遵循全部遥测开关。
@@ -14667,21 +14707,7 @@ $tail''';
       if (result.requestMethod != null) 'request_method': result.requestMethod,
       if (result.requestHeaders != null && result.requestHeaders!.isNotEmpty)
         'request_headers': _redactTelemetryHeaders(result.requestHeaders!),
-      if (result.requestFallbacks.isNotEmpty) ...<String, Object?>{
-        'request_fallbacks': result.requestFallbacks,
-        'cache_affinity_degraded': result.requestFallbacks.contains(
-          aiChatRequestFallbackCacheAffinityRejected,
-        ),
-        'cache_retention_degraded': result.requestFallbacks.contains(
-          aiChatRequestFallbackCacheRetentionRejected,
-        ),
-        'thinking_markers_degraded': result.requestFallbacks.contains(
-          aiChatRequestFallbackThinkingMarkersRejected,
-        ),
-        'responses_api_degraded': result.requestFallbacks.contains(
-          aiChatRequestFallbackResponsesUnsupported,
-        ),
-      },
+      ..._requestFallbackTelemetry(result.requestFallbacks),
       if (result.requestBody != null)
         'request_payload': _sanitizeTelemetryMapPreservingOrder(
           result.requestBody!,
@@ -14737,22 +14763,9 @@ $tail''';
       if (telemetry?.requestHeaders != null &&
           telemetry!.requestHeaders!.isNotEmpty)
         'request_headers': _redactTelemetryHeaders(telemetry.requestHeaders!),
-      if (telemetry != null &&
-          telemetry.requestFallbacks.isNotEmpty) ...<String, Object?>{
-        'request_fallbacks': telemetry.requestFallbacks,
-        'cache_affinity_degraded': telemetry.requestFallbacks.contains(
-          aiChatRequestFallbackCacheAffinityRejected,
-        ),
-        'cache_retention_degraded': telemetry.requestFallbacks.contains(
-          aiChatRequestFallbackCacheRetentionRejected,
-        ),
-        'thinking_markers_degraded': telemetry.requestFallbacks.contains(
-          aiChatRequestFallbackThinkingMarkersRejected,
-        ),
-        'responses_api_degraded': telemetry.requestFallbacks.contains(
-          aiChatRequestFallbackResponsesUnsupported,
-        ),
-      },
+      ..._requestFallbackTelemetry(
+        telemetry?.requestFallbacks ?? const <String>[],
+      ),
       if (telemetry?.requestBody != null)
         'request_payload': _sanitizeTelemetryMapPreservingOrder(
           telemetry!.requestBody!,
@@ -14794,44 +14807,15 @@ $tail''';
       result: result,
       runtimeContext: runtimeContext,
     );
-    if (telemetry.isEmpty &&
-        userMessageId == null &&
-        assistantMessageId == null &&
-        reasoningMessageId == null) {
-      return session;
-    }
-    final targetIds = <String>{
-      if (userMessageId != null && userMessageId.isNotEmpty) userMessageId,
-      if (assistantMessageId != null && assistantMessageId.isNotEmpty)
+    return _mergeTelemetryIntoMessages(
+      session: session,
+      metadata: telemetry,
+      targetMessageIds: <String?>[
+        userMessageId,
         assistantMessageId,
-      if (reasoningMessageId != null && reasoningMessageId.isNotEmpty)
         reasoningMessageId,
-    };
-    if (targetIds.isEmpty) {
-      return session;
-    }
-    // 提示词数据已在流开始前写入，此处只补充响应相关数据。
-    final updatedMessages = <AiSessionMessage>[];
-    var changed = false;
-    for (final message in session.messages) {
-      if (!targetIds.contains(message.id)) {
-        updatedMessages.add(message);
-        continue;
-      }
-      final nextMetadata = <String, Object?>{...message.metadata, ...telemetry};
-      updatedMessages.add(
-        message.copyWith(
-          metadata: nextMetadata,
-          modelId: message.modelId ?? model.id,
-          modelLabel: message.modelLabel ?? model.displayName,
-        ),
-      );
-      changed = true;
-    }
-    if (!changed) return session;
-    return session.copyWith(
-      messages: updatedMessages,
-      updatedAt: _clock().toUtc(),
+      ],
+      model: model,
     );
   }
 
@@ -14904,36 +14888,15 @@ $tail''';
       error: error,
       runtimeContext: runtimeContext,
     );
-    final targetIds = <String>{
-      if (userMessageId != null && userMessageId.isNotEmpty) userMessageId,
-      if (assistantMessageId != null && assistantMessageId.isNotEmpty)
+    return _mergeTelemetryIntoMessages(
+      session: session,
+      metadata: telemetry,
+      targetMessageIds: <String?>[
+        userMessageId,
         assistantMessageId,
-      if (reasoningMessageId != null && reasoningMessageId.isNotEmpty)
         reasoningMessageId,
-    };
-    if (targetIds.isEmpty) {
-      return session;
-    }
-    final updatedMessages = <AiSessionMessage>[];
-    var changed = false;
-    for (final message in session.messages) {
-      if (!targetIds.contains(message.id)) {
-        updatedMessages.add(message);
-        continue;
-      }
-      updatedMessages.add(
-        message.copyWith(
-          metadata: <String, Object?>{...message.metadata, ...telemetry},
-          modelId: message.modelId ?? model.id,
-          modelLabel: message.modelLabel ?? model.displayName,
-        ),
-      );
-      changed = true;
-    }
-    if (!changed) return session;
-    return session.copyWith(
-      messages: updatedMessages,
-      updatedAt: _clock().toUtc(),
+      ],
+      model: model,
     );
   }
 
@@ -14992,21 +14955,7 @@ $tail''';
       if (telemetry.requestHeaders != null &&
           telemetry.requestHeaders!.isNotEmpty)
         'request_headers': _redactTelemetryHeaders(telemetry.requestHeaders!),
-      if (telemetry.requestFallbacks.isNotEmpty) ...<String, Object?>{
-        'request_fallbacks': telemetry.requestFallbacks,
-        'cache_affinity_degraded': telemetry.requestFallbacks.contains(
-          aiChatRequestFallbackCacheAffinityRejected,
-        ),
-        'cache_retention_degraded': telemetry.requestFallbacks.contains(
-          aiChatRequestFallbackCacheRetentionRejected,
-        ),
-        'thinking_markers_degraded': telemetry.requestFallbacks.contains(
-          aiChatRequestFallbackThinkingMarkersRejected,
-        ),
-        'responses_api_degraded': telemetry.requestFallbacks.contains(
-          aiChatRequestFallbackResponsesUnsupported,
-        ),
-      },
+      ..._requestFallbackTelemetry(telemetry.requestFallbacks),
       if (telemetry.requestBody != null) ...<String, Object?>{
         ..._cacheControlTelemetry(telemetry.requestBody!),
         ..._cacheAffinityTelemetry(
@@ -15052,29 +15001,11 @@ $tail''';
           maxChars: runtimeContext.telemetryMaxPayloadChars,
         ),
     };
-    if (metadata.isEmpty || messageId.isEmpty) {
-      return session;
-    }
-    final updatedMessages = <AiSessionMessage>[];
-    var changed = false;
-    for (final message in session.messages) {
-      if (message.id != messageId) {
-        updatedMessages.add(message);
-        continue;
-      }
-      updatedMessages.add(
-        message.copyWith(
-          metadata: <String, Object?>{...message.metadata, ...metadata},
-          modelId: message.modelId ?? model.id,
-          modelLabel: message.modelLabel ?? model.displayName,
-        ),
-      );
-      changed = true;
-    }
-    if (!changed) return session;
-    return session.copyWith(
-      messages: updatedMessages,
-      updatedAt: _clock().toUtc(),
+    return _mergeTelemetryIntoMessages(
+      session: session,
+      metadata: metadata,
+      targetMessageIds: <String>[messageId],
+      model: model,
     );
   }
 

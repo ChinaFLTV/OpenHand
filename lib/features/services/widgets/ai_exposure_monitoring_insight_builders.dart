@@ -82,6 +82,36 @@ List<AiExposureHistoryEntry> _chronologicalTasks(
     .reversed
     .toList(growable: false);
 
+List<_DistributionItem> _archiveDistributionItems(
+  ServicesController controller,
+  ColorScheme colors,
+) => <_DistributionItem>[
+  _DistributionItem(
+    '任务',
+    controller.history.length,
+    colors.primary,
+    key: _DistributionRecordType.task,
+  ),
+  _DistributionItem(
+    '结果',
+    controller.results.length,
+    OpenHandStatusColors.info,
+    key: _DistributionRecordType.result,
+  ),
+  _DistributionItem(
+    '规则',
+    controller.rules.length,
+    colors.tertiary,
+    key: _DistributionRecordType.rule,
+  ),
+  _DistributionItem(
+    '日志',
+    controller.logs.length,
+    colors.secondary,
+    key: _DistributionRecordType.log,
+  ),
+];
+
 Widget _buildOverviewMetricInsight(
   BuildContext context,
   _MetricInsightId id,
@@ -3314,32 +3344,7 @@ Widget _archiveGrowthTrendInsight(
     _InsightDonutSection(
       title: '当前归档记录构成',
       icon: Icons.pie_chart_outline_rounded,
-      items: [
-        _DistributionItem(
-          '任务',
-          controller.history.length,
-          colors.primary,
-          key: _DistributionRecordType.task,
-        ),
-        _DistributionItem(
-          '结果',
-          controller.results.length,
-          OpenHandStatusColors.info,
-          key: _DistributionRecordType.result,
-        ),
-        _DistributionItem(
-          '规则',
-          controller.rules.length,
-          colors.tertiary,
-          key: _DistributionRecordType.rule,
-        ),
-        _DistributionItem(
-          '日志',
-          controller.logs.length,
-          colors.secondary,
-          key: _DistributionRecordType.log,
-        ),
-      ],
+      items: _archiveDistributionItems(controller, colors),
       detailBuilder: (context, item) => switch (item.key) {
         _DistributionRecordType.task => _metricTaskPanel(
           controller.history,
@@ -4517,32 +4522,7 @@ Widget _recordTypeDistributionInsight(
         _InsightDonutSection(
           title: '记录类型构成',
           icon: Icons.pie_chart_outline_rounded,
-          items: [
-            _DistributionItem(
-              '任务',
-              controller.history.length,
-              colors.primary,
-              key: _DistributionRecordType.task,
-            ),
-            _DistributionItem(
-              '结果',
-              controller.results.length,
-              OpenHandStatusColors.info,
-              key: _DistributionRecordType.result,
-            ),
-            _DistributionItem(
-              '规则',
-              controller.rules.length,
-              colors.tertiary,
-              key: _DistributionRecordType.rule,
-            ),
-            _DistributionItem(
-              '日志',
-              controller.logs.length,
-              colors.secondary,
-              key: _DistributionRecordType.log,
-            ),
-          ],
+          items: _archiveDistributionItems(controller, colors),
           detailBuilder: (context, item) => switch (item.key) {
             _DistributionRecordType.task => _metricTaskPanel(
               controller.history,

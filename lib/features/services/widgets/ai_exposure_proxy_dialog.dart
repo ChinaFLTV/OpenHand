@@ -2476,6 +2476,27 @@ class _ProxyAverageResponseTrendChart extends StatelessWidget {
   }
 }
 
+({int requests, int successes, int failures, int timeouts, int completed})
+_aggregateProxyUsage(Iterable<AiExposureProxyUsageStatistics> statistics) {
+  var requests = 0;
+  var successes = 0;
+  var failures = 0;
+  var timeouts = 0;
+  for (final item in statistics) {
+    requests += item.requests;
+    successes += item.successes;
+    failures += item.failures;
+    timeouts += item.timeouts;
+  }
+  return (
+    requests: requests,
+    successes: successes,
+    failures: failures,
+    timeouts: timeouts,
+    completed: successes + failures + timeouts,
+  );
+}
+
 class _ProxyPoolOverview extends StatelessWidget {
   const _ProxyPoolOverview({
     required this.endpoints,
@@ -2498,23 +2519,8 @@ class _ProxyPoolOverview extends StatelessWidget {
               statusStatistics[endpoint.runtimeId] ?? endpoint.statistics,
         )
         .toList(growable: false);
-    final requests = statistics.fold<int>(
-      0,
-      (sum, item) => sum + item.requests,
-    );
-    final successes = statistics.fold<int>(
-      0,
-      (sum, item) => sum + item.successes,
-    );
-    final failures = statistics.fold<int>(
-      0,
-      (sum, item) => sum + item.failures,
-    );
-    final timeouts = statistics.fold<int>(
-      0,
-      (sum, item) => sum + item.timeouts,
-    );
-    final completed = successes + failures + timeouts;
+    final (:requests, :successes, :failures, :timeouts, :completed) =
+        _aggregateProxyUsage(statistics);
     final responseTime = statistics.fold<int>(
       0,
       (sum, item) => sum + item.totalResponseTimeMs,
@@ -2950,23 +2956,8 @@ class _ProxyRequestTelemetryDialogState
           (endpoint) => statusById[endpoint.runtimeId] ?? endpoint.statistics,
         )
         .toList(growable: false);
-    final requests = statistics.fold<int>(
-      0,
-      (sum, item) => sum + item.requests,
-    );
-    final successes = statistics.fold<int>(
-      0,
-      (sum, item) => sum + item.successes,
-    );
-    final failures = statistics.fold<int>(
-      0,
-      (sum, item) => sum + item.failures,
-    );
-    final timeouts = statistics.fold<int>(
-      0,
-      (sum, item) => sum + item.timeouts,
-    );
-    final completed = successes + failures + timeouts;
+    final (:requests, :successes, :failures, :timeouts, :completed) =
+        _aggregateProxyUsage(statistics);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),

@@ -11885,9 +11885,7 @@ class _DingTalkResponseStatusPill extends StatelessWidget {
       context,
       OpenHandMotionSettingsScope.chip,
     );
-    final label = responding
-        ? 'AI 正在回复 · $activeResponseCount 条消息'
-        : 'AI 当前空闲';
+    final label = responding ? 'AI 正在回复 · $activeResponseCount 条消息' : 'AI 当前空闲';
     final pill = OpenHandStatusPill(
       key: ValueKey<int>(activeResponseCount),
       icon: responding
@@ -23305,111 +23303,62 @@ class _DingTalkTargetAllowlistField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(kOpenHandRadius17),
-      shadowColor: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: kOpenHandBorderRadius12,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(9),
-                    child: Icon(
-                      icon,
-                      size: 20,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-                kOpenHandHGap11,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: theme.textTheme.titleSmall),
-                      kOpenHandGap3,
-                      Text(
-                        subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: onAdd,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: Text(addLabel),
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    shadowColor: Colors.transparent,
-                  ),
-                ),
-              ],
-            ),
-            kOpenHandGap11,
-            if (targets.isEmpty)
-              Text(
-                emptyLabel,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              )
-            else
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: [
-                  ...targets
-                      .take(6)
-                      .map(
-                        (target) => ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 220),
-                          child: InputChip(
-                            label: Text(
-                              target.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            avatar: Icon(
-                              target.type == DingTalkConversationType.group
-                                  ? Icons.groups_rounded
-                                  : Icons.person_rounded,
-                              size: 17,
-                            ),
-                            onDeleted: () => onRemove(target),
-                            deleteIcon: const Icon(
-                              Icons.close_rounded,
-                              size: 16,
-                            ),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                      ),
-                  if (targets.length > 6)
-                    InputChip(
-                      label: Text('+${targets.length - 6}'),
-                      onPressed: onAdd,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                ],
-              ),
-          ],
+    return _DingTalkSettingsCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      trailing: FilledButton.tonalIcon(
+        onPressed: onAdd,
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: Text(addLabel),
+        style: FilledButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          shadowColor: Colors.transparent,
         ),
       ),
+      child: targets.isEmpty
+          ? Text(
+              emptyLabel,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          : Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                ...targets
+                    .take(6)
+                    .map(
+                      (target) => ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 220),
+                        child: InputChip(
+                          label: Text(
+                            target.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          avatar: Icon(
+                            target.type == DingTalkConversationType.group
+                                ? Icons.groups_rounded
+                                : Icons.person_rounded,
+                            size: 17,
+                          ),
+                          onDeleted: () => onRemove(target),
+                          deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ),
+                if (targets.length > 6)
+                  InputChip(
+                    label: Text('+${targets.length - 6}'),
+                    onPressed: onAdd,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+              ],
+            ),
     );
   }
 }

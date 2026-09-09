@@ -4484,8 +4484,6 @@ class _McpOpsConsoleHeader extends StatelessWidget {
         (snapshot.lifecycle == McpOpsLifecycleState.running ||
             snapshot.lifecycle == McpOpsLifecycleState.starting ||
             snapshot.lifecycle == McpOpsLifecycleState.restarting);
-    final showsBindEndpoint = bindEndpointUri != endpointUri;
-    final showsLocalEndpoint = localEndpointUri != endpointUri;
     final wildcardListen = mcpOpsIsWildcardHost(config.listenHost);
     final configMessageText = configMessage?.trim() ?? '';
     return Column(
@@ -4511,50 +4509,13 @@ class _McpOpsConsoleHeader extends StatelessWidget {
               color: statusColor,
               pulse: running,
             ),
-            _McpOpsStatusChip(
-              icon: Icons.link_rounded,
-              label: showsLocalEndpoint
-                  ? _localizedText(
-                      context,
-                      zh: '对外 $endpointUri',
-                      en: 'External $endpointUri',
-                    )
-                  : endpointUri,
-              color: cs.primary,
-              monospace: true,
+            ..._mcpOpsEndpointStatusChips(
+              context,
+              endpointUri: endpointUri,
+              localEndpointUri: localEndpointUri,
+              bindEndpointUri: bindEndpointUri,
+              showLanWarning: wildcardListen && discoveredHosts.isEmpty,
             ),
-            if (showsLocalEndpoint)
-              _McpOpsStatusChip(
-                icon: Icons.home_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '本机 $localEndpointUri',
-                  en: 'Local $localEndpointUri',
-                ),
-                color: cs.tertiary,
-                monospace: true,
-              ),
-            if (showsBindEndpoint)
-              _McpOpsStatusChip(
-                icon: Icons.settings_ethernet_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '监听 $bindEndpointUri',
-                  en: 'Bind $bindEndpointUri',
-                ),
-                color: cs.onSurfaceVariant,
-                monospace: true,
-              ),
-            if (wildcardListen && discoveredHosts.isEmpty)
-              _McpOpsStatusChip(
-                icon: Icons.warning_amber_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '未发现局域网地址',
-                  en: 'No LAN address detected',
-                ),
-                color: Colors.amber.shade700,
-              ),
             _McpOpsStatusChip(
               icon: Icons.speed_rounded,
               label: config.rpmLimit <= 0 ? 'RPM ∞' : 'RPM ${config.rpmLimit}',
@@ -5326,8 +5287,6 @@ class _McpOpsHeroPanel extends StatelessWidget {
     );
     final localEndpointUri = mcpOpsClientEndpointUri(snapshot, config);
     final bindEndpointUri = mcpOpsBindEndpointUri(snapshot, config);
-    final showsLocalEndpoint = localEndpointUri != endpointUri;
-    final showsBindEndpoint = bindEndpointUri != endpointUri;
     final wildcardListen = mcpOpsIsWildcardHost(config.listenHost);
     return _McpOpsPanel(
       icon: running ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
@@ -5348,50 +5307,13 @@ class _McpOpsHeroPanel extends StatelessWidget {
                 color: tone,
                 pulse: running,
               ),
-              _McpOpsStatusChip(
-                icon: Icons.link_rounded,
-                label: showsLocalEndpoint
-                    ? _localizedText(
-                        context,
-                        zh: '对外 $endpointUri',
-                        en: 'External $endpointUri',
-                      )
-                    : endpointUri,
-                color: cs.primary,
-                monospace: true,
+              ..._mcpOpsEndpointStatusChips(
+                context,
+                endpointUri: endpointUri,
+                localEndpointUri: localEndpointUri,
+                bindEndpointUri: bindEndpointUri,
+                showLanWarning: wildcardListen && discoveredHosts.isEmpty,
               ),
-              if (showsLocalEndpoint)
-                _McpOpsStatusChip(
-                  icon: Icons.home_rounded,
-                  label: _localizedText(
-                    context,
-                    zh: '本机 $localEndpointUri',
-                    en: 'Local $localEndpointUri',
-                  ),
-                  color: cs.tertiary,
-                  monospace: true,
-                ),
-              if (showsBindEndpoint)
-                _McpOpsStatusChip(
-                  icon: Icons.settings_ethernet_rounded,
-                  label: _localizedText(
-                    context,
-                    zh: '监听 $bindEndpointUri',
-                    en: 'Bind $bindEndpointUri',
-                  ),
-                  color: cs.onSurfaceVariant,
-                  monospace: true,
-                ),
-              if (wildcardListen && discoveredHosts.isEmpty)
-                _McpOpsStatusChip(
-                  icon: Icons.warning_amber_rounded,
-                  label: _localizedText(
-                    context,
-                    zh: '未发现局域网地址',
-                    en: 'No LAN address detected',
-                  ),
-                  color: Colors.amber.shade700,
-                ),
               _McpOpsStatusChip(
                 icon: Icons.schedule_rounded,
                 color: cs.tertiary,
@@ -9024,6 +8946,63 @@ class _McpOpsApprovalPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+List<Widget> _mcpOpsEndpointStatusChips(
+  BuildContext context, {
+  required String endpointUri,
+  required String localEndpointUri,
+  required String bindEndpointUri,
+  required bool showLanWarning,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  final showsLocalEndpoint = localEndpointUri != endpointUri;
+  return [
+    _McpOpsStatusChip(
+      icon: Icons.link_rounded,
+      label: showsLocalEndpoint
+          ? _localizedText(
+              context,
+              zh: '对外 $endpointUri',
+              en: 'External $endpointUri',
+            )
+          : endpointUri,
+      color: cs.primary,
+      monospace: true,
+    ),
+    if (showsLocalEndpoint)
+      _McpOpsStatusChip(
+        icon: Icons.home_rounded,
+        label: _localizedText(
+          context,
+          zh: '本机 $localEndpointUri',
+          en: 'Local $localEndpointUri',
+        ),
+        color: cs.tertiary,
+        monospace: true,
+      ),
+    if (bindEndpointUri != endpointUri)
+      _McpOpsStatusChip(
+        icon: Icons.settings_ethernet_rounded,
+        label: _localizedText(
+          context,
+          zh: '监听 $bindEndpointUri',
+          en: 'Bind $bindEndpointUri',
+        ),
+        color: cs.onSurfaceVariant,
+        monospace: true,
+      ),
+    if (showLanWarning)
+      _McpOpsStatusChip(
+        icon: Icons.warning_amber_rounded,
+        label: _localizedText(
+          context,
+          zh: '未发现局域网地址',
+          en: 'No LAN address detected',
+        ),
+        color: Colors.amber.shade700,
+      ),
+  ];
 }
 
 class _McpOpsStatusChip extends StatelessWidget {

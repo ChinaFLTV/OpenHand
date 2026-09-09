@@ -1737,38 +1737,12 @@ class AiModelProxyHttpServer {
     List<Map<String, Object?>> models,
     Map<String, String> query,
   ) {
-    final result = List<Map<String, Object?>>.of(models);
-    if (_readString(query['order']).toLowerCase() == 'desc') {
-      result.setAll(0, result.reversed.toList(growable: false));
-    }
-    final before = _readString(query['before']);
-    final after = _readString(query['after']);
-    var start = 0;
-    var end = result.length;
-    if (after.isNotEmpty) {
-      final index = result.indexWhere(
-        (model) => _readString(model['id']) == after,
-      );
-      if (index >= 0) start = index + 1;
-    }
-    if (before.isNotEmpty) {
-      final index = result.indexWhere(
-        (model) => _readString(model['id']) == before,
-      );
-      if (index >= 0) end = index;
-    }
-    if (start > end) {
-      return (models: const <Map<String, Object?>>[], hasMore: false);
-    }
-    final pageSize = _queryInt(query['limit'], fallback: 100, max: 100);
-    final pageEnd = (start + pageSize).clamp(start, end);
-    return (
-      models: result
-          .skip(start)
-          .take(end - start)
-          .take(pageSize)
-          .toList(growable: false),
-      hasMore: pageEnd < end,
+    return _paginateCursorModels(
+      models,
+      after: _readString(query['after']),
+      before: _readString(query['before']),
+      limit: _queryInt(query['limit'], fallback: 100, max: 100),
+      descending: _readString(query['order']).toLowerCase() == 'desc',
     );
   }
 
@@ -1776,9 +1750,24 @@ class AiModelProxyHttpServer {
     List<Map<String, Object?>> models,
     Map<String, String> query,
   ) {
-    final result = List<Map<String, Object?>>.of(models);
-    final after = _readString(query['after_id']);
-    final before = _readString(query['before_id']);
+    return _paginateCursorModels(
+      models,
+      after: _readString(query['after_id']),
+      before: _readString(query['before_id']),
+      limit: _queryInt(query['limit'], fallback: 20, max: 1000),
+    );
+  }
+
+  ({List<Map<String, Object?>> models, bool hasMore}) _paginateCursorModels(
+    List<Map<String, Object?>> models, {
+    required String after,
+    required String before,
+    required int limit,
+    bool descending = false,
+  }) {
+    final result = descending
+        ? models.reversed.toList(growable: false)
+        : List<Map<String, Object?>>.of(models);
     var start = 0;
     var end = result.length;
     if (after.isNotEmpty) {
@@ -1796,7 +1785,6 @@ class AiModelProxyHttpServer {
     if (start > end) {
       return (models: const <Map<String, Object?>>[], hasMore: false);
     }
-    final limit = _queryInt(query['limit'], fallback: 20, max: 1000);
     final pageEnd = (start + limit).clamp(start, end);
     return (
       models: result
