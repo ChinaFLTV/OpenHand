@@ -6,7 +6,7 @@ import {
   stringFromUnknown,
 } from './value';
 
-export interface KnowledgeBaseUsageMatchOptions {
+interface KnowledgeBaseUsageMatchOptions {
   hitKey?: (hit: Record<string, unknown>) => string;
   coerceValues?: boolean;
 }
@@ -35,7 +35,7 @@ const KNOWLEDGE_USAGE_TERM_KEYS = [
 
 const KNOWLEDGE_USAGE_TEXT_KEYS = ['preview', 'content'] as const;
 
-export function knowledgeBaseResultsUsedByAnswer(
+function knowledgeBaseResultsUsedByAnswer(
   results: Record<string, unknown>[],
   answerText: string,
   { hitKey, coerceValues = false }: KnowledgeBaseUsageMatchOptions = {},

@@ -13564,9 +13564,10 @@ class _HighlightingTextController extends TextEditingController {
         _cachedCursorLine = _lineIndexForOffset(
           selection.baseOffset.clamp(0, text.length),
         );
-        if (_cachedCursorLine < _viewportStartLine + _viewportBufferLines ||
-            _cachedCursorLine > _viewportEndLine - _viewportBufferLines) {
-        } else {
+        final cursorInsideBufferedViewport =
+            _cachedCursorLine >= _viewportStartLine + _viewportBufferLines &&
+            _cachedCursorLine <= _viewportEndLine - _viewportBufferLines;
+        if (cursorInsideBufferedViewport) {
           return _cachedSpan!;
         }
       } else {

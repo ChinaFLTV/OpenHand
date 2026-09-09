@@ -825,6 +825,8 @@ class _InlineDiffPill extends StatelessWidget {
     required this.backgroundColor,
     required this.foregroundColor,
     this.onTap,
+    this.padding = const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    this.letterSpacing,
   });
 
   final String label;
@@ -832,11 +834,13 @@ class _InlineDiffPill extends StatelessWidget {
   final Color backgroundColor;
   final Color foregroundColor;
   final VoidCallback? onTap;
+  final EdgeInsetsGeometry padding;
+  final double? letterSpacing;
 
   @override
   Widget build(BuildContext context) {
     final child = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: padding,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -847,6 +851,7 @@ class _InlineDiffPill extends StatelessWidget {
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: foregroundColor,
               fontWeight: FontWeight.w700,
+              letterSpacing: letterSpacing,
             ),
           ),
         ],
@@ -2714,39 +2719,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     required Color foregroundColor,
     VoidCallback? onTap,
   }) {
-    final theme = Theme.of(context);
-    final child = Padding(
+    return _InlineDiffPill(
+      label: label,
+      icon: icon,
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      onTap: onTap,
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: foregroundColor),
-          kOpenHandHGap6,
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: foregroundColor,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
-      ),
-    );
-    final decoration = BoxDecoration(
-      color: backgroundColor,
-      borderRadius: kOpenHandPillBorderRadius,
-    );
-    if (onTap == null) {
-      return DecoratedBox(decoration: decoration, child: child);
-    }
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: kOpenHandPillBorderRadius,
-        child: Ink(decoration: decoration, child: child),
-      ),
+      letterSpacing: 0.2,
     );
   }
 

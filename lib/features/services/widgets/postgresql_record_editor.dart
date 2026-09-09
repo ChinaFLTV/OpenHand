@@ -80,6 +80,53 @@ Future<Map<String, Object?>?> showPostgresqlRecordEditor(
   ),
 );
 
+class _PostgresqlDialogFooter extends StatelessWidget {
+  const _PostgresqlDialogFooter({
+    required this.error,
+    required this.primaryLabel,
+    required this.onSubmit,
+  });
+
+  final String? error;
+  final String primaryLabel;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OpenHandVerticalRevealSwitcher(
+          presentKey: ValueKey<String>('postgresql-dialog-error-$error'),
+          child: error == null
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(error!, style: TextStyle(color: colors.error)),
+                ),
+        ),
+        kOpenHandGap14,
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(context).maybePop(),
+              label: '取消',
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: onSubmit,
+              label: primaryLabel,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _PostgresqlRecordEditor extends StatefulWidget {
   const _PostgresqlRecordEditor({
     required this.title,
@@ -269,30 +316,10 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
               ),
             ),
           ),
-          OpenHandVerticalRevealSwitcher(
-            presentKey: ValueKey<String>('postgres-editor-error-$_error'),
-            child: _error == null
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(_error!, style: TextStyle(color: colors.error)),
-                  ),
-          ),
-          kOpenHandGap14,
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              OpenHandDialogActionButton.secondary(
-                onPressed: () => Navigator.of(context).maybePop(),
-                label: '取消',
-              ),
-              OpenHandDialogActionButton.primary(
-                onPressed: _submit,
-                label: _editing ? '保存修改' : '新增记录',
-              ),
-            ],
+          _PostgresqlDialogFooter(
+            error: _error,
+            primaryLabel: _editing ? '保存修改' : '新增记录',
+            onSubmit: _submit,
           ),
         ],
       ),
@@ -1061,30 +1088,10 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
           ),
           kOpenHandGap12,
           Expanded(child: _buildDraftList(context)),
-          OpenHandVerticalRevealSwitcher(
-            presentKey: ValueKey<String>('postgres-json-error-$_error'),
-            child: _error == null
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(_error!, style: TextStyle(color: colors.error)),
-                  ),
-          ),
-          kOpenHandGap14,
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              OpenHandDialogActionButton.secondary(
-                onPressed: () => Navigator.of(context).maybePop(),
-                label: '取消',
-              ),
-              OpenHandDialogActionButton.primary(
-                onPressed: _submit,
-                label: '应用结构',
-              ),
-            ],
+          _PostgresqlDialogFooter(
+            error: _error,
+            primaryLabel: '应用结构',
+            onSubmit: _submit,
           ),
         ],
       ),

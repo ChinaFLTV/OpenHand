@@ -3545,6 +3545,37 @@ abstract final class OfflineSpeechModelCatalog {
     ),
   ];
 
+  static const _funAsrParameters = <OfflineSpeechParameter>[
+    ..._asrCommon,
+    ..._generation,
+    OfflineSpeechParameter(
+      key: 'chunk_ms',
+      label: '流式分块',
+      description: '每次送入模型的音频毫秒数。',
+      type: OfflineSpeechParameterType.integer,
+      defaultValue: 720,
+      min: 160,
+      max: 5000,
+    ),
+    OfflineSpeechParameter(
+      key: 'batch_size_s',
+      label: '批处理音频秒数',
+      description: '长音频批处理窗口。',
+      type: OfflineSpeechParameterType.integer,
+      defaultValue: 60,
+      min: 1,
+      max: 600,
+    ),
+    OfflineSpeechParameter(
+      key: 'dtype',
+      label: '计算精度',
+      description: '降低精度可节省显存。',
+      type: OfflineSpeechParameterType.choice,
+      defaultValue: 'auto',
+      options: _dtype,
+    ),
+  ];
+
   static const _funAsrModels = <OfflineSpeechModelDefinition>[
     OfflineSpeechModelDefinition(
       id: 'fun-asr-nano',
@@ -3554,36 +3585,7 @@ abstract final class OfflineSpeechModelCatalog {
       repository: 'FunAudioLLM/Fun-ASR-Nano-2512',
       sizeLabel: '约 2.5 GB',
       description: '针对中文、方言、口音、远场和噪声环境优化。',
-      parameters: <OfflineSpeechParameter>[
-        ..._asrCommon,
-        ..._generation,
-        OfflineSpeechParameter(
-          key: 'chunk_ms',
-          label: '流式分块',
-          description: '每次送入模型的音频毫秒数。',
-          type: OfflineSpeechParameterType.integer,
-          defaultValue: 720,
-          min: 160,
-          max: 5000,
-        ),
-        OfflineSpeechParameter(
-          key: 'batch_size_s',
-          label: '批处理音频秒数',
-          description: '长音频批处理窗口。',
-          type: OfflineSpeechParameterType.integer,
-          defaultValue: 60,
-          min: 1,
-          max: 600,
-        ),
-        OfflineSpeechParameter(
-          key: 'dtype',
-          label: '计算精度',
-          description: '降低精度可节省显存。',
-          type: OfflineSpeechParameterType.choice,
-          defaultValue: 'auto',
-          options: _dtype,
-        ),
-      ],
+      parameters: _funAsrParameters,
     ),
     OfflineSpeechModelDefinition(
       id: 'fun-asr-mlt-nano',
@@ -3593,36 +3595,7 @@ abstract final class OfflineSpeechModelCatalog {
       repository: 'FunAudioLLM/Fun-ASR-MLT-Nano-2512',
       sizeLabel: '约 2.5 GB',
       description: '覆盖 31 种语言的多语言版本。',
-      parameters: <OfflineSpeechParameter>[
-        ..._asrCommon,
-        ..._generation,
-        OfflineSpeechParameter(
-          key: 'chunk_ms',
-          label: '流式分块',
-          description: '每次送入模型的音频毫秒数。',
-          type: OfflineSpeechParameterType.integer,
-          defaultValue: 720,
-          min: 160,
-          max: 5000,
-        ),
-        OfflineSpeechParameter(
-          key: 'batch_size_s',
-          label: '批处理音频秒数',
-          description: '长音频批处理窗口。',
-          type: OfflineSpeechParameterType.integer,
-          defaultValue: 60,
-          min: 1,
-          max: 600,
-        ),
-        OfflineSpeechParameter(
-          key: 'dtype',
-          label: '计算精度',
-          description: '降低精度可节省显存。',
-          type: OfflineSpeechParameterType.choice,
-          defaultValue: 'auto',
-          options: _dtype,
-        ),
-      ],
+      parameters: _funAsrParameters,
     ),
   ];
 

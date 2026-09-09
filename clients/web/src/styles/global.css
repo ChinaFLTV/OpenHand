@@ -10431,8 +10431,7 @@ button.oh-composer-pill:not(:disabled):hover {
   user-select: text;
 }
 
-.oh-trajectory-metric-grid dd.is-error,
-.oh-trajectory-detail-text.is-error { color: var(--trajectory-error); }
+.oh-trajectory-metric-grid dd.is-error { color: var(--trajectory-error); }
 
 .oh-trajectory-metric-grid > div[data-error="true"] {
   border-color: color-mix(in srgb, var(--m3-error) 34%, var(--m3-outline-variant));
@@ -10536,16 +10535,6 @@ button.oh-composer-pill:not(:disabled):hover {
   fill: var(--m3-tertiary);
   stroke: var(--m3-tertiary);
   stroke-width: 1.35;
-}
-
-.oh-trajectory-detail-text {
-  margin: 0;
-  color: var(--m3-on-surface);
-  font: 10.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  overflow-wrap: anywhere;
-  tab-size: 2;
-  white-space: pre-wrap;
-  user-select: text;
 }
 
 .oh-trajectory-detail-empty {

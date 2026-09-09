@@ -204,11 +204,10 @@ export function getResourceUsage(
 }
 
 export type ResourceUsagePayloadField = 'arguments' | 'result' | 'metadata';
-export type ResourceUsagePayloadOrigin = 'stored' | 'persisted' | 'recovered' | 'truncated';
 
-export interface ResourceUsagePayload {
+interface ResourceUsagePayload {
   text: string;
-  origin: ResourceUsagePayloadOrigin;
+  origin: 'stored' | 'persisted' | 'recovered' | 'truncated';
 }
 
 export function getResourceUsagePayload(

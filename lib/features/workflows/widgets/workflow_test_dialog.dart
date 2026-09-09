@@ -38,6 +38,38 @@ typedef _WorkflowTestOutputEntry = ({
   String? description,
 });
 
+Widget _workflowTestCopyButton(
+  BuildContext context, {
+  required String tooltip,
+  required Object? value,
+  required String logAction,
+  required String successMessage,
+}) {
+  final colors = Theme.of(context).colorScheme;
+  return IconButton(
+    tooltip: tooltip,
+    onPressed: () => unawaited(
+      copyOpenHandTextToClipboard(
+        context: context,
+        text: _serializeOutputValue(value),
+        logTag: 'workflow_test_result',
+        logAction: logAction,
+        successMessage: successMessage,
+        replaceCurrentSnack: true,
+      ),
+    ),
+    style: IconButton.styleFrom(
+      fixedSize: const Size.square(_workflowTestCopyButtonSize),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      foregroundColor: colors.primary,
+      backgroundColor: colors.primaryContainer.withValues(alpha: 0.5),
+      shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
+    ),
+    icon: const Icon(Icons.content_copy_rounded, size: 16),
+  );
+}
+
 class WorkflowTestNodeReport {
   const WorkflowTestNodeReport({required this.node, required this.event});
 
@@ -1382,29 +1414,12 @@ class _WorkflowTestStructuredTableRow extends StatelessWidget {
               style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
             ),
           ),
-          IconButton(
+          _workflowTestCopyButton(
+            context,
             tooltip: copyTooltip,
-            onPressed: () => unawaited(
-              copyOpenHandTextToClipboard(
-                context: context,
-                text: _serializeOutputValue(row.value),
-                logTag: 'workflow_test_result',
-                logAction: '复制结构化参数',
-                successMessage: '已复制参数“$copyName”',
-                replaceCurrentSnack: true,
-              ),
-            ),
-            style: IconButton.styleFrom(
-              fixedSize: const Size.square(_workflowTestCopyButtonSize),
-              padding: EdgeInsets.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              foregroundColor: colors.primary,
-              backgroundColor: colors.primaryContainer.withValues(alpha: 0.5),
-              shape: const RoundedRectangleBorder(
-                borderRadius: kOpenHandBorderRadius8,
-              ),
-            ),
-            icon: const Icon(Icons.content_copy_rounded, size: 16),
+            value: row.value,
+            logAction: '复制结构化参数',
+            successMessage: '已复制参数“$copyName”',
           ),
         ],
       ),
@@ -1518,29 +1533,12 @@ class _WorkflowTestFinalOutputTableRow extends StatelessWidget {
               style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
             ),
           ),
-          IconButton(
+          _workflowTestCopyButton(
+            context,
             tooltip: '复制参数 ${entry.name}',
-            onPressed: () => unawaited(
-              copyOpenHandTextToClipboard(
-                context: context,
-                text: _serializeOutputValue(entry.value),
-                logTag: 'workflow_test_result',
-                logAction: '复制最终输出参数',
-                successMessage: '已复制参数“${entry.name}”',
-                replaceCurrentSnack: true,
-              ),
-            ),
-            style: IconButton.styleFrom(
-              fixedSize: const Size.square(_workflowTestCopyButtonSize),
-              padding: EdgeInsets.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              foregroundColor: colors.primary,
-              backgroundColor: colors.primaryContainer.withValues(alpha: 0.5),
-              shape: const RoundedRectangleBorder(
-                borderRadius: kOpenHandBorderRadius8,
-              ),
-            ),
-            icon: const Icon(Icons.content_copy_rounded, size: 16),
+            value: entry.value,
+            logAction: '复制最终输出参数',
+            successMessage: '已复制参数“${entry.name}”',
           ),
         ],
       ),

@@ -1,6 +1,6 @@
 import { runWithTimeout } from './timed_abort';
 
-export const DEFAULT_COPY_TEXT_TIMEOUT_MS = 2500;
+const DEFAULT_COPY_TEXT_TIMEOUT_MS = 2500;
 
 export async function copyTextToClipboard(
   text: string,

@@ -3595,6 +3595,23 @@ mod tests {
     use super::*;
     use hunt_core::SourceKind;
 
+    fn scan_request(name: &str) -> ScanRequest {
+        ScanRequest {
+            name: name.to_owned(),
+            sources: vec![SourceKind::Github],
+            mode: ScanMode::Full,
+            authorized_scope: Vec::new(),
+            authorization_confirmed: true,
+            targets: Vec::new(),
+            vendors: Vec::new(),
+            source_queries: BTreeMap::new(),
+            forum_fetch_mode: Default::default(),
+            validation_mode: ValidationMode::Passive,
+            concurrency: 1,
+            gpt_assisted: false,
+        }
+    }
+
     #[test]
     fn deserializes_structured_tool_settings() {
         let input: SourceCredentialInput = serde_json::from_value(serde_json::json!({
@@ -3718,20 +3735,7 @@ mod tests {
 
     #[test]
     fn reruns_completed_jobs_and_resumes_interrupted_jobs() {
-        let request = ScanRequest {
-            name: "历史任务".to_owned(),
-            sources: vec![SourceKind::Github],
-            mode: ScanMode::Full,
-            authorized_scope: Vec::new(),
-            authorization_confirmed: true,
-            targets: Vec::new(),
-            vendors: Vec::new(),
-            source_queries: BTreeMap::new(),
-            forum_fetch_mode: Default::default(),
-            validation_mode: ValidationMode::Passive,
-            concurrency: 1,
-            gpt_assisted: false,
-        };
+        let request = scan_request("历史任务");
 
         let rerun = prepare_resumed_request(request.clone(), ScanStage::Completed);
         assert_eq!(rerun.mode, ScanMode::Full);
@@ -3747,20 +3751,7 @@ mod tests {
 
     #[test]
     fn full_scan_accepts_empty_authorized_scope() {
-        let request = ScanRequest {
-            name: "全量扫描".to_owned(),
-            sources: vec![SourceKind::Github],
-            mode: ScanMode::Full,
-            authorized_scope: Vec::new(),
-            authorization_confirmed: true,
-            targets: Vec::new(),
-            vendors: Vec::new(),
-            source_queries: BTreeMap::new(),
-            forum_fetch_mode: Default::default(),
-            validation_mode: ValidationMode::Passive,
-            concurrency: 1,
-            gpt_assisted: false,
-        };
+        let request = scan_request("全量扫描");
 
         let scope = resolve_authorized_scope(&request).unwrap();
         assert!(scope.contains_host("api.example.com"));
