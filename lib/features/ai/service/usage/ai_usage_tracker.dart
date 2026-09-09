@@ -11,6 +11,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/date_time_format.dart';
+import '../../../../shared/util/sensitive_data.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../data/ai_usage_store.dart';
@@ -523,24 +524,7 @@ class AiUsageTracker {
   String _sanitizeErrorMessage(String value, {required String fallback}) {
     var message = value.trim();
     if (message.isEmpty) message = fallback;
-    message = message.replaceAllMapped(
-      RegExp(r'\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+', caseSensitive: false),
-      (match) => '${match.group(1)} [已脱敏]',
-    );
-    message = message.replaceAllMapped(
-      RegExp(
-        r'''(["']?(?:api[_-]?key|access[_-]?token|authorization|token)["']?\s*[:=]\s*["']?)[^"'\s,}]+''',
-        caseSensitive: false,
-      ),
-      (match) => '${match.group(1)}[已脱敏]',
-    );
-    message = message.replaceAllMapped(
-      RegExp(
-        r'([?&](?:key|api_key|access_token|token)=)[^&\s]+',
-        caseSensitive: false,
-      ),
-      (match) => '${match.group(1)}[已脱敏]',
-    );
+    message = redactSensitiveText(message, replacement: '[已脱敏]');
     return clipTextWithEllipsis(message, _maxErrorMessageCharacters);
   }
 

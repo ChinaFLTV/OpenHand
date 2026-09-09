@@ -1516,7 +1516,7 @@ final class AiToolUsagePromotionStore {
       _maxPersistedPayloadChars,
       suffix: '',
     );
-    final redacted = _redactSensitiveText(boundedRaw);
+    final redacted = redactSensitiveText(boundedRaw, replacement: '[已脱敏]');
     if (redacted.isEmpty || redacted.length <= previewLimit) return '';
     final full = clipTextByCodeUnits(
       _prettyOrRawJson(_redactSecretsInDecoded(redacted)),
@@ -1644,7 +1644,7 @@ final class AiToolUsagePromotionStore {
       final result = <String, Object?>{};
       for (final entry in value.entries.take(32)) {
         final key = '${entry.key}';
-        result[key] = _sensitiveKeyPattern.hasMatch(key)
+        result[key] = isSensitiveDataKey(key)
             ? '[已脱敏]'
             : _redactSummaryValue(entry.value, depth + 1);
       }
@@ -1660,23 +1660,11 @@ final class AiToolUsagePromotionStore {
   }
 
   static String _boundedSummary(String value, int limit) {
-    final normalized = _redactSensitiveText(value)
+    final normalized = redactSensitiveText(value, replacement: '[已脱敏]')
         .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
         .replaceAll(RegExp(' {2,}'), ' ')
         .trim();
     return clipTextByCodeUnits(normalized, limit, suffix: '…');
-  }
-
-  static String _redactSensitiveText(String value) {
-    return value
-        .replaceAllMapped(
-          _sensitiveValuePattern,
-          (match) => '${match.group(1) ?? ''}[已脱敏]',
-        )
-        .replaceAllMapped(
-          _bearerTokenPattern,
-          (match) => '${match.group(1) ?? ''}[已脱敏]',
-        );
   }
 
   static String _prettyOrRawJson(String value) {
@@ -1739,18 +1727,6 @@ final class AiToolUsagePromotionStore {
     return value;
   }
 
-  static final RegExp _sensitiveKeyPattern = RegExp(
-    '(password|passwd|token|secret|api[_-]?key|authorization|cookie|credential)',
-    caseSensitive: false,
-  );
-  static final RegExp _sensitiveValuePattern = RegExp(
-    r'''((?:"|'|\b)[a-z0-9_-]*(?:password|passwd|token|secret|api[_-]?key|authorization|cookie|credential)[a-z0-9_-]*(?:"|'|\b)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|\S+)''',
-    caseSensitive: false,
-  );
-  static final RegExp _bearerTokenPattern = RegExp(
-    r'(bearer\s+)[a-z0-9._~+/=-]+',
-    caseSensitive: false,
-  );
   static final RegExp _identifierControlCharacterPattern = RegExp(
     r'[\x00-\x1f\x7f]',
   );

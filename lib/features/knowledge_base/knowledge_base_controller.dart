@@ -10,6 +10,7 @@ import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
@@ -315,9 +316,11 @@ class KnowledgeBaseController extends ChangeNotifier {
     ).trim();
     final fileStem = safeTitle.isEmpty
         ? 'note'
-        : safeTitle.length <= _knowledgeNoteFileStemMaxCharacters
-        ? safeTitle
-        : safeTitle.substring(0, _knowledgeNoteFileStemMaxCharacters);
+        : clipTextByCodeUnits(
+            safeTitle,
+            _knowledgeNoteFileStemMaxCharacters,
+            suffix: '',
+          );
     final file = File(
       p.join(
         notesDir.path,

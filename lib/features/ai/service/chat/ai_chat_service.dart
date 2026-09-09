@@ -18,6 +18,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
@@ -44,6 +45,7 @@ const String aiChatRequestFallbackThinkingMarkersRejected =
 const String aiChatRequestFallbackResponsesUnsupported =
     'responses_unsupported';
 const String aiChatEmptyResponseMessage = '模型返回空响应：未包含可见正文或工具调用。';
+const int _usageUserAgentMaxCodeUnits = 512;
 
 final RegExp _mediaPromptHeaderPattern = RegExp(r'^#\s*\[\d+\]\s*[^\n]*\n+');
 
@@ -3817,9 +3819,11 @@ Map<String, Object?> _usageRequestMetadata(
   if (method != null && method.isNotEmpty) result['request_method'] = method;
   final userAgent = _requestHeaderValue(requestHeaders, 'user-agent');
   if (userAgent != null && userAgent.isNotEmpty) {
-    result['user_agent'] = userAgent.length > 512
-        ? userAgent.substring(0, 512)
-        : userAgent;
+    result['user_agent'] = clipTextByCodeUnits(
+      userAgent,
+      _usageUserAgentMaxCodeUnits,
+      suffix: '',
+    );
   }
   return result;
 }

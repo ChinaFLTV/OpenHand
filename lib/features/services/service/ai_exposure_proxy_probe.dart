@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -261,7 +262,7 @@ Future<_ProxyProbeAttempt> _probeTunnel(
       socket,
     ).timeout(_remaining(_kProxyProbeAttemptTimeout, stopwatch));
     stopwatch.stop();
-    if (statusCode >= 200 && statusCode < 300) {
+    if (isHttpSuccessStatus(statusCode)) {
       return _ProxyProbeAttempt.success(
         latencyMs: stopwatch.elapsedMilliseconds,
         statusCode: statusCode,
@@ -434,7 +435,7 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
     );
     final authError = _proxyIdentityAuthError(response.statusCode);
     if (authError != null) throw FormatException(authError);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw FormatException('出口身份服务返回 HTTP ${response.statusCode}');
     }
     final remaining = _remaining(_kProxyIdentityTimeout, stopwatch);
@@ -489,7 +490,7 @@ Future<Uint8List> _loadIdentityThroughSecureProxy(Uri proxy) async {
     final status = _statusCodeFromHttpStatusLine(header);
     final authError = _proxyIdentityAuthError(status);
     if (authError != null) throw FormatException(authError);
-    if (status == null || status < 200 || status >= 300) {
+    if (status == null || isHttpFailureStatus(status)) {
       throw FormatException('出口身份服务返回 HTTP ${status ?? '--'}');
     }
     final encodedBody = Uint8List.sublistView(

@@ -3230,9 +3230,11 @@ String _entitySafeText(Object? value, {String unavailable = '不可用'}) {
   final text = '${value ?? ''}'.trim();
   if (text.isEmpty) return unavailable;
   final redacted = _entityRedactText(text);
-  return redacted.length <= 600
-      ? redacted
-      : '${redacted.substring(0, 600)}…（已截断）';
+  return clipTextByCodeUnits(
+    redacted,
+    _kEntitySafeTextMaxCodeUnits,
+    suffix: '…（已截断）',
+  );
 }
 
 String _entitySafeUrl(String value) {
@@ -3247,31 +3249,7 @@ String _entitySafeUrl(String value) {
 }
 
 String _entityRedactText(String value) {
-  var redacted = value.replaceAll(_kRedactPrivateKey, '[私钥已隐藏]');
-  redacted = redacted.replaceAllMapped(
-    _kRedactAuthHeader,
-    (match) => '${match.group(1)}[已隐藏]',
-  );
-  redacted = redacted.replaceAllMapped(
-    _kRedactSecretAssignment,
-    (match) => '${match.group(1)}[已隐藏]',
-  );
-  redacted = redacted.replaceAllMapped(
-    _kRedactSecretJson,
-    (match) => '${match.group(1)}[已隐藏]',
-  );
-  redacted = redacted.replaceAllMapped(
-    _kRedactUrlCredentials,
-    (match) => '${match.group(1)}******${match.group(3)}',
-  );
-  redacted = redacted.replaceAllMapped(
-    _kRedactSecretQuery,
-    (match) => '${match.group(1)}[已隐藏]',
-  );
-  return redacted.replaceAllMapped(
-    _kRedactBearerToken,
-    (match) => '${match.group(1)}[已隐藏]',
-  );
+  return redactSensitiveText(value, replacement: '[已隐藏]');
 }
 
 Object? _entityRedactStructuredValue(Object? value, {String? key}) {

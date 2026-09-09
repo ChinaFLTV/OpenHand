@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
@@ -271,9 +272,7 @@ class WebFetchOrchestrator {
     final nativeFetchScore = _isNativeUrlFetchKind(result.kind) ? 100.0 : 0.0;
     final statusScore = content.statusCode == null
         ? 0.0
-        : (content.statusCode! >= 200 && content.statusCode! < 300
-              ? 50.0
-              : 0.0);
+        : (isHttpSuccessStatus(content.statusCode!) ? 50.0 : 0.0);
     final providerScore = finiteUnitInterval(content.score ?? 0) * 50;
     return weight * 10 +
         lengthScore +

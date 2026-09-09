@@ -25,10 +25,10 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
     throw StateError('不能重复发送已完成构建的 HTTP 请求。');
   }
 
-  final connectionTimeoutAbort = Completer<void>();
+  final requestLifetime = Completer<void>();
   final abortTrigger = combineCancelSignals(<Future<void>?>[
     cancelSignal,
-    connectionTimeoutAbort.future,
+    requestLifetime.future,
   ])!;
   final abortableRequest =
       http.AbortableRequest(
@@ -42,15 +42,63 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
         ..persistentConnection = request.persistentConnection
         ..bodyBytes = request.bodyBytes;
 
-  return client
-      .send(abortableRequest)
-      .timeout(
-        connectionTimeout,
-        onTimeout: () {
-          if (!connectionTimeoutAbort.isCompleted) {
-            connectionTimeoutAbort.complete();
-          }
-          throw TimeoutException('HTTP 响应头获取超过连接时限。', connectionTimeout);
-        },
-      );
+  try {
+    final response = await client
+        .send(abortableRequest)
+        .timeout(
+          connectionTimeout,
+          onTimeout: () {
+            if (!requestLifetime.isCompleted) {
+              requestLifetime.complete();
+            }
+            throw TimeoutException('HTTP 响应头获取超过连接时限。', connectionTimeout);
+          },
+        );
+    final responseUrl = response is http.BaseResponseWithUrl
+        ? (response as http.BaseResponseWithUrl).url
+        : request.url;
+    return _OpenHandAbortableStreamedResponse(
+      _trackResponseLifetime(response.stream, requestLifetime),
+      response.statusCode,
+      url: responseUrl,
+      contentLength: response.contentLength,
+      request: response.request,
+      headers: response.headers,
+      isRedirect: response.isRedirect,
+      persistentConnection: response.persistentConnection,
+      reasonPhrase: response.reasonPhrase,
+    );
+  } catch (_) {
+    if (!requestLifetime.isCompleted) requestLifetime.complete();
+    rethrow;
+  }
+}
+
+Stream<List<int>> _trackResponseLifetime(
+  Stream<List<int>> stream,
+  Completer<void> lifetime,
+) async* {
+  try {
+    yield* stream;
+  } finally {
+    if (!lifetime.isCompleted) lifetime.complete();
+  }
+}
+
+final class _OpenHandAbortableStreamedResponse extends http.StreamedResponse
+    implements http.BaseResponseWithUrl {
+  _OpenHandAbortableStreamedResponse(
+    super.stream,
+    super.statusCode, {
+    required this.url,
+    super.contentLength,
+    super.request,
+    super.headers,
+    super.isRedirect,
+    super.persistentConnection,
+    super.reasonPhrase,
+  });
+
+  @override
+  final Uri url;
 }

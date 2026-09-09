@@ -5,6 +5,31 @@ const String _redactedUriUserInfo = 'redacted';
 
 final RegExp _sensitiveKeySeparator = RegExp('[^a-z0-9]+');
 final RegExp _sensitiveCamelCaseBoundary = RegExp('([a-z0-9])([A-Z])');
+final RegExp _privateKeyBlockPattern = RegExp(
+  r'-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----[\s\S]*?(?:-----END(?: [A-Z0-9]+)? PRIVATE KEY-----|$)',
+  caseSensitive: false,
+);
+final RegExp _sensitiveHeaderValuePattern = RegExp(
+  r'(^\s*(?:authorization|proxy-authorization|cookie|set-cookie)\s*[:=]\s*)([^\r\n]*)',
+  caseSensitive: false,
+  multiLine: true,
+);
+final RegExp _uriCredentialPattern = RegExp(
+  r'([a-z][a-z0-9+.-]*://[^/\s:@]+:)([^@/\s]+)(@)',
+  caseSensitive: false,
+);
+final RegExp _sensitiveQueryValuePattern = RegExp(
+  r'''([?&]([a-z0-9_-]+)=)([^&#\s"',;})]+)''',
+  caseSensitive: false,
+);
+final RegExp _sensitiveAssignmentPattern = RegExp(
+  r'''((?:["']?)([a-z0-9_-]+)(?:["']?)\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|(?:Bearer|Basic)\s+[^\s,;}&]+|[^\s,;}&]+)''',
+  caseSensitive: false,
+);
+final RegExp _authorizationSchemePattern = RegExp(
+  r'\b((?:Bearer|Basic)\s+)[a-z0-9._~+/=-]+',
+  caseSensitive: false,
+);
 const Set<String> _sensitiveExactKeys = <String>{'cookie', 'set-cookie'};
 
 /// 固定遍历长度比较凭据，避免普通字符串短路比较泄露首个差异位置。
@@ -50,6 +75,7 @@ const List<String> _sensitiveKeySuffixes = <String>[
   'idtoken',
   'sessiontoken',
   'bearertoken',
+  'user-code',
 ];
 
 /// 按 `-` 切词后命中任一即视为凭据。
@@ -81,6 +107,42 @@ bool isSensitiveDataKey(String key) {
     if (normalized == suffix || normalized.endsWith('-$suffix')) return true;
   }
   return normalized.split('-').any(_sensitiveKeySegments.contains);
+}
+
+/// 统一清理日志、错误与诊断文本中的常见凭据。
+///
+/// 结构化数据仍应优先按 [isSensitiveDataKey] 处理；本方法负责无法可靠解析的
+/// 文本，并保留字段名与 URL 结构，便于排查问题。
+String redactSensitiveText(
+  String value, {
+  String replacement = kOpenHandRedactedValue,
+}) {
+  if (value.isEmpty) return value;
+  final marker = replacement.isEmpty ? kOpenHandRedactedValue : replacement;
+  var redacted = value.replaceAll(_privateKeyBlockPattern, marker);
+  redacted = redacted.replaceAllMapped(
+    _sensitiveHeaderValuePattern,
+    (match) => '${match.group(1)}$marker',
+  );
+  redacted = redacted.replaceAllMapped(
+    _uriCredentialPattern,
+    (match) => '${match.group(1)}$marker${match.group(3)}',
+  );
+  redacted = redacted.replaceAllMapped(_sensitiveQueryValuePattern, (match) {
+    final key = match.group(2) ?? '';
+    return isSensitiveDataKey(key) || key.toLowerCase() == 'key'
+        ? '${match.group(1)}$marker'
+        : match.group(0)!;
+  });
+  redacted = redacted.replaceAllMapped(_sensitiveAssignmentPattern, (match) {
+    return isSensitiveDataKey(match.group(2) ?? '')
+        ? '${match.group(1)}$marker'
+        : match.group(0)!;
+  });
+  return redacted.replaceAllMapped(
+    _authorizationSchemePattern,
+    (match) => '${match.group(1)}$marker',
+  );
 }
 
 Map<String, String> redactSensitiveStringMap(

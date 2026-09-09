@@ -8,6 +8,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_methods.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_base64.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -35,6 +36,7 @@ import 'workflow_graph_analysis.dart';
 
 const int _maxWorkflowHttpRequestBytes = 4 * 1024 * 1024;
 const int _maxWorkflowHttpResponseBytes = 4 * 1024 * 1024;
+const int _maxWorkflowHttpErrorPreviewCodeUnits = 500;
 const String _workflowHttpRequestTooLargeMessage = 'HTTP 请求体超过 4 MiB 上限。';
 const int _maxWorkflowPromptCharacters = 256 * 1024;
 const int _maxWorkflowResourceCharacters = 96 * 1024;
@@ -1430,8 +1432,11 @@ class WorkflowNodeExecutor {
       }
     }
     final joined = sections.join('\n\n');
-    if (joined.length <= _maxWorkflowResourceCharacters) return joined;
-    return joined.substring(0, _maxWorkflowResourceCharacters);
+    return clipTextByCodeUnits(
+      joined,
+      _maxWorkflowResourceCharacters,
+      suffix: '',
+    );
   }
 
   String _knowledgePrompt(List<KnowledgeRetrievalHit> hits) {
@@ -1743,8 +1748,12 @@ class WorkflowNodeExecutor {
       }
       cancellation?.throwIfCancelled();
       final body = utf8.decode(responseBytes, allowMalformed: true);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        final preview = body.length > 500 ? '${body.substring(0, 500)}…' : body;
+      if (isHttpFailureStatus(response.statusCode)) {
+        final preview = clipTextByCodeUnits(
+          body,
+          _maxWorkflowHttpErrorPreviewCodeUnits,
+          suffix: '…',
+        );
         throw WorkflowNodeExecutionException(
           'HTTP ${response.statusCode}${preview.trim().isEmpty ? '' : '：$preview'}',
         );

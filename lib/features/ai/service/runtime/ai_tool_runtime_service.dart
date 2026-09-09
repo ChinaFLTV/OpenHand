@@ -58,6 +58,7 @@ const Duration _skillLinkedResourcePathCheckTimeout = Duration(seconds: 2);
 const int _maxSessionFileTrackers = 128;
 const int _maxConcurrentToolExecutions = kOpenHandMaxAsyncConcurrency;
 const int _maxQueuedToolExecutions = 256;
+const int _maxToolOutputStorageIdentifierCodeUnits = 120;
 const Duration _toolExecutionQueueTimeout = Duration(seconds: 30);
 const int _minToolOutputTruncationPayloadChars = 40;
 const int kAiTaskDescriptionMaxCharacters = 512;
@@ -2021,7 +2022,11 @@ class AiToolRuntimeService {
       ),
     );
     final value = normalized.isEmpty ? fallback : normalized;
-    return value.length <= 120 ? value : value.substring(0, 120);
+    return clipTextByCodeUnits(
+      value,
+      _maxToolOutputStorageIdentifierCodeUnits,
+      suffix: '',
+    );
   }
 
   bool _retryEnabled(AiBuiltinToolConfig? config) {

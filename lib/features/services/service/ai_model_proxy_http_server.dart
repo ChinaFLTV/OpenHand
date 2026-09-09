@@ -12,6 +12,7 @@ import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
@@ -43,6 +44,7 @@ class AiModelProxyHttpServer {
 
   static const int _maxRequestBodyBytes = 8 * kBytesPerMiB;
   static const int _maxNativeResponseBytes = 16 * kBytesPerMiB;
+  static const int _maxClientHeaderCodeUnits = 256;
   static const BoundedJsonConversionConfig _jsonConversionConfig =
       kOpenHandProtocolJsonConversionConfig;
   static const Duration _bindTimeout = Duration(seconds: 10);
@@ -2279,7 +2281,7 @@ class AiModelProxyHttpServer {
 
   static String _optionalClientHeader(Map<String, String> headers, String key) {
     final value = headers[key]?.trim() ?? '';
-    return value.length > 256 ? value.substring(0, 256) : value;
+    return clipTextByCodeUnits(value, _maxClientHeaderCodeUnits, suffix: '');
   }
 
   _ProxyRoute? _routeFor(String path, AiModelProxyApiStyle style) {

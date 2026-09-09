@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/bounded_json_conversion.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../data/openrouter_model_profile_store.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_transport_client.dart';
@@ -75,6 +76,7 @@ class OpenRouterModelSyncService {
         maxTotalNodes: 4194304,
       );
   static const Duration _requestTimeout = Duration(minutes: 2);
+  static const int _previewMaxCodeUnits = 240;
 
   final AiTransportClient _transport;
   final bool _ownsTransport;
@@ -238,9 +240,7 @@ class OpenRouterModelSyncService {
 
   static String _preview(String value) {
     final normalized = value.trim().replaceAll(RegExp(r'\s+'), ' ');
-    return normalized.length <= 240
-        ? normalized
-        : '${normalized.substring(0, 240)}…';
+    return clipTextByCodeUnits(normalized, _previewMaxCodeUnits, suffix: '…');
   }
 
   void dispose() {

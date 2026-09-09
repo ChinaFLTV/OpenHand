@@ -18,6 +18,7 @@ import 'workflow_auto_layout.dart';
 
 const int _kMaxYamlDepth = 64;
 const int _kMaxYamlValues = 100000;
+const int _kWorkflowExportFileStemMaxCodeUnits = 80;
 const double _kNodeWidth = kWorkflowNodeWidth;
 const double _kNodeHeight = kWorkflowNodeHeight;
 const double _kExportPadding = 72;
@@ -190,7 +191,11 @@ String workflowExportFileName(
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
   final safeStem = stem.isEmpty ? 'workflow' : stem;
-  final clipped = safeStem.length > 80 ? safeStem.substring(0, 80) : safeStem;
+  final clipped = clipTextByCodeUnits(
+    safeStem,
+    _kWorkflowExportFileStemMaxCodeUnits,
+    suffix: '',
+  );
   return '$clipped.${format.extension}';
 }
 

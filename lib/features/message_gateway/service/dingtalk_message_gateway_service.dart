@@ -17,9 +17,13 @@ import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/sensitive_data.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../../plugin_service/index.dart';
 import '../model/dingtalk_message_gateway.dart';
+
+const int _maxDingTalkRuntimeLogLineCodeUnits = 2000;
 
 class DingTalkGatewayQueryResult {
   const DingTalkGatewayQueryResult({
@@ -537,17 +541,12 @@ class DingTalkMessageGatewayService {
   }
 
   String _safeProcessLogLine(String line) {
-    var value = line.trim();
-    if (value.length > 2000) value = '${value.substring(0, 2000)}…';
     // dws 输出可能包含授权码、令牌或密钥，日志只保留诊断所需的结构。
-    value = value.replaceAll(
-      RegExp(
-        r'''((?:access[_-]?token|refresh[_-]?token|client[_-]?secret|authorization|user[_-]?code|secret)["']?\s*[:=]\s*["']?(?:Bearer\s+)?)([^,\s}"'&]+)''',
-        caseSensitive: false,
-      ),
-      r'$1<已脱敏>',
+    return clipTextByCodeUnits(
+      redactSensitiveText(line.trim(), replacement: '<已脱敏>'),
+      _maxDingTalkRuntimeLogLineCodeUnits,
+      suffix: '…',
     );
-    return value;
   }
 
   String? get cachedExecutable => _executable;

@@ -10,6 +10,7 @@ import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/net/http_response_utils.dart';
+import '../../shared/net/http_status_utils.dart';
 import '../../shared/ui/error_source.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/timer_safety.dart';
@@ -336,7 +337,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
             _drainProbeResponse(response, responseTimeout),
             cancellation,
           );
-          success = response.statusCode >= 200 && response.statusCode < 300;
+          success = isHttpSuccessStatus(response.statusCode);
           if (!success &&
               (response.statusCode == 404 || response.statusCode == 405)) {
             final operationPath = switch (modelKind) {
@@ -369,7 +370,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
                 _drainProbeResponse(response, responseTimeout),
                 cancellation,
               );
-              success = response.statusCode >= 200 && response.statusCode < 300;
+              success = isHttpSuccessStatus(response.statusCode);
               status = success ? 'healthy' : 'unhealthy';
               if (!success) errorMessage = 'HTTP $responseCode';
               // OPTIONS 不会触发生成或转码，避免巡检产生实际费用。
@@ -420,7 +421,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
                 _drainProbeResponse(response, responseTimeout),
                 cancellation,
               );
-              success = response.statusCode >= 200 && response.statusCode < 300;
+              success = isHttpSuccessStatus(response.statusCode);
             }
           }
           status = success ? 'healthy' : 'unhealthy';

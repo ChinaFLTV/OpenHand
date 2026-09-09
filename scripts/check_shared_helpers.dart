@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
+import 'package:openhand/shared/net/abortable_http_request.dart';
 import 'package:openhand/shared/net/http_status_utils.dart';
 import 'package:openhand/shared/net/loopback_hosts.dart';
 import 'package:openhand/shared/util/bounded_file_io.dart';
@@ -9,6 +12,7 @@ import 'package:openhand/shared/util/exponential_backoff.dart';
 import 'package:openhand/shared/util/hex_encoding.dart';
 import 'package:openhand/shared/util/input_value_parsing.dart';
 import 'package:openhand/shared/util/message_frame_scan.dart';
+import 'package:openhand/shared/util/sensitive_data.dart';
 import 'package:openhand/shared/util/text_clip.dart';
 import 'package:openhand/shared/util/xml_escape.dart';
 
@@ -31,6 +35,8 @@ Future<void> main() async {
   failures += _checkCalendarDateMath();
   failures += _checkCanonicalDateTime();
   failures += _checkTextClip();
+  failures += _checkSensitiveTextRedaction();
+  failures += await _checkAbortableResponseLifetime();
   failures += await _checkSynchronousBoundedFileRead();
   failures += await _checkTemporaryByteStreamWrite();
   failures += await _checkTemporaryDirectoryLifecycle();
@@ -39,6 +45,97 @@ Future<void> main() async {
     exit(1);
   }
   stdout.writeln('[共享辅助检查] 通过。');
+}
+
+Future<int> _checkAbortableResponseLifetime() async {
+  final client = _AbortableProbeClient();
+  final request = http.Request('GET', Uri.parse('https://example.com/check'));
+  final response = await sendAbortableHttpRequest(
+    client: client,
+    request: request,
+    connectionTimeout: const Duration(seconds: 1),
+  );
+  final bytes = await response.stream.fold<List<int>>(
+    <int>[],
+    (all, chunk) => all..addAll(chunk),
+  );
+  await Future<void>.delayed(Duration.zero);
+  final responseUrl = response is http.BaseResponseWithUrl
+      ? (response as http.BaseResponseWithUrl).url
+      : null;
+  if (bytes.join(',') != '1,2,3' ||
+      !client.requestLifetimeReleased ||
+      responseUrl != request.url) {
+    stderr.writeln('sendAbortableHttpRequest 未在响应流结束后释放取消监听。');
+    return 1;
+  }
+
+  final pendingBody = StreamController<List<int>>();
+  final cancelledClient = _AbortableProbeClient(bodyStream: pendingBody.stream);
+  final cancelledResponse = await sendAbortableHttpRequest(
+    client: cancelledClient,
+    request: http.Request('GET', Uri.parse('https://example.com/cancel-check')),
+    connectionTimeout: const Duration(seconds: 1),
+  );
+  final subscription = cancelledResponse.stream.listen(null);
+  await Future<void>.delayed(Duration.zero);
+  await subscription.cancel();
+  await pendingBody.close();
+  await Future<void>.delayed(Duration.zero);
+  if (!cancelledClient.requestLifetimeReleased) {
+    stderr.writeln('sendAbortableHttpRequest 未在响应流取消后释放取消监听。');
+    return 1;
+  }
+  return 0;
+}
+
+final class _AbortableProbeClient extends http.BaseClient {
+  _AbortableProbeClient({this.bodyStream});
+
+  final Stream<List<int>>? bodyStream;
+  bool requestLifetimeReleased = false;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (request is! http.AbortableRequest || request.abortTrigger == null) {
+      throw StateError('请求未使用可取消传输。');
+    }
+    unawaited(
+      request.abortTrigger!.then<void>((_) => requestLifetimeReleased = true),
+    );
+    return http.StreamedResponse(
+      bodyStream ?? Stream<List<int>>.value(const <int>[1, 2, 3]),
+      200,
+      request: request,
+    );
+  }
+}
+
+int _checkSensitiveTextRedaction() {
+  const token = '真实令牌ABC123';
+  const password = '真实密码XYZ789';
+  const privateKey =
+      '-----BEGIN PRIVATE KEY-----\n私钥内容\n-----END PRIVATE KEY-----';
+  final redacted = redactSensitiveText(
+    'authorization: Bearer $token\n'
+    'apiKey="$token"\n'
+    'total_tokens=42\n'
+    'https://user:$password@example.com/path?access_token=$token&view=full\n'
+    '$privateKey\n'
+    '-----BEGIN RSA PRIVATE KEY-----\n不完整私钥',
+    replacement: '[已隐藏]',
+  );
+  if (redacted.contains(token) ||
+      redacted.contains(password) ||
+      redacted.contains('私钥内容') ||
+      redacted.contains('不完整私钥') ||
+      !redacted.contains('total_tokens=42') ||
+      !redacted.contains('view=full') ||
+      !redacted.contains('authorization: [已隐藏]')) {
+    stderr.writeln('redactSensitiveText 未完整脱敏凭据或误删普通计数。');
+    return 1;
+  }
+  return 0;
 }
 
 Future<int> _checkTemporaryByteStreamWrite() async {

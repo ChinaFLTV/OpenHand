@@ -10,6 +10,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../app/support/url_validation.dart';
 import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_response_utils.dart';
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/net/network_limits.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_command_rule.dart';
@@ -224,7 +225,7 @@ class AiE2bSandboxService {
           });
     try {
       final response = await _send(request, cancelSignal: streamAbort.future);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         if (response.statusCode == 404 || response.statusCode == 502) {
           _dropSandbox(sandbox);
         }
@@ -600,7 +601,7 @@ class AiE2bSandboxService {
   }
 
   void _ensureSuccess(int statusCode, String body, Uri uri) {
-    if (statusCode >= 200 && statusCode < 300) return;
+    if (isHttpSuccessStatus(statusCode)) return;
     var message = body.trim();
     try {
       final decoded = jsonDecode(body);

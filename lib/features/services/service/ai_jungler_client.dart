@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/net/sse_line_parsing.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
@@ -301,7 +302,7 @@ class AiJunglerClient {
       );
       request.headers.set(HttpHeaders.acceptHeader, kTextEventStreamMimeType);
       response = await _closeWithinDeadline(request, handshakeDeadline);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         final error = await _responseError(
           response,
           totalTimeout: handshakeDeadline.remaining(),
@@ -373,7 +374,7 @@ class AiJunglerClient {
         request.add(payload);
       }
       final response = await _closeWithinDeadline(request, deadline);
-      final success = response.statusCode >= 200 && response.statusCode < 300;
+      final success = isHttpSuccessStatus(response.statusCode);
       final text = await _readUtf8Response(
         response,
         maxBytes: success

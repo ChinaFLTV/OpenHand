@@ -8,6 +8,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 
 String _normalizedDingTalkString(Object? value) {
@@ -1116,9 +1117,11 @@ DingTalkAutomaticReplyCard? parseDingTalkAutomaticReplyCard(
 }
 
 List<Object?> _decodeDingTalkEmbeddedJsonValues(String raw) {
-  final source = raw.length > _maxDingTalkAutomaticReplyPayloadCharacters
-      ? raw.substring(0, _maxDingTalkAutomaticReplyPayloadCharacters)
-      : raw;
+  final source = clipTextByCodeUnits(
+    raw,
+    _maxDingTalkAutomaticReplyPayloadCharacters,
+    suffix: '',
+  );
   final values = <Object?>[];
   var attempts = 0;
   for (

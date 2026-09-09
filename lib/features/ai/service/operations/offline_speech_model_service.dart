@@ -18,6 +18,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/net/bounded_http_request.dart';
 import '../../../../shared/net/http_response_utils.dart';
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/net/network_limits.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
@@ -1020,7 +1021,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     try {
       await _deleteManagedDirectory(staging);
       if (downloadModelFiles) {
-        await staging.create(recursive: true);
+        await createDirectoryBounded(staging);
         final files = await _loadRepositoryFiles(
           model,
           configuration,
@@ -4181,7 +4182,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       if (!canResume && await staging.exists()) {
         await _deleteManagedDirectory(staging);
       }
-      await staging.create(recursive: true);
+      await createDirectoryBounded(staging);
       if (!canResume) {
         await writeFileAtomically(
           stagingMarker,
@@ -4808,7 +4809,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       timeout: deadline.limit(_downloadRequestTimeout),
       timeoutMessage: '模型文件响应头获取超时。',
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException('下载失败（HTTP ${response.statusCode}）', uri: uri);
     }
     return response;
@@ -4911,7 +4912,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   Future<File> _writeRuntimeHost() async {
     final directory = Directory(modelsRoot);
-    await directory.create(recursive: true);
+    await createDirectoryBounded(directory);
     final file = File(p.join(directory.path, 'runtime_host.py'));
     var installedSource = '';
     try {

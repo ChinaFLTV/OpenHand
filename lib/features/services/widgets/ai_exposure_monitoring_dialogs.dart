@@ -34,6 +34,7 @@ import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/sensitive_data.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
 import '../model/dependency_telemetry.dart';
@@ -56,6 +57,7 @@ part 'ai_exposure_monitoring_log.dart';
 const Duration _kOperationsRefreshInterval = Duration(seconds: 8);
 const Duration _kOperationsMetadataTimeout = Duration(seconds: 2);
 const int _kOperationsMetadataConcurrency = 8;
+const int _kEntitySafeTextMaxCodeUnits = 606;
 
 // AI 暴露监控分类语义色板（图表/标签/卡片统一引用）。
 const Color _kAiExposureColorHighValue = Color(0xffa855f7);
@@ -76,36 +78,6 @@ const Color _kAiExposureSourceGithub = Color(0xff475569);
 const Color _kAiExposureSourceGitcode = Color(0xff2563eb);
 const Color _kAiExposureSourceNodeseek = Color(0xff7c3aed);
 const Color _kAiExposureSourceLinuxDo = Color(0xff16a34a);
-
-// 实体脱敏正则：提升为顶层 final，避免每次调用 _entityRedactText 时重新编译。
-final RegExp _kRedactPrivateKey = RegExp(
-  r'-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----[\s\S]*?-----END(?: [A-Z0-9]+)? PRIVATE KEY-----',
-  caseSensitive: false,
-);
-final RegExp _kRedactAuthHeader = RegExp(
-  r'((?:authorization|proxy-authorization)\s*[:=]\s*)([^\r\n,;]+)',
-  caseSensitive: false,
-);
-final RegExp _kRedactSecretAssignment = RegExp(
-  r'((?:api[_-]?key|token|secret|password|credential|cookie)\s*[:=]\s*)([^\s,;]+)',
-  caseSensitive: false,
-);
-final RegExp _kRedactSecretJson = RegExp(
-  r'((?:"?(?:api[_-]?key|token|secret|password|authorization|credential|cookie)"?\s*:\s*"?))([^",\s}]+)',
-  caseSensitive: false,
-);
-final RegExp _kRedactUrlCredentials = RegExp(
-  r'([a-z][a-z0-9+.-]*://[^/\s:@]+:)([^@/\s]+)(@)',
-  caseSensitive: false,
-);
-final RegExp _kRedactSecretQuery = RegExp(
-  r'([?&](?:api[_-]?key|token|secret|password|authorization|credential|cookie)=)([^&#\s]+)',
-  caseSensitive: false,
-);
-final RegExp _kRedactBearerToken = RegExp(
-  r'(bearer\s+)([A-Za-z0-9._~+/-]+)',
-  caseSensitive: false,
-);
 
 Future<void> showAiExposureOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(

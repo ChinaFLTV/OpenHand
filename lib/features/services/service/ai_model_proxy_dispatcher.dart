@@ -25,6 +25,8 @@ const int _kAiModelProxyFailureCooldownLimit = 256;
 const Duration _kAiModelProxyRetryDelayBase = Duration(milliseconds: 150);
 const Duration _kAiModelProxyRetryDelayCap = Duration(seconds: 2);
 const int _kAiModelProxyDirectFallbackAttempts = 2;
+const int _kAiModelProxyHeaderValueMaxCodeUnits = 256;
+const int _kAiModelProxyForwardedHeaderValueMaxCodeUnits = 512;
 const String _kProxyRouteDirect = 'direct';
 const String _kProxyRouteSystem = 'system';
 const String _kProxyRoutePool = 'pool';
@@ -486,7 +488,11 @@ class AiModelProxyDispatcher {
     for (final entry in headers.entries) {
       if (entry.key.toLowerCase() != key) continue;
       final value = entry.value.trim();
-      return value.length > 256 ? value.substring(0, 256) : value;
+      return clipTextByCodeUnits(
+        value,
+        _kAiModelProxyHeaderValueMaxCodeUnits,
+        suffix: '',
+      );
     }
     return '';
   }
@@ -1508,7 +1514,11 @@ String _headerValue(Map<String, String> headers, List<String> names) {
     for (final entry in headers.entries) {
       if (entry.key.toLowerCase() == name && entry.value.trim().isNotEmpty) {
         final value = entry.value.split(',').first.trim();
-        return value.length <= 512 ? value : value.substring(0, 512);
+        return clipTextByCodeUnits(
+          value,
+          _kAiModelProxyForwardedHeaderValueMaxCodeUnits,
+          suffix: '',
+        );
       }
     }
   }

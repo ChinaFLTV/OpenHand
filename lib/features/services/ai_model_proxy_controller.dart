@@ -11,6 +11,7 @@ import '../../app/theme/openhand_theme_preset.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/sensitive_data.dart';
 import '../../shared/util/serial_task_queue.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import 'data/ai_model_proxy_store.dart';
@@ -352,6 +353,8 @@ class AiModelProxyController extends ChangeNotifier {
 
   static const Duration _rateLimitWindowDuration = Duration(minutes: 1);
   static const int _maxRateLimitBuckets = 256;
+  static const int _maxRateLimitClientIpCodeUnits = 128;
+  static const int _maxRateLimitUserAgentCodeUnits = 512;
 
   String _rateLimitKey({required String clientIp, required String userAgent}) {
     if (_settings.limitScope == AiModelProxyLimitScope.clientClass) {
@@ -362,13 +365,17 @@ class AiModelProxyController extends ChangeNotifier {
     if (comma >= 0) ip = ip.substring(0, comma).trim();
     final normalizedIp = ip.isEmpty
         ? 'unknown-client'
-        : ip.substring(0, ip.length > 128 ? 128 : ip.length);
+        : clipTextByCodeUnits(ip, _maxRateLimitClientIpCodeUnits, suffix: '');
     return 'ip:$normalizedIp';
   }
 
   static String _clientClassKey(String userAgent) {
     final raw = userAgent.trim().toLowerCase();
-    final value = raw.length <= 512 ? raw : raw.substring(0, 512);
+    final value = clipTextByCodeUnits(
+      raw,
+      _maxRateLimitUserAgentCodeUnits,
+      suffix: '',
+    );
     if (value.isEmpty) return 'unknown-client';
     if (value.contains('claude')) return 'claude';
     if (value.contains('edg/') || value.contains('edge/')) return 'edge';

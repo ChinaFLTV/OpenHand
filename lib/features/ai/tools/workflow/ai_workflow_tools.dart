@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../shared/util/text_clip.dart';
 import '../../../workflows/index.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../../service/usage/ai_usage_tracker.dart';
@@ -251,9 +252,7 @@ class _WorkflowExecutionRecord {
 
 String _clip(String value, [int max = 1200]) {
   final normalized = value.trim();
-  return normalized.length <= max
-      ? normalized
-      : '${normalized.substring(0, max - 1)}…';
+  return clipTextByCodeUnits(normalized, max, suffix: '…');
 }
 
 Object _boundedJsonValue(Object? value) {

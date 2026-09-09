@@ -22,6 +22,7 @@ import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
@@ -54,6 +55,7 @@ const double _kProxyOpsClientUserAgentColumnWidth = 288;
 const int _kProxyOpsHourBuckets = 24;
 const int _kProxyOpsFastLatencyMs = 1000;
 const int _kProxyOpsSlowLatencyMs = 3000;
+const int _kProxyOpsUserAgentMaxCharacters = 36;
 
 Future<void> showAiModelProxyOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -830,7 +832,7 @@ String _proxyOpsUserAgentFamily(String value) {
   if (normalized.contains('curl')) return 'curl';
   if (normalized.contains('python')) return 'Python';
   if (normalized.contains('dart')) return 'Dart';
-  return value.length > 36 ? '${value.substring(0, 36)}…' : value;
+  return clipTextWithEllipsis(value, _kProxyOpsUserAgentMaxCharacters);
 }
 
 String _proxyOpsClientMixLabel(

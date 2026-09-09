@@ -15,6 +15,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/hex_encoding.dart';
@@ -68,9 +69,10 @@ class AiJunglerRuntime {
     final dataDirectory = Directory(
       OpenHandPaths.defaultAiExposureServiceDirectoryPath(),
     );
-    await dataDirectory
-        .create(recursive: true)
-        .timeout(_kAiJunglerFileIoTimeout);
+    await createDirectoryBounded(
+      dataDirectory,
+      timeout: _kAiJunglerFileIoTimeout,
+    );
     final token = _newSessionToken();
     final ready = Completer<({Uri address, String version})>();
     final stdoutDone = Completer<void>();
@@ -405,9 +407,10 @@ class AiJunglerRuntime {
         platformId,
       ),
     );
-    await binaryDirectory
-        .create(recursive: true)
-        .timeout(_kAiJunglerFileIoTimeout);
+    await createDirectoryBounded(
+      binaryDirectory,
+      timeout: _kAiJunglerFileIoTimeout,
+    );
     final file = File(p.join(binaryDirectory.path, executable));
     var currentHash = '';
     if (await file.exists().timeout(_kAiJunglerFileIoTimeout)) {
