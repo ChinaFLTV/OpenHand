@@ -521,9 +521,14 @@ class OpenHandIdentityBadge extends StatelessWidget {
     final badge = DecoratedBox(
       decoration: BoxDecoration(
         color: enabled
-            ? accent.withValues(alpha: 0.18)
+            ? accent.withValues(alpha: 0.20)
             : colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(kOpenHandRadius16),
+        border: Border.all(
+          color: enabled
+              ? accent.withValues(alpha: 0.42)
+              : colorScheme.outlineVariant,
+        ),
       ),
       child: SizedBox(
         width: extent,
@@ -559,6 +564,8 @@ class OpenHandHoverCard extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(16, 18, 18, 18),
     this.elevation,
     this.shape,
+    this.color,
+    this.borderRadius,
   });
 
   final Widget child;
@@ -566,19 +573,73 @@ class OpenHandHoverCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final double? elevation;
   final ShapeBorder? shape;
+  final Color? color;
+  final BorderRadius? borderRadius;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return HoverLift(
       child: Card(
         elevation: elevation,
+        color: color ?? colorScheme.surfaceContainerLowest,
         clipBehavior: Clip.antiAlias,
-        shape: shape,
+        shape:
+            shape ??
+            RoundedRectangleBorder(
+              borderRadius: borderRadius ?? kOpenHandBorderRadius32,
+              side: BorderSide(color: colorScheme.outlineVariant),
+            ),
         child: InkWell(
           onTap: onTap,
           child: Padding(padding: padding, child: child),
         ),
       ),
+    );
+  }
+}
+
+/// 列表卡内的分区标题：彩标 + 文案，下面直接跟正文或胶囊，不再套全宽长条底。
+class OpenHandInlineSection extends StatelessWidget {
+  const OpenHandInlineSection({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.accent,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: accent),
+            kOpenHandHGap8,
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        kOpenHandGap8,
+        child,
+      ],
     );
   }
 }

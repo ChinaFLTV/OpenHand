@@ -351,11 +351,11 @@ class _InstructionCard extends StatelessWidget {
             ],
           ),
           if (description.isNotEmpty) ...[
-            kOpenHandGap14,
-            OpenHandTintedPanel(
-              accent: colorScheme.secondary,
+            kOpenHandGap16,
+            OpenHandInlineSection(
               icon: Icons.subject_rounded,
               title: l10n.instructionDescriptionField,
+              accent: colorScheme.secondary,
               child: Text(
                 description,
                 maxLines: 2,
@@ -368,11 +368,11 @@ class _InstructionCard extends StatelessWidget {
             ),
           ],
           if (hasRouting) ...[
-            kOpenHandGap12,
-            OpenHandTintedPanel(
-              accent: colorScheme.tertiary,
+            kOpenHandGap14,
+            OpenHandInlineSection(
               icon: Icons.alt_route_rounded,
               title: l10n.instructionSectionRouting,
+              accent: colorScheme.tertiary,
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -400,11 +400,11 @@ class _InstructionCard extends StatelessWidget {
             ),
           ],
           if (hasKeywords) ...[
-            kOpenHandGap12,
-            OpenHandTintedPanel(
-              accent: OpenHandStatusColors.info,
+            kOpenHandGap14,
+            OpenHandInlineSection(
               icon: Icons.tag_rounded,
               title: l10n.instructionSectionKeywords,
+              accent: OpenHandStatusColors.info,
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,

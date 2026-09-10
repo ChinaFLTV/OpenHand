@@ -589,7 +589,6 @@ enum _KnowledgeCardAction { delete }
 class _KnowledgeSourceCard extends StatelessWidget {
   const _KnowledgeSourceCard({required this.source});
 
-  static const double _radius = 28;
   static const double _actionButtonSize = 44;
 
   final KnowledgeSource source;
@@ -614,9 +613,6 @@ class _KnowledgeSourceCard extends StatelessWidget {
       child: OpenHandHoverCard(
         onTap: () => showKnowledgeSourceDetailDialog(context, source.id),
         padding: const EdgeInsets.fromLTRB(18, 18, 14, 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_radius),
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -716,11 +712,11 @@ class _KnowledgeSourceCard extends StatelessWidget {
                 ),
               ],
             ),
-            kOpenHandGap14,
-            OpenHandTintedPanel(
-              accent: colorScheme.secondary,
+            kOpenHandGap16,
+            OpenHandInlineSection(
               icon: Icons.folder_open_rounded,
               title: _knowledgeSourcePathLabel(context),
+              accent: colorScheme.secondary,
               child: Text(
                 source.originalPath,
                 maxLines: 2,
@@ -732,11 +728,11 @@ class _KnowledgeSourceCard extends StatelessWidget {
               ),
             ),
             if (errorMessage.isNotEmpty) ...[
-              kOpenHandGap12,
-              OpenHandTintedPanel(
-                accent: colorScheme.error,
+              kOpenHandGap14,
+              OpenHandInlineSection(
                 icon: Icons.error_outline_rounded,
                 title: localizedKnowledgeSourceStatus(context, source.status),
+                accent: colorScheme.error,
                 child: Text(
                   errorMessage,
                   maxLines: 3,
@@ -748,33 +744,27 @@ class _KnowledgeSourceCard extends StatelessWidget {
                 ),
               ),
             ],
-            kOpenHandGap12,
-            OpenHandTintedPanel(
-              accent: statusColor,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OpenHandStatusPill(
-                    icon: Icons.circle,
-                    label: localizedKnowledgeSourceStatus(
-                      context,
-                      source.status,
-                    ),
-                    color: statusColor,
-                  ),
-                  OpenHandFactChip(
-                    icon: Icons.sd_storage_outlined,
-                    label: formatByteSize(source.sizeBytes),
-                    color: colorScheme.tertiary,
-                  ),
-                  OpenHandFactChip(
-                    icon: Icons.schedule_rounded,
-                    label: formatYearMonthDayHm(source.updatedAt.toLocal()),
-                    color: OpenHandStatusColors.warning,
-                  ),
-                ],
-              ),
+            kOpenHandGap14,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OpenHandStatusPill(
+                  icon: Icons.circle,
+                  label: localizedKnowledgeSourceStatus(context, source.status),
+                  color: statusColor,
+                ),
+                OpenHandFactChip(
+                  icon: Icons.sd_storage_outlined,
+                  label: formatByteSize(source.sizeBytes),
+                  color: colorScheme.tertiary,
+                ),
+                OpenHandFactChip(
+                  icon: Icons.schedule_rounded,
+                  label: formatYearMonthDayHm(source.updatedAt.toLocal()),
+                  color: OpenHandStatusColors.warning,
+                ),
+              ],
             ),
           ],
         ),

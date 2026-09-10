@@ -812,11 +812,11 @@ class _MemoryEntryCard extends StatelessWidget {
             ],
           ),
           if (body.isNotEmpty) ...[
-            kOpenHandGap14,
-            OpenHandTintedPanel(
-              accent: accent,
+            kOpenHandGap16,
+            OpenHandInlineSection(
               icon: Icons.notes_rounded,
               title: l10n.memorySectionContent,
+              accent: accent,
               child: Text(
                 body,
                 maxLines: _kMemoryCardContentMaxLines,
@@ -825,37 +825,30 @@ class _MemoryEntryCard extends StatelessWidget {
               ),
             ),
           ],
-          kOpenHandGap12,
-          OpenHandTintedPanel(
-            accent: OpenHandStatusColors.warning,
-            icon: displayTags.isNotEmpty
-                ? Icons.sell_outlined
-                : Icons.schedule_rounded,
-            title: displayTags.isNotEmpty ? l10n.memorySectionTags : null,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
+          kOpenHandGap14,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OpenHandFactChip(
+                icon: Icons.schedule_rounded,
+                label:
+                    '${l10n.memoryCreatedAtLabel} ${_formatCreatedAt(context, entry.createdAt)}',
+                color: OpenHandStatusColors.warning,
+              ),
+              for (final tag in visibleTags)
                 OpenHandFactChip(
-                  icon: Icons.schedule_rounded,
-                  label:
-                      '${l10n.memoryCreatedAtLabel} ${_formatCreatedAt(context, entry.createdAt)}',
-                  color: OpenHandStatusColors.warning,
+                  icon: Icons.sell_outlined,
+                  label: tag,
+                  color: OpenHandStatusColors.info,
                 ),
-                for (final tag in visibleTags)
-                  OpenHandFactChip(
-                    icon: Icons.sell_outlined,
-                    label: tag,
-                    color: OpenHandStatusColors.info,
-                  ),
-                if (hiddenTagCount > 0)
-                  OpenHandFactChip(
-                    icon: Icons.more_horiz_rounded,
-                    label: '+$hiddenTagCount',
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-              ],
-            ),
+              if (hiddenTagCount > 0)
+                OpenHandFactChip(
+                  icon: Icons.more_horiz_rounded,
+                  label: '+$hiddenTagCount',
+                  color: colorScheme.onSurfaceVariant,
+                ),
+            ],
           ),
         ],
       ),
