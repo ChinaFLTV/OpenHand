@@ -141,6 +141,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.disabledIcon,
+    this.badge,
   });
 
   final IconData icon;
@@ -149,58 +150,173 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
   final String description;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final Widget? badge;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion220),
-      curve: kOpenHandSwitchInCurve,
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: value
-            ? colorScheme.primaryContainer.withValues(alpha: 0.42)
-            : colorScheme.surfaceContainer,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(!value),
         borderRadius: BorderRadius.circular(kOpenHandRadius10),
-        border: Border.all(
-          color: value
-              ? colorScheme.primary.withValues(alpha: 0.46)
-              : colorScheme.outlineVariant,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            value ? icon : disabledIcon ?? icon,
-            size: 18,
-            color: value ? colorScheme.primary : colorScheme.onSurfaceVariant,
-          ),
-          kOpenHandHGap10,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                kOpenHandGap3,
-                Text(
-                  description,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+        child: AnimatedContainer(
+          duration: openHandMotionDuration(context, kOpenHandMotion220),
+          curve: kOpenHandSwitchInCurve,
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          decoration: BoxDecoration(
+            color: value
+                ? colorScheme.primaryContainer.withValues(alpha: 0.42)
+                : colorScheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(kOpenHandRadius10),
+            border: Border.all(
+              color: value
+                  ? colorScheme.primary.withValues(alpha: 0.46)
+                  : colorScheme.outlineVariant,
             ),
           ),
-          Switch(value: value, onChanged: onChanged),
-        ],
+          child: Row(
+            children: [
+              Icon(
+                value ? icon : disabledIcon ?? icon,
+                size: 18,
+                color: value
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+              kOpenHandHGap10,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (badge != null) ...[kOpenHandHGap8, badge!],
+                      ],
+                    ),
+                    kOpenHandGap3,
+                    Text(
+                      description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(value: value, onChanged: onChanged),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 弹窗表单的分组卡片：色点图标 + 标题/说明 + 可选尾部动作 + 内容区。
+///
+/// 长表单此前各自手写一份浅底圆角容器，标题层级和间距容易分叉。
+/// 这里收敛为一份，按 [accent] 给分组上色，保证结构一眼可扫。
+class OpenHandDialogSectionCard extends StatelessWidget {
+  const OpenHandDialogSectionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.trailing,
+    this.accent,
+    this.padding = const EdgeInsets.fromLTRB(16, 14, 16, 16),
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final Widget child;
+  final Color? accent;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tone = accent ?? colorScheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          tone.withValues(alpha: 0.07),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius20,
+        border: Border.all(color: tone.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: padding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: tone.withValues(alpha: 0.16),
+                    borderRadius: kOpenHandBorderRadius12,
+                  ),
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Center(child: Icon(icon, size: 18, color: tone)),
+                  ),
+                ),
+                kOpenHandHGap10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+                        kOpenHandGap2,
+                        Text(
+                          subtitle!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (trailing != null) ...[kOpenHandHGap8, trailing!],
+              ],
+            ),
+            kOpenHandGap14,
+            child,
+          ],
+        ),
       ),
     );
   }

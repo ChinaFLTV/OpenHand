@@ -1997,6 +1997,44 @@ class AppLocalizationsJa extends AppLocalizations {
       '秒フィールドは 0 固定です。最小粒度は分です。形式: 分 時 日 月 曜日';
 
   @override
+  String get cronsEditorCreateSubtitle => '名前、スケジュール、実行方針、通知を設定します。';
+
+  @override
+  String get cronsEditorEditSubtitle => 'タスク内容、スケジュール、通知方針を調整します。';
+
+  @override
+  String get cronsSectionBasics => '基本情報';
+
+  @override
+  String get cronsSectionTask => 'タスク内容';
+
+  @override
+  String get cronsSectionSchedule => 'スケジュール';
+
+  @override
+  String get cronsSectionPolicy => '実行方針';
+
+  @override
+  String get cronsSectionRuntime => '実行環境';
+
+  @override
+  String get cronsScriptTypeCommandHint => 'コマンドを直接実行';
+
+  @override
+  String get cronsScriptTypeScriptHint => '選択したスクリプトを実行';
+
+  @override
+  String cronsNextRunAt(String time) {
+    return '次回: $time';
+  }
+
+  @override
+  String get cronsNextRunUnknown => '次回実行時刻を推定できません';
+
+  @override
+  String get cronsExpressionPreview => '式';
+
+  @override
   String get cronsTimeoutSeconds => 'タイムアウト（秒）';
 
   @override

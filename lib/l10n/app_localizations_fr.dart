@@ -2047,6 +2047,47 @@ class AppLocalizationsFr extends AppLocalizations {
       'Le champ secondes reste a 0. Granularite minimale: minute. Format: min heure jour mois semaine';
 
   @override
+  String get cronsEditorCreateSubtitle =>
+      'Configurer l identite, le planning, la politique d execution et les notifications.';
+
+  @override
+  String get cronsEditorEditSubtitle =>
+      'Ajuster le contenu, le planning et les notifications.';
+
+  @override
+  String get cronsSectionBasics => 'Informations';
+
+  @override
+  String get cronsSectionTask => 'Tache';
+
+  @override
+  String get cronsSectionSchedule => 'Planning';
+
+  @override
+  String get cronsSectionPolicy => 'Politique';
+
+  @override
+  String get cronsSectionRuntime => 'Environnement';
+
+  @override
+  String get cronsScriptTypeCommandHint => 'Executer une commande';
+
+  @override
+  String get cronsScriptTypeScriptHint => 'Executer le script selectionne';
+
+  @override
+  String cronsNextRunAt(String time) {
+    return 'Prochaine: $time';
+  }
+
+  @override
+  String get cronsNextRunUnknown =>
+      'Impossible d estimer la prochaine execution';
+
+  @override
+  String get cronsExpressionPreview => 'Expression';
+
+  @override
   String get cronsTimeoutSeconds => 'Delai (s)';
 
   @override

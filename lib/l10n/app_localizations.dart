@@ -3559,6 +3559,78 @@ abstract class AppLocalizations {
   /// **'秒字段已冻结为 0，最小粒度为分钟。格式: 分 时 日 月 周'**
   String get cronsCronScheduleHelper;
 
+  /// No description provided for @cronsEditorCreateSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置任务身份、调度节奏、执行策略与通知。'**
+  String get cronsEditorCreateSubtitle;
+
+  /// No description provided for @cronsEditorEditSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'调整任务内容、调度节奏与通知策略。'**
+  String get cronsEditorEditSubtitle;
+
+  /// No description provided for @cronsSectionBasics.
+  ///
+  /// In zh, this message translates to:
+  /// **'基础信息'**
+  String get cronsSectionBasics;
+
+  /// No description provided for @cronsSectionTask.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务内容'**
+  String get cronsSectionTask;
+
+  /// No description provided for @cronsSectionSchedule.
+  ///
+  /// In zh, this message translates to:
+  /// **'调度计划'**
+  String get cronsSectionSchedule;
+
+  /// No description provided for @cronsSectionPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行策略'**
+  String get cronsSectionPolicy;
+
+  /// No description provided for @cronsSectionRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行环境'**
+  String get cronsSectionRuntime;
+
+  /// No description provided for @cronsScriptTypeCommandHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'直接执行一条命令'**
+  String get cronsScriptTypeCommandHint;
+
+  /// No description provided for @cronsScriptTypeScriptHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行选定的脚本文件'**
+  String get cronsScriptTypeScriptHint;
+
+  /// No description provided for @cronsNextRunAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'下次: {time}'**
+  String cronsNextRunAt(String time);
+
+  /// No description provided for @cronsNextRunUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法预估下次执行时间'**
+  String get cronsNextRunUnknown;
+
+  /// No description provided for @cronsExpressionPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'表达式'**
+  String get cronsExpressionPreview;
+
   /// No description provided for @cronsTimeoutSeconds.
   ///
   /// In zh, this message translates to:

@@ -1976,6 +1976,44 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cronsCronScheduleHelper => '秒字段已冻结为 0，最小粒度为分钟。格式: 分 时 日 月 周';
 
   @override
+  String get cronsEditorCreateSubtitle => '配置任务身份、调度节奏、执行策略与通知。';
+
+  @override
+  String get cronsEditorEditSubtitle => '调整任务内容、调度节奏与通知策略。';
+
+  @override
+  String get cronsSectionBasics => '基础信息';
+
+  @override
+  String get cronsSectionTask => '任务内容';
+
+  @override
+  String get cronsSectionSchedule => '调度计划';
+
+  @override
+  String get cronsSectionPolicy => '执行策略';
+
+  @override
+  String get cronsSectionRuntime => '运行环境';
+
+  @override
+  String get cronsScriptTypeCommandHint => '直接执行一条命令';
+
+  @override
+  String get cronsScriptTypeScriptHint => '运行选定的脚本文件';
+
+  @override
+  String cronsNextRunAt(String time) {
+    return '下次: $time';
+  }
+
+  @override
+  String get cronsNextRunUnknown => '无法预估下次执行时间';
+
+  @override
+  String get cronsExpressionPreview => '表达式';
+
+  @override
   String get cronsTimeoutSeconds => '超时（秒）';
 
   @override
@@ -12358,6 +12396,44 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get cronsCronScheduleHelper => '秒欄位已固定為 0，最小粒度為分鐘。格式: 分 時 日 月 週';
+
+  @override
+  String get cronsEditorCreateSubtitle => '設定任務身分、調度節奏、執行策略與通知。';
+
+  @override
+  String get cronsEditorEditSubtitle => '調整任務內容、調度節奏與通知策略。';
+
+  @override
+  String get cronsSectionBasics => '基礎資訊';
+
+  @override
+  String get cronsSectionTask => '任務內容';
+
+  @override
+  String get cronsSectionSchedule => '調度計畫';
+
+  @override
+  String get cronsSectionPolicy => '執行策略';
+
+  @override
+  String get cronsSectionRuntime => '執行環境';
+
+  @override
+  String get cronsScriptTypeCommandHint => '直接執行一條命令';
+
+  @override
+  String get cronsScriptTypeScriptHint => '執行選定的指令碼檔案';
+
+  @override
+  String cronsNextRunAt(String time) {
+    return '下次: $time';
+  }
+
+  @override
+  String get cronsNextRunUnknown => '無法預估下次執行時間';
+
+  @override
+  String get cronsExpressionPreview => '表達式';
 
   @override
   String get cronsTimeoutSeconds => '逾時（秒）';

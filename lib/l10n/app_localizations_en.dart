@@ -2027,6 +2027,46 @@ class AppLocalizationsEn extends AppLocalizations {
       'Seconds field frozen at 0. Minimum granularity: minute. Format: min hour dom mon dow';
 
   @override
+  String get cronsEditorCreateSubtitle =>
+      'Configure identity, schedule, execution policy, and notifications.';
+
+  @override
+  String get cronsEditorEditSubtitle =>
+      'Adjust the task payload, schedule, and notification policy.';
+
+  @override
+  String get cronsSectionBasics => 'Basics';
+
+  @override
+  String get cronsSectionTask => 'Task';
+
+  @override
+  String get cronsSectionSchedule => 'Schedule';
+
+  @override
+  String get cronsSectionPolicy => 'Policy';
+
+  @override
+  String get cronsSectionRuntime => 'Runtime';
+
+  @override
+  String get cronsScriptTypeCommandHint => 'Run a command directly';
+
+  @override
+  String get cronsScriptTypeScriptHint => 'Run the selected script file';
+
+  @override
+  String cronsNextRunAt(String time) {
+    return 'Next: $time';
+  }
+
+  @override
+  String get cronsNextRunUnknown => 'Next run cannot be estimated';
+
+  @override
+  String get cronsExpressionPreview => 'Expression';
+
+  @override
   String get cronsTimeoutSeconds => 'Timeout (s)';
 
   @override

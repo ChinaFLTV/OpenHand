@@ -2041,6 +2041,46 @@ class AppLocalizationsDe extends AppLocalizations {
       'Das Sekundenfeld bleibt 0. Kleinste Einheit: Minute. Format: Min Stunde Tag Monat Wochentag';
 
   @override
+  String get cronsEditorCreateSubtitle =>
+      'Identitaet, Zeitplan, Ausfuehrungsrichtlinie und Benachrichtigungen konfigurieren.';
+
+  @override
+  String get cronsEditorEditSubtitle =>
+      'Aufgabe, Zeitplan und Benachrichtigungen anpassen.';
+
+  @override
+  String get cronsSectionBasics => 'Grundlagen';
+
+  @override
+  String get cronsSectionTask => 'Aufgabe';
+
+  @override
+  String get cronsSectionSchedule => 'Zeitplan';
+
+  @override
+  String get cronsSectionPolicy => 'Richtlinie';
+
+  @override
+  String get cronsSectionRuntime => 'Laufzeit';
+
+  @override
+  String get cronsScriptTypeCommandHint => 'Befehl direkt ausfuehren';
+
+  @override
+  String get cronsScriptTypeScriptHint => 'Ausgewaehltes Skript ausfuehren';
+
+  @override
+  String cronsNextRunAt(String time) {
+    return 'Naechste: $time';
+  }
+
+  @override
+  String get cronsNextRunUnknown => 'Naechste Ausfuehrung nicht schaetzbar';
+
+  @override
+  String get cronsExpressionPreview => 'Ausdruck';
+
+  @override
   String get cronsTimeoutSeconds => 'Timeout (s)';
 
   @override

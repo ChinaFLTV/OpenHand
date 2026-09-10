@@ -16,6 +16,12 @@ const int kCronMaxTimeoutSeconds = 3600;
 const int kCronDefaultRetryDelaySeconds = 30;
 const int kCronMinRetryDelaySeconds = 1;
 const int kCronMaxRetryDelaySeconds = 300;
+
+/// 五段式分钟级 cron 的默认表达式（分 时 日 月 周）。
+const String kCronDefaultExpression = '* * * * *';
+
+/// 界面冻结的秒字段。调度最小粒度为分钟，秒恒为 0。
+const String kCronFrozenSecondField = '0';
 const IntValueRange _cronRetryCountRange = IntValueRange(
   fallback: kCronDefaultRetryCount,
   min: kCronMinRetryCount,
@@ -177,7 +183,7 @@ class CronEntry {
     this.scriptType = CronScriptType.command,
     this.scriptPath,
     this.scriptContent,
-    this.cronExpression = '* * * * *',
+    this.cronExpression = kCronDefaultExpression,
     this.retryCount = kCronDefaultRetryCount,
     this.timeoutSeconds = kCronDefaultTimeoutSeconds,
     this.runAsUser,
@@ -223,7 +229,8 @@ class CronEntry {
           CronScriptType.command,
       scriptPath: nullIfBlank('${json['script_path'] ?? ''}'),
       scriptContent: nullIfBlank('${json['script_content'] ?? ''}'),
-      cronExpression: '${json['cron_expression'] ?? '* * * * *'}'.trim(),
+      cronExpression: '${json['cron_expression'] ?? kCronDefaultExpression}'
+          .trim(),
       retryCount: _cronRetryCountRange.fromValue(json['retry_count']),
       timeoutSeconds: _cronTimeoutSecondsRange.fromValue(
         json['timeout_seconds'],
