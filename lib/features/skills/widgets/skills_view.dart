@@ -35,7 +35,6 @@ enum _SkillCardAction { openDirectory, edit, delete }
 
 /// 技能图标预览框的边长（逻辑像素）。
 const double _kSkillIconPreviewExtent = 72;
-const double _kSkillCardIconExtent = 48;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
 const int _kSkillDescriptionCompactMaxLines = 2;
 const int _kSkillDescriptionExpandedMaxLines = 5;
@@ -1150,11 +1149,9 @@ class _SkillCard extends StatelessWidget {
     final hasPrompt = defaultPrompt != null && defaultPrompt.isNotEmpty;
     final radius = BorderRadius.circular(_kSkillCardRadius);
 
-    return OpenHandAccentCard(
+    return OpenHandHoverCard(
       key: ValueKey<String>('skill-card-${skill.directoryPath}'),
-      accent: cs.primary,
       elevation: 0,
-      fillHeight: true,
       onTap: onOpen,
       padding: _kSkillCardPadding,
       shape: RoundedRectangleBorder(
@@ -1167,8 +1164,6 @@ class _SkillCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SkillCardIdentityIcon(skill: skill),
-              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1178,7 +1173,7 @@ class _SkillCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     kOpenHandGap8,
@@ -1257,58 +1252,7 @@ class _SkillCard extends StatelessWidget {
   }
 }
 
-class _SkillCardIdentityIcon extends StatelessWidget {
-  const _SkillCardIdentityIcon({required this.skill});
-
-  final LocalSkill skill;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final fallback = Center(
-      child: Text(
-        skill.initials,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w800,
-          color: cs.onPrimaryContainer,
-        ),
-      ),
-    );
-    Widget child = fallback;
-    final emoji = skill.emojiIcon;
-    if (skill.hasEmojiIcon && emoji != null) {
-      child = _SkillEmojiGlyph(emoji: emoji, fontSize: 26);
-    } else if (skill.hasIcon &&
-        skill.iconPath != null &&
-        skill.iconKind != null) {
-      child = switch (skill.iconKind!) {
-        LocalSkillIconKind.svg => buildLocalSvgPicture(
-          skill.iconPath!,
-          fit: BoxFit.cover,
-          fallback: fallback,
-        ),
-        LocalSkillIconKind.raster => buildLocalRasterImage(
-          skill.iconPath!,
-          fit: BoxFit.cover,
-          fallback: fallback,
-        ),
-      };
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(kOpenHandRadius14),
-      child: ColoredBox(
-        color: cs.primaryContainer,
-        child: SizedBox(
-          width: _kSkillCardIconExtent,
-          height: _kSkillCardIconExtent,
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-/// 默认提示块：与服务能力芯片同色系（primary 浅底 + 描边），支持多行。
+/// 默认提示块：浅色信息分区，不用竖条。
 class _SkillPromptPanel extends StatelessWidget {
   const _SkillPromptPanel({required this.prompt});
 
@@ -1319,14 +1263,9 @@ class _SkillPromptPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final accent = cs.primary;
-    return Container(
-      width: double.infinity,
+    return OpenHandTintedPanel(
+      accent: accent,
       padding: _kSkillPromptPadding,
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(kOpenHandRadius12),
-        border: Border.all(color: accent.withValues(alpha: 0.26)),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

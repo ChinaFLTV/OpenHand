@@ -743,156 +743,115 @@ class _MemoryEntryCard extends StatelessWidget {
     final headline = entry.displayTitle.trim();
     final body = entry.content.trim();
 
-    return OpenHandAccentCard(
-      accent: accent,
+    return OpenHandHoverCard(
       onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      padding: const EdgeInsets.fromLTRB(18, 18, 14, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                accent.withValues(alpha: 0.12),
-                colorScheme.surfaceContainerLow,
-              ),
-              borderRadius: kOpenHandBorderRadius16,
-              border: Border.all(color: accent.withValues(alpha: 0.22)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: iconFill,
-                      borderRadius: BorderRadius.circular(kOpenHandRadius18),
-                      border: Border.all(color: accent.withValues(alpha: 0.28)),
-                    ),
-                    child: SizedBox(
-                      width: _kMemoryCardIconExtent,
-                      height: _kMemoryCardIconExtent,
-                      child: Center(
-                        child: Icon(
-                          isAutoLearned
-                              ? Icons.auto_awesome_outlined
-                              : Icons.psychology_alt_outlined,
-                          color: iconInk,
-                        ),
-                      ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: iconFill,
+                  borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                ),
+                child: SizedBox(
+                  width: _kMemoryCardIconExtent,
+                  height: _kMemoryCardIconExtent,
+                  child: Center(
+                    child: Icon(
+                      isAutoLearned
+                          ? Icons.auto_awesome_outlined
+                          : Icons.psychology_alt_outlined,
+                      color: iconInk,
                     ),
                   ),
-                  kOpenHandHGap12,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (headline.isNotEmpty)
-                          Text(
-                            headline,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        kOpenHandGap10,
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            OpenHandStatusPill(
-                              icon: isAutoLearned
-                                  ? Icons.auto_awesome_outlined
-                                  : Icons.person_outline_rounded,
-                              label: isAutoLearned
-                                  ? l10n.memoryAutoLearnedTag
-                                  : l10n.memoryTypeUser,
-                              color: isAutoLearned
-                                  ? colorScheme.tertiary
-                                  : colorScheme.secondary,
-                            ),
-                            if (displayTags.isNotEmpty)
-                              OpenHandStatusPill(
-                                icon: Icons.sell_outlined,
-                                label: l10n.memorySummaryTagCount(
-                                  displayTags.length,
-                                ),
-                                color: OpenHandStatusColors.info,
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  AnimatedPopupMenuButton<_MemoryCardAction>(
-                    onSelected: onActionSelected,
-                    itemBuilder: (context) {
-                      return [
-                        PopupMenuItem<_MemoryCardAction>(
-                          value: _MemoryCardAction.edit,
-                          child: Text(l10n.commonEdit),
-                        ),
-                        PopupMenuItem<_MemoryCardAction>(
-                          value: _MemoryCardAction.delete,
-                          child: Text(l10n.commonDelete),
-                        ),
-                      ];
-                    },
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          if (body.isNotEmpty) ...[
-            kOpenHandGap12,
-            Material(
-              color: Color.alphaBlend(
-                accent.withValues(alpha: 0.08),
-                colorScheme.surfaceContainerLow,
-              ),
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                borderRadius: kOpenHandBorderRadius16,
-                side: BorderSide(color: accent.withValues(alpha: 0.20)),
-              ),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+              kOpenHandHGap14,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ColoredBox(
-                      color: accent,
-                      child: const SizedBox(width: kOpenHandAccentRailWidth),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 14, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l10n.memorySectionContent,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                color: accent,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            kOpenHandGap6,
-                            Text(
-                              body,
-                              maxLines: _kMemoryCardContentMaxLines,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                height: 1.5,
-                              ),
-                            ),
-                          ],
+                    if (headline.isNotEmpty)
+                      Text(
+                        headline,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
+                    kOpenHandGap10,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OpenHandStatusPill(
+                          icon: isAutoLearned
+                              ? Icons.auto_awesome_outlined
+                              : Icons.person_outline_rounded,
+                          label: isAutoLearned
+                              ? l10n.memoryAutoLearnedTag
+                              : l10n.memoryTypeUser,
+                          color: isAutoLearned
+                              ? colorScheme.tertiary
+                              : colorScheme.secondary,
+                        ),
+                        if (displayTags.isNotEmpty)
+                          OpenHandStatusPill(
+                            icon: Icons.sell_outlined,
+                            label: l10n.memorySummaryTagCount(
+                              displayTags.length,
+                            ),
+                            color: OpenHandStatusColors.info,
+                          ),
+                      ],
                     ),
                   ],
                 ),
+              ),
+              AnimatedPopupMenuButton<_MemoryCardAction>(
+                onSelected: onActionSelected,
+                itemBuilder: (context) {
+                  return [
+                    PopupMenuItem<_MemoryCardAction>(
+                      value: _MemoryCardAction.edit,
+                      child: Text(l10n.commonEdit),
+                    ),
+                    PopupMenuItem<_MemoryCardAction>(
+                      value: _MemoryCardAction.delete,
+                      child: Text(l10n.commonDelete),
+                    ),
+                  ];
+                },
+              ),
+            ],
+          ),
+          if (body.isNotEmpty) ...[
+            kOpenHandGap14,
+            OpenHandTintedPanel(
+              accent: accent,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.memorySectionContent,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: accent,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  kOpenHandGap6,
+                  Text(
+                    body,
+                    maxLines: _kMemoryCardContentMaxLines,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                  ),
+                ],
               ),
             ),
           ],

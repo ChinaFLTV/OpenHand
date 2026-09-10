@@ -228,8 +228,7 @@ class _InstructionCard extends StatelessWidget {
     final hiddenKeywordCount = visibleKeywords.length - keywords.length;
     final trimmedVersion = entry.version.trim();
 
-    return OpenHandAccentCard(
-      accent: entry.enabled ? colorScheme.primary : colorScheme.outlineVariant,
+    return OpenHandHoverCard(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,7 +303,9 @@ class _InstructionCard extends StatelessWidget {
                       entry.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     kOpenHandGap6,
                     Text(
@@ -352,8 +353,8 @@ class _InstructionCard extends StatelessWidget {
             ],
           ),
           kOpenHandGap16,
-          Align(
-            alignment: Alignment.centerLeft,
+          OpenHandTintedPanel(
+            accent: entry.enabled ? colorScheme.primary : colorScheme.outline,
             child: Wrap(
               spacing: 10,
               runSpacing: 10,

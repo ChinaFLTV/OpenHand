@@ -972,151 +972,135 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         vibrationEnabled && !OpenHandNotificationService.supportsVibration;
 
     return Material(
-      color: colorScheme.surface,
-      elevation: 0,
+      color: Color.alphaBlend(
+        accent.withValues(alpha: 0.06),
+        colorScheme.surface,
+      ),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: kOpenHandBorderRadius18,
         side: BorderSide(color: accent.withValues(alpha: 0.28)),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ColoredBox(
-              color: accent,
-              child: const SizedBox(width: kOpenHandAccentRailWidth),
+            Text(
+              label,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    kOpenHandGap12,
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: _kCronEditorFieldHeight,
-                            child:
-                                AnimatedDropdownButtonFormField<CronNotifyType>(
-                                  initialValue: notifyType,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                  items: CronNotifyType.values.map((n) {
-                                    return DropdownMenuItem(
-                                      value: n,
-                                      child: Text(n.label(l10n)),
-                                    );
-                                  }).toList(),
-                                  onChanged: (v) {
-                                    if (v != null) onNotifyChanged(v);
-                                  },
-                                ),
-                          ),
-                        ),
-                        kOpenHandHGap8,
-                        Expanded(
-                          child: SizedBox(
-                            height: _kCronEditorFieldHeight,
-                            child:
-                                AnimatedDropdownButtonFormField<
-                                  CronNotifySeverity
-                                >(
-                                  initialValue: severity,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                  items: CronNotifySeverity.values.map((s) {
-                                    return DropdownMenuItem(
-                                      value: s,
-                                      child: Text(s.label(l10n)),
-                                    );
-                                  }).toList(),
-                                  onChanged: (v) {
-                                    if (v != null) onSeverityChanged(v);
-                                  },
-                                ),
-                          ),
-                        ),
-                        kOpenHandHGap8,
-                        Tooltip(
-                          message: _soundSupportTooltip(soundEnabled),
-                          child: SizedBox.square(
-                            dimension: _kCronEditorFieldHeight,
-                            child: IconButton.filledTonal(
-                              onPressed: () => onSoundChanged(!soundEnabled),
-                              icon: Icon(
-                                soundEnabled
-                                    ? Icons.volume_up_rounded
-                                    : Icons.volume_off_rounded,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ),
-                        kOpenHandHGap4,
-                        Tooltip(
-                          message: _vibrationSupportTooltip(vibrationEnabled),
-                          child: SizedBox.square(
-                            dimension: _kCronEditorFieldHeight,
-                            child: IconButton.filledTonal(
-                              onPressed: () =>
-                                  onVibrationChanged(!vibrationEnabled),
-                              icon: Icon(
-                                vibrationEnabled
-                                    ? Icons.vibration_rounded
-                                    : Icons.vibration_outlined,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    kOpenHandGap10,
-                    SizedBox(
-                      height: _kCronEditorFieldHeight,
-                      child: TextField(
-                        controller: msgController,
-                        decoration: InputDecoration(
-                          hintText: l10n.cronsCustomNotificationMessageHint,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
+            kOpenHandGap12,
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: _kCronEditorFieldHeight,
+                    child: AnimatedDropdownButtonFormField<CronNotifyType>(
+                      initialValue: notifyType,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
                         ),
                       ),
+                      items: CronNotifyType.values.map((n) {
+                        return DropdownMenuItem(
+                          value: n,
+                          child: Text(n.label(l10n)),
+                        );
+                      }).toList(),
+                      onChanged: (v) {
+                        if (v != null) onNotifyChanged(v);
+                      },
                     ),
-                    if (vibrationUnsupported) ...[
-                      kOpenHandGap6,
-                      Text(
-                        l10n.cronsVibrationUnsupportedHint,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                kOpenHandHGap8,
+                Expanded(
+                  child: SizedBox(
+                    height: _kCronEditorFieldHeight,
+                    child: AnimatedDropdownButtonFormField<CronNotifySeverity>(
+                      initialValue: severity,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
                         ),
                       ),
-                    ],
-                  ],
+                      items: CronNotifySeverity.values.map((s) {
+                        return DropdownMenuItem(
+                          value: s,
+                          child: Text(s.label(l10n)),
+                        );
+                      }).toList(),
+                      onChanged: (v) {
+                        if (v != null) onSeverityChanged(v);
+                      },
+                    ),
+                  ),
+                ),
+                kOpenHandHGap8,
+                Tooltip(
+                  message: _soundSupportTooltip(soundEnabled),
+                  child: SizedBox.square(
+                    dimension: _kCronEditorFieldHeight,
+                    child: IconButton.filledTonal(
+                      onPressed: () => onSoundChanged(!soundEnabled),
+                      icon: Icon(
+                        soundEnabled
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_off_rounded,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+                kOpenHandHGap4,
+                Tooltip(
+                  message: _vibrationSupportTooltip(vibrationEnabled),
+                  child: SizedBox.square(
+                    dimension: _kCronEditorFieldHeight,
+                    child: IconButton.filledTonal(
+                      onPressed: () => onVibrationChanged(!vibrationEnabled),
+                      icon: Icon(
+                        vibrationEnabled
+                            ? Icons.vibration_rounded
+                            : Icons.vibration_outlined,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            kOpenHandGap10,
+            SizedBox(
+              height: _kCronEditorFieldHeight,
+              child: TextField(
+                controller: msgController,
+                decoration: InputDecoration(
+                  hintText: l10n.cronsCustomNotificationMessageHint,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
               ),
             ),
+            if (vibrationUnsupported) ...[
+              kOpenHandGap6,
+              Text(
+                l10n.cronsVibrationUnsupportedHint,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ],
         ),
       ),

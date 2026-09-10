@@ -381,43 +381,25 @@ class OpenHandSummaryChip extends StatelessWidget {
   }
 }
 
-/// 分区列表卡：左侧色条 + 悬浮上浮。父级 [Card] 裁剪圆角，色条不再单独圆角。
-class OpenHandAccentCard extends StatelessWidget {
-  const OpenHandAccentCard({
+/// 分区列表卡：悬浮上浮 + 点击，不再画左侧色条。
+class OpenHandHoverCard extends StatelessWidget {
+  const OpenHandHoverCard({
     super.key,
-    required this.accent,
     required this.child,
     this.onTap,
     this.padding = const EdgeInsets.fromLTRB(16, 18, 18, 18),
     this.elevation,
     this.shape,
-    this.fillHeight = false,
   });
 
-  final Color accent;
   final Widget child;
   final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
   final double? elevation;
   final ShapeBorder? shape;
 
-  /// 网格等高卡片设为 true，让色条拉满给定高度；列表自适应高度保持默认。
-  final bool fillHeight;
-
   @override
   Widget build(BuildContext context) {
-    final row = Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ColoredBox(
-          color: accent,
-          child: const SizedBox(width: kOpenHandAccentRailWidth),
-        ),
-        Expanded(
-          child: Padding(padding: padding, child: child),
-        ),
-      ],
-    );
     return HoverLift(
       child: Card(
         elevation: elevation,
@@ -425,9 +407,39 @@ class OpenHandAccentCard extends StatelessWidget {
         shape: shape,
         child: InkWell(
           onTap: onTap,
-          child: fillHeight ? row : IntrinsicHeight(child: row),
+          child: Padding(padding: padding, child: child),
         ),
       ),
+    );
+  }
+}
+
+/// 卡片内的浅色信息块：标题/正文分区用色块分层，不用竖条。
+class OpenHandTintedPanel extends StatelessWidget {
+  const OpenHandTintedPanel({
+    super.key,
+    required this.accent,
+    required this.child,
+    this.padding = const EdgeInsets.fromLTRB(14, 12, 14, 12),
+  });
+
+  final Color accent;
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accent.withValues(alpha: 0.08),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Padding(padding: padding, child: child),
     );
   }
 }
