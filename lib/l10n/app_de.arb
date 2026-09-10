@@ -1155,7 +1155,7 @@
   "settingsPanelAnimationTitle": "Arbeitsbereichspanel-Animation",
   "settingsPanelAnimationSubtitle": "Übergänge der Arbeitsbereichspanels konfigurieren, etwa Navigation/Dateien links und Unterhaltung/Editor rechts. Rechte Module nutzen die Seitenanimation.",
   "settingsPageAnimationTitle": "Seiten-/Modulanimation",
-  "settingsPageAnimationSubtitle": "Übergänge des rechten Hauptinhalts konfigurieren, einschließlich Workspace, Einstellungen, MCP, Speicher, Hooks, Crons, Skills, Workflows und Automatisierungen.",
+  "settingsPageAnimationSubtitle": "Übergänge des rechten Hauptinhalts konfigurieren, einschließlich Workspace, Einstellungen, MCP, Speicher, Lebenszyklus-Hooks, geplanter Aufgaben, Skills, Workflows und Automatisierungen.",
   "settingsChipAnimationTitle": "Chip-Animation",
   "settingsChipAnimationSubtitle": "Eingangs-/Ausgangsanimationen für entfernbare Chips konfigurieren: ausgewählte Skills, Anhänge, Projektreferenzen, Warteschlangen-Nachrichten, Bearbeitungspille usw.",
   "settingsListItemAnimationTitle": "Listenelement-Animation",
@@ -2222,7 +2222,7 @@
   "tokenPopupContextInstructions": "Anweisungen",
   "tokenPopupContextMemory": "Speicher",
   "tokenPopupContextSkills": "Skills",
-  "tokenPopupContextHooks": "Hooks",
+  "tokenPopupContextHooks": "Lebenszyklus-Hooks",
   "tokenPopupContextConversation": "Unterhaltung",
   "tokenPopupContextRuntime": "Laufzeit",
   "tokenPopupContextWindow": "Kontextfenster",
@@ -2894,7 +2894,7 @@
   "settingsShortcuts": "Tastenkürzel",
   "settingsConfigureKeyCombinationsForCommonActions": "Tastenkombinationen für häufige Aktionen konfigurieren. OpenHand unterstützt derzeit bis zu vier gleichzeitige Tasten.",
   "settingsBuiltInTools": "Integrierte Werkzeuge",
-  "settingsCrons": "Cron-Aufgaben",
+  "settingsCrons": "Geplante Aufgaben",
   "settingsControlsRetentionAndColdStartCleanup": "Steuert die Aufbewahrung und Cold-Start-Bereinigung des Cron-Ausführungsverlaufs. Der Bereinigungs-Worker läuft einmal pro Kaltstart mit hartem Timeout, Single-Flight-Sperre und nur silentLog-Fehlern, sodass er nie Ressourcen leaken oder endlos schleifen kann.",
   "settingsHermesTalker": "Hermes Talker",
   "@settingsHermesTalker": {
@@ -7546,7 +7546,7 @@
   "@exportKindSkill": {
     "description": "OpenHand localized UI text."
   },
-  "exportKindHook": "Hook-Ereignis",
+  "exportKindHook": "Lebenszyklus-Hook-Ereignis",
   "@exportKindHook": {
     "description": "OpenHand localized UI text."
   },
@@ -7688,19 +7688,19 @@
   "@workflowsEmptyBody": {
     "description": "工作流板块的本地化界面文案。"
   },
-  "hooksTitle": "Hooks",
+  "hooksTitle": "Lebenszyklus-Hooks",
   "@hooksTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksSubtitle": "Konfigurieren Sie Skripte für jede Lebenszyklusphase des KI-Agenten. Hooks werden nacheinander ausgeführt, wenn das passende Ereignis ausgelöst wird.",
+  "hooksSubtitle": "Konfigurieren Sie Skripte für jede Lebenszyklusphase des KI-Agenten. Lebenszyklus-Hooks werden beim passenden Ereignis nacheinander ausgeführt.",
   "@hooksSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksNew": "Neuer Hook",
+  "hooksNew": "Neuer Lebenszyklus-Hook",
   "@hooksNew": {
     "description": "OpenHand localized UI text."
   },
-  "hooksDeleteTitle": "Hook löschen",
+  "hooksDeleteTitle": "Lebenszyklus-Hook löschen",
   "@hooksDeleteTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7711,11 +7711,11 @@
       "label": {}
     }
   },
-  "hooksEmptyTitle": "Noch keine Hooks konfiguriert",
+  "hooksEmptyTitle": "Noch keine Lebenszyklus-Hooks",
   "@hooksEmptyTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEmptyBody": "Klicken Sie oben auf „Neuer Hook“, um zu beginnen.",
+  "hooksEmptyBody": "Klicken Sie oben auf „Neuer Lebenszyklus-Hook“, um zu beginnen.",
   "@hooksEmptyBody": {
     "description": "OpenHand localized UI text."
   },
@@ -7734,7 +7734,7 @@
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEditTitle": "Hook bearbeiten",
+  "hooksEditTitle": "Lebenszyklus-Hook bearbeiten",
   "@hooksEditTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7798,7 +7798,7 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
-  "hooksValidationLabelRequired": "Geben Sie eine Hook-Bezeichnung ein.",
+  "hooksValidationLabelRequired": "Geben Sie einen Namen für den Lebenszyklus-Hook ein.",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."
   },

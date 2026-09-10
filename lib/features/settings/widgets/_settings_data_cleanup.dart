@@ -736,9 +736,25 @@ String _categoryTitle(BuildContext context, DataCleanupCategory category) {
         en: 'Web Gateway Ops Cache',
       );
     case DataCleanupCategory.hooks:
-      return openHandLocalizedText(context, zh: 'Hooks 配置', en: 'Hooks');
+      return openHandLocalizedText(
+        context,
+        zh: '生命周期钩子配置',
+        zhHant: '生命週期鉤子設定',
+        en: 'Lifecycle Hooks',
+        fr: 'Hooks de cycle de vie',
+        de: 'Lebenszyklus-Hooks',
+        ja: 'ライフサイクルフック',
+      );
     case DataCleanupCategory.crons:
-      return openHandLocalizedText(context, zh: '定时任务', en: 'Cron Jobs');
+      return openHandLocalizedText(
+        context,
+        zh: '定时任务',
+        zhHant: '定時任務',
+        en: 'Scheduled Tasks',
+        fr: 'Tâches planifiées',
+        de: 'Geplante Aufgaben',
+        ja: '定期タスク',
+      );
     case DataCleanupCategory.instructions:
       return openHandLocalizedText(context, zh: '用户指令', en: 'Instructions');
     case DataCleanupCategory.skillsDirectory:
@@ -809,8 +825,8 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
     case DataCleanupCategory.logs:
       return openHandLocalizedText(
         context,
-        zh: 'cron 执行历史 + ~/.openhand/logs/ 目录。',
-        en: 'Cron execution history + the ~/.openhand/logs/ directory.',
+        zh: '定时任务执行历史 + ~/.openhand/logs/ 目录。',
+        en: 'Scheduled task history + the ~/.openhand/logs/ directory.',
       );
     case DataCleanupCategory.userMemory:
       return openHandLocalizedText(
@@ -847,17 +863,28 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
     case DataCleanupCategory.hooks:
       return openHandLocalizedText(
         context,
-        zh: '全局设置 → Hooks 中配置的钩子脚本（sqlite hooks 表）。清理后 Hooks 列表会变空。',
+        zh: '全局设置 → 生命周期钩子中配置的脚本（sqlite hooks 表）。清理后生命周期钩子列表会变空。',
+        zhHant: '全域設定 → 生命週期鉤子中設定的腳本（sqlite hooks 表）。清理後生命週期鉤子列表會變空。',
         en:
-            'Hook scripts configured under Settings → Hooks (sqlite `hooks` '
-            'table). The Hooks list will be empty after cleanup.',
+            'Scripts configured under Settings → Lifecycle Hooks (sqlite '
+            '`hooks` table). The lifecycle hook list will be empty after '
+            'cleanup.',
+        fr:
+            'Scripts configurés dans Paramètres → Hooks de cycle de vie '
+            '(table sqlite `hooks`). La liste sera vide après le nettoyage.',
+        de:
+            'Unter Einstellungen → Lebenszyklus-Hooks konfigurierte Skripte '
+            '(SQLite-Tabelle `hooks`). Die Liste ist danach leer.',
+        ja:
+            '設定 → ライフサイクルフックで構成したスクリプト（sqlite の `hooks` '
+            'テーブル）。クリーンアップ後、一覧は空になります。',
       );
     case DataCleanupCategory.crons:
       return openHandLocalizedText(
         context,
         zh: '用户创建的定时任务（不含 Hermes Talker 自主学习、MCP 关键词索引等系统内置任务）。清理后用户任务列表会变空，执行历史在「日志数据」中独立清理。',
         en:
-            'User-created cron jobs. System-managed entries (Hermes Talker '
+            'User-created scheduled tasks. System-managed entries (Hermes Talker '
             'self-learning, MCP keyword index, etc.) are preserved. Execution '
             'history is cleaned separately under "Logs".',
       );

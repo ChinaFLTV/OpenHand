@@ -3070,7 +3070,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsPageAnimationSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、工作流、自动化等页面之间的切换。'**
+  /// **'配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、生命周期钩子、定时任务、技能、工作流、自动化等页面之间的切换。'**
   String get settingsPageAnimationSubtitle;
 
   /// No description provided for @settingsChipAnimationTitle.
@@ -7383,7 +7383,7 @@ abstract class AppLocalizations {
   /// No description provided for @tokenPopupContextHooks.
   ///
   /// In zh, this message translates to:
-  /// **'Hooks'**
+  /// **'生命周期钩子'**
   String get tokenPopupContextHooks;
 
   /// No description provided for @tokenPopupContextConversation.
@@ -17676,7 +17676,7 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'Hook 事件'**
+  /// **'生命周期钩子事件'**
   String get exportKindHook;
 
   /// OpenHand localized UI text.
@@ -17874,25 +17874,25 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'Hooks'**
+  /// **'生命周期钩子'**
   String get hooksTitle;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。'**
+  /// **'为 AI Agent 的生命周期阶段配置执行脚本。每个生命周期钩子会在对应事件触发时按顺序执行。'**
   String get hooksSubtitle;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'新增 Hook'**
+  /// **'新增生命周期钩子'**
   String get hooksNew;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'删除 Hook'**
+  /// **'删除生命周期钩子'**
   String get hooksDeleteTitle;
 
   /// OpenHand localized UI text.
@@ -17904,13 +17904,13 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'暂无 Hook 配置'**
+  /// **'暂无生命周期钩子'**
   String get hooksEmptyTitle;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'点击右上角「新增 Hook」按钮开始配置。'**
+  /// **'点击右上角「新增生命周期钩子」按钮开始配置。'**
   String get hooksEmptyBody;
 
   /// OpenHand localized UI text.
@@ -17934,7 +17934,7 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'编辑 Hook'**
+  /// **'编辑生命周期钩子'**
   String get hooksEditTitle;
 
   /// OpenHand localized UI text.
@@ -18030,7 +18030,7 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'请填写 Hook 名称。'**
+  /// **'请填写生命周期钩子名称。'**
   String get hooksValidationLabelRequired;
 
   /// OpenHand localized UI text.

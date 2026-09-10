@@ -1769,7 +1769,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      'Configure entrance/exit animation style, duration, and easing curve for right-side main content module switches, including Workspace, Settings, MCP, Memory, Hooks, Crons, Skills, Workflows, and Automations.';
+      'Configure entrance/exit animation style, duration, and easing curve for right-side main content module switches, including Workspace, Settings, MCP, Memory, Lifecycle Hooks, Scheduled Tasks, Skills, Workflows, and Automations.';
 
   @override
   String get settingsChipAnimationTitle => 'Chip Animation';
@@ -4147,7 +4147,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tokenPopupContextSkills => 'Skills';
 
   @override
-  String get tokenPopupContextHooks => 'Hooks';
+  String get tokenPopupContextHooks => 'Lifecycle Hooks';
 
   @override
   String get tokenPopupContextConversation => 'Conversation';
@@ -5895,7 +5895,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsBuiltInTools => 'Built-in Tools';
 
   @override
-  String get settingsCrons => 'Crons';
+  String get settingsCrons => 'Scheduled Tasks';
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
@@ -10017,7 +10017,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportKindSkill => 'Skill event';
 
   @override
-  String get exportKindHook => 'Hook event';
+  String get exportKindHook => 'Lifecycle hook event';
 
   @override
   String get exportKindSelfLearning => 'Self-learning';
@@ -10126,17 +10126,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Click \"New Workflow\" above to get started.';
 
   @override
-  String get hooksTitle => 'Hooks';
+  String get hooksTitle => 'Lifecycle Hooks';
 
   @override
   String get hooksSubtitle =>
-      'Configure scripts to run at each AI agent lifecycle stage. Hooks execute sequentially when the corresponding event fires.';
+      'Configure scripts for each AI agent lifecycle stage. Lifecycle hooks run in order when the corresponding event fires.';
 
   @override
-  String get hooksNew => 'New Hook';
+  String get hooksNew => 'New Lifecycle Hook';
 
   @override
-  String get hooksDeleteTitle => 'Delete Hook';
+  String get hooksDeleteTitle => 'Delete Lifecycle Hook';
 
   @override
   String hooksDeleteMessage(Object label) {
@@ -10144,10 +10144,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get hooksEmptyTitle => 'No hooks configured yet';
+  String get hooksEmptyTitle => 'No lifecycle hooks yet';
 
   @override
-  String get hooksEmptyBody => 'Click \"New Hook\" above to get started.';
+  String get hooksEmptyBody =>
+      'Click \"New Lifecycle Hook\" above to get started.';
 
   @override
   String get hooksTimeoutTooltip => 'Timeout';
@@ -10161,7 +10162,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hooksNoScriptConfigured => 'No script configured';
 
   @override
-  String get hooksEditTitle => 'Edit Hook';
+  String get hooksEditTitle => 'Edit Lifecycle Hook';
 
   @override
   String get hooksLabelField => 'Label';
@@ -10212,7 +10213,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hooksEnabled => 'Enabled';
 
   @override
-  String get hooksValidationLabelRequired => 'Enter a hook label.';
+  String get hooksValidationLabelRequired => 'Enter a lifecycle hook name.';
 
   @override
   String get hooksValidationScriptFileRequired => 'Select a script file.';

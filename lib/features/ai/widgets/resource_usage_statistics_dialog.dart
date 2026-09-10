@@ -80,7 +80,15 @@ String resourceUsageKindLabel(BuildContext context, AiResourceUsageKind kind) {
       de: 'Skill',
       ja: 'スキル',
     ),
-    AiResourceUsageKind.hook => 'Hook',
+    AiResourceUsageKind.hook => openHandLocalizedText(
+      context,
+      zh: '生命周期钩子',
+      zhHant: '生命週期鉤子',
+      en: 'Lifecycle Hook',
+      fr: 'Hook de cycle de vie',
+      de: 'Lebenszyklus-Hook',
+      ja: 'ライフサイクルフック',
+    ),
     AiResourceUsageKind.knowledge => openHandKnowledgeLabel(context),
     AiResourceUsageKind.memory => openHandLocalizedText(
       context,

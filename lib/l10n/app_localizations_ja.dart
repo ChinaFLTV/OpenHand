@@ -1739,7 +1739,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      'Workspace、設定、MCP、メモリ、Hooks、Crons、スキル、ワークフロー、自動化など、右側メインコンテンツの切り替えを設定します。';
+      'Workspace、設定、MCP、メモリ、ライフサイクルフック、定期タスク、スキル、ワークフロー、自動化など、右側メインコンテンツの切り替えを設定します。';
 
   @override
   String get settingsChipAnimationTitle => 'チップアニメーション';
@@ -4059,7 +4059,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupContextSkills => 'スキル';
 
   @override
-  String get tokenPopupContextHooks => 'Hooks';
+  String get tokenPopupContextHooks => 'ライフサイクルフック';
 
   @override
   String get tokenPopupContextConversation => '会話';
@@ -5745,7 +5745,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsBuiltInTools => '組み込みツール';
 
   @override
-  String get settingsCrons => 'Cron';
+  String get settingsCrons => '定期タスク';
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
@@ -9812,7 +9812,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get exportKindSkill => 'スキルイベント';
 
   @override
-  String get exportKindHook => 'Hook イベント';
+  String get exportKindHook => 'ライフサイクルフックイベント';
 
   @override
   String get exportKindSelfLearning => '自己学習';
@@ -9917,17 +9917,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workflowsEmptyBody => '右上の「新規ワークフロー」をクリックして作成を開始します。';
 
   @override
-  String get hooksTitle => 'Hooks';
+  String get hooksTitle => 'ライフサイクルフック';
 
   @override
   String get hooksSubtitle =>
-      'AI Agent のライフサイクル段階ごとに実行するスクリプトを設定します。対応するイベントが発生すると、Hook は順番に実行されます。';
+      'AI Agent のライフサイクル段階ごとに実行するスクリプトを設定します。対応するイベントが発生すると、ライフサイクルフックは順番に実行されます。';
 
   @override
-  String get hooksNew => '新規 Hook';
+  String get hooksNew => 'ライフサイクルフックを追加';
 
   @override
-  String get hooksDeleteTitle => 'Hook を削除';
+  String get hooksDeleteTitle => 'ライフサイクルフックを削除';
 
   @override
   String hooksDeleteMessage(Object label) {
@@ -9935,10 +9935,10 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get hooksEmptyTitle => 'Hook はまだ設定されていません';
+  String get hooksEmptyTitle => 'ライフサイクルフックはまだありません';
 
   @override
-  String get hooksEmptyBody => '上の「新規 Hook」をクリックして設定を開始します。';
+  String get hooksEmptyBody => '上の「ライフサイクルフックを追加」をクリックして設定を開始します。';
 
   @override
   String get hooksTimeoutTooltip => 'タイムアウト';
@@ -9952,7 +9952,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hooksNoScriptConfigured => 'スクリプト未設定';
 
   @override
-  String get hooksEditTitle => 'Hook を編集';
+  String get hooksEditTitle => 'ライフサイクルフックを編集';
 
   @override
   String get hooksLabelField => 'ラベル';
@@ -10002,7 +10002,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hooksEnabled => '有効';
 
   @override
-  String get hooksValidationLabelRequired => 'Hook ラベルを入力してください。';
+  String get hooksValidationLabelRequired => 'ライフサイクルフック名を入力してください。';
 
   @override
   String get hooksValidationScriptFileRequired => 'スクリプトファイルを選択してください。';

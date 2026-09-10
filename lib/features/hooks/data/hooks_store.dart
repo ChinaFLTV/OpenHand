@@ -46,7 +46,7 @@ class HooksStore {
       limit: HookEntry.maxEntries + 1,
     );
     if (rows.length > HookEntry.maxEntries) {
-      throw const FormatException('Hook 数量超过安全上限。');
+      throw const FormatException('生命周期钩子数量超过安全上限。');
     }
     final entries = <HookEntry>[];
     final seenIds = <String>{};
@@ -56,7 +56,7 @@ class HooksStore {
       totalPayloadBytes += payloadBytes;
       if (payloadBytes > HookEntry.maxEntryPayloadBytes ||
           totalPayloadBytes > HookEntry.maxTotalPayloadBytes) {
-        throw const FormatException('Hook 存储规模超过安全上限。');
+        throw const FormatException('生命周期钩子存储规模超过安全上限。');
       }
       final rawId = _text(row, 'id');
       final id = rawId.trim();
@@ -80,7 +80,7 @@ class HooksStore {
           timeoutSeconds > HookEntry.maxTimeoutSeconds ||
           sortOrder is! int ||
           sortOrder < 0) {
-        throw FormatException('Hook 数据行无效：$id');
+        throw FormatException('生命周期钩子数据行无效：$id');
       }
       final scriptPath = _text(row, 'script_path');
       final scriptContent = _text(row, 'script_content');
@@ -92,7 +92,7 @@ class HooksStore {
           scriptPath.length > HookEntry.maxScriptPathCharacters ||
           scriptPath.contains('\u0000') ||
           (scriptPath.isNotEmpty == scriptContent.trim().isNotEmpty)) {
-        throw FormatException('Hook 数据行无效：$id');
+        throw FormatException('生命周期钩子数据行无效：$id');
       }
       entries.add(
         HookEntry(
@@ -123,7 +123,7 @@ class HooksStore {
   String _text(Map<String, Object?> row, String key) {
     final value = row[key];
     if (value is String) return value;
-    throw FormatException('Hook 字段 $key 必须为文本。');
+    throw FormatException('生命周期钩子字段 $key 必须为文本。');
   }
 
   Map<String, Object?> _entryValues(HookEntry entry, int sortOrder) {
@@ -167,19 +167,19 @@ class HooksStore {
         maxEntryBytes == null ||
         totalPayloadBytes == null ||
         invalidCount == null) {
-      throw const FormatException('Hook 存储统计无效。');
+      throw const FormatException('生命周期钩子存储统计无效。');
     }
     if (entryCount > HookEntry.maxEntries ||
         maxEntryBytes > HookEntry.maxEntryPayloadBytes ||
         totalPayloadBytes > HookEntry.maxTotalPayloadBytes ||
         invalidCount != 0) {
-      throw const FormatException('Hook 存储规模超过安全上限。');
+      throw const FormatException('生命周期钩子存储规模超过安全上限。');
     }
   }
 
   void _validateEntriesForWrite(List<HookEntry> entries) {
     if (entries.length > HookEntry.maxEntries) {
-      throw const FormatException('Hook 数量超过安全上限。');
+      throw const FormatException('生命周期钩子数量超过安全上限。');
     }
     final seenIds = <String>{};
     var totalPayloadBytes = 0;
@@ -200,13 +200,13 @@ class HooksStore {
           (scriptPath.isNotEmpty == scriptContent.trim().isNotEmpty) ||
           entry.timeoutSeconds < HookEntry.minTimeoutSeconds ||
           entry.timeoutSeconds > HookEntry.maxTimeoutSeconds) {
-        throw FormatException('Hook 配置无效：${entry.id}');
+        throw FormatException('生命周期钩子配置无效：${entry.id}');
       }
       final payloadBytes = _payloadBytes(_entryValues(entry, index));
       totalPayloadBytes += payloadBytes;
       if (payloadBytes > HookEntry.maxEntryPayloadBytes ||
           totalPayloadBytes > HookEntry.maxTotalPayloadBytes) {
-        throw const FormatException('Hook 配置规模超过安全上限。');
+        throw const FormatException('生命周期钩子配置规模超过安全上限。');
       }
     }
   }

@@ -2754,7 +2754,7 @@ class AiSessionController extends ChangeNotifier {
     } else {
       unawaited(
         startHookFuture.catchError((Object error, StackTrace stack) {
-          silentLog('ai_session_controller', '执行会话启动 Hook', error, stack);
+          silentLog('ai_session_controller', '执行会话启动生命周期钩子', error, stack);
         }),
       );
     }
@@ -6629,13 +6629,13 @@ class AiSessionController extends ChangeNotifier {
           final blockedSession = _appendError(
             session,
             stage: 'user_prompt_hook',
-            message: userHookResult.blockReason ?? '用户提示词被 Hook 阻止。',
+            message: userHookResult.blockReason ?? '用户提示词被生命周期钩子阻止。',
             detail: userHookResult.executedCommands.join('\n'),
           );
           await _commitSessionLocked(blockedSession);
           _setLastSendErrorMessage(
             session.id,
-            userHookResult.blockReason ?? '用户提示词被 Hook 阻止。',
+            userHookResult.blockReason ?? '用户提示词被生命周期钩子阻止。',
           );
           return false;
         }
@@ -12702,7 +12702,7 @@ $tail''';
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
-        '执行 Claude 风格 Hook：$eventName',
+        '执行 Claude 风格生命周期钩子：$eventName',
         error,
         stack,
       );
@@ -12725,7 +12725,7 @@ $tail''';
       return;
     }
     final content = <String>[
-      if (blockReason.isNotEmpty) 'SessionStart Hook 已阻止操作：$blockReason',
+      if (blockReason.isNotEmpty) 'SessionStart 生命周期钩子已阻止操作：$blockReason',
       ...reminders,
     ].join('\n\n');
     final createdAt = _clock().toUtc();
@@ -12791,7 +12791,7 @@ $tail''';
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
-        '执行用户 Hook：${event.name}',
+        '执行用户生命周期钩子：${event.name}',
         error,
         stack,
       );
@@ -12820,8 +12820,8 @@ $tail''';
               : hookResult.stderr.isNotEmpty
               ? hookResult.stderr
               : hookResult.status == 'success'
-              ? 'Hook 执行成功。'
-              : 'Hook 已结束，状态：${hookResult.status}。',
+              ? '生命周期钩子执行成功。'
+              : '生命周期钩子已结束，状态：${hookResult.status}。',
           createdAt: createdAt,
           metadata: <String, Object?>{
             'tool_source': 'hook',

@@ -8971,7 +8971,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.memory => openHandMemoryLabel(context),
       AppSection.mcp => openHandLocalizedText(context, zh: 'MCP', en: 'MCP'),
       AppSection.hooks => _homeHooksLabel(context),
-      AppSection.crons => 'Crons',
+      AppSection.crons => AppLocalizations.of(context)!.settingsCrons,
       AppSection.instructions => openHandInstructionsLabel(context),
       AppSection.messageGateway => openHandLocalizedText(
         context,
@@ -10853,7 +10853,7 @@ String _homeForkLabel(BuildContext context) {
 }
 
 String _homeHooksLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: 'Hooks', en: 'Hooks');
+  return AppLocalizations.of(context)!.hooksTitle;
 }
 
 String _homeMissingLabel(BuildContext context) {

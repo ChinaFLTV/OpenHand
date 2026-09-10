@@ -1155,7 +1155,7 @@
   "settingsPanelAnimationTitle": "Animation des panneaux",
   "settingsPanelAnimationSubtitle": "Configure les transitions des panneaux de l’espace de travail, comme navigation/fichiers à gauche et conversation/éditeur à droite. Les modules de droite utilisent l’animation de page.",
   "settingsPageAnimationTitle": "Animation page / module",
-  "settingsPageAnimationSubtitle": "Configure les transitions du contenu principal à droite, notamment Workspace, Paramètres, MCP, Mémoire, Hooks, Crons, Compétences, Flux de travail et Automatisations.",
+  "settingsPageAnimationSubtitle": "Configure les transitions du contenu principal à droite, notamment Workspace, Paramètres, MCP, Mémoire, Hooks de cycle de vie, Tâches planifiées, Compétences, Flux de travail et Automatisations.",
   "settingsChipAnimationTitle": "Animation des chips",
   "settingsChipAnimationSubtitle": "Configure les animations d’entrée/sortie des chips amovibles : compétence sélectionnée, pièces jointes, références projet, messages en file, indicateur d’édition, etc.",
   "settingsListItemAnimationTitle": "Animation des listes",
@@ -2222,7 +2222,7 @@
   "tokenPopupContextInstructions": "Instructions",
   "tokenPopupContextMemory": "Mémoire",
   "tokenPopupContextSkills": "Compétences",
-  "tokenPopupContextHooks": "Hooks",
+  "tokenPopupContextHooks": "Hooks de cycle de vie",
   "tokenPopupContextConversation": "Conversation",
   "tokenPopupContextRuntime": "Exécution",
   "tokenPopupContextWindow": "Fenêtre de contexte",
@@ -2894,7 +2894,7 @@
   "settingsShortcuts": "Raccourcis",
   "settingsConfigureKeyCombinationsForCommonActions": "Configurez les combinaisons de touches pour les actions courantes. OpenHand prend en charge jusqu’à quatre touches simultanées.",
   "settingsBuiltInTools": "Outils intégrés",
-  "settingsCrons": "Tâches Cron",
+  "settingsCrons": "Tâches planifiées",
   "settingsControlsRetentionAndColdStartCleanup": "Contrôle la rétention et le nettoyage au démarrage à froid de l’historique d’exécution cron. Le travailleur de nettoyage s’exécute une fois par démarrage à froid avec délai d’expiration strict, verrou single-flight et défaillances en silentLog uniquement pour ne jamais fuir de ressources ou boucler indéfiniment.",
   "settingsHermesTalker": "Hermes Talker",
   "@settingsHermesTalker": {
@@ -7546,7 +7546,7 @@
   "@exportKindSkill": {
     "description": "OpenHand localized UI text."
   },
-  "exportKindHook": "Événement Hook",
+  "exportKindHook": "Événement de hook de cycle de vie",
   "@exportKindHook": {
     "description": "OpenHand localized UI text."
   },
@@ -7688,19 +7688,19 @@
   "@workflowsEmptyBody": {
     "description": "工作流板块的本地化界面文案。"
   },
-  "hooksTitle": "Hooks",
+  "hooksTitle": "Hooks de cycle de vie",
   "@hooksTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksSubtitle": "Configurez les scripts à exécuter à chaque étape du cycle de vie de l’agent IA. Les Hooks s’exécutent dans l’ordre lorsque l’événement correspondant se déclenche.",
+  "hooksSubtitle": "Configurez les scripts de chaque étape du cycle de vie de l’agent IA. Les hooks de cycle de vie s’exécutent dans l’ordre lorsque l’événement correspondant se déclenche.",
   "@hooksSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksNew": "Nouveau Hook",
+  "hooksNew": "Nouveau hook de cycle de vie",
   "@hooksNew": {
     "description": "OpenHand localized UI text."
   },
-  "hooksDeleteTitle": "Supprimer le Hook",
+  "hooksDeleteTitle": "Supprimer le hook de cycle de vie",
   "@hooksDeleteTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7711,11 +7711,11 @@
       "label": {}
     }
   },
-  "hooksEmptyTitle": "Aucun Hook configuré",
+  "hooksEmptyTitle": "Aucun hook de cycle de vie",
   "@hooksEmptyTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEmptyBody": "Cliquez sur « Nouveau Hook » ci-dessus pour commencer.",
+  "hooksEmptyBody": "Cliquez sur « Nouveau hook de cycle de vie » ci-dessus pour commencer.",
   "@hooksEmptyBody": {
     "description": "OpenHand localized UI text."
   },
@@ -7734,7 +7734,7 @@
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEditTitle": "Modifier le Hook",
+  "hooksEditTitle": "Modifier le hook de cycle de vie",
   "@hooksEditTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7798,7 +7798,7 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
-  "hooksValidationLabelRequired": "Saisissez un libellé de Hook.",
+  "hooksValidationLabelRequired": "Saisissez un nom de hook de cycle de vie.",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."
   },

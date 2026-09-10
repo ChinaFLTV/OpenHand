@@ -241,7 +241,7 @@ Future<void> _bootstrapRuntime(
   final settingsController = await settingsControllerFuture;
   runtimeCleanup.register('设置控制器', settingsController.shutdown);
   final hooks = await hooksModuleFuture;
-  runtimeCleanup.register('Hooks 控制器', hooks.controller.shutdown);
+  runtimeCleanup.register('生命周期钩子控制器', hooks.controller.shutdown);
   developer.Timeline.finishSync();
   // 启动阶段先写入一次；统一监听器会在所有运行时依赖就绪后注册。
   SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
@@ -640,7 +640,7 @@ Future<void> _bootstrapRuntime(
 
   // 首帧后再清理过期临时文件，避免干扰启动期关键路径。
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    _runMainBackgroundTask(HooksExecutor.pruneStaleTempFiles(), '清理 Hook 临时文件');
+    _runMainBackgroundTask(HooksExecutor.pruneStaleTempFiles(), '清理生命周期钩子临时文件');
     _runMainBackgroundTask(
       ai_protocol_adapter.pruneInlineMediaCache(),
       '清理内联媒体缓存',

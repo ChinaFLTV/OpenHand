@@ -1155,7 +1155,7 @@
   "settingsPanelAnimationTitle": "工作區面板動畫",
   "settingsPanelAnimationSubtitle": "設定工作區左右面板切換的進場動畫、退場動畫、時長和速率曲線，例如左側導覽與檔案瀏覽器切換、右側會話與程式碼編輯器切換。Settings、MCP、記憶等右側模組頁面切換由「頁面動畫」控制。",
   "settingsPageAnimationTitle": "頁面 / 模組動畫",
-  "settingsPageAnimationSubtitle": "設定右側主內容模組切換的進場動畫、退場動畫、時長和速率曲線，包括會話、設定、MCP、記憶、Hooks、Crons、技能、工作流程、自動化等頁面之間的切換。",
+  "settingsPageAnimationSubtitle": "設定右側主內容模組切換的進場動畫、退場動畫、時長和速率曲線，包括會話、設定、MCP、記憶、生命週期鉤子、定時任務、技能、工作流程、自動化等頁面之間的切換。",
   "settingsChipAnimationTitle": "膠囊動畫",
   "settingsChipAnimationSubtitle": "設定技能、附件、專案引用、佇列訊息、編輯提示等所有可關閉膠囊（chip）的進場 / 退場動畫樣式、時長和速率曲線。點擊叉號關閉時會先播放退場動效再從版面中移除。",
   "settingsListItemAnimationTitle": "列表項動畫",
@@ -2222,7 +2222,7 @@
   "tokenPopupContextInstructions": "指令",
   "tokenPopupContextMemory": "記憶",
   "tokenPopupContextSkills": "技能",
-  "tokenPopupContextHooks": "Hooks",
+  "tokenPopupContextHooks": "生命週期鉤子",
   "tokenPopupContextConversation": "會話",
   "tokenPopupContextRuntime": "執行階段",
   "tokenPopupContextWindow": "上下文視窗",
@@ -2894,7 +2894,7 @@
   "settingsShortcuts": "快捷键",
   "settingsConfigureKeyCombinationsForCommonActions": "为常用操作配置组合键。当前最多支持同时按下 4 个按键。",
   "settingsBuiltInTools": "内建工具",
-  "settingsCrons": "定时任务",
+  "settingsCrons": "定時任務",
   "settingsControlsRetentionAndColdStartCleanup": "控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，带有超时兜底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。",
   "settingsHermesTalker": "Hermes Talker",
   "@settingsHermesTalker": {
@@ -7546,7 +7546,7 @@
   "@exportKindSkill": {
     "description": "OpenHand localized UI text."
   },
-  "exportKindHook": "Hook 事件",
+  "exportKindHook": "生命週期鉤子事件",
   "@exportKindHook": {
     "description": "OpenHand localized UI text."
   },
@@ -7688,19 +7688,19 @@
   "@workflowsEmptyBody": {
     "description": "工作流板块的本地化界面文案。"
   },
-  "hooksTitle": "Hooks",
+  "hooksTitle": "生命週期鉤子",
   "@hooksTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksSubtitle": "為 AI Agent 的生命週期階段配置要執行的腳本。每個 Hook 會在對應事件觸發時依序執行。",
+  "hooksSubtitle": "為 AI Agent 的生命週期階段配置執行腳本。每個生命週期鉤子會在對應事件觸發時依序執行。",
   "@hooksSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksNew": "新增 Hook",
+  "hooksNew": "新增生命週期鉤子",
   "@hooksNew": {
     "description": "OpenHand localized UI text."
   },
-  "hooksDeleteTitle": "刪除 Hook",
+  "hooksDeleteTitle": "刪除生命週期鉤子",
   "@hooksDeleteTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7711,11 +7711,11 @@
       "label": {}
     }
   },
-  "hooksEmptyTitle": "暫無 Hook 配置",
+  "hooksEmptyTitle": "暫無生命週期鉤子",
   "@hooksEmptyTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEmptyBody": "點擊右上角「新增 Hook」按鈕開始配置。",
+  "hooksEmptyBody": "點擊右上角「新增生命週期鉤子」按鈕開始配置。",
   "@hooksEmptyBody": {
     "description": "OpenHand localized UI text."
   },
@@ -7734,7 +7734,7 @@
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEditTitle": "編輯 Hook",
+  "hooksEditTitle": "編輯生命週期鉤子",
   "@hooksEditTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7798,7 +7798,7 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
-  "hooksValidationLabelRequired": "請填寫 Hook 名稱。",
+  "hooksValidationLabelRequired": "請填寫生命週期鉤子名稱。",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."
   },

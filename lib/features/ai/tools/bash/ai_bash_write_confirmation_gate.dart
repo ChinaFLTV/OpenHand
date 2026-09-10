@@ -100,7 +100,9 @@ class AiBashWriteConfirmationGate {
       );
     } catch (error) {
       return AiClaudeHookInvocationResult(
-        systemReminders: <String>['Hook event $eventName failed: $error'],
+        systemReminders: <String>[
+          'Lifecycle hook event $eventName failed: $error',
+        ],
       );
     }
   }

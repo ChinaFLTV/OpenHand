@@ -225,7 +225,7 @@ class HooksExecutor {
         stopwatch.stop();
         if (result.timedOut) {
           timedOutCount++;
-          errors.add('Hook“${hook.label}”在 ${hook.timeoutSeconds} 秒后超时。');
+          errors.add('生命周期钩子“${hook.label}”在 ${hook.timeoutSeconds} 秒后超时。');
           record(kHookStatusTimedOut, result: result);
           continue;
         }
@@ -233,14 +233,14 @@ class HooksExecutor {
           failedCount++;
           blockReason = result.stdout.isNotEmpty
               ? result.stdout
-              : '已被 Hook“${hook.label}”拦截。';
+              : '已被生命周期钩子“${hook.label}”拦截。';
           record(kHookStatusBlocked, result: result);
           break;
         }
         if (result.exitCode != null && result.exitCode != 0) {
           failedCount++;
           errors.add(
-            'Hook“${hook.label}”退出码为 ${result.exitCode}。'
+            '生命周期钩子“${hook.label}”退出码为 ${result.exitCode}。'
             '${result.stderr.isNotEmpty ? ' 标准错误：${result.stderr}' : ''}',
           );
           record(kHookStatusFailed, result: result);
@@ -251,12 +251,12 @@ class HooksExecutor {
       } catch (error, stack) {
         stopwatch.stop();
         failedCount++;
-        silentLog('hooks_executor', '启动 Hook', error, stack);
+        silentLog('hooks_executor', '启动生命周期钩子', error, stack);
         final message = userFailureMessage(
           error,
-          fallback: 'Hook 启动失败，请检查脚本与运行环境。',
+          fallback: '生命周期钩子启动失败，请检查脚本与运行环境。',
         );
-        errors.add('Hook“${hook.label}”启动失败：$message');
+        errors.add('生命周期钩子“${hook.label}”启动失败：$message');
         record(kHookStatusFailed, error: message);
       }
     }
@@ -280,7 +280,7 @@ class HooksExecutor {
             ),
         ]);
       } catch (error, stack) {
-        silentLog('hooks_executor', '记录 Hook 调用统计', error, stack);
+        silentLog('hooks_executor', '记录生命周期钩子调用统计', error, stack);
       }
     }
     return HookExecutionResult(
@@ -319,7 +319,7 @@ class HooksExecutor {
         );
       }
     } catch (error, stack) {
-      silentLog('hooks_executor', '序列化 Hook 上下文', error, stack);
+      silentLog('hooks_executor', '序列化生命周期钩子上下文', error, stack);
       contextJson = '{}';
     }
     final contextBytes = utf8.encode(contextJson);
@@ -350,7 +350,7 @@ class HooksExecutor {
             silentLog('hooks_executor', '清理临时上下文文件', error, stack),
       );
     } catch (error, stack) {
-      silentLog('hooks_executor', '创建 Hook 临时上下文文件', error, stack);
+      silentLog('hooks_executor', '创建生命周期钩子临时上下文文件', error, stack);
       // 文件创建失败时，脚本仍可从标准输入读取上下文。
       contextFile = null;
     }
@@ -392,7 +392,7 @@ class HooksExecutor {
         throw ProcessException(
           shellCommand.executable,
           shellCommand.arguments,
-          'Hook process could not be executed safely.',
+          '生命周期钩子进程无法安全执行。',
         );
       }
 
@@ -560,11 +560,11 @@ class HooksExecutor {
         content,
         timeout: _hookTempFileOperationTimeout,
         onSecondaryError: (error, stack) =>
-            silentLog('hooks_executor', '清理 Hook 输出文件', error, stack),
+            silentLog('hooks_executor', '清理生命周期钩子输出文件', error, stack),
       );
       return file.path;
     } catch (error, stack) {
-      silentLog('hooks_executor', '保存 Hook 捕获输出', error, stack);
+      silentLog('hooks_executor', '保存生命周期钩子捕获输出', error, stack);
       return null;
     }
   }

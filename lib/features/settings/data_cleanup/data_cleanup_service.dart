@@ -186,7 +186,7 @@ class DataCleanupService {
         itemCount: (row['cnt'] as int?) ?? 0,
       );
     } catch (error, stack) {
-      silentLog('data_cleanup', '统计 Hooks', error, stack);
+      silentLog('data_cleanup', '统计生命周期钩子', error, stack);
       return DataCleanupSizeReport.unknown;
     }
   }
@@ -376,10 +376,10 @@ class DataCleanupService {
   Future<void> cleanHooks() async {
     try {
       if (!await _hooksController.clearAll()) {
-        throw StateError('Hooks 控制器拒绝清理操作。');
+        throw StateError('生命周期钩子控制器拒绝清理操作。');
       }
     } catch (error, stack) {
-      silentLog('data_cleanup', '清理 Hooks', error, stack);
+      silentLog('data_cleanup', '清理生命周期钩子', error, stack);
       // controller 路径异常时兜底直接走 DB，再 refresh 一次。
       final db = DatabaseService.instance.database;
       await db.delete('hooks');
@@ -472,7 +472,7 @@ class DataCleanupService {
     await runStep('MCP 配置', cleanMcpConfig);
     await runStep('MCP 运维缓存', cleanMcpOpsCache);
     await runStep('Web 网关运维缓存', cleanWebGatewayOpsCache);
-    await runStep('Hooks', cleanHooks);
+    await runStep('生命周期钩子', cleanHooks);
     await runStep('定时任务', cleanCrons);
     await runStep('用户指令', cleanInstructions);
     await runStep('技能目录', cleanSkillsDirectory);

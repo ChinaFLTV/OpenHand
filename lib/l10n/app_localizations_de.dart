@@ -1780,7 +1780,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      'Übergänge des rechten Hauptinhalts konfigurieren, einschließlich Workspace, Einstellungen, MCP, Speicher, Hooks, Crons, Skills, Workflows und Automatisierungen.';
+      'Übergänge des rechten Hauptinhalts konfigurieren, einschließlich Workspace, Einstellungen, MCP, Speicher, Lebenszyklus-Hooks, geplanter Aufgaben, Skills, Workflows und Automatisierungen.';
 
   @override
   String get settingsChipAnimationTitle => 'Chip-Animation';
@@ -4187,7 +4187,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tokenPopupContextSkills => 'Skills';
 
   @override
-  String get tokenPopupContextHooks => 'Hooks';
+  String get tokenPopupContextHooks => 'Lebenszyklus-Hooks';
 
   @override
   String get tokenPopupContextConversation => 'Unterhaltung';
@@ -5948,7 +5948,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsBuiltInTools => 'Integrierte Werkzeuge';
 
   @override
-  String get settingsCrons => 'Cron-Aufgaben';
+  String get settingsCrons => 'Geplante Aufgaben';
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
@@ -10110,7 +10110,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get exportKindSkill => 'Skill-Ereignis';
 
   @override
-  String get exportKindHook => 'Hook-Ereignis';
+  String get exportKindHook => 'Lebenszyklus-Hook-Ereignis';
 
   @override
   String get exportKindSelfLearning => 'Selbstlernen';
@@ -10219,17 +10219,17 @@ class AppLocalizationsDe extends AppLocalizations {
       'Klicken Sie oben auf „Neuer Workflow“, um zu beginnen.';
 
   @override
-  String get hooksTitle => 'Hooks';
+  String get hooksTitle => 'Lebenszyklus-Hooks';
 
   @override
   String get hooksSubtitle =>
-      'Konfigurieren Sie Skripte für jede Lebenszyklusphase des KI-Agenten. Hooks werden nacheinander ausgeführt, wenn das passende Ereignis ausgelöst wird.';
+      'Konfigurieren Sie Skripte für jede Lebenszyklusphase des KI-Agenten. Lebenszyklus-Hooks werden beim passenden Ereignis nacheinander ausgeführt.';
 
   @override
-  String get hooksNew => 'Neuer Hook';
+  String get hooksNew => 'Neuer Lebenszyklus-Hook';
 
   @override
-  String get hooksDeleteTitle => 'Hook löschen';
+  String get hooksDeleteTitle => 'Lebenszyklus-Hook löschen';
 
   @override
   String hooksDeleteMessage(Object label) {
@@ -10237,11 +10237,11 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get hooksEmptyTitle => 'Noch keine Hooks konfiguriert';
+  String get hooksEmptyTitle => 'Noch keine Lebenszyklus-Hooks';
 
   @override
   String get hooksEmptyBody =>
-      'Klicken Sie oben auf „Neuer Hook“, um zu beginnen.';
+      'Klicken Sie oben auf „Neuer Lebenszyklus-Hook“, um zu beginnen.';
 
   @override
   String get hooksTimeoutTooltip => 'Timeout';
@@ -10255,7 +10255,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get hooksNoScriptConfigured => 'Kein Skript konfiguriert';
 
   @override
-  String get hooksEditTitle => 'Hook bearbeiten';
+  String get hooksEditTitle => 'Lebenszyklus-Hook bearbeiten';
 
   @override
   String get hooksLabelField => 'Bezeichnung';
@@ -10307,7 +10307,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get hooksValidationLabelRequired =>
-      'Geben Sie eine Hook-Bezeichnung ein.';
+      'Geben Sie einen Namen für den Lebenszyklus-Hook ein.';
 
   @override
   String get hooksValidationScriptFileRequired =>

@@ -1160,7 +1160,7 @@
   "settingsPanelAnimationTitle": "工作区面板动画",
   "settingsPanelAnimationSubtitle": "配置工作区左右面板切换的进场动画、退场动画、时长和速率曲线，例如左侧导航与文件浏览器切换、右侧会话与代码编辑器切换。Settings、MCP、记忆等右侧模块页面切换由“页面动画”控制。",
   "settingsPageAnimationTitle": "页面 / 模块动画",
-  "settingsPageAnimationSubtitle": "配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、工作流、自动化等页面之间的切换。",
+  "settingsPageAnimationSubtitle": "配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、生命周期钩子、定时任务、技能、工作流、自动化等页面之间的切换。",
   "settingsChipAnimationTitle": "胶囊动画",
   "settingsChipAnimationSubtitle": "配置技能、附件、项目引用、队列消息、编辑提示等所有可关闭胶囊（chip）的进场 / 退场动画样式、时长和速率曲线。点击叉号关闭时会先播放退场动效再从布局中移除。",
   "settingsListItemAnimationTitle": "列表项动画",
@@ -2284,7 +2284,7 @@
   "tokenPopupContextInstructions": "指令",
   "tokenPopupContextMemory": "记忆",
   "tokenPopupContextSkills": "技能",
-  "tokenPopupContextHooks": "Hooks",
+  "tokenPopupContextHooks": "生命周期钩子",
   "tokenPopupContextConversation": "会话",
   "tokenPopupContextRuntime": "运行时",
   "tokenPopupContextWindow": "上下文窗口",
@@ -7618,7 +7618,7 @@
   "@exportKindSkill": {
     "description": "OpenHand localized UI text."
   },
-  "exportKindHook": "Hook 事件",
+  "exportKindHook": "生命周期钩子事件",
   "@exportKindHook": {
     "description": "OpenHand localized UI text."
   },
@@ -7760,19 +7760,19 @@
   "@workflowsEmptyBody": {
     "description": "工作流板块的本地化界面文案。"
   },
-  "hooksTitle": "Hooks",
+  "hooksTitle": "生命周期钩子",
   "@hooksTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksSubtitle": "为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。",
+  "hooksSubtitle": "为 AI Agent 的生命周期阶段配置执行脚本。每个生命周期钩子会在对应事件触发时按顺序执行。",
   "@hooksSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksNew": "新增 Hook",
+  "hooksNew": "新增生命周期钩子",
   "@hooksNew": {
     "description": "OpenHand localized UI text."
   },
-  "hooksDeleteTitle": "删除 Hook",
+  "hooksDeleteTitle": "删除生命周期钩子",
   "@hooksDeleteTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7783,11 +7783,11 @@
       "label": {}
     }
   },
-  "hooksEmptyTitle": "暂无 Hook 配置",
+  "hooksEmptyTitle": "暂无生命周期钩子",
   "@hooksEmptyTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEmptyBody": "点击右上角「新增 Hook」按钮开始配置。",
+  "hooksEmptyBody": "点击右上角「新增生命周期钩子」按钮开始配置。",
   "@hooksEmptyBody": {
     "description": "OpenHand localized UI text."
   },
@@ -7806,7 +7806,7 @@
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEditTitle": "编辑 Hook",
+  "hooksEditTitle": "编辑生命周期钩子",
   "@hooksEditTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7870,7 +7870,7 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
-  "hooksValidationLabelRequired": "请填写 Hook 名称。",
+  "hooksValidationLabelRequired": "请填写生命周期钩子名称。",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."
   },

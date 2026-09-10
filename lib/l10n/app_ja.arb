@@ -1155,7 +1155,7 @@
   "settingsPanelAnimationTitle": "ワークスペースパネルアニメーション",
   "settingsPanelAnimationSubtitle": "左側のナビ/ファイル、右側の会話/エディタなど、ワークスペースパネルの切り替えを設定します。右側モジュールはページアニメーションで制御します。",
   "settingsPageAnimationTitle": "ページ / モジュールアニメーション",
-  "settingsPageAnimationSubtitle": "Workspace、設定、MCP、メモリ、Hooks、Crons、スキル、ワークフロー、自動化など、右側メインコンテンツの切り替えを設定します。",
+  "settingsPageAnimationSubtitle": "Workspace、設定、MCP、メモリ、ライフサイクルフック、定期タスク、スキル、ワークフロー、自動化など、右側メインコンテンツの切り替えを設定します。",
   "settingsChipAnimationTitle": "チップアニメーション",
   "settingsChipAnimationSubtitle": "選択スキル、添付、プロジェクト参照、キュー内メッセージ、編集ピルなど、閉じられるチップの入場/退場アニメーションを設定します。",
   "settingsListItemAnimationTitle": "リスト項目アニメーション",
@@ -2222,7 +2222,7 @@
   "tokenPopupContextInstructions": "指示",
   "tokenPopupContextMemory": "メモリ",
   "tokenPopupContextSkills": "スキル",
-  "tokenPopupContextHooks": "Hooks",
+  "tokenPopupContextHooks": "ライフサイクルフック",
   "tokenPopupContextConversation": "会話",
   "tokenPopupContextRuntime": "ランタイム",
   "tokenPopupContextWindow": "コンテキストウィンドウ",
@@ -2894,7 +2894,7 @@
   "settingsShortcuts": "ショートカット",
   "settingsConfigureKeyCombinationsForCommonActions": "一般的な操作のキー組み合わせを設定します。OpenHand は最大 4 キーの同時押しに対応しています。",
   "settingsBuiltInTools": "組み込みツール",
-  "settingsCrons": "Cron",
+  "settingsCrons": "定期タスク",
   "settingsControlsRetentionAndColdStartCleanup": "Cron 実行履歴の保持期間とコールドスタート時のクリーンアップを制御します。クリーンアップワーカーはコールドスタートごとに 1 回だけ実行され、ハードタイムアウト、シングルフライトロック、silentLog のみの失敗で、リソースリークや無限ループを防ぎます。",
   "settingsHermesTalker": "ヘルメストーカー",
   "@settingsHermesTalker": {
@@ -7546,7 +7546,7 @@
   "@exportKindSkill": {
     "description": "OpenHand localized UI text."
   },
-  "exportKindHook": "Hook イベント",
+  "exportKindHook": "ライフサイクルフックイベント",
   "@exportKindHook": {
     "description": "OpenHand localized UI text."
   },
@@ -7688,19 +7688,19 @@
   "@workflowsEmptyBody": {
     "description": "工作流板块的本地化界面文案。"
   },
-  "hooksTitle": "Hooks",
+  "hooksTitle": "ライフサイクルフック",
   "@hooksTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksSubtitle": "AI Agent のライフサイクル段階ごとに実行するスクリプトを設定します。対応するイベントが発生すると、Hook は順番に実行されます。",
+  "hooksSubtitle": "AI Agent のライフサイクル段階ごとに実行するスクリプトを設定します。対応するイベントが発生すると、ライフサイクルフックは順番に実行されます。",
   "@hooksSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksNew": "新規 Hook",
+  "hooksNew": "ライフサイクルフックを追加",
   "@hooksNew": {
     "description": "OpenHand localized UI text."
   },
-  "hooksDeleteTitle": "Hook を削除",
+  "hooksDeleteTitle": "ライフサイクルフックを削除",
   "@hooksDeleteTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7711,11 +7711,11 @@
       "label": {}
     }
   },
-  "hooksEmptyTitle": "Hook はまだ設定されていません",
+  "hooksEmptyTitle": "ライフサイクルフックはまだありません",
   "@hooksEmptyTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEmptyBody": "上の「新規 Hook」をクリックして設定を開始します。",
+  "hooksEmptyBody": "上の「ライフサイクルフックを追加」をクリックして設定を開始します。",
   "@hooksEmptyBody": {
     "description": "OpenHand localized UI text."
   },
@@ -7734,7 +7734,7 @@
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEditTitle": "Hook を編集",
+  "hooksEditTitle": "ライフサイクルフックを編集",
   "@hooksEditTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7798,7 +7798,7 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
-  "hooksValidationLabelRequired": "Hook ラベルを入力してください。",
+  "hooksValidationLabelRequired": "ライフサイクルフック名を入力してください。",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."
   },

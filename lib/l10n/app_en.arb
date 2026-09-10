@@ -1160,7 +1160,7 @@
   "settingsPanelAnimationTitle": "Workspace Panel Animation",
   "settingsPanelAnimationSubtitle": "Configure entrance/exit animation style, duration, and easing curve for workspace panel transitions, such as left navigation/file explorer and right conversation/code editor switches. Settings, MCP, Memory, and other right-side module page switches are controlled by Page Animation.",
   "settingsPageAnimationTitle": "Page / Module Animation",
-  "settingsPageAnimationSubtitle": "Configure entrance/exit animation style, duration, and easing curve for right-side main content module switches, including Workspace, Settings, MCP, Memory, Hooks, Crons, Skills, Workflows, and Automations.",
+  "settingsPageAnimationSubtitle": "Configure entrance/exit animation style, duration, and easing curve for right-side main content module switches, including Workspace, Settings, MCP, Memory, Lifecycle Hooks, Scheduled Tasks, Skills, Workflows, and Automations.",
   "settingsChipAnimationTitle": "Chip Animation",
   "settingsChipAnimationSubtitle": "Configure entrance/exit animation style, duration, and easing curve for all removable chips (selected skill, attachments, project references, queued messages, editing pill, etc.). Tapping × plays the exit animation before the chip is removed from layout.",
   "settingsListItemAnimationTitle": "List Item Animation",
@@ -2227,7 +2227,7 @@
   "tokenPopupContextInstructions": "Instructions",
   "tokenPopupContextMemory": "Memory",
   "tokenPopupContextSkills": "Skills",
-  "tokenPopupContextHooks": "Hooks",
+  "tokenPopupContextHooks": "Lifecycle Hooks",
   "tokenPopupContextConversation": "Conversation",
   "tokenPopupContextRuntime": "Runtime",
   "tokenPopupContextWindow": "Context window",
@@ -2899,7 +2899,7 @@
   "settingsShortcuts": "Shortcuts",
   "settingsConfigureKeyCombinationsForCommonActions": "Configure key combinations for common actions. OpenHand currently supports up to four simultaneous keys.",
   "settingsBuiltInTools": "Built-in Tools",
-  "settingsCrons": "Crons",
+  "settingsCrons": "Scheduled Tasks",
   "settingsControlsRetentionAndColdStartCleanup": "Controls retention and cold-start cleanup of cron execution history. The cleanup worker runs once per cold start with a hard timeout, single-flight lock and silentLog-only failures so it can never leak resources or loop indefinitely.",
   "settingsHermesTalker": "Hermes Talker",
   "@settingsHermesTalker": {
@@ -7551,7 +7551,7 @@
   "@exportKindSkill": {
     "description": "OpenHand localized UI text."
   },
-  "exportKindHook": "Hook event",
+  "exportKindHook": "Lifecycle hook event",
   "@exportKindHook": {
     "description": "OpenHand localized UI text."
   },
@@ -7693,19 +7693,19 @@
   "@workflowsEmptyBody": {
     "description": "工作流板块的本地化界面文案。"
   },
-  "hooksTitle": "Hooks",
+  "hooksTitle": "Lifecycle Hooks",
   "@hooksTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksSubtitle": "Configure scripts to run at each AI agent lifecycle stage. Hooks execute sequentially when the corresponding event fires.",
+  "hooksSubtitle": "Configure scripts for each AI agent lifecycle stage. Lifecycle hooks run in order when the corresponding event fires.",
   "@hooksSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksNew": "New Hook",
+  "hooksNew": "New Lifecycle Hook",
   "@hooksNew": {
     "description": "OpenHand localized UI text."
   },
-  "hooksDeleteTitle": "Delete Hook",
+  "hooksDeleteTitle": "Delete Lifecycle Hook",
   "@hooksDeleteTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7716,11 +7716,11 @@
       "label": {}
     }
   },
-  "hooksEmptyTitle": "No hooks configured yet",
+  "hooksEmptyTitle": "No lifecycle hooks yet",
   "@hooksEmptyTitle": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEmptyBody": "Click \"New Hook\" above to get started.",
+  "hooksEmptyBody": "Click \"New Lifecycle Hook\" above to get started.",
   "@hooksEmptyBody": {
     "description": "OpenHand localized UI text."
   },
@@ -7739,7 +7739,7 @@
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
   },
-  "hooksEditTitle": "Edit Hook",
+  "hooksEditTitle": "Edit Lifecycle Hook",
   "@hooksEditTitle": {
     "description": "OpenHand localized UI text."
   },
@@ -7803,7 +7803,7 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
-  "hooksValidationLabelRequired": "Enter a hook label.",
+  "hooksValidationLabelRequired": "Enter a lifecycle hook name.",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."
   },

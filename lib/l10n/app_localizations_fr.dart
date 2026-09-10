@@ -1786,7 +1786,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      'Configure les transitions du contenu principal à droite, notamment Workspace, Paramètres, MCP, Mémoire, Hooks, Crons, Compétences, Flux de travail et Automatisations.';
+      'Configure les transitions du contenu principal à droite, notamment Workspace, Paramètres, MCP, Mémoire, Hooks de cycle de vie, Tâches planifiées, Compétences, Flux de travail et Automatisations.';
 
   @override
   String get settingsChipAnimationTitle => 'Animation des chips';
@@ -4202,7 +4202,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tokenPopupContextSkills => 'Compétences';
 
   @override
-  String get tokenPopupContextHooks => 'Hooks';
+  String get tokenPopupContextHooks => 'Hooks de cycle de vie';
 
   @override
   String get tokenPopupContextConversation => 'Conversation';
@@ -5966,7 +5966,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsBuiltInTools => 'Outils intégrés';
 
   @override
-  String get settingsCrons => 'Tâches Cron';
+  String get settingsCrons => 'Tâches planifiées';
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
@@ -10146,7 +10146,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get exportKindSkill => 'Événement de compétence';
 
   @override
-  String get exportKindHook => 'Événement Hook';
+  String get exportKindHook => 'Événement de hook de cycle de vie';
 
   @override
   String get exportKindSelfLearning => 'Auto-apprentissage';
@@ -10256,17 +10256,17 @@ class AppLocalizationsFr extends AppLocalizations {
       'Cliquez sur « Nouveau flux de travail » ci-dessus pour commencer.';
 
   @override
-  String get hooksTitle => 'Hooks';
+  String get hooksTitle => 'Hooks de cycle de vie';
 
   @override
   String get hooksSubtitle =>
-      'Configurez les scripts à exécuter à chaque étape du cycle de vie de l’agent IA. Les Hooks s’exécutent dans l’ordre lorsque l’événement correspondant se déclenche.';
+      'Configurez les scripts de chaque étape du cycle de vie de l’agent IA. Les hooks de cycle de vie s’exécutent dans l’ordre lorsque l’événement correspondant se déclenche.';
 
   @override
-  String get hooksNew => 'Nouveau Hook';
+  String get hooksNew => 'Nouveau hook de cycle de vie';
 
   @override
-  String get hooksDeleteTitle => 'Supprimer le Hook';
+  String get hooksDeleteTitle => 'Supprimer le hook de cycle de vie';
 
   @override
   String hooksDeleteMessage(Object label) {
@@ -10274,11 +10274,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get hooksEmptyTitle => 'Aucun Hook configuré';
+  String get hooksEmptyTitle => 'Aucun hook de cycle de vie';
 
   @override
   String get hooksEmptyBody =>
-      'Cliquez sur « Nouveau Hook » ci-dessus pour commencer.';
+      'Cliquez sur « Nouveau hook de cycle de vie » ci-dessus pour commencer.';
 
   @override
   String get hooksTimeoutTooltip => 'Délai d’attente';
@@ -10292,7 +10292,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hooksNoScriptConfigured => 'Aucun script configuré';
 
   @override
-  String get hooksEditTitle => 'Modifier le Hook';
+  String get hooksEditTitle => 'Modifier le hook de cycle de vie';
 
   @override
   String get hooksLabelField => 'Libellé';
@@ -10343,7 +10343,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hooksEnabled => 'Activé';
 
   @override
-  String get hooksValidationLabelRequired => 'Saisissez un libellé de Hook.';
+  String get hooksValidationLabelRequired =>
+      'Saisissez un nom de hook de cycle de vie.';
 
   @override
   String get hooksValidationScriptFileRequired =>

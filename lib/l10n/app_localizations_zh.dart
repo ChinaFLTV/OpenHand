@@ -1720,7 +1720,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      '配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、工作流、自动化等页面之间的切换。';
+      '配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、生命周期钩子、定时任务、技能、工作流、自动化等页面之间的切换。';
 
   @override
   String get settingsChipAnimationTitle => '胶囊动画';
@@ -4012,7 +4012,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenPopupContextSkills => '技能';
 
   @override
-  String get tokenPopupContextHooks => 'Hooks';
+  String get tokenPopupContextHooks => '生命周期钩子';
 
   @override
   String get tokenPopupContextConversation => '会话';
@@ -9697,7 +9697,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exportKindSkill => '技能事件';
 
   @override
-  String get exportKindHook => 'Hook 事件';
+  String get exportKindHook => '生命周期钩子事件';
 
   @override
   String get exportKindSelfLearning => '自学习';
@@ -9802,17 +9802,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workflowsEmptyBody => '点击右上角「新建工作流」按钮开始创建。';
 
   @override
-  String get hooksTitle => 'Hooks';
+  String get hooksTitle => '生命周期钩子';
 
   @override
   String get hooksSubtitle =>
-      '为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。';
+      '为 AI Agent 的生命周期阶段配置执行脚本。每个生命周期钩子会在对应事件触发时按顺序执行。';
 
   @override
-  String get hooksNew => '新增 Hook';
+  String get hooksNew => '新增生命周期钩子';
 
   @override
-  String get hooksDeleteTitle => '删除 Hook';
+  String get hooksDeleteTitle => '删除生命周期钩子';
 
   @override
   String hooksDeleteMessage(Object label) {
@@ -9820,10 +9820,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get hooksEmptyTitle => '暂无 Hook 配置';
+  String get hooksEmptyTitle => '暂无生命周期钩子';
 
   @override
-  String get hooksEmptyBody => '点击右上角「新增 Hook」按钮开始配置。';
+  String get hooksEmptyBody => '点击右上角「新增生命周期钩子」按钮开始配置。';
 
   @override
   String get hooksTimeoutTooltip => '超时时间';
@@ -9837,7 +9837,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hooksNoScriptConfigured => '未配置脚本';
 
   @override
-  String get hooksEditTitle => '编辑 Hook';
+  String get hooksEditTitle => '编辑生命周期钩子';
 
   @override
   String get hooksLabelField => '名称';
@@ -9887,7 +9887,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hooksEnabled => '启用';
 
   @override
-  String get hooksValidationLabelRequired => '请填写 Hook 名称。';
+  String get hooksValidationLabelRequired => '请填写生命周期钩子名称。';
 
   @override
   String get hooksValidationScriptFileRequired => '请选择脚本文件。';
@@ -12104,7 +12104,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      '設定右側主內容模組切換的進場動畫、退場動畫、時長和速率曲線，包括會話、設定、MCP、記憶、Hooks、Crons、技能、工作流程、自動化等頁面之間的切換。';
+      '設定右側主內容模組切換的進場動畫、退場動畫、時長和速率曲線，包括會話、設定、MCP、記憶、生命週期鉤子、定時任務、技能、工作流程、自動化等頁面之間的切換。';
 
   @override
   String get settingsChipAnimationTitle => '膠囊動畫';
@@ -14396,7 +14396,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tokenPopupContextSkills => '技能';
 
   @override
-  String get tokenPopupContextHooks => 'Hooks';
+  String get tokenPopupContextHooks => '生命週期鉤子';
 
   @override
   String get tokenPopupContextConversation => '會話';
@@ -16047,7 +16047,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsBuiltInTools => '内建工具';
 
   @override
-  String get settingsCrons => '定时任务';
+  String get settingsCrons => '定時任務';
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
@@ -20078,7 +20078,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get exportKindSkill => '技能事件';
 
   @override
-  String get exportKindHook => 'Hook 事件';
+  String get exportKindHook => '生命週期鉤子事件';
 
   @override
   String get exportKindSelfLearning => '自學習';
@@ -20183,17 +20183,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get workflowsEmptyBody => '點擊右上角「新增工作流程」按鈕開始建立。';
 
   @override
-  String get hooksTitle => 'Hooks';
+  String get hooksTitle => '生命週期鉤子';
 
   @override
-  String get hooksSubtitle =>
-      '為 AI Agent 的生命週期階段配置要執行的腳本。每個 Hook 會在對應事件觸發時依序執行。';
+  String get hooksSubtitle => '為 AI Agent 的生命週期階段配置執行腳本。每個生命週期鉤子會在對應事件觸發時依序執行。';
 
   @override
-  String get hooksNew => '新增 Hook';
+  String get hooksNew => '新增生命週期鉤子';
 
   @override
-  String get hooksDeleteTitle => '刪除 Hook';
+  String get hooksDeleteTitle => '刪除生命週期鉤子';
 
   @override
   String hooksDeleteMessage(Object label) {
@@ -20201,10 +20200,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get hooksEmptyTitle => '暫無 Hook 配置';
+  String get hooksEmptyTitle => '暫無生命週期鉤子';
 
   @override
-  String get hooksEmptyBody => '點擊右上角「新增 Hook」按鈕開始配置。';
+  String get hooksEmptyBody => '點擊右上角「新增生命週期鉤子」按鈕開始配置。';
 
   @override
   String get hooksTimeoutTooltip => '逾時時間';
@@ -20218,7 +20217,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get hooksNoScriptConfigured => '未配置腳本';
 
   @override
-  String get hooksEditTitle => '編輯 Hook';
+  String get hooksEditTitle => '編輯生命週期鉤子';
 
   @override
   String get hooksLabelField => '名稱';
@@ -20268,7 +20267,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get hooksEnabled => '啟用';
 
   @override
-  String get hooksValidationLabelRequired => '請填寫 Hook 名稱。';
+  String get hooksValidationLabelRequired => '請填寫生命週期鉤子名稱。';
 
   @override
   String get hooksValidationScriptFileRequired => '請選擇腳本檔案。';

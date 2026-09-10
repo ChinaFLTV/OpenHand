@@ -88,7 +88,7 @@ class AiClaudeHookService {
     if (_commandTimeout <= Duration.zero ||
         _invocationTimeout <= Duration.zero ||
         _maxCommandsPerInvocation < 1) {
-      throw ArgumentError('Hook 超时和单次命令上限必须大于零。');
+      throw ArgumentError('生命周期钩子超时和单次命令上限必须大于零。');
     }
   }
 
@@ -151,13 +151,13 @@ class AiClaudeHookService {
     var executedHookCount = 0;
     final deadline = MonotonicDeadline(
       _invocationTimeout,
-      timeoutMessage: 'Hook 单次调用超过总时限。',
+      timeoutMessage: '生命周期钩子单次调用超过总时限。',
     );
 
     for (final entry in configuredHooks.entries) {
       final remaining = deadline.remainingOrNull();
       if (remaining == null) {
-        systemReminders.add('Hook 执行达到单次总时限，剩余命令已跳过。');
+        systemReminders.add('生命周期钩子执行达到单次总时限，剩余命令已跳过。');
         break;
       }
       executedHookCount += 1;
@@ -213,7 +213,7 @@ class AiClaudeHookService {
             errorSummary: '$error',
           ),
         );
-        systemReminders.add('Hook 命令启动失败：$error');
+        systemReminders.add('生命周期钩子命令启动失败：$error');
       }
     }
     deadline.stop();
@@ -225,7 +225,7 @@ class AiClaudeHookService {
       } catch (error, stack) {
         silentLog(
           'ai_claude_hook_service',
-          '记录 Claude Hook 调用统计',
+          '记录 Claude 生命周期钩子调用统计',
           error,
           stack,
         );
@@ -306,7 +306,7 @@ class AiClaudeHookService {
       throw ProcessException(
         shellCommand.executable,
         shellCommand.arguments,
-        '无法安全执行 Hook 进程。',
+        '无法安全执行生命周期钩子进程。',
       );
     }
     return _AiHookCommandResult(
@@ -506,17 +506,17 @@ class AiClaudeHookService {
     }
 
     if (commandResult.timedOut) {
-      systemReminders.add('Hook 命令执行超时，已终止。');
+      systemReminders.add('生命周期钩子命令执行超时，已终止。');
     } else if (commandResult.exitCode != null &&
         commandResult.exitCode != 0 &&
         blockReason == null) {
       if (commandResult.exitCode == 2) {
-        blockReason = combinedText.isEmpty ? 'Hook 命令已阻止本次操作。' : combinedText;
+        blockReason = combinedText.isEmpty ? '生命周期钩子命令已阻止本次操作。' : combinedText;
       } else {
         systemReminders.add(
           combinedText.isEmpty
-              ? 'Hook 命令执行失败，退出码：${commandResult.exitCode}。'
-              : 'Hook 命令执行失败，退出码：${commandResult.exitCode}：$combinedText',
+              ? '生命周期钩子命令执行失败，退出码：${commandResult.exitCode}。'
+              : '生命周期钩子命令执行失败，退出码：${commandResult.exitCode}：$combinedText',
         );
       }
     }
@@ -535,7 +535,7 @@ class AiClaudeHookService {
         jsonPayload['reason'],
         jsonPayload['message'],
       ]);
-      return reason ?? 'Hook 决策已阻止本次操作。';
+      return reason ?? '生命周期钩子决策已阻止本次操作。';
     }
 
     final permissionDecision = '${jsonPayload['permissionDecision'] ?? ''}'
@@ -547,7 +547,7 @@ class AiClaudeHookService {
             jsonPayload['reason'],
             jsonPayload['message'],
           ]) ??
-          'Hook 权限决策已阻止本次操作。';
+          '生命周期钩子权限决策已阻止本次操作。';
     }
 
     final hookSpecificOutput = jsonPayload['hookSpecificOutput'];
@@ -561,7 +561,7 @@ class AiClaudeHookService {
             outputMap['reason'],
             outputMap['message'],
           ]) ??
-          'Hook 决策已阻止本次操作。';
+          '生命周期钩子决策已阻止本次操作。';
     }
     final nestedPermissionDecision = '${outputMap['permissionDecision'] ?? ''}'
         .trim()
@@ -573,7 +573,7 @@ class AiClaudeHookService {
             outputMap['reason'],
             outputMap['message'],
           ]) ??
-          'Hook 权限决策已阻止本次操作。';
+          '生命周期钩子权限决策已阻止本次操作。';
     }
     return null;
   }

@@ -2616,7 +2616,15 @@ _ToolCallPresentation _toolCallPresentation(
   if (toolSource == 'hook' || normalizedToolName.startsWith('hook__')) {
     final hookName = '${message.metadata['hook_name'] ?? ''}'.trim();
     return _ToolCallPresentation(
-      categoryLabel: 'Hook',
+      categoryLabel: openHandLocalizedText(
+        context,
+        zh: '生命周期钩子',
+        zhHant: '生命週期鉤子',
+        en: 'Lifecycle Hook',
+        fr: 'Hook de cycle de vie',
+        de: 'Lebenszyklus-Hook',
+        ja: 'ライフサイクルフック',
+      ),
       displayName: hookName.isEmpty ? rawToolName : hookName,
       icon: Icons.webhook_rounded,
     );

@@ -150,12 +150,12 @@ class HooksController extends ManagedChangeNotifier {
         notifyListeners();
         return result;
       } catch (error, stack) {
-        silentLog('hooks_controller', '保存 Hook 配置', error, stack);
+        silentLog('hooks_controller', '保存生命周期钩子配置', error, stack);
         _setEntries(previousEntries);
         _hasTrustedSnapshot = true;
         _errorMessage = userFailureMessage(
           error,
-          fallback: 'Hook 配置保存失败，请稍后重试。',
+          fallback: '生命周期钩子配置保存失败，请稍后重试。',
         );
         notifyListeners();
         return false;
@@ -173,9 +173,12 @@ class HooksController extends ManagedChangeNotifier {
       _setEntries(await _store.loadAll());
       _hasTrustedSnapshot = true;
     } catch (error, stack) {
-      silentLog('hooks_controller', '加载 Hook 配置', error, stack);
+      silentLog('hooks_controller', '加载生命周期钩子配置', error, stack);
       _hasTrustedSnapshot = hadTrustedSnapshot;
-      _errorMessage = userFailureMessage(error, fallback: 'Hook 配置加载失败，请稍后重试。');
+      _errorMessage = userFailureMessage(
+        error,
+        fallback: '生命周期钩子配置加载失败，请稍后重试。',
+      );
     } finally {
       _isLoading = false;
       notifyListeners();

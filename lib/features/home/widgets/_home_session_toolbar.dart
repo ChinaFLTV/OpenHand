@@ -454,28 +454,28 @@ class _HermesSelfLearningWarningPill extends StatelessWidget {
           'Impact: the agent will not periodically persist the preferences, '
           'profile, general memories or reusable skills absorbed from this '
           'conversation. Future sessions will lose this background context.\n\n'
-          'Tip: open the Crons panel and re-enable '
+          'Tip: open Scheduled Tasks and re-enable '
           '"Hermes Talker self-learning" to resume.',
       fr:
           'L’auto-apprentissage de Hermes Talker est désactivé.\n\n'
           'Impact : l’agent ne persistera pas périodiquement les préférences, '
           'le profil, les souvenirs généraux ou les compétences réutilisables '
           'issus de cette conversation. Les futures sessions perdront ce contexte.\n\n'
-          'Conseil : ouvrez le panneau Crons et réactivez '
+          'Conseil : ouvrez Tâches planifiées et réactivez '
           '"Hermes Talker self-learning".',
       de:
           'Hermes Talker Self-Learning ist derzeit deaktiviert.\n\n'
           'Auswirkung: Der Agent speichert Präferenzen, Profil, allgemeine '
           'Erinnerungen und wiederverwendbare Skills aus dieser Unterhaltung '
           'nicht regelmäßig dauerhaft. Künftige Sitzungen verlieren diesen Kontext.\n\n'
-          'Tipp: Öffne das Crons-Panel und aktiviere '
+          'Tipp: Öffne Geplante Aufgaben und aktiviere '
           '"Hermes Talker self-learning" erneut.',
       ja:
           'Hermes Talker の自己学習は現在オフです。\n\n'
           '影響: エージェントはこの会話から得た設定、プロフィール、'
           '一般的な記憶、再利用可能なスキルを定期的に長期記憶へ保存しません。'
           '今後のセッションではこの背景コンテキストが失われます。\n\n'
-          'ヒント: Crons パネルで "Hermes Talker self-learning" を再度有効にしてください。',
+          'ヒント: 定期タスクで "Hermes Talker self-learning" を再度有効にしてください。',
     );
     return Padding(
       padding: const EdgeInsets.only(left: 8),
