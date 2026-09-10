@@ -558,10 +558,6 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
       busy: _saving,
       closeEnabled: !_saving,
       canPop: !_saving,
-      summary: ListenableBuilder(
-        listenable: Listenable.merge(<Listenable>[_name, _version]),
-        builder: (context, _) => _buildSummaryBar(l10n, colorScheme),
-      ),
       body: Form(
         key: _formKey,
         child: Column(
@@ -722,45 +718,6 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
           onPressed: _saving ? null : _save,
           busy: _saving,
           label: isEdit ? l10n.commonSave : l10n.instructionCreateAction,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryBar(AppLocalizations l10n, ColorScheme colorScheme) {
-    final name = _name.text.trim();
-    final version = _version.text.trim();
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        if (name.isNotEmpty)
-          OpenHandSummaryChip(
-            icon: Icons.badge_outlined,
-            label: name,
-            foreground: colorScheme.onSecondaryContainer,
-            background: colorScheme.secondaryContainer,
-          ),
-        if (version.isNotEmpty)
-          OpenHandSummaryChip(
-            icon: Icons.label_outline_rounded,
-            label: l10n.instructionSummaryVersion(version),
-            foreground: colorScheme.onTertiaryContainer,
-            background: colorScheme.tertiaryContainer,
-          ),
-        OpenHandSummaryChip(
-          icon: _enabled
-              ? Icons.check_circle_outline_rounded
-              : Icons.pause_circle_outline_rounded,
-          label: _enabled
-              ? l10n.instructionSummaryEnabled
-              : l10n.instructionSummaryDisabled,
-          foreground: _enabled
-              ? colorScheme.onPrimaryContainer
-              : colorScheme.onSurfaceVariant,
-          background: _enabled
-              ? colorScheme.primaryContainer
-              : colorScheme.surfaceContainerHighest,
         ),
       ],
     );
