@@ -247,8 +247,9 @@ Future<void> _bootstrapRuntime(
   SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
   // 用顶层变量把 stdio MCP 镜像源模式同步给发现服务。
   mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
-  // MemoryController 懒加载完成后再暴露给 AI 内建 Memory 工具。
+  // 非首屏控制器就绪后再通过闭包暴露给对应 AI 内建工具。
   MemoryController? memoryControllerHandle;
+  CronsController? cronsControllerHandle;
   KnowledgeBaseController? knowledgeBaseControllerHandle;
   final machineTerminalService = MachineTerminalService();
   final machineTerminalFileService = MachineTerminalFileService(
@@ -267,6 +268,7 @@ Future<void> _bootstrapRuntime(
     userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
     memoryControllerProvider: () => memoryControllerHandle,
+    cronsControllerProvider: () => cronsControllerHandle,
     aiModelsProvider: () => settingsController.aiModels,
     knowledgeBaseControllerProvider: () => knowledgeBaseControllerHandle,
     machineTerminalService: machineTerminalService,
@@ -327,6 +329,7 @@ Future<void> _bootstrapRuntime(
   // CronsController 先注册托管任务处理器，再把数据库加载和调度器启动放到后台。
   final crons = await cronsModuleFuture;
   final cronsController = crons.controller;
+  cronsControllerHandle = cronsController;
   runtimeCleanup.register('定时任务控制器', cronsController.shutdown);
   // InstructionsController 不是首屏关键路径，后台刷新即可。
   final instructions = await instructionsModuleFuture;

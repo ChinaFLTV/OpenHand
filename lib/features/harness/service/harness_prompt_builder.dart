@@ -109,6 +109,11 @@ class HarnessPromptBuilder {
       AiBuiltinToolKind.askUserChoice,
       AiBuiltinToolKind.skillManager,
       AiBuiltinToolKind.memory,
+      AiBuiltinToolKind.cronCreate,
+      AiBuiltinToolKind.cronEdit,
+      AiBuiltinToolKind.cronDelete,
+      AiBuiltinToolKind.cronEnable,
+      AiBuiltinToolKind.cronDisable,
     };
     final readOnlyExcludeBuiltins = <AiBuiltinToolKind>{
       AiBuiltinToolKind.edit,

@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../../../../app/model/cron_config.dart';
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
@@ -35,6 +36,7 @@ import '../../model/ai_model_config.dart';
 import '../../model/ai_session_runtime_context.dart';
 import '../../tools/ai_tool_registry.dart';
 import '../../tools/ai_tool_utils.dart';
+import '../../tools/cron/ai_cron_tools.dart';
 import '../../tools/memory/ai_memory_tool.dart';
 import '../../tools/web_reverse_cdp_first_guard.dart';
 import '../bash/ai_bash_tool_service.dart';
@@ -241,6 +243,11 @@ enum AiBuiltinToolKind {
   workflowDetail,
   workflowExecute,
   workflowExecutionStatus,
+  cronCreate,
+  cronEdit,
+  cronDelete,
+  cronEnable,
+  cronDisable,
   machineTerminalRead,
   machineTerminalWrite,
   machineTerminalExec,
@@ -388,6 +395,7 @@ class AiToolRuntimeService {
     AiFileMutationLedger? mutationLedger,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
+    CronsControllerProvider? cronsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
     MachineTerminalService? machineTerminalService,
@@ -410,6 +418,7 @@ class AiToolRuntimeService {
       hostLookup: _hostLookup,
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
+      cronsControllerProvider: cronsControllerProvider,
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
       aiModelsProvider: aiModelsProvider,
       machineTerminalService: machineTerminalService,
@@ -439,6 +448,11 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.deleteFile,
         AiBuiltinToolKind.skillManager,
         AiBuiltinToolKind.workflowExecute,
+        AiBuiltinToolKind.cronCreate,
+        AiBuiltinToolKind.cronEdit,
+        AiBuiltinToolKind.cronDelete,
+        AiBuiltinToolKind.cronEnable,
+        AiBuiltinToolKind.cronDisable,
       };
   static final RegExp _unsafeToolOutputStorageCharsPattern = RegExp(
     '[^A-Za-z0-9_.-]+',
@@ -2642,6 +2656,11 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.workflowDetail => 'WorkflowDetail',
       AiBuiltinToolKind.workflowExecute => 'WorkflowExecute',
       AiBuiltinToolKind.workflowExecutionStatus => 'WorkflowExecutionStatus',
+      AiBuiltinToolKind.cronCreate => 'CronCreate',
+      AiBuiltinToolKind.cronEdit => 'CronEdit',
+      AiBuiltinToolKind.cronDelete => 'CronDelete',
+      AiBuiltinToolKind.cronEnable => 'CronEnable',
+      AiBuiltinToolKind.cronDisable => 'CronDisable',
       _ => tool.name,
     };
   }
@@ -3099,6 +3118,156 @@ class AiToolRuntimeService {
         silentLog('ai_tool_runtime_service', '关闭工具运行时', error, stack);
       }),
     );
+  }
+
+  static Map<String, Object?> _cronConfigToolProperties() {
+    return <String, Object?>{
+      'name': <String, Object?>{
+        'type': 'string',
+        'description': '任务名称。编辑时省略则保持原值。',
+      },
+      'description': <String, Object?>{
+        'type': 'string',
+        'description': '任务简介；空字符串表示清空。',
+      },
+      'script_type': <String, Object?>{
+        'type': 'string',
+        'enum': const <String>['command', 'script'],
+      },
+      'command': <String, Object?>{
+        'type': 'string',
+        'description': 'command 类型的命令内容。',
+      },
+      'script_path': <String, Object?>{
+        'type': 'string',
+        'description': 'script 类型的脚本路径。',
+      },
+      'cron_expression': <String, Object?>{
+        'type': 'string',
+        'description': '五段式分钟级 Cron 表达式，例如 */5 * * * *。',
+      },
+      'retry_count': <String, Object?>{
+        'type': 'integer',
+        'minimum': kCronMinRetryCount,
+        'maximum': kCronMaxRetryCount,
+      },
+      'timeout_seconds': <String, Object?>{
+        'type': 'integer',
+        'minimum': kCronMinTimeoutSeconds,
+        'maximum': kCronMaxTimeoutSeconds,
+      },
+      'max_retry_delay_seconds': <String, Object?>{
+        'type': 'integer',
+        'minimum': kCronMinRetryDelaySeconds,
+        'maximum': kCronMaxRetryDelaySeconds,
+      },
+      'run_as_user': <String, Object?>{
+        'type': 'string',
+        'description': '执行用户；空字符串表示当前用户。',
+      },
+      'tags': <String, Object?>{
+        'type': 'array',
+        'items': const <String, Object?>{'type': 'string'},
+        'description': '标签数组；不能包含系统保留标签。',
+      },
+      'working_directory': <String, Object?>{
+        'type': 'string',
+        'description': '工作目录；空字符串表示默认目录。',
+      },
+      'environment': <String, Object?>{
+        'type': 'object',
+        'additionalProperties': const <String, Object?>{'type': 'string'},
+        'description': '执行环境变量对象；空对象表示清空。',
+      },
+      'collect_app_metadata': const <String, Object?>{'type': 'boolean'},
+      'collect_host_metadata': const <String, Object?>{'type': 'boolean'},
+      'collect_environment_snapshot': <String, Object?>{
+        'type': 'boolean',
+        'description': '是否采集可能含敏感信息的环境快照。',
+      },
+      for (final event in const <String>['success', 'failure', 'timeout']) ...{
+        'on_${event}_notify': <String, Object?>{
+          'type': 'string',
+          'enum': const <String>['none', 'log', 'system', 'app_notification'],
+        },
+        'on_${event}_severity': <String, Object?>{
+          'type': 'string',
+          'enum': const <String>[
+            'info',
+            'success',
+            'warning',
+            'error',
+            'critical',
+          ],
+        },
+        'on_${event}_play_sound': const <String, Object?>{'type': 'boolean'},
+        'on_${event}_vibrate': const <String, Object?>{'type': 'boolean'},
+        'on_${event}_message': <String, Object?>{
+          'type': 'string',
+          'description': '自定义通知内容；空字符串表示清空。',
+        },
+      },
+    };
+  }
+
+  static Map<String, Object?> _cronCreateToolParameters() {
+    return <String, Object?>{
+      'type': 'object',
+      'properties': _cronConfigToolProperties(),
+      'required': const <String>['name', 'script_type', 'cron_expression'],
+      'additionalProperties': false,
+    };
+  }
+
+  static Map<String, Object?> _cronEditToolParameters() {
+    return <String, Object?>{
+      'type': 'object',
+      'properties': <String, Object?>{
+        'cron_id': const <String, Object?>{
+          'type': 'string',
+          'description': '任务 ID；与 current_name 至少填写一个。',
+        },
+        'current_name': const <String, Object?>{
+          'type': 'string',
+          'description': '当前任务名称；重名时必须改用 cron_id。',
+        },
+        ..._cronConfigToolProperties(),
+      },
+      'anyOf': const <Object?>[
+        <String, Object?>{
+          'required': <String>['cron_id'],
+        },
+        <String, Object?>{
+          'required': <String>['current_name'],
+        },
+      ],
+      'additionalProperties': false,
+    };
+  }
+
+  static Map<String, Object?> _cronTargetToolParameters() {
+    return const <String, Object?>{
+      'type': 'object',
+      'properties': <String, Object?>{
+        'cron_id': <String, Object?>{
+          'type': 'string',
+          'description': '任务 ID；与 name 至少填写一个。',
+        },
+        'name': <String, Object?>{
+          'type': 'string',
+          'description': '任务名称；重名时必须改用 cron_id。',
+        },
+      },
+      'anyOf': <Object?>[
+        <String, Object?>{
+          'required': <String>['cron_id'],
+        },
+        <String, Object?>{
+          'required': <String>['name'],
+        },
+      ],
+      'additionalProperties': false,
+    };
   }
 
   static final List<AiResolvedTool> _builtinTools = <AiResolvedTool>[
@@ -4567,6 +4736,38 @@ class AiToolRuntimeService {
         'required': <String>['execution_id'],
         'additionalProperties': false,
       },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.cronCreate,
+      name: 'CronCreate',
+      description:
+          '新增用户定时任务并接入定时平台调度。任务默认启用；仅支持 command 或 script，参数遵循定时任务板块的校验、通知和资源限制。',
+      parameters: _cronCreateToolParameters(),
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.cronEdit,
+      name: 'CronEdit',
+      description:
+          '按 cron_id 或 current_name 精确定位并局部编辑用户定时任务。省略的配置保持不变，启用状态不在此工具中修改。',
+      parameters: _cronEditToolParameters(),
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.cronDelete,
+      name: 'CronDelete',
+      description: '按 cron_id 或唯一名称删除用户定时任务及其执行历史。系统任务不允许删除。',
+      parameters: _cronTargetToolParameters(),
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.cronEnable,
+      name: 'CronEnable',
+      description: '按 cron_id 或唯一名称启用定时任务，并立即刷新定时平台调度。',
+      parameters: _cronTargetToolParameters(),
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.cronDisable,
+      name: 'CronDisable',
+      description: '按 cron_id 或唯一名称禁用定时任务，并停止该任务后续调度。',
+      parameters: _cronTargetToolParameters(),
     ),
     _builtinTool(
       kind: AiBuiltinToolKind.memory,

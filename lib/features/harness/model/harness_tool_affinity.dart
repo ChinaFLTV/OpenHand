@@ -84,6 +84,12 @@ HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.memory => null,
     AiBuiltinToolKind.workflowExecute ||
     AiBuiltinToolKind.workflowExecutionStatus => null,
+    // 定时任务变更仅开放给普通线程和消息网关，不参与 Harness 阶段执行。
+    AiBuiltinToolKind.cronCreate ||
+    AiBuiltinToolKind.cronEdit ||
+    AiBuiltinToolKind.cronDelete ||
+    AiBuiltinToolKind.cronEnable ||
+    AiBuiltinToolKind.cronDisable => null,
   };
 }
 

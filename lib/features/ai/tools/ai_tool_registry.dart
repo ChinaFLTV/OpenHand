@@ -16,6 +16,7 @@ import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'bash/ai_bash_background_tool.dart';
 import 'bash/ai_bash_tool.dart';
+import 'cron/ai_cron_tools.dart';
 import 'dingtalk/ai_dingtalk_dws_tool.dart';
 import 'dingtalk/ai_dingtalk_media_generation_tool.dart';
 import 'fs/ai_apply_file_diffs_tool.dart';
@@ -125,6 +126,7 @@ class AiToolRegistry {
     Future<List<InternetAddress>> Function(String host)? hostLookup,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
+    CronsControllerProvider? cronsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
     MachineTerminalService? machineTerminalService,
@@ -169,6 +171,18 @@ class AiToolRegistry {
       registry.register(
         AiMemoryTool(memoryControllerProvider: memoryControllerProvider),
       );
+    }
+
+    if (cronsControllerProvider != null) {
+      // 五个入口共用定时平台控制器，避免线程与消息网关产生独立状态。
+      for (final action in AiCronToolAction.values) {
+        registry.register(
+          AiCronTool(
+            action: action,
+            cronsControllerProvider: cronsControllerProvider,
+          ),
+        );
+      }
     }
 
     // WebFetch — 需要 http.Client + AiChatClient

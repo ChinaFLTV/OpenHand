@@ -532,7 +532,13 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.workflowDetail ||
       AiBuiltinToolKind.workflowExecute ||
       AiBuiltinToolKind.workflowExecutionStatus => 66,
-      AiBuiltinToolKind.skillManager || AiBuiltinToolKind.memory => 70,
+      AiBuiltinToolKind.skillManager ||
+      AiBuiltinToolKind.memory ||
+      AiBuiltinToolKind.cronCreate ||
+      AiBuiltinToolKind.cronEdit ||
+      AiBuiltinToolKind.cronDelete ||
+      AiBuiltinToolKind.cronEnable ||
+      AiBuiltinToolKind.cronDisable => 70,
       AiBuiltinToolKind.taskOutput || AiBuiltinToolKind.taskStop => 85,
       AiBuiltinToolKind.bash => 90,
       AiBuiltinToolKind.bashBackground => 95,
@@ -584,6 +590,11 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.memory => 73,
       AiBuiltinToolKind.taskOutput => 80,
       AiBuiltinToolKind.taskStop => 81,
+      AiBuiltinToolKind.cronCreate => 82,
+      AiBuiltinToolKind.cronEdit => 83,
+      AiBuiltinToolKind.cronDelete => 84,
+      AiBuiltinToolKind.cronEnable => 85,
+      AiBuiltinToolKind.cronDisable => 86,
       AiBuiltinToolKind.bash => 90,
       AiBuiltinToolKind.bashBackground => 91,
       AiBuiltinToolKind.dingtalkDws => 100,
@@ -641,6 +652,11 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.askUserChoice:
       case AiBuiltinToolKind.skillManager:
       case AiBuiltinToolKind.memory:
+      case AiBuiltinToolKind.cronCreate:
+      case AiBuiltinToolKind.cronEdit:
+      case AiBuiltinToolKind.cronDelete:
+      case AiBuiltinToolKind.cronEnable:
+      case AiBuiltinToolKind.cronDisable:
         return AiBuiltinToolLoadStrategy.lazy;
     }
   }

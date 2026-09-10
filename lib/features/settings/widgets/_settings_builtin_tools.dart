@@ -245,6 +245,11 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.workflowDetail => Icons.account_tree_rounded,
       AiBuiltinToolKind.workflowExecute => Icons.play_arrow_rounded,
       AiBuiltinToolKind.workflowExecutionStatus => Icons.query_stats_rounded,
+      AiBuiltinToolKind.cronCreate => Icons.more_time_rounded,
+      AiBuiltinToolKind.cronEdit => Icons.edit_calendar_rounded,
+      AiBuiltinToolKind.cronDelete => Icons.event_busy_rounded,
+      AiBuiltinToolKind.cronEnable => Icons.event_available_rounded,
+      AiBuiltinToolKind.cronDisable => Icons.event_note_rounded,
       AiBuiltinToolKind.knowledgeRead => Icons.menu_book_outlined,
       AiBuiltinToolKind.machineTerminalRead => Icons.terminal_rounded,
       AiBuiltinToolKind.machineTerminalWrite =>

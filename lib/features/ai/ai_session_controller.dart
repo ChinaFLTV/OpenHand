@@ -79,6 +79,7 @@ import 'service/runtime/ai_tool_runtime_service.dart';
 import 'service/runtime/ai_tool_usage_promotion_store.dart';
 import 'service/session_io/ai_token_usage_parser.dart';
 import 'service/usage/ai_usage_tracker.dart';
+import 'tools/cron/ai_cron_tools.dart';
 import 'tools/memory/ai_memory_tool.dart' show MemoryControllerProvider;
 import 'tools/planning/ai_task_tool.dart';
 import 'tools/search/ai_tool_search_tool.dart';
@@ -349,6 +350,7 @@ class AiSessionController extends ChangeNotifier {
     DateTime Function()? clock,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
+    CronsControllerProvider? cronsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
     MachineTerminalService? machineTerminalService,
@@ -417,6 +419,7 @@ class AiSessionController extends ChangeNotifier {
             backgroundChatClient: resolvedBackgroundChatClient,
             skillsDirProvider: skillsDirProvider,
             memoryControllerProvider: memoryControllerProvider,
+            cronsControllerProvider: cronsControllerProvider,
             knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
             aiModelsProvider: aiModelsProvider,
             machineTerminalService: machineTerminalService,
