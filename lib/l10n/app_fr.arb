@@ -1659,6 +1659,7 @@
   "instructionSectionBasics": "Informations de base",
   "instructionSectionRouting": "Déclencheurs",
   "instructionSectionContent": "Corps de l'instruction",
+  "instructionSectionKeywords": "Mots-clés",
   "instructionSummaryEnabled": "Activée",
   "instructionSummaryDisabled": "Désactivée",
   "instructionSummaryVersion": "v{version}",

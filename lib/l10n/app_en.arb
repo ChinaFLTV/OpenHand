@@ -1664,6 +1664,7 @@
   "instructionSectionBasics": "Basics",
   "instructionSectionRouting": "Triggers",
   "instructionSectionContent": "Instruction Body",
+  "instructionSectionKeywords": "Keywords",
   "instructionSummaryEnabled": "Enabled",
   "instructionSummaryDisabled": "Disabled",
   "instructionSummaryVersion": "v{version}",

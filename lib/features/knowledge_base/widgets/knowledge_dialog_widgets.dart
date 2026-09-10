@@ -29,6 +29,20 @@ IconData knowledgeSourceKindIcon(String kind) {
   };
 }
 
+Color knowledgeSourceKindAccent(String kind, ColorScheme colorScheme) {
+  return switch (kind.trim().toLowerCase()) {
+    'markdown' || 'note' => OpenHandStatusColors.success,
+    'code' => colorScheme.tertiary,
+    'pdf' => OpenHandStatusColors.error,
+    'html' => OpenHandStatusColors.info,
+    'docx' => colorScheme.primary,
+    'spreadsheet' || 'table' => OpenHandStatusColors.caution,
+    'presentation' => OpenHandStatusColors.warning,
+    'structured' => colorScheme.secondary,
+    _ => colorScheme.primary,
+  };
+}
+
 /// 导入入口共用文案。
 String knowledgeEmbeddingModelMissingMessage(BuildContext context) {
   return openHandLocalizedText(

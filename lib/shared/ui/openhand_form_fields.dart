@@ -494,6 +494,62 @@ class OpenHandSummaryChip extends StatelessWidget {
   }
 }
 
+/// 列表卡左上角身份徽标：色底圆角方块 + 可选角标，不用左侧竖条。
+class OpenHandIdentityBadge extends StatelessWidget {
+  const OpenHandIdentityBadge({
+    super.key,
+    required this.icon,
+    required this.accent,
+    this.extent = 52,
+    this.iconSize = 24,
+    this.enabled = true,
+    this.topStart,
+    this.bottomEnd,
+  });
+
+  final IconData icon;
+  final Color accent;
+  final double extent;
+  final double iconSize;
+  final bool enabled;
+  final Widget? topStart;
+  final Widget? bottomEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final badge = DecoratedBox(
+      decoration: BoxDecoration(
+        color: enabled
+            ? accent.withValues(alpha: 0.18)
+            : colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+      ),
+      child: SizedBox(
+        width: extent,
+        height: extent,
+        child: Center(
+          child: Icon(
+            icon,
+            size: iconSize,
+            color: enabled ? accent : colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+    if (topStart == null && bottomEnd == null) return badge;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        badge,
+        if (topStart != null) Positioned(left: -4, top: -4, child: topStart!),
+        if (bottomEnd != null)
+          Positioned(right: -2, bottom: -2, child: bottomEnd!),
+      ],
+    );
+  }
+}
+
 /// 分区列表卡：悬浮上浮 + 点击，不再画左侧色条。
 class OpenHandHoverCard extends StatelessWidget {
   const OpenHandHoverCard({
@@ -533,26 +589,60 @@ class OpenHandTintedPanel extends StatelessWidget {
     super.key,
     required this.accent,
     required this.child,
+    this.icon,
+    this.title,
     this.padding = const EdgeInsets.fromLTRB(14, 12, 14, 12),
   });
 
   final Color accent;
   final Widget child;
+  final IconData? icon;
+  final String? title;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final heading = title?.trim();
+    final body = heading == null || heading.isEmpty
+        ? child
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 16, color: accent),
+                    kOpenHandHGap8,
+                  ],
+                  Expanded(
+                    child: Text(
+                      heading,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              kOpenHandGap8,
+              child,
+            ],
+          );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Color.alphaBlend(
-          accent.withValues(alpha: 0.08),
+          accent.withValues(alpha: 0.12),
           colorScheme.surfaceContainerLow,
         ),
         borderRadius: kOpenHandBorderRadius16,
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
+        border: Border.all(color: accent.withValues(alpha: 0.22)),
       ),
-      child: Padding(padding: padding, child: child),
+      child: Padding(padding: padding, child: body),
     );
   }
 }

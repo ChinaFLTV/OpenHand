@@ -2967,6 +2967,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get instructionSectionContent => '指令正文';
 
   @override
+  String get instructionSectionKeywords => '关键词';
+
+  @override
   String get instructionSummaryEnabled => '已启用';
 
   @override
@@ -13488,6 +13491,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get instructionSectionContent => '指令正文';
+
+  @override
+  String get instructionSectionKeywords => '關鍵詞';
 
   @override
   String get instructionSummaryEnabled => '已啟用';

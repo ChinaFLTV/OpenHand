@@ -3091,6 +3091,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get instructionSectionContent => 'Anweisungstext';
 
   @override
+  String get instructionSectionKeywords => 'Stichwörter';
+
+  @override
   String get instructionSummaryEnabled => 'Aktiviert';
 
   @override

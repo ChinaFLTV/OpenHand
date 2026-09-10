@@ -33,7 +33,6 @@ enum _MemoryCardAction { edit, delete }
 
 const int _memoryTagPreviewLimit = 8;
 const int _kMemoryCardContentMaxLines = 4;
-const double _kMemoryCardIconExtent = 58;
 
 class MemoryView extends StatelessWidget {
   const MemoryView({super.key});
@@ -734,12 +733,6 @@ class _MemoryEntryCard extends StatelessWidget {
     final hiddenTagCount = displayTags.length - visibleTags.length;
 
     final accent = isAutoLearned ? colorScheme.tertiary : colorScheme.primary;
-    final iconFill = isAutoLearned
-        ? colorScheme.tertiaryContainer
-        : colorScheme.primaryContainer;
-    final iconInk = isAutoLearned
-        ? colorScheme.onTertiaryContainer
-        : colorScheme.onPrimaryContainer;
     final headline = entry.displayTitle.trim();
     final body = entry.content.trim();
 
@@ -752,23 +745,11 @@ class _MemoryEntryCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: iconFill,
-                  borderRadius: BorderRadius.circular(kOpenHandRadius18),
-                ),
-                child: SizedBox(
-                  width: _kMemoryCardIconExtent,
-                  height: _kMemoryCardIconExtent,
-                  child: Center(
-                    child: Icon(
-                      isAutoLearned
-                          ? Icons.auto_awesome_outlined
-                          : Icons.psychology_alt_outlined,
-                      color: iconInk,
-                    ),
-                  ),
-                ),
+              OpenHandIdentityBadge(
+                icon: isAutoLearned
+                    ? Icons.auto_awesome_outlined
+                    : Icons.psychology_alt_outlined,
+                accent: accent,
               ),
               kOpenHandHGap14,
               Expanded(
@@ -834,51 +815,47 @@ class _MemoryEntryCard extends StatelessWidget {
             kOpenHandGap14,
             OpenHandTintedPanel(
               accent: accent,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.memorySectionContent,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  kOpenHandGap6,
-                  Text(
-                    body,
-                    maxLines: _kMemoryCardContentMaxLines,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-                  ),
-                ],
+              icon: Icons.notes_rounded,
+              title: l10n.memorySectionContent,
+              child: Text(
+                body,
+                maxLines: _kMemoryCardContentMaxLines,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
               ),
             ),
           ],
           kOpenHandGap12,
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OpenHandFactChip(
-                icon: Icons.schedule_rounded,
-                label:
-                    '${l10n.memoryCreatedAtLabel} ${_formatCreatedAt(context, entry.createdAt)}',
-                color: OpenHandStatusColors.warning,
-              ),
-              for (final tag in visibleTags)
+          OpenHandTintedPanel(
+            accent: OpenHandStatusColors.warning,
+            icon: displayTags.isNotEmpty
+                ? Icons.sell_outlined
+                : Icons.schedule_rounded,
+            title: displayTags.isNotEmpty ? l10n.memorySectionTags : null,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
                 OpenHandFactChip(
-                  icon: Icons.sell_outlined,
-                  label: tag,
-                  color: OpenHandStatusColors.info,
+                  icon: Icons.schedule_rounded,
+                  label:
+                      '${l10n.memoryCreatedAtLabel} ${_formatCreatedAt(context, entry.createdAt)}',
+                  color: OpenHandStatusColors.warning,
                 ),
-              if (hiddenTagCount > 0)
-                OpenHandFactChip(
-                  icon: Icons.more_horiz_rounded,
-                  label: '+$hiddenTagCount',
-                  color: colorScheme.onSurfaceVariant,
-                ),
-            ],
+                for (final tag in visibleTags)
+                  OpenHandFactChip(
+                    icon: Icons.sell_outlined,
+                    label: tag,
+                    color: OpenHandStatusColors.info,
+                  ),
+                if (hiddenTagCount > 0)
+                  OpenHandFactChip(
+                    icon: Icons.more_horiz_rounded,
+                    label: '+$hiddenTagCount',
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+              ],
+            ),
           ),
         ],
       ),

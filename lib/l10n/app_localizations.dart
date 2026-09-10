@@ -5466,6 +5466,12 @@ abstract class AppLocalizations {
   /// **'指令正文'**
   String get instructionSectionContent;
 
+  /// No description provided for @instructionSectionKeywords.
+  ///
+  /// In zh, this message translates to:
+  /// **'关键词'**
+  String get instructionSectionKeywords;
+
   /// No description provided for @instructionSummaryEnabled.
   ///
   /// In zh, this message translates to:

@@ -1664,6 +1664,7 @@
   "instructionSectionBasics": "基础信息",
   "instructionSectionRouting": "触发条件",
   "instructionSectionContent": "指令正文",
+  "instructionSectionKeywords": "关键词",
   "instructionSummaryEnabled": "已启用",
   "instructionSummaryDisabled": "已停用",
   "instructionSummaryVersion": "v{version}",

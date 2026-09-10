@@ -16,6 +16,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -228,70 +229,54 @@ class _InstructionCard extends StatelessWidget {
     final hiddenKeywordCount = visibleKeywords.length - keywords.length;
     final trimmedVersion = entry.version.trim();
 
+    final description = entry.description.trim();
+    final applyTo = entry.applyTo.trim();
+    final hasRouting = applyTo.isNotEmpty || visibleTaskTypes.isNotEmpty;
+    final hasKeywords = visibleKeywords.isNotEmpty;
+    final statusColor = entry.enabled
+        ? OpenHandStatusColors.success
+        : colorScheme.outline;
+
     return OpenHandHoverCard(
       onTap: onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ReorderableDragStartListener(
                 index: dragIndex,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        color: entry.enabled
-                            ? colorScheme.primaryContainer
-                            : colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(kOpenHandRadius18),
-                      ),
-                      alignment: Alignment.center,
+                child: OpenHandIdentityBadge(
+                  icon: Icons.auto_awesome_motion_outlined,
+                  accent: entry.enabled
+                      ? colorScheme.primary
+                      : colorScheme.outline,
+                  enabled: entry.enabled,
+                  topStart: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colorScheme.surface),
+                    ),
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
                       child: Icon(
-                        Icons.auto_awesome_motion_outlined,
-                        color: entry.enabled
-                            ? colorScheme.onPrimaryContainer
-                            : colorScheme.onSurfaceVariant,
+                        Icons.drag_indicator_rounded,
+                        size: 15,
+                        color: colorScheme.outline,
                       ),
                     ),
-                    Positioned(
-                      left: -4,
-                      top: -4,
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHigh,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: colorScheme.surface),
-                        ),
-                        child: Icon(
-                          Icons.drag_indicator_rounded,
-                          size: 15,
-                          color: colorScheme.outline,
-                        ),
-                      ),
+                  ),
+                  bottomEnd: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colorScheme.surface, width: 2),
                     ),
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: entry.enabled
-                              ? colorScheme.primary
-                              : colorScheme.outlineVariant,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: colorScheme.surface),
-                        ),
-                      ),
-                    ),
-                  ],
+                    child: const SizedBox(width: 14, height: 14),
+                  ),
                 ),
               ),
               kOpenHandHGap16,
@@ -307,32 +292,45 @@ class _InstructionCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    kOpenHandGap6,
-                    Text(
-                      entry.enabled
-                          ? l10n.instructionEnabledStatus
-                          : l10n.instructionDisabledStatus,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: entry.enabled
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (entry.description.trim().isNotEmpty) ...[
-                      kOpenHandGap8,
-                      Text(
-                        entry.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                    kOpenHandGap10,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OpenHandStatusPill(
+                          icon: entry.enabled
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.pause_circle_outline_rounded,
+                          label: entry.enabled
+                              ? l10n.instructionEnabledStatus
+                              : l10n.instructionDisabledStatus,
+                          color: statusColor,
                         ),
-                      ),
-                    ],
+                        if (trimmedVersion.isNotEmpty)
+                          OpenHandStatusPill(
+                            icon: Icons.label_outline_rounded,
+                            label: l10n.instructionSummaryVersion(
+                              trimmedVersion,
+                            ),
+                            color: colorScheme.secondary,
+                          ),
+                        if (entry.notes.isNotEmpty)
+                          OpenHandFactChip(
+                            icon: Icons.notes_outlined,
+                            label:
+                                '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
+                            color: OpenHandStatusColors.warning,
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
               kOpenHandHGap12,
+              _InstructionEnabledSwitch(
+                value: entry.enabled,
+                onChanged: onToggle,
+              ),
               SizedBox(
                 width: 44,
                 height: 44,
@@ -352,138 +350,83 @@ class _InstructionCard extends StatelessWidget {
               ),
             ],
           ),
-          kOpenHandGap16,
-          OpenHandTintedPanel(
-            accent: entry.enabled ? colorScheme.primary : colorScheme.outline,
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                _InstructionToggleChip(
-                  enabled: entry.enabled,
-                  enabledLabel: l10n.instructionEnabledStatus,
-                  disabledLabel: l10n.instructionDisabledStatus,
-                  onPressed: () => onToggle(!entry.enabled),
+          if (description.isNotEmpty) ...[
+            kOpenHandGap14,
+            OpenHandTintedPanel(
+              accent: colorScheme.secondary,
+              icon: Icons.subject_rounded,
+              title: l10n.instructionDescriptionField,
+              child: Text(
+                description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.45,
                 ),
-                if (trimmedVersion.isNotEmpty)
-                  _MetadataChip(
-                    icon: Icons.label_outline_rounded,
-                    label: l10n.instructionSummaryVersion(trimmedVersion),
-                    background: colorScheme.secondaryContainer,
-                    foreground: colorScheme.onSecondaryContainer,
-                  ),
-                if (entry.applyTo.trim().isNotEmpty)
-                  _MetadataChip(
-                    icon: Icons.account_tree_outlined,
-                    label:
-                        '${l10n.instructionApplyToChipLabel}: ${entry.applyTo}',
-                    background: colorScheme.tertiaryContainer,
-                    foreground: colorScheme.onTertiaryContainer,
-                  ),
-                if (entry.notes.isNotEmpty)
-                  _MetadataChip(
-                    icon: Icons.notes_outlined,
-                    label:
-                        '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
-                    background: OpenHandStatusColors.warning.withValues(
-                      alpha: 0.18,
-                    ),
-                    foreground: OpenHandStatusColors.warning,
-                  ),
-                for (final taskType in taskTypes)
-                  _MetadataChip(
-                    icon: Icons.category_outlined,
-                    label: taskType,
-                    background: colorScheme.primaryContainer,
-                    foreground: colorScheme.onPrimaryContainer,
-                  ),
-                if (hiddenTaskTypeCount > 0)
-                  _MetadataChip(
-                    icon: Icons.more_horiz_rounded,
-                    label: '+$hiddenTaskTypeCount',
-                    background: colorScheme.primaryContainer,
-                    foreground: colorScheme.onPrimaryContainer,
-                  ),
-                for (final keyword in keywords)
-                  _MetadataChip(
-                    icon: Icons.tag_rounded,
-                    label: keyword,
-                    background: OpenHandStatusColors.info.withValues(
-                      alpha: 0.16,
-                    ),
-                    foreground: OpenHandStatusColors.info,
-                  ),
-                if (hiddenKeywordCount > 0)
-                  _MetadataChip(
-                    icon: Icons.more_horiz_rounded,
-                    label: '+$hiddenKeywordCount',
-                    background: OpenHandStatusColors.info.withValues(
-                      alpha: 0.16,
-                    ),
-                    foreground: OpenHandStatusColors.info,
-                  ),
-              ],
+              ),
             ),
-          ),
+          ],
+          if (hasRouting) ...[
+            kOpenHandGap12,
+            OpenHandTintedPanel(
+              accent: colorScheme.tertiary,
+              icon: Icons.alt_route_rounded,
+              title: l10n.instructionSectionRouting,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (applyTo.isNotEmpty)
+                    OpenHandFactChip(
+                      icon: Icons.account_tree_outlined,
+                      label: '${l10n.instructionApplyToChipLabel}: $applyTo',
+                      color: colorScheme.tertiary,
+                    ),
+                  for (final taskType in taskTypes)
+                    OpenHandFactChip(
+                      icon: Icons.category_outlined,
+                      label: taskType,
+                      color: colorScheme.primary,
+                    ),
+                  if (hiddenTaskTypeCount > 0)
+                    OpenHandFactChip(
+                      icon: Icons.more_horiz_rounded,
+                      label: '+$hiddenTaskTypeCount',
+                      color: colorScheme.primary,
+                    ),
+                ],
+              ),
+            ),
+          ],
+          if (hasKeywords) ...[
+            kOpenHandGap12,
+            OpenHandTintedPanel(
+              accent: OpenHandStatusColors.info,
+              icon: Icons.tag_rounded,
+              title: l10n.instructionSectionKeywords,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final keyword in keywords)
+                    OpenHandFactChip(
+                      icon: Icons.tag_rounded,
+                      label: keyword,
+                      color: OpenHandStatusColors.info,
+                    ),
+                  if (hiddenKeywordCount > 0)
+                    OpenHandFactChip(
+                      icon: Icons.more_horiz_rounded,
+                      label: '+$hiddenKeywordCount',
+                      color: OpenHandStatusColors.info,
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
-    );
-  }
-}
-
-class _InstructionToggleChip extends StatelessWidget {
-  const _InstructionToggleChip({
-    required this.enabled,
-    required this.enabledLabel,
-    required this.disabledLabel,
-    required this.onPressed,
-  });
-
-  final bool enabled;
-  final String enabledLabel;
-  final String disabledLabel;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final backgroundColor = enabled
-        ? colorScheme.primaryContainer
-        : colorScheme.surfaceContainerHighest;
-    final foregroundColor = enabled
-        ? colorScheme.onPrimaryContainer
-        : colorScheme.onSurfaceVariant;
-    final borderColor = enabled
-        ? colorScheme.primary.withValues(alpha: 0.28)
-        : colorScheme.outlineVariant;
-
-    return ActionChip(
-      avatar: Icon(
-        enabled
-            ? Icons.check_circle_outline_rounded
-            : Icons.pause_circle_outline_rounded,
-        size: 18,
-        color: foregroundColor,
-      ),
-      // 与 [_MetadataChip] 共用的最小宽度，使密集排布时呈现整齐栅格感。
-      label: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: _kInstructionChipMinWidth),
-        child: Text(
-          enabled ? enabledLabel : disabledLabel,
-          textAlign: TextAlign.center,
-        ),
-      ),
-      onPressed: onPressed,
-      backgroundColor: backgroundColor,
-      side: BorderSide(color: borderColor),
-      shape: const StadiumBorder(),
-      labelStyle: theme.textTheme.labelLarge?.copyWith(
-        color: foregroundColor,
-        fontWeight: FontWeight.w600,
-      ),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -607,49 +550,6 @@ class _InstructionToggleCard extends StatelessWidget {
   }
 }
 
-class _MetadataChip extends StatelessWidget {
-  const _MetadataChip({
-    required this.icon,
-    required this.label,
-    this.background,
-    this.foreground,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color? background;
-  final Color? foreground;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final fill = background ?? colorScheme.surfaceContainerHighest;
-    final ink = foreground ?? colorScheme.onSurfaceVariant;
-    // 与 [_InstructionToggleChip] 保持一致的尺寸/字号/形状/密度/最小宽度，
-    // 让卡片底部的胶囊行视觉节奏整齐统一，密集排布时呈现栅格感。
-    return Chip(
-      avatar: Icon(icon, size: 18, color: ink),
-      label: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: _kInstructionChipMinWidth),
-        child: Text(label, textAlign: TextAlign.center),
-      ),
-      side: BorderSide(color: ink.withValues(alpha: 0.22)),
-      backgroundColor: fill,
-      shape: const StadiumBorder(),
-      labelStyle: theme.textTheme.labelLarge?.copyWith(
-        color: ink,
-        fontWeight: FontWeight.w600,
-      ),
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-  }
-}
-
-/// 指令卡片胶囊的统一最小宽度。让"v1.0"这种短标签也能与"已启用并注入"
-/// 这种长标签形成对齐的栅格感；超过此宽度时按内容自然撑开。
-const double _kInstructionChipMinWidth = 64;
 const double _kInstructionEditorTwoColumnMinWidth = 560;
 
 class _InstructionEditorDialog extends StatefulWidget {

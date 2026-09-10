@@ -1659,6 +1659,7 @@
   "instructionSectionBasics": "Grundlagen",
   "instructionSectionRouting": "Auslöser",
   "instructionSectionContent": "Anweisungstext",
+  "instructionSectionKeywords": "Stichwörter",
   "instructionSummaryEnabled": "Aktiviert",
   "instructionSummaryDisabled": "Deaktiviert",
   "instructionSummaryVersion": "v{version}",

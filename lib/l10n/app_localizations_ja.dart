@@ -3002,6 +3002,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get instructionSectionContent => '指示本文';
 
   @override
+  String get instructionSectionKeywords => 'キーワード';
+
+  @override
   String get instructionSummaryEnabled => '有効';
 
   @override

@@ -1659,6 +1659,7 @@
   "instructionSectionBasics": "基礎資訊",
   "instructionSectionRouting": "觸發條件",
   "instructionSectionContent": "指令正文",
+  "instructionSectionKeywords": "關鍵詞",
   "instructionSummaryEnabled": "已啟用",
   "instructionSummaryDisabled": "已停用",
   "instructionSummaryVersion": "v{version}",

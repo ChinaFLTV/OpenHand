@@ -220,21 +220,12 @@ class _HookEntryCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
       child: Row(
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: entry.enabled ? 0.16 : 0.08),
-              borderRadius: BorderRadius.circular(kOpenHandRadius16),
-            ),
-            child: SizedBox(
-              width: 48,
-              height: 48,
-              child: Center(
-                child: Icon(
-                  _hookEventIcon(entry.event),
-                  color: entry.enabled ? accent : colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
+          OpenHandIdentityBadge(
+            icon: _hookEventIcon(entry.event),
+            accent: accent,
+            extent: 48,
+            iconSize: 22,
+            enabled: entry.enabled,
           ),
           kOpenHandHGap14,
           Expanded(

@@ -3064,6 +3064,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get instructionSectionContent => 'Instruction Body';
 
   @override
+  String get instructionSectionKeywords => 'Keywords';
+
+  @override
   String get instructionSummaryEnabled => 'Enabled';
 
   @override

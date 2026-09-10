@@ -1659,6 +1659,7 @@
   "instructionSectionBasics": "基本情報",
   "instructionSectionRouting": "トリガー条件",
   "instructionSectionContent": "指示本文",
+  "instructionSectionKeywords": "キーワード",
   "instructionSummaryEnabled": "有効",
   "instructionSummaryDisabled": "無効",
   "instructionSummaryVersion": "v{version}",

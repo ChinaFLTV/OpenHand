@@ -3103,6 +3103,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get instructionSectionContent => 'Corps de l\'instruction';
 
   @override
+  String get instructionSectionKeywords => 'Mots-clés';
+
+  @override
   String get instructionSummaryEnabled => 'Activée';
 
   @override
