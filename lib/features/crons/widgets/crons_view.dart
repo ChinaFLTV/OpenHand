@@ -937,30 +937,19 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
               ),
               kOpenHandGap18,
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _numberField(
-                      controller: _timeoutController,
-                      label: l10n.cronsTimeoutSeconds,
-                    ),
-                  ),
-                  kOpenHandHGap12,
-                  Expanded(
-                    child: _numberField(
-                      controller: _retryController,
-                      label: l10n.cronsRetries,
-                    ),
-                  ),
-                  kOpenHandHGap12,
-                  Expanded(
-                    child: _numberField(
-                      controller: _maxRetryDelayController,
-                      label: l10n.cronsMaxRetryDelaySeconds,
-                    ),
-                  ),
-                ],
+              _numberField(
+                controller: _timeoutController,
+                label: l10n.cronsTimeoutSeconds,
+              ),
+              kOpenHandGap14,
+              _numberField(
+                controller: _retryController,
+                label: l10n.cronsRetries,
+              ),
+              kOpenHandGap14,
+              _numberField(
+                controller: _maxRetryDelayController,
+                label: l10n.cronsMaxRetryDelaySeconds,
               ),
               kOpenHandGap18,
               Row(
@@ -1276,23 +1265,29 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     required String label,
   }) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(label, style: theme.textTheme.titleSmall),
-        kOpenHandGap8,
-        SizedBox(
-          height: _cronFormControlHeight,
-          child: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            decoration: const InputDecoration(
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: theme.textTheme.titleSmall),
+          kOpenHandGap8,
+          SizedBox(
+            height: _cronFormControlHeight,
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              decoration: const InputDecoration(
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 8,
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
