@@ -837,10 +837,6 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
       closeEnabled: !_isSaving,
       canPop: !_isSaving,
       maxWidth: kOpenHandDialogWidthExtraWide,
-      summary: ListenableBuilder(
-        listenable: _nameController,
-        builder: (context, _) => _buildSkillSummaryBar(l10n, colorScheme),
-      ),
       body: _buildSkillFormFields(context, l10n),
       actions: [
         OpenHandDialogActionButton.secondary(
@@ -853,37 +849,6 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
           onPressed: _isSaving ? null : onConfirm,
           busy: _isSaving,
           label: confirmLabel,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSkillSummaryBar(AppLocalizations l10n, ColorScheme colorScheme) {
-    final name = _nameController.text.trim();
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        if (name.isNotEmpty)
-          OpenHandSummaryChip(
-            icon: Icons.extension_outlined,
-            label: name,
-            foreground: colorScheme.onSecondaryContainer,
-            background: colorScheme.secondaryContainer,
-          ),
-        OpenHandSummaryChip(
-          icon: _hasEffectiveIcon
-              ? Icons.verified_outlined
-              : Icons.emoji_emotions_outlined,
-          label: _hasEffectiveIcon
-              ? _buildIconLabel(l10n)
-              : l10n.skillsCreateIconHint,
-          foreground: _hasEffectiveIcon
-              ? colorScheme.onPrimaryContainer
-              : colorScheme.onSurfaceVariant,
-          background: _hasEffectiveIcon
-              ? colorScheme.primaryContainer
-              : colorScheme.surfaceContainerHighest,
         ),
       ],
     );

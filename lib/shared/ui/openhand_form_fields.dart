@@ -6,9 +6,7 @@ import 'hover_lift.dart';
 import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
-import 'oh_pill.dart';
 import 'openhand_dialog_action_button.dart';
-import 'openhand_typography.dart';
 
 /// 隐藏 TextField 的 `maxLength` 计数器。
 ///
@@ -433,60 +431,6 @@ class OpenHandDialogSectionCard extends StatelessWidget {
             ),
             kOpenHandGap14,
             child,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 编辑弹窗顶栏摘要胶囊：名称、状态、版本等一眼可扫。
-class OpenHandSummaryChip extends StatelessWidget {
-  const OpenHandSummaryChip({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.foreground,
-    required this.background,
-    this.monospace = false,
-    this.maxWidth = 280,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color foreground;
-  final Color background;
-  final bool monospace;
-  final double maxWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: kOpenHandPillBorderRadius,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: foreground),
-            kOpenHandHGap6,
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: foreground,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -1019,7 +963,7 @@ class OpenHandTintedPanel extends StatelessWidget {
   }
 }
 
-/// 编辑弹窗公共骨架：工具头 + 可选摘要 + 滚动分区 + 固定页脚。
+/// 编辑弹窗公共骨架：工具头 + 滚动分区 + 固定页脚。
 ///
 /// 进退场走 [showAnimatedDialog] 的全局弹窗动画；页脚钉住避免长表单挡住保存。
 class OpenHandEditorDialogScaffold extends StatelessWidget {
@@ -1031,7 +975,6 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
     required this.actions,
     this.subtitle,
     this.iconColor,
-    this.summary,
     this.busy = false,
     this.closeEnabled = true,
     this.canPop = true,
@@ -1043,7 +986,6 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
   final String? subtitle;
   final IconData icon;
   final Color? iconColor;
-  final Widget? summary;
   final Widget body;
   final List<Widget> actions;
   final bool busy;
@@ -1073,11 +1015,6 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
               subtitle: subtitle,
               closeEnabled: closeEnabled,
             ),
-            if (summary != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                child: summary,
-              ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
