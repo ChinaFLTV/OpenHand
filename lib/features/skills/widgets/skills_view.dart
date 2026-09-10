@@ -1244,23 +1244,22 @@ class _SkillCardIcon extends StatelessWidget {
       );
     } else if (skill.hasIcon) {
       final path = skill.iconPath!;
-      final inset = Padding(
-        padding: const EdgeInsets.all(_kSkillCardIconInset),
-        child: switch (skill.iconKind) {
-          LocalSkillIconKind.svg => buildLocalSvgPicture(
+      child = switch (skill.iconKind) {
+        LocalSkillIconKind.svg => Padding(
+          padding: const EdgeInsets.all(_kSkillCardIconInset),
+          child: buildLocalSvgPicture(
             path,
             fit: BoxFit.contain,
             fallback: fallback,
           ),
-          LocalSkillIconKind.raster => buildLocalRasterImage(
-            path,
-            fit: BoxFit.contain,
-            fallback: fallback,
-          ),
-          null => fallback,
-        },
-      );
-      child = inset;
+        ),
+        LocalSkillIconKind.raster => buildLocalRasterImage(
+          path,
+          fit: BoxFit.cover,
+          fallback: fallback,
+        ),
+        null => fallback,
+      };
     } else {
       child = fallback;
     }
