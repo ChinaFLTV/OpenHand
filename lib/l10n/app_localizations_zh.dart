@@ -2712,6 +2712,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get skillsSectionManifest => '清单内容';
 
   @override
+  String get skillsSourceSystem => '系统';
+
+  @override
+  String get skillsSourceLocal => '本地';
+
+  @override
+  String get skillsHasDefaultPrompt => '含默认提示';
+
+  @override
+  String get skillsPromptConfigured => '已配置';
+
+  @override
+  String get skillsPromptMissing => '未配置';
+
+  @override
+  String get skillsMetricSource => '来源';
+
+  @override
+  String get skillsMetricPrompt => '提示词';
+
+  @override
   String get imageEditorTitle => '编辑图片';
 
   @override
@@ -13251,6 +13272,27 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get skillsSectionManifest => '清單內容';
+
+  @override
+  String get skillsSourceSystem => '系統';
+
+  @override
+  String get skillsSourceLocal => '本機';
+
+  @override
+  String get skillsHasDefaultPrompt => '含預設提示';
+
+  @override
+  String get skillsPromptConfigured => '已設定';
+
+  @override
+  String get skillsPromptMissing => '未設定';
+
+  @override
+  String get skillsMetricSource => '來源';
+
+  @override
+  String get skillsMetricPrompt => '提示詞';
 
   @override
   String get imageEditorTitle => '編輯圖片';

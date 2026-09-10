@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
@@ -36,19 +38,7 @@ enum _SkillCardAction { openDirectory, edit, delete }
 /// 技能图标预览框的边长（逻辑像素）。
 const double _kSkillIconPreviewExtent = 72;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
-const int _kSkillDescriptionCompactMaxLines = 2;
-const int _kSkillDescriptionExpandedMaxLines = 5;
-
-/// 技能网格卡片：与服务板块同族的纯色外壳与分层信息。
-const double _kSkillCardRadius = 22;
-const double _kSkillCardMainAxisExtent = 280;
-const EdgeInsets _kSkillCardPadding = EdgeInsets.all(18);
-const int _kSkillPromptMaxLines = 3;
-const double _kSkillPromptIconSize = 17;
-const EdgeInsets _kSkillPromptPadding = EdgeInsets.symmetric(
-  horizontal: 12,
-  vertical: 10,
-);
+const double _kSkillCardMainAxisExtent = 328;
 
 const List<String> _skillEmojiOptions = <String>[
   '🧠',
@@ -307,22 +297,27 @@ class _SkillsViewState extends State<SkillsView> {
             itemBuilder: (context, index) {
               final skill = filteredSkills[index];
               // 定高网格：退场走就地淡出缩小，收高度只会在原位留洞。
-              return OpenHandListRemovalTransition(
-                collapsed: removal.isRemoving(skill.directoryPath),
-                shrinkExtent: false,
-                child: _SkillCard(
-                  skill: skill,
-                  onOpen: () => _showSkillPreview(context, skill),
-                  onActionSelected: (action) {
-                    switch (action) {
-                      case _SkillCardAction.openDirectory:
-                        _openSkillDirectory(context, skill);
-                      case _SkillCardAction.edit:
-                        _showEditSkillDialog(context, skill);
-                      case _SkillCardAction.delete:
-                        _confirmDeleteSkill(context, removal, skill);
-                    }
-                  },
+              return SettingsAwareAppearOnce(
+                key: ValueKey<String>('skill-appear-${skill.directoryPath}'),
+                child: RepaintBoundary(
+                  child: OpenHandListRemovalTransition(
+                    collapsed: removal.isRemoving(skill.directoryPath),
+                    shrinkExtent: false,
+                    child: _SkillCard(
+                      skill: skill,
+                      onOpen: () => _showSkillPreview(context, skill),
+                      onActionSelected: (action) {
+                        switch (action) {
+                          case _SkillCardAction.openDirectory:
+                            _openSkillDirectory(context, skill);
+                          case _SkillCardAction.edit:
+                            _showEditSkillDialog(context, skill);
+                          case _SkillCardAction.delete:
+                            _confirmDeleteSkill(context, removal, skill);
+                        }
+                      },
+                    ),
+                  ),
                 ),
               );
             },
@@ -1142,155 +1137,114 @@ class _SkillCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final defaultPrompt = skill.defaultPrompt?.trim();
-    final hasPrompt = defaultPrompt != null && defaultPrompt.isNotEmpty;
-    final radius = BorderRadius.circular(_kSkillCardRadius);
+    final hasPrompt = (skill.defaultPrompt ?? '').trim().isNotEmpty;
+    final isSystem = skill.isSystemSkill;
+    final sourceLabel = isSystem
+        ? l10n.skillsSourceSystem
+        : l10n.skillsSourceLocal;
+    final sourceColor = isSystem
+        ? colorScheme.tertiary
+        : OpenHandStatusColors.success;
+    final promptLabel = hasPrompt
+        ? l10n.skillsPromptConfigured
+        : l10n.skillsPromptMissing;
+    final promptColor = hasPrompt
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
+    final description = _skillCardDescription(skill.description);
 
-    return OpenHandHoverCard(
+    return OpenHandFeatureListCard(
       key: ValueKey<String>('skill-card-${skill.directoryPath}'),
-      elevation: 0,
       onTap: onOpen,
-      padding: _kSkillCardPadding,
-      shape: RoundedRectangleBorder(
-        borderRadius: radius,
-        side: BorderSide(color: cs.outlineVariant),
+      headerBreakpoint: 0,
+      fillHeight: true,
+      identity: OpenHandListIdentity(
+        title: skill.name,
+        description: description,
+        descriptionMaxLines: 2,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      skill.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    kOpenHandGap8,
-                    Text(
-                      skill.description,
-                      maxLines: hasPrompt
-                          ? _kSkillDescriptionCompactMaxLines
-                          : _kSkillDescriptionExpandedMaxLines,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              kOpenHandHGap8,
-              AnimatedPopupMenuButton<_SkillCardAction>(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '技能操作',
-                  zhHant: '技能操作',
-                  en: 'Skill actions',
-                  fr: 'Actions de compétence',
-                  de: 'Skill-Aktionen',
-                  ja: 'スキル操作',
-                ),
-                style: IconButton.styleFrom(
-                  shape: const CircleBorder(),
-                  backgroundColor: cs.surfaceContainerHighest,
-                  foregroundColor: cs.onSurfaceVariant,
-                ),
-                icon: const Icon(Icons.more_vert_rounded),
-                onSelected: onActionSelected,
-                itemBuilder: (context) => [
-                  PopupMenuItem<_SkillCardAction>(
-                    value: _SkillCardAction.openDirectory,
-                    child: _SkillMenuRow(
-                      icon: Icons.folder_open_rounded,
-                      label: l10n.skillsOpenDirectory,
-                    ),
-                  ),
-                  PopupMenuItem<_SkillCardAction>(
-                    value: _SkillCardAction.edit,
-                    child: _SkillMenuRow(
-                      icon: Icons.edit_rounded,
-                      label: l10n.skillsEdit,
-                    ),
-                  ),
-                  PopupMenuItem<_SkillCardAction>(
-                    value: _SkillCardAction.delete,
-                    child: _SkillMenuRow(
-                      icon: Icons.delete_outline_rounded,
-                      label: l10n.skillsDelete,
-                      destructive: true,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+      actions: [
+        AnimatedPopupMenuButton<_SkillCardAction>(
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '技能操作',
+            zhHant: '技能操作',
+            en: 'Skill actions',
+            fr: 'Actions de compétence',
+            de: 'Skill-Aktionen',
+            ja: 'スキル操作',
           ),
-          if (hasPrompt) ...[
-            kOpenHandGap14,
-            _SkillPromptPanel(prompt: defaultPrompt),
+          style: openHandFeatureCircleIconButtonStyle(colorScheme),
+          icon: const Icon(Icons.more_vert_rounded),
+          onSelected: onActionSelected,
+          itemBuilder: (context) => [
+            PopupMenuItem<_SkillCardAction>(
+              value: _SkillCardAction.openDirectory,
+              child: _SkillMenuRow(
+                icon: Icons.folder_open_rounded,
+                label: l10n.skillsOpenDirectory,
+              ),
+            ),
+            PopupMenuItem<_SkillCardAction>(
+              value: _SkillCardAction.edit,
+              child: _SkillMenuRow(
+                icon: Icons.edit_rounded,
+                label: l10n.skillsEdit,
+              ),
+            ),
+            PopupMenuItem<_SkillCardAction>(
+              value: _SkillCardAction.delete,
+              child: _SkillMenuRow(
+                icon: Icons.delete_outline_rounded,
+                label: l10n.skillsDelete,
+                destructive: true,
+              ),
+            ),
           ],
-          const Spacer(),
+        ),
+      ],
+      statusPills: [
+        OpenHandStatusPill(
+          icon: isSystem ? Icons.verified_outlined : Icons.inventory_2_outlined,
+          label: sourceLabel,
+          color: sourceColor,
+        ),
+        if (hasPrompt)
           OpenHandStatusPill(
-            icon: Icons.folder_outlined,
-            label: skill.displayDirectoryPath,
-            color: cs.tertiary,
+            icon: Icons.auto_awesome_outlined,
+            label: l10n.skillsHasDefaultPrompt,
+            color: colorScheme.primary,
           ),
-        ],
-      ),
+      ],
+      factChips: [
+        OpenHandFactChip(
+          icon: Icons.folder_outlined,
+          label: skill.displayDirectoryPath,
+          color: colorScheme.secondary,
+        ),
+      ],
+      metrics: [
+        (
+          label: l10n.skillsMetricSource,
+          value: sourceLabel,
+          accent: sourceColor,
+        ),
+        (
+          label: l10n.skillsMetricPrompt,
+          value: promptLabel,
+          accent: promptColor,
+        ),
+      ],
     );
   }
 }
 
-/// 默认提示块：浅色信息分区，不用竖条。
-class _SkillPromptPanel extends StatelessWidget {
-  const _SkillPromptPanel({required this.prompt});
-
-  final String prompt;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final accent = cs.primary;
-    return OpenHandTintedPanel(
-      accent: accent,
-      padding: _kSkillPromptPadding,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.auto_awesome_rounded,
-            size: _kSkillPromptIconSize,
-            color: accent,
-          ),
-          kOpenHandHGap8,
-          Expanded(
-            child: Text(
-              prompt,
-              maxLines: _kSkillPromptMaxLines,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: accent,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+String? _skillCardDescription(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty || value == '|') return null;
+  return value;
 }
 
 class _SkillMenuRow extends StatelessWidget {

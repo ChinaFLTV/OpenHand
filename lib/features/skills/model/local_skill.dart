@@ -46,6 +46,13 @@ class LocalSkill {
   bool get hasIcon => nullIfBlank(iconPath) != null && iconKind != null;
 
   bool get hasEmojiIcon => nullIfBlank(emojiIcon) != null;
+
+  bool get isSystemSkill {
+    final relative = relativeDirectoryPath.replaceAll(r'\', '/');
+    return relative == '.system' ||
+        relative.startsWith('.system/') ||
+        '/$relative/'.contains('/.system/');
+  }
 }
 
 String buildLocalSkillSystemReminder(

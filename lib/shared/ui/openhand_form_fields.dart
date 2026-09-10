@@ -591,17 +591,20 @@ class OpenHandListIdentity extends StatelessWidget {
     required this.title,
     this.description,
     this.leading,
+    this.descriptionMaxLines = 3,
   });
 
   final String title;
   final String? description;
   final Widget? leading;
+  final int descriptionMaxLines;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final description = this.description?.trim();
+    final maxLines = descriptionMaxLines < 1 ? 1 : descriptionMaxLines;
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -615,7 +618,7 @@ class OpenHandListIdentity extends StatelessWidget {
           kOpenHandGap8,
           Text(
             description,
-            maxLines: 3,
+            maxLines: maxLines,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurfaceVariant,
@@ -867,6 +870,8 @@ class OpenHandFeatureListCard extends StatelessWidget {
     this.footer,
     this.metrics = const <OpenHandMetricItem>[],
     this.onTap,
+    this.headerBreakpoint = kOpenHandListCardHeaderBreakpoint,
+    this.fillHeight = false,
   });
 
   final Widget identity;
@@ -876,6 +881,8 @@ class OpenHandFeatureListCard extends StatelessWidget {
   final Widget? footer;
   final List<OpenHandMetricItem> metrics;
   final VoidCallback? onTap;
+  final double headerBreakpoint;
+  final bool fillHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -895,6 +902,7 @@ class OpenHandFeatureListCard extends StatelessWidget {
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: fillHeight ? MainAxisSize.max : MainAxisSize.min,
         children: [
           if (actionBar == null)
             identity
@@ -902,7 +910,8 @@ class OpenHandFeatureListCard extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact =
-                    constraints.maxWidth < kOpenHandListCardHeaderBreakpoint;
+                    headerBreakpoint > 0 &&
+                    constraints.maxWidth < headerBreakpoint;
                 if (compact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -935,8 +944,9 @@ class OpenHandFeatureListCard extends StatelessWidget {
             Wrap(spacing: 8, runSpacing: 8, children: factChips),
           ],
           if (footer != null) ...[kOpenHandGap14, footer!],
+          if (fillHeight) const Spacer(),
           if (metrics.isNotEmpty) ...[
-            kOpenHandGap16,
+            if (!fillHeight) kOpenHandGap16,
             OpenHandMetricsStrip(items: metrics),
           ],
         ],

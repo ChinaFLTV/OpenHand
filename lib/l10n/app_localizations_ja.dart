@@ -2745,6 +2745,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String get skillsSectionManifest => 'マニフェスト';
 
   @override
+  String get skillsSourceSystem => 'システム';
+
+  @override
+  String get skillsSourceLocal => 'ローカル';
+
+  @override
+  String get skillsHasDefaultPrompt => 'デフォルトプロンプトあり';
+
+  @override
+  String get skillsPromptConfigured => '設定済み';
+
+  @override
+  String get skillsPromptMissing => '未設定';
+
+  @override
+  String get skillsMetricSource => 'ソース';
+
+  @override
+  String get skillsMetricPrompt => 'プロンプト';
+
+  @override
   String get imageEditorTitle => '画像を編集';
 
   @override

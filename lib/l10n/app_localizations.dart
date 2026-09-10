@@ -4962,6 +4962,48 @@ abstract class AppLocalizations {
   /// **'清单内容'**
   String get skillsSectionManifest;
 
+  /// No description provided for @skillsSourceSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统'**
+  String get skillsSourceSystem;
+
+  /// No description provided for @skillsSourceLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地'**
+  String get skillsSourceLocal;
+
+  /// No description provided for @skillsHasDefaultPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'含默认提示'**
+  String get skillsHasDefaultPrompt;
+
+  /// No description provided for @skillsPromptConfigured.
+  ///
+  /// In zh, this message translates to:
+  /// **'已配置'**
+  String get skillsPromptConfigured;
+
+  /// No description provided for @skillsPromptMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置'**
+  String get skillsPromptMissing;
+
+  /// No description provided for @skillsMetricSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'来源'**
+  String get skillsMetricSource;
+
+  /// No description provided for @skillsMetricPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get skillsMetricPrompt;
+
   /// No description provided for @imageEditorTitle.
   ///
   /// In zh, this message translates to:

@@ -2794,6 +2794,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get skillsSectionManifest => 'Manifest';
 
   @override
+  String get skillsSourceSystem => 'System';
+
+  @override
+  String get skillsSourceLocal => 'Local';
+
+  @override
+  String get skillsHasDefaultPrompt => 'Default prompt';
+
+  @override
+  String get skillsPromptConfigured => 'Configured';
+
+  @override
+  String get skillsPromptMissing => 'None';
+
+  @override
+  String get skillsMetricSource => 'Source';
+
+  @override
+  String get skillsMetricPrompt => 'Prompt';
+
+  @override
   String get imageEditorTitle => 'Edit Image';
 
   @override
