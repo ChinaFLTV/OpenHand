@@ -40,7 +40,8 @@ const double _kSkillIconPreviewExtent = 72;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
 const double _kSkillCardMainAxisExtent = 360;
 const double _kSkillCardIconExtent = 52;
-const double _kSkillCardIconEmojiSize = 26;
+const double _kSkillCardIconEmojiSize = 20;
+const double _kSkillCardIconInset = 8;
 
 const List<String> _skillEmojiOptions = <String>[
   '🧠',
@@ -1234,25 +1235,32 @@ class _SkillCardIcon extends StatelessWidget {
     );
     final Widget child;
     if (skill.hasEmojiIcon) {
-      child = _SkillEmojiGlyph(
-        emoji: skill.emojiIcon!,
-        fontSize: _kSkillCardIconEmojiSize,
+      child = Padding(
+        padding: const EdgeInsets.all(_kSkillCardIconInset),
+        child: _SkillEmojiGlyph(
+          emoji: skill.emojiIcon!,
+          fontSize: _kSkillCardIconEmojiSize,
+        ),
       );
     } else if (skill.hasIcon) {
       final path = skill.iconPath!;
-      child = switch (skill.iconKind) {
-        LocalSkillIconKind.svg => buildLocalSvgPicture(
-          path,
-          fit: BoxFit.cover,
-          fallback: fallback,
-        ),
-        LocalSkillIconKind.raster => buildLocalRasterImage(
-          path,
-          fit: BoxFit.cover,
-          fallback: fallback,
-        ),
-        null => fallback,
-      };
+      final inset = Padding(
+        padding: const EdgeInsets.all(_kSkillCardIconInset),
+        child: switch (skill.iconKind) {
+          LocalSkillIconKind.svg => buildLocalSvgPicture(
+            path,
+            fit: BoxFit.contain,
+            fallback: fallback,
+          ),
+          LocalSkillIconKind.raster => buildLocalRasterImage(
+            path,
+            fit: BoxFit.contain,
+            fallback: fallback,
+          ),
+          null => fallback,
+        },
+      );
+      child = inset;
     } else {
       child = fallback;
     }
