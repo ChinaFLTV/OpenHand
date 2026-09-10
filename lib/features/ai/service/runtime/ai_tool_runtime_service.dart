@@ -3321,6 +3321,7 @@ class AiToolRuntimeService {
       name: 'Bash',
       description:
           'Fallback for shell-only commands; do not use for file read/search/list/edit when Read, Grep, Glob, LS, or Edit-family tools are available. Use command (Claude-style) or cmd for the command string and optionally working_directory/cwd for the working directory. Set run_in_background to true for Claude-style long-running commands that should be started through BashBackground. '
+          'For OpenHand scheduled tasks, use ToolSearch and the matching Cron tool; never manipulate crontab, schtasks, or operating-system timer services. '
           'Use Bash for tests, builds, package managers, project scripts, and commands with no dedicated OpenHand tool. '
           'If a write-like command needs confirmation, OpenHand handles that approval flow automatically.',
       parameters: const <String, Object?>{

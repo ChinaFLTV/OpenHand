@@ -12,6 +12,28 @@ class AiBashSpecializedToolPolicy {
     final normalized = command.trim();
     if (normalized.isEmpty) return null;
 
+    final cronTools =
+        _toolNamesForKindsIncludingDeferred(catalog, const <AiBuiltinToolKind>[
+          AiBuiltinToolKind.cronCreate,
+          AiBuiltinToolKind.cronEdit,
+          AiBuiltinToolKind.cronDelete,
+          AiBuiltinToolKind.cronEnable,
+          AiBuiltinToolKind.cronDisable,
+        ]);
+    if (cronTools.isNotEmpty && _looksLikeNativeScheduler(normalized)) {
+      return AiBashSpecializedToolDecision(
+        intent: 'scheduled_task',
+        suggestedToolNames: cronTools,
+        searchGatewayName: _toolNameForKind(
+          catalog,
+          AiBuiltinToolKind.toolSearch,
+        ),
+        searchQuery: '定时任务',
+        reason:
+            'Native operating-system schedulers are not the OpenHand scheduled-task platform. Use the dedicated Cron tool so the task appears in OpenHand and follows its validation, execution, notification, and history rules.',
+      );
+    }
+
     final editTools = _toolNamesForKinds(catalog, const <AiBuiltinToolKind>[
       AiBuiltinToolKind.edit,
       AiBuiltinToolKind.multiEdit,
@@ -118,6 +140,33 @@ class AiBashSpecializedToolPolicy {
     'branch',
   };
 
+  static const Set<String> _nativeSchedulerCommands = <String>{
+    'crontab',
+    'schtasks',
+  };
+
+  static final RegExp _systemdTimerPattern = RegExp(
+    r'\b(?:systemctl\s+(?:--[^\s]+\s+)*list-timers|systemctl\b[^\n;&|]*\.timer\b|systemd-run\b[^\n;&|]*--on-(?:active|boot|calendar|startup|unit-active|unit-inactive)\b)',
+    caseSensitive: false,
+  );
+
+  static final RegExp _launchdTimerPattern = RegExp(
+    r'\blaunchctl\b[^\n;&|]*(?:StartCalendarInterval|StartInterval)\b',
+    caseSensitive: false,
+  );
+
+  static final RegExp _windowsScheduledTaskPattern = RegExp(
+    r'\b(?:Disable|Enable|Get|New|Register|Set|Start|Stop|Unregister)-ScheduledTask\b',
+    caseSensitive: false,
+  );
+
+  static bool _looksLikeNativeScheduler(String command) {
+    return _containsShellCommand(command, _nativeSchedulerCommands) ||
+        _systemdTimerPattern.hasMatch(command) ||
+        _launchdTimerPattern.hasMatch(command) ||
+        _windowsScheduledTaskPattern.hasMatch(command);
+  }
+
   static bool _looksLikeShellFileEdit(String command) {
     final hasSed = _containsShellCommand(command, const <String>{'sed'});
     if (hasSed &&
@@ -155,8 +204,9 @@ class AiBashSpecializedToolPolicy {
     if (names.isEmpty) return false;
     final alternatives = names.map(RegExp.escape).join('|');
     return RegExp(
-      '(^|[;&(){}\\n]|\\|\\||&&|\\bdo\\b|\\bthen\\b)\\s*'
-      '(?:command\\s+|builtin\\s+)?(?:$alternatives)\\b',
+      '(^|[;&|(){}\\n]|\\bdo\\b|\\bthen\\b)\\s*'
+      '(?:(?:command|builtin|sudo|env|nohup)\\s+)*'
+      '(?:[^\\s;&|(){}]+/)?(?:$alternatives)\\b',
       caseSensitive: false,
     ).hasMatch(command);
   }
@@ -185,6 +235,31 @@ class AiBashSpecializedToolPolicy {
     }
     return names;
   }
+
+  static List<String> _toolNamesForKindsIncludingDeferred(
+    AiResolvedToolCatalog catalog,
+    List<AiBuiltinToolKind> kinds,
+  ) {
+    final kindSet = kinds.toSet();
+    final names = <String>[];
+    final seen = <String>{};
+    void collect(AiResolvedTool tool) {
+      if (tool.source == AiRuntimeToolSource.builtin &&
+          kindSet.contains(tool.builtinKind) &&
+          seen.add(tool.name)) {
+        names.add(tool.name);
+      }
+    }
+
+    for (final tool in catalog.toolsByName.values) {
+      collect(tool);
+      if (tool.builtinKind != AiBuiltinToolKind.toolSearch) continue;
+      for (final deferredTool in tool.toolSearchDeferredTools.values) {
+        collect(deferredTool);
+      }
+    }
+    return names;
+  }
 }
 
 class AiBashSpecializedToolDecision {
@@ -192,20 +267,29 @@ class AiBashSpecializedToolDecision {
     required this.intent,
     required this.suggestedToolNames,
     required this.reason,
+    this.searchGatewayName,
+    this.searchQuery,
   });
 
   final String intent;
   final List<String> suggestedToolNames;
   final String reason;
+  final String? searchGatewayName;
+  final String? searchQuery;
 
   AiToolExecutionResult toResult({
     required String command,
     required String workingDirectory,
   }) {
     final suggestion = suggestedToolNames.join(' / ');
+    final gateway = searchGatewayName;
+    final query = searchQuery;
+    final gatewayGuidance = gateway == null || query == null
+        ? ''
+        : ' Call $gateway with query `$query`, then invoke the matching tool through $gateway using its exact returned name and Schema.';
     final message =
         'Bash command blocked by specialized-tool policy: $reason '
-        'Suggested tool(s): $suggestion. Re-issue the action with the dedicated tool; use Bash only for shell-only commands such as tests, builds, package managers, or project scripts.';
+        'Suggested tool(s): $suggestion.$gatewayGuidance Re-issue the action with the dedicated tool; use Bash only for shell-only commands such as tests, builds, package managers, or project scripts.';
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.invalidArguments,
       command: command.isEmpty ? 'Bash' : command,
@@ -220,6 +304,8 @@ class AiBashSpecializedToolDecision {
         'bash_specialized_tool_policy_blocked': true,
         'bash_specialized_tool_intent': intent,
         'bash_specialized_tool_suggestions': suggestedToolNames,
+        if (gateway != null) 'bash_specialized_tool_gateway': gateway,
+        if (query != null) 'bash_specialized_tool_search_query': query,
       },
     );
   }
