@@ -10114,6 +10114,33 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hooksEnabled => '有効';
 
   @override
+  String get hooksEnabledBody => 'オフにすると、選択したイベントでは実行されません。';
+
+  @override
+  String get hooksEditorCreateSubtitle => 'トリガー、スクリプト、タイムアウトを設定します。';
+
+  @override
+  String get hooksEditorEditSubtitle => 'フックの識別、トリガー、スクリプトを調整します。';
+
+  @override
+  String get hooksSectionBasics => '基本情報';
+
+  @override
+  String get hooksSectionTrigger => 'トリガーイベント';
+
+  @override
+  String get hooksSectionScript => 'スクリプト';
+
+  @override
+  String get hooksSectionPolicy => '実行ポリシー';
+
+  @override
+  String get hooksScriptSourceFileHint => 'ローカルのスクリプトファイルを選ぶ';
+
+  @override
+  String get hooksScriptSourceInlineHint => '実行するスクリプトを直接書く';
+
+  @override
   String get hooksValidationLabelRequired => 'ライフサイクルフック名を入力してください。';
 
   @override

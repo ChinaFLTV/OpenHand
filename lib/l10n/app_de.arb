@@ -7837,6 +7837,15 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
+  "hooksEnabledBody": "Wenn aus, läuft dieser Hook beim gewählten Ereignis nicht.",
+  "hooksEditorCreateSubtitle": "Ereignis, Skript und Timeout festlegen.",
+  "hooksEditorEditSubtitle": "Identität, Auslöser und Skript anpassen.",
+  "hooksSectionBasics": "Grundlagen",
+  "hooksSectionTrigger": "Auslöser",
+  "hooksSectionScript": "Skript",
+  "hooksSectionPolicy": "Richtlinie",
+  "hooksScriptSourceFileHint": "Lokale Skriptdatei wählen",
+  "hooksScriptSourceInlineHint": "Auszuführendes Skript schreiben",
   "hooksValidationLabelRequired": "Geben Sie einen Namen für den Lebenszyklus-Hook ein.",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."

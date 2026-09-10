@@ -7837,6 +7837,15 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
+  "hooksEnabledBody": "關閉後不會在對應事件觸發時執行。",
+  "hooksEditorCreateSubtitle": "設定觸發事件、腳本與逾時。",
+  "hooksEditorEditSubtitle": "調整鉤子身分、觸發時機與腳本。",
+  "hooksSectionBasics": "基礎資訊",
+  "hooksSectionTrigger": "觸發事件",
+  "hooksSectionScript": "腳本內容",
+  "hooksSectionPolicy": "執行策略",
+  "hooksScriptSourceFileHint": "從本機選擇腳本檔案",
+  "hooksScriptSourceInlineHint": "直接編寫要執行的腳本",
   "hooksValidationLabelRequired": "請填寫生命週期鉤子名稱。",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."

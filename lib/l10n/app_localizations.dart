@@ -18231,6 +18231,60 @@ abstract class AppLocalizations {
   /// **'启用'**
   String get hooksEnabled;
 
+  /// No description provided for @hooksEnabledBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭后不会在对应事件触发时执行。'**
+  String get hooksEnabledBody;
+
+  /// No description provided for @hooksEditorCreateSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置触发事件、脚本与超时。'**
+  String get hooksEditorCreateSubtitle;
+
+  /// No description provided for @hooksEditorEditSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'调整钩子身份、触发时机与脚本。'**
+  String get hooksEditorEditSubtitle;
+
+  /// No description provided for @hooksSectionBasics.
+  ///
+  /// In zh, this message translates to:
+  /// **'基础信息'**
+  String get hooksSectionBasics;
+
+  /// No description provided for @hooksSectionTrigger.
+  ///
+  /// In zh, this message translates to:
+  /// **'触发事件'**
+  String get hooksSectionTrigger;
+
+  /// No description provided for @hooksSectionScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'脚本内容'**
+  String get hooksSectionScript;
+
+  /// No description provided for @hooksSectionPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行策略'**
+  String get hooksSectionPolicy;
+
+  /// No description provided for @hooksScriptSourceFileHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'从本地选择脚本文件'**
+  String get hooksScriptSourceFileHint;
+
+  /// No description provided for @hooksScriptSourceInlineHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'直接编写要执行的脚本'**
+  String get hooksScriptSourceInlineHint;
+
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:

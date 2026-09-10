@@ -9999,6 +9999,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hooksEnabled => '启用';
 
   @override
+  String get hooksEnabledBody => '关闭后不会在对应事件触发时执行。';
+
+  @override
+  String get hooksEditorCreateSubtitle => '配置触发事件、脚本与超时。';
+
+  @override
+  String get hooksEditorEditSubtitle => '调整钩子身份、触发时机与脚本。';
+
+  @override
+  String get hooksSectionBasics => '基础信息';
+
+  @override
+  String get hooksSectionTrigger => '触发事件';
+
+  @override
+  String get hooksSectionScript => '脚本内容';
+
+  @override
+  String get hooksSectionPolicy => '执行策略';
+
+  @override
+  String get hooksScriptSourceFileHint => '从本地选择脚本文件';
+
+  @override
+  String get hooksScriptSourceInlineHint => '直接编写要执行的脚本';
+
+  @override
   String get hooksValidationLabelRequired => '请填写生命周期钩子名称。';
 
   @override
@@ -20489,6 +20516,33 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get hooksEnabled => '啟用';
+
+  @override
+  String get hooksEnabledBody => '關閉後不會在對應事件觸發時執行。';
+
+  @override
+  String get hooksEditorCreateSubtitle => '設定觸發事件、腳本與逾時。';
+
+  @override
+  String get hooksEditorEditSubtitle => '調整鉤子身分、觸發時機與腳本。';
+
+  @override
+  String get hooksSectionBasics => '基礎資訊';
+
+  @override
+  String get hooksSectionTrigger => '觸發事件';
+
+  @override
+  String get hooksSectionScript => '腳本內容';
+
+  @override
+  String get hooksSectionPolicy => '執行策略';
+
+  @override
+  String get hooksScriptSourceFileHint => '從本機選擇腳本檔案';
+
+  @override
+  String get hooksScriptSourceInlineHint => '直接編寫要執行的腳本';
 
   @override
   String get hooksValidationLabelRequired => '請填寫生命週期鉤子名稱。';

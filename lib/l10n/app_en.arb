@@ -7842,6 +7842,15 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
+  "hooksEnabledBody": "When off, this hook will not run for the selected event.",
+  "hooksEditorCreateSubtitle": "Set the trigger event, script, and timeout.",
+  "hooksEditorEditSubtitle": "Adjust the hook identity, trigger, and script.",
+  "hooksSectionBasics": "Basics",
+  "hooksSectionTrigger": "Trigger Event",
+  "hooksSectionScript": "Script",
+  "hooksSectionPolicy": "Policy",
+  "hooksScriptSourceFileHint": "Choose a local script file",
+  "hooksScriptSourceInlineHint": "Write the script to run",
   "hooksValidationLabelRequired": "Enter a lifecycle hook name.",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."

@@ -7837,6 +7837,15 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
+  "hooksEnabledBody": "Désactivé, ce hook ne s'exécute pas pour l'événement choisi.",
+  "hooksEditorCreateSubtitle": "Définir l'événement, le script et le délai.",
+  "hooksEditorEditSubtitle": "Ajuster l'identité, le déclencheur et le script.",
+  "hooksSectionBasics": "Informations de base",
+  "hooksSectionTrigger": "Événement déclencheur",
+  "hooksSectionScript": "Script",
+  "hooksSectionPolicy": "Politique",
+  "hooksScriptSourceFileHint": "Choisir un fichier de script local",
+  "hooksScriptSourceInlineHint": "Écrire le script à exécuter",
   "hooksValidationLabelRequired": "Saisissez un nom de hook de cycle de vie.",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."

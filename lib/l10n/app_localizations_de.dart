@@ -10426,6 +10426,36 @@ class AppLocalizationsDe extends AppLocalizations {
   String get hooksEnabled => 'Aktiviert';
 
   @override
+  String get hooksEnabledBody =>
+      'Wenn aus, läuft dieser Hook beim gewählten Ereignis nicht.';
+
+  @override
+  String get hooksEditorCreateSubtitle =>
+      'Ereignis, Skript und Timeout festlegen.';
+
+  @override
+  String get hooksEditorEditSubtitle =>
+      'Identität, Auslöser und Skript anpassen.';
+
+  @override
+  String get hooksSectionBasics => 'Grundlagen';
+
+  @override
+  String get hooksSectionTrigger => 'Auslöser';
+
+  @override
+  String get hooksSectionScript => 'Skript';
+
+  @override
+  String get hooksSectionPolicy => 'Richtlinie';
+
+  @override
+  String get hooksScriptSourceFileHint => 'Lokale Skriptdatei wählen';
+
+  @override
+  String get hooksScriptSourceInlineHint => 'Auszuführendes Skript schreiben';
+
+  @override
   String get hooksValidationLabelRequired =>
       'Geben Sie einen Namen für den Lebenszyklus-Hook ein.';
 

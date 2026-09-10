@@ -10464,6 +10464,36 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hooksEnabled => 'Activé';
 
   @override
+  String get hooksEnabledBody =>
+      'Désactivé, ce hook ne s\'exécute pas pour l\'événement choisi.';
+
+  @override
+  String get hooksEditorCreateSubtitle =>
+      'Définir l\'événement, le script et le délai.';
+
+  @override
+  String get hooksEditorEditSubtitle =>
+      'Ajuster l\'identité, le déclencheur et le script.';
+
+  @override
+  String get hooksSectionBasics => 'Informations de base';
+
+  @override
+  String get hooksSectionTrigger => 'Événement déclencheur';
+
+  @override
+  String get hooksSectionScript => 'Script';
+
+  @override
+  String get hooksSectionPolicy => 'Politique';
+
+  @override
+  String get hooksScriptSourceFileHint => 'Choisir un fichier de script local';
+
+  @override
+  String get hooksScriptSourceInlineHint => 'Écrire le script à exécuter';
+
+  @override
   String get hooksValidationLabelRequired =>
       'Saisissez un nom de hook de cycle de vie.';
 

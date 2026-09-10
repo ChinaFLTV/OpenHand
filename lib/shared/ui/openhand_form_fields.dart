@@ -3,6 +3,7 @@ import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import 'animated_dialog.dart';
 import 'hover_lift.dart';
+import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
@@ -147,6 +148,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
     required this.onChanged,
     this.disabledIcon,
     this.badge,
+    this.enabled = true,
   });
 
   final IconData icon;
@@ -156,6 +158,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
   final Widget? badge;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +167,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => onChanged(!value),
+        onTap: enabled ? () => onChanged(!value) : null,
         borderRadius: BorderRadius.circular(kOpenHandRadius10),
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -222,8 +225,118 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Switch(value: value, onChanged: onChanged),
+              Switch(value: value, onChanged: enabled ? onChanged : null),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 二选一/多选手写卡片：图标 + 标题 + 可选说明，选中态走主题色。
+class OpenHandSelectTile extends StatelessWidget {
+  const OpenHandSelectTile({
+    super.key,
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.hint,
+    this.enabled = true,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final String? hint;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tone = selected ? colorScheme.primary : colorScheme.onSurfaceVariant;
+    final hint = this.hint?.trim();
+    return MicroPressFeedback(
+      enabled: enabled,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: kOpenHandBorderRadius16,
+          child: AnimatedContainer(
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
+            curve: kOpenHandSwitchInCurve,
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            decoration: BoxDecoration(
+              color: selected
+                  ? colorScheme.primaryContainer.withValues(alpha: 0.72)
+                  : colorScheme.surface,
+              borderRadius: kOpenHandBorderRadius16,
+              border: Border.all(
+                color: selected
+                    ? colorScheme.primary.withValues(alpha: 0.62)
+                    : colorScheme.outlineVariant,
+                width: selected ? 1.4 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? colorScheme.primary.withValues(alpha: 0.16)
+                        : colorScheme.surfaceContainerHigh,
+                    borderRadius: kOpenHandBorderRadius12,
+                  ),
+                  child: SizedBox(
+                    width: 34,
+                    height: 34,
+                    child: Center(child: Icon(icon, size: 18, color: tone)),
+                  ),
+                ),
+                kOpenHandHGap10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: selected
+                              ? colorScheme.onPrimaryContainer
+                              : colorScheme.onSurface,
+                        ),
+                      ),
+                      if (hint != null && hint.isNotEmpty) ...[
+                        kOpenHandGap2,
+                        Text(
+                          hint,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (selected) ...[
+                  kOpenHandHGap8,
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

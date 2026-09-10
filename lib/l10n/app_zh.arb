@@ -7909,6 +7909,15 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
+  "hooksEnabledBody": "关闭后不会在对应事件触发时执行。",
+  "hooksEditorCreateSubtitle": "配置触发事件、脚本与超时。",
+  "hooksEditorEditSubtitle": "调整钩子身份、触发时机与脚本。",
+  "hooksSectionBasics": "基础信息",
+  "hooksSectionTrigger": "触发事件",
+  "hooksSectionScript": "脚本内容",
+  "hooksSectionPolicy": "执行策略",
+  "hooksScriptSourceFileHint": "从本地选择脚本文件",
+  "hooksScriptSourceInlineHint": "直接编写要执行的脚本",
   "hooksValidationLabelRequired": "请填写生命周期钩子名称。",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."

@@ -10333,6 +10333,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hooksEnabled => 'Enabled';
 
   @override
+  String get hooksEnabledBody =>
+      'When off, this hook will not run for the selected event.';
+
+  @override
+  String get hooksEditorCreateSubtitle =>
+      'Set the trigger event, script, and timeout.';
+
+  @override
+  String get hooksEditorEditSubtitle =>
+      'Adjust the hook identity, trigger, and script.';
+
+  @override
+  String get hooksSectionBasics => 'Basics';
+
+  @override
+  String get hooksSectionTrigger => 'Trigger Event';
+
+  @override
+  String get hooksSectionScript => 'Script';
+
+  @override
+  String get hooksSectionPolicy => 'Policy';
+
+  @override
+  String get hooksScriptSourceFileHint => 'Choose a local script file';
+
+  @override
+  String get hooksScriptSourceInlineHint => 'Write the script to run';
+
+  @override
   String get hooksValidationLabelRequired => 'Enter a lifecycle hook name.';
 
   @override

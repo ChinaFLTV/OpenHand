@@ -7837,6 +7837,15 @@
   "@hooksEnabled": {
     "description": "OpenHand localized UI text."
   },
+  "hooksEnabledBody": "オフにすると、選択したイベントでは実行されません。",
+  "hooksEditorCreateSubtitle": "トリガー、スクリプト、タイムアウトを設定します。",
+  "hooksEditorEditSubtitle": "フックの識別、トリガー、スクリプトを調整します。",
+  "hooksSectionBasics": "基本情報",
+  "hooksSectionTrigger": "トリガーイベント",
+  "hooksSectionScript": "スクリプト",
+  "hooksSectionPolicy": "実行ポリシー",
+  "hooksScriptSourceFileHint": "ローカルのスクリプトファイルを選ぶ",
+  "hooksScriptSourceInlineHint": "実行するスクリプトを直接書く",
   "hooksValidationLabelRequired": "ライフサイクルフック名を入力してください。",
   "@hooksValidationLabelRequired": {
     "description": "OpenHand localized UI text."

@@ -367,22 +367,24 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           Row(
             children: [
               Expanded(
-                child: _CronTypeChoice(
+                child: OpenHandSelectTile(
                   selected: _scriptType == CronScriptType.command,
                   icon: Icons.terminal_rounded,
                   label: CronScriptType.command.label(l10n),
                   hint: l10n.cronsScriptTypeCommandHint,
+                  enabled: !_saving,
                   onTap: () =>
                       setState(() => _scriptType = CronScriptType.command),
                 ),
               ),
               kOpenHandHGap10,
               Expanded(
-                child: _CronTypeChoice(
+                child: OpenHandSelectTile(
                   selected: _scriptType == CronScriptType.script,
                   icon: Icons.description_outlined,
                   label: CronScriptType.script.label(l10n),
                   hint: l10n.cronsScriptTypeScriptHint,
+                  enabled: !_saving,
                   onTap: () =>
                       setState(() => _scriptType = CronScriptType.script),
                 ),
@@ -1509,97 +1511,5 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     return '$label: $state\n'
         '${l10n.cronsPlatformLabel}: $platform\n'
         '${l10n.cronsSupportLabel}: $support';
-  }
-}
-
-class _CronTypeChoice extends StatelessWidget {
-  const _CronTypeChoice({
-    required this.selected,
-    required this.icon,
-    required this.label,
-    required this.hint,
-    required this.onTap,
-  });
-
-  final bool selected;
-  final IconData icon;
-  final String label;
-  final String hint;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final tone = selected ? colorScheme.primary : colorScheme.onSurfaceVariant;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: kOpenHandBorderRadius16,
-        child: AnimatedContainer(
-          duration: openHandMotionDuration(context, kOpenHandMotion180),
-          curve: kOpenHandSwitchInCurve,
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          decoration: BoxDecoration(
-            color: selected
-                ? colorScheme.primaryContainer.withValues(alpha: 0.72)
-                : colorScheme.surface,
-            borderRadius: kOpenHandBorderRadius16,
-            border: Border.all(
-              color: selected
-                  ? colorScheme.primary.withValues(alpha: 0.62)
-                  : colorScheme.outlineVariant,
-              width: selected ? 1.4 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: selected
-                      ? colorScheme.primary.withValues(alpha: 0.16)
-                      : colorScheme.surfaceContainerHigh,
-                  borderRadius: kOpenHandBorderRadius12,
-                ),
-                child: SizedBox(
-                  width: 34,
-                  height: 34,
-                  child: Center(child: Icon(icon, size: 18, color: tone)),
-                ),
-              ),
-              kOpenHandHGap10,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: selected
-                            ? colorScheme.onPrimaryContainer
-                            : colorScheme.onSurface,
-                      ),
-                    ),
-                    kOpenHandGap2,
-                    Text(
-                      hint,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
