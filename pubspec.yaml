@@ -29,7 +29,7 @@ dependencies:
   xml: ^7.0.1
   highlight: ^0.7.0
   markdown: ^7.3.1
-  flutter_widget_from_html_core: ^0.17.3
+  flutter_widget_from_html_core: ^0.17.4
   sqflite_common_ffi: ^2.4.2+1
   sqflite_common: ^2.5.11
   webview_flutter: ^4.14.1
