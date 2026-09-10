@@ -19,7 +19,9 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart'
     show
         AiResourceUsageKind,
@@ -32,7 +34,6 @@ import '../model/user_memory_entry.dart';
 enum _MemoryCardAction { edit, delete }
 
 const int _memoryTagPreviewLimit = 8;
-const int _kMemoryCardContentMaxLines = 4;
 
 class MemoryView extends StatelessWidget {
   const MemoryView({super.key});
@@ -716,8 +717,7 @@ class _MemoryEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final isAutoLearned = entry.isAutoLearned;
     final displayTags = entry.tags
@@ -732,138 +732,102 @@ class _MemoryEntryCard extends StatelessWidget {
         .toList(growable: false);
     final hiddenTagCount = displayTags.length - visibleTags.length;
 
-    final accent = isAutoLearned ? colorScheme.tertiary : colorScheme.primary;
-    final headline = entry.displayTitle.trim();
+    final kindLabel = isAutoLearned
+        ? l10n.memoryAutoLearnedTag
+        : l10n.memoryTypeUser;
+    final kindColor = isAutoLearned
+        ? colorScheme.tertiary
+        : OpenHandStatusColors.success;
+    final titled = entry.title.trim().isNotEmpty;
     final body = entry.content.trim();
+    final title = titled
+        ? entry.title.trim()
+        : (body.isEmpty ? kindLabel : entry.preview);
+    final description = titled
+        ? (body.isEmpty ? null : body)
+        : (body.length > 72 ? body : null);
+    final createdLabel = formatYearMonthDayHmLocal(entry.createdAt);
 
-    return OpenHandHoverCard(
+    return OpenHandFeatureListCard(
       onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(18, 18, 14, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              OpenHandIdentityBadge(
-                icon: isAutoLearned
-                    ? Icons.auto_awesome_outlined
-                    : Icons.psychology_alt_outlined,
-                accent: accent,
-              ),
-              kOpenHandHGap14,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (headline.isNotEmpty)
-                      Text(
-                        headline,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    kOpenHandGap10,
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OpenHandStatusPill(
-                          icon: isAutoLearned
-                              ? Icons.auto_awesome_outlined
-                              : Icons.person_outline_rounded,
-                          label: isAutoLearned
-                              ? l10n.memoryAutoLearnedTag
-                              : l10n.memoryTypeUser,
-                          color: isAutoLearned
-                              ? colorScheme.tertiary
-                              : colorScheme.secondary,
-                        ),
-                        if (displayTags.isNotEmpty)
-                          OpenHandStatusPill(
-                            icon: Icons.sell_outlined,
-                            label: l10n.memorySummaryTagCount(
-                              displayTags.length,
-                            ),
-                            color: OpenHandStatusColors.info,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              AnimatedPopupMenuButton<_MemoryCardAction>(
-                onSelected: onActionSelected,
-                itemBuilder: (context) {
-                  return [
-                    PopupMenuItem<_MemoryCardAction>(
-                      value: _MemoryCardAction.edit,
-                      child: Text(l10n.commonEdit),
-                    ),
-                    PopupMenuItem<_MemoryCardAction>(
-                      value: _MemoryCardAction.delete,
-                      child: Text(l10n.commonDelete),
-                    ),
-                  ];
-                },
-              ),
-            ],
-          ),
-          if (body.isNotEmpty) ...[
-            kOpenHandGap16,
-            OpenHandInlineSection(
-              icon: Icons.notes_rounded,
-              title: l10n.memorySectionContent,
-              accent: accent,
+      identity: OpenHandListIdentity(
+        icon: isAutoLearned
+            ? Icons.auto_awesome_outlined
+            : Icons.psychology_alt_outlined,
+        title: title,
+        description: description,
+        statusColor: kindColor,
+      ),
+      actions: [
+        AnimatedPopupMenuButton<_MemoryCardAction>(
+          tooltip: openHandMoreActionsLabel(context),
+          style: openHandFeatureCircleIconButtonStyle(colorScheme),
+          onSelected: onActionSelected,
+          itemBuilder: (context) => [
+            PopupMenuItem<_MemoryCardAction>(
+              value: _MemoryCardAction.edit,
+              child: Text(l10n.commonEdit),
+            ),
+            PopupMenuItem<_MemoryCardAction>(
+              value: _MemoryCardAction.delete,
               child: Text(
-                body,
-                maxLines: _kMemoryCardContentMaxLines,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                l10n.commonDelete,
+                style: TextStyle(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
-          kOpenHandGap14,
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OpenHandFactChip(
-                icon: Icons.schedule_rounded,
-                label:
-                    '${l10n.memoryCreatedAtLabel} ${_formatCreatedAt(context, entry.createdAt)}',
-                color: OpenHandStatusColors.warning,
-              ),
-              for (final tag in visibleTags)
-                OpenHandFactChip(
-                  icon: Icons.sell_outlined,
-                  label: tag,
-                  color: OpenHandStatusColors.info,
-                ),
-              if (hiddenTagCount > 0)
-                OpenHandFactChip(
-                  icon: Icons.more_horiz_rounded,
-                  label: '+$hiddenTagCount',
-                  color: colorScheme.onSurfaceVariant,
-                ),
-            ],
+        ),
+      ],
+      statusPills: [
+        OpenHandStatusPill(
+          icon: isAutoLearned
+              ? Icons.auto_awesome_outlined
+              : Icons.person_outline_rounded,
+          label: kindLabel,
+          color: kindColor,
+        ),
+        OpenHandStatusPill(
+          icon: Icons.schedule_rounded,
+          label: createdLabel,
+          color: OpenHandStatusColors.warning,
+        ),
+      ],
+      factChips: [
+        for (final tag in visibleTags)
+          OpenHandFactChip(
+            icon: Icons.sell_outlined,
+            label: tag,
+            color: OpenHandStatusColors.info,
           ),
-        ],
-      ),
+        if (hiddenTagCount > 0)
+          OpenHandFactChip(
+            icon: Icons.more_horiz_rounded,
+            label: '+$hiddenTagCount',
+            color: colorScheme.onSurfaceVariant,
+          ),
+      ],
+      metrics: [
+        (label: l10n.listCardMetricKind, value: kindLabel, accent: kindColor),
+        (
+          label: l10n.memorySectionTags,
+          value: '${displayTags.length}',
+          accent: colorScheme.primary,
+        ),
+        (
+          label: l10n.memoryCreatedAtLabel,
+          value: createdLabel,
+          accent: OpenHandStatusColors.warning,
+        ),
+        (
+          label: l10n.listCardMetricContent,
+          value: '${body.length}',
+          accent: colorScheme.tertiary,
+        ),
+      ],
     );
-  }
-
-  static String _formatCreatedAt(BuildContext context, DateTime value) {
-    final localizations = MaterialLocalizations.of(context);
-    final localValue = value.toLocal();
-    final date = localizations.formatCompactDate(localValue);
-    final time = localizations.formatTimeOfDay(
-      TimeOfDay.fromDateTime(localValue),
-      alwaysUse24HourFormat: true,
-    );
-    return '$date $time';
   }
 }
 

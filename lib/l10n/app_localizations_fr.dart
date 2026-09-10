@@ -3106,6 +3106,21 @@ class AppLocalizationsFr extends AppLocalizations {
   String get instructionSectionKeywords => 'Mots-clés';
 
   @override
+  String get listCardMetricKind => 'Type';
+
+  @override
+  String get listCardMetricStatus => 'État';
+
+  @override
+  String get listCardMetricSize => 'Taille';
+
+  @override
+  String get listCardMetricUpdated => 'Mise à jour';
+
+  @override
+  String get listCardMetricContent => 'Contenu';
+
+  @override
   String get instructionSummaryEnabled => 'Activée';
 
   @override

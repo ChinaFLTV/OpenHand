@@ -2970,6 +2970,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get instructionSectionKeywords => '关键词';
 
   @override
+  String get listCardMetricKind => '类型';
+
+  @override
+  String get listCardMetricStatus => '状态';
+
+  @override
+  String get listCardMetricSize => '大小';
+
+  @override
+  String get listCardMetricUpdated => '更新时间';
+
+  @override
+  String get listCardMetricContent => '正文';
+
+  @override
   String get instructionSummaryEnabled => '已启用';
 
   @override
@@ -13494,6 +13509,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get instructionSectionKeywords => '關鍵詞';
+
+  @override
+  String get listCardMetricKind => '類型';
+
+  @override
+  String get listCardMetricStatus => '狀態';
+
+  @override
+  String get listCardMetricSize => '大小';
+
+  @override
+  String get listCardMetricUpdated => '更新時間';
+
+  @override
+  String get listCardMetricContent => '正文';
 
   @override
   String get instructionSummaryEnabled => '已啟用';

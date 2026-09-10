@@ -7,8 +7,10 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -476,10 +478,23 @@ class _KnowledgeBaseBody extends StatelessWidget {
         Expanded(
           child: ListView.separated(
             itemCount: controller.sources.length,
-            separatorBuilder: (_, _) => kOpenHandGap10,
+            separatorBuilder: (_, _) => kOpenHandGap14,
             itemBuilder: (context, index) {
               final source = controller.sources[index];
-              return _KnowledgeSourceCard(source: source);
+              return SettingsAwareAppearOnce(
+                key: ValueKey<String>('knowledge-source-${source.id}'),
+                child: RepaintBoundary(
+                  child: AnimatedSize(
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion320,
+                    ),
+                    curve: kOpenHandSwitchInCurve,
+                    alignment: Alignment.topCenter,
+                    child: _KnowledgeSourceCard(source: source),
+                  ),
+                ),
+              );
             },
           ),
         ),
@@ -503,6 +518,7 @@ class _KbStatStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: _kKnowledgeToolbarControlHeight,
       child: Align(
@@ -512,6 +528,7 @@ class _KbStatStrip extends StatelessWidget {
           runSpacing: 8,
           children: [
             _KbStatChip(
+              icon: Icons.library_books_outlined,
               label: openHandLocalizedText(
                 context,
                 zh: '来源',
@@ -522,8 +539,10 @@ class _KbStatStrip extends StatelessWidget {
                 ja: 'ソース',
               ),
               value: sourceCount,
+              color: colorScheme.primary,
             ),
             _KbStatChip(
+              icon: Icons.view_module_outlined,
               label: openHandLocalizedText(
                 context,
                 zh: '分块',
@@ -534,14 +553,23 @@ class _KbStatStrip extends StatelessWidget {
                 ja: 'チャンク',
               ),
               value: chunkCount,
+              color: colorScheme.secondary,
             ),
             _KbStatChip(
+              icon: Icons.hourglass_empty_rounded,
               label: knowledgePendingLabel(context),
               value: pendingJobs,
+              color: pendingJobs > 0
+                  ? OpenHandStatusColors.warning
+                  : colorScheme.outline,
             ),
             _KbStatChip(
+              icon: Icons.error_outline_rounded,
               label: knowledgeFailedLabel(context),
               value: failedJobs,
+              color: failedJobs > 0
+                  ? OpenHandStatusColors.error
+                  : colorScheme.outline,
             ),
           ],
         ),
@@ -551,32 +579,39 @@ class _KbStatStrip extends StatelessWidget {
 }
 
 class _KbStatChip extends StatelessWidget {
-  const _KbStatChip({required this.label, required this.value});
+  const _KbStatChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
+  final IconData icon;
   final String label;
   final int value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       height: _kKnowledgeToolbarControlHeight,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
+        color: color.withValues(alpha: 0.12),
         borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: colorScheme.outlineVariant),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.data_object_rounded, size: 18),
+          Icon(icon, size: 18, color: color),
           kOpenHandHGap8,
           Text(
             '$label $value',
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: colorScheme.onSurface),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -589,14 +624,13 @@ enum _KnowledgeCardAction { delete }
 class _KnowledgeSourceCard extends StatelessWidget {
   const _KnowledgeSourceCard({required this.source});
 
-  static const double _actionButtonSize = 44;
-
   final KnowledgeSource source;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final statusColor = switch (source.status) {
       'indexed' => OpenHandStatusColors.success,
       'failed' => colorScheme.error,
@@ -606,169 +640,126 @@ class _KnowledgeSourceCard extends StatelessWidget {
     };
     final kindAccent = knowledgeSourceKindAccent(source.kind, colorScheme);
     final errorMessage = source.errorMessage.trim();
-    return AnimatedSize(
-      duration: openHandMotionDuration(context, kOpenHandMotion320),
-      curve: kOpenHandSwitchInCurve,
-      alignment: Alignment.topCenter,
-      child: OpenHandHoverCard(
-        onTap: () => showKnowledgeSourceDetailDialog(context, source.id),
-        padding: const EdgeInsets.fromLTRB(18, 18, 14, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                OpenHandIdentityBadge(
-                  icon: knowledgeSourceKindIcon(source.kind),
-                  accent: kindAccent,
-                  bottomEnd: _KnowledgeSourceStatusDot(color: statusColor),
-                ),
-                kOpenHandHGap16,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        source.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      kOpenHandGap10,
-                      OpenHandStatusPill(
-                        icon: knowledgeSourceKindIcon(source.kind),
-                        label: localizedKnowledgeSourceKind(
-                          context,
-                          source.kind,
-                        ),
-                        color: kindAccent,
-                      ),
-                    ],
-                  ),
-                ),
-                kOpenHandHGap12,
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  child: Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    alignment: WrapAlignment.end,
-                    children: [
-                      _KnowledgeCardActionButton(
-                        tooltip: openHandLocalizedText(
-                          context,
-                          zh: '查看内容',
-                          zhHant: '查看內容',
-                          en: 'View content',
-                          fr: 'Voir le contenu',
-                          de: 'Inhalt anzeigen',
-                          ja: '内容を表示',
-                        ),
-                        icon: Icons.article_outlined,
-                        onPressed: () => showKnowledgeSourceContentDialog(
-                          context,
-                          source.id,
-                        ),
-                        size: _actionButtonSize,
-                      ),
-                      _KnowledgeCardActionButton(
-                        tooltip: openHandDetailsLabel(context),
-                        icon: Icons.edit_outlined,
-                        onPressed: () =>
-                            showKnowledgeSourceDetailDialog(context, source.id),
-                        size: _actionButtonSize,
-                      ),
-                      SizedBox(
-                        width: _actionButtonSize,
-                        height: _actionButtonSize,
-                        child: AnimatedPopupMenuButton<_KnowledgeCardAction>(
-                          tooltip: openHandMoreActionsLabel(context),
-                          onSelected: (action) {
-                            switch (action) {
-                              case _KnowledgeCardAction.delete:
-                                _confirmDelete(context);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem<_KnowledgeCardAction>(
-                              value: _KnowledgeCardAction.delete,
-                              child: Text(
-                                openHandDeleteLabel(context),
-                                style: TextStyle(
-                                  color: colorScheme.error,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            kOpenHandGap16,
-            OpenHandInlineSection(
-              icon: Icons.folder_open_rounded,
-              title: _knowledgeSourcePathLabel(context),
-              accent: colorScheme.secondary,
+    final statusLabel = localizedKnowledgeSourceStatus(context, source.status);
+    final kindLabel = localizedKnowledgeSourceKind(context, source.kind);
+    final sizeLabel = formatByteSize(source.sizeBytes);
+    final updatedLabel = formatYearMonthDayHm(source.updatedAt.toLocal());
+    final statusIcon = switch (source.status) {
+      'indexed' => Icons.check_circle_outline_rounded,
+      'failed' => Icons.error_outline_rounded,
+      'indexing' => Icons.sync_rounded,
+      'cancelled' => Icons.pause_circle_outline_rounded,
+      _ => Icons.hourglass_empty_rounded,
+    };
+
+    return OpenHandFeatureListCard(
+      onTap: () => showKnowledgeSourceDetailDialog(context, source.id),
+      identity: OpenHandListIdentity(
+        icon: knowledgeSourceKindIcon(source.kind),
+        title: source.title,
+        description: source.originalPath,
+        statusColor: statusColor,
+      ),
+      actions: [
+        OpenHandFeatureIconButton(
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '查看内容',
+            zhHant: '查看內容',
+            en: 'View content',
+            fr: 'Voir le contenu',
+            de: 'Inhalt anzeigen',
+            ja: '内容を表示',
+          ),
+          icon: Icons.article_outlined,
+          onPressed: () => showKnowledgeSourceContentDialog(context, source.id),
+        ),
+        OpenHandFeatureIconButton(
+          tooltip: openHandDetailsLabel(context),
+          icon: Icons.edit_outlined,
+          onPressed: () => showKnowledgeSourceDetailDialog(context, source.id),
+        ),
+        AnimatedPopupMenuButton<_KnowledgeCardAction>(
+          tooltip: openHandMoreActionsLabel(context),
+          style: openHandFeatureCircleIconButtonStyle(colorScheme),
+          onSelected: (action) {
+            switch (action) {
+              case _KnowledgeCardAction.delete:
+                _confirmDelete(context);
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem<_KnowledgeCardAction>(
+              value: _KnowledgeCardAction.delete,
               child: Text(
-                source.originalPath,
-                maxLines: 2,
+                openHandDeleteLabel(context),
+                style: TextStyle(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+      statusPills: [
+        OpenHandStatusPill(
+          icon: knowledgeSourceKindIcon(source.kind),
+          label: kindLabel,
+          color: kindAccent,
+        ),
+        OpenHandStatusPill(
+          icon: statusIcon,
+          label: statusLabel,
+          color: statusColor,
+        ),
+      ],
+      factChips: [
+        OpenHandFactChip(
+          icon: Icons.sd_storage_outlined,
+          label: sizeLabel,
+          color: colorScheme.tertiary,
+        ),
+        OpenHandFactChip(
+          icon: Icons.schedule_rounded,
+          label: updatedLabel,
+          color: OpenHandStatusColors.warning,
+        ),
+      ],
+      footer: errorMessage.isEmpty
+          ? null
+          : OpenHandTintedPanel(
+              accent: colorScheme.error,
+              icon: Icons.error_outline_rounded,
+              title: statusLabel,
+              child: Text(
+                errorMessage,
+                maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
                   height: 1.4,
                 ),
               ),
             ),
-            if (errorMessage.isNotEmpty) ...[
-              kOpenHandGap14,
-              OpenHandInlineSection(
-                icon: Icons.error_outline_rounded,
-                title: localizedKnowledgeSourceStatus(context, source.status),
-                accent: colorScheme.error,
-                child: Text(
-                  errorMessage,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.error,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
-            kOpenHandGap14,
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OpenHandStatusPill(
-                  icon: Icons.circle,
-                  label: localizedKnowledgeSourceStatus(context, source.status),
-                  color: statusColor,
-                ),
-                OpenHandFactChip(
-                  icon: Icons.sd_storage_outlined,
-                  label: formatByteSize(source.sizeBytes),
-                  color: colorScheme.tertiary,
-                ),
-                OpenHandFactChip(
-                  icon: Icons.schedule_rounded,
-                  label: formatYearMonthDayHm(source.updatedAt.toLocal()),
-                  color: OpenHandStatusColors.warning,
-                ),
-              ],
-            ),
-          ],
+      metrics: [
+        (
+          label: l10n.listCardMetricStatus,
+          value: statusLabel,
+          accent: statusColor,
         ),
-      ),
+        (
+          label: l10n.listCardMetricSize,
+          value: sizeLabel,
+          accent: colorScheme.tertiary,
+        ),
+        (
+          label: l10n.listCardMetricUpdated,
+          value: updatedLabel,
+          accent: OpenHandStatusColors.warning,
+        ),
+        (label: l10n.listCardMetricKind, value: kindLabel, accent: kindAccent),
+      ],
     );
   }
 
@@ -829,76 +820,6 @@ class _KnowledgeSourceCard extends StatelessWidget {
           ),
     );
   }
-}
-
-class _KnowledgeCardActionButton extends StatelessWidget {
-  const _KnowledgeCardActionButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-    required this.size,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: IconButton.filledTonal(onPressed: onPressed, icon: Icon(icon)),
-      ),
-    );
-  }
-}
-
-class _KnowledgeSourceStatusDot extends StatelessWidget {
-  const _KnowledgeSourceStatusDot({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final motionEnabled = openHandTickerMotionEnabled(context);
-    return Container(
-      width: 16,
-      height: 16,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.surface,
-          width: 3,
-        ),
-        boxShadow: motionEnabled
-            ? [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.32),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                ),
-              ]
-            : null,
-      ),
-    );
-  }
-}
-
-String _knowledgeSourcePathLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '文件路径',
-    zhHant: '檔案路徑',
-    en: 'File path',
-    fr: 'Chemin du fichier',
-    de: 'Dateipfad',
-    ja: 'ファイルパス',
-  );
 }
 
 String _knowledgeBaseVNewNoteLabel(BuildContext context) {

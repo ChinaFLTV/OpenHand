@@ -494,41 +494,46 @@ class OpenHandSummaryChip extends StatelessWidget {
   }
 }
 
-/// 列表卡左上角身份徽标：色底圆角方块 + 可选角标，不用左侧竖条。
+const double kOpenHandListIdentityExtent = 64;
+const double kOpenHandListIdentityIconSize = 31;
+const double kOpenHandListCardRadius = 22;
+const double kOpenHandListCardHeaderBreakpoint = 820;
+const double kOpenHandIdentityStatusDotSize = 18;
+const EdgeInsets kOpenHandListCardPadding = EdgeInsets.all(18);
+const EdgeInsets kOpenHandMetricsStripPadding = EdgeInsets.symmetric(
+  horizontal: 14,
+  vertical: 14,
+);
+const double kOpenHandMetricsStripBreakpoint = 720;
+const double kOpenHandMetricsStripCompactWidth = 420;
+
+typedef OpenHandMetricItem = ({String label, String value, Color accent});
+
+/// 列表卡身份徽标：与消息网关同族，主题色实心底 + 可选状态点。
 class OpenHandIdentityBadge extends StatelessWidget {
   const OpenHandIdentityBadge({
     super.key,
     required this.icon,
-    required this.accent,
-    this.extent = 52,
-    this.iconSize = 24,
-    this.enabled = true,
+    this.statusColor,
+    this.extent = kOpenHandListIdentityExtent,
+    this.iconSize = kOpenHandListIdentityIconSize,
     this.topStart,
-    this.bottomEnd,
   });
 
   final IconData icon;
-  final Color accent;
+  final Color? statusColor;
   final double extent;
   final double iconSize;
-  final bool enabled;
   final Widget? topStart;
-  final Widget? bottomEnd;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final badge = DecoratedBox(
       decoration: BoxDecoration(
-        color: enabled
-            ? accent.withValues(alpha: 0.20)
-            : colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(kOpenHandRadius16),
-        border: Border.all(
-          color: enabled
-              ? accent.withValues(alpha: 0.42)
-              : colorScheme.outlineVariant,
-        ),
+        color: colorScheme.primaryContainer,
+        borderRadius: kOpenHandBorderRadius18,
       ),
       child: SizedBox(
         width: extent,
@@ -537,32 +542,243 @@ class OpenHandIdentityBadge extends StatelessWidget {
           child: Icon(
             icon,
             size: iconSize,
-            color: enabled ? accent : colorScheme.onSurfaceVariant,
+            color: colorScheme.onPrimaryContainer,
           ),
         ),
       ),
     );
-    if (topStart == null && bottomEnd == null) return badge;
+    final statusColor = this.statusColor;
+    if (topStart == null && statusColor == null) return badge;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         badge,
         if (topStart != null) Positioned(left: -4, top: -4, child: topStart!),
-        if (bottomEnd != null)
-          Positioned(right: -2, bottom: -2, child: bottomEnd!),
+        if (statusColor != null)
+          Positioned(
+            right: -3,
+            bottom: -3,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                shape: BoxShape.circle,
+                boxShadow: motionEnabled
+                    ? [
+                        BoxShadow(
+                          color: statusColor.withValues(alpha: 0.32),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(
+                Icons.circle,
+                color: statusColor,
+                size: kOpenHandIdentityStatusDotSize,
+              ),
+            ),
+          ),
       ],
     );
   }
 }
 
-/// 分区列表卡：悬浮上浮 + 点击，不再画左侧色条。
+/// 列表卡身份带：大徽标 + 标题 + 说明，版式对齐消息网关平台卡。
+class OpenHandListIdentity extends StatelessWidget {
+  const OpenHandListIdentity({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.statusColor,
+    this.description,
+    this.topStart,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? description;
+  final Color statusColor;
+  final Widget? topStart;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final description = this.description?.trim();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        OpenHandIdentityBadge(
+          icon: icon,
+          statusColor: statusColor,
+          topStart: topStart,
+        ),
+        kOpenHandHGap16,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.headlineSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (description != null && description.isNotEmpty) ...[
+                kOpenHandGap8,
+                Text(
+                  description,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 卡片底部指标条：圆点标签 + 强调色数值，与消息网关运行指标同族。
+class OpenHandMetricsStrip extends StatelessWidget {
+  const OpenHandMetricsStrip({super.key, required this.items});
+
+  final List<OpenHandMetricItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    final colorScheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide =
+            constraints.maxWidth >= kOpenHandMetricsStripBreakpoint &&
+            items.length > 1;
+        final innerWidth =
+            constraints.maxWidth > kOpenHandMetricsStripPadding.horizontal
+            ? constraints.maxWidth - kOpenHandMetricsStripPadding.horizontal
+            : constraints.maxWidth;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(kOpenHandRadius16),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Padding(
+            padding: kOpenHandMetricsStripPadding,
+            child: wide
+                ? IntrinsicHeight(
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < items.length; i++) ...[
+                          if (i > 0)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              child: VerticalDivider(
+                                width: 1,
+                                thickness: 1,
+                                color: colorScheme.outlineVariant,
+                              ),
+                            ),
+                          Expanded(child: _OpenHandMetricCell(item: items[i])),
+                        ],
+                      ],
+                    ),
+                  )
+                : Wrap(
+                    spacing: 10,
+                    runSpacing: 12,
+                    children: [
+                      for (final item in items)
+                        SizedBox(
+                          width: innerWidth < kOpenHandMetricsStripCompactWidth
+                              ? innerWidth
+                              : (innerWidth - 10) / 2,
+                          child: _OpenHandMetricCell(item: item),
+                        ),
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OpenHandMetricCell extends StatelessWidget {
+  const _OpenHandMetricCell({required this.item});
+
+  final OpenHandMetricItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final value = item.value.trim().isEmpty ? '—' : item.value.trim();
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: kOpenHandSwitchInCurve,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: item.accent,
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox(width: 8, height: 8),
+              ),
+              kOpenHandHGap8,
+              Expanded(
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          kOpenHandGap8,
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: item.accent,
+              fontWeight: FontWeight.w800,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 分区列表卡：悬浮上浮 + 点击，圆角与描边对齐消息网关平台卡。
 class OpenHandHoverCard extends StatelessWidget {
   const OpenHandHoverCard({
     super.key,
     required this.child,
     this.onTap,
-    this.padding = const EdgeInsets.fromLTRB(16, 18, 18, 18),
-    this.elevation,
+    this.padding = kOpenHandListCardPadding,
+    this.elevation = 0,
     this.shape,
     this.color,
     this.borderRadius,
@@ -582,12 +798,14 @@ class OpenHandHoverCard extends StatelessWidget {
     return HoverLift(
       child: Card(
         elevation: elevation,
-        color: color ?? colorScheme.surfaceContainerLowest,
+        color: color,
         clipBehavior: Clip.antiAlias,
         shape:
             shape ??
             RoundedRectangleBorder(
-              borderRadius: borderRadius ?? kOpenHandBorderRadius32,
+              borderRadius:
+                  borderRadius ??
+                  BorderRadius.circular(kOpenHandListCardRadius),
               side: BorderSide(color: colorScheme.outlineVariant),
             ),
         child: InkWell(
@@ -599,47 +817,137 @@ class OpenHandHoverCard extends StatelessWidget {
   }
 }
 
-/// 列表卡内的分区标题：彩标 + 文案，下面直接跟正文或胶囊，不再套全宽长条底。
-class OpenHandInlineSection extends StatelessWidget {
-  const OpenHandInlineSection({
+/// 消息网关同族的圆形填充图标按钮。
+ButtonStyle openHandFeatureCircleIconButtonStyle(ColorScheme colorScheme) {
+  return IconButton.styleFrom(
+    shape: const CircleBorder(),
+    backgroundColor: colorScheme.secondaryContainer,
+    foregroundColor: colorScheme.onSecondaryContainer,
+  );
+}
+
+class OpenHandFeatureIconButton extends StatelessWidget {
+  const OpenHandFeatureIconButton({
     super.key,
     required this.icon,
-    required this.title,
-    required this.accent,
-    required this.child,
+    required this.tooltip,
+    required this.onPressed,
+    this.enabled = true,
   });
 
   final IconData icon;
-  final String title;
-  final Color accent;
-  final Widget child;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: accent),
-            kOpenHandHGap8,
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: accent,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: IconButton.filledTonal(
+        style: IconButton.styleFrom(
+          shape: const CircleBorder(),
+          disabledBackgroundColor: colorScheme.surfaceContainerHighest
+              .withValues(alpha: 0.42),
+          disabledForegroundColor: colorScheme.onSurfaceVariant.withValues(
+            alpha: 0.45,
+          ),
         ),
-        kOpenHandGap8,
-        child,
-      ],
+        onPressed: enabled ? onPressed : null,
+        icon: Icon(icon),
+      ),
+    );
+  }
+}
+
+/// 功能列表卡骨架：身份带 / 状态胶囊 / 事实芯片 / 可选脚注 / 底部指标条。
+///
+/// 版式对齐消息网关平台卡，避免各模块再手写一套分层。
+class OpenHandFeatureListCard extends StatelessWidget {
+  const OpenHandFeatureListCard({
+    super.key,
+    required this.identity,
+    this.actions = const <Widget>[],
+    this.statusPills = const <Widget>[],
+    this.factChips = const <Widget>[],
+    this.footer,
+    this.metrics = const <OpenHandMetricItem>[],
+    this.onTap,
+  });
+
+  final Widget identity;
+  final List<Widget> actions;
+  final List<Widget> statusPills;
+  final List<Widget> factChips;
+  final Widget? footer;
+  final List<OpenHandMetricItem> metrics;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionBar = actions.isEmpty
+        ? null
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {},
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              children: actions,
+            ),
+          );
+    return OpenHandHoverCard(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (actionBar == null)
+            identity
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact =
+                    constraints.maxWidth < kOpenHandListCardHeaderBreakpoint;
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      identity,
+                      kOpenHandGap16,
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: actionBar,
+                      ),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: identity),
+                    kOpenHandHGap16,
+                    actionBar,
+                  ],
+                );
+              },
+            ),
+          if (statusPills.isNotEmpty) ...[
+            kOpenHandGap16,
+            Wrap(spacing: 10, runSpacing: 10, children: statusPills),
+          ],
+          if (factChips.isNotEmpty) ...[
+            kOpenHandGap12,
+            Wrap(spacing: 8, runSpacing: 8, children: factChips),
+          ],
+          if (footer != null) ...[kOpenHandGap14, footer!],
+          if (metrics.isNotEmpty) ...[
+            kOpenHandGap16,
+            OpenHandMetricsStrip(items: metrics),
+          ],
+        ],
+      ),
     );
   }
 }

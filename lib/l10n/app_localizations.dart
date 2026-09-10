@@ -5472,6 +5472,36 @@ abstract class AppLocalizations {
   /// **'关键词'**
   String get instructionSectionKeywords;
 
+  /// No description provided for @listCardMetricKind.
+  ///
+  /// In zh, this message translates to:
+  /// **'类型'**
+  String get listCardMetricKind;
+
+  /// No description provided for @listCardMetricStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get listCardMetricStatus;
+
+  /// No description provided for @listCardMetricSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'大小'**
+  String get listCardMetricSize;
+
+  /// No description provided for @listCardMetricUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新时间'**
+  String get listCardMetricUpdated;
+
+  /// No description provided for @listCardMetricContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文'**
+  String get listCardMetricContent;
+
   /// No description provided for @instructionSummaryEnabled.
   ///
   /// In zh, this message translates to:

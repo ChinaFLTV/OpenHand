@@ -23,6 +23,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../instructions_controller.dart';
 import '../model/user_instruction_entry.dart';
 
@@ -217,8 +218,7 @@ class _InstructionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     // 过滤空白项，避免持久化历史中遗留的空字符串渲染出"空胶囊"。
     final visibleTaskTypes = stringListFromValue(entry.taskTypes);
@@ -228,205 +228,144 @@ class _InstructionCard extends StatelessWidget {
     final keywords = visibleKeywords.take(4).toList(growable: false);
     final hiddenKeywordCount = visibleKeywords.length - keywords.length;
     final trimmedVersion = entry.version.trim();
-
     final description = entry.description.trim();
     final applyTo = entry.applyTo.trim();
-    final hasRouting = applyTo.isNotEmpty || visibleTaskTypes.isNotEmpty;
-    final hasKeywords = visibleKeywords.isNotEmpty;
     final statusColor = entry.enabled
         ? OpenHandStatusColors.success
         : colorScheme.outline;
 
-    return OpenHandHoverCard(
+    return OpenHandFeatureListCard(
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ReorderableDragStartListener(
-                index: dragIndex,
-                child: OpenHandIdentityBadge(
-                  icon: Icons.auto_awesome_motion_outlined,
-                  accent: entry.enabled
-                      ? colorScheme.primary
-                      : colorScheme.outline,
-                  enabled: entry.enabled,
-                  topStart: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colorScheme.surface),
-                    ),
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: Icon(
-                        Icons.drag_indicator_rounded,
-                        size: 15,
-                        color: colorScheme.outline,
-                      ),
-                    ),
-                  ),
-                  bottomEnd: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colorScheme.surface, width: 2),
-                    ),
-                    child: const SizedBox(width: 14, height: 14),
-                  ),
-                ),
+      identity: OpenHandListIdentity(
+        icon: Icons.auto_awesome_motion_outlined,
+        title: entry.name,
+        description: description.isEmpty ? null : description,
+        statusColor: statusColor,
+        topStart: ReorderableDragStartListener(
+          index: dragIndex,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              shape: BoxShape.circle,
+              border: Border.all(color: colorScheme.surface),
+            ),
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: Icon(
+                Icons.drag_indicator_rounded,
+                size: 15,
+                color: colorScheme.outline,
               ),
-              kOpenHandHGap16,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    kOpenHandGap10,
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OpenHandStatusPill(
-                          icon: entry.enabled
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.pause_circle_outline_rounded,
-                          label: entry.enabled
-                              ? l10n.instructionEnabledStatus
-                              : l10n.instructionDisabledStatus,
-                          color: statusColor,
-                        ),
-                        if (trimmedVersion.isNotEmpty)
-                          OpenHandStatusPill(
-                            icon: Icons.label_outline_rounded,
-                            label: l10n.instructionSummaryVersion(
-                              trimmedVersion,
-                            ),
-                            color: colorScheme.secondary,
-                          ),
-                        if (entry.notes.isNotEmpty)
-                          OpenHandFactChip(
-                            icon: Icons.notes_outlined,
-                            label:
-                                '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
-                            color: OpenHandStatusColors.warning,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              kOpenHandHGap12,
-              _InstructionEnabledSwitch(
-                value: entry.enabled,
-                onChanged: onToggle,
-              ),
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: AnimatedPopupMenuButton<_InstructionCardAction>(
-                  onSelected: onActionSelected,
-                  itemBuilder: (context) => [
-                    PopupMenuItem<_InstructionCardAction>(
-                      value: _InstructionCardAction.edit,
-                      child: Text(l10n.commonEdit),
-                    ),
-                    PopupMenuItem<_InstructionCardAction>(
-                      value: _InstructionCardAction.delete,
-                      child: Text(l10n.commonDelete),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-          if (description.isNotEmpty) ...[
-            kOpenHandGap16,
-            OpenHandInlineSection(
-              icon: Icons.subject_rounded,
-              title: l10n.instructionDescriptionField,
-              accent: colorScheme.secondary,
+        ),
+      ),
+      actions: [
+        _InstructionEnabledSwitch(value: entry.enabled, onChanged: onToggle),
+        AnimatedPopupMenuButton<_InstructionCardAction>(
+          tooltip: openHandMoreActionsLabel(context),
+          style: openHandFeatureCircleIconButtonStyle(colorScheme),
+          onSelected: onActionSelected,
+          itemBuilder: (context) => [
+            PopupMenuItem<_InstructionCardAction>(
+              value: _InstructionCardAction.edit,
+              child: Text(l10n.commonEdit),
+            ),
+            PopupMenuItem<_InstructionCardAction>(
+              value: _InstructionCardAction.delete,
               child: Text(
-                description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.45,
+                l10n.commonDelete,
+                style: TextStyle(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
           ],
-          if (hasRouting) ...[
-            kOpenHandGap14,
-            OpenHandInlineSection(
-              icon: Icons.alt_route_rounded,
-              title: l10n.instructionSectionRouting,
-              accent: colorScheme.tertiary,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (applyTo.isNotEmpty)
-                    OpenHandFactChip(
-                      icon: Icons.account_tree_outlined,
-                      label: '${l10n.instructionApplyToChipLabel}: $applyTo',
-                      color: colorScheme.tertiary,
-                    ),
-                  for (final taskType in taskTypes)
-                    OpenHandFactChip(
-                      icon: Icons.category_outlined,
-                      label: taskType,
-                      color: colorScheme.primary,
-                    ),
-                  if (hiddenTaskTypeCount > 0)
-                    OpenHandFactChip(
-                      icon: Icons.more_horiz_rounded,
-                      label: '+$hiddenTaskTypeCount',
-                      color: colorScheme.primary,
-                    ),
-                ],
-              ),
-            ),
-          ],
-          if (hasKeywords) ...[
-            kOpenHandGap14,
-            OpenHandInlineSection(
-              icon: Icons.tag_rounded,
-              title: l10n.instructionSectionKeywords,
-              accent: OpenHandStatusColors.info,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final keyword in keywords)
-                    OpenHandFactChip(
-                      icon: Icons.tag_rounded,
-                      label: keyword,
-                      color: OpenHandStatusColors.info,
-                    ),
-                  if (hiddenKeywordCount > 0)
-                    OpenHandFactChip(
-                      icon: Icons.more_horiz_rounded,
-                      label: '+$hiddenKeywordCount',
-                      color: OpenHandStatusColors.info,
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
+        ),
+      ],
+      statusPills: [
+        OpenHandStatusPill(
+          icon: entry.enabled
+              ? Icons.check_circle_outline_rounded
+              : Icons.pause_circle_outline_rounded,
+          label: entry.enabled
+              ? l10n.instructionEnabledStatus
+              : l10n.instructionDisabledStatus,
+          color: statusColor,
+        ),
+        if (trimmedVersion.isNotEmpty)
+          OpenHandStatusPill(
+            icon: Icons.label_outline_rounded,
+            label: l10n.instructionSummaryVersion(trimmedVersion),
+            color: colorScheme.secondary,
+          ),
+        if (entry.notes.isNotEmpty)
+          OpenHandStatusPill(
+            icon: Icons.notes_outlined,
+            label: '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
+            color: OpenHandStatusColors.warning,
+          ),
+      ],
+      factChips: [
+        if (applyTo.isNotEmpty)
+          OpenHandFactChip(
+            icon: Icons.account_tree_outlined,
+            label: '${l10n.instructionApplyToChipLabel}: $applyTo',
+            color: colorScheme.tertiary,
+          ),
+        for (final taskType in taskTypes)
+          OpenHandFactChip(
+            icon: Icons.category_outlined,
+            label: taskType,
+            color: colorScheme.primary,
+          ),
+        if (hiddenTaskTypeCount > 0)
+          OpenHandFactChip(
+            icon: Icons.more_horiz_rounded,
+            label: '+$hiddenTaskTypeCount',
+            color: colorScheme.primary,
+          ),
+        for (final keyword in keywords)
+          OpenHandFactChip(
+            icon: Icons.tag_rounded,
+            label: keyword,
+            color: OpenHandStatusColors.info,
+          ),
+        if (hiddenKeywordCount > 0)
+          OpenHandFactChip(
+            icon: Icons.more_horiz_rounded,
+            label: '+$hiddenKeywordCount',
+            color: OpenHandStatusColors.info,
+          ),
+      ],
+      metrics: [
+        (
+          label: l10n.listCardMetricStatus,
+          value: entry.enabled
+              ? l10n.instructionEnabledStatus
+              : l10n.instructionDisabledStatus,
+          accent: statusColor,
+        ),
+        (
+          label: l10n.instructionVersionField,
+          value: trimmedVersion.isEmpty
+              ? '—'
+              : l10n.instructionSummaryVersion(trimmedVersion),
+          accent: colorScheme.secondary,
+        ),
+        (
+          label: l10n.instructionNotesChipLabel,
+          value: '${entry.notes.length}',
+          accent: OpenHandStatusColors.warning,
+        ),
+        (
+          label: l10n.instructionSectionKeywords,
+          value: '${visibleKeywords.length}',
+          accent: OpenHandStatusColors.info,
+        ),
+      ],
     );
   }
 }

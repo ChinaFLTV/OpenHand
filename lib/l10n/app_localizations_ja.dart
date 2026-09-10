@@ -3005,6 +3005,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get instructionSectionKeywords => 'キーワード';
 
   @override
+  String get listCardMetricKind => '種類';
+
+  @override
+  String get listCardMetricStatus => '状態';
+
+  @override
+  String get listCardMetricSize => 'サイズ';
+
+  @override
+  String get listCardMetricUpdated => '更新日時';
+
+  @override
+  String get listCardMetricContent => '本文';
+
+  @override
   String get instructionSummaryEnabled => '有効';
 
   @override

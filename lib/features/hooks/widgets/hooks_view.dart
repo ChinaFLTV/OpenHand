@@ -222,10 +222,11 @@ class _HookEntryCard extends StatelessWidget {
         children: [
           OpenHandIdentityBadge(
             icon: _hookEventIcon(entry.event),
-            accent: accent,
+            statusColor: entry.enabled
+                ? OpenHandStatusColors.success
+                : colorScheme.outline,
             extent: 48,
             iconSize: 22,
-            enabled: entry.enabled,
           ),
           kOpenHandHGap14,
           Expanded(
