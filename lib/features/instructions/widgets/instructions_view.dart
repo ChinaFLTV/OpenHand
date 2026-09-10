@@ -29,6 +29,9 @@ import '../model/user_instruction_entry.dart';
 
 enum _InstructionCardAction { edit, delete }
 
+const double _kInstructionDragHandleExtent = 32;
+const double _kInstructionDragHandleIconSize = 20;
+
 class InstructionsView extends StatelessWidget {
   const InstructionsView({super.key});
 
@@ -237,26 +240,17 @@ class _InstructionCard extends StatelessWidget {
     return OpenHandFeatureListCard(
       onTap: onTap,
       identity: OpenHandListIdentity(
-        icon: Icons.auto_awesome_motion_outlined,
         title: entry.name,
         description: description.isEmpty ? null : description,
-        statusColor: statusColor,
-        topStart: ReorderableDragStartListener(
+        leading: ReorderableDragStartListener(
           index: dragIndex,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh,
-              shape: BoxShape.circle,
-              border: Border.all(color: colorScheme.surface),
-            ),
-            child: SizedBox(
-              width: 22,
-              height: 22,
-              child: Icon(
-                Icons.drag_indicator_rounded,
-                size: 15,
-                color: colorScheme.outline,
-              ),
+          child: SizedBox(
+            width: _kInstructionDragHandleExtent,
+            height: _kInstructionDragHandleExtent,
+            child: Icon(
+              Icons.drag_indicator_rounded,
+              size: _kInstructionDragHandleIconSize,
+              color: colorScheme.outline,
             ),
           ),
         ),

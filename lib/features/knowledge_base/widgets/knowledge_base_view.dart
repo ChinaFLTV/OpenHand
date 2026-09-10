@@ -655,10 +655,8 @@ class _KnowledgeSourceCard extends StatelessWidget {
     return OpenHandFeatureListCard(
       onTap: () => showKnowledgeSourceDetailDialog(context, source.id),
       identity: OpenHandListIdentity(
-        icon: knowledgeSourceKindIcon(source.kind),
         title: source.title,
         description: source.originalPath,
-        statusColor: statusColor,
       ),
       actions: [
         OpenHandFeatureIconButton(

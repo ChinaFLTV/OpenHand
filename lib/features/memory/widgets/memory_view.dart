@@ -750,14 +750,7 @@ class _MemoryEntryCard extends StatelessWidget {
 
     return OpenHandFeatureListCard(
       onTap: onTap,
-      identity: OpenHandListIdentity(
-        icon: isAutoLearned
-            ? Icons.auto_awesome_outlined
-            : Icons.psychology_alt_outlined,
-        title: title,
-        description: description,
-        statusColor: kindColor,
-      ),
+      identity: OpenHandListIdentity(title: title, description: description),
       actions: [
         AnimatedPopupMenuButton<_MemoryCardAction>(
           tooltip: openHandMoreActionsLabel(context),

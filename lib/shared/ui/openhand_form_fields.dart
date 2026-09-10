@@ -584,62 +584,54 @@ class OpenHandIdentityBadge extends StatelessWidget {
   }
 }
 
-/// 列表卡身份带：大徽标 + 标题 + 说明，版式对齐消息网关平台卡。
+/// 列表卡标题区：标题 + 说明，可选左侧功能控件（如拖拽手柄）。
 class OpenHandListIdentity extends StatelessWidget {
   const OpenHandListIdentity({
     super.key,
-    required this.icon,
     required this.title,
-    required this.statusColor,
     this.description,
-    this.topStart,
+    this.leading,
   });
 
-  final IconData icon;
   final String title;
   final String? description;
-  final Color statusColor;
-  final Widget? topStart;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final description = this.description?.trim();
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.headlineSmall,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (description != null && description.isNotEmpty) ...[
+          kOpenHandGap8,
+          Text(
+            description,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ],
+    );
+    if (leading == null) return text;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        OpenHandIdentityBadge(
-          icon: icon,
-          statusColor: statusColor,
-          topStart: topStart,
-        ),
-        kOpenHandHGap16,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.headlineSmall,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (description != null && description.isNotEmpty) ...[
-                kOpenHandGap8,
-                Text(
-                  description,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.45,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+        leading!,
+        kOpenHandHGap12,
+        Expanded(child: text),
       ],
     );
   }
@@ -817,12 +809,21 @@ class OpenHandHoverCard extends StatelessWidget {
   }
 }
 
-/// 消息网关同族的圆形填充图标按钮。
+const double _kFeatureIconDisabledBackgroundAlpha = 0.42;
+const double _kFeatureIconDisabledForegroundAlpha = 0.45;
+
+/// 列表卡圆形操作钮，配色对齐全局 [IconButtonTheme]（surfaceContainerHigh）。
 ButtonStyle openHandFeatureCircleIconButtonStyle(ColorScheme colorScheme) {
   return IconButton.styleFrom(
     shape: const CircleBorder(),
-    backgroundColor: colorScheme.secondaryContainer,
-    foregroundColor: colorScheme.onSecondaryContainer,
+    backgroundColor: colorScheme.surfaceContainerHigh,
+    foregroundColor: colorScheme.onSurfaceVariant,
+    disabledBackgroundColor: colorScheme.surfaceContainerHighest.withValues(
+      alpha: _kFeatureIconDisabledBackgroundAlpha,
+    ),
+    disabledForegroundColor: colorScheme.onSurfaceVariant.withValues(
+      alpha: _kFeatureIconDisabledForegroundAlpha,
+    ),
   );
 }
 
@@ -842,21 +843,13 @@ class OpenHandFeatureIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: tooltip,
-      child: IconButton.filledTonal(
-        style: IconButton.styleFrom(
-          shape: const CircleBorder(),
-          disabledBackgroundColor: colorScheme.surfaceContainerHighest
-              .withValues(alpha: 0.42),
-          disabledForegroundColor: colorScheme.onSurfaceVariant.withValues(
-            alpha: 0.45,
-          ),
-        ),
-        onPressed: enabled ? onPressed : null,
-        icon: Icon(icon),
+    return IconButton(
+      tooltip: tooltip,
+      style: openHandFeatureCircleIconButtonStyle(
+        Theme.of(context).colorScheme,
       ),
+      onPressed: enabled ? onPressed : null,
+      icon: Icon(icon),
     );
   }
 }
