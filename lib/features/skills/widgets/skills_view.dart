@@ -39,6 +39,8 @@ enum _SkillCardAction { openDirectory, edit, delete }
 const double _kSkillIconPreviewExtent = 72;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
 const double _kSkillCardMainAxisExtent = 360;
+const double _kSkillCardIconExtent = 52;
+const double _kSkillCardIconEmojiSize = 26;
 
 const List<String> _skillEmojiOptions = <String>[
   '🧠',
@@ -1129,6 +1131,7 @@ class _SkillCard extends StatelessWidget {
         title: skill.name,
         description: description,
         descriptionMaxLines: 2,
+        leading: _SkillCardIcon(skill: skill),
       ),
       actions: [
         AnimatedPopupMenuButton<_SkillCardAction>(
@@ -1210,6 +1213,61 @@ String? _skillCardDescription(String raw) {
   final value = raw.trim();
   if (value.isEmpty || value == '|') return null;
   return value;
+}
+
+class _SkillCardIcon extends StatelessWidget {
+  const _SkillCardIcon({required this.skill});
+
+  final LocalSkill skill;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fallback = Center(
+      child: Text(
+        skill.initials,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: colorScheme.onPrimaryContainer,
+        ),
+      ),
+    );
+    final Widget child;
+    if (skill.hasEmojiIcon) {
+      child = _SkillEmojiGlyph(
+        emoji: skill.emojiIcon!,
+        fontSize: _kSkillCardIconEmojiSize,
+      );
+    } else if (skill.hasIcon) {
+      final path = skill.iconPath!;
+      child = switch (skill.iconKind) {
+        LocalSkillIconKind.svg => buildLocalSvgPicture(
+          path,
+          fit: BoxFit.cover,
+          fallback: fallback,
+        ),
+        LocalSkillIconKind.raster => buildLocalRasterImage(
+          path,
+          fit: BoxFit.cover,
+          fallback: fallback,
+        ),
+        null => fallback,
+      };
+    } else {
+      child = fallback;
+    }
+    return ClipRRect(
+      borderRadius: kOpenHandBorderRadius18,
+      child: ColoredBox(
+        color: colorScheme.primaryContainer,
+        child: SizedBox(
+          width: _kSkillCardIconExtent,
+          height: _kSkillCardIconExtent,
+          child: child,
+        ),
+      ),
+    );
+  }
 }
 
 class _SkillMenuRow extends StatelessWidget {
