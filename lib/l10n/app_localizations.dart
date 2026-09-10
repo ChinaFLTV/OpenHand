@@ -3349,6 +3349,12 @@ abstract class AppLocalizations {
   /// **'Cron 表达式需要恰好 5 个字段（分 时 日 月 周）'**
   String get cronParserFieldCountError;
 
+  /// No description provided for @cronParserFieldSecond.
+  ///
+  /// In zh, this message translates to:
+  /// **'秒'**
+  String get cronParserFieldSecond;
+
   /// No description provided for @cronParserFieldMinute.
   ///
   /// In zh, this message translates to:
@@ -3732,12 +3738,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'执行超时'**
   String get cronsOnTimeout;
-
-  /// No description provided for @cronsEnabled.
-  ///
-  /// In zh, this message translates to:
-  /// **'启用'**
-  String get cronsEnabled;
 
   /// No description provided for @cronsCustomNotificationMessageHint.
   ///

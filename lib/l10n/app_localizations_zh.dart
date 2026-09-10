@@ -1863,6 +1863,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cronParserFieldCountError => 'Cron 表达式需要恰好 5 个字段（分 时 日 月 周）';
 
   @override
+  String get cronParserFieldSecond => '秒';
+
+  @override
   String get cronParserFieldMinute => '分钟';
 
   @override
@@ -2062,9 +2065,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cronsOnTimeout => '执行超时';
-
-  @override
-  String get cronsEnabled => '启用';
 
   @override
   String get cronsCustomNotificationMessageHint => '自定义通知内容（可选）';
@@ -12247,6 +12247,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get cronParserFieldCountError => 'Cron 表示式需要剛好 5 個欄位（分 時 日 月 週）';
 
   @override
+  String get cronParserFieldSecond => '秒';
+
+  @override
   String get cronParserFieldMinute => '分鐘';
 
   @override
@@ -12446,9 +12449,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get cronsOnTimeout => '執行逾時';
-
-  @override
-  String get cronsEnabled => '啟用';
 
   @override
   String get cronsCustomNotificationMessageHint => '自定义通知内容（可选）';

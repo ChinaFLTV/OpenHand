@@ -1924,6 +1924,9 @@ class AppLocalizationsDe extends AppLocalizations {
       'Der Cron-Ausdruck muss genau 5 Felder haben (Min Stunde Tag Monat Wochentag)';
 
   @override
+  String get cronParserFieldSecond => 'Sekunde';
+
+  @override
   String get cronParserFieldMinute => 'Minute';
 
   @override
@@ -2132,9 +2135,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get cronsOnTimeout => 'Bei Timeout';
-
-  @override
-  String get cronsEnabled => 'Aktiviert';
 
   @override
   String get cronsCustomNotificationMessageHint =>

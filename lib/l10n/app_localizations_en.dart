@@ -1913,6 +1913,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Cron expression must have exactly 5 fields (min hour dom mon dow)';
 
   @override
+  String get cronParserFieldSecond => 'Second';
+
+  @override
   String get cronParserFieldMinute => 'Minute';
 
   @override
@@ -2116,9 +2119,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cronsOnTimeout => 'On Timeout';
-
-  @override
-  String get cronsEnabled => 'Enabled';
 
   @override
   String get cronsCustomNotificationMessageHint => 'Custom message (optional)';

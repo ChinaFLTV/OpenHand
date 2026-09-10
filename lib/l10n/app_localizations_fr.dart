@@ -1930,6 +1930,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'L expression Cron doit contenir exactement 5 champs (min heure jour mois semaine)';
 
   @override
+  String get cronParserFieldSecond => 'Seconde';
+
+  @override
   String get cronParserFieldMinute => 'Minute';
 
   @override
@@ -2140,9 +2143,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get cronsOnTimeout => 'En cas de delai';
-
-  @override
-  String get cronsEnabled => 'Active';
 
   @override
   String get cronsCustomNotificationMessageHint =>

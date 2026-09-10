@@ -1883,6 +1883,9 @@ class AppLocalizationsJa extends AppLocalizations {
       'Cron 式は 5 フィールド（分 時 日 月 曜日）である必要があります';
 
   @override
+  String get cronParserFieldSecond => '秒';
+
+  @override
   String get cronParserFieldMinute => '分';
 
   @override
@@ -2085,9 +2088,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cronsOnTimeout => 'タイムアウト時';
-
-  @override
-  String get cronsEnabled => '有効';
 
   @override
   String get cronsCustomNotificationMessageHint => 'カスタム通知内容（任意）';

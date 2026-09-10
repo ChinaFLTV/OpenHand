@@ -34,6 +34,8 @@ import '../crons_controller.dart';
 import '../model/cron_parser.dart';
 
 const int _cronTagPreviewLimit = 6;
+const double _cronFormControlHeight = 48;
+const double _cronRunAsUserWidth = 300;
 
 const Color _kCronRunningColor = Color(0xFF56C271);
 
@@ -615,7 +617,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   late final TextEditingController _cronDowController;
 
   late CronScriptType _scriptType;
-  late bool _enabled;
   late String? _runAsUser;
   late CronNotifyType _onSuccessNotify;
   late CronNotifyType _onFailureNotify;
@@ -698,7 +699,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     );
 
     _scriptType = e?.scriptType ?? CronScriptType.command;
-    _enabled = e?.enabled ?? true;
     _runAsUser = e?.runAsUser;
     _onSuccessNotify = e?.onSuccessNotify ?? CronNotifyType.log;
     _onFailureNotify = e?.onFailureNotify ?? CronNotifyType.system;
@@ -860,28 +860,45 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               Text(l10n.cronsCronSchedule, style: theme.textTheme.titleSmall),
               kOpenHandGap8,
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
                     width: 56,
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 10,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '0',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontFamily: kOpenHandMonospaceFontFamily,
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.4,
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 42,
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 10,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '0',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontFamily: kOpenHandMonospaceFontFamily,
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        kOpenHandGap2,
+                        Text(
+                          l10n.cronParserFieldSecond,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.7,
+                            ),
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   kOpenHandHGap6,
@@ -921,84 +938,69 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ),
               kOpenHandGap18,
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    l10n.cronsTimeoutSeconds,
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  kOpenHandHGap8,
-                  SizedBox(
-                    width: 80,
-                    child: TextField(
+                  Expanded(
+                    child: _numberField(
                       controller: _timeoutController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
-                        ),
-                      ),
+                      label: l10n.cronsTimeoutSeconds,
                     ),
                   ),
-                  kOpenHandHGap24,
-                  Text(l10n.cronsRetries, style: theme.textTheme.titleSmall),
-                  kOpenHandHGap8,
-                  SizedBox(
-                    width: 60,
-                    child: TextField(
+                  kOpenHandHGap12,
+                  Expanded(
+                    child: _numberField(
                       controller: _retryController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
-                        ),
-                      ),
+                      label: l10n.cronsRetries,
                     ),
                   ),
-                  kOpenHandHGap24,
-                  Text(
-                    l10n.cronsMaxRetryDelaySeconds,
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  kOpenHandHGap8,
-                  SizedBox(
-                    width: 60,
-                    child: TextField(
+                  kOpenHandHGap12,
+                  Expanded(
+                    child: _numberField(
                       controller: _maxRetryDelayController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
-                        ),
-                      ),
+                      label: l10n.cronsMaxRetryDelaySeconds,
                     ),
                   ),
                 ],
               ),
               kOpenHandGap18,
-              Text(l10n.cronsRunAsUser, style: theme.textTheme.titleSmall),
-              kOpenHandGap8,
-              AnimatedDropdownButtonFormField<String>(
-                initialValue: _runAsUser,
-                decoration: InputDecoration(
-                  hintText: l10n.cronsDefaultCurrentUser,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                ),
-                items: [
-                  DropdownMenuItem<String>(child: Text(l10n.cronsDefault)),
-                  ...systemUsers.map(
-                    (u) => DropdownMenuItem<String>(value: u, child: Text(u)),
+              Row(
+                children: [
+                  Text(l10n.cronsRunAsUser, style: theme.textTheme.titleSmall),
+                  kOpenHandHGap16,
+                  Flexible(
+                    child: SizedBox(
+                      width: _cronRunAsUserWidth,
+                      height: _cronFormControlHeight,
+                      child: AnimatedDropdownButtonFormField<String>(
+                        initialValue: _runAsUser,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          hintText: l10n.cronsDefaultCurrentUser,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                        ),
+                        items: [
+                          DropdownMenuItem<String>(
+                            child: Text(l10n.cronsDefault),
+                          ),
+                          ...systemUsers.map(
+                            (u) => DropdownMenuItem<String>(
+                              value: u,
+                              child: Text(
+                                u,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => setState(() => _runAsUser = v),
+                      ),
+                    ),
                   ),
                 ],
-                onChanged: (v) => setState(() => _runAsUser = v),
               ),
               kOpenHandGap18,
               TextField(
@@ -1096,6 +1098,16 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ),
                   AnimatedPopupMenuButton<_NotificationTestScenario>(
                     tooltip: l10n.cronsTestNotification,
+                    position: PopupMenuPosition.under,
+                    style: const ButtonStyle(
+                      padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                      minimumSize: WidgetStatePropertyAll(Size.zero),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      overlayColor: WidgetStatePropertyAll(Colors.transparent),
+                      shadowColor: WidgetStatePropertyAll(Colors.transparent),
+                      elevation: WidgetStatePropertyAll(0),
+                      shape: WidgetStatePropertyAll(StadiumBorder()),
+                    ),
                     onSelected: _testNotification,
                     itemBuilder: (context) => [
                       PopupMenuItem(
@@ -1117,10 +1129,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       ),
                     ],
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
+                      height: _cronFormControlHeight,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(kOpenHandRadius22),
@@ -1209,17 +1219,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 onVibrationChanged: (v) =>
                     setState(() => _onTimeoutVibration = v),
               ),
-              kOpenHandGap14,
-              Row(
-                children: [
-                  Text(l10n.cronsEnabled, style: theme.textTheme.titleSmall),
-                  const Spacer(),
-                  Switch(
-                    value: _enabled,
-                    onChanged: (value) => setState(() => _enabled = value),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -1272,6 +1271,31 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     );
   }
 
+  Widget _numberField({
+    required TextEditingController controller,
+    required String label,
+  }) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: theme.textTheme.titleSmall),
+        kOpenHandGap8,
+        SizedBox(
+          height: _cronFormControlHeight,
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _notifyRow({
     required String label,
     required CronNotifyType notifyType,
@@ -1311,85 +1335,100 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
             kOpenHandGap12,
             Row(
               children: [
-                Flexible(
-                  child: AnimatedDropdownButtonFormField<CronNotifyType>(
-                    initialValue: notifyType,
-                    decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
+                Expanded(
+                  child: SizedBox(
+                    height: _cronFormControlHeight,
+                    child: AnimatedDropdownButtonFormField<CronNotifyType>(
+                      initialValue: notifyType,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                       ),
+                      items: CronNotifyType.values.map((n) {
+                        return DropdownMenuItem(
+                          value: n,
+                          child: Text(n.label(l10n)),
+                        );
+                      }).toList(),
+                      onChanged: (v) {
+                        if (v != null) onNotifyChanged(v);
+                      },
                     ),
-                    items: CronNotifyType.values.map((n) {
-                      return DropdownMenuItem(
-                        value: n,
-                        child: Text(n.label(l10n)),
-                      );
-                    }).toList(),
-                    onChanged: (v) {
-                      if (v != null) onNotifyChanged(v);
-                    },
                   ),
                 ),
                 kOpenHandHGap8,
-                Flexible(
-                  child: AnimatedDropdownButtonFormField<CronNotifySeverity>(
-                    initialValue: severity,
-                    decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
+                Expanded(
+                  child: SizedBox(
+                    height: _cronFormControlHeight,
+                    child: AnimatedDropdownButtonFormField<CronNotifySeverity>(
+                      initialValue: severity,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                       ),
+                      items: CronNotifySeverity.values.map((s) {
+                        return DropdownMenuItem(
+                          value: s,
+                          child: Text(s.label(l10n)),
+                        );
+                      }).toList(),
+                      onChanged: (v) {
+                        if (v != null) onSeverityChanged(v);
+                      },
                     ),
-                    items: CronNotifySeverity.values.map((s) {
-                      return DropdownMenuItem(
-                        value: s,
-                        child: Text(s.label(l10n)),
-                      );
-                    }).toList(),
-                    onChanged: (v) {
-                      if (v != null) onSeverityChanged(v);
-                    },
                   ),
                 ),
                 kOpenHandHGap8,
                 Tooltip(
                   message: _soundSupportTooltip(soundEnabled),
-                  child: IconButton.filledTonal(
-                    onPressed: () => onSoundChanged(!soundEnabled),
-                    icon: Icon(
-                      soundEnabled
-                          ? Icons.volume_up_rounded
-                          : Icons.volume_off_rounded,
-                      size: 18,
+                  child: SizedBox.square(
+                    dimension: _cronFormControlHeight,
+                    child: IconButton.filledTonal(
+                      onPressed: () => onSoundChanged(!soundEnabled),
+                      icon: Icon(
+                        soundEnabled
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_off_rounded,
+                        size: 18,
+                      ),
                     ),
-                    visualDensity: VisualDensity.compact,
                   ),
                 ),
                 kOpenHandHGap4,
                 Tooltip(
                   message: _vibrationSupportTooltip(vibrationEnabled),
-                  child: IconButton.filledTonal(
-                    onPressed: () => onVibrationChanged(!vibrationEnabled),
-                    icon: Icon(
-                      vibrationEnabled
-                          ? Icons.vibration_rounded
-                          : Icons.vibration_outlined,
-                      size: 18,
+                  child: SizedBox.square(
+                    dimension: _cronFormControlHeight,
+                    child: IconButton.filledTonal(
+                      onPressed: () => onVibrationChanged(!vibrationEnabled),
+                      icon: Icon(
+                        vibrationEnabled
+                            ? Icons.vibration_rounded
+                            : Icons.vibration_outlined,
+                        size: 18,
+                      ),
                     ),
-                    visualDensity: VisualDensity.compact,
                   ),
                 ),
               ],
             ),
             kOpenHandGap10,
-            TextField(
-              controller: msgController,
-              decoration: InputDecoration(
-                hintText: l10n.cronsCustomNotificationMessageHint,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
+            SizedBox(
+              height: _cronFormControlHeight,
+              child: TextField(
+                controller: msgController,
+                decoration: InputDecoration(
+                  hintText: l10n.cronsCustomNotificationMessageHint,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
               ),
             ),
@@ -1495,7 +1534,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       timeoutSeconds: timeout,
       runAsUser: _runAsUser,
       tags: tags,
-      enabled: _enabled,
+      enabled: widget.existing?.enabled ?? true,
       status: widget.existing?.status ?? CronJobStatus.idle,
       onSuccessNotify: _onSuccessNotify,
       onFailureNotify: _onFailureNotify,
@@ -1885,13 +1924,16 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     children: [
                       Row(
                         children: [
-                          Expanded(
+                          Flexible(
                             child: Text(
                               label,
                               style: theme.textTheme.bodyMedium,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (isSensitive)
+                          if (isSensitive) ...[
+                            kOpenHandHGap8,
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
@@ -1908,6 +1950,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                                 ),
                               ),
                             ),
+                          ],
+                          const Spacer(),
                         ],
                       ),
                       kOpenHandGap2,
