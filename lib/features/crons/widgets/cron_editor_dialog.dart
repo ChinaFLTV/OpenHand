@@ -1023,23 +1023,20 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     final vibrationUnsupported =
         vibrationEnabled && !OpenHandNotificationService.supportsVibration;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
+    return Material(
+      color: colorScheme.surface,
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: kOpenHandBorderRadius18,
-        border: Border.all(color: accent.withValues(alpha: 0.28)),
+        side: BorderSide(color: accent.withValues(alpha: 0.28)),
       ),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: accent,
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(kOpenHandRadius18),
-                ),
-              ),
+            ColoredBox(
+              color: accent,
               child: const SizedBox(width: _kCronComposerAccentWidth),
             ),
             Expanded(
