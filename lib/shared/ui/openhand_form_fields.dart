@@ -449,7 +449,7 @@ const EdgeInsets kOpenHandMetricsStripPadding = EdgeInsets.symmetric(
   vertical: 14,
 );
 const double kOpenHandMetricsStripBreakpoint = 720;
-const double kOpenHandMetricsStripCompactWidth = 420;
+const double kOpenHandMetricsStripTwoColumnMinWidth = 220;
 
 typedef OpenHandMetricItem = ({String label, String value, Color accent});
 
@@ -638,9 +638,12 @@ class OpenHandMetricsStrip extends StatelessWidget {
                     children: [
                       for (final item in items)
                         SizedBox(
-                          width: innerWidth < kOpenHandMetricsStripCompactWidth
-                              ? innerWidth
-                              : (innerWidth - 10) / 2,
+                          width:
+                              innerWidth >=
+                                      kOpenHandMetricsStripTwoColumnMinWidth &&
+                                  items.length > 1
+                              ? (innerWidth - 10) / 2
+                              : innerWidth,
                           child: _OpenHandMetricCell(item: item),
                         ),
                     ],
@@ -842,57 +845,69 @@ class OpenHandFeatureListCard extends StatelessWidget {
               children: actions,
             ),
           );
+    final header = actionBar == null
+        ? identity
+        : LayoutBuilder(
+            builder: (context, constraints) {
+              final compact =
+                  headerBreakpoint > 0 &&
+                  constraints.maxWidth < headerBreakpoint;
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    identity,
+                    kOpenHandGap16,
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: actionBar,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: identity),
+                  kOpenHandHGap16,
+                  actionBar,
+                ],
+              );
+            },
+          );
+    final body = <Widget>[
+      header,
+      if (statusPills.isNotEmpty) ...[
+        kOpenHandGap16,
+        Wrap(spacing: 10, runSpacing: 10, children: statusPills),
+      ],
+      if (factChips.isNotEmpty) ...[
+        kOpenHandGap12,
+        Wrap(spacing: 8, runSpacing: 8, children: factChips),
+      ],
+      if (footer != null) ...[kOpenHandGap14, footer!],
+    ];
+    final metricsStrip = metrics.isEmpty
+        ? null
+        : OpenHandMetricsStrip(items: metrics);
     return OpenHandHoverCard(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: fillHeight ? MainAxisSize.max : MainAxisSize.min,
         children: [
-          if (actionBar == null)
-            identity
-          else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact =
-                    headerBreakpoint > 0 &&
-                    constraints.maxWidth < headerBreakpoint;
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      identity,
-                      kOpenHandGap16,
-                      Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        child: actionBar,
-                      ),
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: identity),
-                    kOpenHandHGap16,
-                    actionBar,
-                  ],
-                );
-              },
-            ),
-          if (statusPills.isNotEmpty) ...[
-            kOpenHandGap16,
-            Wrap(spacing: 10, runSpacing: 10, children: statusPills),
+          if (fillHeight && metricsStrip != null)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [...body, const Spacer()],
+              ),
+            )
+          else ...[
+            ...body,
+            if (fillHeight) const Spacer(),
           ],
-          if (factChips.isNotEmpty) ...[
-            kOpenHandGap12,
-            Wrap(spacing: 8, runSpacing: 8, children: factChips),
-          ],
-          if (footer != null) ...[kOpenHandGap14, footer!],
-          if (fillHeight) const Spacer(),
-          if (metrics.isNotEmpty) ...[
-            if (!fillHeight) kOpenHandGap16,
-            OpenHandMetricsStrip(items: metrics),
-          ],
+          if (metricsStrip != null) ...[kOpenHandGap16, metricsStrip],
         ],
       ),
     );

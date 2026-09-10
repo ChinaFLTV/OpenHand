@@ -38,7 +38,7 @@ enum _SkillCardAction { openDirectory, edit, delete }
 /// 技能图标预览框的边长（逻辑像素）。
 const double _kSkillIconPreviewExtent = 72;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
-const double _kSkillCardMainAxisExtent = 328;
+const double _kSkillCardMainAxisExtent = 360;
 
 const List<String> _skillEmojiOptions = <String>[
   '🧠',
