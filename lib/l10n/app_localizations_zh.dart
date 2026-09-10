@@ -2697,6 +2697,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get skillsCreateContentRequired => '请输入 SKILL.md 内容';
 
   @override
+  String get skillsEditorCreateSubtitle => '配置名称、图标与 SKILL.md 清单。';
+
+  @override
+  String get skillsEditorEditSubtitle => '调整技能身份、图标与清单内容。';
+
+  @override
+  String get skillsSectionBasics => '基础信息';
+
+  @override
+  String get skillsSectionIcon => '技能图标';
+
+  @override
+  String get skillsSectionManifest => '清单内容';
+
+  @override
   String get imageEditorTitle => '编辑图片';
 
   @override
@@ -2937,6 +2952,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get instructionSaveFailed => '保存失败，请检查必填项是否为空。';
 
   @override
+  String get instructionEditorCreateSubtitle => '填写名称、触发条件与指令正文。';
+
+  @override
+  String get instructionEditorEditSubtitle => '调整指令内容、触发条件与注入状态。';
+
+  @override
+  String get instructionSectionBasics => '基础信息';
+
+  @override
+  String get instructionSectionRouting => '触发条件';
+
+  @override
+  String get instructionSectionContent => '指令正文';
+
+  @override
+  String get instructionSummaryEnabled => '已启用';
+
+  @override
+  String get instructionSummaryDisabled => '已停用';
+
+  @override
+  String instructionSummaryVersion(String version) {
+    return 'v$version';
+  }
+
+  @override
   String get memoryPageTitle => '记忆';
 
   @override
@@ -2974,6 +3015,39 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get memoryDialogEditTitle => '编辑用户记忆';
+
+  @override
+  String get memoryEditorCreateSubtitle => '写下希望长期记住的内容，并可选地加上标签。';
+
+  @override
+  String get memoryEditorEditSubtitle => '调整这条记忆的标题、正文与标签。';
+
+  @override
+  String get memorySectionBasics => '基础信息';
+
+  @override
+  String get memorySectionContent => '记忆正文';
+
+  @override
+  String get memorySectionTags => '标签';
+
+  @override
+  String memorySummaryTagCount(int count) {
+    return '$count 个标签';
+  }
+
+  @override
+  String get memoryAutoLearnedTag => '自主学习';
+
+  @override
+  String memoryAutoLearnedLockedHint(String tag) {
+    return '“$tag”是自主学习记忆的固定标识，不可移除。';
+  }
+
+  @override
+  String memoryAutoLearnedRestrictedHint(String tag) {
+    return '“$tag”是自主学习专用标签，普通记忆无法手动添加。';
+  }
 
   @override
   String get memoryContentField => '记忆内容';
@@ -13119,6 +13193,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get skillsCreateContentRequired => '請輸入 SKILL.md 內容';
 
   @override
+  String get skillsEditorCreateSubtitle => '設定名稱、圖示與 SKILL.md 清單。';
+
+  @override
+  String get skillsEditorEditSubtitle => '調整技能身分、圖示與清單內容。';
+
+  @override
+  String get skillsSectionBasics => '基礎資訊';
+
+  @override
+  String get skillsSectionIcon => '技能圖示';
+
+  @override
+  String get skillsSectionManifest => '清單內容';
+
+  @override
   String get imageEditorTitle => '編輯圖片';
 
   @override
@@ -13359,6 +13448,32 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get instructionSaveFailed => '保存失敗，請檢查必填項是否為空。';
 
   @override
+  String get instructionEditorCreateSubtitle => '填寫名稱、觸發條件與指令正文。';
+
+  @override
+  String get instructionEditorEditSubtitle => '調整指令內容、觸發條件與注入狀態。';
+
+  @override
+  String get instructionSectionBasics => '基礎資訊';
+
+  @override
+  String get instructionSectionRouting => '觸發條件';
+
+  @override
+  String get instructionSectionContent => '指令正文';
+
+  @override
+  String get instructionSummaryEnabled => '已啟用';
+
+  @override
+  String get instructionSummaryDisabled => '已停用';
+
+  @override
+  String instructionSummaryVersion(String version) {
+    return 'v$version';
+  }
+
+  @override
   String get memoryPageTitle => '記憶';
 
   @override
@@ -13396,6 +13511,39 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get memoryDialogEditTitle => '編輯用戶記憶';
+
+  @override
+  String get memoryEditorCreateSubtitle => '寫下希望長期記住的內容，並可選擇加上標籤。';
+
+  @override
+  String get memoryEditorEditSubtitle => '調整這條記憶的標題、正文與標籤。';
+
+  @override
+  String get memorySectionBasics => '基礎資訊';
+
+  @override
+  String get memorySectionContent => '記憶正文';
+
+  @override
+  String get memorySectionTags => '標籤';
+
+  @override
+  String memorySummaryTagCount(int count) {
+    return '$count 個標籤';
+  }
+
+  @override
+  String get memoryAutoLearnedTag => '自主學習';
+
+  @override
+  String memoryAutoLearnedLockedHint(String tag) {
+    return '「$tag」是自主學習記憶的固定識別，不可移除。';
+  }
+
+  @override
+  String memoryAutoLearnedRestrictedHint(String tag) {
+    return '「$tag」是自主學習專用標籤，普通記憶無法手動新增。';
+  }
 
   @override
   String get memoryContentField => '記憶內容';

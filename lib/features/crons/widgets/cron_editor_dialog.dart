@@ -28,7 +28,6 @@ import '../model/cron_parser.dart';
 
 const double _kCronEditorFieldHeight = 48;
 const double _kCronPolicyTwoColumnMinWidth = 560;
-const double _kCronComposerAccentWidth = 4;
 const Duration _kCronNotificationTestGap = Duration(milliseconds: 520);
 
 Future<void> showCronEditorDialog(BuildContext context, {CronEntry? existing}) {
@@ -224,102 +223,51 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       (controller) => controller.systemUsers,
     );
 
-    return PopScope(
+    return OpenHandEditorDialogScaffold(
+      title: _isEditing ? l10n.cronsEditCronJob : l10n.cronsNewCronJob,
+      subtitle: _isEditing
+          ? l10n.cronsEditorEditSubtitle
+          : l10n.cronsEditorCreateSubtitle,
+      icon: _isEditing ? Icons.edit_calendar_outlined : Icons.alarm_add_rounded,
+      iconColor: colorScheme.primary,
+      busy: _saving,
+      closeEnabled: !_saving,
       canPop: !_saving,
-      child: buildOpenHandResponsiveDialogShell(
-        context: context,
-        maxWidth: kOpenHandDialogWidthWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            buildOpenHandToolDialogHeader(
-              context: context,
-              icon: _isEditing
-                  ? Icons.edit_calendar_outlined
-                  : Icons.alarm_add_rounded,
-              iconColor: colorScheme.primary,
-              title: _isEditing ? l10n.cronsEditCronJob : l10n.cronsNewCronJob,
-              subtitle: _isEditing
-                  ? l10n.cronsEditorEditSubtitle
-                  : l10n.cronsEditorCreateSubtitle,
-              closeEnabled: !_saving,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: _nameController,
-                builder: (context, value, _) => _buildSummaryBar(value.text),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    buildOpenHandDialogValidationMessage(
-                      context,
-                      message: _formError,
-                    ),
-                    if (_formError != null) kOpenHandGap12,
-                    _buildBasicsSection(),
-                    kOpenHandGap14,
-                    _buildTaskSection(theme, colorScheme),
-                    kOpenHandGap14,
-                    _buildScheduleSection(theme, colorScheme),
-                    kOpenHandGap14,
-                    _buildPolicySection(systemUsers),
-                    kOpenHandGap14,
-                    _buildRuntimeSection(theme, colorScheme),
-                    kOpenHandGap14,
-                    _buildContextSection(colorScheme),
-                    kOpenHandGap14,
-                    _buildNotificationSection(theme, colorScheme),
-                  ],
-                ),
-              ),
-            ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.94),
-                border: Border(
-                  top: BorderSide(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.55),
-                  ),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OpenHandDialogBusyBar(busy: _saving, topGap: 0),
-                    if (_saving) kOpenHandGap10,
-                    buildOpenHandDialogActionsBar(
-                      padding: EdgeInsets.zero,
-                      actions: [
-                        OpenHandDialogActionButton.secondary(
-                          label: l10n.commonCancel,
-                          onPressed: _saving
-                              ? null
-                              : () => Navigator.of(context).pop(),
-                        ),
-                        OpenHandDialogActionButton.primary(
-                          label: l10n.commonSave,
-                          busy: _saving,
-                          onPressed: _saving ? null : _save,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+      summary: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _nameController,
+        builder: (context, value, _) => _buildSummaryBar(value.text),
       ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          buildOpenHandDialogValidationMessage(context, message: _formError),
+          if (_formError != null) kOpenHandGap12,
+          _buildBasicsSection(),
+          kOpenHandGap14,
+          _buildTaskSection(theme, colorScheme),
+          kOpenHandGap14,
+          _buildScheduleSection(theme, colorScheme),
+          kOpenHandGap14,
+          _buildPolicySection(systemUsers),
+          kOpenHandGap14,
+          _buildRuntimeSection(theme, colorScheme),
+          kOpenHandGap14,
+          _buildContextSection(colorScheme),
+          kOpenHandGap14,
+          _buildNotificationSection(theme, colorScheme),
+        ],
+      ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          label: l10n.commonCancel,
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+        ),
+        OpenHandDialogActionButton.primary(
+          label: l10n.commonSave,
+          busy: _saving,
+          onPressed: _saving ? null : _save,
+        ),
+      ],
     );
   }
 
@@ -343,26 +291,26 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       runSpacing: 8,
       children: [
         if (name.isNotEmpty)
-          _CronSummaryChip(
+          OpenHandSummaryChip(
             icon: Icons.badge_outlined,
             label: name,
             foreground: colorScheme.onSecondaryContainer,
             background: colorScheme.secondaryContainer,
           ),
-        _CronSummaryChip(
+        OpenHandSummaryChip(
           icon: typeIcon,
           label: _scriptType.label(l10n),
           foreground: colorScheme.onPrimaryContainer,
           background: colorScheme.primaryContainer,
         ),
-        _CronSummaryChip(
+        OpenHandSummaryChip(
           icon: Icons.schedule_rounded,
           label: '${l10n.cronsExpressionPreview} $expression',
           foreground: colorScheme.onTertiaryContainer,
           background: colorScheme.tertiaryContainer,
           monospace: true,
         ),
-        _CronSummaryChip(
+        OpenHandSummaryChip(
           icon: valid ? Icons.upcoming_outlined : Icons.error_outline_rounded,
           label: nextLabel,
           foreground: valid
@@ -1037,7 +985,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           children: [
             ColoredBox(
               color: accent,
-              child: const SizedBox(width: _kCronComposerAccentWidth),
+              child: const SizedBox(width: kOpenHandAccentRailWidth),
             ),
             Expanded(
               child: Padding(
@@ -1666,56 +1614,6 @@ class _CronTypeChoice extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CronSummaryChip extends StatelessWidget {
-  const _CronSummaryChip({
-    required this.icon,
-    required this.label,
-    required this.foreground,
-    required this.background,
-    this.monospace = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color foreground;
-  final Color background;
-  final bool monospace;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: kOpenHandPillBorderRadius,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: foreground),
-            kOpenHandHGap6,
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 280),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: foreground,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

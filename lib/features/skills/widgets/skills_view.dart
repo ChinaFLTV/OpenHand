@@ -10,13 +10,13 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
-import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_message_markdown_theme.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -34,7 +34,8 @@ import 'skill_market_dialog.dart';
 enum _SkillCardAction { openDirectory, edit, delete }
 
 /// 技能图标预览框的边长（逻辑像素）。
-const double _kSkillIconPreviewExtent = 48;
+const double _kSkillIconPreviewExtent = 72;
+const double _kSkillCardIconExtent = 48;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
 const int _kSkillDescriptionCompactMaxLines = 2;
 const int _kSkillDescriptionExpandedMaxLines = 5;
@@ -627,152 +628,270 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
       _selectedImageBytes != null || _existingIconPath != null;
 
   Widget _buildSkillFormFields(BuildContext context, AppLocalizations l10n) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Form(
       key: _formKey,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
-            controller: _nameController,
-            enabled: !_isSaving,
-            decoration: InputDecoration(labelText: l10n.skillsCreateNameLabel),
-            validator: (value) {
-              if ((value?.trim() ?? '').isEmpty) {
-                return l10n.skillsCreateNameRequired;
-              }
-              return null;
-            },
-          ),
-          kOpenHandGap16,
-          FormField<bool>(
-            initialValue: _hasEffectiveIcon,
-            validator: (value) {
-              if (!_hasEffectiveIcon) return l10n.skillsCreateIconRequired;
-              return null;
-            },
-            builder: (field) {
-              final theme = Theme.of(context);
-              final colorScheme = theme.colorScheme;
-
-              return InputDecorator(
-                isEmpty: !_hasEffectiveIcon,
-                decoration: InputDecoration(
-                  labelText: l10n.skillsCreateIconLabel,
-                  hintText: l10n.skillsCreateIconHint,
-                  errorText: field.errorText,
+          OpenHandDialogSectionCard(
+            icon: Icons.badge_outlined,
+            accent: colorScheme.primary,
+            title: l10n.skillsSectionBasics,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  enabled: !_isSaving,
+                  decoration: InputDecoration(
+                    labelText: l10n.skillsCreateNameLabel,
+                  ),
+                  validator: (value) {
+                    if ((value?.trim() ?? '').isEmpty) {
+                      return l10n.skillsCreateNameRequired;
+                    }
+                    return null;
+                  },
                 ),
-                child: Row(
+                kOpenHandGap12,
+                TextFormField(
+                  controller: _descriptionController,
+                  enabled: !_isSaving,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: l10n.skillsCreateDescriptionLabel,
+                  ),
+                  validator: (value) {
+                    if ((value?.trim() ?? '').isEmpty) {
+                      return l10n.skillsCreateDescriptionRequired;
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          kOpenHandGap14,
+          OpenHandDialogSectionCard(
+            icon: Icons.emoji_emotions_outlined,
+            accent: colorScheme.tertiary,
+            title: l10n.skillsSectionIcon,
+            subtitle: l10n.skillsCreateIconHint,
+            child: FormField<bool>(
+              initialValue: _hasEffectiveIcon,
+              validator: (value) {
+                if (!_hasEffectiveIcon) return l10n.skillsCreateIconRequired;
+                return null;
+              },
+              builder: (field) {
+                final theme = Theme.of(context);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(kOpenHandRadius16),
-                      child: Container(
-                        width: _kSkillIconPreviewExtent,
-                        height: _kSkillIconPreviewExtent,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHigh,
+                    Row(
+                      children: [
+                        ClipRRect(
                           borderRadius: BorderRadius.circular(
-                            kOpenHandRadius16,
+                            kOpenHandRadius18,
+                          ),
+                          child: ColoredBox(
+                            color: Color.alphaBlend(
+                              colorScheme.tertiary.withValues(alpha: 0.14),
+                              colorScheme.surfaceContainerHigh,
+                            ),
+                            child: SizedBox(
+                              width: _kSkillIconPreviewExtent,
+                              height: _kSkillIconPreviewExtent,
+                              child: _buildSelectedIconPreview(),
+                            ),
                           ),
                         ),
-                        child: _buildSelectedIconPreview(),
-                      ),
+                        kOpenHandHGap14,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _buildIconLabel(l10n),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: _hasEffectiveIcon
+                                      ? colorScheme.onSurface
+                                      : colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              kOpenHandGap12,
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  Builder(
+                                    builder: (btnContext) {
+                                      return FilledButton.tonalIcon(
+                                        onPressed: _isSaving
+                                            ? null
+                                            : () async {
+                                                final emoji =
+                                                    await _showSkillEmojiMenu(
+                                                      btnContext,
+                                                      selectedEmoji:
+                                                          _selectedEmoji,
+                                                    );
+                                                if (!mounted || emoji == null) {
+                                                  return;
+                                                }
+                                                field.didChange(true);
+                                                setState(() {
+                                                  _selectedEmoji = emoji;
+                                                  _selectedImageBytes = null;
+                                                  _existingIconPath = null;
+                                                  _existingIconKind = null;
+                                                  _errorMessage = null;
+                                                });
+                                              },
+                                        icon: const Icon(
+                                          Icons.emoji_emotions_outlined,
+                                        ),
+                                        label: Text(
+                                          _hasEffectiveIcon
+                                              ? l10n.skillsCreateIconChange
+                                              : l10n.skillsCreateIconChoose,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  FilledButton.tonalIcon(
+                                    onPressed: _isSaving
+                                        ? null
+                                        : () => _pickLocalImage(field),
+                                    icon: const Icon(Icons.image_outlined),
+                                    label: Text(
+                                      _hasImageIcon
+                                          ? l10n.skillsCreateImageChange
+                                          : l10n.skillsCreateImageChoose,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    kOpenHandHGap12,
-                    Expanded(
-                      child: Text(
-                        _buildIconLabel(l10n),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: _hasEffectiveIcon
-                              ? colorScheme.onSurface
-                              : colorScheme.onSurfaceVariant,
+                    if (field.errorText != null) ...[
+                      kOpenHandGap8,
+                      Text(
+                        field.errorText!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.error,
                         ),
                       ),
-                    ),
-                    kOpenHandHGap12,
-                    Builder(
-                      builder: (btnContext) {
-                        return OutlinedButton.icon(
-                          onPressed: _isSaving
-                              ? null
-                              : () async {
-                                  final emoji = await _showSkillEmojiMenu(
-                                    btnContext,
-                                    selectedEmoji: _selectedEmoji,
-                                  );
-                                  if (!mounted || emoji == null) return;
-                                  field.didChange(true);
-                                  setState(() {
-                                    _selectedEmoji = emoji;
-                                    _selectedImageBytes = null;
-                                    _existingIconPath = null;
-                                    _existingIconKind = null;
-                                    _errorMessage = null;
-                                  });
-                                },
-                          icon: const Icon(Icons.emoji_emotions_outlined),
-                          label: Text(
-                            _hasEffectiveIcon
-                                ? l10n.skillsCreateIconChange
-                                : l10n.skillsCreateIconChoose,
-                          ),
-                        );
-                      },
-                    ),
-                    kOpenHandHGap8,
-                    OutlinedButton.icon(
-                      onPressed: _isSaving
-                          ? null
-                          : () => _pickLocalImage(field),
-                      icon: const Icon(Icons.image_outlined),
-                      label: Text(
-                        _hasImageIcon
-                            ? l10n.skillsCreateImageChange
-                            : l10n.skillsCreateImageChoose,
-                      ),
-                    ),
+                    ],
                   ],
-                ),
-              );
-            },
-          ),
-          kOpenHandGap16,
-          TextFormField(
-            controller: _descriptionController,
-            enabled: !_isSaving,
-            maxLines: 3,
-            decoration: InputDecoration(
-              labelText: l10n.skillsCreateDescriptionLabel,
+                );
+              },
             ),
-            validator: (value) {
-              if ((value?.trim() ?? '').isEmpty) {
-                return l10n.skillsCreateDescriptionRequired;
-              }
-              return null;
-            },
           ),
-          kOpenHandGap16,
-          TextFormField(
-            controller: _contentController,
-            enabled: !_isSaving,
-            minLines: 14,
-            maxLines: 20,
-            textAlignVertical: TextAlignVertical.top,
-            decoration: InputDecoration(
-              labelText: l10n.skillsEditorLabel,
-              alignLabelWithHint: true,
+          kOpenHandGap14,
+          OpenHandDialogSectionCard(
+            icon: Icons.article_outlined,
+            accent: colorScheme.secondary,
+            title: l10n.skillsSectionManifest,
+            child: TextFormField(
+              controller: _contentController,
+              enabled: !_isSaving,
+              minLines: 14,
+              maxLines: 20,
+              textAlignVertical: TextAlignVertical.top,
+              decoration: InputDecoration(
+                labelText: l10n.skillsEditorLabel,
+                alignLabelWithHint: true,
+              ),
+              validator: (value) {
+                if ((value?.trim() ?? '').isEmpty) {
+                  return l10n.skillsCreateContentRequired;
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              if ((value?.trim() ?? '').isEmpty) {
-                return l10n.skillsCreateContentRequired;
-              }
-              return null;
-            },
           ),
+          OpenHandDialogErrorText(message: _errorMessage, topGap: 16),
         ],
       ),
+    );
+  }
+
+  Widget _buildSkillEditorScaffold({
+    required AppLocalizations l10n,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required String cancelLabel,
+    required String confirmLabel,
+    required VoidCallback onConfirm,
+    VoidCallback? onCancel,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return OpenHandEditorDialogScaffold(
+      title: title,
+      subtitle: subtitle,
+      icon: icon,
+      iconColor: colorScheme.primary,
+      busy: _isSaving,
+      closeEnabled: !_isSaving,
+      canPop: !_isSaving,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      summary: ListenableBuilder(
+        listenable: _nameController,
+        builder: (context, _) => _buildSkillSummaryBar(l10n, colorScheme),
+      ),
+      body: _buildSkillFormFields(context, l10n),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: _isSaving
+              ? null
+              : (onCancel ?? () => Navigator.of(context).pop()),
+          label: cancelLabel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: _isSaving ? null : onConfirm,
+          busy: _isSaving,
+          label: confirmLabel,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkillSummaryBar(AppLocalizations l10n, ColorScheme colorScheme) {
+    final name = _nameController.text.trim();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (name.isNotEmpty)
+          OpenHandSummaryChip(
+            icon: Icons.extension_outlined,
+            label: name,
+            foreground: colorScheme.onSecondaryContainer,
+            background: colorScheme.secondaryContainer,
+          ),
+        OpenHandSummaryChip(
+          icon: _hasEffectiveIcon
+              ? Icons.verified_outlined
+              : Icons.emoji_emotions_outlined,
+          label: _hasEffectiveIcon
+              ? _buildIconLabel(l10n)
+              : l10n.skillsCreateIconHint,
+          foreground: _hasEffectiveIcon
+              ? colorScheme.onPrimaryContainer
+              : colorScheme.onSurfaceVariant,
+          background: _hasEffectiveIcon
+              ? colorScheme.primaryContainer
+              : colorScheme.surfaceContainerHighest,
+        ),
+      ],
     );
   }
 
@@ -881,38 +1000,14 @@ class _EditSkillDialogState extends State<_EditSkillDialog>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return PopScope(
-      canPop: !_isSaving,
-      child: buildOpenHandToolDialogShell(
-        context: context,
-        maxWidth: kOpenHandDialogWidthExtraWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: Padding(
-          padding: _kSkillDialogContentPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${l10n.skillsEdit}: ${widget.skill.name}',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              kOpenHandGap16,
-              Expanded(
-                child: SingleChildScrollView(
-                  child: _buildSkillFormFields(context, l10n),
-                ),
-              ),
-              OpenHandDialogErrorText(message: _errorMessage, topGap: 16),
-              OpenHandDialogSaveActions(
-                busy: _isSaving,
-                cancelLabel: l10n.skillsEditorCancel,
-                confirmLabel: l10n.skillsEditorSave,
-                onConfirm: _handleSave,
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _buildSkillEditorScaffold(
+      l10n: l10n,
+      title: l10n.skillsEdit,
+      subtitle: l10n.skillsEditorEditSubtitle,
+      icon: Icons.edit_rounded,
+      cancelLabel: l10n.skillsEditorCancel,
+      confirmLabel: l10n.skillsEditorSave,
+      onConfirm: _handleSave,
     );
   }
 
@@ -995,39 +1090,14 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return PopScope(
-      canPop: !_isSaving,
-      child: buildOpenHandToolDialogShell(
-        context: context,
-        maxWidth: kOpenHandDialogWidthExtraWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: Padding(
-          padding: _kSkillDialogContentPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.skillsCreateDialogTitle,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              kOpenHandGap16,
-              Expanded(
-                child: SingleChildScrollView(
-                  child: _buildSkillFormFields(context, l10n),
-                ),
-              ),
-              OpenHandDialogErrorText(message: _errorMessage, topGap: 16),
-              OpenHandDialogSaveActions(
-                busy: _isSaving,
-                cancelLabel: l10n.commonCancel,
-                confirmLabel: l10n.commonSave,
-                onConfirm: _handleSave,
-                onCancel: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _buildSkillEditorScaffold(
+      l10n: l10n,
+      title: l10n.skillsCreateDialogTitle,
+      subtitle: l10n.skillsEditorCreateSubtitle,
+      icon: Icons.extension_rounded,
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonSave,
+      onConfirm: _handleSave,
     );
   }
 
@@ -1080,111 +1150,158 @@ class _SkillCard extends StatelessWidget {
     final hasPrompt = defaultPrompt != null && defaultPrompt.isNotEmpty;
     final radius = BorderRadius.circular(_kSkillCardRadius);
 
-    return HoverLift(
-      child: Card(
-        key: ValueKey<String>('skill-card-${skill.directoryPath}'),
-        elevation: 0,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: BorderSide(color: cs.outlineVariant),
-        ),
-        child: InkWell(
-          onTap: onOpen,
-          borderRadius: radius,
-          child: Padding(
-            padding: _kSkillCardPadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    return OpenHandAccentCard(
+      key: ValueKey<String>('skill-card-${skill.directoryPath}'),
+      accent: cs.primary,
+      elevation: 0,
+      fillHeight: true,
+      onTap: onOpen,
+      padding: _kSkillCardPadding,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkillCardIdentityIcon(skill: skill),
+              kOpenHandHGap12,
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            skill.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          kOpenHandGap8,
-                          Text(
-                            skill.description,
-                            maxLines: hasPrompt
-                                ? _kSkillDescriptionCompactMaxLines
-                                : _kSkillDescriptionExpandedMaxLines,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: cs.onSurfaceVariant,
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      skill.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    kOpenHandHGap8,
-                    AnimatedPopupMenuButton<_SkillCardAction>(
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: '技能操作',
-                        zhHant: '技能操作',
-                        en: 'Skill actions',
-                        fr: 'Actions de compétence',
-                        de: 'Skill-Aktionen',
-                        ja: 'スキル操作',
+                    kOpenHandGap8,
+                    Text(
+                      skill.description,
+                      maxLines: hasPrompt
+                          ? _kSkillDescriptionCompactMaxLines
+                          : _kSkillDescriptionExpandedMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        height: 1.45,
                       ),
-                      style: IconButton.styleFrom(
-                        shape: const CircleBorder(),
-                        backgroundColor: cs.surfaceContainerHighest,
-                        foregroundColor: cs.onSurfaceVariant,
-                      ),
-                      icon: const Icon(Icons.more_vert_rounded),
-                      onSelected: onActionSelected,
-                      itemBuilder: (context) => [
-                        PopupMenuItem<_SkillCardAction>(
-                          value: _SkillCardAction.openDirectory,
-                          child: _SkillMenuRow(
-                            icon: Icons.folder_open_rounded,
-                            label: l10n.skillsOpenDirectory,
-                          ),
-                        ),
-                        PopupMenuItem<_SkillCardAction>(
-                          value: _SkillCardAction.edit,
-                          child: _SkillMenuRow(
-                            icon: Icons.edit_rounded,
-                            label: l10n.skillsEdit,
-                          ),
-                        ),
-                        PopupMenuItem<_SkillCardAction>(
-                          value: _SkillCardAction.delete,
-                          child: _SkillMenuRow(
-                            icon: Icons.delete_outline_rounded,
-                            label: l10n.skillsDelete,
-                            destructive: true,
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
-                if (hasPrompt) ...[
-                  kOpenHandGap14,
-                  _SkillPromptPanel(prompt: defaultPrompt),
-                ],
-                const Spacer(),
-                OpenHandStatusPill(
-                  icon: Icons.folder_outlined,
-                  label: skill.displayDirectoryPath,
-                  color: cs.tertiary,
+              ),
+              kOpenHandHGap8,
+              AnimatedPopupMenuButton<_SkillCardAction>(
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '技能操作',
+                  zhHant: '技能操作',
+                  en: 'Skill actions',
+                  fr: 'Actions de compétence',
+                  de: 'Skill-Aktionen',
+                  ja: 'スキル操作',
                 ),
-              ],
-            ),
+                style: IconButton.styleFrom(
+                  shape: const CircleBorder(),
+                  backgroundColor: cs.surfaceContainerHighest,
+                  foregroundColor: cs.onSurfaceVariant,
+                ),
+                icon: const Icon(Icons.more_vert_rounded),
+                onSelected: onActionSelected,
+                itemBuilder: (context) => [
+                  PopupMenuItem<_SkillCardAction>(
+                    value: _SkillCardAction.openDirectory,
+                    child: _SkillMenuRow(
+                      icon: Icons.folder_open_rounded,
+                      label: l10n.skillsOpenDirectory,
+                    ),
+                  ),
+                  PopupMenuItem<_SkillCardAction>(
+                    value: _SkillCardAction.edit,
+                    child: _SkillMenuRow(
+                      icon: Icons.edit_rounded,
+                      label: l10n.skillsEdit,
+                    ),
+                  ),
+                  PopupMenuItem<_SkillCardAction>(
+                    value: _SkillCardAction.delete,
+                    child: _SkillMenuRow(
+                      icon: Icons.delete_outline_rounded,
+                      label: l10n.skillsDelete,
+                      destructive: true,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
+          if (hasPrompt) ...[
+            kOpenHandGap14,
+            _SkillPromptPanel(prompt: defaultPrompt),
+          ],
+          const Spacer(),
+          OpenHandStatusPill(
+            icon: Icons.folder_outlined,
+            label: skill.displayDirectoryPath,
+            color: cs.tertiary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkillCardIdentityIcon extends StatelessWidget {
+  const _SkillCardIdentityIcon({required this.skill});
+
+  final LocalSkill skill;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fallback = Center(
+      child: Text(
+        skill.initials,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: cs.onPrimaryContainer,
+        ),
+      ),
+    );
+    Widget child = fallback;
+    final emoji = skill.emojiIcon;
+    if (skill.hasEmojiIcon && emoji != null) {
+      child = _SkillEmojiGlyph(emoji: emoji, fontSize: 26);
+    } else if (skill.hasIcon &&
+        skill.iconPath != null &&
+        skill.iconKind != null) {
+      child = switch (skill.iconKind!) {
+        LocalSkillIconKind.svg => buildLocalSvgPicture(
+          skill.iconPath!,
+          fit: BoxFit.cover,
+          fallback: fallback,
+        ),
+        LocalSkillIconKind.raster => buildLocalRasterImage(
+          skill.iconPath!,
+          fit: BoxFit.cover,
+          fallback: fallback,
+        ),
+      };
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(kOpenHandRadius14),
+      child: ColoredBox(
+        color: cs.primaryContainer,
+        child: SizedBox(
+          width: _kSkillCardIconExtent,
+          height: _kSkillCardIconExtent,
+          child: child,
         ),
       ),
     );

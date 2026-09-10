@@ -2799,6 +2799,23 @@ class AppLocalizationsDe extends AppLocalizations {
   String get skillsCreateContentRequired => 'SKILL.md-Inhalt eingeben.';
 
   @override
+  String get skillsEditorCreateSubtitle =>
+      'Name, Symbol und SKILL.md-Manifest festlegen.';
+
+  @override
+  String get skillsEditorEditSubtitle =>
+      'Identität, Symbol und Manifest des Skills anpassen.';
+
+  @override
+  String get skillsSectionBasics => 'Grundlagen';
+
+  @override
+  String get skillsSectionIcon => 'Skill-Symbol';
+
+  @override
+  String get skillsSectionManifest => 'Manifest';
+
+  @override
   String get imageEditorTitle => 'Bild bearbeiten';
 
   @override
@@ -3057,6 +3074,34 @@ class AppLocalizationsDe extends AppLocalizations {
       'Speichern fehlgeschlagen. Prüfe, ob Pflichtfelder leer sind.';
 
   @override
+  String get instructionEditorCreateSubtitle =>
+      'Name, Auslöser und Anweisungstext festlegen.';
+
+  @override
+  String get instructionEditorEditSubtitle =>
+      'Text, Auslöser und Einfügestatus anpassen.';
+
+  @override
+  String get instructionSectionBasics => 'Grundlagen';
+
+  @override
+  String get instructionSectionRouting => 'Auslöser';
+
+  @override
+  String get instructionSectionContent => 'Anweisungstext';
+
+  @override
+  String get instructionSummaryEnabled => 'Aktiviert';
+
+  @override
+  String get instructionSummaryDisabled => 'Deaktiviert';
+
+  @override
+  String instructionSummaryVersion(String version) {
+    return 'v$version';
+  }
+
+  @override
   String get memoryPageTitle => 'Speicher';
 
   @override
@@ -3101,6 +3146,41 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get memoryDialogEditTitle => 'Nutzer-Erinnerung bearbeiten';
+
+  @override
+  String get memoryEditorCreateSubtitle =>
+      'Schreibe, was dauerhaft merken bleiben soll, optional mit Tags.';
+
+  @override
+  String get memoryEditorEditSubtitle =>
+      'Titel, Text und Tags dieser Erinnerung anpassen.';
+
+  @override
+  String get memorySectionBasics => 'Grundlagen';
+
+  @override
+  String get memorySectionContent => 'Erinnerungstext';
+
+  @override
+  String get memorySectionTags => 'Tags';
+
+  @override
+  String memorySummaryTagCount(int count) {
+    return '$count Tags';
+  }
+
+  @override
+  String get memoryAutoLearnedTag => 'Selbstgelernt';
+
+  @override
+  String memoryAutoLearnedLockedHint(String tag) {
+    return '„$tag“ kennzeichnet eine selbstgelernte Erinnerung und kann nicht entfernt werden.';
+  }
+
+  @override
+  String memoryAutoLearnedRestrictedHint(String tag) {
+    return '„$tag“ ist für selbstgelernte Erinnerungen reserviert und kann nicht manuell hinzugefügt werden.';
+  }
 
   @override
   String get memoryContentField => 'Erinnerungsinhalt';

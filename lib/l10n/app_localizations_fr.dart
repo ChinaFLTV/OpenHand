@@ -2809,6 +2809,23 @@ class AppLocalizationsFr extends AppLocalizations {
   String get skillsCreateContentRequired => 'Saisissez le contenu de SKILL.md.';
 
   @override
+  String get skillsEditorCreateSubtitle =>
+      'Définir le nom, l\'icône et le manifeste SKILL.md.';
+
+  @override
+  String get skillsEditorEditSubtitle =>
+      'Ajuster l\'identité, l\'icône et le manifeste de la compétence.';
+
+  @override
+  String get skillsSectionBasics => 'Informations de base';
+
+  @override
+  String get skillsSectionIcon => 'Icône de compétence';
+
+  @override
+  String get skillsSectionManifest => 'Manifeste';
+
+  @override
   String get imageEditorTitle => 'Modifier l’image';
 
   @override
@@ -3069,6 +3086,34 @@ class AppLocalizationsFr extends AppLocalizations {
       'Échec de l\'enregistrement. Vérifiez que les champs obligatoires ne sont pas vides.';
 
   @override
+  String get instructionEditorCreateSubtitle =>
+      'Définir le nom, les déclencheurs et le corps de l\'instruction.';
+
+  @override
+  String get instructionEditorEditSubtitle =>
+      'Ajuster le corps, les déclencheurs et l\'état d\'injection.';
+
+  @override
+  String get instructionSectionBasics => 'Informations de base';
+
+  @override
+  String get instructionSectionRouting => 'Déclencheurs';
+
+  @override
+  String get instructionSectionContent => 'Corps de l\'instruction';
+
+  @override
+  String get instructionSummaryEnabled => 'Activée';
+
+  @override
+  String get instructionSummaryDisabled => 'Désactivée';
+
+  @override
+  String instructionSummaryVersion(String version) {
+    return 'v$version';
+  }
+
+  @override
   String get memoryPageTitle => 'Mémoire';
 
   @override
@@ -3111,6 +3156,41 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get memoryDialogEditTitle => 'Modifier la mémoire utilisateur';
+
+  @override
+  String get memoryEditorCreateSubtitle =>
+      'Écrivez ce qui doit être retenu, puis ajoutez des étiquettes optionnelles.';
+
+  @override
+  String get memoryEditorEditSubtitle =>
+      'Ajuster le titre, le corps et les étiquettes de cette mémoire.';
+
+  @override
+  String get memorySectionBasics => 'Informations de base';
+
+  @override
+  String get memorySectionContent => 'Corps de la mémoire';
+
+  @override
+  String get memorySectionTags => 'Étiquettes';
+
+  @override
+  String memorySummaryTagCount(int count) {
+    return '$count étiquettes';
+  }
+
+  @override
+  String get memoryAutoLearnedTag => 'Auto-appris';
+
+  @override
+  String memoryAutoLearnedLockedHint(String tag) {
+    return '« $tag » identifie une mémoire auto-apprise et ne peut pas être retiré.';
+  }
+
+  @override
+  String memoryAutoLearnedRestrictedHint(String tag) {
+    return '« $tag » est réservé aux mémoires auto-apprises et ne peut pas être ajouté manuellement.';
+  }
 
   @override
   String get memoryContentField => 'Contenu de la mémoire';

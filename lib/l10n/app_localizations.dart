@@ -4932,6 +4932,36 @@ abstract class AppLocalizations {
   /// **'请输入 SKILL.md 内容'**
   String get skillsCreateContentRequired;
 
+  /// No description provided for @skillsEditorCreateSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置名称、图标与 SKILL.md 清单。'**
+  String get skillsEditorCreateSubtitle;
+
+  /// No description provided for @skillsEditorEditSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'调整技能身份、图标与清单内容。'**
+  String get skillsEditorEditSubtitle;
+
+  /// No description provided for @skillsSectionBasics.
+  ///
+  /// In zh, this message translates to:
+  /// **'基础信息'**
+  String get skillsSectionBasics;
+
+  /// No description provided for @skillsSectionIcon.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能图标'**
+  String get skillsSectionIcon;
+
+  /// No description provided for @skillsSectionManifest.
+  ///
+  /// In zh, this message translates to:
+  /// **'清单内容'**
+  String get skillsSectionManifest;
+
   /// No description provided for @imageEditorTitle.
   ///
   /// In zh, this message translates to:
@@ -5406,6 +5436,54 @@ abstract class AppLocalizations {
   /// **'保存失败，请检查必填项是否为空。'**
   String get instructionSaveFailed;
 
+  /// No description provided for @instructionEditorCreateSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'填写名称、触发条件与指令正文。'**
+  String get instructionEditorCreateSubtitle;
+
+  /// No description provided for @instructionEditorEditSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'调整指令内容、触发条件与注入状态。'**
+  String get instructionEditorEditSubtitle;
+
+  /// No description provided for @instructionSectionBasics.
+  ///
+  /// In zh, this message translates to:
+  /// **'基础信息'**
+  String get instructionSectionBasics;
+
+  /// No description provided for @instructionSectionRouting.
+  ///
+  /// In zh, this message translates to:
+  /// **'触发条件'**
+  String get instructionSectionRouting;
+
+  /// No description provided for @instructionSectionContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'指令正文'**
+  String get instructionSectionContent;
+
+  /// No description provided for @instructionSummaryEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已启用'**
+  String get instructionSummaryEnabled;
+
+  /// No description provided for @instructionSummaryDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已停用'**
+  String get instructionSummaryDisabled;
+
+  /// No description provided for @instructionSummaryVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'v{version}'**
+  String instructionSummaryVersion(String version);
+
   /// No description provided for @memoryPageTitle.
   ///
   /// In zh, this message translates to:
@@ -5483,6 +5561,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'编辑用户记忆'**
   String get memoryDialogEditTitle;
+
+  /// No description provided for @memoryEditorCreateSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'写下希望长期记住的内容，并可选地加上标签。'**
+  String get memoryEditorCreateSubtitle;
+
+  /// No description provided for @memoryEditorEditSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'调整这条记忆的标题、正文与标签。'**
+  String get memoryEditorEditSubtitle;
+
+  /// No description provided for @memorySectionBasics.
+  ///
+  /// In zh, this message translates to:
+  /// **'基础信息'**
+  String get memorySectionBasics;
+
+  /// No description provided for @memorySectionContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆正文'**
+  String get memorySectionContent;
+
+  /// No description provided for @memorySectionTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签'**
+  String get memorySectionTags;
+
+  /// No description provided for @memorySummaryTagCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个标签'**
+  String memorySummaryTagCount(int count);
+
+  /// No description provided for @memoryAutoLearnedTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'自主学习'**
+  String get memoryAutoLearnedTag;
+
+  /// No description provided for @memoryAutoLearnedLockedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'“{tag}”是自主学习记忆的固定标识，不可移除。'**
+  String memoryAutoLearnedLockedHint(String tag);
+
+  /// No description provided for @memoryAutoLearnedRestrictedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'“{tag}”是自主学习专用标签，普通记忆无法手动添加。'**
+  String memoryAutoLearnedRestrictedHint(String tag);
 
   /// No description provided for @memoryContentField.
   ///

@@ -2730,6 +2730,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get skillsCreateContentRequired => 'SKILL.md の内容を入力してください。';
 
   @override
+  String get skillsEditorCreateSubtitle => '名前、アイコン、SKILL.md マニフェストを設定します。';
+
+  @override
+  String get skillsEditorEditSubtitle => 'スキルの識別、アイコン、マニフェストを調整します。';
+
+  @override
+  String get skillsSectionBasics => '基本情報';
+
+  @override
+  String get skillsSectionIcon => 'スキルアイコン';
+
+  @override
+  String get skillsSectionManifest => 'マニフェスト';
+
+  @override
   String get imageEditorTitle => '画像を編集';
 
   @override
@@ -2972,6 +2987,32 @@ class AppLocalizationsJa extends AppLocalizations {
   String get instructionSaveFailed => '保存に失敗しました。必須項目が空でないか確認してください。';
 
   @override
+  String get instructionEditorCreateSubtitle => '名前、トリガー条件、指示本文を設定します。';
+
+  @override
+  String get instructionEditorEditSubtitle => '本文、トリガー条件、注入状態を調整します。';
+
+  @override
+  String get instructionSectionBasics => '基本情報';
+
+  @override
+  String get instructionSectionRouting => 'トリガー条件';
+
+  @override
+  String get instructionSectionContent => '指示本文';
+
+  @override
+  String get instructionSummaryEnabled => '有効';
+
+  @override
+  String get instructionSummaryDisabled => '無効';
+
+  @override
+  String instructionSummaryVersion(String version) {
+    return 'v$version';
+  }
+
+  @override
   String get memoryPageTitle => 'メモリ';
 
   @override
@@ -3011,6 +3052,39 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get memoryDialogEditTitle => 'ユーザーメモリを編集';
+
+  @override
+  String get memoryEditorCreateSubtitle => '長期的に覚えておきたい内容を書き、必要ならタグを付けます。';
+
+  @override
+  String get memoryEditorEditSubtitle => 'このメモリのタイトル、本文、タグを調整します。';
+
+  @override
+  String get memorySectionBasics => '基本情報';
+
+  @override
+  String get memorySectionContent => 'メモリ本文';
+
+  @override
+  String get memorySectionTags => 'タグ';
+
+  @override
+  String memorySummaryTagCount(int count) {
+    return '$count 件のタグ';
+  }
+
+  @override
+  String get memoryAutoLearnedTag => '自己学習';
+
+  @override
+  String memoryAutoLearnedLockedHint(String tag) {
+    return '「$tag」は自己学習メモリの固定識別子で、削除できません。';
+  }
+
+  @override
+  String memoryAutoLearnedRestrictedHint(String tag) {
+    return '「$tag」は自己学習専用タグで、通常メモリには手動追加できません。';
+  }
 
   @override
   String get memoryContentField => 'メモリ内容';

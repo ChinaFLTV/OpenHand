@@ -37,6 +37,9 @@ const SizedBox kOpenHandWidth12 = SizedBox(width: 12);
 const SizedBox kOpenHandWidth13 = SizedBox(width: 13);
 const SizedBox kOpenHandWidth22 = SizedBox(width: 22);
 
+/// 列表卡 / 分区卡左侧色条宽度。父级必须裁剪圆角，色条本身不要再画圆角。
+const double kOpenHandAccentRailWidth = 4;
+
 const SizedBox kOpenHandHGap4 = SizedBox(width: 4);
 const SizedBox kOpenHandHGap6 = SizedBox(width: 6);
 const SizedBox kOpenHandHGap8 = SizedBox(width: 8);

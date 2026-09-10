@@ -6,17 +6,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
-import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
@@ -227,189 +228,203 @@ class _InstructionCard extends StatelessWidget {
     final hiddenKeywordCount = visibleKeywords.length - keywords.length;
     final trimmedVersion = entry.version.trim();
 
-    return HoverLift(
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return OpenHandAccentCard(
+      accent: entry.enabled ? colorScheme.primary : colorScheme.outlineVariant,
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ReorderableDragStartListener(
+                index: dragIndex,
+                child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    ReorderableDragStartListener(
-                      index: dragIndex,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: 54,
-                            height: 54,
-                            decoration: BoxDecoration(
-                              color: entry.enabled
-                                  ? colorScheme.primaryContainer
-                                  : colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(
-                                kOpenHandRadius18,
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: Icon(
-                              Icons.auto_awesome_motion_outlined,
-                              color: entry.enabled
-                                  ? colorScheme.onPrimaryContainer
-                                  : colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          Positioned(
-                            left: -4,
-                            top: -4,
-                            child: Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHigh,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: colorScheme.surface),
-                              ),
-                              child: Icon(
-                                Icons.drag_indicator_rounded,
-                                size: 15,
-                                color: colorScheme.outline,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: -2,
-                            bottom: -2,
-                            child: Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: entry.enabled
-                                    ? colorScheme.primary
-                                    : colorScheme.outlineVariant,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: colorScheme.surface),
-                              ),
-                            ),
-                          ),
-                        ],
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: entry.enabled
+                            ? colorScheme.primaryContainer
+                            : colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.auto_awesome_motion_outlined,
+                        color: entry.enabled
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    kOpenHandHGap16,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          kOpenHandGap6,
-                          Text(
-                            entry.enabled
-                                ? l10n.instructionEnabledStatus
-                                : l10n.instructionDisabledStatus,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: entry.enabled
-                                  ? colorScheme.primary
-                                  : colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          if (entry.description.trim().isNotEmpty) ...[
-                            kOpenHandGap8,
-                            Text(
-                              entry.description,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ],
+                    Positioned(
+                      left: -4,
+                      top: -4,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHigh,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: colorScheme.surface),
+                        ),
+                        child: Icon(
+                          Icons.drag_indicator_rounded,
+                          size: 15,
+                          color: colorScheme.outline,
+                        ),
                       ),
                     ),
-                    kOpenHandHGap12,
-                    SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: AnimatedPopupMenuButton<_InstructionCardAction>(
-                        onSelected: onActionSelected,
-                        itemBuilder: (context) => [
-                          PopupMenuItem<_InstructionCardAction>(
-                            value: _InstructionCardAction.edit,
-                            child: Text(l10n.commonEdit),
-                          ),
-                          PopupMenuItem<_InstructionCardAction>(
-                            value: _InstructionCardAction.delete,
-                            child: Text(l10n.commonDelete),
-                          ),
-                        ],
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: entry.enabled
+                              ? colorScheme.primary
+                              : colorScheme.outlineVariant,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: colorScheme.surface),
+                        ),
                       ),
                     ),
                   ],
                 ),
-                kOpenHandGap16,
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: <Widget>[
-                      _InstructionToggleChip(
-                        enabled: entry.enabled,
-                        enabledLabel: l10n.instructionEnabledStatus,
-                        disabledLabel: l10n.instructionDisabledStatus,
-                        onPressed: () => onToggle(!entry.enabled),
+              ),
+              kOpenHandHGap16,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    kOpenHandGap6,
+                    Text(
+                      entry.enabled
+                          ? l10n.instructionEnabledStatus
+                          : l10n.instructionDisabledStatus,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: entry.enabled
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
                       ),
-                      if (trimmedVersion.isNotEmpty)
-                        _MetadataChip(
-                          icon: Icons.label_outline_rounded,
-                          label: 'v$trimmedVersion',
+                    ),
+                    if (entry.description.trim().isNotEmpty) ...[
+                      kOpenHandGap8,
+                      Text(
+                        entry.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                      if (entry.applyTo.trim().isNotEmpty)
-                        _MetadataChip(
-                          icon: Icons.account_tree_outlined,
-                          label:
-                              '${l10n.instructionApplyToChipLabel}: ${entry.applyTo}',
-                        ),
-                      if (entry.notes.isNotEmpty)
-                        _MetadataChip(
-                          icon: Icons.notes_outlined,
-                          label:
-                              '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
-                        ),
-                      for (final taskType in taskTypes)
-                        _MetadataChip(
-                          icon: Icons.category_outlined,
-                          label: taskType,
-                        ),
-                      if (hiddenTaskTypeCount > 0)
-                        _MetadataChip(
-                          icon: Icons.more_horiz_rounded,
-                          label: '+$hiddenTaskTypeCount',
-                        ),
-                      for (final keyword in keywords)
-                        _MetadataChip(icon: Icons.tag_rounded, label: keyword),
-                      if (hiddenKeywordCount > 0)
-                        _MetadataChip(
-                          icon: Icons.more_horiz_rounded,
-                          label: '+$hiddenKeywordCount',
-                        ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
+              ),
+              kOpenHandHGap12,
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: AnimatedPopupMenuButton<_InstructionCardAction>(
+                  onSelected: onActionSelected,
+                  itemBuilder: (context) => [
+                    PopupMenuItem<_InstructionCardAction>(
+                      value: _InstructionCardAction.edit,
+                      child: Text(l10n.commonEdit),
+                    ),
+                    PopupMenuItem<_InstructionCardAction>(
+                      value: _InstructionCardAction.delete,
+                      child: Text(l10n.commonDelete),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          kOpenHandGap16,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _InstructionToggleChip(
+                  enabled: entry.enabled,
+                  enabledLabel: l10n.instructionEnabledStatus,
+                  disabledLabel: l10n.instructionDisabledStatus,
+                  onPressed: () => onToggle(!entry.enabled),
+                ),
+                if (trimmedVersion.isNotEmpty)
+                  _MetadataChip(
+                    icon: Icons.label_outline_rounded,
+                    label: l10n.instructionSummaryVersion(trimmedVersion),
+                    background: colorScheme.secondaryContainer,
+                    foreground: colorScheme.onSecondaryContainer,
+                  ),
+                if (entry.applyTo.trim().isNotEmpty)
+                  _MetadataChip(
+                    icon: Icons.account_tree_outlined,
+                    label:
+                        '${l10n.instructionApplyToChipLabel}: ${entry.applyTo}',
+                    background: colorScheme.tertiaryContainer,
+                    foreground: colorScheme.onTertiaryContainer,
+                  ),
+                if (entry.notes.isNotEmpty)
+                  _MetadataChip(
+                    icon: Icons.notes_outlined,
+                    label:
+                        '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
+                    background: OpenHandStatusColors.warning.withValues(
+                      alpha: 0.18,
+                    ),
+                    foreground: OpenHandStatusColors.warning,
+                  ),
+                for (final taskType in taskTypes)
+                  _MetadataChip(
+                    icon: Icons.category_outlined,
+                    label: taskType,
+                    background: colorScheme.primaryContainer,
+                    foreground: colorScheme.onPrimaryContainer,
+                  ),
+                if (hiddenTaskTypeCount > 0)
+                  _MetadataChip(
+                    icon: Icons.more_horiz_rounded,
+                    label: '+$hiddenTaskTypeCount',
+                    background: colorScheme.primaryContainer,
+                    foreground: colorScheme.onPrimaryContainer,
+                  ),
+                for (final keyword in keywords)
+                  _MetadataChip(
+                    icon: Icons.tag_rounded,
+                    label: keyword,
+                    background: OpenHandStatusColors.info.withValues(
+                      alpha: 0.16,
+                    ),
+                    foreground: OpenHandStatusColors.info,
+                  ),
+                if (hiddenKeywordCount > 0)
+                  _MetadataChip(
+                    icon: Icons.more_horiz_rounded,
+                    label: '+$hiddenKeywordCount',
+                    background: OpenHandStatusColors.info.withValues(
+                      alpha: 0.16,
+                    ),
+                    foreground: OpenHandStatusColors.info,
+                  ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -518,78 +533,72 @@ class _InstructionToggleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 340),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(kOpenHandRadius20),
-          onTap: onChanged == null ? null : () => onChanged!(!value),
-          child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion180),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
+        onTap: onChanged == null ? null : () => onChanged!(!value),
+        child: AnimatedContainer(
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: value
+                ? colorScheme.primaryContainer.withValues(alpha: 0.55)
+                : colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(kOpenHandRadius20),
+            border: Border.all(
               color: value
-                  ? colorScheme.primaryContainer.withValues(alpha: 0.55)
-                  : colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(kOpenHandRadius20),
-              border: Border.all(
-                color: value
-                    ? colorScheme.primary.withValues(alpha: 0.36)
-                    : colorScheme.outlineVariant,
+                  ? colorScheme.primary.withValues(alpha: 0.36)
+                  : colorScheme.outlineVariant,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: value ? colorScheme.primary : colorScheme.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  value ? Icons.bolt_rounded : Icons.power_settings_new_rounded,
+                  size: 18,
+                  color: value ? colorScheme.onPrimary : colorScheme.outline,
+                ),
               ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: value ? colorScheme.primary : colorScheme.surface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    value
-                        ? Icons.bolt_rounded
-                        : Icons.power_settings_new_rounded,
-                    size: 18,
-                    color: value ? colorScheme.onPrimary : colorScheme.outline,
-                  ),
-                ),
-                kOpenHandHGap12,
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: value
-                              ? colorScheme.onPrimaryContainer
-                              : colorScheme.onSurface,
-                          fontWeight: FontWeight.w700,
-                        ),
+              kOpenHandHGap12,
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: value
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
                       ),
-                      kOpenHandGap2,
-                      Text(
-                        subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                    ),
+                    kOpenHandGap2,
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                kOpenHandHGap8,
-                _InstructionEnabledSwitch(value: value, onChanged: onChanged),
-              ],
-            ),
+              ),
+              kOpenHandHGap8,
+              _InstructionEnabledSwitch(value: value, onChanged: onChanged),
+            ],
           ),
         ),
       ),
@@ -598,28 +607,37 @@ class _InstructionToggleCard extends StatelessWidget {
 }
 
 class _MetadataChip extends StatelessWidget {
-  const _MetadataChip({required this.icon, required this.label});
+  const _MetadataChip({
+    required this.icon,
+    required this.label,
+    this.background,
+    this.foreground,
+  });
 
   final IconData icon;
   final String label;
+  final Color? background;
+  final Color? foreground;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final fill = background ?? colorScheme.surfaceContainerHighest;
+    final ink = foreground ?? colorScheme.onSurfaceVariant;
     // 与 [_InstructionToggleChip] 保持一致的尺寸/字号/形状/密度/最小宽度，
     // 让卡片底部的胶囊行视觉节奏整齐统一，密集排布时呈现栅格感。
     return Chip(
-      avatar: Icon(icon, size: 18, color: colorScheme.outline),
+      avatar: Icon(icon, size: 18, color: ink),
       label: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: _kInstructionChipMinWidth),
         child: Text(label, textAlign: TextAlign.center),
       ),
-      side: BorderSide(color: colorScheme.outlineVariant),
-      backgroundColor: colorScheme.surfaceContainerHighest,
+      side: BorderSide(color: ink.withValues(alpha: 0.22)),
+      backgroundColor: fill,
       shape: const StadiumBorder(),
       labelStyle: theme.textTheme.labelLarge?.copyWith(
-        color: colorScheme.onSurfaceVariant,
+        color: ink,
         fontWeight: FontWeight.w600,
       ),
       visualDensity: VisualDensity.compact,
@@ -631,6 +649,7 @@ class _MetadataChip extends StatelessWidget {
 /// 指令卡片胶囊的统一最小宽度。让"v1.0"这种短标签也能与"已启用并注入"
 /// 这种长标签形成对齐的栅格感；超过此宽度时按内容自然撑开。
 const double _kInstructionChipMinWidth = 64;
+const double _kInstructionEditorTwoColumnMinWidth = 560;
 
 class _InstructionEditorDialog extends StatefulWidget {
   const _InstructionEditorDialog({required this.controller, this.source});
@@ -692,191 +711,224 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
   Widget build(BuildContext context) {
     final isEdit = widget.source != null;
     final l10n = AppLocalizations.of(context)!;
-    final dialog = buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthWide,
-      safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context, isEdit, l10n),
-              const Divider(height: 24),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextFormField(
-                        controller: _name,
-                        maxLength: UserInstructionEntry.maxNameLength,
+    final colorScheme = Theme.of(context).colorScheme;
+    return OpenHandEditorDialogScaffold(
+      title: isEdit
+          ? l10n.instructionDialogEditTitle
+          : l10n.instructionDialogCreateTitle,
+      subtitle: isEdit
+          ? l10n.instructionEditorEditSubtitle
+          : l10n.instructionEditorCreateSubtitle,
+      icon: isEdit ? Icons.edit_note_rounded : Icons.post_add_rounded,
+      iconColor: colorScheme.primary,
+      busy: _saving,
+      closeEnabled: !_saving,
+      canPop: !_saving,
+      summary: ListenableBuilder(
+        listenable: Listenable.merge(<Listenable>[_name, _version]),
+        builder: (context, _) => _buildSummaryBar(l10n, colorScheme),
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _InstructionToggleCard(
+              value: _enabled,
+              title: l10n.instructionEnabledLabel,
+              subtitle: l10n.instructionEnabledBody,
+              onChanged: _saving ? null : (v) => setState(() => _enabled = v),
+            ),
+            kOpenHandGap14,
+            OpenHandDialogSectionCard(
+              icon: Icons.badge_outlined,
+              accent: colorScheme.primary,
+              title: l10n.instructionSectionBasics,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _name,
+                    enabled: !_saving,
+                    maxLength: UserInstructionEntry.maxNameLength,
+                    decoration: InputDecoration(
+                      labelText: l10n.instructionNameField,
+                      counterText: '',
+                    ),
+                    validator: (v) {
+                      if ((v ?? '').trim().isEmpty) {
+                        return l10n.instructionNameRequired;
+                      }
+                      return null;
+                    },
+                  ),
+                  kOpenHandGap12,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final description = TextFormField(
+                        controller: _description,
+                        enabled: !_saving,
+                        maxLength: UserInstructionEntry.maxDescriptionLength,
                         decoration: InputDecoration(
-                          labelText: l10n.instructionNameField,
+                          labelText: l10n.instructionDescriptionField,
                           counterText: '',
                         ),
-                        validator: (v) {
-                          if ((v ?? '').trim().isEmpty) {
-                            return l10n.instructionNameRequired;
-                          }
-                          return null;
-                        },
-                      ),
-                      kOpenHandGap12,
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final stacked = constraints.maxWidth < 560;
-                          final description = TextFormField(
-                            controller: _description,
-                            maxLength:
-                                UserInstructionEntry.maxDescriptionLength,
-                            decoration: InputDecoration(
-                              labelText: l10n.instructionDescriptionField,
-                              counterText: '',
-                            ),
-                          );
-                          final version = TextFormField(
-                            controller: _version,
-                            decoration: InputDecoration(
-                              labelText: l10n.instructionVersionField,
-                            ),
-                          );
-                          if (stacked) {
-                            return Column(
-                              children: [description, kOpenHandGap12, version],
-                            );
-                          }
-                          return Row(
-                            children: [
-                              Expanded(flex: 2, child: description),
-                              kOpenHandHGap12,
-                              Expanded(child: version),
-                            ],
-                          );
-                        },
-                      ),
-                      kOpenHandGap12,
-                      TextFormField(
-                        controller: _applyTo,
-                        maxLength: UserInstructionEntry.maxApplyToLength,
+                      );
+                      final version = TextFormField(
+                        controller: _version,
+                        enabled: !_saving,
                         decoration: InputDecoration(
-                          labelText: l10n.instructionApplyToField,
-                          counterText: '',
+                          labelText: l10n.instructionVersionField,
                         ),
-                      ),
-                      kOpenHandGap12,
-                      TextFormField(
-                        controller: _taskTypes,
-                        decoration: InputDecoration(
-                          labelText: l10n.instructionTaskTypesField,
-                        ),
-                      ),
-                      kOpenHandGap12,
-                      TextFormField(
-                        controller: _keywords,
-                        decoration: InputDecoration(
-                          labelText: l10n.instructionKeywordsField,
-                        ),
-                      ),
-                      kOpenHandGap12,
-                      TextFormField(
-                        controller: _notes,
-                        minLines: 2,
-                        maxLines: 4,
-                        decoration: InputDecoration(
-                          labelText: l10n.instructionNotesField,
-                        ),
-                      ),
-                      kOpenHandGap12,
-                      TextFormField(
-                        controller: _body,
-                        minLines: 6,
-                        maxLines: 18,
-                        maxLength: UserInstructionEntry.maxBodyLength,
-                        inputFormatters: <TextInputFormatter>[
-                          LengthLimitingTextInputFormatter(
-                            UserInstructionEntry.maxBodyLength,
-                          ),
+                      );
+                      if (constraints.maxWidth <
+                          _kInstructionEditorTwoColumnMinWidth) {
+                        return Column(
+                          children: [description, kOpenHandGap12, version],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(flex: 2, child: description),
+                          kOpenHandHGap12,
+                          Expanded(child: version),
                         ],
-                        decoration: InputDecoration(
-                          labelText: l10n.instructionBodyField,
-                          alignLabelWithHint: true,
-                          counterText: '',
-                        ),
-                        validator: (v) {
-                          if ((v ?? '').trim().isEmpty) {
-                            return l10n.instructionBodyRequired;
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              kOpenHandGap16,
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    label: l10n.commonCancel,
-                  ),
-                  kOpenHandHGap8,
-                  OpenHandDialogActionButton.primary(
-                    onPressed: _saving ? null : _save,
-                    label: isEdit
-                        ? l10n.commonSave
-                        : l10n.instructionCreateAction,
+                      );
+                    },
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            kOpenHandGap14,
+            OpenHandDialogSectionCard(
+              icon: Icons.alt_route_rounded,
+              accent: colorScheme.tertiary,
+              title: l10n.instructionSectionRouting,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _applyTo,
+                    enabled: !_saving,
+                    maxLength: UserInstructionEntry.maxApplyToLength,
+                    decoration: InputDecoration(
+                      labelText: l10n.instructionApplyToField,
+                      counterText: '',
+                    ),
+                  ),
+                  kOpenHandGap12,
+                  TextFormField(
+                    controller: _taskTypes,
+                    enabled: !_saving,
+                    decoration: InputDecoration(
+                      labelText: l10n.instructionTaskTypesField,
+                    ),
+                  ),
+                  kOpenHandGap12,
+                  TextFormField(
+                    controller: _keywords,
+                    enabled: !_saving,
+                    decoration: InputDecoration(
+                      labelText: l10n.instructionKeywordsField,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            kOpenHandGap14,
+            OpenHandDialogSectionCard(
+              icon: Icons.article_outlined,
+              accent: colorScheme.secondary,
+              title: l10n.instructionSectionContent,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _notes,
+                    enabled: !_saving,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: l10n.instructionNotesField,
+                    ),
+                  ),
+                  kOpenHandGap12,
+                  TextFormField(
+                    controller: _body,
+                    enabled: !_saving,
+                    minLines: 6,
+                    maxLines: 18,
+                    maxLength: UserInstructionEntry.maxBodyLength,
+                    inputFormatters: <TextInputFormatter>[
+                      LengthLimitingTextInputFormatter(
+                        UserInstructionEntry.maxBodyLength,
+                      ),
+                    ],
+                    decoration: InputDecoration(
+                      labelText: l10n.instructionBodyField,
+                      alignLabelWithHint: true,
+                      counterText: '',
+                    ),
+                    validator: (v) {
+                      if ((v ?? '').trim().isEmpty) {
+                        return l10n.instructionBodyRequired;
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          label: l10n.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: _saving ? null : _save,
+          busy: _saving,
+          label: isEdit ? l10n.commonSave : l10n.instructionCreateAction,
+        ),
+      ],
     );
-    return PopScope(canPop: !_saving, child: dialog);
   }
 
-  Widget _buildHeader(
-    BuildContext context,
-    bool isEdit,
-    AppLocalizations l10n,
-  ) {
-    final theme = Theme.of(context);
-    final title = Text(
-      isEdit
-          ? l10n.instructionDialogEditTitle
-          : l10n.instructionDialogCreateTitle,
-      style: theme.textTheme.headlineSmall,
-    );
-    final toggle = _InstructionToggleCard(
-      value: _enabled,
-      title: l10n.instructionEnabledLabel,
-      subtitle: l10n.instructionEnabledBody,
-      onChanged: _saving ? null : (v) => setState(() => _enabled = v),
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 620) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [title, kOpenHandGap12, toggle],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: title),
-            kOpenHandHGap16,
-            toggle,
-          ],
-        );
-      },
+  Widget _buildSummaryBar(AppLocalizations l10n, ColorScheme colorScheme) {
+    final name = _name.text.trim();
+    final version = _version.text.trim();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (name.isNotEmpty)
+          OpenHandSummaryChip(
+            icon: Icons.badge_outlined,
+            label: name,
+            foreground: colorScheme.onSecondaryContainer,
+            background: colorScheme.secondaryContainer,
+          ),
+        if (version.isNotEmpty)
+          OpenHandSummaryChip(
+            icon: Icons.label_outline_rounded,
+            label: l10n.instructionSummaryVersion(version),
+            foreground: colorScheme.onTertiaryContainer,
+            background: colorScheme.tertiaryContainer,
+          ),
+        OpenHandSummaryChip(
+          icon: _enabled
+              ? Icons.check_circle_outline_rounded
+              : Icons.pause_circle_outline_rounded,
+          label: _enabled
+              ? l10n.instructionSummaryEnabled
+              : l10n.instructionSummaryDisabled,
+          foreground: _enabled
+              ? colorScheme.onPrimaryContainer
+              : colorScheme.onSurfaceVariant,
+          background: _enabled
+              ? colorScheme.primaryContainer
+              : colorScheme.surfaceContainerHighest,
+        ),
+      ],
     );
   }
 

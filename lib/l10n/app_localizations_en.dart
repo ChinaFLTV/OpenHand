@@ -2777,6 +2777,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get skillsCreateContentRequired => 'Enter the SKILL.md content.';
 
   @override
+  String get skillsEditorCreateSubtitle =>
+      'Set the name, icon, and SKILL.md manifest.';
+
+  @override
+  String get skillsEditorEditSubtitle =>
+      'Adjust the skill identity, icon, and manifest.';
+
+  @override
+  String get skillsSectionBasics => 'Basics';
+
+  @override
+  String get skillsSectionIcon => 'Skill Icon';
+
+  @override
+  String get skillsSectionManifest => 'Manifest';
+
+  @override
   String get imageEditorTitle => 'Edit Image';
 
   @override
@@ -3030,6 +3047,34 @@ class AppLocalizationsEn extends AppLocalizations {
       'Save failed. Check that required fields are not empty.';
 
   @override
+  String get instructionEditorCreateSubtitle =>
+      'Set the name, trigger rules, and instruction body.';
+
+  @override
+  String get instructionEditorEditSubtitle =>
+      'Adjust the body, trigger rules, and injection state.';
+
+  @override
+  String get instructionSectionBasics => 'Basics';
+
+  @override
+  String get instructionSectionRouting => 'Triggers';
+
+  @override
+  String get instructionSectionContent => 'Instruction Body';
+
+  @override
+  String get instructionSummaryEnabled => 'Enabled';
+
+  @override
+  String get instructionSummaryDisabled => 'Disabled';
+
+  @override
+  String instructionSummaryVersion(String version) {
+    return 'v$version';
+  }
+
+  @override
   String get memoryPageTitle => 'Memory';
 
   @override
@@ -3072,6 +3117,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memoryDialogEditTitle => 'Edit User Memory';
+
+  @override
+  String get memoryEditorCreateSubtitle =>
+      'Write what should be remembered, then add optional tags.';
+
+  @override
+  String get memoryEditorEditSubtitle =>
+      'Adjust this memory\'s title, body, and tags.';
+
+  @override
+  String get memorySectionBasics => 'Basics';
+
+  @override
+  String get memorySectionContent => 'Memory Body';
+
+  @override
+  String get memorySectionTags => 'Tags';
+
+  @override
+  String memorySummaryTagCount(int count) {
+    return '$count tags';
+  }
+
+  @override
+  String get memoryAutoLearnedTag => 'Self-learned';
+
+  @override
+  String memoryAutoLearnedLockedHint(String tag) {
+    return '“$tag” marks a self-learned memory and cannot be removed.';
+  }
+
+  @override
+  String memoryAutoLearnedRestrictedHint(String tag) {
+    return '“$tag” is reserved for self-learned memories and cannot be added manually.';
+  }
 
   @override
   String get memoryContentField => 'Memory Content';

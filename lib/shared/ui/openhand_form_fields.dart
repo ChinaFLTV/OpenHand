@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
+import 'animated_dialog.dart';
+import 'hover_lift.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
+import 'oh_pill.dart';
+import 'openhand_dialog_action_button.dart';
+import 'openhand_typography.dart';
 
 /// 隐藏 TextField 的 `maxLength` 计数器。
 ///
@@ -315,6 +320,207 @@ class OpenHandDialogSectionCard extends StatelessWidget {
             ),
             kOpenHandGap14,
             child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 编辑弹窗顶栏摘要胶囊：名称、状态、版本等一眼可扫。
+class OpenHandSummaryChip extends StatelessWidget {
+  const OpenHandSummaryChip({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.foreground,
+    required this.background,
+    this.monospace = false,
+    this.maxWidth = 280,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color foreground;
+  final Color background;
+  final bool monospace;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: kOpenHandPillBorderRadius,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: foreground),
+            kOpenHandHGap6,
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 分区列表卡：左侧色条 + 悬浮上浮。父级 [Card] 裁剪圆角，色条不再单独圆角。
+class OpenHandAccentCard extends StatelessWidget {
+  const OpenHandAccentCard({
+    super.key,
+    required this.accent,
+    required this.child,
+    this.onTap,
+    this.padding = const EdgeInsets.fromLTRB(16, 18, 18, 18),
+    this.elevation,
+    this.shape,
+    this.fillHeight = false,
+  });
+
+  final Color accent;
+  final Widget child;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry padding;
+  final double? elevation;
+  final ShapeBorder? shape;
+
+  /// 网格等高卡片设为 true，让色条拉满给定高度；列表自适应高度保持默认。
+  final bool fillHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ColoredBox(
+          color: accent,
+          child: const SizedBox(width: kOpenHandAccentRailWidth),
+        ),
+        Expanded(
+          child: Padding(padding: padding, child: child),
+        ),
+      ],
+    );
+    return HoverLift(
+      child: Card(
+        elevation: elevation,
+        clipBehavior: Clip.antiAlias,
+        shape: shape,
+        child: InkWell(
+          onTap: onTap,
+          child: fillHeight ? row : IntrinsicHeight(child: row),
+        ),
+      ),
+    );
+  }
+}
+
+/// 编辑弹窗公共骨架：工具头 + 可选摘要 + 滚动分区 + 固定页脚。
+///
+/// 进退场走 [showAnimatedDialog] 的全局弹窗动画；页脚钉住避免长表单挡住保存。
+class OpenHandEditorDialogScaffold extends StatelessWidget {
+  const OpenHandEditorDialogScaffold({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.body,
+    required this.actions,
+    this.subtitle,
+    this.iconColor,
+    this.summary,
+    this.busy = false,
+    this.closeEnabled = true,
+    this.canPop = true,
+    this.maxWidth = kOpenHandDialogWidthWide,
+    this.maxHeight = kOpenHandDialogHeightTall,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+  final Color? iconColor;
+  final Widget? summary;
+  final Widget body;
+  final List<Widget> actions;
+  final bool busy;
+  final bool closeEnabled;
+  final bool canPop;
+  final double maxWidth;
+  final double maxHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PopScope(
+      canPop: canPop,
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: maxWidth,
+        maxHeight: maxHeight,
+        safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            buildOpenHandToolDialogHeader(
+              context: context,
+              icon: icon,
+              iconColor: iconColor ?? colorScheme.primary,
+              title: title,
+              subtitle: subtitle,
+              closeEnabled: closeEnabled,
+            ),
+            if (summary != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: summary,
+              ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                child: body,
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.94),
+                border: Border(
+                  top: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+                  ),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OpenHandDialogBusyBar(busy: busy, topGap: 0),
+                    if (busy) kOpenHandGap10,
+                    buildOpenHandDialogActionsBar(
+                      padding: EdgeInsets.zero,
+                      actions: actions,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

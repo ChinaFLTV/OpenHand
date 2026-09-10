@@ -5,15 +5,16 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
-import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
@@ -364,152 +365,207 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    final title = widget.initialEntry == null
-        ? l10n.memoryDialogCreateTitle
-        : l10n.memoryDialogEditTitle;
-
-    return PopScope(
+    final isEdit = widget.initialEntry != null;
+    return OpenHandEditorDialogScaffold(
+      title: isEdit ? l10n.memoryDialogEditTitle : l10n.memoryDialogCreateTitle,
+      subtitle: isEdit
+          ? l10n.memoryEditorEditSubtitle
+          : l10n.memoryEditorCreateSubtitle,
+      icon: isEdit ? Icons.edit_note_rounded : Icons.psychology_alt_outlined,
+      iconColor: _isAutoLearnedEntry
+          ? colorScheme.tertiary
+          : colorScheme.primary,
+      busy: _isSaving,
+      closeEnabled: !_isSaving,
       canPop: !_isSaving,
-      child: buildOpenHandResponsiveDialogShell(
-        context: context,
-        maxWidth: kOpenHandDialogWidthWide,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.headlineSmall),
-              kOpenHandGap16,
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 标题字段（可选）。AI 自我学习写入与
-                        // 用户编辑都共用此字段；空字符串表示未设置（卡片
-                        // 头部会回退到正文 preview）。
-                        TextFormField(
-                          controller: _titleController,
-                          enabled: !_isSaving,
-                          maxLength: UserMemoryEntry.maxTitleLength,
-                          decoration: InputDecoration(
-                            labelText: l10n.memoryTitleField,
-                            hintText: l10n.memoryTitleHint,
-                            counterText: '',
-                          ),
-                        ),
-                        kOpenHandGap12,
-                        TextFormField(
-                          controller: _contentController,
-                          minLines: 7,
-                          maxLines: 12,
-                          maxLength: UserMemoryEntry.maxContentCharacters,
-                          enabled: !_isSaving,
-                          decoration: InputDecoration(
-                            labelText: l10n.memoryContentField,
-                            alignLabelWithHint: true,
-                          ),
-                          validator: (value) {
-                            if (UserMemoryEntry.normalizeContent(
-                              value ?? '',
-                            ).isEmpty) {
-                              return l10n.memoryContentRequired;
-                            }
-                            return null;
-                          },
-                        ),
-                        kOpenHandGap16,
-                        TextField(
-                          controller: _tagInputController,
-                          focusNode: _tagInputFocusNode,
-                          enabled: !_isSaving,
-                          maxLength: UserMemoryEntry.maxTagCharacters,
-                          textInputAction: TextInputAction.done,
-                          onChanged: _handleTagInputChanged,
-                          onSubmitted: (_) => _addTagsFromInput(),
-                          decoration: InputDecoration(
-                            labelText: l10n.memoryTagsField,
-                            hintText: l10n.memoryTagsHint,
-                            suffixIconConstraints: const BoxConstraints(
-                              minWidth: 56,
-                              minHeight: 40,
-                            ),
-                            suffixIcon: Padding(
-                              padding: const EdgeInsetsDirectional.only(
-                                end: 10,
-                              ),
-                              child: IconButton(
-                                onPressed: _isSaving ? null : _addTagsFromInput,
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  foregroundColor: colorScheme.onSurfaceVariant,
-                                  disabledForegroundColor: colorScheme
-                                      .onSurfaceVariant
-                                      .withValues(alpha: 0.38),
-                                  minimumSize: const Size(36, 36),
-                                  maximumSize: const Size(36, 36),
-                                  padding: EdgeInsets.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                                icon: const Icon(Icons.add_rounded, size: 22),
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (_tags.isNotEmpty) ...[
-                          kOpenHandGap12,
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _tags
-                                .map(
-                                  (tag) => InputChip(
-                                    label: Text(tag),
-                                    // 自主学习标签在自主学习记忆上不可删除：
-                                    // 不渲染 onDeleted 回调即可隐藏 X 手柄。
-                                    onDeleted:
-                                        _isSaving ||
-                                            (_isAutoLearnedEntry &&
-                                                _isAutoLearnedTag(tag))
-                                        ? null
-                                        : () => _removeTag(tag),
-                                  ),
-                                )
-                                .toList(growable: false),
-                          ),
-                        ],
-                        // 防误操作提示：解释为什么 `自主学习` 标签被特殊处理。
-                        kOpenHandGap8,
-                        Text(
-                          _isAutoLearnedEntry
-                              ? '"${UserMemoryEntry.autoLearnedTag}" 是自主学习记忆的固定标识，不可移除。'
-                              : '"${UserMemoryEntry.autoLearnedTag}" 是自主学习专用标签，普通记忆无法手动添加。',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                        OpenHandDialogErrorText(
-                          message: _errorMessage,
-                          topGap: 16,
-                        ),
-                      ],
-                    ),
-                  ),
+      summary: ListenableBuilder(
+        listenable: Listenable.merge(<Listenable>[
+          _titleController,
+          _contentController,
+        ]),
+        builder: (context, _) => _buildSummaryBar(l10n, colorScheme),
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OpenHandDialogSectionCard(
+              icon: Icons.title_rounded,
+              accent: colorScheme.primary,
+              title: l10n.memorySectionBasics,
+              child: TextFormField(
+                controller: _titleController,
+                enabled: !_isSaving,
+                maxLength: UserMemoryEntry.maxTitleLength,
+                decoration: InputDecoration(
+                  labelText: l10n.memoryTitleField,
+                  hintText: l10n.memoryTitleHint,
+                  counterText: '',
                 ),
               ),
-              OpenHandDialogSaveActions(
-                busy: _isSaving,
-                cancelLabel: l10n.commonCancel,
-                confirmLabel: l10n.commonSave,
-                onConfirm: _handleSave,
+            ),
+            kOpenHandGap14,
+            OpenHandDialogSectionCard(
+              icon: Icons.notes_rounded,
+              accent: colorScheme.secondary,
+              title: l10n.memorySectionContent,
+              child: TextFormField(
+                controller: _contentController,
+                minLines: 7,
+                maxLines: 12,
+                maxLength: UserMemoryEntry.maxContentCharacters,
+                enabled: !_isSaving,
+                decoration: InputDecoration(
+                  labelText: l10n.memoryContentField,
+                  alignLabelWithHint: true,
+                ),
+                validator: (value) {
+                  if (UserMemoryEntry.normalizeContent(value ?? '').isEmpty) {
+                    return l10n.memoryContentRequired;
+                  }
+                  return null;
+                },
               ),
-            ],
-          ),
+            ),
+            kOpenHandGap14,
+            OpenHandDialogSectionCard(
+              icon: Icons.sell_outlined,
+              accent: colorScheme.tertiary,
+              title: l10n.memorySectionTags,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: _tagInputController,
+                    focusNode: _tagInputFocusNode,
+                    enabled: !_isSaving,
+                    maxLength: UserMemoryEntry.maxTagCharacters,
+                    textInputAction: TextInputAction.done,
+                    onChanged: _handleTagInputChanged,
+                    onSubmitted: (_) => _addTagsFromInput(),
+                    decoration: InputDecoration(
+                      labelText: l10n.memoryTagsField,
+                      hintText: l10n.memoryTagsHint,
+                      suffixIconConstraints: const BoxConstraints(
+                        minWidth: 56,
+                        minHeight: 40,
+                      ),
+                      suffixIcon: Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 10),
+                        child: IconButton(
+                          onPressed: _isSaving ? null : _addTagsFromInput,
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: colorScheme.onSurfaceVariant,
+                            disabledForegroundColor: colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: 0.38),
+                            minimumSize: const Size(36, 36),
+                            maximumSize: const Size(36, 36),
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 22),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_tags.isNotEmpty) ...[
+                    kOpenHandGap12,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _tags
+                          .map((tag) {
+                            final locked =
+                                _isAutoLearnedEntry && _isAutoLearnedTag(tag);
+                            return InputChip(
+                              avatar: Icon(
+                                locked
+                                    ? Icons.auto_awesome_outlined
+                                    : Icons.sell_outlined,
+                                size: 16,
+                              ),
+                              label: Text(
+                                locked ? l10n.memoryAutoLearnedTag : tag,
+                              ),
+                              onDeleted: _isSaving || locked
+                                  ? null
+                                  : () => _removeTag(tag),
+                            );
+                          })
+                          .toList(growable: false),
+                    ),
+                  ],
+                  kOpenHandGap8,
+                  Text(
+                    _isAutoLearnedEntry
+                        ? l10n.memoryAutoLearnedLockedHint(
+                            UserMemoryEntry.autoLearnedTag,
+                          )
+                        : l10n.memoryAutoLearnedRestrictedHint(
+                            UserMemoryEntry.autoLearnedTag,
+                          ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  OpenHandDialogErrorText(message: _errorMessage, topGap: 16),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          label: l10n.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: _isSaving ? null : _handleSave,
+          busy: _isSaving,
+          label: l10n.commonSave,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryBar(AppLocalizations l10n, ColorScheme colorScheme) {
+    final title = _titleController.text.trim();
+    final preview = UserMemoryEntry.normalizeContent(_contentController.text);
+    final headline = title.isNotEmpty
+        ? title
+        : (preview.isEmpty
+              ? null
+              : preview.split(RegExp(r'\s+')).take(8).join(' '));
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (headline != null && headline.isNotEmpty)
+          OpenHandSummaryChip(
+            icon: Icons.psychology_alt_outlined,
+            label: headline,
+            foreground: colorScheme.onSecondaryContainer,
+            background: colorScheme.secondaryContainer,
+          ),
+        OpenHandSummaryChip(
+          icon: Icons.sell_outlined,
+          label: l10n.memorySummaryTagCount(_tags.length),
+          foreground: colorScheme.onTertiaryContainer,
+          background: colorScheme.tertiaryContainer,
+        ),
+        if (_isAutoLearnedEntry)
+          OpenHandSummaryChip(
+            icon: Icons.auto_awesome_outlined,
+            label: l10n.memoryAutoLearnedTag,
+            foreground: colorScheme.onPrimaryContainer,
+            background: colorScheme.primaryContainer,
+          ),
+      ],
     );
   }
 
@@ -717,138 +773,189 @@ class _MemoryEntryCard extends StatelessWidget {
         .toList(growable: false);
     final hiddenTagCount = displayTags.length - visibleTags.length;
 
-    return HoverLift(
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    final accent = isAutoLearned ? colorScheme.tertiary : colorScheme.primary;
+    final iconFill = isAutoLearned
+        ? colorScheme.tertiaryContainer
+        : colorScheme.primaryContainer;
+    final iconInk = isAutoLearned
+        ? colorScheme.onTertiaryContainer
+        : colorScheme.onPrimaryContainer;
+
+    return OpenHandAccentCard(
+      accent: accent,
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: iconFill,
+                  borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                ),
+                child: SizedBox(
+                  width: 54,
+                  height: 54,
+                  child: Center(
+                    child: Icon(
+                      isAutoLearned
+                          ? Icons.auto_awesome_outlined
+                          : Icons.psychology_alt_outlined,
+                      color: iconInk,
+                    ),
+                  ),
+                ),
+              ),
+              kOpenHandHGap16,
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 54,
-                      height: 54,
+                    // 优先展示 [UserMemoryEntry.title]
+                    // (AI 自我学习生成 / 用户编辑保存)。当 title 为空时
+                    // 退化到 [_shouldShowTitle] 判断 preview 是否值得展示。
+                    if (entry.title.trim().isNotEmpty) ...[
+                      Text(
+                        entry.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      kOpenHandGap6,
+                    ] else if (_shouldShowTitle(entry)) ...[
+                      Text(
+                        entry.preview,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      kOpenHandGap6,
+                    ],
+                    Text(
+                      '${l10n.memoryCreatedAtLabel}: ${_formatCreatedAt(context, entry.createdAt)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    kOpenHandGap10,
+                    DecoratedBox(
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(kOpenHandRadius18),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.psychology_alt_outlined,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    kOpenHandHGap16,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 优先展示 [UserMemoryEntry.title]
-                          // (AI 自我学习生成 / 用户编辑保存)。当 title 为空时
-                          // 退化到 [_shouldShowTitle] 判断 preview 是否值得展示。
-                          if (entry.title.trim().isNotEmpty) ...[
-                            Text(
-                              entry.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleLarge,
-                            ),
-                            kOpenHandGap6,
-                          ] else if (_shouldShowTitle(entry)) ...[
-                            Text(
-                              entry.preview,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleLarge,
-                            ),
-                            kOpenHandGap6,
-                          ],
-                          Text(
-                            '${l10n.memoryCreatedAtLabel}: ${_formatCreatedAt(context, entry.createdAt)}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          kOpenHandGap6,
-                          Text(
-                            entry.content,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                    kOpenHandHGap12,
-                    AnimatedPopupMenuButton<_MemoryCardAction>(
-                      onSelected: onActionSelected,
-                      itemBuilder: (context) {
-                        return [
-                          PopupMenuItem<_MemoryCardAction>(
-                            value: _MemoryCardAction.edit,
-                            child: Text(l10n.commonEdit),
-                          ),
-                          PopupMenuItem<_MemoryCardAction>(
-                            value: _MemoryCardAction.delete,
-                            child: Text(l10n.commonDelete),
-                          ),
-                        ];
-                      },
-                    ),
-                  ],
-                ),
-                kOpenHandGap16,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    // 自主学习标识与普通标签共用一致的尺寸与排列节奏。
-                    if (isAutoLearned)
-                      Chip(
-                        avatar: Icon(
-                          Icons.auto_awesome_outlined,
-                          size: 18,
-                          color: colorScheme.onTertiaryContainer,
+                        color: Color.alphaBlend(
+                          accent.withValues(alpha: 0.08),
+                          colorScheme.surfaceContainerLow,
                         ),
-                        backgroundColor: colorScheme.tertiaryContainer
-                            .withValues(alpha: 0.7),
-                        side: BorderSide.none,
-                        label: Text(
-                          '自主学习',
-                          style: TextStyle(
-                            color: colorScheme.onTertiaryContainer,
-                            fontWeight: FontWeight.w600,
+                        borderRadius: kOpenHandBorderRadius12,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Text(
+                          entry.content,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            height: 1.45,
                           ),
                         ),
                       ),
-                    Chip(
-                      avatar: const Icon(
-                        Icons.person_outline_rounded,
-                        size: 18,
-                      ),
-                      label: Text(l10n.memoryTypeUser),
                     ),
-                    for (final tag in visibleTags)
-                      Chip(
-                        avatar: const Icon(Icons.sell_outlined, size: 18),
-                        label: Text(tag),
-                      ),
-                    if (hiddenTagCount > 0)
-                      Chip(
-                        avatar: const Icon(Icons.more_horiz_rounded, size: 18),
-                        label: Text('+$hiddenTagCount'),
-                      ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              kOpenHandHGap12,
+              AnimatedPopupMenuButton<_MemoryCardAction>(
+                onSelected: onActionSelected,
+                itemBuilder: (context) {
+                  return [
+                    PopupMenuItem<_MemoryCardAction>(
+                      value: _MemoryCardAction.edit,
+                      child: Text(l10n.commonEdit),
+                    ),
+                    PopupMenuItem<_MemoryCardAction>(
+                      value: _MemoryCardAction.delete,
+                      child: Text(l10n.commonDelete),
+                    ),
+                  ];
+                },
+              ),
+            ],
           ),
-        ),
+          kOpenHandGap16,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (isAutoLearned)
+                Chip(
+                  avatar: Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 18,
+                    color: colorScheme.onTertiaryContainer,
+                  ),
+                  backgroundColor: colorScheme.tertiaryContainer,
+                  side: BorderSide(
+                    color: colorScheme.tertiary.withValues(alpha: 0.28),
+                  ),
+                  label: Text(
+                    l10n.memoryAutoLearnedTag,
+                    style: TextStyle(
+                      color: colorScheme.onTertiaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              Chip(
+                avatar: Icon(
+                  Icons.person_outline_rounded,
+                  size: 18,
+                  color: colorScheme.onSecondaryContainer,
+                ),
+                backgroundColor: colorScheme.secondaryContainer,
+                side: BorderSide(
+                  color: colorScheme.secondary.withValues(alpha: 0.24),
+                ),
+                label: Text(
+                  l10n.memoryTypeUser,
+                  style: TextStyle(
+                    color: colorScheme.onSecondaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              for (final tag in visibleTags)
+                Chip(
+                  avatar: const Icon(
+                    Icons.sell_outlined,
+                    size: 18,
+                    color: OpenHandStatusColors.info,
+                  ),
+                  backgroundColor: OpenHandStatusColors.info.withValues(
+                    alpha: 0.14,
+                  ),
+                  side: BorderSide(
+                    color: OpenHandStatusColors.info.withValues(alpha: 0.22),
+                  ),
+                  label: Text(
+                    tag,
+                    style: const TextStyle(
+                      color: OpenHandStatusColors.info,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              if (hiddenTagCount > 0)
+                Chip(
+                  avatar: Icon(
+                    Icons.more_horiz_rounded,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  label: Text('+$hiddenTagCount'),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
