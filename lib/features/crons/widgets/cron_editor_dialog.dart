@@ -19,7 +19,6 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
-import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_normalization.dart';
@@ -233,10 +232,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       busy: _saving,
       closeEnabled: !_saving,
       canPop: !_saving,
-      summary: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: _nameController,
-        builder: (context, value, _) => _buildSummaryBar(value.text),
-      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -266,59 +261,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           label: l10n.commonSave,
           busy: _saving,
           onPressed: _saving ? null : _save,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryBar(String rawName) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final name = rawName.trim();
-    final expression = _cronExpression;
-    final valid = _cronError == null && CronParser.isValid(expression);
-    final nextRun = valid ? CronParser.nextRun(expression) : null;
-    final nextLabel = !valid
-        ? l10n.cronsNextRunUnknown
-        : nextRun == null
-        ? l10n.cronsNextRunUnknown
-        : l10n.cronsNextRunAt(formatYearMonthDayHmLocal(nextRun));
-    final typeIcon = _scriptType == CronScriptType.script
-        ? Icons.description_outlined
-        : Icons.terminal_rounded;
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        if (name.isNotEmpty)
-          OpenHandSummaryChip(
-            icon: Icons.badge_outlined,
-            label: name,
-            foreground: colorScheme.onSecondaryContainer,
-            background: colorScheme.secondaryContainer,
-          ),
-        OpenHandSummaryChip(
-          icon: typeIcon,
-          label: _scriptType.label(l10n),
-          foreground: colorScheme.onPrimaryContainer,
-          background: colorScheme.primaryContainer,
-        ),
-        OpenHandSummaryChip(
-          icon: Icons.schedule_rounded,
-          label: '${l10n.cronsExpressionPreview} $expression',
-          foreground: colorScheme.onTertiaryContainer,
-          background: colorScheme.tertiaryContainer,
-          monospace: true,
-        ),
-        OpenHandSummaryChip(
-          icon: valid ? Icons.upcoming_outlined : Icons.error_outline_rounded,
-          label: nextLabel,
-          foreground: valid
-              ? colorScheme.onPrimaryContainer
-              : colorScheme.onErrorContainer,
-          background: valid
-              ? OpenHandStatusColors.info.withValues(alpha: 0.18)
-              : colorScheme.errorContainer,
         ),
       ],
     );

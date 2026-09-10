@@ -48,6 +48,7 @@ const double kOpenHandToolDialogRadius = 20;
 const double kOpenHandToolDialogDefaultMaxWidth = 900;
 const double kOpenHandToolDialogDefaultMaxHeight = 720;
 const double kOpenHandToolDialogHeaderCompactBreakpoint = 520;
+const double kOpenHandToolDialogHeaderActionSpacing = 8;
 const double kOpenHandModalSheetMaxWidth = 980;
 const double kOpenHandModalSheetDragHandleWidth = 36;
 const double kOpenHandModalSheetDragHandleHeight = 4;
@@ -1527,6 +1528,14 @@ Widget buildOpenHandToolDialogHeader({
     ...actions,
     if (closeButton != null) closeButton,
   ];
+  final actionBar = actionWidgets.isEmpty
+      ? null
+      : Wrap(
+          alignment: WrapAlignment.end,
+          spacing: kOpenHandToolDialogHeaderActionSpacing,
+          runSpacing: kOpenHandToolDialogHeaderActionSpacing,
+          children: actionWidgets,
+        );
   final titleBlock = Expanded(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1571,20 +1580,14 @@ Widget buildOpenHandToolDialogHeader({
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(children: leading),
-              kOpenHandGap8,
-              Align(
-                alignment: Alignment.centerRight,
-                child: Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: actionWidgets,
-                ),
-              ),
+              if (actionBar != null) ...[
+                kOpenHandGap8,
+                Align(alignment: Alignment.centerRight, child: actionBar),
+              ],
             ],
           );
         }
-        return Row(children: [...leading, ...actionWidgets]);
+        return Row(children: [...leading, if (actionBar != null) actionBar]);
       },
     ),
   );
