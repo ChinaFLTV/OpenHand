@@ -61,13 +61,9 @@ Future<McpNodePackageResolution?> resolveInstalledMcpNodePackage(
           configuredNvmRoot != null && p.isAbsolute(configuredNvmRoot)
           ? p.normalize(configuredNvmRoot)
           : p.join(home, '.nvm');
-      final nvmVersions = await _runtimeDirectories(
+      final nvmVersions = await _runtimeDirectoriesNewestFirst(
         Directory(p.join(nvmDir, 'versions', 'node')),
         budget,
-      );
-      nvmVersions.sort(
-        (a, b) =>
-            compareSemanticVersions(p.basename(b.path), p.basename(a.path)),
       );
       for (final version in nvmVersions.take(maxRuntimeCandidates)) {
         final resolution = await _resolvePackageCandidate(
@@ -103,13 +99,9 @@ Future<McpNodePackageResolution?> resolveInstalledMcpNodePackage(
         p.join(home, '.local', 'share', 'fnm', 'node-versions'),
       };
       for (final fnmRoot in fnmRoots) {
-        final fnmVersions = await _runtimeDirectories(
+        final fnmVersions = await _runtimeDirectoriesNewestFirst(
           Directory(fnmRoot),
           budget,
-        );
-        fnmVersions.sort(
-          (a, b) =>
-              compareSemanticVersions(p.basename(b.path), p.basename(a.path)),
         );
         for (final version in fnmVersions.take(maxRuntimeCandidates)) {
           final installation = p.join(version.path, 'installation');
@@ -151,6 +143,8 @@ Future<McpNodePackageResolution?> resolveInstalledMcpNodePackage(
     return null;
   } on TimeoutException {
     return null;
+  } finally {
+    budget.stop();
   }
 }
 
@@ -210,7 +204,7 @@ Future<McpNodePackageResolution?> resolveMcpNodePackageCandidate({
   );
 }
 
-Future<List<Directory>> _runtimeDirectories(
+Future<List<Directory>> _runtimeDirectoriesNewestFirst(
   Directory root,
   _McpNodeResolverBudget budget,
 ) async {
@@ -228,7 +222,12 @@ Future<List<Directory>> _runtimeDirectories(
       idleTimeout: budget.nextTimeout(),
       totalTimeout: budget.remaining,
     );
-    return listing.entries.whereType<Directory>().toList(growable: false);
+    final directories = listing.entries.whereType<Directory>().toList()
+      ..sort(
+        (a, b) =>
+            compareSemanticVersions(p.basename(b.path), p.basename(a.path)),
+      );
+    return List<Directory>.unmodifiable(directories);
   } on FileSystemException {
     return const <Directory>[];
   } on TimeoutException {
@@ -290,4 +289,6 @@ final class _McpNodeResolverBudget {
   Duration get remaining => _deadline.remaining();
 
   Duration nextTimeout() => _deadline.limit(_mcpNodeResolverIdleTimeout);
+
+  void stop() => _deadline.stop();
 }
