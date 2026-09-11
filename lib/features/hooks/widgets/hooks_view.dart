@@ -200,6 +200,9 @@ class _EmptyState extends StatelessWidget {
 
 enum _HookCardAction { edit, delete }
 
+const double _kHookCardIdentityExtent = 48;
+const int _kHookScriptPreviewMaxLines = 3;
+
 class _HookEntryCard extends StatelessWidget {
   const _HookEntryCard({
     required this.entry,
@@ -215,7 +218,8 @@ class _HookEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final accent = _hookEventAccent(entry.event, colorScheme);
     final enabled = entry.enabled;
@@ -223,8 +227,10 @@ class _HookEntryCard extends StatelessWidget {
         ? OpenHandStatusColors.success
         : colorScheme.outline;
     final scriptPath = entry.scriptPath?.trim() ?? '';
+    final inline = entry.scriptContent?.trim() ?? '';
     final hasFile = scriptPath.isNotEmpty;
-    final hasInline = entry.scriptContent?.trim().isNotEmpty == true;
+    final hasInline = inline.isNotEmpty;
+    final lineCount = hasInline ? inline.split('\n').length : 0;
     final scriptLabel = hasFile
         ? _hookScriptFileName(scriptPath)
         : hasInline
@@ -240,13 +246,39 @@ class _HookEntryCard extends StatelessWidget {
         : hasInline
         ? Icons.terminal_rounded
         : Icons.warning_amber_rounded;
+    final description = hasFile
+        ? scriptPath
+        : hasInline
+        ? openHandLocalizedText(
+            context,
+            zh: '内联脚本 · $lineCount 行',
+            en: 'Inline script · $lineCount lines',
+          )
+        : l10n.hooksNoScriptConfigured;
+    final preview = hasFile
+        ? scriptPath
+        : hasInline
+        ? inline
+        : '';
+    final lineCountLabel = hasInline ? '$lineCount' : '—';
 
     return OpenHandFeatureListCard(
       onTap: onEdit,
       identity: OpenHandListIdentity(
         title: entry.label,
-        description: _scriptDescription(l10n),
+        description: description,
         descriptionMaxLines: 2,
+        leading: ClipRRect(
+          borderRadius: kOpenHandBorderRadius16,
+          child: ColoredBox(
+            color: accent.withValues(alpha: 0.16),
+            child: SizedBox(
+              width: _kHookCardIdentityExtent,
+              height: _kHookCardIdentityExtent,
+              child: Icon(_hookEventIcon(entry.event), color: accent, size: 24),
+            ),
+          ),
+        ),
       ),
       actions: [
         Switch(value: enabled, onChanged: onToggle),
@@ -306,7 +338,33 @@ class _HookEntryCard extends StatelessWidget {
           label: scriptLabel,
           color: scriptColor,
         ),
+        if (hasInline)
+          OpenHandFactChip(
+            icon: Icons.format_list_numbered_rounded,
+            label: openHandLocalizedText(
+              context,
+              zh: '$lineCount 行',
+              en: '$lineCount lines',
+            ),
+            color: OpenHandStatusColors.info,
+          ),
       ],
+      footer: preview.isEmpty
+          ? null
+          : OpenHandTintedPanel(
+              accent: scriptColor,
+              icon: scriptIcon,
+              title: scriptLabel,
+              child: Text(
+                preview,
+                maxLines: _kHookScriptPreviewMaxLines,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  height: 1.45,
+                ),
+              ),
+            ),
       metrics: [
         (
           label: l10n.listCardMetricStatus,
@@ -326,23 +384,12 @@ class _HookEntryCard extends StatelessWidget {
           accent: colorScheme.primary,
         ),
         (
-          label: l10n.hooksScriptSource,
-          value: scriptLabel,
-          accent: scriptColor,
+          label: openHandLocalizedText(context, zh: '脚本行数', en: 'Lines'),
+          value: lineCountLabel,
+          accent: OpenHandStatusColors.info,
         ),
       ],
     );
-  }
-
-  String _scriptDescription(AppLocalizations l10n) {
-    final scriptPath = entry.scriptPath?.trim() ?? '';
-    if (scriptPath.isNotEmpty) return scriptPath;
-    final inline = entry.scriptContent?.trim() ?? '';
-    if (inline.isNotEmpty) {
-      final firstLine = inline.split('\n').first.trim();
-      return l10n.hooksInlineScriptDescription(firstLine);
-    }
-    return l10n.hooksNoScriptConfigured;
   }
 }
 
