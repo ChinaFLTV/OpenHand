@@ -3052,9 +3052,7 @@ $schema''';
       final decoded = tryDecodeJsonValue(candidate);
       final decodedValue = decoded.value;
       if (decoded.success && decodedValue is Map) {
-        return <String, Object?>{
-          for (final entry in decodedValue.entries) '${entry.key}': entry.value,
-        };
+        return growableStringKeyedMapFromValue(decodedValue);
       }
     }
     return null;
@@ -3162,9 +3160,7 @@ $schema''';
   static Map<String, Object?> _objectValue(Object? value) {
     final decoded = value is String ? tryDecodeJson(value) : value;
     if (decoded is! Map) throw const FormatException();
-    return <String, Object?>{
-      for (final entry in decoded.entries) '${entry.key}': entry.value,
-    };
+    return growableStringKeyedMapFromValue(decoded);
   }
 
   static List<Object?> _arrayValue(Object? value) {
@@ -3288,9 +3284,7 @@ Map<String, Object?> _decodeToolArguments(String raw, String toolName) {
   if (!decoded.success || decodedValue is! Map) {
     throw WorkflowNodeExecutionException('工具 $toolName 的参数不是有效 JSON 对象。');
   }
-  return <String, Object?>{
-    for (final entry in decodedValue.entries) '${entry.key}': entry.value,
-  };
+  return growableStringKeyedMapFromValue(decodedValue);
 }
 
 String _boundedToolOutput(String value) {

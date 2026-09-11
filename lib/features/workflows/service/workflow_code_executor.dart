@@ -7,6 +7,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../model/workflow_definition.dart';
 
@@ -237,9 +238,9 @@ class WorkflowCodeExecutor {
         throw const WorkflowCodeExecutionException('main 函数必须返回 JSON 对象。');
       }
       return WorkflowCodeExecutionResult(
-        output: Map<String, Object?>.unmodifiable(<String, Object?>{
-          for (final entry in value.entries) '${entry.key}': entry.value,
-        }),
+        output: Map<String, Object?>.unmodifiable(
+          stringKeyedMapFromValue(value),
+        ),
         stdout: stdout,
         stderr: stderr,
         duration: stopwatch.elapsed,
@@ -300,15 +301,12 @@ class WorkflowCodeExecutor {
   };
 
   Map<String, Object?> _decodePayload(String raw) {
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) {
-        return <String, Object?>{
-          for (final entry in decoded.entries) '${entry.key}': entry.value,
-        };
-      }
-    } on FormatException {
-      // 下方统一返回面向用户的错误。
+    final decoded = tryDecodeJsonValue(
+      raw,
+      maxTextCodeUnits: maxWorkflowCodeOutputBytes,
+    );
+    if (decoded.success && decoded.value is Map) {
+      return growableStringKeyedMapFromValue(decoded.value);
     }
     throw const WorkflowCodeExecutionException('代码返回结果不是有效 JSON。');
   }
