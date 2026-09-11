@@ -7,7 +7,6 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
-import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
@@ -18,7 +17,6 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/platform_shell.dart';
-import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/version_compare.dart';
 
 enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
@@ -32,6 +30,8 @@ const BoundedJsonConversionConfig _localAuthStateJsonConfig =
     );
 const String _kDiagBeginMarker = '__OPENHAND_DIAG_BEGIN__';
 const String _kDiagEndMarker = '__OPENHAND_DIAG_END__';
+const String _kCliLookupBeginMarker = '__OPENHAND_CLI_LOOKUP_BEGIN__';
+const String _kCliLookupEndMarker = '__OPENHAND_CLI_LOOKUP_END__';
 const BoundedDeletePolicy _localAuthStateDeletePolicy = BoundedDeletePolicy(
   maxEntries: 1,
   maxDepth: 0,
@@ -44,6 +44,7 @@ const Duration _kHarnessCliProbeTimeout = Duration(seconds: 10);
 
 /// 登录 shell 内的 which / 环境诊断，只读不初始化。
 const Duration _kHarnessCliLookupTimeout = Duration(seconds: 5);
+const Duration _kHarnessCliFallbackLookupTimeout = Duration(seconds: 2);
 const Duration _kHarnessCliProcessStartTimeout = Duration(seconds: 10);
 const int _harnessCliProbeConcurrency = 4;
 
@@ -477,13 +478,30 @@ List<String> suggestedHarnessCliModels(HarnessCli cli, {int max = 3}) {
   return cli.knownModels.take(max).toList(growable: false);
 }
 
-/// 有界并发扫描 CLI；已安装的无头 CLI 优先，未安装项置后。
+/// 批量扫描 CLI；已安装的无头 CLI 优先，未安装项置后。
+/// POSIX 只启动一次登录 Shell，Windows 使用有界并发的 `where.exe`。
 Future<List<CliScanEntry>> scanInstalledClis() async {
-  final results = await runOrderedWithConcurrencyLimit<CliScanEntry>(
-    itemCount: kHarnessCliCatalog.length,
-    maxConcurrency: _harnessCliProbeConcurrency,
-    task: (index) => probeCliInstallation(kHarnessCliCatalog[index]),
-  );
+  final List<CliScanEntry> results;
+  if (Platform.isWindows) {
+    results = await runOrderedWithConcurrencyLimit<CliScanEntry>(
+      itemCount: kHarnessCliCatalog.length,
+      maxConcurrency: _harnessCliProbeConcurrency,
+      task: (index) => probeCliInstallation(kHarnessCliCatalog[index]),
+    );
+  } else {
+    final resolvedPaths = await _resolvePosixCliPaths(
+      kHarnessCliCatalog.map((cli) => cli.executable),
+    );
+    results = <CliScanEntry>[
+      for (final cli in kHarnessCliCatalog)
+        (
+          cli: cli,
+          installed: resolvedPaths.containsKey(cli.executable),
+          resolvedPath: resolvedPaths[cli.executable],
+          isLoggedIn: null,
+        ),
+    ];
+  }
   final installedHeadless = results
       .where((r) => r.installed && r.cli.supportsHeadless)
       .toList();
@@ -502,30 +520,17 @@ Future<List<bool?>> probeCliAuthBatch(List<CliScanEntry> entries) {
   );
 }
 
-/// 在与编排器一致的登录 Shell 环境中探测 CLI。
+/// 只解析 CLI 路径，不执行第三方 CLI，避免探测触发初始化、联网或交互阻塞。
 Future<CliScanEntry> probeCliInstallation(HarnessCli cli) async {
-  final whichResult = await _tryLoginShellWhich(cli.executable);
-  if (whichResult != null) {
-    return (
-      cli: cli,
-      installed: true,
-      resolvedPath: whichResult,
-      isLoggedIn: null,
-    );
-  }
-
-  final execResult = await _tryLoginShellExec(cli.executable);
-  if (execResult != null) {
-    return (
-      cli: cli,
-      installed: true,
-      resolvedPath: execResult,
-      isLoggedIn: null,
-    );
-  }
-
-  // 只以登录 Shell 可执行性为准，避免把同名系统程序误判为目标 CLI。
-  return (cli: cli, installed: false, resolvedPath: null, isLoggedIn: null);
+  final resolvedPath = Platform.isWindows
+      ? await _tryWindowsCliPath(cli.executable)
+      : (await _resolvePosixCliPaths(<String>[cli.executable]))[cli.executable];
+  return (
+    cli: cli,
+    installed: resolvedPath != null,
+    resolvedPath: resolvedPath,
+    isLoggedIn: null,
+  );
 }
 
 /// 返回 CLI 登录状态；空值表示无法判断。
@@ -753,7 +758,7 @@ List<String> buildHarnessCliShellArgs(
 
 Future<ProcessResult> runHarnessCliShellCommand(
   String command, {
-  Duration timeout = const Duration(seconds: 7),
+  required Duration timeout,
 }) async {
   // 统一使用有界进程封装，超时或启动失败时维持 TimeoutException 契约。
   final result = await runProcessWithTimeout(
@@ -763,10 +768,7 @@ Future<ProcessResult> runHarnessCliShellCommand(
     tag: 'harness_cli_catalog',
   );
   if (result == null) {
-    throw TimeoutException(
-      'Harness CLI shell command timed out or failed to start.',
-      timeout,
-    );
+    throw TimeoutException('Harness CLI Shell 命令执行超时或无法启动。', timeout);
   }
   return result;
 }
@@ -880,62 +882,99 @@ String stripHarnessCliTerminalSequences(String text) {
   return text.replaceAll(_terminalEscapePattern, '');
 }
 
-Future<String?> _tryLoginShellWhich(String executable) async {
-  if (Platform.isWindows) {
-    final r = await runProcessWithTimeout(
-      'where',
-      <String>[executable],
-      timeout: _kHarnessCliLookupTimeout,
-      tag: 'harness_cli_catalog',
-    );
-    if (r != null && r.exitCode == 0) {
-      final p = (r.stdout as String).trim().split('\n').first.trim();
-      return p.isNotEmpty ? p : null;
-    }
-    return null;
-  }
-  try {
-    final quoted = _q(executable);
-    final r = await runHarnessCliShellCommand('command -v $quoted');
-    if (r.exitCode == 0) {
-      final p = lastNonEmptyLine('${r.stdout}');
-      return p.isNotEmpty ? p : null;
-    }
-  } catch (error, stack) {
-    silentLog('harness_cli_catalog', '探测 POSIX 命令路径', error, stack);
+Future<String?> _tryWindowsCliPath(String executable) async {
+  final r = await runProcessWithTimeout(
+    'where.exe',
+    <String>[executable],
+    timeout: _kHarnessCliLookupTimeout,
+    tag: 'harness_cli_catalog',
+  );
+  if (r == null || r.exitCode != 0) return null;
+  for (final line in const LineSplitter().convert('${r.stdout}')) {
+    final path = line.trim();
+    if (path.isNotEmpty && p.isAbsolute(path)) return p.normalize(path);
   }
   return null;
 }
 
-Future<String?> _tryLoginShellExec(String executable) async {
-  if (Platform.isWindows) {
-    final r = await runProcessWithTimeout(
-      executable,
-      const <String>['--version'],
-      timeout: _kHarnessCliLookupTimeout,
-      runInShell: true,
+Future<Map<String, String>> _resolvePosixCliPaths(
+  Iterable<String> executables,
+) async {
+  final candidates = <String>[];
+  final seen = <String>{};
+  for (final executable in executables) {
+    final normalized = executable.trim();
+    if (normalized.isEmpty ||
+        normalized.contains('\u0000') ||
+        !seen.add(normalized)) {
+      continue;
+    }
+    candidates.add(normalized);
+  }
+  if (candidates.isEmpty) return const <String, String>{};
+
+  final command =
+      '''
+printf '\\0%s\\0' ${_q(_kCliLookupBeginMarker)}
+for candidate in ${candidates.map(_q).join(' ')}; do
+  resolved="\$(command -v "\$candidate" 2>/dev/null)" || continue
+  case "\$resolved" in
+    /*)
+      if [ -x "\$resolved" ] && [ ! -d "\$resolved" ]; then
+        printf '%s\\0%s\\0' "\$candidate" "\$resolved"
+      fi
+      ;;
+  esac
+done
+printf '%s\\0' ${_q(_kCliLookupEndMarker)}
+''';
+  Future<Map<String, String>> resolveFromCurrentEnvironment() async {
+    final result = await runProcessWithTimeout(
+      defaultPosixShellExecutable,
+      <String>['-c', command],
+      timeout: _kHarnessCliFallbackLookupTimeout,
       tag: 'harness_cli_catalog',
     );
-    if (r != null && r.exitCode == 0) return executable;
-    return null;
-  }
-  try {
-    final quoted = _q(executable);
-    final r = await runHarnessCliShellCommand('$quoted --version');
-    // 部分工具执行 --version 时以 1 退出，但仍会输出有效版本信息。
-    if (r.exitCode == 0 || r.exitCode == 1) {
-      final out = '${r.stdout}${r.stderr}';
-      if (out.isNotEmpty) return executable;
+    if (result == null || result.exitCode != 0) {
+      return const <String, String>{};
     }
-  } catch (error, stack) {
-    silentLog(
-      'harness_cli_catalog',
-      '探测 POSIX CLI 版本：$executable',
-      error,
-      stack,
-    );
+    return _extractPosixCliPaths('${result.stdout}', seen);
   }
-  return null;
+
+  try {
+    final result = await runHarnessCliShellCommand(
+      command,
+      timeout: _kHarnessCliLookupTimeout,
+    );
+    if (result.exitCode != 0) return await resolveFromCurrentEnvironment();
+    return _extractPosixCliPaths('${result.stdout}', seen);
+  } on TimeoutException {
+    // Shell 初始化超时属于环境探测失败，不应为每个未安装 CLI 输出异常堆栈。
+    return resolveFromCurrentEnvironment();
+  }
+}
+
+Map<String, String> _extractPosixCliPaths(
+  String stdout,
+  Set<String> candidates,
+) {
+  final resolvedPaths = <String, String>{};
+  final fields = stdout.split('\u0000');
+  final begin = fields.indexOf(_kCliLookupBeginMarker);
+  if (begin < 0) return const <String, String>{};
+  for (var index = begin + 1; index < fields.length; index += 2) {
+    final executable = fields[index];
+    if (executable == _kCliLookupEndMarker) break;
+    if (index + 1 >= fields.length) break;
+    final path = fields[index + 1];
+    if (!candidates.contains(executable) ||
+        path.isEmpty ||
+        !p.isAbsolute(path)) {
+      continue;
+    }
+    resolvedPaths.putIfAbsent(executable, () => p.normalize(path));
+  }
+  return Map<String, String>.unmodifiable(resolvedPaths);
 }
 
 /// 移除终端输出中的 CSI、OSC 与双字节 ANSI/VT 转义序列。
