@@ -2373,6 +2373,12 @@ String _diagnoseStdioStderr(String stderr) {
       lower.contains(r'\.npm\') ||
       lower.contains('_cacache') ||
       lower.contains('_npx');
+  if ((lower.contains('err_dlopen_failed') || lower.contains('dlopen(')) &&
+      lower.contains('incompatible architecture')) {
+    return '【诊断 / Diagnosis】 Node 与 npm 缓存中的原生依赖架构不一致。\n'
+        '【建议 / Try】重新启动该服务；OpenHand 会按 Node 平台、架构和 ABI '
+        '使用独立缓存。若仍失败，请在 MCP 依赖管理中清理隔离缓存后重试。';
+  }
   if ((hitsEacces || hitsEexist || hitsEnotempty) && hitsNpmCache) {
     return '【诊断 / Diagnosis】 npm 缓存目录权限或文件状态异常 —— 可能曾经用 '
         '`sudo npm` 安装过包，留下属主为 root 的缓存文件。\n'

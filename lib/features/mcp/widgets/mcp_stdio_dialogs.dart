@@ -24,8 +24,8 @@ import '../../../shared/util/timer_safety.dart';
 import '../mcp_errors.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_io_utils.dart';
+import '../service/mcp_stdio_launch_resolver.dart';
 import '../service/mcp_stdio_process_manager.dart';
-import '../service/mcp_tool_discovery_service.dart';
 
 /// 包管理器的列举 / 查版本命令，可能要读本地安装树或访问 registry。
 const Duration _kPackageQueryTimeout = Duration(seconds: 10);
@@ -969,14 +969,15 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog>
       // 同时预热隔离缓存
       appendConsoleLine('');
       appendConsoleLine(l10n.mcpStdioDialogWarmCache(_ts()));
-      final cacheRoot = mcpStdioIsolatedCacheRoot();
       try {
+        final launch = await resolveMcpStdioLaunch(widget.server);
         await runTrackedProcessOrFailed(
           'npm',
           ['cache', 'add', cleanPkg],
           environment: <String, String>{
             ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
-            'npm_config_cache': '$cacheRoot/npm',
+            ...launch.environment,
+            ...widget.server.environment,
           },
           timeout: const Duration(seconds: 30),
           tag: 'mcp_stdio.npm_cache_add',
