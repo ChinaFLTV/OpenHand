@@ -9,6 +9,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
@@ -626,6 +627,12 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               );
       });
     } catch (error, stackTrace) {
+      if (isHttpRequestAborted(error)) {
+        if (mounted && token == _searchToken) {
+          setState(() => _isSearching = false);
+        }
+        return;
+      }
       silentLog('skill_market_dialog', '搜索技能', error, stackTrace);
       if (!mounted || token != _searchToken) {
         return;
@@ -745,6 +752,12 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       );
       _installSuccessSignal.value++;
     } catch (error, stackTrace) {
+      if (isHttpRequestAborted(error)) {
+        if (mounted) {
+          setState(() => _isInstalling = false);
+        }
+        return;
+      }
       silentLog('skill_market_dialog', '安装技能 ${skill.slug}', error, stackTrace);
       if (!mounted) {
         return;

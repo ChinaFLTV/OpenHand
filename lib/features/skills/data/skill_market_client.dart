@@ -245,6 +245,7 @@ class SkillMarketClient {
     final versionsFuture = fetchSkillVersions(slug).then(
       (result) => result.versions,
       onError: (Object error, StackTrace stackTrace) {
+        _rethrowIfCancelled(error, stackTrace);
         silentLog('skill_market_client', '获取技能版本 $slug', error, stackTrace);
         return const <SkillMarketVersion>[];
       },
@@ -254,6 +255,7 @@ class SkillMarketClient {
         : fetchSkillFiles(slug, resolvedVersion).then<SkillMarketFilesResult?>(
             (result) => result,
             onError: (Object error, StackTrace stackTrace) {
+              _rethrowIfCancelled(error, stackTrace);
               silentLog(
                 'skill_market_client',
                 '获取技能文件 $slug',
@@ -418,6 +420,7 @@ class SkillMarketClient {
         version: version,
       );
     } catch (error, stackTrace) {
+      _rethrowIfCancelled(error, stackTrace);
       silentLog('skill_market_client', '获取 SKILL.md $slug', error, stackTrace);
       return null;
     }
@@ -505,6 +508,7 @@ class SkillMarketClient {
         totalTimeout: _discardTotalTimeout,
       );
     } catch (error, stack) {
+      if (_isExpectedCancellation(error)) return;
       silentLog('skill_market_client', reason, error, stack);
     }
   }
@@ -521,6 +525,17 @@ class SkillMarketClient {
     _filesCache.clear();
     _fileContentCache.clear();
     _bundleCache.clear();
+  }
+
+  bool _isExpectedCancellation(Object error) {
+    if (isHttpRequestAborted(error)) return true;
+    return error is StateError && error.message.contains('已关闭');
+  }
+
+  void _rethrowIfCancelled(Object error, StackTrace stackTrace) {
+    if (_isExpectedCancellation(error)) {
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   Future<T> _cached<T>(

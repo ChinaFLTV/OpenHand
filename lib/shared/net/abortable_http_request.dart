@@ -6,6 +6,14 @@ import '../util/argument_guards.dart';
 import '../util/async_concurrency.dart';
 import 'network_limits.dart';
 
+/// 外部取消或 [http.AbortableRequest.abortTrigger] 中止请求。
+bool isHttpRequestAborted(Object error) {
+  if (error is http.RequestAbortedException) return true;
+  if (error is! http.ClientException) return false;
+  final message = error.message.toLowerCase();
+  return message.contains('aborted') && message.contains('aborttrigger');
+}
+
 /// 将普通 package:http 请求作为 [http.AbortableRequest] 发送。
 ///
 /// 外部取消会中止响应头获取及后续响应流；响应头超时也会终止底层 I/O，
@@ -81,7 +89,11 @@ Stream<List<int>> _trackResponseLifetime(
   try {
     yield* stream;
   } finally {
-    if (!lifetime.isCompleted) lifetime.complete();
+    // 等当前流事件收尾后再拉断 abortTrigger，避免“读完最后一块
+    // 却被当成 Request aborted”的竞态。
+    scheduleMicrotask(() {
+      if (!lifetime.isCompleted) lifetime.complete();
+    });
   }
 }
 
