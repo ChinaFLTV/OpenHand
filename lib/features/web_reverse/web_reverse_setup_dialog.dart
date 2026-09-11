@@ -566,7 +566,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow>
           // 渐进式单按钮：先清理 → 仍有锁就引导用户重置；重置成功后 60s 冷却
           // 防止误连击两次。
           Align(
-            alignment: Alignment.centerRight,
+            alignment: Alignment.centerLeft,
             child: FilledButton.tonalIcon(
               onPressed: (_busy || onProfileResetCooldown)
                   ? null
