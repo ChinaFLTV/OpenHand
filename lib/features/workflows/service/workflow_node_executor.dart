@@ -44,6 +44,7 @@ const int _maxWorkflowMcpTools = 64;
 const Duration _humanInterventionTimeoutGrace = Duration(seconds: 1);
 const int _maxWorkflowToolRounds = 8;
 const int _maxWorkflowToolCalls = 32;
+const int _maxWorkflowToolArgumentCharacters = 256 * 1024;
 const int _maxWorkflowToolOutputCharacters = 128 * 1024;
 
 final RegExp _workflowBase64DataUrlPattern = RegExp(
@@ -1813,14 +1814,14 @@ class WorkflowNodeExecutor {
         return null;
       case WorkflowHttpBodyFormat.json:
         if (body.length > _maxWorkflowHttpRequestBytes) bodyTooLarge();
-        try {
-          return prepared(
-            encodeText(jsonEncode(jsonDecode(body))),
-            ContentType.json,
-          );
-        } on FormatException {
+        final decoded = tryDecodeJsonValue(body);
+        if (!decoded.success) {
           throw const WorkflowNodeExecutionException('请求体不是有效 JSON。');
         }
+        return prepared(
+          encodeText(jsonEncode(decoded.value)),
+          ContentType.json,
+        );
       case WorkflowHttpBodyFormat.text:
         return prepared(encodeText(body), ContentType.text);
       case WorkflowHttpBodyFormat.formUrlEncoded:
@@ -2751,12 +2752,10 @@ class WorkflowNodeExecutor {
     required WorkflowExecutionResources resources,
     required Map<String, Object?> variables,
   }) async {
-    Object? decodedBody;
-    try {
-      decodedBody = jsonDecode(response.body);
-    } on FormatException {
-      decodedBody = response.body;
-    }
+    final decodedResponse = tryDecodeJsonValue(response.body);
+    final decodedBody = decodedResponse.success
+        ? decodedResponse.value
+        : response.body;
     final context = <String, Object?>{
       ...variables,
       'response': decodedBody,
@@ -3050,15 +3049,12 @@ $schema''';
     final balanced = _firstBalancedObject(raw);
     if (balanced != null) candidates.add(balanced);
     for (final candidate in candidates.where((item) => item.isNotEmpty)) {
-      try {
-        final decoded = jsonDecode(candidate);
-        if (decoded is Map) {
-          return <String, Object?>{
-            for (final entry in decoded.entries) '${entry.key}': entry.value,
-          };
-        }
-      } on FormatException {
-        continue;
+      final decoded = tryDecodeJsonValue(candidate);
+      final decodedValue = decoded.value;
+      if (decoded.success && decodedValue is Map) {
+        return <String, Object?>{
+          for (final entry in decodedValue.entries) '${entry.key}': entry.value,
+        };
       }
     }
     return null;
@@ -3164,7 +3160,7 @@ $schema''';
   }
 
   static Map<String, Object?> _objectValue(Object? value) {
-    final decoded = value is String ? jsonDecode(value) : value;
+    final decoded = value is String ? tryDecodeJson(value) : value;
     if (decoded is! Map) throw const FormatException();
     return <String, Object?>{
       for (final entry in decoded.entries) '${entry.key}': entry.value,
@@ -3172,7 +3168,7 @@ $schema''';
   }
 
   static List<Object?> _arrayValue(Object? value) {
-    final decoded = value is String ? jsonDecode(value) : value;
+    final decoded = value is String ? tryDecodeJson(value) : value;
     if (decoded is! List) throw const FormatException();
     return List<Object?>.unmodifiable(decoded);
   }
@@ -3281,18 +3277,20 @@ String _workflowMcpToolName(
 }
 
 Map<String, Object?> _decodeToolArguments(String raw, String toolName) {
-  if (raw.length > 256 * 1024) {
+  if (raw.length > _maxWorkflowToolArgumentCharacters) {
     throw WorkflowNodeExecutionException('工具 $toolName 的参数超过长度上限。');
   }
-  try {
-    final decoded = jsonDecode(raw.trim().isEmpty ? '{}' : raw);
-    if (decoded is! Map) throw const FormatException();
-    return <String, Object?>{
-      for (final entry in decoded.entries) '${entry.key}': entry.value,
-    };
-  } on FormatException {
+  final decoded = tryDecodeJsonValue(
+    raw.trim().isEmpty ? '{}' : raw,
+    maxTextCodeUnits: _maxWorkflowToolArgumentCharacters,
+  );
+  final decodedValue = decoded.value;
+  if (!decoded.success || decodedValue is! Map) {
     throw WorkflowNodeExecutionException('工具 $toolName 的参数不是有效 JSON 对象。');
   }
+  return <String, Object?>{
+    for (final entry in decodedValue.entries) '${entry.key}': entry.value,
+  };
 }
 
 String _boundedToolOutput(String value) {
@@ -3483,10 +3481,6 @@ bool _compareWorkflowValues(
 }
 
 List<Object?>? _tryDecodeList(String value) {
-  try {
-    final decoded = jsonDecode(value);
-    return decoded is List ? List<Object?>.from(decoded) : null;
-  } on FormatException {
-    return null;
-  }
+  final decoded = tryDecodeJson(value);
+  return decoded is List ? List<Object?>.from(decoded) : null;
 }

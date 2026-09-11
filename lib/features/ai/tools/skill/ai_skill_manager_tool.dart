@@ -659,6 +659,9 @@ class AiSkillManagerTool extends AiTool {
     if (!_nameRegex.hasMatch(name)) {
       return 'name 必须匹配 ${_nameRegex.pattern}，仅允许小写字母、数字、点、下划线和连字符。';
     }
+    if (!isPortableFileNamePart(name, maxCodeUnits: _maxNameLength)) {
+      return 'name 不能使用系统保留名称或以点结尾。';
+    }
     return null;
   }
 
@@ -672,6 +675,9 @@ class AiSkillManagerTool extends AiTool {
     }
     if (!_nameRegex.hasMatch(category)) {
       return 'category 必须匹配 ${_nameRegex.pattern}。';
+    }
+    if (!isPortableFileNamePart(category, maxCodeUnits: _maxNameLength)) {
+      return 'category 不能使用系统保留名称或以点结尾。';
     }
     return null;
   }

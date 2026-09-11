@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/bounded_directory_io.dart';
+import '../../../shared/util/storage_identifier.dart';
 import 'mcp_stdio_mirror_policy.dart';
 
 const String mcpNpmMirrorRegistry = 'https://registry.npmmirror.com';
@@ -20,7 +21,9 @@ String mcpStdioIsolatedCacheRoot() =>
 String _mcpStdioRuntimeCacheRoot({String? runtimeKey}) {
   final candidate = runtimeKey?.trim().toLowerCase();
   final key =
-      candidate != null && _mcpStdioRuntimeKeyPattern.hasMatch(candidate)
+      candidate != null &&
+          _mcpStdioRuntimeKeyPattern.hasMatch(candidate) &&
+          isSafeStorageIdentifier(candidate)
       ? candidate
       : Abi.current().toString();
   return p.join(mcpStdioIsolatedCacheRoot(), 'runtimes', key);
