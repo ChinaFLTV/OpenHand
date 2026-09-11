@@ -93,6 +93,7 @@ import '../../shared/ui/openhand_code_editor.dart';
 import '../../shared/ui/openhand_console_log_panel.dart';
 import '../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_editor_chrome.dart';
 import '../../shared/ui/openhand_file_hover_popup.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';

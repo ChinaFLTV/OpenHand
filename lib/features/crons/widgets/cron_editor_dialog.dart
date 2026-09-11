@@ -377,7 +377,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                             ),
                         icon: Icons.terminal_rounded,
                         height: 280,
-                        borderRadius: kOpenHandBorderRadius14,
+                        borderRadius: kOpenHandBorderRadius16,
                         readOnly: _saving,
                         onChanged: (value) {
                           _scriptContentController.text = value;

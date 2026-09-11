@@ -2,70 +2,22 @@ part of '../openhand_home_page.dart';
 
 const Color _kFileExplorerWarningColor = Color(0xFFB7791F);
 const Color _kFileExplorerSuccessColor = Color(0xFF2E7D32);
-const Color _kFileExplorerDarkSurfaceText = Color(0xFFE5EDF5);
-const Color _kFileExplorerLightSurfaceText = Color(0xFF111827);
+const Color _kFileExplorerDarkSurfaceText = kOpenHandEditorDarkSurfaceText;
+const Color _kFileExplorerLightSurfaceText = kOpenHandEditorLightSurfaceText;
 
 // 文件浏览器面板。
 
 enum _UnsavedCloseAction { save, discard, cancel }
 
-/// 编辑器工具条容器的分隔边：贴在编辑区上方用 [top]，下方用 [bottom]。
-enum _EditorToolbarEdge { top, bottom }
-
-/// 编辑器工具条（查找 / 替换 / 跳转 / 符号 / 诊断）的统一底色与分隔线。
 BoxDecoration _editorToolbarSurface(
   ColorScheme colorScheme, {
-  _EditorToolbarEdge edge = _EditorToolbarEdge.bottom,
-}) {
-  final divider = BorderSide(
-    color: colorScheme.outlineVariant.withValues(
-      alpha: _editorToolbarDividerAlpha,
-    ),
-    width: _editorToolbarDividerWidth,
-  );
-  return BoxDecoration(
-    color: colorScheme.surfaceContainerHigh.withValues(
-      alpha: _editorToolbarSurfaceAlpha,
-    ),
-    border: edge == _EditorToolbarEdge.top
-        ? Border(top: divider)
-        : Border(bottom: divider),
-  );
-}
+  OpenHandEditorToolbarEdge edge = OpenHandEditorToolbarEdge.bottom,
+}) => openHandEditorToolbarSurface(colorScheme, edge: edge);
 
-const double _editorToolbarSurfaceAlpha = 0.95;
-const double _editorToolbarDividerAlpha = 0.25;
-const double _editorToolbarDividerWidth = 0.5;
-const double _editorToolbarFieldRadius = 6;
-const double _editorToolbarFieldFontSize = 13;
-
-/// 编辑器工具条内联输入框（查找 / 替换 / 跳转行 / 跳转符号）的统一装饰。
 InputDecoration _editorToolbarInputDecoration(
   ColorScheme colorScheme, {
   String? hintText,
-}) {
-  final outlineBorder = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(_editorToolbarFieldRadius),
-    borderSide: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
-  );
-  return InputDecoration(
-    hintText: hintText,
-    hintStyle: TextStyle(
-      fontSize: _editorToolbarFieldFontSize,
-      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-    ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-    isDense: true,
-    border: outlineBorder,
-    enabledBorder: outlineBorder,
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(_editorToolbarFieldRadius),
-      borderSide: BorderSide(color: colorScheme.primary),
-    ),
-    filled: true,
-    fillColor: colorScheme.surface,
-  );
-}
+}) => openHandEditorToolbarInputDecoration(colorScheme, hintText: hintText);
 
 const double _kFileTreeIndentBase = 16;
 const double _kFileTreeIndentPerLevel = 16;
@@ -6364,7 +6316,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: _editorToolbarSurface(
           colorScheme,
-          edge: _EditorToolbarEdge.top,
+          edge: OpenHandEditorToolbarEdge.top,
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -8079,7 +8031,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       constraints: const BoxConstraints(maxHeight: 220),
       decoration: _editorToolbarSurface(
         colorScheme,
-        edge: _EditorToolbarEdge.top,
+        edge: OpenHandEditorToolbarEdge.top,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -8336,7 +8288,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       constraints: const BoxConstraints(maxHeight: 260),
       decoration: _editorToolbarSurface(
         colorScheme,
-        edge: _EditorToolbarEdge.top,
+        edge: OpenHandEditorToolbarEdge.top,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -9038,35 +8990,15 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Color? foregroundColor,
     bool active = false,
   }) {
-    final resolvedForeground = foregroundColor ?? colorScheme.onSurfaceVariant;
-    final chip = Material(
-      color: active
-          ? colorScheme.primaryContainer.withValues(alpha: 0.6)
-          : Colors.transparent,
-      borderRadius: kOpenHandBorderRadius8,
-      child: InkWell(
-        borderRadius: kOpenHandBorderRadius8,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 13, color: resolvedForeground),
-              kOpenHandHGap5,
-              Text(
-                label,
-                style: TextStyle(fontSize: 11, color: resolvedForeground),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return OpenHandEditorStatusChip(
+      colorScheme: colorScheme,
+      icon: icon,
+      label: label,
+      onPressed: onTap,
+      tooltip: tooltip,
+      foregroundColor: foregroundColor,
+      active: active,
     );
-    if (tooltip == null || tooltip.isEmpty) {
-      return chip;
-    }
-    return Tooltip(message: tooltip, child: chip);
   }
 
   // 状态栏。
@@ -9098,17 +9030,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final hoverTitle = AppLocalizations.of(context)!.progExpFEHoverInfo;
     final backendTitle = AppLocalizations.of(context)!.progExpFELspBackend;
     return Container(
-      height: 24,
+      height: kOpenHandEditorStatusBarHeight,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.6),
-        border: Border(
-          top: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-            width: 0.5,
-          ),
-        ),
-      ),
+      decoration: openHandEditorStatusBarDecoration(colorScheme),
       child: Row(
         children: [
           Expanded(
@@ -11114,7 +11038,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     color: widget.fileExplorerVisible
                         ? colorScheme.primary
                         : colorScheme.onSurfaceVariant,
-                    onPressed: widget.onToggleFileExplorer!,
+                    onPressed: widget.onToggleFileExplorer,
                   ),
                 _EditorActionButton(
                   tooltip: AppLocalizations.of(
@@ -11138,13 +11062,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               child: Container(
                 width: double.infinity,
                 clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLow,
+                decoration: openHandEditorChromeDecoration(
+                  colorScheme,
                   borderRadius: kOpenHandBorderRadius16,
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-                    width: 0.5,
-                  ),
                 ),
                 child: Column(
                   children: [
@@ -12222,85 +12142,8 @@ class _BreadcrumbSegment extends StatelessWidget {
   }
 }
 
-// 编辑器操作按钮。
-class _EditorActionButton extends StatelessWidget {
-  const _EditorActionButton({
-    required this.tooltip,
-    required this.icon,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: kOpenHandPillBorderRadius,
-        child: InkWell(
-          borderRadius: kOpenHandPillBorderRadius,
-          onTap: onPressed,
-          child: Padding(
-            padding: const EdgeInsets.all(7),
-            child: Icon(icon, size: 17, color: color),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// 查找栏图标按钮。
-class _FindBarButton extends StatelessWidget {
-  const _FindBarButton({
-    required this.icon,
-    required this.tooltip,
-    required this.colorScheme,
-    this.onPressed,
-    this.isActive = false,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final ColorScheme colorScheme;
-  final VoidCallback? onPressed;
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: isActive
-            ? colorScheme.primaryContainer.withValues(alpha: 0.6)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(kOpenHandRadius4),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(kOpenHandRadius4),
-          onTap: onPressed,
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Icon(
-              icon,
-              size: 16,
-              color: onPressed == null
-                  ? colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
-                  : isActive
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+typedef _EditorActionButton = OpenHandEditorHeaderActionButton;
+typedef _FindBarButton = OpenHandEditorFindBarButton;
 
 class _EditorSymbol {
   const _EditorSymbol({
@@ -13163,53 +13006,25 @@ _EditorSymbolExtractionResult _extractEditorSymbols({
 }
 
 // 支持语法高亮的可编辑文本组件。
-const double _editorFontSizeDefault = 13.0;
-const double _editorFontSizeMin = 8.0;
-const double _editorFontSizeMax = 32.0;
-const double _editorLineHeight = 1.55;
-const double _editorMaxEstimatedContentWidth = 32000.0;
+const double _editorFontSizeDefault = kOpenHandEditorFontSizeDefault;
+const double _editorFontSizeMin = kOpenHandEditorFontSizeMin;
+const double _editorFontSizeMax = kOpenHandEditorFontSizeMax;
+const double _editorLineHeight = kOpenHandEditorLineHeight;
+const double _editorMaxEstimatedContentWidth =
+    kOpenHandEditorMaxEstimatedContentWidth;
 
-TextStyle _editorBaseStyleForSize(double fontSize) => TextStyle(
-  fontFamily: kOpenHandMonospaceFontFamily,
-  fontSize: fontSize,
-  height: _editorLineHeight,
-  letterSpacing: 0,
-);
-
-double _measureEditorLineNumberTextWidth({
-  required int lineCount,
-  required double fontSize,
-}) {
-  final digits = math.max(1, '$lineCount'.length);
-  final painter = TextPainter(
-    text: TextSpan(
-      text: List<String>.filled(digits, '8').join(),
-      style: TextStyle(
-        fontFamily: kOpenHandMonospaceFontFamily,
-        fontSize: fontSize,
-        height: _editorLineHeight,
-      ),
-    ),
-    textDirection: TextDirection.ltr,
-    maxLines: 1,
-  )..layout();
-  return painter.width.ceilToDouble();
-}
+TextStyle _editorBaseStyleForSize(double fontSize) =>
+    openHandEditorBaseStyle(fontSize);
 
 double _editorEditableGutterWidth({
   required int lineCount,
   required double fontSize,
   required bool hasDiagnostics,
 }) {
-  final basePadding = hasDiagnostics ? 62.0 : 40.0;
-  final minimumWidth = hasDiagnostics ? 88.0 : 60.0;
-  return math.max(
-    minimumWidth,
-    _measureEditorLineNumberTextWidth(
-          lineCount: lineCount,
-          fontSize: fontSize,
-        ) +
-        basePadding,
+  return openHandEditorGutterWidth(
+    lineCount: lineCount,
+    fontSize: fontSize,
+    hasDiagnostics: hasDiagnostics,
   );
 }
 
@@ -13217,13 +13032,9 @@ double _editorPreviewGutterWidth({
   required int lineCount,
   required double fontSize,
 }) {
-  return math.max(
-    56.0,
-    _measureEditorLineNumberTextWidth(
-          lineCount: lineCount,
-          fontSize: fontSize,
-        ) +
-        32.0,
+  return openHandEditorPreviewGutterWidth(
+    lineCount: lineCount,
+    fontSize: fontSize,
   );
 }
 
@@ -13884,10 +13695,9 @@ class _SyntaxHighlightEditor extends StatefulWidget {
 }
 
 class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
-  static const double _editorTextPaddingLeft = 8;
-  static const double _editorTextPaddingRight = 12;
-  static const double _editorTextPaddingTop = 10;
-  static const double _editorTextPaddingBottom = 10;
+  static const double _editorTextPaddingLeft = kOpenHandEditorTextPaddingLeft;
+  static const double _editorTextPaddingRight = kOpenHandEditorTextPaddingRight;
+  static const double _editorTextPaddingTop = kOpenHandEditorTextPaddingTop;
 
   final GlobalKey _textViewportKey = GlobalKey();
   late final ScrollController _lineNumberScrollController;
@@ -15075,12 +14885,6 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                 editableTextState: state0,
                               )
                         : (context0, state0) => const SizedBox.shrink(),
-                    contentPadding: const EdgeInsets.only(
-                      top: _editorTextPaddingTop,
-                      bottom: _editorTextPaddingBottom,
-                      left: _editorTextPaddingLeft,
-                      right: _editorTextPaddingRight,
-                    ),
                     onChanged: widget.onChanged,
                   );
 

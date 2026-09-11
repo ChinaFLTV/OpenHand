@@ -831,7 +831,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                                 ),
                             icon: Icons.terminal_rounded,
                             height: 280,
-                            borderRadius: kOpenHandBorderRadius14,
+                            borderRadius: kOpenHandBorderRadius16,
                             readOnly: _saving,
                             onChanged: (value) {
                               _scriptContentController.text = value;

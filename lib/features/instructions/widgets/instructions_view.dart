@@ -704,7 +704,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                                 ),
                             icon: Icons.article_outlined,
                             height: 280,
-                            borderRadius: kOpenHandBorderRadius14,
+                            borderRadius: kOpenHandBorderRadius16,
                             readOnly: _saving,
                             onChanged: (value) {
                               final clipped = clipTextByCodeUnits(

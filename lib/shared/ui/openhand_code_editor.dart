@@ -6,12 +6,19 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:highlight/highlight.dart' as highlight;
+import 'package:provider/provider.dart';
 
 import '../../app/model/editor_code_theme.dart';
+import '../../app/state/settings_controller.dart';
 import '../util/bounded_xfile_io.dart';
 import '../util/localized_text.dart';
 import '../util/text_search.dart';
+import 'motion_durations.dart';
+import 'motion_preference.dart';
+import 'oh_pill.dart';
+import 'openhand_editor_chrome.dart';
 import 'openhand_safe_scrollbar.dart';
+import 'openhand_scroll_behaviors.dart';
 import 'openhand_snack_bar.dart';
 import 'openhand_spacing.dart';
 import 'openhand_typography.dart';
@@ -202,7 +209,7 @@ class OpenHandCodeTextField extends StatelessWidget {
     required this.onChanged,
     this.undoController,
     this.readOnly = false,
-    this.contentPadding = const EdgeInsets.all(14),
+    this.contentPadding = kOpenHandEditorContentPadding,
     this.contextMenuBuilder,
     this.cursorColor,
   });
@@ -286,14 +293,8 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   static const int _maxImportedCodeBytes = 512 * 1024;
   static const int _formatterIndentWidth = 4;
   static const int _compactFormatterIndentWidth = 2;
-  static const double _actionButtonHeight = 52;
   static const double _minEditorHeight = 180;
   static const double _maxEditorHeight = 720;
-  static const double _minFontSize = 10;
-  static const double _maxFontSize = 28;
-  static const double _lineNumberGutterWidth = 48;
-  static const double _editorPadding = 14;
-  static const double _resizeHandleHeight = 18;
   static const int _maxLineNumberItems = 20000;
   static const Map<String, List<String>> _codeFileExtensions =
       <String, List<String>>{
@@ -325,16 +326,16 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     'js': 'JavaScript',
     'node': 'JavaScript',
     'nodejs': 'JavaScript',
-    'shell': 'Linux Shell',
-    'bash': 'Linux Shell',
-    'sh': 'Linux Shell',
-    'zsh': 'Linux Shell',
-    'linuxshell': 'Linux Shell',
-    'powershell': 'Windows PowerShell',
-    'pwsh': 'Windows PowerShell',
-    'ps': 'Windows PowerShell',
-    'ps1': 'Windows PowerShell',
-    'windowspowershell': 'Windows PowerShell',
+    'shell': 'Shell / Bash',
+    'bash': 'Shell / Bash',
+    'sh': 'Shell / Bash',
+    'zsh': 'Shell / Bash',
+    'linuxshell': 'Shell / Bash',
+    'powershell': 'PowerShell',
+    'pwsh': 'PowerShell',
+    'ps': 'PowerShell',
+    'ps1': 'PowerShell',
+    'windowspowershell': 'PowerShell',
     'markdown': 'Markdown',
     'md': 'Markdown',
   };
@@ -360,6 +361,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
       );
   late final ScrollController _scrollController = ScrollController();
   late final ScrollController _lineNumberScrollController = ScrollController();
+  late final ScrollController _horizontalScrollController = ScrollController();
   late final FocusNode _focusNode = FocusNode(
     debugLabel: 'openhand-code-editor',
   );
@@ -371,7 +373,9 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   );
   late double _editorHeight = _boundedEditorHeight(widget.height);
   late double _defaultEditorHeight = _editorHeight;
-  late double _fontSize = 14;
+  late double _fontSize = kOpenHandEditorFontSizeDefault;
+  int _cursorLine = 1;
+  int _cursorColumn = 1;
   bool _isImportingCodeFile = false;
   bool _findVisible = false;
   bool _replaceVisible = false;
@@ -389,6 +393,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   void initState() {
     super.initState();
     _scrollController.addListener(_syncLineNumberScroll);
+    _controller.addListener(_handleControllerChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncLineNumberScroll();
     });
@@ -414,11 +419,13 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
 
   @override
   void dispose() {
+    _controller.removeListener(_handleControllerChanged);
     _findFocusNode.dispose();
     _replaceController.dispose();
     _findController.dispose();
     _undoController.dispose();
     _focusNode.dispose();
+    _horizontalScrollController.dispose();
     _lineNumberScrollController.dispose();
     _scrollController.dispose();
     _controller.dispose();
@@ -429,18 +436,18 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final editorStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: colorScheme.onSurface,
-      fontFamily: kOpenHandMonospaceFontFamily,
-      fontSize: _fontSize,
-      height: 1.5,
+    final darkSurface = theme.brightness == Brightness.dark;
+    final wordWrap = context.select<SettingsController, bool>(
+      (controller) => controller.editorWordWrap,
     );
+    final editorStyle = openHandEditorBaseStyle(
+      _fontSize,
+    ).copyWith(color: openHandEditorSurfaceTextColor(darkSurface: darkSurface));
     _controller.highlighter = OpenHandCodeSyntaxHighlighter(
-      baseStyle: editorStyle ?? const TextStyle(),
-      darkSurface: theme.brightness == Brightness.dark,
+      baseStyle: editorStyle,
+      darkSurface: darkSurface,
       codeTheme: widget.codeTheme,
     );
-    final lineHeight = (_fontSize * 1.5).clamp(1, double.infinity).toDouble();
     final lineCount = math.min(
       _lineCount(_controller.text),
       _maxLineNumberItems,
@@ -461,54 +468,126 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
       child: Focus(
         skipTraversal: true,
         child: Container(
-          clipBehavior: widget.borderRadius == BorderRadius.zero
-              ? Clip.none
-              : Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLowest,
-            borderRadius: widget.borderRadius,
-          ),
-          // 前景边框覆盖子内容，确保顶部圆角和四周边框始终可见。
-          foregroundDecoration: BoxDecoration(
-            border: Border.all(color: colorScheme.outlineVariant),
+          clipBehavior: Clip.antiAlias,
+          decoration: openHandEditorChromeDecoration(
+            colorScheme,
             borderRadius: widget.borderRadius,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                height: 44,
-                padding: const EdgeInsets.only(left: 12, right: 6),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  border: Border(
-                    bottom: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(widget.icon, size: 18, color: colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        widget.fileName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+              SizedBox(
+                height: kOpenHandEditorHeaderHeight,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        widget.icon,
+                        size: 13,
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.6,
                         ),
                       ),
-                    ),
-                    Text(
-                      '${_controller.text.length} 字符',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                      kOpenHandHGap6,
+                      Expanded(
+                        child: Text(
+                          widget.fileName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                      ValueListenableBuilder<UndoHistoryValue>(
+                        valueListenable: _undoController,
+                        builder: (context, undo, _) {
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              OpenHandEditorHeaderActionButton(
+                                tooltip: openHandLocalizedText(
+                                  context,
+                                  zh: '撤销',
+                                  en: 'Undo',
+                                ),
+                                icon: Icons.undo_rounded,
+                                color: colorScheme.onSurfaceVariant,
+                                onPressed: widget.readOnly || !undo.canUndo
+                                    ? null
+                                    : _undo,
+                              ),
+                              OpenHandEditorHeaderActionButton(
+                                tooltip: openHandLocalizedText(
+                                  context,
+                                  zh: '重做',
+                                  en: 'Redo',
+                                ),
+                                icon: Icons.redo_rounded,
+                                color: colorScheme.onSurfaceVariant,
+                                onPressed: widget.readOnly || !undo.canRedo
+                                    ? null
+                                    : _redo,
+                              ),
+                              OpenHandEditorHeaderActionButton(
+                                tooltip: openHandLocalizedText(
+                                  context,
+                                  zh: '查找',
+                                  en: 'Find',
+                                ),
+                                icon: Icons.search_rounded,
+                                color: _findVisible
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurfaceVariant,
+                                onPressed: _showFind,
+                              ),
+                              OpenHandEditorHeaderActionButton(
+                                tooltip: _isImportingCodeFile
+                                    ? openHandLocalizedText(
+                                        context,
+                                        zh: '导入中',
+                                        en: 'Importing',
+                                      )
+                                    : openHandLocalizedText(
+                                        context,
+                                        zh: '从代码文件导入',
+                                        en: 'Import file',
+                                      ),
+                                icon: Icons.file_open_outlined,
+                                color: colorScheme.onSurfaceVariant,
+                                onPressed:
+                                    widget.readOnly || _isImportingCodeFile
+                                    ? null
+                                    : _importCodeFile,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              if (_findVisible) _buildFindReplaceBar(context),
+              Divider(
+                height: kOpenHandEditorHairline,
+                thickness: kOpenHandEditorHairline,
+                color: colorScheme.outlineVariant.withValues(
+                  alpha: kOpenHandEditorHairlineStrongAlpha,
+                ),
+              ),
+              ClipRect(
+                child: AnimatedSize(
+                  duration: openHandMotionDuration(context, kOpenHandMotion220),
+                  curve: kOpenHandSwitchInCurve,
+                  alignment: Alignment.bottomCenter,
+                  child: _findVisible
+                      ? _buildFindReplaceBar(context)
+                      : const SizedBox.shrink(),
+                ),
+              ),
               Listener(
                 onPointerDown: _handlePointerDown,
                 onPointerMove: _handlePointerMove,
@@ -517,49 +596,20 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                 onPointerPanZoomStart: _handlePanZoomStart,
                 onPointerPanZoomUpdate: _handlePanZoomUpdate,
                 onPointerPanZoomEnd: _handlePanZoomEnd,
-                child: SizedBox(
-                  height: _editorHeight,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildLineNumberGutter(
-                        context,
-                        lineCount: lineCount,
-                        lineHeight: lineHeight,
-                      ),
-                      Expanded(
-                        child: OpenHandSafeScrollbar(
-                          controller: _scrollController,
-                          thumbVisibility: true,
-                          thickness: 8,
-                          radius: const Radius.circular(8),
-                          child: OpenHandCodeTextField(
-                            controller: _controller,
-                            focusNode: _focusNode,
-                            scrollController: _scrollController,
-                            undoController: _undoController,
-                            readOnly: widget.readOnly,
-                            style: editorStyle,
-                            onChanged: (value) {
-                              widget.onChanged(value);
-                              if (_findVisible &&
-                                  _findController.text.isNotEmpty) {
-                                _updateFindMatches(
-                                  _findController.text,
-                                  selectMatch: false,
-                                );
-                              }
-                              setState(() {});
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
+                child: ColoredBox(
+                  color: colorScheme.surface,
+                  child: SizedBox(
+                    height: _editorHeight,
+                    child: _buildEditorBody(
+                      context,
+                      editorStyle: editorStyle,
+                      lineCount: lineCount,
+                      wordWrap: wordWrap,
+                    ),
                   ),
                 ),
               ),
-              _buildResizeHandle(context),
-              _buildActionBar(context),
+              _buildStatusBar(context),
             ],
           ),
         ),
@@ -568,6 +618,10 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   }
 
   void _showFind() {
+    if (_findVisible && !_replaceVisible) {
+      _hideFind();
+      return;
+    }
     setState(() {
       _findVisible = true;
       _replaceVisible = false;
@@ -578,6 +632,10 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   }
 
   void _showFindReplace() {
+    if (_findVisible && _replaceVisible) {
+      _hideFind();
+      return;
+    }
     setState(() {
       _findVisible = true;
       _replaceVisible = true;
@@ -714,120 +772,146 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
         ? ''
         : '${_currentMatchIndex + 1}/${_findMatchOffsets.length}';
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: openHandEditorToolbarSurface(colorScheme),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _findController,
-                  focusNode: _findFocusNode,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: openHandLocalizedText(
-                      context,
-                      zh: '查找',
-                      en: 'Find',
+                child: SizedBox(
+                  height: kOpenHandEditorToolbarFieldHeight,
+                  child: TextField(
+                    controller: _findController,
+                    focusNode: _findFocusNode,
+                    style: TextStyle(
+                      fontSize: kOpenHandEditorToolbarFieldFontSize,
+                      color: colorScheme.onSurface,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
+                    decoration: openHandEditorToolbarInputDecoration(
+                      colorScheme,
+                      hintText: openHandLocalizedText(
+                        context,
+                        zh: '查找',
+                        en: 'Find',
+                      ),
                     ),
+                    onChanged: _updateFindMatches,
+                    onSubmitted: (_) => _findNext(),
                   ),
-                  onChanged: _updateFindMatches,
-                  onSubmitted: (_) => _findNext(),
                 ),
               ),
               if (matchLabel.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text(
                     matchLabel,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    style: TextStyle(
+                      fontSize: 12,
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
-              IconButton(
+              OpenHandEditorFindBarButton(
+                icon: Icons.keyboard_arrow_up_rounded,
                 tooltip: openHandLocalizedText(
                   context,
                   zh: '上一个',
                   en: 'Previous',
                 ),
                 onPressed: _findMatchOffsets.isEmpty ? null : _findPrevious,
-                icon: const Icon(Icons.keyboard_arrow_up_rounded),
+                colorScheme: colorScheme,
               ),
-              IconButton(
+              OpenHandEditorFindBarButton(
+                icon: Icons.keyboard_arrow_down_rounded,
                 tooltip: openHandLocalizedText(context, zh: '下一个', en: 'Next'),
                 onPressed: _findMatchOffsets.isEmpty ? null : _findNext,
-                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                colorScheme: colorScheme,
               ),
-              IconButton(
+              OpenHandEditorFindBarButton(
+                icon: Icons.font_download_rounded,
                 tooltip: openHandLocalizedText(
                   context,
                   zh: '区分大小写',
                   en: 'Match case',
                 ),
-                isSelected: _findCaseSensitive,
+                isActive: _findCaseSensitive,
                 onPressed: () {
                   setState(() => _findCaseSensitive = !_findCaseSensitive);
                   _updateFindMatches(_findController.text);
                 },
-                icon: const Icon(Icons.font_download_rounded),
+                colorScheme: colorScheme,
               ),
-              IconButton(
+              if (!_replaceVisible)
+                OpenHandEditorFindBarButton(
+                  icon: Icons.find_replace_rounded,
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '显示替换',
+                    en: 'Show replace',
+                  ),
+                  onPressed: () => setState(() => _replaceVisible = true),
+                  colorScheme: colorScheme,
+                ),
+              OpenHandEditorFindBarButton(
+                icon: Icons.close_rounded,
                 tooltip: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
                 onPressed: _hideFind,
-                icon: const Icon(Icons.close_rounded),
+                colorScheme: colorScheme,
               ),
             ],
           ),
           if (_replaceVisible) ...[
-            kOpenHandGap6,
+            kOpenHandGap4,
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _replaceController,
-                    enabled: !widget.readOnly,
-                    style: Theme.of(context).textTheme.bodySmall,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: openHandLocalizedText(
-                        context,
-                        zh: '替换为',
-                        en: 'Replace',
+                  child: SizedBox(
+                    height: kOpenHandEditorToolbarFieldHeight,
+                    child: TextField(
+                      controller: _replaceController,
+                      enabled: !widget.readOnly,
+                      style: TextStyle(
+                        fontSize: kOpenHandEditorToolbarFieldFontSize,
+                        color: colorScheme.onSurface,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
+                      decoration: openHandEditorToolbarInputDecoration(
+                        colorScheme,
+                        hintText: openHandLocalizedText(
+                          context,
+                          zh: '替换',
+                          en: 'Replace',
+                        ),
                       ),
+                      onSubmitted: (_) => _replaceCurrent(),
                     ),
-                    onSubmitted: (_) => _replaceCurrent(),
                   ),
                 ),
-                kOpenHandHGap6,
-                TextButton(
+                kOpenHandHGap4,
+                OpenHandEditorFindBarButton(
+                  icon: Icons.find_replace_rounded,
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '替换当前',
+                    en: 'Replace',
+                  ),
                   onPressed: widget.readOnly || _findMatchOffsets.isEmpty
                       ? null
                       : _replaceCurrent,
-                  child: Text(
-                    openHandLocalizedText(context, zh: '替换', en: 'Replace'),
-                  ),
+                  colorScheme: colorScheme,
                 ),
-                TextButton(
+                OpenHandEditorFindBarButton(
+                  icon: Icons.done_all_rounded,
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '全部替换',
+                    en: 'Replace all',
+                  ),
                   onPressed: widget.readOnly || _findMatchOffsets.isEmpty
                       ? null
                       : _replaceAll,
-                  child: Text(
-                    openHandLocalizedText(context, zh: '全部', en: 'All'),
-                  ),
+                  colorScheme: colorScheme,
                 ),
               ],
             ),
@@ -837,48 +921,194 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     );
   }
 
-  Widget _buildLineNumberGutter(
+  Widget _buildEditorBody(
     BuildContext context, {
+    required TextStyle editorStyle,
     required int lineCount,
-    required double lineHeight,
+    required bool wordWrap,
   }) {
-    final colors = Theme.of(context).colorScheme;
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: colors.onSurfaceVariant,
-      fontFamily: kOpenHandMonospaceFontFamily,
-      fontSize: _fontSize,
-      height: 1.5,
-    );
-    return Container(
-      width: _lineNumberGutterWidth,
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh,
-        border: Border(right: BorderSide(color: colors.outlineVariant)),
-      ),
-      child: ListView.builder(
-        controller: _lineNumberScrollController,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(
-          top: _editorPadding,
-          bottom: _editorPadding,
-        ),
-        itemExtent: lineHeight,
-        itemCount: lineCount,
-        itemBuilder: (context, index) => Align(
-          alignment: Alignment.topRight,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 9),
-            child: Text('${index + 1}', style: style),
-          ),
-        ),
-      ),
+    final colorScheme = Theme.of(context).colorScheme;
+    const noScrollbarBehavior = OpenHandEditorScrollBehavior();
+    final lineExtent = _fontSize * kOpenHandEditorLineHeight;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gutterWidth = openHandEditorGutterWidth(
+          lineCount: lineCount,
+          fontSize: _fontSize,
+        );
+        List<double>? wrappedHeights;
+        if (wordWrap) {
+          final textLayoutWidth =
+              constraints.maxWidth -
+              gutterWidth -
+              kOpenHandEditorTextPaddingLeft -
+              kOpenHandEditorTextPaddingRight;
+          if (textLayoutWidth > 0) {
+            wrappedHeights = _computeWrappedLineHeights(
+              textLayoutWidth,
+              editorStyle,
+            );
+          }
+        }
+        Widget textField = OpenHandCodeTextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          scrollController: _scrollController,
+          undoController: _undoController,
+          readOnly: widget.readOnly,
+          style: editorStyle,
+          cursorColor: colorScheme.primary,
+          onChanged: (value) {
+            widget.onChanged(value);
+            if (_findVisible && _findController.text.isNotEmpty) {
+              _updateFindMatches(_findController.text, selectMatch: false);
+            }
+            setState(() {});
+          },
+        );
+        if (!wordWrap) {
+          final estimatedContentWidth = math.min(
+            kOpenHandEditorMaxEstimatedContentWidth,
+            math.max(
+              constraints.maxWidth - gutterWidth,
+              _longestLineLength(_controller.text) * (_fontSize * 0.62) +
+                  kOpenHandEditorTextPaddingLeft +
+                  kOpenHandEditorTextPaddingRight +
+                  48,
+            ),
+          );
+          textField = SingleChildScrollView(
+            controller: _horizontalScrollController,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(width: estimatedContentWidth, child: textField),
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: gutterWidth,
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(
+                      alpha: kOpenHandEditorHairlineSoftAlpha,
+                    ),
+                    width: kOpenHandEditorHairline,
+                  ),
+                ),
+              ),
+              child: ScrollConfiguration(
+                behavior: noScrollbarBehavior,
+                child: ListView.builder(
+                  key: ValueKey<String>('line-numbers-$_fontSize-$wordWrap'),
+                  controller: _lineNumberScrollController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(
+                    top: kOpenHandEditorTextPaddingTop,
+                    bottom: kOpenHandEditorTextPaddingBottom,
+                  ),
+                  itemCount: lineCount,
+                  itemExtent: wrappedHeights != null ? null : lineExtent,
+                  itemBuilder: (context, index) {
+                    final lineNumber = index + 1;
+                    final itemHeight = wrappedHeights != null
+                        ? (index < wrappedHeights.length
+                              ? wrappedHeights[index]
+                              : lineExtent)
+                        : null;
+                    final lineWidget = Padding(
+                      padding: const EdgeInsets.only(left: 8, right: 14),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 12),
+                          kOpenHandHGap6,
+                          Expanded(
+                            child: Text(
+                              '$lineNumber',
+                              textAlign: TextAlign.right,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.visible,
+                              style: TextStyle(
+                                fontFamily: kOpenHandMonospaceFontFamily,
+                                fontSize: _fontSize,
+                                height: kOpenHandEditorLineHeight,
+                                fontWeight: FontWeight.w400,
+                                color: colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.48,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (itemHeight != null) {
+                      return SizedBox(height: itemHeight, child: lineWidget);
+                    }
+                    return lineWidget;
+                  },
+                ),
+              ),
+            ),
+            Expanded(
+              child: PrimaryScrollController.none(
+                child: OpenHandSafeScrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  thickness: 9,
+                  radius: kOpenHandPillRadius,
+                  notificationPredicate: (notification) =>
+                      notification.metrics.axis == Axis.vertical,
+                  child: ScrollConfiguration(
+                    behavior: noScrollbarBehavior,
+                    child: textField,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildResizeHandle(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: '拖动调整代码显示区域',
+  void _handleControllerChanged() {
+    final next = _cursorFromOffset(_controller.selection.extentOffset);
+    if (next.$1 == _cursorLine && next.$2 == _cursorColumn) return;
+    setState(() {
+      _cursorLine = next.$1;
+      _cursorColumn = next.$2;
+    });
+  }
+
+  (int, int) _cursorFromOffset(int offset) {
+    final text = _controller.text;
+    final clamped = offset.clamp(0, text.length);
+    var line = 1;
+    var col = 1;
+    for (var i = 0; i < clamped; i++) {
+      if (text.codeUnitAt(i) == 10) {
+        line += 1;
+        col = 1;
+      } else {
+        col += 1;
+      }
+    }
+    return (line, col);
+  }
+
+  Widget _buildStatusBar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final languageKey = widget.language.trim().toLowerCase().replaceAll(
+      _languageSeparatorPattern,
+      '',
+    );
+    final languageLabel = _codeLanguageLabels[languageKey] ?? widget.language;
+    final zoomPct = (_fontSize / kOpenHandEditorFontSizeDefault * 100).round();
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeUpDown,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onVerticalDragUpdate: (details) {
@@ -886,120 +1116,82 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
           if (next == _editorHeight) return;
           setState(() => _editorHeight = next);
         },
-        child: SizedBox(
-          height: _resizeHandleHeight,
-          child: Center(
-            child: Icon(
-              Icons.drag_handle_rounded,
-              size: 18,
-              color: colors.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionBar(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        border: Border(
-          top: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-      ),
-      child: ValueListenableBuilder<UndoHistoryValue>(
-        valueListenable: _undoController,
-        builder: (context, value, _) => Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _editorActionButton(
-                    context,
-                    label: '撤销',
-                    onPressed: widget.readOnly || !value.canUndo ? null : _undo,
-                  ),
-                ),
-                kOpenHandHGap6,
-                Expanded(
-                  child: _editorActionButton(
-                    context,
-                    label: '重做',
-                    onPressed: widget.readOnly || !value.canRedo ? null : _redo,
-                  ),
-                ),
-                kOpenHandHGap6,
-                Expanded(
-                  child: _editorActionButton(
-                    context,
-                    label: '格式化',
-                    onPressed: widget.readOnly ? null : _formatCode,
-                  ),
-                ),
-              ],
-            ),
-            kOpenHandGap6,
-            Row(
-              children: [
-                Expanded(
-                  child: _editorActionButton(
-                    context,
-                    label: '重置窗口',
-                    onPressed: _resetEditorViewport,
-                  ),
-                ),
-                kOpenHandHGap6,
-                Expanded(
-                  child: _editorActionButton(
-                    context,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '查找替换',
-                      en: 'Find',
-                    ),
-                    onPressed: _showFindReplace,
-                  ),
-                ),
-                kOpenHandHGap6,
-                Expanded(
-                  child: _editorActionButton(
-                    context,
-                    label: _isImportingCodeFile ? '导入中...' : '从代码文件导入',
-                    onPressed: widget.readOnly || _isImportingCodeFile
-                        ? null
-                        : _importCodeFile,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _editorActionButton(
-    BuildContext context, {
-    required String label,
-    required VoidCallback? onPressed,
-  }) {
-    return SizedBox(
-      height: _actionButtonHeight,
-      child: FilledButton.tonal(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(0, _actionButtonHeight),
+        onDoubleTap: _resetEditorViewport,
+        child: Container(
+          height: kOpenHandEditorStatusBarHeight,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          visualDensity: VisualDensity.standard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(kOpenHandRadius10),
+          decoration: openHandEditorStatusBarDecoration(colorScheme),
+          child: Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Ln $_cursorLine, Col $_cursorColumn',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onSurfaceVariant,
+                          fontFamily: kOpenHandMonospaceFontFamily,
+                        ),
+                      ),
+                      kOpenHandHGap16,
+                      Text(
+                        languageLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      if (zoomPct != 100) ...[
+                        kOpenHandHGap16,
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: _resetEditorViewport,
+                            child: Text(
+                              '$zoomPct%',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      kOpenHandHGap8,
+                      OpenHandEditorStatusChip(
+                        colorScheme: colorScheme,
+                        icon: Icons.auto_fix_high_rounded,
+                        label: openHandLocalizedText(
+                          context,
+                          zh: '格式化',
+                          en: 'Format',
+                        ),
+                        tooltip: openHandLocalizedText(
+                          context,
+                          zh: '格式化当前内容',
+                          en: 'Format document',
+                        ),
+                        onPressed: widget.readOnly ? null : _formatCode,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              kOpenHandHGap12,
+              Text(
+                'UTF-8',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
-          shadowColor: Colors.transparent,
         ),
-        child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
     );
   }
@@ -1078,8 +1270,8 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     final distance = (points[0] - points[1]).distance;
     if (distance <= 0 || _pinchStartDistance! <= 0) return;
     final next = (_pinchStartFontSize! * distance / _pinchStartDistance!).clamp(
-      _minFontSize,
-      _maxFontSize,
+      kOpenHandEditorFontSizeMin,
+      kOpenHandEditorFontSizeMax,
     );
     if ((next - _fontSize).abs() < 0.1) return;
     setState(() => _fontSize = next);
@@ -1099,7 +1291,10 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
 
   void _handlePanZoomUpdate(PointerPanZoomUpdateEvent event) {
     final base = _pinchStartFontSize ?? _fontSize;
-    final next = (base * event.scale).clamp(_minFontSize, _maxFontSize);
+    final next = (base * event.scale).clamp(
+      kOpenHandEditorFontSizeMin,
+      kOpenHandEditorFontSizeMax,
+    );
     if ((next - _fontSize).abs() < 0.1) return;
     setState(() => _fontSize = next);
   }
@@ -1128,6 +1323,48 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
       if (codeUnit == 10) count += 1;
     }
     return count;
+  }
+
+  int _longestLineLength(String text) {
+    var longest = 0;
+    var current = 0;
+    for (final codeUnit in text.codeUnits) {
+      if (codeUnit == 10) {
+        if (current > longest) longest = current;
+        current = 0;
+      } else {
+        current += 1;
+      }
+    }
+    return current > longest ? current : longest;
+  }
+
+  List<double> _computeWrappedLineHeights(
+    double textLayoutWidth,
+    TextStyle style,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: _controller.text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: textLayoutWidth);
+    final lineExtent = _fontSize * kOpenHandEditorLineHeight;
+    final lineHeights = <double>[];
+    var currentLogicalLineHeight = 0.0;
+    for (final metric in painter.computeLineMetrics()) {
+      currentLogicalLineHeight += metric.height;
+      if (metric.hardBreak) {
+        lineHeights.add(math.max(currentLogicalLineHeight, lineExtent));
+        currentLogicalLineHeight = 0;
+      }
+    }
+    if (currentLogicalLineHeight > 0) {
+      lineHeights.add(math.max(currentLogicalLineHeight, lineExtent));
+    }
+    if (lineHeights.isEmpty) {
+      lineHeights.add(lineExtent);
+    }
+    painter.dispose();
+    return lineHeights;
   }
 
   void _formatCode() {
@@ -1327,7 +1564,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   void _resetEditorViewport() {
     setState(() {
       _editorHeight = _defaultEditorHeight;
-      _fontSize = 14;
+      _fontSize = kOpenHandEditorFontSizeDefault;
     });
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     if (_lineNumberScrollController.hasClients) {
@@ -1353,7 +1590,11 @@ class _HighlightingCodeController extends TextEditingController {
     if (text.length > _maxHighlightCharacters || highlighter == null) {
       return TextSpan(text: text, style: style);
     }
-    return highlighter!.build(text, language: language);
+    return highlighter!.build(
+      text,
+      language: language,
+      allowAutoDetection: true,
+    );
   }
 }
 
