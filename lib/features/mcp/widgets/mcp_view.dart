@@ -9450,6 +9450,8 @@ String _mcpOpsAuditTitle(BuildContext context, McpOpsAuditEntry entry) {
   return _mcpOpsAuditKindLabel(context, entry.kind);
 }
 
+const double _kMcpCardActionIconSize = 24;
+
 class _McpServerCard extends StatefulWidget {
   const _McpServerCard({
     super.key,
@@ -9680,6 +9682,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                                         icon: _healthStatusActionIcon(
                                           healthStatus,
                                         ),
+                                        size: _kMcpCardActionIconSize,
                                         strokeWidth: 2.2,
                                       ),
                                     ),
@@ -9705,6 +9708,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                                       icon: OpenHandBusyStatusIcon(
                                         busy: toolCatalog.isLoading,
                                         icon: Icons.refresh_rounded,
+                                        size: _kMcpCardActionIconSize,
                                         strokeWidth: 2.2,
                                       ),
                                     ),
@@ -10188,6 +10192,7 @@ class _StdioProcessButtons extends StatelessWidget {
                     icon: info.isRunning
                         ? Icons.stop_rounded
                         : Icons.play_arrow_rounded,
+                    size: _kMcpCardActionIconSize,
                     strokeWidth: 2.2,
                   ),
                 ),
