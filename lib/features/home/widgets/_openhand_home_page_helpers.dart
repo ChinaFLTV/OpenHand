@@ -370,7 +370,6 @@ class _TitleSummaryDialogResult {
   final AiModelConfig? model;
 }
 
-const double _kTitleSummaryDialogWidth = 456;
 const double _kTitleProgressDialogWidth = 360;
 
 /// 标题摘要消息区间与模型选择弹窗。
@@ -419,15 +418,11 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final total = widget.userMessages.length;
-    final selectedCount = _endIdx - _startIdx + 1;
-    final sectionStyle = theme.textTheme.labelMedium?.copyWith(
-      color: colorScheme.onSurfaceVariant,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0,
-    );
+    final selectedCount = total < 1
+        ? 0
+        : (_endIdx - _startIdx + 1).clamp(1, total);
     final selectedCountLabel = openHandLocalizedText(
       context,
       zh: '已选择 $selectedCount 条用户消息',
@@ -438,7 +433,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
       ja: '$selectedCount 件のユーザーメッセージを選択済み',
     );
 
-    String previewLabel(int idx, {int maxLength = 26}) {
+    String previewLabel(int idx, {int maxLength = 42}) {
       if (idx < 0 || idx >= total) return '#${idx + 1}';
       final content = collapseInlineWhitespace(
         widget.userMessages[idx].content,
@@ -447,23 +442,21 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
       return preview.isEmpty ? '#${idx + 1}' : preview;
     }
 
-    return buildOpenHandAlertDialog(
-      title: Text(
-        openHandGenerateAiTitleLabel(context),
-        style: theme.textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0,
-        ),
-      ),
-      content: buildOpenHandDialogConstrainedContent(
-        width: _kTitleSummaryDialogWidth,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(openHandModelLabel(context), style: sectionStyle),
-            kOpenHandGap8,
-            OpenHandModelSelectorField(
+    return OpenHandEditorDialogScaffold(
+      title: openHandGenerateAiTitleLabel(context),
+      subtitle: selectedCountLabel,
+      icon: Icons.title_rounded,
+      iconColor: colorScheme.primary,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightCompact,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandDialogSectionCard(
+            icon: Icons.smart_toy_outlined,
+            accent: colorScheme.primary,
+            title: openHandModelLabel(context),
+            child: OpenHandModelSelectorField(
               models: widget.availableModels,
               recentSelections: widget.recentModelSelections,
               selectedConfigId: _selectedConfigId,
@@ -480,95 +473,83 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                 });
               },
             ),
-            kOpenHandGap18,
-            Divider(height: 1, color: colorScheme.outlineVariant),
-            kOpenHandGap16,
-            Text(
-              openHandLocalizedText(
-                context,
-                zh: '消息范围',
-                zhHant: '訊息範圍',
-                en: 'Message Range',
-                fr: 'Plage de messages',
-                de: 'Nachrichtenbereich',
-                ja: 'メッセージ範囲',
-              ),
-              style: sectionStyle,
+          ),
+          kOpenHandGap14,
+          OpenHandDialogSectionCard(
+            icon: Icons.linear_scale_rounded,
+            accent: OpenHandStatusColors.info,
+            title: openHandLocalizedText(
+              context,
+              zh: '消息范围',
+              zhHant: '訊息範圍',
+              en: 'Message Range',
+              fr: 'Plage de messages',
+              de: 'Nachrichtenbereich',
+              ja: 'メッセージ範囲',
             ),
-            kOpenHandGap10,
-            Row(
+            subtitle: selectedCountLabel,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: _TitleSummaryRangeEndpoint(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '起始',
-                      zhHant: '起始',
-                      en: 'From',
-                      fr: 'Début',
-                      de: 'Von',
-                      ja: '開始',
+                Row(
+                  children: [
+                    Expanded(
+                      child: _TitleSummaryRangeEndpoint(
+                        label: openHandLocalizedText(
+                          context,
+                          zh: '起始',
+                          zhHant: '起始',
+                          en: 'From',
+                          fr: 'Début',
+                          de: 'Von',
+                          ja: '開始',
+                        ),
+                        index: _startIdx,
+                        preview: previewLabel(_startIdx),
+                        accent: colorScheme.primary,
+                      ),
                     ),
-                    index: _startIdx,
-                    preview: previewLabel(_startIdx),
-                  ),
-                ),
-                kOpenHandHGap12,
-                Expanded(
-                  child: _TitleSummaryRangeEndpoint(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '结束',
-                      zhHant: '結束',
-                      en: 'To',
-                      fr: 'Fin',
-                      de: 'Bis',
-                      ja: '終了',
+                    kOpenHandHGap12,
+                    Expanded(
+                      child: _TitleSummaryRangeEndpoint(
+                        label: openHandLocalizedText(
+                          context,
+                          zh: '结束',
+                          zhHant: '結束',
+                          en: 'To',
+                          fr: 'Fin',
+                          de: 'Bis',
+                          ja: '終了',
+                        ),
+                        index: _endIdx,
+                        preview: previewLabel(_endIdx),
+                        accent: OpenHandStatusColors.success,
+                      ),
                     ),
-                    index: _endIdx,
-                    preview: previewLabel(_endIdx),
-                  ),
+                  ],
                 ),
+                if (total > 1) ...[
+                  kOpenHandGap8,
+                  RangeSlider(
+                    values: RangeValues(
+                      _startIdx.toDouble(),
+                      _endIdx.toDouble(),
+                    ),
+                    max: (total - 1).toDouble(),
+                    divisions: total - 1,
+                    labels: RangeLabels('#${_startIdx + 1}', '#${_endIdx + 1}'),
+                    onChanged: (values) {
+                      setState(() {
+                        _startIdx = values.start.round();
+                        _endIdx = values.end.round();
+                      });
+                    },
+                  ),
+                ],
               ],
             ),
-            kOpenHandGap12,
-            Row(
-              children: [
-                Icon(
-                  Icons.format_list_bulleted_rounded,
-                  size: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                kOpenHandHGap6,
-                Expanded(
-                  child: Text(
-                    selectedCountLabel,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (total > 1)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: RangeSlider(
-                  values: RangeValues(_startIdx.toDouble(), _endIdx.toDouble()),
-                  max: (total - 1).toDouble(),
-                  divisions: total > 1 ? total - 1 : 1,
-                  labels: RangeLabels('#${_startIdx + 1}', '#${_endIdx + 1}'),
-                  onChanged: (values) {
-                    setState(() {
-                      _startIdx = values.start.round();
-                      _endIdx = values.end.round();
-                    });
-                  },
-                ),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
@@ -576,13 +557,15 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           label: AppLocalizations.of(context)!.commonCancel,
         ),
         OpenHandDialogActionButton.primary(
-          onPressed: () => Navigator.of(context).pop(
-            _TitleSummaryDialogResult(
-              startIndex: _startIdx,
-              endIndex: _endIdx,
-              model: _selectedModel,
-            ),
-          ),
+          onPressed: total < 1
+              ? null
+              : () => Navigator.of(context).pop(
+                  _TitleSummaryDialogResult(
+                    startIndex: _startIdx,
+                    endIndex: _endIdx,
+                    model: _selectedModel,
+                  ),
+                ),
           label: openHandLocalizedText(
             context,
             zh: '生成标题',
@@ -603,41 +586,39 @@ class _TitleSummaryRangeEndpoint extends StatelessWidget {
     required this.label,
     required this.index,
     required this.preview,
+    required this.accent,
   });
 
   final String label;
   final int index;
   final String preview;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        isDense: true,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      ),
+    return OpenHandTintedPanel(
+      accent: accent,
+      icon: Icons.tag_rounded,
+      title: label,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             '#${index + 1}',
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: colorScheme.primary,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: accent,
               fontWeight: FontWeight.w800,
             ),
           ),
-          kOpenHandGap3,
+          kOpenHandGap4,
           Text(
             preview,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.35,
             ),
           ),
         ],
