@@ -453,7 +453,7 @@ class _SkillsViewState extends State<SkillsView> {
             child: Padding(
               padding: _kSkillDialogContentPadding,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,13 +510,17 @@ class _SkillsViewState extends State<SkillsView> {
                       borderRadius: BorderRadius.circular(kOpenHandRadius24),
                       child: ColoredBox(
                         color: markdownBackground,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(20),
-                          child: OpenHandSafeMarkdownBody(
-                            data: markdownContent,
-                            selectable: true,
-                            styleSheet: markdownTheme.styleSheet,
-                            builders: {'code': markdownTheme.inlineCodeBuilder},
+                        child: SizedBox.expand(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(20),
+                            child: OpenHandSafeMarkdownBody(
+                              data: markdownContent,
+                              selectable: true,
+                              styleSheet: markdownTheme.styleSheet,
+                              builders: {
+                                'code': markdownTheme.inlineCodeBuilder,
+                              },
+                            ),
                           ),
                         ),
                       ),
