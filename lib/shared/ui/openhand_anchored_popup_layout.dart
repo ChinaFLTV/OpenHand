@@ -94,10 +94,7 @@ Rect openHandOverlaySafeRect({
     0.0,
     width,
   );
-  final top = (_finiteNonNegative(safePadding.top) + margin).clamp(
-    0.0,
-    height,
-  );
+  final top = (_finiteNonNegative(safePadding.top) + margin).clamp(0.0, height);
   final right = math.max(
     left,
     width - _finiteNonNegative(safePadding.right) - margin,

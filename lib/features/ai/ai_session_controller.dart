@@ -27,6 +27,7 @@ import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/directory_cleanup.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/path_safety.dart';
 import '../../shared/util/sensitive_data.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/stable_hash.dart';
@@ -255,6 +256,7 @@ class AiSessionController extends ChangeNotifier {
         totalTimeout: Duration(seconds: 5),
       );
   static const int _maxForkedToolOutputBytes = 256 * kBytesPerMiB;
+  static const int _maxForkedToolOutputExtensionCharacters = 16;
   static const String _telemetryInFlightKey =
       aiSessionMessageTelemetryInFlightMetadataKey;
   static const Set<String> _forkSingleMessageIdMetadataKeys = <String>{
@@ -4833,18 +4835,17 @@ class AiSessionController extends ChangeNotifier {
   }
 
   String _safeForkToolOutputStorageIdentifier(String raw) {
-    final normalized = collapseRepeatedUnderscores(
-      raw.trim().replaceAll(RegExp('[^A-Za-z0-9_.-]+'), '_'),
+    return sanitizePortableFileNamePart(
+      raw.trim(),
+      fallback: 'tool_result',
+      collapseReplacement: true,
     );
-    if (normalized.isEmpty || normalized == '.' || normalized == '..') {
-      return 'tool_result';
-    }
-    return normalized;
   }
 
   String _safeForkToolOutputExtension(String sourcePath) {
     final extension = p.extension(sourcePath).trim();
-    if (RegExp(r'^\.[A-Za-z0-9]+$').hasMatch(extension)) {
+    if (extension.length <= _maxForkedToolOutputExtensionCharacters &&
+        RegExp(r'^\.[A-Za-z0-9]+$').hasMatch(extension)) {
       return extension;
     }
     return '.txt';

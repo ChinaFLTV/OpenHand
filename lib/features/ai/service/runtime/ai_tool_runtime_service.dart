@@ -60,7 +60,6 @@ const Duration _skillLinkedResourcePathCheckTimeout = Duration(seconds: 2);
 const int _maxSessionFileTrackers = 128;
 const int _maxConcurrentToolExecutions = kOpenHandMaxAsyncConcurrency;
 const int _maxQueuedToolExecutions = 256;
-const int _maxToolOutputStorageIdentifierCodeUnits = 120;
 const Duration _toolExecutionQueueTimeout = Duration(seconds: 30);
 const int _minToolOutputTruncationPayloadChars = 40;
 const int kAiTaskDescriptionMaxCharacters = 512;
@@ -454,9 +453,6 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.cronEnable,
         AiBuiltinToolKind.cronDisable,
       };
-  static final RegExp _unsafeToolOutputStorageCharsPattern = RegExp(
-    '[^A-Za-z0-9_.-]+',
-  );
   static final RegExp _cdpIdentityTokenPattern = RegExp(
     r'(^|[^a-z0-9])cdp([^a-z0-9]|$)',
   );
@@ -2029,17 +2025,10 @@ class AiToolRuntimeService {
   }
 
   String _safeToolOutputStorageIdentifier(String raw, String fallback) {
-    final normalized = collapseRepeatedUnderscores(
-      (nullIfBlank(raw) ?? '').replaceAll(
-        _unsafeToolOutputStorageCharsPattern,
-        '_',
-      ),
-    );
-    final value = normalized.isEmpty ? fallback : normalized;
-    return clipTextByCodeUnits(
-      value,
-      _maxToolOutputStorageIdentifierCodeUnits,
-      suffix: '',
+    return sanitizePortableFileNamePart(
+      raw.trim(),
+      fallback: fallback,
+      collapseReplacement: true,
     );
   }
 

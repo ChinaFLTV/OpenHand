@@ -8726,7 +8726,10 @@ class WebMessagePlatformService {
           );
         }
         final map = stringKeyedMapFromValue(item);
-        final name = _safeFileName(_string(map['name'], 'attachment.bin'));
+        final name = sanitizePortableFileNamePart(
+          _string(map['name'], 'attachment.bin'),
+          fallback: 'attachment.bin',
+        );
         final data = _string(map['data_base64'], '').trim();
         if (data.isEmpty) {
           throw const _WebGatewayRequestException(
@@ -9835,8 +9838,4 @@ List<WebGatewayCleanupResult> _trimCleanupHistory(
   return List<WebGatewayCleanupResult>.unmodifiable(
     items.skip(items.length - webGatewayOpsMaxCleanupHistory),
   );
-}
-
-String _safeFileName(String value) {
-  return sanitizePortableFileNamePart(value, fallback: 'attachment.bin');
 }

@@ -6,6 +6,7 @@ import 'text_normalization.dart';
 const int kOpenHandMaxAncestorDirectoryDepth = 256;
 const int kPortableFileNameMaxCodeUnits = 255;
 const int kPortableFileNameMaxUtf8Bytes = 255;
+const int kPortableFileNameDefaultMaxCharacters = 120;
 const String _kEmptyPathError = '路径不能为空。';
 const String _kRelativePathError = '路径必须为相对路径。';
 const String _kParentTraversalError = '路径不能向上遍历父目录。';
@@ -130,7 +131,7 @@ bool isPortableFileNamePart(
 String sanitizePortableFileNamePart(
   String input, {
   String fallback = 'file',
-  int? maxCharacters = 120,
+  int? maxCharacters = kPortableFileNameDefaultMaxCharacters,
   int maxUtf8Bytes = kPortableFileNameMaxUtf8Bytes,
   bool allowWhitespace = false,
   bool collapseReplacement = false,

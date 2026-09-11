@@ -15,6 +15,7 @@ import '../../../../shared/util/bounded_line_budget.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
+import '../../../../shared/util/storage_identifier.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
@@ -3961,7 +3962,7 @@ $tail''';
     final sessionId = session.id.trim();
     if (storagePath.isEmpty ||
         sessionsDirectoryPath.isEmpty ||
-        sessionId.isEmpty) {
+        !isSafeStorageIdentifier(sessionId)) {
       return false;
     }
     final normalizedStoragePath = p.normalize(storagePath);

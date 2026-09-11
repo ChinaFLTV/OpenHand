@@ -13,6 +13,7 @@ import 'package:openhand/shared/util/exponential_backoff.dart';
 import 'package:openhand/shared/util/hex_encoding.dart';
 import 'package:openhand/shared/util/input_value_parsing.dart';
 import 'package:openhand/shared/util/message_frame_scan.dart';
+import 'package:openhand/shared/util/path_safety.dart';
 import 'package:openhand/shared/util/sensitive_data.dart';
 import 'package:openhand/shared/util/text_clip.dart';
 import 'package:openhand/shared/util/text_search.dart';
@@ -40,6 +41,7 @@ Future<void> main() async {
   failures += _checkCalendarDateMath();
   failures += _checkCanonicalDateTime();
   failures += _checkTextClip();
+  failures += _checkPortableFileNameSanitization();
   failures += _checkTextSearch();
   failures += _checkSensitiveTextRedaction();
   failures += await _checkAbortableResponseLifetime();
@@ -51,6 +53,30 @@ Future<void> main() async {
     exit(1);
   }
   stdout.writeln('[共享辅助检查] 通过。');
+}
+
+int _checkPortableFileNameSanitization() {
+  if (sanitizePortableFileNamePart('.', fallback: 'session') != 'session' ||
+      sanitizePortableFileNamePart('..', fallback: 'session') != 'session') {
+    stderr.writeln('sanitizePortableFileNamePart 未阻止点目录标识符');
+    return 1;
+  }
+  if (sanitizePortableFileNamePart(
+        '  /unsafe///name/  ',
+        collapseReplacement: true,
+        trimBoundaryReplacement: true,
+      ) !=
+      'unsafe_name') {
+    stderr.writeln('sanitizePortableFileNamePart 未正确收敛非法字符');
+    return 1;
+  }
+  final bounded = sanitizePortableFileNamePart('a' * 300);
+  if (bounded.length != kPortableFileNameDefaultMaxCharacters ||
+      !isPortableFileNamePart(bounded)) {
+    stderr.writeln('sanitizePortableFileNamePart 未限制跨平台文件名长度');
+    return 1;
+  }
+  return 0;
 }
 
 Future<int> _checkAbortableResponseLifetime() async {

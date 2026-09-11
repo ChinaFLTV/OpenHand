@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:characters/characters.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -115,9 +114,10 @@ class AiTranslationService {
     if (normalizedText == null) {
       throw const AiTranslationException('没有可翻译的文本。');
     }
-    final boundedText = _truncateText(
+    final boundedText = clipText(
       normalizedText,
       normalizedSettings.maxTextCharacters,
+      suffix: '',
     );
     final timeout = Duration(seconds: normalizedSettings.timeoutSeconds);
     final deadline = MonotonicDeadline(timeout, timeoutMessage: '翻译超过总时限。');
@@ -777,11 +777,6 @@ class AiTranslationService {
   String _endpointOrDefault(AiTranslationProviderSettings settings) {
     return nullIfBlank(settings.endpoint) ??
         AiTranslationProviderSettings.defaults(settings.provider).endpoint;
-  }
-
-  String _truncateText(String text, int maxCharacters) {
-    if (text.characters.length <= maxCharacters) return text;
-    return text.characters.take(maxCharacters).toString();
   }
 
   String _youdaoInput(String input) {

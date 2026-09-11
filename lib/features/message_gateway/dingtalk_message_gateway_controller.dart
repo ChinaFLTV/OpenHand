@@ -509,6 +509,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool get isRealtimeListening => _isPolling && _eventSubscription != null;
   bool get isPollingFallback => _isPolling && _usingPollingFallback;
   bool get isSending => _isSending;
+
   /// 当前实际执行的回复任务数。历史上下文只参与生成，不能计作正在回复的消息。
   int get activeResponseCount => _activeResponseConversationIds.length;
   int get unreadCount => _unreadCount;
