@@ -11328,6 +11328,11 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
   bool get _hasOutputSchema => widget.tool.hasOutputSchema;
   bool get _canExpand => _hasInputSchema || _hasOutputSchema;
 
+  void _toggle() {
+    if (!_canExpand) return;
+    setState(() => _expanded = !_expanded);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -11343,7 +11348,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
         ? motion.curve.curve
         : motion.curve.reverseCurve;
     final description = widget.tool.description.trim();
-    final header = Row(
+    final identity = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
@@ -11387,20 +11392,6 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
             ],
           ),
         ),
-        if (_canExpand)
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 2),
-            child: AnimatedRotation(
-              turns: _expanded ? 0.5 : 0.0,
-              duration: expandDuration,
-              curve: expandCurve,
-              child: Icon(
-                Icons.expand_more_rounded,
-                size: 18,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
       ],
     );
 
@@ -11409,18 +11400,37 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _canExpand
-                  ? () => setState(() => _expanded = !_expanded)
-                  : null,
-              borderRadius: kOpenHandBorderRadius8,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                child: header,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: _canExpand ? _toggle : null,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 4,
+                    ),
+                    child: identity,
+                  ),
+                ),
               ),
-            ),
+              if (_canExpand)
+                IconButton(
+                  tooltip: _expanded
+                      ? _localizedText(context, zh: '收起', en: 'Collapse')
+                      : _localizedText(context, zh: '展开', en: 'Expand'),
+                  style: openHandFeatureCircleIconButtonStyle(colorScheme),
+                  onPressed: _toggle,
+                  icon: AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0.0,
+                    duration: expandDuration,
+                    curve: expandCurve,
+                    child: const Icon(Icons.expand_more_rounded),
+                  ),
+                ),
+            ],
           ),
           AnimatedSize(
             duration: expandDuration,
