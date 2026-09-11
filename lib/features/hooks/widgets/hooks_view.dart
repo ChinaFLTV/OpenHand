@@ -9,6 +9,7 @@ import '../../../app/model/hook_config.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
@@ -23,6 +24,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart'
     show
         AiResourceUsageKind,
@@ -196,6 +198,8 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+enum _HookCardAction { edit, delete }
+
 class _HookEntryCard extends StatelessWidget {
   const _HookEntryCard({
     required this.entry,
@@ -211,86 +215,131 @@ class _HookEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
-
     final accent = _hookEventAccent(entry.event, colorScheme);
-    return OpenHandHoverCard(
-      padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
-      child: Row(
-        children: [
-          OpenHandIdentityBadge(
-            icon: _hookEventIcon(entry.event),
-            statusColor: entry.enabled
-                ? OpenHandStatusColors.success
-                : colorScheme.outline,
-            extent: 48,
-            iconSize: 22,
-          ),
-          kOpenHandHGap14,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.label,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: entry.enabled
-                        ? colorScheme.onSurface
-                        : colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                kOpenHandGap8,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OpenHandStatusPill(
-                      icon: _hookEventIcon(entry.event),
-                      label: entry.event.label(l10n),
-                      color: accent,
-                    ),
-                    OpenHandMetricChip(
-                      label: '${entry.timeoutSeconds}s',
-                      tooltip: l10n.hooksTimeoutTooltip,
-                    ),
-                  ],
-                ),
-                kOpenHandGap8,
-                Text(
-                  _scriptDescription(l10n),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          kOpenHandHGap12,
-          Switch(value: entry.enabled, onChanged: onToggle),
-          OpenHandRowEditDeleteActions(
-            editTooltip: l10n.commonEdit,
-            deleteTooltip: l10n.commonDelete,
-            onEdit: onEdit,
-            onDelete: onDelete,
-          ),
-        ],
+    final enabled = entry.enabled;
+    final statusColor = enabled
+        ? OpenHandStatusColors.success
+        : colorScheme.outline;
+    final scriptPath = entry.scriptPath?.trim() ?? '';
+    final hasFile = scriptPath.isNotEmpty;
+    final hasInline = entry.scriptContent?.trim().isNotEmpty == true;
+    final scriptLabel = hasFile
+        ? _hookScriptFileName(scriptPath)
+        : hasInline
+        ? l10n.hooksScriptSourceInline
+        : l10n.hooksNoScriptConfigured;
+    final scriptColor = hasFile
+        ? colorScheme.tertiary
+        : hasInline
+        ? colorScheme.secondary
+        : OpenHandStatusColors.warning;
+    final scriptIcon = hasFile
+        ? Icons.description_outlined
+        : hasInline
+        ? Icons.terminal_rounded
+        : Icons.warning_amber_rounded;
+
+    return OpenHandFeatureListCard(
+      onTap: onEdit,
+      identity: OpenHandListIdentity(
+        title: entry.label,
+        description: _scriptDescription(l10n),
+        descriptionMaxLines: 2,
       ),
+      actions: [
+        Switch(value: enabled, onChanged: onToggle),
+        AnimatedPopupMenuButton<_HookCardAction>(
+          tooltip: openHandMoreActionsLabel(context),
+          style: openHandFeatureCircleIconButtonStyle(colorScheme),
+          onSelected: (action) {
+            switch (action) {
+              case _HookCardAction.edit:
+                onEdit();
+              case _HookCardAction.delete:
+                onDelete();
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem<_HookCardAction>(
+              value: _HookCardAction.edit,
+              child: Text(l10n.commonEdit),
+            ),
+            PopupMenuItem<_HookCardAction>(
+              value: _HookCardAction.delete,
+              child: Text(
+                l10n.commonDelete,
+                style: TextStyle(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+      statusPills: [
+        OpenHandStatusPill(
+          icon: enabled
+              ? Icons.check_circle_outline_rounded
+              : Icons.pause_circle_outline_rounded,
+          label: enabled
+              ? l10n.mcpServerStatusEnabled
+              : l10n.mcpServerStatusDisabled,
+          color: statusColor,
+        ),
+        OpenHandStatusPill(
+          icon: _hookEventIcon(entry.event),
+          label: entry.event.label(l10n),
+          color: accent,
+        ),
+      ],
+      factChips: [
+        OpenHandFactChip(
+          icon: Icons.timer_outlined,
+          label: '${entry.timeoutSeconds}s',
+          color: colorScheme.primary,
+        ),
+        OpenHandFactChip(
+          icon: scriptIcon,
+          label: scriptLabel,
+          color: scriptColor,
+        ),
+      ],
+      metrics: [
+        (
+          label: l10n.listCardMetricStatus,
+          value: enabled
+              ? l10n.mcpServerStatusEnabled
+              : l10n.mcpServerStatusDisabled,
+          accent: statusColor,
+        ),
+        (
+          label: l10n.hooksTriggerEvent,
+          value: entry.event.label(l10n),
+          accent: accent,
+        ),
+        (
+          label: l10n.hooksTimeoutTooltip,
+          value: '${entry.timeoutSeconds}s',
+          accent: colorScheme.primary,
+        ),
+        (
+          label: l10n.hooksScriptSource,
+          value: scriptLabel,
+          accent: scriptColor,
+        ),
+      ],
     );
   }
 
   String _scriptDescription(AppLocalizations l10n) {
-    if (entry.scriptPath != null && entry.scriptPath!.isNotEmpty) {
-      return entry.scriptPath!;
-    }
-    if (entry.scriptContent != null && entry.scriptContent!.isNotEmpty) {
-      final firstLine = entry.scriptContent!.split('\n').first.trim();
+    final scriptPath = entry.scriptPath?.trim() ?? '';
+    if (scriptPath.isNotEmpty) return scriptPath;
+    final inline = entry.scriptContent?.trim() ?? '';
+    if (inline.isNotEmpty) {
+      final firstLine = inline.split('\n').first.trim();
       return l10n.hooksInlineScriptDescription(firstLine);
     }
     return l10n.hooksNoScriptConfigured;
@@ -300,6 +349,13 @@ class _HookEntryCard extends StatelessWidget {
 enum _HookScriptSource { file, inline }
 
 const double _kHookScriptSourceTwoColumnMinWidth = 520;
+
+String _hookScriptFileName(String path) {
+  final normalized = path.trim().replaceAll('\\', '/');
+  if (normalized.isEmpty) return normalized;
+  final slash = normalized.lastIndexOf('/');
+  return slash < 0 ? normalized : normalized.substring(slash + 1);
+}
 
 IconData _hookEventIcon(HookEvent event) {
   return switch (event) {
