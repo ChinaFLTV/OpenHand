@@ -11758,7 +11758,7 @@ class _McpHealthProbeTile extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    OpenHandStatusPill(
+                    OpenHandFactChip(
                       icon: isHealthy
                           ? Icons.check_circle_outline_rounded
                           : Icons.error_outline_rounded,
