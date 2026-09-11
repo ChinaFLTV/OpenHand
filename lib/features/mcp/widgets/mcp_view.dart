@@ -9540,7 +9540,13 @@ class _McpServerCardState extends State<_McpServerCard> {
                             alignment: Alignment.center,
                             child: Text(
                               server.initials,
-                              style: theme.textTheme.titleLarge?.copyWith(
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                height: 1,
+                                leadingDistribution:
+                                    TextLeadingDistribution.even,
                                 color: colorScheme.onPrimaryContainer,
                               ),
                             ),
@@ -9693,47 +9699,49 @@ class _McpServerCardState extends State<_McpServerCard> {
                                 SizedBox(
                                   width: 44,
                                   height: 44,
-                                  child:
-                                      AnimatedPopupMenuButton<_McpCardAction>(
-                                        tooltip: _localizedText(
-                                          context,
-                                          zh: '更多操作',
-                                          en: 'More actions',
+                                  child: AnimatedPopupMenuButton<_McpCardAction>(
+                                    tooltip: _localizedText(
+                                      context,
+                                      zh: '更多操作',
+                                      en: 'More actions',
+                                    ),
+                                    style: openHandFeatureCircleIconButtonStyle(
+                                      colorScheme,
+                                    ),
+                                    onSelected: onActionSelected,
+                                    itemBuilder: (context) {
+                                      return [
+                                        PopupMenuItem<_McpCardAction>(
+                                          value: _McpCardAction.viewDetails,
+                                          child: Text(
+                                            _localizedText(
+                                              context,
+                                              zh: '服务详情',
+                                              en: 'Server details',
+                                            ),
+                                          ),
                                         ),
-                                        onSelected: onActionSelected,
-                                        itemBuilder: (context) {
-                                          return [
-                                            PopupMenuItem<_McpCardAction>(
-                                              value: _McpCardAction.viewDetails,
-                                              child: Text(
-                                                _localizedText(
-                                                  context,
-                                                  zh: '服务详情',
-                                                  en: 'Server details',
-                                                ),
-                                              ),
+                                        PopupMenuItem<_McpCardAction>(
+                                          value: _McpCardAction.viewHistory,
+                                          child: Text(
+                                            _localizedText(
+                                              context,
+                                              zh: '查看探测历史',
+                                              en: 'View probe history',
                                             ),
-                                            PopupMenuItem<_McpCardAction>(
-                                              value: _McpCardAction.viewHistory,
-                                              child: Text(
-                                                _localizedText(
-                                                  context,
-                                                  zh: '查看探测历史',
-                                                  en: 'View probe history',
-                                                ),
-                                              ),
-                                            ),
-                                            PopupMenuItem<_McpCardAction>(
-                                              value: _McpCardAction.edit,
-                                              child: Text(l10n.commonEdit),
-                                            ),
-                                            PopupMenuItem<_McpCardAction>(
-                                              value: _McpCardAction.delete,
-                                              child: Text(l10n.commonDelete),
-                                            ),
-                                          ];
-                                        },
-                                      ),
+                                          ),
+                                        ),
+                                        PopupMenuItem<_McpCardAction>(
+                                          value: _McpCardAction.edit,
+                                          child: Text(l10n.commonEdit),
+                                        ),
+                                        PopupMenuItem<_McpCardAction>(
+                                          value: _McpCardAction.delete,
+                                          child: Text(l10n.commonDelete),
+                                        ),
+                                      ];
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
@@ -9754,6 +9762,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                         _McpStatusChip(
                           key: const ValueKey<String>('mcp-chip-template-all'),
                           icon: Icons.public_rounded,
+                          color: colorScheme.tertiary,
                           label: _localizedText(
                             context,
                             zh: '全部线程模板',
@@ -9773,6 +9782,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                             icon: AiThreadTemplateIcons.resolve(
                               template.iconName,
                             ),
+                            color: colorScheme.tertiary,
                             label: template.nameForLocale(locale),
                           ),
                       for (final templateId in unknownVisibleTemplateIds)
@@ -9781,6 +9791,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                             'mcp-chip-template-$templateId',
                           ),
                           icon: Icons.extension_rounded,
+                          color: colorScheme.tertiary,
                           label: templateId,
                         ),
                       if (server.type == McpServerType.stdio)
@@ -9792,6 +9803,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                         _McpStatusChip(
                           key: const ValueKey<String>('mcp-chip-headers'),
                           icon: Icons.badge_outlined,
+                          color: colorScheme.secondary,
                           label: _localizedText(
                             context,
                             zh: '${server.headers.length} 个 Header',
@@ -9807,6 +9819,11 @@ class _McpServerCardState extends State<_McpServerCard> {
                         _McpStatusChip(
                           key: const ValueKey<String>('mcp-chip-health'),
                           icon: _healthStatusChipIcon(healthStatus),
+                          color: _healthStatusDotColor(
+                            colorScheme,
+                            server: server,
+                            healthStatus: healthStatus,
+                          ),
                           label: _healthStatusSummary(context, healthStatus),
                         ),
                       if (healthStatus.latencyMs != null &&
@@ -9814,6 +9831,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                         _McpStatusChip(
                           key: const ValueKey<String>('mcp-chip-latency'),
                           icon: Icons.speed_rounded,
+                          color: OpenHandStatusColors.info,
                           label: _localizedText(
                             context,
                             zh: '${healthStatus.latencyMs} ms',
@@ -9824,6 +9842,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                         _McpStatusChip(
                           key: const ValueKey<String>('mcp-chip-relative-time'),
                           icon: Icons.history_toggle_off_rounded,
+                          color: OpenHandStatusColors.warning,
                           label: _formatRelativePast(
                             context,
                             healthStatus.lastCheckedAt!,
@@ -9898,6 +9917,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                                 message: tooltipMsg,
                                 child: _McpStatusChip(
                                   icon: Icons.radar_rounded,
+                                  color: OpenHandStatusColors.info,
                                   label: label,
                                 ),
                               ),
@@ -9908,6 +9928,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                         _McpStatusChip(
                           key: const ValueKey<String>('mcp-chip-tool-state'),
                           icon: Icons.build_circle_outlined,
+                          color: colorScheme.primary,
                           label: _localizedText(
                             context,
                             zh: '${toolCatalog.tools.length} 个 Tool',
@@ -9922,11 +9943,65 @@ class _McpServerCardState extends State<_McpServerCard> {
                         _McpStatusChip(
                           key: const ValueKey<String>('mcp-chip-scanned-time'),
                           icon: Icons.schedule_rounded,
+                          color: colorScheme.tertiary,
                           label: _formatStatusTime(
                             context,
                             toolCatalog.lastScannedAt!,
                           ),
                         ),
+                    ],
+                  ),
+                  kOpenHandGap16,
+                  OpenHandMetricsStrip(
+                    items: [
+                      (
+                        label: l10n.listCardMetricStatus,
+                        value: server.enabled
+                            ? l10n.mcpServerStatusEnabled
+                            : l10n.mcpServerStatusDisabled,
+                        accent: server.enabled
+                            ? OpenHandStatusColors.success
+                            : colorScheme.outline,
+                      ),
+                      (
+                        label: _localizedText(
+                          context,
+                          zh: 'Tools',
+                          en: 'Tools',
+                        ),
+                        value: '${toolCatalog.tools.length}',
+                        accent: colorScheme.primary,
+                      ),
+                      (
+                        label: _localizedText(context, zh: '延迟', en: 'Latency'),
+                        value: healthStatus.latencyMs == null
+                            ? '—'
+                            : '${healthStatus.latencyMs} ms',
+                        accent: OpenHandStatusColors.info,
+                      ),
+                      (
+                        label: _localizedText(context, zh: '健康', en: 'Health'),
+                        value: healthStatus.isChecking
+                            ? _localizedText(context, zh: '检测中', en: 'Checking')
+                            : healthStatus.isHealthy
+                            ? _localizedText(context, zh: '健康', en: 'Healthy')
+                            : healthStatus.lastCheckedAt == null
+                            ? _localizedText(
+                                context,
+                                zh: '未检测',
+                                en: 'Unchecked',
+                              )
+                            : _localizedText(
+                                context,
+                                zh: '异常',
+                                en: 'Unhealthy',
+                              ),
+                        accent: _healthStatusDotColor(
+                          colorScheme,
+                          server: server,
+                          healthStatus: healthStatus,
+                        ),
+                      ),
                     ],
                   ),
                   OpenHandInlineNoticeSlot(
@@ -10464,7 +10539,7 @@ bool _sameMcpChipStripGeometry(
 _McpChipStripItem _mcpChipStripItemFromChild(Widget child, int index) {
   final id = child.key?.toString() ?? 'mcp-chip-$index';
   final contentKey = switch (child) {
-    _McpStatusChip() => Object.hash(child.icon, child.label),
+    _McpStatusChip() => Object.hash(child.icon, child.label, child.color),
     _McpAttentionChip() => child.consecutiveFailures,
     _McpServerToggleChip() => child.enabled,
     _ => Object.hash(id, child.runtimeType),
@@ -10511,23 +10586,32 @@ Widget _mcpChipTransition(Widget child, Animation<double> animation) {
 }
 
 class _McpStatusChip extends StatelessWidget {
-  const _McpStatusChip({super.key, required this.icon, required this.label});
+  const _McpStatusChip({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.color,
+  });
 
   final IconData icon;
   final String label;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final accent = color ?? colorScheme.secondary;
     return Chip(
-      avatar: Icon(icon, size: 18),
-      backgroundColor: colorScheme.surfaceContainerHighest,
+      avatar: Icon(icon, size: 18, color: accent),
+      backgroundColor: accent.withValues(alpha: 0.12),
+      side: BorderSide(color: accent.withValues(alpha: 0.32)),
       label: Text(label),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.compact,
-      labelStyle: Theme.of(
-        context,
-      ).textTheme.labelLarge?.copyWith(color: colorScheme.onSurface),
+      labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+        color: accent,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }
@@ -12596,8 +12680,21 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                                   id: 'mcp-tool-overflow',
                                   contentKey: hiddenToolCount,
                                   child: Chip(
-                                    avatar: const Icon(
+                                    avatar: Icon(
                                       Icons.more_horiz_rounded,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.secondary,
+                                    ),
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .secondary
+                                        .withValues(alpha: 0.12),
+                                    side: BorderSide(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .secondary
+                                          .withValues(alpha: 0.32),
                                     ),
                                     label: Text(
                                       _localizedText(
@@ -12641,6 +12738,10 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
   }
 
   Widget _buildToolChip(BuildContext context, McpTool tool) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = tool.hasMetadataWarning
+        ? colorScheme.error
+        : colorScheme.primary;
     return Tooltip(
       message: tool.name,
       child: ConstrainedBox(
@@ -12651,6 +12752,13 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                 ? Icons.warning_amber_rounded
                 : Icons.build_circle_outlined,
             size: 18,
+            color: accent,
+          ),
+          backgroundColor: accent.withValues(alpha: 0.12),
+          side: BorderSide(color: accent.withValues(alpha: 0.32)),
+          labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: accent,
+            fontWeight: FontWeight.w700,
           ),
           label: Text(tool.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           onPressed: () {
