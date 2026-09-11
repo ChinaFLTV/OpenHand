@@ -3582,6 +3582,138 @@ interface QueuedComposerMessage {
   createdAt: number;
 }
 
+interface ComposerAttachmentPreview {
+  mime: string;
+  dataUrl: string;
+  size: number;
+}
+
+interface SessionComposerDraft {
+  text: string;
+  mode: string;
+  modelKey: string;
+  attachments: SendMessageAttachment[];
+  attachmentIds: string[];
+  attachmentPreviews: ComposerAttachmentPreview[];
+  editingMessage: SessionMessage | null;
+  selectedSkill: SkillSummary | null;
+  skippedInstructionIds: string[];
+  creationOptions: CreationOptions;
+  queuedMessages: QueuedComposerMessage[];
+  editingQueuedMessageId: string | null;
+  queuedEditText: string;
+  blockedQueuedMessageId: string | null;
+  autoFollow: boolean;
+}
+
+const SESSION_COMPOSER_DRAFT_CACHE_LIMIT = 12;
+const SESSION_COMPOSER_DRAFT_ATTACHMENT_BYTES_LIMIT = COMPOSER_QUEUE_MAX_ATTACHMENT_BYTES;
+const sessionComposerDraftCache = new Map<string, SessionComposerDraft>();
+
+function copySessionComposerDraft(draft: SessionComposerDraft): SessionComposerDraft {
+  return {
+    ...draft,
+    attachments: draft.attachments.map((item) => ({ ...item })),
+    attachmentIds: [...draft.attachmentIds],
+    attachmentPreviews: draft.attachmentPreviews.map((item) => ({ ...item })),
+    editingMessage: draft.editingMessage ? { ...draft.editingMessage } : null,
+    selectedSkill: draft.selectedSkill ? { ...draft.selectedSkill } : null,
+    skippedInstructionIds: [...draft.skippedInstructionIds],
+    creationOptions: { ...draft.creationOptions },
+    queuedMessages: draft.queuedMessages.map((item) => ({
+      ...item,
+      attachments: item.attachments.map((attachment) => ({ ...attachment })),
+      selectedSkill: item.selectedSkill ? { ...item.selectedSkill } : null,
+      skippedInstructionIds: [...item.skippedInstructionIds],
+    })),
+  };
+}
+
+function sessionComposerDraftAttachmentBytes(draft: SessionComposerDraft): number {
+  const composerBytes = draft.attachments.reduce(
+    (total, item) => total + decodedBase64Size(item.data_base64),
+    0,
+  );
+  return draft.queuedMessages.reduce(
+    (total, message) => total + message.attachments.reduce(
+      (messageTotal, item) => messageTotal + decodedBase64Size(item.data_base64),
+      0,
+    ),
+    composerBytes,
+  );
+}
+
+function trimSessionComposerDraftCache(): void {
+  let attachmentBytes = 0;
+  for (const draft of sessionComposerDraftCache.values()) {
+    attachmentBytes += sessionComposerDraftAttachmentBytes(draft);
+  }
+  while (
+    sessionComposerDraftCache.size > 1 &&
+    (sessionComposerDraftCache.size > SESSION_COMPOSER_DRAFT_CACHE_LIMIT ||
+      attachmentBytes > SESSION_COMPOSER_DRAFT_ATTACHMENT_BYTES_LIMIT)
+  ) {
+    const oldestSessionId = sessionComposerDraftCache.keys().next().value;
+    if (typeof oldestSessionId !== 'string') break;
+    const oldest = sessionComposerDraftCache.get(oldestSessionId);
+    if (oldest) attachmentBytes -= sessionComposerDraftAttachmentBytes(oldest);
+    sessionComposerDraftCache.delete(oldestSessionId);
+  }
+}
+
+function takeSessionComposerDraft(sessionId: string): SessionComposerDraft | null {
+  if (!sessionId) return null;
+  const draft = sessionComposerDraftCache.get(sessionId);
+  if (!draft) return null;
+  sessionComposerDraftCache.delete(sessionId);
+  return copySessionComposerDraft(draft);
+}
+
+function rememberSessionComposerDraft(sessionId: string, draft: SessionComposerDraft): void {
+  if (!sessionId) return;
+  sessionComposerDraftCache.delete(sessionId);
+  sessionComposerDraftCache.set(sessionId, copySessionComposerDraft(draft));
+  trimSessionComposerDraftCache();
+}
+
+function clearSessionComposerDraft(sessionId: string): void {
+  if (sessionId) sessionComposerDraftCache.delete(sessionId);
+}
+
+function clearCachedComposerInput(sessionId: string): void {
+  const draft = sessionComposerDraftCache.get(sessionId);
+  if (!draft) return;
+  rememberSessionComposerDraft(sessionId, {
+    ...draft,
+    text: '',
+    attachments: [],
+    attachmentIds: [],
+    attachmentPreviews: [],
+    editingMessage: null,
+    selectedSkill: null,
+  });
+}
+
+function removeCachedQueuedMessage(sessionId: string, messageId: string): void {
+  const draft = sessionComposerDraftCache.get(sessionId);
+  if (!draft) return;
+  const queuedMessages = draft.queuedMessages.filter((item) => item.id !== messageId);
+  rememberSessionComposerDraft(sessionId, {
+    ...draft,
+    queuedMessages,
+    editingQueuedMessageId:
+      draft.editingQueuedMessageId === messageId
+        ? null
+        : draft.editingQueuedMessageId,
+    queuedEditText:
+      draft.editingQueuedMessageId === messageId ? '' : draft.queuedEditText,
+    blockedQueuedMessageId:
+      draft.blockedQueuedMessageId === messageId
+        ? null
+        : draft.blockedQueuedMessageId,
+  });
+}
+
 interface MessageTranslationState {
   source: string;
   settingsFingerprint: string;
@@ -3647,6 +3779,11 @@ export function SessionDetailPage() {
   const reduceMotion = useReducedMotion();
   const routeMatch = useRoute() as { params?: RouteParams } | undefined;
   const sessionId = routeMatch?.params?.id ?? '';
+  const [initialComposerDraft] = useState(() =>
+    takeSessionComposerDraft(sessionId),
+  );
+  const initialComposerDraftSessionIdRef = useRef(sessionId);
+  const initialComposerDraftPendingRef = useRef(true);
   const pageRootRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
   const messagesContentRef = useRef<HTMLDivElement | null>(null);
@@ -3679,16 +3816,35 @@ export function SessionDetailPage() {
 
   // 输入区状态。composerText 仅供渲染读取（字符计数等低频 UI）；
   // 键入路径不直接写它，见下方 setComposerText/handleComposerTextInput。
-  const [composerText, setComposerTextState] = useState<string>('');
-  const [composerMode, setComposerMode] = useState<string>('normal');
-  const [composerModelKey, setComposerModelKey] = useState<string>('');
+  const [composerText, setComposerTextState] = useState<string>(
+    initialComposerDraft?.text ?? '',
+  );
+  const [composerMode, setComposerMode] = useState<string>(
+    initialComposerDraft?.mode ?? 'normal',
+  );
+  const [composerModelKey, setComposerModelKey] = useState<string>(
+    initialComposerDraft?.modelKey ?? '',
+  );
   const composerModelBindingRef = useRef<string>('');
-  const [composerAttachments, setComposerAttachments] = useState<SendMessageAttachment[]>([]);
-  const [composerAttachmentIds, setComposerAttachmentIds] = useState<string[]>([]);
-  const [editingDraftMessage, setEditingDraftMessage] = useState<SessionMessage | null>(null);
-  const [selectedSkill, setSelectedSkill] = useState<SkillSummary | null>(null);
-  // 仅记录本轮临时跳过的用户指令，切换会话时清空。
-  const [skippedInstructionIds, setSkippedInstructionIds] = useState<Set<string>>(() => new Set());
+  const restoredComposerModelSessionIdRef = useRef(
+    initialComposerDraft ? sessionId : '',
+  );
+  const [composerAttachments, setComposerAttachments] = useState<SendMessageAttachment[]>(
+    initialComposerDraft?.attachments ?? [],
+  );
+  const [composerAttachmentIds, setComposerAttachmentIds] = useState<string[]>(
+    initialComposerDraft?.attachmentIds ?? [],
+  );
+  const [editingDraftMessage, setEditingDraftMessage] = useState<SessionMessage | null>(
+    initialComposerDraft?.editingMessage ?? null,
+  );
+  const [selectedSkill, setSelectedSkill] = useState<SkillSummary | null>(
+    initialComposerDraft?.selectedSkill ?? null,
+  );
+  // 仅记录本轮临时跳过的用户指令，并按会话隔离暂存。
+  const [skippedInstructionIds, setSkippedInstructionIds] = useState<Set<string>>(
+    () => new Set(initialComposerDraft?.skippedInstructionIds ?? []),
+  );
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [skillPickerOpen, setSkillPickerOpen] = useState(false);
   const [skillPickerQuery, setSkillPickerQuery] = useState('');
@@ -3712,28 +3868,42 @@ export function SessionDetailPage() {
   const [atMentionFilePickerAnchor, setAtMentionFilePickerAnchor] = useState<ComposerPickerAnchor | null>(null);
 
   // 附件预览 (image/* → dataURL); key 与 composerAttachments 同序
-  const [attachmentPreviews, setAttachmentPreviews] = useState<{ mime: string; dataUrl: string; size: number }[]>([]);
+  const [attachmentPreviews, setAttachmentPreviews] = useState<ComposerAttachmentPreview[]>(
+    initialComposerDraft?.attachmentPreviews ?? [],
+  );
   const [exitingComposerChipKeys, setExitingComposerChipKeys] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState<boolean>(false);
   const [composerSending, setComposerSending] = useState<boolean>(false);
   const [composerError, setComposerError] = useState<string | null>(null);
-  const [queuedComposerMessages, setQueuedComposerMessages] = useState<QueuedComposerMessage[]>([]);
+  const [queuedComposerMessages, setQueuedComposerMessages] = useState<QueuedComposerMessage[]>(
+    initialComposerDraft?.queuedMessages ?? [],
+  );
   const [exitingQueuedMessageIds, setExitingQueuedMessageIds] = useState<string[]>([]);
-  const [editingQueuedMessageId, setEditingQueuedMessageId] = useState<string | null>(null);
-  const [queuedEditText, setQueuedEditText] = useState('');
+  const [editingQueuedMessageId, setEditingQueuedMessageId] = useState<string | null>(
+    initialComposerDraft?.editingQueuedMessageId ?? null,
+  );
+  const [queuedEditText, setQueuedEditText] = useState(
+    initialComposerDraft?.queuedEditText ?? '',
+  );
   const [queueDispatchingId, setQueueDispatchingId] = useState<string | null>(null);
   const [queueGuidanceDispatchingId, setQueueGuidanceDispatchingId] = useState<string | null>(null);
-  const [blockedQueuedMessageId, setBlockedQueuedMessageId] = useState<string | null>(null);
+  const [blockedQueuedMessageId, setBlockedQueuedMessageId] = useState<string | null>(
+    initialComposerDraft?.blockedQueuedMessageId ?? null,
+  );
   const [queuedListMotionGeneration, setQueuedListMotionGeneration] = useState(0);
   const [stopping, setStopping] = useState<boolean>(false);
   const [composerCollapsed, setComposerCollapsed] = useState(readPersistedComposerCollapsed);
-  const [autoFollow, setAutoFollow] = useState(true);
+  const [autoFollow, setAutoFollow] = useState(
+    initialComposerDraft?.autoFollow ?? true,
+  );
   const [autoFollowPaused, setAutoFollowPaused] = useState(false);
   const browserFullscreen = useBrowserFullscreen();
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
   const [reasoningEffortSaving, setReasoningEffortSaving] = useState(false);
   const [showCreationOptions, setShowCreationOptions] = useState<'image' | 'video' | 'audio' | null>(null);
-  const [creationOptions, setCreationOptions] = useState<CreationOptions>({});
+  const [creationOptions, setCreationOptions] = useState<CreationOptions>(
+    initialComposerDraft?.creationOptions ?? {},
+  );
   const [showTitleSummary, setShowTitleSummary] = useState(false);
   const [showTrajectory, setShowTrajectory] = useState(false);
   const [permissionSaving, setPermissionSaving] = useState(false);
@@ -3768,10 +3938,44 @@ export function SessionDetailPage() {
   // 键入只写 ref（事件处理一律读 ref，去抖窗口内的输入不丢失），state 去抖
   // 同步用于字符计数等低频渲染；程序化写入（清空/编辑回填/插入技能）立即
   // 同步 DOM + state。
-  const composerTextRef = useRef('');
+  const composerTextRef = useRef(initialComposerDraft?.text ?? '');
   const composerTextSyncTimerRef = useRef<number | null>(null);
+  const composerDraftLiveRef = useRef<SessionComposerDraft>({
+    text: initialComposerDraft?.text ?? '',
+    mode: initialComposerDraft?.mode ?? 'normal',
+    modelKey: initialComposerDraft?.modelKey ?? '',
+    attachments: initialComposerDraft?.attachments ?? [],
+    attachmentIds: initialComposerDraft?.attachmentIds ?? [],
+    attachmentPreviews: initialComposerDraft?.attachmentPreviews ?? [],
+    editingMessage: initialComposerDraft?.editingMessage ?? null,
+    selectedSkill: initialComposerDraft?.selectedSkill ?? null,
+    skippedInstructionIds: initialComposerDraft?.skippedInstructionIds ?? [],
+    creationOptions: initialComposerDraft?.creationOptions ?? {},
+    queuedMessages: initialComposerDraft?.queuedMessages ?? [],
+    editingQueuedMessageId: initialComposerDraft?.editingQueuedMessageId ?? null,
+    queuedEditText: initialComposerDraft?.queuedEditText ?? '',
+    blockedQueuedMessageId: initialComposerDraft?.blockedQueuedMessageId ?? null,
+    autoFollow: initialComposerDraft?.autoFollow ?? true,
+  });
+  composerDraftLiveRef.current.text = composerTextRef.current;
+  composerDraftLiveRef.current.mode = composerMode;
+  composerDraftLiveRef.current.modelKey = composerModelKey;
+  composerDraftLiveRef.current.attachments = composerAttachments;
+  composerDraftLiveRef.current.attachmentIds = composerAttachmentIds;
+  composerDraftLiveRef.current.attachmentPreviews = attachmentPreviews;
+  composerDraftLiveRef.current.editingMessage = editingDraftMessage;
+  composerDraftLiveRef.current.selectedSkill = selectedSkill;
+  composerDraftLiveRef.current.skippedInstructionIds = Array.from(skippedInstructionIds);
+  composerDraftLiveRef.current.creationOptions = creationOptions;
+  composerDraftLiveRef.current.queuedMessages = queuedComposerMessages;
+  composerDraftLiveRef.current.editingQueuedMessageId = editingQueuedMessageId;
+  composerDraftLiveRef.current.queuedEditText = queuedEditText;
+  composerDraftLiveRef.current.blockedQueuedMessageId = blockedQueuedMessageId;
+  composerDraftLiveRef.current.autoFollow = autoFollow;
+  const discardComposerDraftOnExitRef = useRef(new Set<string>());
   const setComposerText = useCallback((next: string) => {
     composerTextRef.current = next;
+    composerDraftLiveRef.current.text = next;
     if (composerTextSyncTimerRef.current != null) {
       window.clearTimeout(composerTextSyncTimerRef.current);
       composerTextSyncTimerRef.current = null;
@@ -3782,6 +3986,7 @@ export function SessionDetailPage() {
   }, []);
   const handleComposerTextInput = useCallback((next: string) => {
     composerTextRef.current = next;
+    composerDraftLiveRef.current.text = next;
     if (composerTextSyncTimerRef.current != null) {
       window.clearTimeout(composerTextSyncTimerRef.current);
     }
@@ -3832,23 +4037,31 @@ export function SessionDetailPage() {
     atMentionTriggerOffsetRef.current = null;
   }
   const mountedRef = useRef(true);
-  const editingDraftMessageRef = useRef<SessionMessage | null>(null);
+  const editingDraftMessageRef = useRef<SessionMessage | null>(
+    initialComposerDraft?.editingMessage ?? null,
+  );
   const autoTitleRefreshGenerationRef = useRef(0);
   const autoTitleRefreshAttemptRef = useRef(0);
   const autoTitleRefreshStartedAtRef = useRef(0);
   const composerChipExitTimersRef = useRef<number[]>([]);
   const queuedMessageExitTimersRef = useRef<number[]>([]);
-  const queuedComposerMessagesRef = useRef<QueuedComposerMessage[]>([]);
+  const queuedComposerMessagesRef = useRef<QueuedComposerMessage[]>(
+    initialComposerDraft?.queuedMessages ?? [],
+  );
   const queuedMessageSeqRef = useRef(0);
   const queueDispatchingRef = useRef(false);
   const queueGuidanceDispatchingRef = useRef(false);
   const queuedGoalResumeInFlightRef = useRef(false);
-  const blockedQueuedMessageIdRef = useRef<string | null>(null);
-  const composerAttachmentIdsRef = useRef<string[]>([]);
+  const blockedQueuedMessageIdRef = useRef<string | null>(
+    initialComposerDraft?.blockedQueuedMessageId ?? null,
+  );
+  const composerAttachmentIdsRef = useRef<string[]>(
+    initialComposerDraft?.attachmentIds ?? [],
+  );
   const attachmentIdSeqRef = useRef(0);
   // 用户离底超过阈值时暂停自动跟随；检测到远端生成且本地有草稿时显示冲突提示。
   const isNearBottomRef = useRef<boolean>(true);
-  const autoFollowRef = useRef<boolean>(true);
+  const autoFollowRef = useRef<boolean>(initialComposerDraft?.autoFollow ?? true);
   const autoFollowPausedRef = useRef<boolean>(false);
   const programmaticScrollUntilRef = useRef<number>(0);
   const composerLayoutTransitionUntilRef = useRef<number>(0);
@@ -3949,7 +4162,95 @@ export function SessionDetailPage() {
     queuedComposerMessagesRef.current = queuedComposerMessages;
   }, [queuedComposerMessages]);
 
+  // 路由离开会卸载详情页。仅在内存中按会话暂存未发送输入，既避免跨页面
+  // 返回时丢失草稿，也不把附件和敏感文本写入浏览器持久化存储。
   useEffect(() => {
+    const draftSessionId = sessionId;
+    return () => {
+      if (!draftSessionId) return;
+      if (discardComposerDraftOnExitRef.current.delete(draftSessionId)) {
+        clearSessionComposerDraft(draftSessionId);
+        return;
+      }
+      rememberSessionComposerDraft(draftSessionId, {
+        ...composerDraftLiveRef.current,
+        text: composerTextRef.current,
+      });
+    };
+  }, [sessionId]);
+
+  useEffect(() => {
+    const useInitialDraft =
+      initialComposerDraftPendingRef.current &&
+      initialComposerDraftSessionIdRef.current === sessionId;
+    const restoredDraft = useInitialDraft
+      ? initialComposerDraft
+      : takeSessionComposerDraft(sessionId);
+    initialComposerDraftPendingRef.current = false;
+    const restoredAttachments = restoredDraft?.attachments ?? [];
+    const restoredAttachmentIds = restoredDraft?.attachmentIds ?? [];
+    const restoredAttachmentPreviews = restoredDraft?.attachmentPreviews ?? [];
+    const restoredQueue = restoredDraft?.queuedMessages ?? [];
+    const restoredEditingQueuedMessageId = restoredQueue.some(
+      (item) => item.id === restoredDraft?.editingQueuedMessageId,
+    )
+      ? restoredDraft?.editingQueuedMessageId ?? null
+      : null;
+    const restoredBlockedQueuedMessageId = restoredQueue.some(
+      (item) => item.id === restoredDraft?.blockedQueuedMessageId,
+    )
+      ? restoredDraft?.blockedQueuedMessageId ?? null
+      : null;
+    const restoredAutoFollow = restoredDraft?.autoFollow ?? true;
+    const restoredText = restoredDraft?.text ?? '';
+
+    composerModelBindingRef.current = '';
+    restoredComposerModelSessionIdRef.current = restoredDraft ? sessionId : '';
+    setComposerText(restoredText);
+    setComposerMode(restoredDraft?.mode ?? 'normal');
+    setComposerModelKey(restoredDraft?.modelKey ?? '');
+    setComposerAttachments(restoredAttachments);
+    setComposerAttachmentIds(restoredAttachmentIds);
+    composerAttachmentIdsRef.current = restoredAttachmentIds;
+    setAttachmentPreviews(restoredAttachmentPreviews);
+    editingDraftMessageRef.current = restoredDraft?.editingMessage ?? null;
+    setEditingDraftMessage(restoredDraft?.editingMessage ?? null);
+    setSelectedSkill(restoredDraft?.selectedSkill ?? null);
+    setSkippedInstructionIds(
+      new Set(restoredDraft?.skippedInstructionIds ?? []),
+    );
+    setCreationOptions(restoredDraft?.creationOptions ?? {});
+    queuedComposerMessagesRef.current = restoredQueue;
+    setQueuedComposerMessages(restoredQueue);
+    setEditingQueuedMessageId(restoredEditingQueuedMessageId);
+    setQueuedEditText(
+      restoredEditingQueuedMessageId ? restoredDraft?.queuedEditText ?? '' : '',
+    );
+    blockedQueuedMessageIdRef.current = restoredBlockedQueuedMessageId;
+    setBlockedQueuedMessageId(restoredBlockedQueuedMessageId);
+    autoFollowRef.current = restoredAutoFollow;
+    autoFollowPausedRef.current = false;
+    setAutoFollow(restoredAutoFollow);
+    setAutoFollowPaused(false);
+    composerDraftLiveRef.current = {
+      text: restoredText,
+      mode: restoredDraft?.mode ?? 'normal',
+      modelKey: restoredDraft?.modelKey ?? '',
+      attachments: restoredAttachments,
+      attachmentIds: restoredAttachmentIds,
+      attachmentPreviews: restoredAttachmentPreviews,
+      editingMessage: restoredDraft?.editingMessage ?? null,
+      selectedSkill: restoredDraft?.selectedSkill ?? null,
+      skippedInstructionIds: restoredDraft?.skippedInstructionIds ?? [],
+      creationOptions: restoredDraft?.creationOptions ?? {},
+      queuedMessages: restoredQueue,
+      editingQueuedMessageId: restoredEditingQueuedMessageId,
+      queuedEditText:
+        restoredEditingQueuedMessageId ? restoredDraft?.queuedEditText ?? '' : '',
+      blockedQueuedMessageId: restoredBlockedQueuedMessageId,
+      autoFollow: restoredAutoFollow,
+    };
+
     setTtsPlayback(EMPTY_TTS_PLAYBACK);
     const previousTtsSessionId = lastMessageTtsSessionId;
     if (sessionId) lastMessageTtsSessionId = sessionId;
@@ -3969,11 +4270,7 @@ export function SessionDetailPage() {
     }
     queueDispatchingRef.current = false;
     queueGuidanceDispatchingRef.current = false;
-    blockedQueuedMessageIdRef.current = null;
-    setQueuedComposerMessages([]);
     setExitingQueuedMessageIds([]);
-    setEditingQueuedMessageId(null);
-    setQueuedEditText('');
     setQueueDispatchingId(null);
     setQueueGuidanceDispatchingId(null);
     setComposerSending(false);
@@ -4012,10 +4309,7 @@ export function SessionDetailPage() {
     goalStartOptionsResolverRef.current?.(null);
     goalStartOptionsResolverRef.current = null;
     setImageEditorInput(null);
-    // 与 App 端 _skippedInstructionIds 一致：会话切换时清空跳过集合，
-    // 避免上一会话的跳过状态泄漏到新会话。
-    setSkippedInstructionIds(new Set());
-  }, [applyTtsPlayback, sessionId]);
+  }, [applyTtsPlayback, sessionId, setComposerText]);
 
   useAsyncPolling(
     async (isActive, signal) => {
@@ -4661,6 +4955,8 @@ export function SessionDetailPage() {
     setSessionDeleteBusy(true);
     try {
       await deleteSession(requestSessionId);
+      discardComposerDraftOnExitRef.current.add(requestSessionId);
+      clearSessionComposerDraft(requestSessionId);
       if (!ownsSessionAsyncResult(requestSessionId)) return false;
       showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
       return true;
@@ -4668,6 +4964,8 @@ export function SessionDetailPage() {
       if (!ownsSessionAsyncResult(requestSessionId)) return false;
       if (handleAuthError(e)) return false;
       if (e instanceof ApiError && e.status === 404) {
+        discardComposerDraftOnExitRef.current.add(requestSessionId);
+        clearSessionComposerDraft(requestSessionId);
         showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
         return true;
       }
@@ -5049,14 +5347,14 @@ export function SessionDetailPage() {
   }, [visibleMessageIdSet, activeMessageId]);
 
   useEffect(() => {
-    if (!editingDraftMessage || composerSending) return;
+    if (loadingDetail || !editingDraftMessage || composerSending) return;
     if (visibleMessageIdSet.has(editingDraftMessage.id)) return;
     editingDraftMessageRef.current = null;
     setEditingDraftMessage(null);
     showSnackbar(t('composer.edit.targetGone', '原消息已在其他客户端被更新'), {
       tone: 'error',
     });
-  }, [visibleMessageIdSet, editingDraftMessage, composerSending]);
+  }, [visibleMessageIdSet, editingDraftMessage, composerSending, loadingDetail]);
 
   // messages 变化 → 自动跟随 / 累计未读
   // 用 useLayoutEffect 在浏览器 paint 前同步钉到底部，避免插入新内容后浏览器 scroll-anchor
@@ -5146,6 +5444,8 @@ export function SessionDetailPage() {
         sseCloseRef.current?.();
         sseCloseRef.current = null;
         clearAutoTitleRefreshTimers();
+        discardComposerDraftOnExitRef.current.add(sessionId);
+        clearSessionComposerDraft(sessionId);
         setSessionGone(true);
         return true;
       }
@@ -5380,9 +5680,6 @@ export function SessionDetailPage() {
     replaceMessageWindow([], 0);
     updateTotalKnown(0);
     setActiveMessageId(null);
-    setComposerMode('normal');
-    editingDraftMessageRef.current = null;
-    setEditingDraftMessage(null);
     lastTailIdRef.current = null;
     lastTailSignatureRef.current = '';
     Promise.all([
@@ -5752,6 +6049,8 @@ export function SessionDetailPage() {
           sseCloseRef.current?.();
           sseCloseRef.current = null;
         }
+        discardComposerDraftOnExitRef.current.add(eventSessionId);
+        clearSessionComposerDraft(eventSessionId);
         setSseLive(false);
         setSessionGone(true);
       },
@@ -5877,6 +6176,10 @@ export function SessionDetailPage() {
 
   function clearComposerAfterQueue(): void {
     setComposerText('');
+    composerDraftLiveRef.current.attachments = [];
+    composerDraftLiveRef.current.attachmentIds = [];
+    composerDraftLiveRef.current.attachmentPreviews = [];
+    composerDraftLiveRef.current.selectedSkill = null;
     setComposerAttachments([]);
     setComposerAttachmentIds([]);
     setAttachmentPreviews([]);
@@ -5973,6 +6276,7 @@ export function SessionDetailPage() {
     clearQueuedMessageRetryBlock();
     const nextQueue = [...currentQueue, queued];
     queuedComposerMessagesRef.current = nextQueue;
+    composerDraftLiveRef.current.queuedMessages = nextQueue;
     setQueuedComposerMessages(nextQueue);
     setQueuedListMotionGeneration((value) => value + 1);
     setComposerError(null);
@@ -6057,6 +6361,18 @@ export function SessionDetailPage() {
         skippedInstructionIds: next.skippedInstructionIds,
         allowQueuedGoalInterruption: true,
       });
+      removeCachedQueuedMessage(dispatchSessionId, next.id);
+      composerDraftLiveRef.current.queuedMessages =
+        composerDraftLiveRef.current.queuedMessages.filter(
+          (item) => item.id !== next.id,
+        );
+      if (composerDraftLiveRef.current.editingQueuedMessageId === next.id) {
+        composerDraftLiveRef.current.editingQueuedMessageId = null;
+        composerDraftLiveRef.current.queuedEditText = '';
+      }
+      if (composerDraftLiveRef.current.blockedQueuedMessageId === next.id) {
+        composerDraftLiveRef.current.blockedQueuedMessageId = null;
+      }
       if (!ownsSessionAsyncResult(dispatchSessionId)) return false;
       removeQueuedMessageAfterSend(next.id);
       updateSendPhaseValue(res.send_phase || 'sendingMessage');
@@ -6209,19 +6525,27 @@ export function SessionDetailPage() {
       const currentAllowed = current ? allowedModels.some((model) => model.key === current) : false;
       if (composerModelBindingRef.current !== binding) {
         composerModelBindingRef.current = binding;
+        if (
+          restoredComposerModelSessionIdRef.current === sessionId &&
+          currentAllowed &&
+          !modelSelectionLocked
+        ) {
+          return current;
+        }
         return sessionModelAllowed ? sessionModelKey : hasPersistedModel ? '' : fallbackModelKey;
       }
       if (modelSelectionLocked && sessionModelAllowed) return sessionModelKey;
       if (currentAllowed) return current;
       return sessionModelAllowed ? sessionModelKey : hasPersistedModel ? '' : fallbackModelKey;
     });
-  }, [allowedModels, detail?.session.id, detail?.session.last_model_key, meta?.active_model_key, modelSelectionLocked, persistedModelName]);
+  }, [allowedModels, detail?.session.id, detail?.session.last_model_key, meta?.active_model_key, modelSelectionLocked, persistedModelName, sessionId]);
 
   useEffect(() => {
+    if (!meta || allowedModels.length === 0) return;
     if (modelAllowedModes.length > 0 && !modelAllowedModes.includes(composerMode)) {
       setComposerMode(modelAllowedModes[0]!);
     }
-  }, [modelAllowedModes, composerMode]);
+  }, [meta, allowedModels.length, modelAllowedModes, composerMode]);
 
   // SSE 故障时轮询消息；连接存活时保留低频状态校验。
   const phasePollEnabled = !auth.loading && !sessionGone && Boolean(sessionId) && sendPhase !== 'idle' && sendPhase !== '';
@@ -7088,6 +7412,13 @@ export function SessionDetailPage() {
         skippedInstructionIds: Array.from(skippedInstructionIds),
         goalOptions,
       });
+      clearCachedComposerInput(requestSessionId);
+      composerDraftLiveRef.current.text = '';
+      composerDraftLiveRef.current.attachments = [];
+      composerDraftLiveRef.current.attachmentIds = [];
+      composerDraftLiveRef.current.attachmentPreviews = [];
+      composerDraftLiveRef.current.editingMessage = null;
+      composerDraftLiveRef.current.selectedSkill = null;
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       setComposerText('');
       setComposerAttachments([]);
