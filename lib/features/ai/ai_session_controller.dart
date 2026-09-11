@@ -2706,8 +2706,11 @@ class AiSessionController extends ChangeNotifier {
     }
     final now = _clock().toUtc();
     _lastErrorMessage = null;
+    final defaultMetadataFuture = metadata == null
+        ? _buildDefaultSessionMetadata(runtimeContext)
+        : null;
     final sessionMetadata = metadata == null
-        ? await _buildDefaultSessionMetadata(runtimeContext)
+        ? const <String, Object?>{}
         : Map<String, Object?>.of(stringKeyedMapFromValue(metadata));
     final session = AiSession(
       id: _idGenerator(),
@@ -2734,13 +2737,28 @@ class AiSessionController extends ChangeNotifier {
       metadata: sessionMetadata,
     );
     _deletedSessionIds.remove(session.id);
-    final committed = await _commitSessionLocked(session);
-    if (!committed) {
-      return false;
-    }
+    final previousCurrentSessionId = _currentSessionId;
     if (selectAfterCreate && session.isPrimaryWorkspaceSession) {
       _currentSessionId = session.id;
       _editingMessageId = null;
+    }
+    final committed = await _commitSessionLocked(session);
+    if (!committed) {
+      if (selectAfterCreate && _currentSessionId == null) {
+        _currentSessionId = _primaryWorkspaceSessionById(
+          previousCurrentSessionId,
+        )?.id;
+        notifyListeners();
+      }
+      return false;
+    }
+    if (defaultMetadataFuture != null) {
+      unawaited(
+        _completeDefaultSessionMetadata(
+          sessionId: session.id,
+          metadataFuture: defaultMetadataFuture,
+        ),
+      );
     }
     final startHookFuture = _emitSessionStartHook(
       session: session,
@@ -2757,6 +2775,19 @@ class AiSessionController extends ChangeNotifier {
     }
     notifyListeners();
     return true;
+  }
+
+  Future<void> _completeDefaultSessionMetadata({
+    required String sessionId,
+    required Future<Map<String, Object?>> metadataFuture,
+  }) async {
+    try {
+      final metadata = await metadataFuture;
+      if (_isDisposed || _deletedSessionIds.contains(sessionId)) return;
+      await updateSessionMetadata(sessionId, metadata);
+    } catch (error, stack) {
+      silentLog('ai_session_controller', '补全新会话元数据', error, stack);
+    }
   }
 
   Future<Map<String, Object?>> _buildDefaultSessionMetadata(

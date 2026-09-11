@@ -3257,12 +3257,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     bool initialFullAccessPermission = false,
   }) async {
     final sessionController = context.read<AiSessionController>();
+    final settingsController = context.read<SettingsController>();
     final resolvedRuntimeContext =
-        runtimeContext ?? await _buildRuntimeContext();
-    if (!mounted) {
-      return false;
-    }
-    final initialModel = context.read<SettingsController>().selectedAiModel;
+        runtimeContext ??
+        _buildRuntimeCatalogPreviewContext(
+          context: context,
+          settingsController: settingsController,
+          skillsController: context.read<SkillsController>(),
+          mcpController: context.read<McpController>(),
+          appInfo: context.read<AppInfo>(),
+          now: DateTime.now(),
+        );
+    final initialModel = settingsController.selectedAiModel;
     final created = await sessionController.createSession(
       templateId: templateId,
       runtimeContext: resolvedRuntimeContext,
@@ -3301,10 +3307,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     bool initialFullAccessPermission = false,
   }) async {
     final resolvedRuntimeContext =
-        runtimeContext ?? await _buildRuntimeContext();
-    if (!mounted) {
-      return false;
-    }
+        runtimeContext ??
+        _buildRuntimeCatalogPreviewContext(
+          context: context,
+          settingsController: context.read<SettingsController>(),
+          skillsController: context.read<SkillsController>(),
+          mcpController: context.read<McpController>(),
+          appInfo: context.read<AppInfo>(),
+          now: DateTime.now(),
+        );
     final created = await _createSession(
       templateId: kMachineExpertTemplateId,
       runtimeContext: resolvedRuntimeContext,
@@ -3370,12 +3381,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return false;
       }
       // 编程专家工具调用以用户项目根目录解析相对路径。
-      final peRuntimeContext = await _buildRuntimeContext(
+      final peRuntimeContext = _buildRuntimeCatalogPreviewContext(
+        context: context,
+        settingsController: settingsController,
+        skillsController: context.read<SkillsController>(),
+        mcpController: context.read<McpController>(),
+        appInfo: context.read<AppInfo>(),
+        now: DateTime.now(),
         workingDirectory: peConfig.projectRoot,
       );
-      if (!mounted) {
-        return false;
-      }
       final created = await _createSession(
         templateId: templateId,
         runtimeContext: peRuntimeContext,
@@ -5930,6 +5944,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     List<WorkflowDefinition>? availableWorkflows,
     List<McpServer>? availableMcpServers,
     List<AiBuiltinToolConfig>? builtinToolConfigs,
+    String? workingDirectory,
   }) {
     final localNow = now.toLocal();
     final servers = availableMcpServers ?? mcpController.runtimeServers;
@@ -5938,7 +5953,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       appInfo: appInfo,
       appThemeBrightness: _resolveEffectiveBrightness(context).name,
       localNow: localNow,
-      workingDirectory: OpenHandPaths.applicationDirectoryPath(),
+      workingDirectory:
+          workingDirectory ?? OpenHandPaths.applicationDirectoryPath(),
       memoryEntries: const <UserMemoryEntry>[],
       allowCommandRules:
           allowCommandRules ?? settingsController.aiAllowCommandRules,
@@ -6332,25 +6348,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           return;
         }
       }
-      final runtimeContextStopwatch = Stopwatch()..start();
-      runtimeContext = await _buildRuntimeContext(
+      final creationRuntimeContext = _buildRuntimeCatalogPreviewContext(
+        context: context,
+        settingsController: settingsController,
+        skillsController: context.read<SkillsController>(),
+        mcpController: context.read<McpController>(),
+        appInfo: context.read<AppInfo>(),
+        now: DateTime.now(),
         workingDirectory: peConfig?.projectRoot,
-        skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
       );
-      submitPreflightTimingsMs['runtime_context_build'] =
-          runtimeContextStopwatch.elapsedMilliseconds;
-      if (!mounted) {
-        return;
-      }
       final created = templateId == kMachineExpertTemplateId
           ? await _createMachineExpertSession(
-              runtimeContext: runtimeContext,
+              runtimeContext: creationRuntimeContext,
               initialMode: _detachedComposerMode,
               initialFullAccessPermission: _detachedFullAccessPermission,
             )
           : await _createSession(
               templateId: templateId,
-              runtimeContext: runtimeContext,
+              runtimeContext: creationRuntimeContext,
               initialMode: _detachedComposerMode,
               initialFullAccessPermission: _detachedFullAccessPermission,
             );
@@ -6376,6 +6391,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         if (!mounted) {
           return;
         }
+      }
+      final runtimeContextStopwatch = Stopwatch()..start();
+      runtimeContext = await _buildRuntimeContext(
+        workingDirectory: peConfig?.projectRoot,
+        skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
+      );
+      submitPreflightTimingsMs['runtime_context_build'] =
+          runtimeContextStopwatch.elapsedMilliseconds;
+      if (!mounted) {
+        return;
       }
     }
     final targetSessionId = sessionController.currentSessionId;
