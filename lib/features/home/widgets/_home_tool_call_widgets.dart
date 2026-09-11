@@ -51,7 +51,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     _completionGlowCtrl,
     _settleBounceCtrl,
   ]);
-  String? _lastTerminalStatus; // success / error / failure once it lands
+  String? _lastTerminalStatus; // 首次进入成功或失败终态后保留。
   bool? _wasPreExecution;
 
   @override
@@ -61,7 +61,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
       vsync: this,
       duration: _kToolCompletionGlowDuration,
     );
-    // 工具加固 v4.5：从「参数构造中」过渡到正式卡片时的 Q 弹回弹动画。
+    // 从「参数构造中」过渡到正式卡片时播放 Q 弹回弹动画。
     // 480ms easeOutBack 让边框/背景/尺寸的同步收束带 ~6% 过冲，避免直
     // 接生硬切换。受全局 reduceMotion / TickerMode 偏好控制。
     _settleBounceCtrl = AnimationController(

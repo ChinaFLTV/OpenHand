@@ -1806,7 +1806,7 @@ String _asCurl(CdpNetworkEntry e, {required bool windows}) {
     if (windows) {
       return '"${s.replaceAll('"', r'\"')}"';
     }
-    return "'${s.replaceAll("'", r"'\''")}'";
+    return posixShellQuote(s);
   }
 
   final lineCont = windows ? ' ^\n  ' : ' \\\n  ';

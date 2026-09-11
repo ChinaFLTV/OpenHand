@@ -26,6 +26,7 @@ import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/offline_speech_model.dart';
@@ -4717,7 +4718,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   Future<int> _readFreeStorageBytes() async {
     if (Platform.isWindows) {
-      final root = p.rootPrefix(modelsRoot).replaceAll("'", "''");
+      final root = escapePowerShellSingleQuotedString(p.rootPrefix(modelsRoot));
       final result = await runTrackedProcessOrFailed('powershell.exe', <String>[
         '-NoProfile',
         '-NonInteractive',

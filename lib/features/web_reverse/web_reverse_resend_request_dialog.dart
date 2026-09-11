@@ -24,6 +24,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/platform_shell.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -604,17 +605,20 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
 
   // ─── 代码导出 ─────────────────────────────────────────────────────────
   String _exportCurl() {
-    String q(String s) => "'${s.replaceAll("'", r"'\''")}'";
-    final buf = StringBuffer('curl ${q(_urlCtrl.text)}');
-    if (_method != 'GET') buf.write(' \\\n  -X $_method');
+    final buf = StringBuffer('curl ${posixShellQuote(_urlCtrl.text)}');
+    if (_method != 'GET') {
+      buf.write(' \\\n  -X ${posixShellQuote(_method)}');
+    }
     for (final h in _headers) {
       if (!h.enabled) continue;
       final n = h.name.text.trim();
       if (n.isEmpty) continue;
-      buf.write(' \\\n  -H ${q("$n: ${h.value.text}")}');
+      buf.write(' \\\n  -H ${posixShellQuote("$n: ${h.value.text}")}');
     }
     final body = _bodyCtrl.text;
-    if (body.isNotEmpty) buf.write(' \\\n  --data-raw ${q(body)}');
+    if (body.isNotEmpty) {
+      buf.write(' \\\n  --data-raw ${posixShellQuote(body)}');
+    }
     return buf.toString();
   }
 

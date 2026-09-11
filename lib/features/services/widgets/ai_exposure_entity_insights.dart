@@ -2246,7 +2246,9 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
                     : OpenHandStatusColors.error,
                 target: _ProxyRequestInsightTarget(
                   endpoint: endpoint,
-                  address: endpoint?.maskedUrl ?? _maskProxyAddress(address),
+                  address:
+                      endpoint?.maskedUrl ??
+                      maskAiExposureProxyUrl(address, fallback: '代理地址不可用'),
                   sample: item,
                 ),
               ),
@@ -2270,7 +2272,11 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
           ),
           ('请求 ID', _entitySafeText(sample.id, unavailable: '旧版请求样本未记录')),
           ('节点', _entitySafeText(endpoint?.displayName, unavailable: '运行时节点')),
-          ('代理地址', endpoint?.maskedUrl ?? _maskProxyAddress(address)),
+          (
+            '代理地址',
+            endpoint?.maskedUrl ??
+                maskAiExposureProxyUrl(address, fallback: '代理地址不可用'),
+          ),
           (
             '目标主机',
             _entitySafeText(sample.targetHost, unavailable: '旧版请求样本未记录'),

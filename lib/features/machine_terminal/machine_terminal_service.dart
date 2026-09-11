@@ -19,6 +19,7 @@ import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/bounded_text_buffer.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/platform_shell.dart';
 import '../../shared/util/storage_identifier.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -3146,22 +3147,42 @@ try {
 }
 Write-Output ($endMarker + ':' + $status)
 '''
-            .replaceAll('__BEGIN__', _escapePowerShellLiteral(beginMarker))
-            .replaceAll('__END__', _escapePowerShellLiteral(endMarker))
-            .replaceAll('__DONE__', _escapePowerShellLiteral(doneMarker))
-            .replaceAll('__CANCEL__', _escapePowerShellLiteral(cancelMarker))
-            .replaceAll('__TARGET__', _escapePowerShellLiteral(targetPath))
-            .replaceAll('__TEMP__', _escapePowerShellLiteral(temporaryPath))
-            .replaceAll('__BASE64__', _escapePowerShellLiteral(base64Path));
-    return '@powershell.exe -NoProfile -NonInteractive -EncodedCommand '
-        '${_encodePowerShellCommand(script)}\r\n';
+            .replaceAll(
+              '__BEGIN__',
+              escapePowerShellSingleQuotedString(beginMarker),
+            )
+            .replaceAll(
+              '__END__',
+              escapePowerShellSingleQuotedString(endMarker),
+            )
+            .replaceAll(
+              '__DONE__',
+              escapePowerShellSingleQuotedString(doneMarker),
+            )
+            .replaceAll(
+              '__CANCEL__',
+              escapePowerShellSingleQuotedString(cancelMarker),
+            )
+            .replaceAll(
+              '__TARGET__',
+              escapePowerShellSingleQuotedString(targetPath),
+            )
+            .replaceAll(
+              '__TEMP__',
+              escapePowerShellSingleQuotedString(temporaryPath),
+            )
+            .replaceAll(
+              '__BASE64__',
+              escapePowerShellSingleQuotedString(base64Path),
+            );
+    return '@${powerShellEncodedCommand(script)}\r\n';
   }
 
-  final target = _quotePosixShell(targetPath);
-  final begin = _quotePosixShell(beginMarker);
-  final end = _quotePosixShell(endMarker);
-  final done = _quotePosixShell(doneMarker);
-  final cancel = _quotePosixShell(cancelMarker);
+  final target = posixShellQuote(targetPath);
+  final begin = posixShellQuote(beginMarker);
+  final end = posixShellQuote(endMarker);
+  final done = posixShellQuote(doneMarker);
+  final cancel = posixShellQuote(cancelMarker);
   return '(__oh_b=$begin;__oh_e=$end;__oh_d=$done;__oh_c=$cancel;'
       '__oh_t=$target;__oh_x="\$__oh_t.openhand-$token.tmp";'
       '__oh_y="\$__oh_x.b64";__oh_s=0;: >"\$__oh_y"||__oh_s=1;'
@@ -3180,23 +3201,7 @@ Write-Output ($endMarker + ':' + $status)
       "printf '\\n%s:%s\\n' \"\$__oh_e\" \"\$__oh_s\")\n";
 }
 
-String _quotePosixShell(String value) {
-  return "'${value.replaceAll("'", "'\"'\"'")}'";
-}
-
-String _escapePowerShellLiteral(String value) => value.replaceAll("'", "''");
-
-String _encodePowerShellCommand(String command) {
-  final bytes = <int>[];
-  for (final codeUnit in command.codeUnits) {
-    bytes
-      ..add(codeUnit & 0xff)
-      ..add((codeUnit >> 8) & 0xff);
-  }
-  return base64Encode(bytes);
-}
-
-/// ANSI CSI / OSC / ESC 序列。提到顶层复用：命令等待循环每 80ms 调一次
+/// ANSI CSI / OSC / ESC 序列。提取到顶层复用：命令等待循环每 80ms 调一次
 /// [_plainText]，就地构造正则等于每秒白白编译 25 次。
 final RegExp _ansiCsiPattern = RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]');
 final RegExp _markerExitCodePattern = RegExp(r'^:(-?\d+)\n');

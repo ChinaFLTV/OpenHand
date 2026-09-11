@@ -2310,7 +2310,9 @@ Widget _proxyRequestInsightPanel(
               ? Icons.timer_off_outlined
               : Icons.error_outline_rounded,
           title: endpoint?.displayName ?? '运行时节点',
-          subtitle: endpoint?.maskedUrl ?? _maskProxyAddress(address),
+          subtitle:
+              endpoint?.maskedUrl ??
+              maskAiExposureProxyUrl(address, fallback: '代理地址不可用'),
           tags: [
             sample.succeeded
                 ? '成功'
@@ -2338,9 +2340,6 @@ Widget _proxyRequestInsightPanel(
     maxEntries: 50,
   );
 }
-
-String _maskProxyAddress(String value) =>
-    maskAiExposureProxyUrl(value, fallback: '代理地址不可用');
 
 class _LocalFileStatsBuilder extends StatefulWidget {
   const _LocalFileStatsBuilder({

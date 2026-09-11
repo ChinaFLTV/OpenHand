@@ -560,7 +560,7 @@ Future<bool?> probeCliAuth(CliScanEntry entry) async {
       if (result == null) return null;
       r = result;
     } else {
-      final cmd = [executable, ...args].map(_q).join(' ');
+      final cmd = [executable, ...args].map(posixShellQuote).join(' ');
       r = await runHarnessCliShellCommand(
         cmd,
         timeout: const Duration(seconds: 8),
@@ -721,7 +721,7 @@ Future<({bool success, String message})> _performCommandLogout(
       }
       r = result;
     } else {
-      final cmd = [executable, ...args].map(_q).join(' ');
+      final cmd = [executable, ...args].map(posixShellQuote).join(' ');
       r = await runHarnessCliShellCommand(
         cmd,
         timeout: _kHarnessCliProbeTimeout,
@@ -781,9 +781,9 @@ Future<List<String>> collectHarnessCliFailureDiagnostics(
   }
 
   try {
-    final quotedExecutable = _q(executable);
+    final quotedExecutable = posixShellQuote(executable);
     final result = await runHarnessCliShellCommand('''
-printf '%s\\n' ${_q(_kDiagBeginMarker)}
+printf '%s\\n' ${posixShellQuote(_kDiagBeginMarker)}
 printf 'shell=%s\\n' "\${SHELL:-}"
 if command -v $quotedExecutable >/dev/null 2>&1; then
   printf 'executable=%s\\n' "\$(command -v $quotedExecutable)"
@@ -797,7 +797,7 @@ else
   printf 'node=\\n'
   printf 'node_version=\\n'
 fi
-printf '%s\\n' ${_q(_kDiagEndMarker)}
+printf '%s\\n' ${posixShellQuote(_kDiagEndMarker)}
 ''', timeout: _kHarnessCliLookupTimeout);
 
     final diagnostics = _extractHarnessCliDiagnostics('${result.stdout}');
@@ -855,7 +855,7 @@ Future<Process> startHarnessCliInteractiveProcess({
   final shellFragments = <String>[
     if (normalizedWorkingDirectory != null &&
         normalizedWorkingDirectory.isNotEmpty)
-      'cd ${_q(normalizedWorkingDirectory)}',
+      'cd ${posixShellQuote(normalizedWorkingDirectory)}',
     'exec ${formatHarnessCliCommandPreview(executable, args)}',
   ];
   return startTrackedProcessBounded(
@@ -875,7 +875,7 @@ Future<Process> startHarnessCliInteractiveProcess({
 }
 
 String formatHarnessCliCommandPreview(String executable, List<String> args) {
-  return <String>[executable, ...args].map(_q).join(' ');
+  return <String>[executable, ...args].map(posixShellQuote).join(' ');
 }
 
 String stripHarnessCliTerminalSequences(String text) {
@@ -915,8 +915,8 @@ Future<Map<String, String>> _resolvePosixCliPaths(
 
   final command =
       '''
-printf '\\0%s\\0' ${_q(_kCliLookupBeginMarker)}
-for candidate in ${candidates.map(_q).join(' ')}; do
+printf '\\0%s\\0' ${posixShellQuote(_kCliLookupBeginMarker)}
+for candidate in ${candidates.map(posixShellQuote).join(' ')}; do
   resolved="\$(command -v "\$candidate" 2>/dev/null)" || continue
   case "\$resolved" in
     /*)
@@ -926,7 +926,7 @@ for candidate in ${candidates.map(_q).join(' ')}; do
       ;;
   esac
 done
-printf '%s\\0' ${_q(_kCliLookupEndMarker)}
+printf '%s\\0' ${posixShellQuote(_kCliLookupEndMarker)}
 ''';
   Future<Map<String, String>> resolveFromCurrentEnvironment() async {
     final result = await runProcessWithTimeout(
@@ -1040,6 +1040,3 @@ String? _resolveHomeRelativePath(String homeDirectory, String relativePath) {
   );
   return isPathWithinOrEqual(normalizedRoot, resolved) ? resolved : null;
 }
-
-/// 使用 POSIX 单引号转义 Shell 参数。
-String _q(String s) => "'${s.replaceAll("'", "'\\''")}'";

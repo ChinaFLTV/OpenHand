@@ -174,10 +174,6 @@ Future<String> resolveMcpLoginShell() async {
   return shells.isEmpty ? '/bin/bash' : shells.first;
 }
 
-String quoteMcpShellToken(String value) {
-  return "'${value.replaceAll("'", "'\\''")}'";
-}
-
 String? normalizeMcpNodePackageName(String packageName) {
   final name = packageName.replaceAll(_mcpNodePackageVersionSuffixPattern, '');
   if (name.isEmpty || !_mcpNodePackageNamePattern.hasMatch(name)) return null;

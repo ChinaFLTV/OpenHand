@@ -6,6 +6,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/platform_shell.dart';
 import '../model/mcp_server.dart';
 import 'mcp_node_package_resolver.dart';
 import 'mcp_stdio_cache.dart';
@@ -183,7 +184,7 @@ Future<McpStdioLaunch> resolveMcpStdioLaunch(McpServer server) async {
       executable = await resolveMcpLoginShell();
       args = <String>[
         '-lc',
-        'exec ${quoteMcpShellToken(rawCommand)} "\$@"',
+        'exec ${posixShellQuote(rawCommand)} "\$@"',
         '_',
         ...args,
       ];

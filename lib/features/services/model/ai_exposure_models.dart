@@ -174,7 +174,7 @@ class AiExposureToolConfiguration {
       tool: AiExposureTool.fromId(json['tool']),
       enabled: _boolValue(json['enabled'], fallback: true),
       strategy: AiExposureToolSelectionStrategy.fromId(json['strategy']),
-      profiles: _objectList(json['profiles'])
+      profiles: objectListFromValue(json['profiles'])
           .map(AiExposureToolProfile.fromJson)
           .where((profile) => profile.id.trim().isNotEmpty)
           .take(kAiExposureMaxToolProfiles)
@@ -235,7 +235,7 @@ class AiExposureToolSettings {
 
   factory AiExposureToolSettings.fromJson(Object? raw) {
     final json = _jsonMap(raw);
-    final decoded = _objectList(
+    final decoded = objectListFromValue(
       json['tools'],
     ).map(AiExposureToolConfiguration.fromJson).toList(growable: false);
     return AiExposureToolSettings(tools: decoded).normalized();
@@ -487,7 +487,7 @@ class AiExposureProgress {
       updatedAt: updatedAt ?? DateTime.now(),
       updatedAtReported: updatedAt != null,
       failureStage: _optionalString(json['failureStage']),
-      stageTimings: _objectList(
+      stageTimings: objectListFromValue(
         json['stageTimings'],
       ).map(AiExposureStageTiming.fromJson).toList(growable: false),
     );
@@ -817,7 +817,7 @@ class AiExposureProxyProbeSample {
       scheduledAt: _optionalDateTime(json['scheduledAt']),
       startedAt: _optionalDateTime(json['startedAt']),
       finishedAt: _optionalDateTime(json['finishedAt']),
-      stepResults: _objectList(
+      stepResults: objectListFromValue(
         json['stepResults'],
       ).map(AiExposureProxyProbeStepResult.fromJson).toList(growable: false),
     );
@@ -1065,7 +1065,7 @@ class AiExposureProxyUsageStatistics {
 
   factory AiExposureProxyUsageStatistics.fromJson(Object? raw) {
     final json = _jsonMap(raw);
-    final recent = _objectList(
+    final recent = objectListFromValue(
       json['recentRequests'],
     ).map(AiExposureProxyRequestSample.fromJson).toList(growable: false);
     DateTime? timestamp(String key) {
@@ -1369,7 +1369,7 @@ class AiExposureProxyEndpoint {
     if (raw is String) return AiExposureProxyEndpoint.parse(raw);
     final json = _jsonMap(raw);
     final endpoint = AiExposureProxyEndpoint.parse(_stringValue(json['url']));
-    final samples = _objectList(
+    final samples = objectListFromValue(
       json['samples'],
     ).map(AiExposureProxyProbeSample.fromJson).toList(growable: false);
     return endpoint.copyWith(
@@ -1474,7 +1474,7 @@ class AiExposureProxyConfiguration {
     final json = _jsonMap(raw);
     final endpoints = <AiExposureProxyEndpoint>[];
     final seen = <String>{};
-    for (final value in _objectList(json['endpoints'])) {
+    for (final value in objectListFromValue(json['endpoints'])) {
       try {
         final endpoint = AiExposureProxyEndpoint.fromJson(value);
         if (seen.add(endpoint.url)) endpoints.add(endpoint);
@@ -1658,7 +1658,7 @@ class AiExposureProxyStatus {
       max: _kAiExposureMaxTelemetryDurationMs,
     ),
     systemProxyEnabled: _boolValue(json['systemProxyEnabled']),
-    endpoints: _objectList(json['endpoints'])
+    endpoints: objectListFromValue(json['endpoints'])
         .map((item) => AiExposureProxyEndpointStatus.fromJson(_jsonMap(item)))
         .toList(growable: false),
   );
@@ -1736,7 +1736,7 @@ class AiExposureHistoryEntry {
         json['forumFetchMode'],
       ),
       gptAssisted: _optionalBool(json['gptAssisted']),
-      stageTimings: _objectList(
+      stageTimings: objectListFromValue(
         json['stageTimings'],
       ).map(AiExposureStageTiming.fromJson).toList(growable: false),
     );
@@ -2181,9 +2181,6 @@ Map<String, Object?> _jsonMap(Object? value) => value is Map
 List<String> _stringList(Object? value) => value is List
     ? value.whereType<Object>().map((item) => '$item').toList(growable: false)
     : const <String>[];
-
-List<Object?> _objectList(Object? value) =>
-    value is List ? value : const <Object?>[];
 
 String _stringValue(Object? value, {String fallback = ''}) =>
     value is String ? value : fallback;

@@ -25,6 +25,7 @@ import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/duration_bounds.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
+import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/stable_hash.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
@@ -2645,7 +2646,7 @@ class AiTtsPlaybackService {
     String text,
     AiTtsProviderSettings settings,
   ) {
-    final escaped = text.replaceAll("'", "''");
+    final escaped = escapePowerShellSingleQuotedString(text);
     final volume =
         (settings.volume <= 1 ? settings.volume * 100 : settings.volume)
             .round()

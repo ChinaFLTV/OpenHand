@@ -71,6 +71,9 @@ const int _processGroupProbeConcurrency = 4;
 const int _maxDescendantProcesses = 256;
 const int _maxCapturedProcessBytesPerStream = 16 * kBytesPerMiB;
 const int _posixExistenceProbeSignal = 0;
+final RegExp _uriSchemePrefixPattern = RegExp('^[A-Za-z][A-Za-z0-9+.-]*:');
+final RegExp _windowsDrivePathPattern = RegExp(r'^[A-Za-z]:([\\/]|$)');
+final RegExp _whitespacePattern = RegExp(r'\s');
 
 typedef _NativePosixKill = Int32 Function(Int32 processId, Int32 signal);
 typedef _PosixKill = int Function(int processId, int signal);
@@ -2530,8 +2533,9 @@ Uri? _safeHttpUrlArgument(String value) {
 String? _safeLocalPathArgument(String value) {
   final target = nullIfBlank(value);
   if (target == null || target.startsWith('-')) return null;
-  final looksLikeUri = RegExp('^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(target);
-  if (looksLikeUri && !(Platform.isWindows && _isWindowsDrivePath(target))) {
+  final looksLikeUri = _uriSchemePrefixPattern.hasMatch(target);
+  if (looksLikeUri &&
+      !(Platform.isWindows && _windowsDrivePathPattern.hasMatch(target))) {
     return null;
   }
   return target;
@@ -2540,12 +2544,11 @@ String? _safeLocalPathArgument(String value) {
 String? _safeMailtoUriArgument(Uri uri) {
   if (uri.scheme.toLowerCase() != 'mailto') return null;
   final target = uri.toString();
-  if (target.startsWith('-') || RegExp(r'\s').hasMatch(target)) return null;
+  if (target.startsWith('-') || _whitespacePattern.hasMatch(target)) {
+    return null;
+  }
   return target;
 }
-
-bool _isWindowsDrivePath(String value) =>
-    RegExp(r'^[A-Za-z]:([\\/]|$)').hasMatch(value);
 
 Future<String> _directoryForReveal(String target) async {
   final type = await probeFileSystemEntityType(target);

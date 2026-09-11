@@ -335,7 +335,10 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
     final tables = _maps(overview['tables']);
     final rows = _maps(_postgresRows['rows']);
     final columns = _maps(_postgresRows['columns']);
-    final primaryKeys = _strings(_postgresRows['primaryKeys']);
+    final primaryKeys = trimmedNonEmptyStrings(
+      objectListFromValue(_postgresRows['primaryKeys']),
+      ignoreLiteralNull: true,
+    );
     final total = _integer(_postgresRows['total']);
     final hitBlocks = _integer(telemetry['blocksHit']);
     final readBlocks = _integer(telemetry['blocksRead']);
@@ -850,7 +853,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
         _query.text,
       );
       if (mounted) {
-        final rows = _list(result['rows']);
+        final rows = objectListFromValue(result['rows']);
         setState(() => _queryRows = rows);
         showOpenHandSuccessSnack(context, '查询完成 · ${_queryRows.length} 行');
       }
@@ -1571,13 +1574,8 @@ class _EmptyState extends StatelessWidget {
 
 Map<String, Object?> _map(Object? value) => stringKeyedMapFromValue(value);
 
-List<Object?> _list(Object? value) => value is List ? value : const <Object?>[];
-
 List<Map<String, Object?>> _maps(Object? value) =>
     stringKeyedMapListFromValue(value);
-
-List<String> _strings(Object? value) =>
-    trimmedNonEmptyStrings(_list(value), ignoreLiteralNull: true);
 
 int _integer(Object? value) => optionalIntFromValue(value) ?? 0;
 

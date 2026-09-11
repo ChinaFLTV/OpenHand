@@ -8,6 +8,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
 import '../model/workflow_definition.dart';
 
@@ -359,7 +360,7 @@ ${expressions.entries.map((entry) => '    ${jsonEncode(entry.key)}: evaluate(${j
     for (final entry in expressions.entries) {
       if (index > 0) buffer.writeln("printf ','");
       buffer.writeln(
-        'printf \'${jsonEncode(entry.key)}:%s\' "\$(eval ${_shellQuote(entry.value)})"',
+        'printf \'${jsonEncode(entry.key)}:%s\' "\$(eval ${posixShellQuote(entry.value)})"',
       );
       index += 1;
     }
@@ -388,11 +389,6 @@ ${expressions.entries.map((entry) => '    ${jsonEncode(entry.key)}: evaluate(${j
       '\$result | ConvertTo-Json -Compress -Depth 32 | Set-Content -Encoding utf8 \$ResultPath',
     );
     return buffer.toString();
-  }
-
-  String _shellQuote(String value) {
-    final escaped = value.replaceAll("'", "'\"'\"'");
-    return "'$escaped'";
   }
 
   String _wrappedCode(WorkflowCodeLanguage language, String code) =>

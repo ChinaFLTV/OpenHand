@@ -58,6 +58,7 @@ import '../../shared/util/date_time_format.dart';
 import '../../shared/util/hex_encoding.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/platform_shell.dart';
 import '../../shared/util/rolling_hash.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';

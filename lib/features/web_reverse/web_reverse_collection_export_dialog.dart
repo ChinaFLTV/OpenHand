@@ -17,6 +17,7 @@ import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/platform_shell.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -211,12 +212,14 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
   String _buildCurlList(List<CdpNetworkEntry> entries) {
     final buf = StringBuffer();
     for (final e in entries) {
-      buf.write("curl -X ${e.method} '${e.url}'");
+      buf.write(
+        'curl -X ${posixShellQuote(e.method)} ${posixShellQuote(e.url)}',
+      );
       for (final h in e.requestHeaders.entries) {
-        buf.write(" \\\n  -H '${h.key}: ${_escSingle(h.value)}'");
+        buf.write(' \\\n  -H ${posixShellQuote('${h.key}: ${h.value}')}');
       }
       if (e.requestPostData != null) {
-        buf.write(" \\\n  --data-raw '${_escSingle(e.requestPostData!)}'");
+        buf.write(' \\\n  --data-raw ${posixShellQuote(e.requestPostData!)}');
       }
       buf.writeln();
       buf.writeln();
@@ -285,8 +288,6 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
       },
     });
   }
-
-  String _escSingle(String s) => s.replaceAll("'", r"'\''");
 
   Future<void> _copy() async {
     final loc = AppLocalizations.of(context);

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/platform_shell.dart';
 import 'safe_subprocess.dart';
 
 enum OpenHandNotificationLevel { info, success, warning, error, critical }
@@ -202,7 +203,9 @@ $notifier.Show($toast)
   }
 
   static String _escapeForSingleQuotedPowerShell(String input) {
-    return input.replaceAll("'", "''").replaceAll('\n', ' ').trim();
+    return escapePowerShellSingleQuotedString(
+      input,
+    ).replaceAll('\n', ' ').trim();
   }
 
   static Future<bool> _playSoundBestEffort(

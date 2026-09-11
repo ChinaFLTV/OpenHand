@@ -1127,23 +1127,21 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       _kNetworkBatchCurlCopyLimit,
                     );
                     for (final e in filtered.take(copyCount)) {
-                      buf.writeln('# ${e.method} ${e.url}');
                       buf.write('curl ');
-                      if (e.method != 'GET') buf.write('-X ${e.method} ');
+                      if (e.method != 'GET') {
+                        buf.write('-X ${posixShellQuote(e.method)} ');
+                      }
                       e.requestHeaders.forEach((k, v) {
-                        buf.write(
-                          "-H '${k.replaceAll("'", r"\'")}: "
-                          "${v.replaceAll("'", r"\'")}' ",
-                        );
+                        buf.write('-H ${posixShellQuote('$k: $v')} ');
                       });
                       if (e.requestPostData != null &&
                           e.requestPostData!.isNotEmpty) {
                         buf.write(
-                          "--data-raw '"
-                          "${e.requestPostData!.replaceAll("'", r"\'")}' ",
+                          '--data-raw '
+                          '${posixShellQuote(e.requestPostData!)} ',
                         );
                       }
-                      buf.writeln("'${e.url}'");
+                      buf.writeln(posixShellQuote(e.url));
                       buf.writeln();
                     }
                     final copied = await copyWebReverseTextToClipboard(

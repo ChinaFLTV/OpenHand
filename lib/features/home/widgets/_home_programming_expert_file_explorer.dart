@@ -10847,17 +10847,15 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   static List<_FoldableRegion> _computeFoldableRegions(String text) {
     final regions = <_FoldableRegion>[];
     final lines = text.split('\n');
-    final braceStack = <int>[]; // stack of line numbers with opening braces
+    final braceStack = <int>[]; // 左花括号所在行号栈
 
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i].trimRight();
       for (var j = 0; j < line.length; j++) {
         final ch = line.codeUnitAt(j);
         if (ch == 0x7B) {
-          // '{'
-          braceStack.add(i + 1); // 1-indexed line
+          braceStack.add(i + 1); // 行号从 1 开始
         } else if (ch == 0x7D && braceStack.isNotEmpty) {
-          // '}'
           final startLine = braceStack.removeLast();
           final endLine = i + 1;
           if (endLine > startLine + 1) {
@@ -15133,7 +15131,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
             ),
           ],
         );
-      }, // LayoutBuilder builder
+      },
     );
   }
 }

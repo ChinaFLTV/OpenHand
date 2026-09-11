@@ -410,6 +410,9 @@ Map<String, Object?>? optionalStringKeyedMapFromValue(Object? value) {
   return value is Map ? stringKeyedMapFromValue(value) : null;
 }
 
+List<Object?> objectListFromValue(Object? value) =>
+    value is List ? value : const <Object?>[];
+
 void validateCanonicalJsonSubset(
   Object? source,
   Object? canonical, {

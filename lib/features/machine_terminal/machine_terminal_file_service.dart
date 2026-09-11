@@ -15,6 +15,7 @@ import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/platform_shell.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'machine_terminal_service.dart';
@@ -984,7 +985,7 @@ class MachineTerminalFileService extends ChangeNotifier {
           sessionId: sessionId,
           terminalId: terminalId,
           command:
-              "printf '%s' '${encoded.substring(offset, end)}' >> ${_quotePosix(temporaryPath)}",
+              "printf '%s' '${encoded.substring(offset, end)}' >> ${posixShellQuote(temporaryPath)}",
           timeout: _machineTerminalFileCommandTimeout,
         );
       }
@@ -992,7 +993,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         sessionId: sessionId,
         terminalId: terminalId,
         command:
-            '__oh_script=${_quotePosix(temporaryPath)}; '
+            '__oh_script=${posixShellQuote(temporaryPath)}; '
             'base64 -d < "\$__oh_script" | sh; '
             '__oh_status=\$?; rm -f -- "\$__oh_script"; exit "\$__oh_status"',
         timeout: timeout,
@@ -1003,7 +1004,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         await _runInlineCommand(
           sessionId: sessionId,
           terminalId: terminalId,
-          command: 'rm -f -- ${_quotePosix(temporaryPath)}',
+          command: 'rm -f -- ${posixShellQuote(temporaryPath)}',
           timeout: _machineTerminalFileCommandTimeout,
         );
       } catch (error, stack) {
@@ -1945,7 +1946,7 @@ String _listDirectoryCommand(String? path) {
     const entryLimitWithSentinel = _machineTerminalDirectoryEntryLimit + 1;
     final pathLiteral = path == null
         ? '(Get-Location).ProviderPath'
-        : "[IO.Path]::GetFullPath('${_escapePowerShell(path)}')";
+        : "[IO.Path]::GetFullPath('${escapePowerShellSingleQuotedString(path)}')";
     final script =
         '''
 \$ErrorActionPreference = 'Stop'
@@ -1976,11 +1977,11 @@ Write-Output ("N`t" + [Math]::Min(\$items.Count, $_machineTerminalDirectoryEntry
 }
 if (\$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
 ''';
-    return _powerShellCommand(script);
+    return powerShellEncodedCommand(script);
   }
   final changeDirectory = path == null
       ? ''
-      : 'cd -- ${_quotePosix(path)} || exit 2\n';
+      : 'cd -- ${posixShellQuote(path)} || exit 2\n';
   return '$changeDirectory'
       '__oh_b64() { base64 | tr -d "\\r\\n"; }\n'
       '__oh_pwd=\$(pwd -P) || exit 2\n'
@@ -2030,7 +2031,7 @@ if (\$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
 
 String _fileDetailsCommand(String path) {
   if (Platform.isWindows) {
-    final escapedPath = _escapePowerShell(path);
+    final escapedPath = escapePowerShellSingleQuotedString(path);
     final script =
         '''
 \$ErrorActionPreference = 'Stop'
@@ -2053,9 +2054,9 @@ if (\$kind -eq 'd') {
 }
 Write-Output ("D`t\$kind`t\$(B64 \$item.FullName)`t\$size`t\$mtime`t\$([int]\$item.Attributes)`t\$(B64 \$env:USERNAME)`t`t`t\$(B64 '')`t\$(B64 \$target)`t\$ctime`t\$atime`t\$mtime`t\$childDirectories`t\$childFiles")
 ''';
-    return _powerShellCommand(script);
+    return powerShellEncodedCommand(script);
   }
-  final quoted = _quotePosix(path);
+  final quoted = posixShellQuote(path);
   return '__oh_path=$quoted\n'
       '[ -e "\$__oh_path" ] || [ -L "\$__oh_path" ] || exit 2\n'
       '__oh_b64() { base64 | tr -d "\\r\\n"; }\n'
@@ -2091,7 +2092,7 @@ String _readChunkCommand(String path, int chunkIndex) {
     final offset = chunkIndex * _machineTerminalReadChunkBytes;
     final script =
         '''
-\$stream = [IO.File]::OpenRead('${_escapePowerShell(path)}')
+\$stream = [IO.File]::OpenRead('${escapePowerShellSingleQuotedString(path)}')
 try {
   \$stream.Seek($offset, [IO.SeekOrigin]::Begin) | Out-Null
   \$buffer = New-Object byte[] $_machineTerminalReadChunkBytes
@@ -2100,56 +2101,41 @@ try {
   Write-Output ("$_machineTerminalReadChunkBegin`t" + \$encoded + "`t$_machineTerminalReadChunkEnd")
 } finally { \$stream.Dispose() }
 ''';
-    return _powerShellCommand(script);
+    return powerShellEncodedCommand(script);
   }
   return 'printf "$_machineTerminalReadChunkBegin\\t"; '
-      'dd if=${_quotePosix(path)} bs=$_machineTerminalReadChunkBytes '
+      'dd if=${posixShellQuote(path)} bs=$_machineTerminalReadChunkBytes '
       'skip=$chunkIndex count=1 2>/dev/null | base64 | tr -d "\\r\\n"; '
       'printf "\\t$_machineTerminalReadChunkEnd\\n"';
 }
 
 String _moveCommand(String sourcePath, String targetPath) {
   if (Platform.isWindows) {
-    return _powerShellCommand(
-      "Move-Item -LiteralPath '${_escapePowerShell(sourcePath)}' "
-      "-Destination '${_escapePowerShell(targetPath)}' -Force",
+    return powerShellEncodedCommand(
+      "Move-Item -LiteralPath '${escapePowerShellSingleQuotedString(sourcePath)}' "
+      "-Destination '${escapePowerShellSingleQuotedString(targetPath)}' -Force",
     );
   }
-  return 'mv -f -- ${_quotePosix(sourcePath)} ${_quotePosix(targetPath)}';
+  return 'mv -f -- ${posixShellQuote(sourcePath)} ${posixShellQuote(targetPath)}';
 }
 
 String _copyCommand(String sourcePath, String targetPath) {
   if (Platform.isWindows) {
-    return _powerShellCommand(
-      "Copy-Item -LiteralPath '${_escapePowerShell(sourcePath)}' "
-      "-Destination '${_escapePowerShell(targetPath)}' -Recurse -Force",
+    return powerShellEncodedCommand(
+      "Copy-Item -LiteralPath '${escapePowerShellSingleQuotedString(sourcePath)}' "
+      "-Destination '${escapePowerShellSingleQuotedString(targetPath)}' -Recurse -Force",
     );
   }
-  return 'cp -a -- ${_quotePosix(sourcePath)} ${_quotePosix(targetPath)}';
+  return 'cp -a -- ${posixShellQuote(sourcePath)} ${posixShellQuote(targetPath)}';
 }
 
 String _deleteCommand(String path) {
   if (Platform.isWindows) {
-    return _powerShellCommand(
-      "Remove-Item -LiteralPath '${_escapePowerShell(path)}' -Recurse -Force",
+    return powerShellEncodedCommand(
+      "Remove-Item -LiteralPath '${escapePowerShellSingleQuotedString(path)}' -Recurse -Force",
     );
   }
-  return 'rm -rf -- ${_quotePosix(path)}';
-}
-
-String _quotePosix(String value) => "'${value.replaceAll("'", "'\"'\"'")}'";
-
-String _escapePowerShell(String value) => value.replaceAll("'", "''");
-
-String _powerShellCommand(String script) {
-  final bytes = <int>[];
-  for (final codeUnit in script.codeUnits) {
-    bytes
-      ..add(codeUnit & 0xff)
-      ..add((codeUnit >> 8) & 0xff);
-  }
-  return 'powershell.exe -NoProfile -NonInteractive -EncodedCommand '
-      '${base64Encode(bytes)}';
+  return 'rm -rf -- ${posixShellQuote(path)}';
 }
 
 final RegExp _machineTerminalReadChunkPattern = RegExp(

@@ -14,6 +14,7 @@ import 'package:openhand/shared/util/hex_encoding.dart';
 import 'package:openhand/shared/util/input_value_parsing.dart';
 import 'package:openhand/shared/util/message_frame_scan.dart';
 import 'package:openhand/shared/util/path_safety.dart';
+import 'package:openhand/shared/util/platform_shell.dart';
 import 'package:openhand/shared/util/sensitive_data.dart';
 import 'package:openhand/shared/util/storage_identifier.dart';
 import 'package:openhand/shared/util/text_clip.dart';
@@ -43,6 +44,7 @@ Future<void> main() async {
   failures += _checkCanonicalDateTime();
   failures += _checkTextClip();
   failures += _checkPortableFileNameSanitization();
+  failures += _checkPlatformShell();
   failures += _checkTextSearch();
   failures += _checkSensitiveTextRedaction();
   failures += await _checkAbortableResponseLifetime();
@@ -81,6 +83,19 @@ int _checkPortableFileNameSanitization() {
   if (bounded.length != kPortableFileNameDefaultMaxCharacters ||
       !isPortableFileNamePart(bounded)) {
     stderr.writeln('sanitizePortableFileNamePart 未限制跨平台文件名长度');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkPlatformShell() {
+  if (posixShellQuote('') != "''" ||
+      posixShellQuote("a'b") != "'a'\"'\"'b'" ||
+      escapePowerShellSingleQuotedString("a'b") != "a''b" ||
+      powerShellEncodedCommand("Write-Output '中'") !=
+          'powershell.exe -NoProfile -NonInteractive -EncodedCommand '
+              'VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAnAC1OJwA=') {
+    stderr.writeln('平台 Shell 转义或 PowerShell 命令编码错误');
     return 1;
   }
   return 0;

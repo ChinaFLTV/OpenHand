@@ -12,6 +12,7 @@ import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/platform_shell.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
 import '../../model/ai_lsp_language_settings.dart';
 
@@ -437,7 +438,7 @@ abstract final class AiLspManagedInstallService {
             sdkPath: sdkPath,
           )
           ..add(
-            'npm install --no-fund --no-audit --prefix "\$ROOT" ${packageSpecs.map(_quotePosix).join(' ')}',
+            'npm install --no-fund --no-audit --prefix "\$ROOT" ${packageSpecs.map(posixShellQuote).join(' ')}',
           )
           ..add('SUCCESS=1');
     return AiLspManagedInstallPlan(
@@ -472,7 +473,7 @@ abstract final class AiLspManagedInstallService {
           ..add(r'python3 -m venv "$ROOT/.venv"')
           ..add(r'"$ROOT/.venv/bin/python" -m pip install --upgrade pip')
           ..add(
-            '"\$ROOT/.venv/bin/python" -m pip install ${packageSpecs.map(_quotePosix).join(' ')}',
+            '"\$ROOT/.venv/bin/python" -m pip install ${packageSpecs.map(posixShellQuote).join(' ')}',
           )
           ..add(r'mkdir -p "$ROOT/bin"')
           ..addAll(
@@ -501,7 +502,9 @@ abstract final class AiLspManagedInstallService {
       return null;
     }
     final gemSpec = backend.install.versionedPackages.first;
-    final versionArg = version == 'latest' ? '' : ' -v ${_quotePosix(version)}';
+    final versionArg = version == 'latest'
+        ? ''
+        : ' -v ${posixShellQuote(version)}';
     final lines =
         _posixInstallPreamble(
             installRootPath,
@@ -510,7 +513,7 @@ abstract final class AiLspManagedInstallService {
           )
           ..add(r'mkdir -p "$ROOT/bin" "$ROOT/gems"')
           ..add(
-            'gem install --no-document --install-dir "\$ROOT/gems" ${_quotePosix(gemSpec)}$versionArg',
+            'gem install --no-document --install-dir "\$ROOT/gems" ${posixShellQuote(gemSpec)}$versionArg',
           )
           ..addAll(
             _posixWrapperCommands(
@@ -552,11 +555,11 @@ abstract final class AiLspManagedInstallService {
             sdkPath: sdkPath,
           )
           ..addAll(<String>[
-            if (sdkPath.isNotEmpty) 'export GOROOT=${_quotePosix(sdkPath)}',
+            if (sdkPath.isNotEmpty) 'export GOROOT=${posixShellQuote(sdkPath)}',
           ])
           ..add(r'mkdir -p "$ROOT/bin"')
           ..add(
-            'GOBIN="\$ROOT/bin" go install ${_quotePosix('$module@$resolvedVersion')}',
+            'GOBIN="\$ROOT/bin" go install ${posixShellQuote('$module@$resolvedVersion')}',
           )
           ..add('SUCCESS=1');
     return AiLspManagedInstallPlan(
@@ -609,7 +612,7 @@ abstract final class AiLspManagedInstallService {
             requiredCommands: const <String>['curl', 'unzip'],
           )
           ..add(r'ARCHIVE="$TMP_DIR/dart-sdk.zip"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ARCHIVE"')
+          ..add('curl -fL ${posixShellQuote(downloadUrl)} -o "\$ARCHIVE"')
           ..add(r'mkdir -p "$ROOT/bin"')
           ..add(r'unzip -q "$ARCHIVE" -d "$ROOT"')
           ..addAll(
@@ -649,7 +652,7 @@ abstract final class AiLspManagedInstallService {
           )
           ..add(r'ARCHIVE="$TMP_DIR/rust-analyzer-asset"')
           ..add(r'mkdir -p "$ROOT/bin"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ARCHIVE"')
+          ..add('curl -fL ${posixShellQuote(downloadUrl)} -o "\$ARCHIVE"')
           ..add(r'gunzip -c "$ARCHIVE" > "$ROOT/bin/rust-analyzer"')
           ..add(r'chmod +x "$ROOT/bin/rust-analyzer"')
           ..add('SUCCESS=1');
@@ -678,7 +681,7 @@ abstract final class AiLspManagedInstallService {
           )
           ..add(r'ARCHIVE="$TMP_DIR/jdtls.tar.gz"')
           ..add(r'mkdir -p "$ROOT/server" "$ROOT/bin"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ARCHIVE"')
+          ..add('curl -fL ${posixShellQuote(downloadUrl)} -o "\$ARCHIVE"')
           ..add(r'tar -xzf "$ARCHIVE" --strip-components=1 -C "$ROOT/server"')
           ..addAll(
             _posixWrapperCommands(
@@ -713,7 +716,7 @@ abstract final class AiLspManagedInstallService {
           )
           ..add(r'ARCHIVE="$TMP_DIR/kotlin-language-server.zip"')
           ..add(r'mkdir -p "$ROOT/server" "$ROOT/bin"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ARCHIVE"')
+          ..add('curl -fL ${posixShellQuote(downloadUrl)} -o "\$ARCHIVE"')
           ..add(r'unzip -q "$ARCHIVE" -d "$ROOT/server"')
           ..addAll(
             _posixWrapperCommands(
@@ -759,7 +762,7 @@ abstract final class AiLspManagedInstallService {
           ..add(r'ARCHIVE="$TMP_DIR/clangd.tar.xz"')
           ..add(r'mkdir -p "$ROOT/server" "$ROOT/bin"')
           ..add(
-            'curl -fL ${_quotePosix('https://github.com/llvm/llvm-project/releases/download/llvmorg-$resolvedVersion/$archiveName')} -o "\$ARCHIVE"',
+            'curl -fL ${posixShellQuote('https://github.com/llvm/llvm-project/releases/download/llvmorg-$resolvedVersion/$archiveName')} -o "\$ARCHIVE"',
           )
           ..add(r'tar -xJf "$ARCHIVE" --strip-components=1 -C "$ROOT/server"')
           ..addAll(
@@ -799,7 +802,7 @@ abstract final class AiLspManagedInstallService {
           )
           ..add(r'ARCHIVE="$TMP_DIR/omnisharp.tar.gz"')
           ..add(r'mkdir -p "$ROOT/server" "$ROOT/bin"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ARCHIVE"')
+          ..add('curl -fL ${posixShellQuote(downloadUrl)} -o "\$ARCHIVE"')
           ..add(r'tar -xzf "$ARCHIVE" -C "$ROOT/server"')
           ..addAll(
             _posixWrapperCommands(
@@ -832,7 +835,7 @@ abstract final class AiLspManagedInstallService {
     );
   }
 
-  // ── Lua Language Server ──
+  // ── Lua 语言服务器 ──
 
   static AiLspManagedInstallPlan? _buildLuaLsPlan(
     String installRootPath,
@@ -855,7 +858,7 @@ abstract final class AiLspManagedInstallService {
           )
           ..add(r'ARCHIVE="$TMP_DIR/lua-ls.tar.gz"')
           ..add(r'mkdir -p "$ROOT/server" "$ROOT/bin"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ARCHIVE"')
+          ..add('curl -fL ${posixShellQuote(downloadUrl)} -o "\$ARCHIVE"')
           ..add(r'tar -xzf "$ARCHIVE" -C "$ROOT/server"')
           ..addAll(
             _posixWrapperCommands(
@@ -875,7 +878,7 @@ abstract final class AiLspManagedInstallService {
     );
   }
 
-  // ── ElixirLS ──
+  // ── ElixirLS 语言服务器 ──
 
   static AiLspManagedInstallPlan? _buildElixirLsPlan(
     String installRootPath,
@@ -894,7 +897,7 @@ abstract final class AiLspManagedInstallService {
           )
           ..add(r'ARCHIVE="$TMP_DIR/elixir-ls.zip"')
           ..add(r'mkdir -p "$ROOT/server" "$ROOT/bin"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ARCHIVE"')
+          ..add('curl -fL ${posixShellQuote(downloadUrl)} -o "\$ARCHIVE"')
           ..add(r'unzip -q "$ARCHIVE" -d "$ROOT/server"')
           ..add(r'chmod +x "$ROOT/server/language_server.sh"')
           ..addAll(
@@ -915,7 +918,7 @@ abstract final class AiLspManagedInstallService {
     );
   }
 
-  // ── Terraform LS ──
+  // ── Terraform 语言服务器 ──
 
   static AiLspManagedInstallPlan? _buildTerraformLsPlan(
     String installRootPath,
@@ -938,7 +941,7 @@ abstract final class AiLspManagedInstallService {
           )
           ..add(r'ARCHIVE="$TMP_DIR/terraform-ls.zip"')
           ..add(r'mkdir -p "$ROOT/bin"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ARCHIVE"')
+          ..add('curl -fL ${posixShellQuote(downloadUrl)} -o "\$ARCHIVE"')
           ..add(r'unzip -q "$ARCHIVE" -d "$ROOT/bin"')
           ..add(r'chmod +x "$ROOT/bin/terraform-ls"')
           ..add('SUCCESS=1');
@@ -950,7 +953,7 @@ abstract final class AiLspManagedInstallService {
     );
   }
 
-  // ── Tinymist (Typst) ──
+  // ── Tinymist（Typst 语言服务器）──
 
   static AiLspManagedInstallPlan? _buildTinymistPlan(
     String installRootPath,
@@ -975,7 +978,9 @@ abstract final class AiLspManagedInstallService {
             requiredCommands: const <String>['curl'],
           )
           ..add(r'mkdir -p "$ROOT/bin"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ROOT/bin/tinymist"')
+          ..add(
+            'curl -fL ${posixShellQuote(downloadUrl)} -o "\$ROOT/bin/tinymist"',
+          )
           ..add(r'chmod +x "$ROOT/bin/tinymist"')
           ..add('SUCCESS=1');
     return AiLspManagedInstallPlan(
@@ -986,7 +991,7 @@ abstract final class AiLspManagedInstallService {
     );
   }
 
-  // ── Clojure LSP ──
+  // ── Clojure 语言服务器 ──
 
   static AiLspManagedInstallPlan? _buildClojureLspPlan(
     String installRootPath,
@@ -1012,7 +1017,7 @@ abstract final class AiLspManagedInstallService {
           )
           ..add(r'ARCHIVE="$TMP_DIR/clojure-lsp.zip"')
           ..add(r'mkdir -p "$ROOT/bin"')
-          ..add('curl -fL ${_quotePosix(downloadUrl)} -o "\$ARCHIVE"')
+          ..add('curl -fL ${posixShellQuote(downloadUrl)} -o "\$ARCHIVE"')
           ..add(r'unzip -q "$ARCHIVE" -d "$ROOT/bin"')
           ..add(r'chmod +x "$ROOT/bin/clojure-lsp"')
           ..add('SUCCESS=1');
@@ -1032,12 +1037,12 @@ abstract final class AiLspManagedInstallService {
     return <String>[
       'set -eu',
       if (sdkPath.isNotEmpty)
-        'export PATH=${_quotePosix('$sdkPath/bin')}:"\$PATH"',
+        'export PATH=${posixShellQuote('$sdkPath/bin')}:"\$PATH"',
       ...requiredCommands.map(
         (command) =>
             'command -v $command >/dev/null 2>&1 || { echo "缺少必需命令：$command" >&2; exit 127; }',
       ),
-      'ROOT=${_quotePosix(installRootPath)}',
+      'ROOT=${posixShellQuote(installRootPath)}',
       r'TMP_DIR="$(mktemp -d)"',
       'SUCCESS=0',
       'cleanup() {',
@@ -1059,13 +1064,13 @@ abstract final class AiLspManagedInstallService {
   }) {
     final wrapperPath = p.join(rootPath, 'bin', executableName);
     return <String>[
-      'cat > ${_quotePosix(wrapperPath)} <<\'EOF\'',
+      'cat > ${posixShellQuote(wrapperPath)} <<\'EOF\'',
       '#!/bin/sh',
       'set -eu',
       r'ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"',
       ...bodyLines,
       'EOF',
-      'chmod +x ${_quotePosix(wrapperPath)}',
+      'chmod +x ${posixShellQuote(wrapperPath)}',
     ];
   }
 
@@ -1142,7 +1147,7 @@ abstract final class AiLspManagedInstallService {
     return null;
   }
 
-  // ── Lua Language Server archive names ──
+  // ── Lua 语言服务器归档文件名 ──
 
   static String? _luaLsArchiveName() {
     if (Platform.isMacOS) {
@@ -1167,7 +1172,7 @@ abstract final class AiLspManagedInstallService {
     return null;
   }
 
-  // ── Terraform LS archive names ──
+  // ── Terraform 语言服务器归档文件名 ──
 
   static String? _terraformLsArchiveName() {
     if (Platform.isMacOS) {
@@ -1187,7 +1192,7 @@ abstract final class AiLspManagedInstallService {
     return null;
   }
 
-  // ── Tinymist (Typst LSP) asset names ──
+  // ── Tinymist（Typst 语言服务器）资源文件名 ──
 
   static String? _tinymistAssetName() {
     if (Platform.isMacOS) {
@@ -1207,7 +1212,7 @@ abstract final class AiLspManagedInstallService {
     return null;
   }
 
-  // ── Clojure LSP asset names ──
+  // ── Clojure 语言服务器资源文件名 ──
 
   static String? _clojureLspAssetName() {
     if (Platform.isMacOS) {
@@ -1274,10 +1279,6 @@ abstract final class AiLspManagedInstallService {
     while (_manifestCache.length > _manifestCacheMaxEntries) {
       _manifestCache.remove(_manifestCache.keys.first);
     }
-  }
-
-  static String _quotePosix(String value) {
-    return "'${value.replaceAll("'", "'\\''")}'";
   }
 
   static String _quoteWindows(String value) {

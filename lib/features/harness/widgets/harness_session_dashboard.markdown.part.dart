@@ -951,7 +951,7 @@ class _HeDiffBlock extends StatelessWidget {
             scrollCacheExtent: const ScrollCacheExtent.pixels(600),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            addRepaintBoundaries: false, // each row is simple — skip overhead
+            addRepaintBoundaries: false, // 每行结构简单，无需额外重绘边界。
             itemCount: trimmed.length,
             itemBuilder: (_, i) =>
                 _DiffLine(line: trimmed[i], isDark: isDark, cs: colorScheme),

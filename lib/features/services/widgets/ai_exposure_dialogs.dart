@@ -3917,7 +3917,7 @@ class _LogList extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            _time(log.at),
+                            formatHourMinuteSecond(log.at),
                             style: theme.textTheme.labelSmall?.copyWith(
                               fontFamily: 'monospace',
                               color: cs.onSurfaceVariant,
@@ -5025,7 +5025,5 @@ IconData _categoryIcon(AiExposureResultCategory category) => switch (category) {
   AiExposureResultCategory.highValue => Icons.workspace_premium_outlined,
   AiExposureResultCategory.honeypot => Icons.warning_amber_rounded,
 };
-
-String _time(DateTime value) => formatHourMinuteSecond(value);
 
 String _dateTime(DateTime value) => formatYearMonthDayHms(value);

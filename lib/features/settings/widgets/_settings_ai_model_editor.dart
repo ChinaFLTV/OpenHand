@@ -1678,7 +1678,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                       const Spacer(),
                                       Switch(
                                         value: _streamEnabled,
-                                        onChanged: null, // Disabled for now
+                                        onChanged: null,
                                       ),
                                     ],
                                   ),
@@ -3158,9 +3158,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _knowledgeCutoffController.text = catalog.knowledgeCutoff ?? '';
         _expirationDateController.text = catalog.expirationDate ?? '';
       } else {
-        _isMultimodal = null; // auto-detect
-        _supportsAttachments = null; // auto-detect
-        _requiresReasoningEcho = null; // fallback to runtime heuristics
+        _isMultimodal = null; // 自动检测
+        _supportsAttachments = null; // 自动检测
+        _requiresReasoningEcho = null; // 回退到运行时推断
         _supportedModalities = _inferModalities();
         _capabilities = _inferCapabilities();
       }
