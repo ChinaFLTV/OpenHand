@@ -6307,7 +6307,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     AiSessionRuntimeContext? runtimeContext;
-    final submitPreflightTimingsMs = <String, int>{};
     if (sessionController.currentSession == null) {
       final templateId = await _showThreadTemplateDialog();
       if (!mounted || templateId == null) {
@@ -6471,7 +6470,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       runtimeContext: runtimeContext,
       responseModalities: creationRequest.responseModalities,
       creationRequest: creationRequest,
-      callerPreflightTimingsMs: submitPreflightTimingsMs,
       additionalSystemReminders: additionalSystemReminders,
       selectedSkillMetadata: skillDisplayMetadata,
       goalStartOptions: goalStartOptions,
@@ -7954,6 +7952,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (mounted) {
         setState(() {
+          _localSubmissionPreviewsBySessionId.remove(targetSessionId);
           if (_submittingSessionId == targetSessionId) {
             _submittingSessionId = null;
           }
@@ -10290,7 +10289,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         mcpController: mcpController,
         sessionController: sessionController,
         appInfo: appInfo,
-        session: currentSession,
+        session: storedCurrentSession,
       );
       _maybeAutoFollowSession(currentSession);
     }
