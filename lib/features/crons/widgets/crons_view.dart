@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 
 import '../../../app/model/cron_config.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_state_card.dart';
@@ -16,11 +18,13 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../crons_controller.dart';
@@ -145,28 +149,30 @@ class CronsView extends StatelessWidget {
                         // 顶部 2px 缓冲，避免滚动到顶时第一张卡的描边被剪掉。
                         padding: const EdgeInsets.only(top: 2),
                         itemCount: entries.length,
-                        separatorBuilder: (context, index) => kOpenHandGap12,
+                        separatorBuilder: (context, index) => kOpenHandGap14,
                         itemBuilder: (context, index) {
                           final entry = entries[index];
-                          return AppearOnce(
+                          return SettingsAwareAppearOnce(
                             key: ValueKey<String>('cron-entry-${entry.id}'),
-                            child: OpenHandListRemovalTransition(
-                              collapsed: removal.isRemoving(entry.id),
-                              child: _CronEntryCard(
-                                entry: entry,
-                                onEdit: () =>
-                                    _showCronEditorDialog(context, entry),
-                                onToggle: (enabled) {
-                                  controller.toggleCronEnabled(
-                                    entry.id,
-                                    enabled: enabled,
-                                  );
-                                },
-                                onDelete: () =>
-                                    _confirmDelete(context, removal, entry),
-                                onHistory: () =>
-                                    _showHistoryDialog(context, entry),
-                                onRunNow: () => controller.runNow(entry.id),
+                            child: RepaintBoundary(
+                              child: OpenHandListRemovalTransition(
+                                collapsed: removal.isRemoving(entry.id),
+                                child: _CronEntryCard(
+                                  entry: entry,
+                                  onEdit: () =>
+                                      _showCronEditorDialog(context, entry),
+                                  onToggle: (enabled) {
+                                    controller.toggleCronEnabled(
+                                      entry.id,
+                                      enabled: enabled,
+                                    );
+                                  },
+                                  onDelete: () =>
+                                      _confirmDelete(context, removal, entry),
+                                  onHistory: () =>
+                                      _showHistoryDialog(context, entry),
+                                  onRunNow: () => controller.runNow(entry.id),
+                                ),
                               ),
                             ),
                           );
@@ -234,6 +240,8 @@ class _CronEmptyState extends StatelessWidget {
   }
 }
 
+enum _CronCardAction { edit, delete }
+
 class _CronEntryCard extends StatelessWidget {
   const _CronEntryCard({
     required this.entry,
@@ -253,310 +261,180 @@ class _CronEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final isSystem = entry.tags.contains('system');
+    final toggleLocked = entry.tags.contains(
+      CronsController.mcpKeywordIndexTag,
+    );
     final visibleTags = entry.tags
         .take(_cronTagPreviewLimit)
         .toList(growable: false);
     final hiddenTagCount = entry.tags.length - visibleTags.length;
+    final statusColor = _cronStatusAccent(entry, colorScheme);
+    final description = entry.description.trim();
+    final lastRunLabel = entry.lastRunAt == null
+        ? '—'
+        : formatMonthDayHms(entry.lastRunAt!);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _CronStatusDot(status: entry.status, enabled: entry.enabled),
-                kOpenHandHGap12,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.name,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: entry.enabled
-                              ? colorScheme.onSurface
-                              : colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (entry.description.isNotEmpty) ...[
-                        kOpenHandGap2,
-                        Text(
-                          entry.description,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                kOpenHandHGap12,
-                Tooltip(
-                  message: l10n.cronsCronExpressionTooltip,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.tertiaryContainer,
-                      borderRadius: kOpenHandBorderRadius12,
-                    ),
-                    child: Text(
-                      entry.cronExpression,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onTertiaryContainer,
-                        fontFamily: kOpenHandMonospaceFontFamily,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ),
-                kOpenHandHGap8,
-                OpenHandMetricChip(
-                  label: '${entry.timeoutSeconds}s',
-                  tooltip: l10n.cronsTimeoutTooltip,
-                ),
-                kOpenHandHGap8,
-                if (entry.retryCount > 0) ...[
-                  Tooltip(
-                    message: l10n.cronsRetryCountTooltip,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHigh,
-                        borderRadius: kOpenHandBorderRadius12,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.replay_rounded,
-                            size: 12,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          kOpenHandHGap4,
-                          Text(
-                            '${entry.retryCount}',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  kOpenHandHGap8,
-                ],
-                Builder(
-                  builder: (context) {
-                    final locked = entry.tags.contains(
-                      CronsController.mcpKeywordIndexTag,
-                    );
-                    final toggle = Switch(
-                      value: entry.enabled,
-                      onChanged: locked ? null : onToggle,
-                    );
-                    if (!locked) return toggle;
-                    return Tooltip(
-                      message: l10n.cronsMcpKeywordIndexLockedTooltip,
-                      child: toggle,
-                    );
-                  },
-                ),
-                kOpenHandHGap8,
-                // 系统任务允许启停，但禁止编辑和删除以保持参数不可变。
-                IconButton(
-                  icon: const Icon(Icons.bolt_rounded, size: 20),
-                  tooltip: l10n.cronsRunOnceNow,
-                  onPressed: entry.enabled ? onRunNow : null,
-                ),
-                kOpenHandHGap4,
-                IconButton(
-                  icon: const Icon(Icons.history_rounded, size: 20),
-                  tooltip: l10n.cronsHistory,
-                  onPressed: onHistory,
-                ),
-                kOpenHandHGap4,
-                IconButton(
-                  icon: Icon(
-                    Icons.edit_outlined,
-                    size: 20,
-                    color: entry.tags.contains('system')
-                        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
-                        : null,
-                  ),
-                  tooltip: l10n.commonEdit,
-                  onPressed: entry.tags.contains('system') ? null : onEdit,
-                ),
-                kOpenHandHGap4,
-                IconButton(
-                  icon: Icon(
-                    Icons.delete_outline_rounded,
-                    size: 20,
-                    color: entry.tags.contains('system')
-                        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
-                        : colorScheme.error,
-                  ),
-                  tooltip: l10n.commonDelete,
-                  onPressed: entry.tags.contains('system') ? null : onDelete,
-                ),
-              ],
+    final toggle = Switch(
+      value: entry.enabled,
+      onChanged: toggleLocked ? null : onToggle,
+    );
+
+    return OpenHandFeatureListCard(
+      onTap: isSystem ? onHistory : onEdit,
+      identity: OpenHandListIdentity(
+        title: entry.name,
+        description: description.isEmpty ? null : description,
+        descriptionMaxLines: 2,
+      ),
+      actions: [
+        if (toggleLocked)
+          Tooltip(
+            message: l10n.cronsMcpKeywordIndexLockedTooltip,
+            child: toggle,
+          )
+        else
+          toggle,
+        OpenHandFeatureIconButton(
+          icon: Icons.bolt_rounded,
+          tooltip: l10n.cronsRunOnceNow,
+          onPressed: onRunNow,
+          enabled: entry.enabled,
+        ),
+        OpenHandFeatureIconButton(
+          icon: Icons.history_rounded,
+          tooltip: l10n.cronsHistory,
+          onPressed: onHistory,
+        ),
+        AnimatedPopupMenuButton<_CronCardAction>(
+          tooltip: openHandMoreActionsLabel(context),
+          style: openHandFeatureCircleIconButtonStyle(colorScheme),
+          onSelected: (action) {
+            switch (action) {
+              case _CronCardAction.edit:
+                onEdit();
+              case _CronCardAction.delete:
+                onDelete();
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem<_CronCardAction>(
+              enabled: !isSystem,
+              value: _CronCardAction.edit,
+              child: Text(l10n.commonEdit),
             ),
-            if (entry.tags.isNotEmpty || entry.lastRunAt != null) ...[
-              kOpenHandGap8,
-              Row(
-                children: [
-                  if (entry.tags.isNotEmpty)
-                    Expanded(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          for (final tag in visibleTags)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.secondaryContainer,
-                                borderRadius: kOpenHandBorderRadius10,
-                              ),
-                              child: Text(
-                                tag,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSecondaryContainer,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ),
-                          if (hiddenTagCount > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHigh,
-                                borderRadius: kOpenHandBorderRadius10,
-                              ),
-                              child: Text(
-                                '+$hiddenTagCount',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  _CronStatusChip(entry: entry),
-                  if (entry.lastRunAt != null) ...[
-                    kOpenHandHGap8,
-                    Text(
-                      l10n.cronsLastRunAt(formatMonthDayHms(entry.lastRunAt!)),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.7,
-                        ),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ],
+            PopupMenuItem<_CronCardAction>(
+              enabled: !isSystem,
+              value: _CronCardAction.delete,
+              child: Text(
+                l10n.commonDelete,
+                style: TextStyle(
+                  color: isSystem ? null : colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ],
+            ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CronStatusDot extends StatelessWidget {
-  const _CronStatusDot({required this.status, required this.enabled});
-
-  final CronJobStatus status;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final color = !enabled
-        ? colorScheme.outlineVariant
-        : switch (status) {
-            CronJobStatus.running => _kCronRunningColor,
-            CronJobStatus.idle => colorScheme.outline,
-            CronJobStatus.paused => colorScheme.tertiary,
-            CronJobStatus.failed => colorScheme.error,
-            CronJobStatus.error => colorScheme.error,
-          };
-
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
-}
-
-class _CronStatusChip extends StatelessWidget {
-  const _CronStatusChip({required this.entry});
-
-  final CronEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final l10n = AppLocalizations.of(context)!;
-    final statusLabel = entry.status.label(l10n);
-    final bgColor = switch (entry.status) {
-      CronJobStatus.running => _kCronRunningColor.withValues(alpha: 0.15),
-      CronJobStatus.idle => colorScheme.surfaceContainerHigh,
-      CronJobStatus.paused => colorScheme.tertiaryContainer,
-      CronJobStatus.failed => colorScheme.errorContainer,
-      CronJobStatus.error => colorScheme.errorContainer,
-    };
-    final fgColor = switch (entry.status) {
-      CronJobStatus.running => _kCronRunningColor,
-      CronJobStatus.idle => colorScheme.onSurfaceVariant,
-      CronJobStatus.paused => colorScheme.onTertiaryContainer,
-      CronJobStatus.failed => colorScheme.onErrorContainer,
-      CronJobStatus.error => colorScheme.onErrorContainer,
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: kOpenHandBorderRadius10,
-      ),
-      child: Text(
-        statusLabel,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: fgColor,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+      ],
+      statusPills: [
+        OpenHandStatusPill(
+          icon: _cronStatusIcon(entry),
+          label: entry.status.label(l10n),
+          color: statusColor,
         ),
-      ),
+        OpenHandStatusPill(
+          icon: entry.scriptType == CronScriptType.script
+              ? Icons.description_outlined
+              : entry.scriptType == CronScriptType.managed
+              ? Icons.verified_outlined
+              : Icons.terminal_rounded,
+          label: entry.scriptType.label(l10n),
+          color: colorScheme.secondary,
+        ),
+        if (entry.lastRunAt != null)
+          OpenHandStatusPill(
+            icon: Icons.schedule_rounded,
+            label: lastRunLabel,
+            color: OpenHandStatusColors.warning,
+          ),
+      ],
+      factChips: [
+        OpenHandFactChip(
+          icon: Icons.event_repeat_outlined,
+          label: entry.cronExpression,
+          color: colorScheme.tertiary,
+        ),
+        OpenHandFactChip(
+          icon: Icons.timer_outlined,
+          label: '${entry.timeoutSeconds}s',
+          color: colorScheme.primary,
+        ),
+        if (entry.retryCount > 0)
+          OpenHandFactChip(
+            icon: Icons.replay_rounded,
+            label: '${entry.retryCount}',
+            color: OpenHandStatusColors.info,
+          ),
+        for (final tag in visibleTags)
+          OpenHandFactChip(
+            icon: Icons.sell_outlined,
+            label: tag,
+            color: colorScheme.secondary,
+          ),
+        if (hiddenTagCount > 0)
+          OpenHandFactChip(
+            icon: Icons.more_horiz_rounded,
+            label: '+$hiddenTagCount',
+            color: colorScheme.onSurfaceVariant,
+          ),
+      ],
+      metrics: [
+        (
+          label: l10n.listCardMetricStatus,
+          value: entry.status.label(l10n),
+          accent: statusColor,
+        ),
+        (
+          label: l10n.cronsExpressionPreview,
+          value: entry.cronExpression,
+          accent: colorScheme.tertiary,
+        ),
+        (
+          label: l10n.cronsTimeoutTooltip,
+          value: '${entry.timeoutSeconds}s',
+          accent: colorScheme.primary,
+        ),
+        (
+          label: l10n.cronsRetries,
+          value: '${entry.retryCount}',
+          accent: OpenHandStatusColors.info,
+        ),
+      ],
     );
   }
+}
+
+Color _cronStatusAccent(CronEntry entry, ColorScheme colorScheme) {
+  if (!entry.enabled) return colorScheme.outline;
+  return switch (entry.status) {
+    CronJobStatus.running => _kCronRunningColor,
+    CronJobStatus.idle => OpenHandStatusColors.success,
+    CronJobStatus.paused => colorScheme.tertiary,
+    CronJobStatus.failed || CronJobStatus.error => colorScheme.error,
+  };
+}
+
+IconData _cronStatusIcon(CronEntry entry) {
+  if (!entry.enabled) return Icons.pause_circle_outline_rounded;
+  return switch (entry.status) {
+    CronJobStatus.running => Icons.play_circle_outline_rounded,
+    CronJobStatus.idle => Icons.check_circle_outline_rounded,
+    CronJobStatus.paused => Icons.pause_circle_outline_rounded,
+    CronJobStatus.failed || CronJobStatus.error => Icons.error_outline_rounded,
+  };
 }
 
 class _CronHistoryDialog extends StatelessWidget {
