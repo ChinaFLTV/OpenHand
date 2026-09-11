@@ -29,6 +29,10 @@ const int _stopAllConcurrency = 8;
 const int _shutdownStopAllConcurrency = 16;
 const int _jsonRpcMaxMessageCharacters = kBytesPerMiB;
 final Stopwatch _mcpStdioProcessStopwatch = Stopwatch()..start();
+const McpToolDiscoveryException _mcpStdioStdoutClosedException =
+    McpToolDiscoveryException('MCP stdio 服务已关闭标准输出。');
+const McpToolDiscoveryException _mcpStdioStdinClosedException =
+    McpToolDiscoveryException('MCP stdio 服务已关闭标准输入。');
 
 Map<String, Object?>? _parseMcpStdioJsonRpcLine(String line) {
   final trimmed = nullIfBlank(line);
@@ -275,7 +279,11 @@ class McpStdioProcessManager extends ChangeNotifier {
               }
             },
             onError: (Object error, StackTrace stack) {
-              responseRouter.rejectNewWrites(error, stack);
+              final transportError = McpToolDiscoveryException(
+                'MCP stdio 标准输出监听失败：'
+                '${mcpFailureMessage(error, fallback: '无法读取服务输出。')}',
+              );
+              responseRouter.rejectNewWrites(transportError, stack);
               silentLog('mcp_stdio_process_manager', '监听标准输出', error, stack);
               _appendLog(
                 name,
@@ -286,7 +294,7 @@ class McpStdioProcessManager extends ChangeNotifier {
               unawaited(_terminateProcessTreeBounded(process!));
             },
             onDone: () {
-              responseRouter.rejectNewWrites(StateError('标准输出已关闭。'));
+              responseRouter.rejectNewWrites(_mcpStdioStdoutClosedException);
               _appendLog(
                 name,
                 '[标准输出已关闭]',
@@ -346,7 +354,12 @@ class McpStdioProcessManager extends ChangeNotifier {
 
       // 监听进程退出
       void handleProcessExit({int? code, Object? error, StackTrace? stack}) {
-        final exitError = error ?? StateError('进程已退出，退出码：$code。');
+        final exitError = McpToolDiscoveryException(
+          error == null
+              ? 'MCP stdio 进程已退出，退出码：$code。'
+              : 'MCP stdio 进程退出监听失败：'
+                    '${mcpFailureMessage(error, fallback: '无法读取进程退出状态。')}',
+        );
         if (error != null) {
           silentLog('mcp_stdio_process_manager', '监听进程退出', error, stack);
         }
@@ -999,6 +1012,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     );
     final requestId = 'openhand-initialize-$generation';
     final responseCompleter = Completer<Map<String, Object?>?>();
+    observeMcpPendingFuture(responseCompleter.future);
     try {
       // 等待 npx 解析并启动实际的 MCP 服务进程（首次可能需要下载包）
       final startupStillActive = await delayWhileContinuing(
@@ -1051,13 +1065,6 @@ class McpStdioProcessManager extends ChangeNotifier {
         final result = stringKeyedMapFromValue(response['result']);
         final instructions =
             optionalStringFromValue(result['instructions']) ?? '';
-        _appendLog(
-          serverName,
-          '[${_timestamp()}] ✓ MCP 握手成功',
-          isStderr: false,
-          expectedGeneration: generation,
-        );
-
         final currentBeforeNotify = _processes[serverName];
         if (currentBeforeNotify == null ||
             currentBeforeNotify.generation != generation ||
@@ -1072,6 +1079,12 @@ class McpStdioProcessManager extends ChangeNotifier {
           'jsonrpc': '2.0',
           'method': 'notifications/initialized',
         });
+        _appendLog(
+          serverName,
+          '[${_timestamp()}] ✓ MCP 握手成功',
+          isStderr: false,
+          expectedGeneration: generation,
+        );
         _appendLog(
           serverName,
           '[${_timestamp()}] ✓ 服务已就绪，可正常使用',
@@ -1094,31 +1107,81 @@ class McpStdioProcessManager extends ChangeNotifier {
         }
       } else {
         final detail = response?['error'] ?? '响应缺少 result 字段';
-        _appendLog(
-          serverName,
-          '[${_timestamp()}] ⚠ MCP 握手失败：$detail',
-          isStderr: true,
-          expectedGeneration: generation,
+        final error = McpToolDiscoveryException('MCP 握手失败：$detail');
+        await _handleFailedMcpHandshake(
+          serverName: serverName,
+          generation: generation,
+          process: process,
+          responseRouter: responseRouter,
+          error: error,
         );
       }
     } on TimeoutException {
-      _appendLog(
-        serverName,
-        '[${_timestamp()}] ⚠ 握手超时或进程已退出',
-        isStderr: false,
-        expectedGeneration: generation,
+      await _handleFailedMcpHandshake(
+        serverName: serverName,
+        generation: generation,
+        process: process,
+        responseRouter: responseRouter,
+        error: const McpToolDiscoveryException('MCP stdio 握手响应超时。'),
+      );
+    } on McpToolDiscoveryException catch (error) {
+      if (error.isExpectedLifecycleCancellation) return;
+      await _handleFailedMcpHandshake(
+        serverName: serverName,
+        generation: generation,
+        process: process,
+        responseRouter: responseRouter,
+        error: error,
       );
     } catch (error, stack) {
       silentLog('mcp_stdio_process_manager', '执行 MCP stdio 握手', error, stack);
-      _appendLog(
-        serverName,
-        '[${_timestamp()}] ⚠ 握手异常：${mcpFailureMessage(error, fallback: 'MCP stdio 握手失败，请稍后重试。')}',
-        isStderr: false,
-        expectedGeneration: generation,
+      await _handleFailedMcpHandshake(
+        serverName: serverName,
+        generation: generation,
+        process: process,
+        responseRouter: responseRouter,
+        error: McpToolDiscoveryException(
+          mcpFailureMessage(error, fallback: 'MCP stdio 握手失败，请稍后重试。'),
+        ),
       );
     } finally {
       responseRouter.unregister(requestId);
+      if (!responseCompleter.isCompleted) responseCompleter.complete(null);
     }
+  }
+
+  Future<void> _handleFailedMcpHandshake({
+    required String serverName,
+    required int generation,
+    required Process process,
+    required _ManagedResponseRouter responseRouter,
+    required McpToolDiscoveryException error,
+  }) async {
+    final current = _processes[serverName];
+    if (current == null ||
+        current.generation != generation ||
+        !identical(current.process, process) ||
+        current.info.state == StdioProcessState.stopping) {
+      return;
+    }
+
+    responseRouter.rejectNewWrites(error);
+    _appendLog(
+      serverName,
+      '[${_timestamp()}] ⚠ ${error.message}',
+      isStderr: false,
+      expectedGeneration: generation,
+    );
+    final latest = _processes[serverName];
+    if (latest != null &&
+        latest.generation == generation &&
+        identical(latest.process, process)) {
+      _processes[serverName] = latest.copyWith(
+        info: latest.info.copyWith(errorMessage: error.message),
+      );
+      notifyListeners();
+    }
+    await _terminateProcessTreeBounded(process);
   }
 
   /// 获取进程的运行时环境信息。
@@ -1315,12 +1378,14 @@ class ManagedStdioSession {
           requestIdText: requestIdText,
         );
       } catch (error, stack) {
-        silentLog(
-          'mcp_stdio_process_manager',
-          '取消托管 MCP stdio 请求',
-          error,
-          stack,
-        );
+        if (error is! McpToolDiscoveryException) {
+          silentLog(
+            'mcp_stdio_process_manager',
+            '取消托管 MCP stdio 请求',
+            error,
+            stack,
+          );
+        }
       }
     }
 
@@ -1380,10 +1445,10 @@ class _ManagedResponseRouter {
       throw closedError;
     }
     if (_pending.containsKey(id)) {
-      throw StateError('MCP stdio 请求编号重复：$id。');
+      throw McpToolDiscoveryException('MCP stdio 请求编号重复：$id。');
     }
     if (_pending.length >= kMcpStdioMaxPendingRequests) {
-      throw StateError(
+      throw McpToolDiscoveryException(
         'MCP stdio 待处理请求过多'
         '（${_pending.length}/$kMcpStdioMaxPendingRequests）。',
       );
@@ -1426,7 +1491,13 @@ class _ManagedResponseRouter {
       if (closedError != null) {
         throw closedError;
       }
-      await writeMcpJsonLineToStdin(stdin, payload);
+      try {
+        await writeMcpJsonLineToStdin(stdin, payload);
+      } on StateError catch (error) {
+        if (!isExpectedMcpStdioSinkStateError(error)) rethrow;
+        rejectNewWrites(_mcpStdioStdinClosedException);
+        throw _mcpStdioStdinClosedException;
+      }
     });
   }
 
@@ -1435,9 +1506,9 @@ class _ManagedResponseRouter {
   }
 
   void rejectNewWrites(Object error, [StackTrace? stackTrace]) {
-    _closedError ??= error;
-    _writeQueue.rejectNewWrites(error);
-    failAll(error, stackTrace);
+    final closedError = _closedError ??= error;
+    _writeQueue.rejectNewWrites(closedError);
+    failAll(closedError, stackTrace);
   }
 
   /// 将标准输出数据送入路由器。数据可能跨多个分块到达，
@@ -1446,7 +1517,9 @@ class _ManagedResponseRouter {
     if (_pending.isEmpty) return;
     if (data.length > _maxBufferedChars - _lineBuffer.length) {
       rejectNewWrites(
-        StateError('MCP stdio 响应超过 $_maxBufferedChars 字符缓冲上限，且未形成完整行。'),
+        McpToolDiscoveryException(
+          'MCP stdio 响应超过 $_maxBufferedChars 字符缓冲上限，且未形成完整行。',
+        ),
       );
       return;
     }
