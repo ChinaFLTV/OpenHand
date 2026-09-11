@@ -12,14 +12,20 @@ import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
 
 const Duration _loginShellProbeTimeout = Duration(seconds: 3);
+const Duration _nodeRuntimeProbeTimeout = Duration(seconds: 2);
 const int _loginShellProbeMaxStdoutBytes = 64 * kBytesPerKiB;
 const int _loginShellProbeMaxStderrBytes = 16 * kBytesPerKiB;
+const int _nodeRuntimeProbeMaxOutputBytes = 256;
 const int _pathProbeLimit = 256;
 const String _loginPathMarker = '__OPENHAND_MCP_PATH__';
 final RegExp _lineBreaksPattern = RegExp(r'[\r\n]+');
+final RegExp _nodeRuntimeKeyPattern = RegExp(
+  r'^[a-z0-9]+-[a-z0-9_]+-abi[a-z0-9._-]+$',
+);
 
 String? _cachedLoginEnvironmentPath;
 Completer<String>? _loginEnvironmentPathProbe;
+final Map<String, String> _nodeRuntimeKeys = <String, String>{};
 
 String get mcpCachedLoginEnvironmentPath => _cachedLoginEnvironmentPath ?? '';
 String get mcpProcessEnvironmentPath => Platform.environment['PATH'] ?? '';
@@ -53,6 +59,16 @@ Future<McpStdioLaunch> resolveMcpStdioLaunch(McpServer server) async {
   final home = OpenHandPaths.environmentHomeDirectoryPath();
 
   final separator = Platform.isWindows ? ';' : ':';
+  String? configuredPath;
+  for (final entry in server.environment.entries) {
+    if (entry.key.toLowerCase() == 'path') {
+      configuredPath = nullIfBlank(entry.value);
+      break;
+    }
+  }
+  final configuredSegments = configuredPath == null
+      ? const <String>[]
+      : splitTrimmedNonEmpty(configuredPath, separator: separator);
   final originalSegments = splitTrimmedNonEmpty(
     mcpProcessEnvironmentPath,
     separator: separator,
@@ -106,6 +122,7 @@ Future<McpStdioLaunch> resolveMcpStdioLaunch(McpServer server) async {
   final mergedSegments = <String>[];
   final seen = <String>{};
   for (final segment in <String>[
+    ...configuredSegments,
     ...shellSegments,
     ...originalSegments,
     ...heuristicSegments,
@@ -114,8 +131,16 @@ Future<McpStdioLaunch> resolveMcpStdioLaunch(McpServer server) async {
     if (seen.add(key)) mergedSegments.add(segment);
   }
   final mergedPath = mergedSegments.join(separator);
+  final isNpxCommand = isMcpNpxCommand(rawCommand);
+  final pathNodeExecutable = isNpxCommand
+      ? await _resolvePathExecutable(
+          'node',
+          configuredPath == null ? mergedSegments : configuredSegments,
+        )
+      : null;
+  final pathNodeRuntimeKey = await _probeNodeRuntimeKey(pathNodeExecutable);
 
-  if (!Platform.isWindows && isMcpNpxCommand(rawCommand)) {
+  if (!Platform.isWindows && isNpxCommand) {
     final packageArgIndex = firstMcpNpxPackageArgIndex(args);
     if (packageArgIndex >= 0) {
       final resolved = await _resolveNpxPackage(
@@ -123,6 +148,8 @@ Future<McpStdioLaunch> resolveMcpStdioLaunch(McpServer server) async {
         homeDirectory: home,
       );
       if (resolved != null) {
+        final runtimeKey =
+            await _probeNodeRuntimeKey(resolved.nodeBin) ?? pathNodeRuntimeKey;
         final extraArgs = packageArgIndex + 1 < args.length
             ? args.sublist(packageArgIndex + 1)
             : const <String>[];
@@ -131,7 +158,7 @@ Future<McpStdioLaunch> resolveMcpStdioLaunch(McpServer server) async {
           args: <String>[resolved.entryScript, ...extraArgs],
           environment: <String, String>{
             if (mergedPath.isNotEmpty) 'PATH': mergedPath,
-            ...await mcpStdioIsolatedCacheEnv(),
+            ...await mcpStdioIsolatedCacheEnv(runtimeKey: runtimeKey),
           },
         );
       }
@@ -142,35 +169,10 @@ Future<McpStdioLaunch> resolveMcpStdioLaunch(McpServer server) async {
       rawCommand.contains('/') ||
       (Platform.isWindows && rawCommand.contains('\\'));
   if (!containsSeparator) {
-    final candidates = <String>[rawCommand];
-    if (Platform.isWindows) {
-      final lower = rawCommand.toLowerCase();
-      for (final extension in const <String>['.cmd', '.bat', '.exe', '.com']) {
-        if (!lower.endsWith(extension)) candidates.add('$rawCommand$extension');
-      }
-    }
-
-    String? resolvedExecutable;
-    for (final directory in mergedSegments.take(_pathProbeLimit)) {
-      for (final candidate in candidates) {
-        final path = directory.endsWith(Platform.pathSeparator)
-            ? '$directory$candidate'
-            : '$directory${Platform.pathSeparator}$candidate';
-        try {
-          final type = await FileSystemEntity.type(
-            path,
-          ).timeout(mcpStdioFileOperationTimeout);
-          if (type == FileSystemEntityType.file) {
-            resolvedExecutable = path;
-            break;
-          }
-        } catch (_) {
-          // 无法访问的 PATH 候选直接跳过。
-        }
-      }
-      if (resolvedExecutable != null) break;
-    }
-
+    final resolvedExecutable = await _resolvePathExecutable(
+      rawCommand,
+      mergedSegments,
+    );
     if (resolvedExecutable != null) {
       executable = resolvedExecutable;
     } else if (!Platform.isWindows) {
@@ -189,10 +191,67 @@ Future<McpStdioLaunch> resolveMcpStdioLaunch(McpServer server) async {
     args: args,
     environment: <String, String>{
       if (mergedPath.isNotEmpty) 'PATH': mergedPath,
-      ...await mcpStdioIsolatedCacheEnv(),
+      ...await mcpStdioIsolatedCacheEnv(runtimeKey: pathNodeRuntimeKey),
     },
     runInShell: Platform.isWindows,
   );
+}
+
+Future<String?> _resolvePathExecutable(
+  String executable,
+  List<String> pathSegments,
+) async {
+  final candidates = <String>[executable];
+  if (Platform.isWindows) {
+    final lower = executable.toLowerCase();
+    for (final extension in const <String>['.cmd', '.bat', '.exe', '.com']) {
+      if (!lower.endsWith(extension)) candidates.add('$executable$extension');
+    }
+  }
+  for (final directory in pathSegments.take(_pathProbeLimit)) {
+    for (final candidate in candidates) {
+      final path = directory.endsWith(Platform.pathSeparator)
+          ? '$directory$candidate'
+          : '$directory${Platform.pathSeparator}$candidate';
+      try {
+        final type = await FileSystemEntity.type(
+          path,
+        ).timeout(mcpStdioFileOperationTimeout);
+        if (type == FileSystemEntityType.file) return path;
+      } catch (_) {
+        // 无法访问的 PATH 候选直接跳过。
+      }
+    }
+  }
+  return null;
+}
+
+Future<String?> _probeNodeRuntimeKey(String? nodeExecutable) async {
+  if (nodeExecutable == null) return null;
+  final cached = _nodeRuntimeKeys[nodeExecutable];
+  if (cached != null) return cached;
+  try {
+    final result = await runProcessWithTimeout(
+      nodeExecutable,
+      const <String>[
+        '-p',
+        'process.platform+"-"+process.arch+"-abi"+'
+            '(process.versions.modules||"unknown")',
+      ],
+      timeout: _nodeRuntimeProbeTimeout,
+      tag: 'mcp_stdio.node_runtime_probe',
+      maxStdoutBytes: _nodeRuntimeProbeMaxOutputBytes,
+      maxStderrBytes: _nodeRuntimeProbeMaxOutputBytes,
+    );
+    if (result == null || result.exitCode != 0) return null;
+    final key = result.stdout.toString().trim().toLowerCase();
+    if (!_nodeRuntimeKeyPattern.hasMatch(key)) return null;
+    _nodeRuntimeKeys[nodeExecutable] = key;
+    return key;
+  } catch (error, stack) {
+    silentLog('mcp_stdio', '探测 Node 运行时', error, stack);
+    return null;
+  }
 }
 
 Future<String> _probeLoginEnvironmentPath() {

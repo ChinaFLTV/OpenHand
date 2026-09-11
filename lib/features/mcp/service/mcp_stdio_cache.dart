@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -10,14 +11,28 @@ import 'mcp_stdio_mirror_policy.dart';
 const String mcpNpmMirrorRegistry = 'https://registry.npmmirror.com';
 const String mcpPypiMirrorIndex = 'https://pypi.tuna.tsinghua.edu.cn/simple';
 const Duration mcpStdioFileOperationTimeout = Duration(seconds: 3);
+final RegExp _mcpStdioRuntimeKeyPattern = RegExp(r'^[a-z0-9._-]{1,80}$');
 
 /// stdio MCP 隔离包缓存根目录：~/.openhand/mcp/package-cache。
 String mcpStdioIsolatedCacheRoot() =>
     p.join(OpenHandPaths.defaultMcpDirectoryPath(), 'package-cache');
 
-Future<Map<String, String>> mcpStdioIsolatedCacheEnv() async {
+String _mcpStdioRuntimeCacheRoot({String? runtimeKey}) {
+  final candidate = runtimeKey?.trim().toLowerCase();
+  final key =
+      candidate != null && _mcpStdioRuntimeKeyPattern.hasMatch(candidate)
+      ? candidate
+      : Abi.current().toString();
+  return p.join(mcpStdioIsolatedCacheRoot(), 'runtimes', key);
+}
+
+Future<Map<String, String>> mcpStdioIsolatedCacheEnv({
+  String? runtimeKey,
+}) async {
   try {
-    final root = mcpStdioIsolatedCacheRoot();
+    // npm/uv 等缓存可能包含原生二进制，必须按实际运行 ABI 隔离；否则 macOS
+    // 原生与 Rosetta 进程切换后会复用另一架构的 .node/.dylib 并启动失败。
+    final root = _mcpStdioRuntimeCacheRoot(runtimeKey: runtimeKey);
     final npmCache = p.join(root, 'npm');
     final npmPrefix = p.join(root, 'npm-prefix');
     final uvCache = p.join(root, 'uv');
