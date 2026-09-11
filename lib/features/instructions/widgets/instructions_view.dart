@@ -3,9 +3,10 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/model/editor_code_theme.dart';
+import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -17,6 +18,7 @@ import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -24,6 +26,7 @@ import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_clip.dart';
 import '../instructions_controller.dart';
 import '../model/user_instruction_entry.dart';
 
@@ -680,27 +683,50 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                     ),
                   ),
                   kOpenHandGap12,
-                  TextFormField(
-                    controller: _body,
-                    enabled: !_saving,
-                    minLines: 6,
-                    maxLines: 18,
-                    maxLength: UserInstructionEntry.maxBodyLength,
-                    inputFormatters: <TextInputFormatter>[
-                      LengthLimitingTextInputFormatter(
-                        UserInstructionEntry.maxBodyLength,
-                      ),
-                    ],
-                    decoration: InputDecoration(
-                      labelText: l10n.instructionBodyField,
-                      alignLabelWithHint: true,
-                      counterText: '',
-                    ),
-                    validator: (v) {
-                      if ((v ?? '').trim().isEmpty) {
+                  FormField<String>(
+                    validator: (_) {
+                      if (_body.text.trim().isEmpty) {
                         return l10n.instructionBodyRequired;
                       }
                       return null;
+                    },
+                    builder: (state) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          OpenHandCodeEditor(
+                            value: _body.text,
+                            language: 'markdown',
+                            fileName: 'instruction.md',
+                            codeTheme: context
+                                .select<SettingsController, EditorCodeTheme>(
+                                  (controller) => controller.editorCodeTheme,
+                                ),
+                            icon: Icons.article_outlined,
+                            height: 280,
+                            borderRadius: kOpenHandBorderRadius14,
+                            readOnly: _saving,
+                            onChanged: (value) {
+                              final clipped = clipTextByCodeUnits(
+                                value,
+                                UserInstructionEntry.maxBodyLength,
+                                suffix: '',
+                              );
+                              _body.text = clipped;
+                              state.didChange(clipped);
+                            },
+                          ),
+                          if (state.hasError)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8, left: 4),
+                              child: Text(
+                                state.errorText!,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: colorScheme.error),
+                              ),
+                            ),
+                        ],
+                      );
                     },
                   ),
                 ],

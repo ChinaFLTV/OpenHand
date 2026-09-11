@@ -187,6 +187,7 @@ String? normalizeOpenHandCodeLanguage(String? language) {
     'shell' || 'sh' || 'zsh' => 'bash',
     'yml' => 'yaml',
     'htm' => 'html',
+    'md' => 'markdown',
     _ => normalized,
   };
 }
@@ -313,6 +314,8 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
         'ps': <String>['ps1', 'psm1', 'psd1'],
         'ps1': <String>['ps1', 'psm1', 'psd1'],
         'windowspowershell': <String>['ps1', 'psm1', 'psd1'],
+        'markdown': <String>['md', 'markdown'],
+        'md': <String>['md', 'markdown'],
       };
   static const Map<String, String> _codeLanguageLabels = <String, String>{
     'python': 'Python',
@@ -332,6 +335,8 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     'ps': 'Windows PowerShell',
     'ps1': 'Windows PowerShell',
     'windowspowershell': 'Windows PowerShell',
+    'markdown': 'Markdown',
+    'md': 'Markdown',
   };
   static final RegExp _languageSeparatorPattern = RegExp(r'[\s_-]+');
   static final RegExp _pythonDedentPattern = RegExp(
