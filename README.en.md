@@ -39,7 +39,7 @@ OpenHand is more than a chat window. It is a local AI operations console for dev
 | Multi-model access | Supports OpenAI, Claude, Gemini, DeepSeek, Qwen, Kimi, GLM, Grok, Ollama, vLLM, SGLang, MiniMax, Seed, StepFun, Wenxin, Hunyuan, Meta, Mimo, and OpenAI-compatible services. |
 | Tool runtime | Built-in tools for file read/write/edit, diff application, Bash / background commands, Git, LSP, WebFetch, WebSearch, ToolSearch, Todo, Task, Memory, Knowledge, Skill Manager, and machine terminal workflows. |
 | Controlled execution | Command allow / deny rules, write-command confirmation, sandbox settings, timeouts, cancellation, forced termination, tool-output compression, audit metadata, and token / cost statistics. |
-| MCP and ToolSearch | MCP server management, stdio processes, health checks, tool discovery, keyword indexes, lazy loading, history import/export, and cancelled replay recovery. |
+| MCP and ToolSearch | MCP server management, stdio processes, health checks, tool discovery, keyword indexes, lazy loading, and history import/export. |
 | Skills and plugins | Local Claude Code skills, skills marketplace, plugin scanning, installation, update, uninstall, dependency management, and runtime status. |
 | Memory and self-learning | User profile, long-term memory, and Hermes Talker self-learning jobs for continuous personalization without noisy replies. |
 | Knowledge base | Import Markdown, Office, PDF, HTML, CSV, JSON, TOML, YAML, TXT, code files, or notes; build a local Qdrant vector index and inspect retrieval details. |

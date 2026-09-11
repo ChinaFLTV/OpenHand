@@ -773,35 +773,6 @@
   "mcpLazyLoadingThresholdSave": "儲存閾值",
   "mcpLazyLoadingThresholdSaved": "MCP 工具懶載入閾值已儲存。",
   "mcpLazyLoadingThresholdInvalid": "請填寫 1000 ~ 1000000 之間的整數。",
-  "settingsHarnessToolSearchHistoryCapLabel": "Harness ToolSearch 歷史保留上限",
-  "settingsHarnessToolSearchHistoryCapBody": "ToolSearch 已載入清單對話框保留的 Harness phase 最大個數，超出後以 LRU 淘汰。",
-  "settingsHarnessToolSearchHistoryCapValue": "當前保留最近 {cap} 個 phase",
-  "@settingsHarnessToolSearchHistoryCapValue": {
-    "placeholders": {
-      "cap": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsHarnessToolSearchHistoryCapRange": "範圍：{min}–{max}（預設 8）",
-  "@settingsHarnessToolSearchHistoryCapRange": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsHarnessToolSearchHistoryCapResetTooltip": "重設為預設值（{defaultCap}）",
-  "@settingsHarnessToolSearchHistoryCapResetTooltip": {
-    "placeholders": {
-      "defaultCap": {
-        "type": "int"
-      }
-    }
-  },
   "harnessCliLoginNoOutputHint": "[提示] CLI 尚未產生輸出。可能正在初始化，或需要在外部瀏覽器中完成授權。\n",
   "@harnessCliLoginNoOutputHint": {
     "description": "Harness CLI login dialog terminal hint when no output arrives."
@@ -1082,35 +1053,6 @@
   "harnessCliInstallDoneContinue": "完成，繼續",
   "@harnessCliInstallDoneContinue": {
     "description": "Harness CLI install dialog done/continue button."
-  },
-  "settingsToolSearchReplayCancelWindowLabel": "重播後悔視窗",
-  "settingsToolSearchReplayCancelWindowBody": "snackbar 送出前等待的秒數；期間按取消即可撤銷。",
-  "settingsToolSearchReplayCancelWindowValue": "視窗：{seconds} 秒",
-  "@settingsToolSearchReplayCancelWindowValue": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsToolSearchReplayCancelWindowRange": "範圍：{min}–{max} 秒（預設 3）",
-  "@settingsToolSearchReplayCancelWindowRange": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsToolSearchReplayCancelWindowResetTooltip": "重設為預設值（{defaultSeconds} 秒）",
-  "@settingsToolSearchReplayCancelWindowResetTooltip": {
-    "placeholders": {
-      "defaultSeconds": {
-        "type": "int"
-      }
-    }
   },
   "mcpLazyLoadingHowItWorks": "懶載入啟用時：MCP 工具描述被折疊為名稱索引，模型透過內建 ToolSearch 工具按需取回完整 JSON Schema。支援三種查詢：\n• select:NAME（直接選取，可空格分隔多個）\n• 關鍵字（按 name/description 評分配對）\n• +KEYWORD（必含詞，用於過濾雜訊）\n命中後繼續透過 ToolSearch 提交精確 tool_name 和符合 Schema 的 arguments。原生工具目錄保持固定，避免破壞提示詞快取。",
   "settingsGeneralSubtitle": "管理主題、語言與應用基礎資訊。",
@@ -2374,18 +2316,6 @@
       }
     }
   },
-  "snackToolSearchLoaded": "ToolSearch 已載入 {loaded}/{total} 個 MCP 工具",
-  "@snackToolSearchLoaded": {
-    "placeholders": {
-      "loaded": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "snackToolSearchLoadedAction": "檢視列表",
   "snackToolSearchLoadedDialogTitle": "ToolSearch 已載入的 MCP 工具",
   "snackToolSearchLoadedDialogClose": "關閉",
   "snackToolSearchLoadedCopyAction": "複製 select:",
@@ -2402,10 +2332,6 @@
   "snackToolSearchLoadedHistoryFilterHint": "依名稱或查詢過濾…",
   "snackToolSearchLoadedSourceAi": "AI 對話",
   "snackToolSearchLoadedSourceHarness": "Harness 階段",
-  "snackToolSearchLoadedReplayedToast": "已重新發起 ToolSearch",
-  "snackToolSearchLoadedReplayPendingToast": "即將發起，3 秒內可點擊「撤銷」",
-  "snackToolSearchLoadedReplayCancelAction": "撤銷",
-  "snackToolSearchLoadedReplayCancelledToast": "已撤銷 — composer 已清空",
   "snackToolSearchLoadedSourceFilterAll": "全部",
   "snackToolSearchLoadedSourceFilterAi": "僅 AI",
   "snackToolSearchLoadedSourceFilterHarness": "僅 Harness",
@@ -3563,18 +3489,6 @@
   "settingsReduceMotionBody": "開啟後，自研動畫與 Flutter 內建動畫的時長全部歸零。與系統層「減少動畫」輔助功能並聯生效。",
   "@settingsReduceMotionBody": {
     "description": "Settings → General: subtitle for the reduce-motion switch."
-  },
-  "mcpToolSearchReplayLastCancelAction": "重播上次取消",
-  "@mcpToolSearchReplayLastCancelAction": {
-    "description": "Settings/MCP debug button: replays the last ToolSearch load that was cancelled in the 3-second undo window."
-  },
-  "mcpToolSearchReplayLastCancelToastFired": "已重發上次取消的載入",
-  "@mcpToolSearchReplayLastCancelToastFired": {
-    "description": "Toast: the last cancelled ToolSearch load has been re-fired."
-  },
-  "mcpToolSearchReplayLastCancelToastEmpty": "目前沒有可重播的取消",
-  "@mcpToolSearchReplayLastCancelToastEmpty": {
-    "description": "Toast: dispatcher has nothing to replay."
   },
   "aiThrottleSettingsLabel": "节流参数",
   "@aiThrottleSettingsLabel": {

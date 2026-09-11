@@ -219,10 +219,6 @@ class SettingsController extends ChangeNotifier {
        _showSelfLearningMessages = snapshot.showSelfLearningMessages,
        _cronAutoCleanupEnabled = snapshot.cronAutoCleanupEnabled,
        _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays,
-       _harnessToolSearchHistoryMaxPhases =
-           snapshot.harnessToolSearchHistoryMaxPhases,
-       _toolSearchReplayCancelWindowSeconds =
-           snapshot.toolSearchReplayCancelWindowSeconds,
        _reduceMotion = snapshot.reduceMotion,
        _proxySettings = snapshot.proxySettings,
        _subprocessGracefulShutdownMs = snapshot.subprocessGracefulShutdownMs,
@@ -358,8 +354,6 @@ class SettingsController extends ChangeNotifier {
   bool _showSelfLearningMessages;
   bool _cronAutoCleanupEnabled;
   int _cronAutoCleanupRetentionDays;
-  int _harnessToolSearchHistoryMaxPhases;
-  int _toolSearchReplayCancelWindowSeconds;
   bool _reduceMotion;
   AppProxySettings _proxySettings;
   int _subprocessGracefulShutdownMs;
@@ -614,16 +608,6 @@ class SettingsController extends ChangeNotifier {
   /// cron 执行历史保留天数；超过该天数的记录会被异步 worker
   /// 清理。
   int get cronAutoCleanupRetentionDays => _cronAutoCleanupRetentionDays;
-
-  /// Harness ToolSearch 加载历史按 phase-session 分桶保留的上限
-  /// （LRU 阐出最早者）。默认 8，范围 [1, 64]。
-  int get harnessToolSearchHistoryMaxPhases =>
-      _harnessToolSearchHistoryMaxPhases;
-
-  /// ToolSearch 历史「重放」按下后的反悔窗口（秒）。在窗口内点
-  /// snackbar 上的 Cancel 可撤销发送。默认 3，范围 [1, 30]。
-  int get toolSearchReplayCancelWindowSeconds =>
-      _toolSearchReplayCancelWindowSeconds;
 
   /// 用户级减少动画开关，系统级设置仍由 MediaQuery 自动接管。
   bool get reduceMotion => _reduceMotion;
@@ -2234,37 +2218,6 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 调整 Harness ToolSearch 历史 LRU 桶上限。超出 [1, 64] 会被
-  /// clamp；快速重复写入只会走 successNoChange 路径。
-  Future<bool> updateHarnessToolSearchHistoryMaxPhases(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minHarnessToolSearchHistoryMaxPhases,
-      AppSettingsSnapshot.maxHarnessToolSearchHistoryMaxPhases,
-    );
-    return _commitMutation(() {
-      if (_harnessToolSearchHistoryMaxPhases == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _harnessToolSearchHistoryMaxPhases = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  /// 调整 ToolSearch 重放反悔窗口（秒）。范围 [1, 30]，超出会 clamp。
-  Future<bool> updateToolSearchReplayCancelWindowSeconds(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minToolSearchReplayCancelWindowSeconds,
-      AppSettingsSnapshot.maxToolSearchReplayCancelWindowSeconds,
-    );
-    return _commitMutation(() {
-      if (_toolSearchReplayCancelWindowSeconds == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _toolSearchReplayCancelWindowSeconds = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
   Future<bool> updateReduceMotion(bool value) async {
     return _commitMutation(() {
       if (_reduceMotion == value) {
@@ -2560,8 +2513,6 @@ class SettingsController extends ChangeNotifier {
       showSelfLearningMessages: _showSelfLearningMessages,
       cronAutoCleanupEnabled: _cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: _cronAutoCleanupRetentionDays,
-      harnessToolSearchHistoryMaxPhases: _harnessToolSearchHistoryMaxPhases,
-      toolSearchReplayCancelWindowSeconds: _toolSearchReplayCancelWindowSeconds,
       reduceMotion: _reduceMotion,
       proxySettings: _proxySettings,
       subprocessGracefulShutdownMs: _subprocessGracefulShutdownMs,
@@ -2707,10 +2658,6 @@ class SettingsController extends ChangeNotifier {
     _showSelfLearningMessages = snapshot.showSelfLearningMessages;
     _cronAutoCleanupEnabled = snapshot.cronAutoCleanupEnabled;
     _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays;
-    _harnessToolSearchHistoryMaxPhases =
-        snapshot.harnessToolSearchHistoryMaxPhases;
-    _toolSearchReplayCancelWindowSeconds =
-        snapshot.toolSearchReplayCancelWindowSeconds;
     _reduceMotion = snapshot.reduceMotion;
     _proxySettings = snapshot.proxySettings;
     _subprocessGracefulShutdownMs = snapshot.subprocessGracefulShutdownMs;

@@ -601,11 +601,8 @@ class AiSessionController extends ChangeNotifier {
   /// 会话删除或控制器关闭时清理。
   final McpLoadedToolsTracker _loadedMcpToolsTracker = McpLoadedToolsTracker();
 
-  ValueListenable<AiToolSearchLoadedEvent?> get toolSearchLoadedSignal =>
-      _loadedMcpToolsTracker.signal;
-
   /// 返回指定会话已通过 `ToolSearch` 匹配的工具名（按字母升序）。
-  /// 供 UI 在 SnackBar action 中查询展示。
+  /// 供设置页按需查询展示。
   List<String> loadedMcpToolNamesForSession(String sessionId) =>
       _loadedMcpToolsTracker.namesForSession(sessionId);
 

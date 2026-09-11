@@ -21,8 +21,6 @@ class _HePaneHeader extends StatelessWidget {
     required this.onRestart,
     required this.fullAccessPermission,
     required this.onToggleFullAccess,
-    this.replayPendingDeadlineListenable,
-    this.onCancelPendingReplay,
   });
 
   final HarnessSessionConfig config;
@@ -40,13 +38,6 @@ class _HePaneHeader extends StatelessWidget {
   final VoidCallback onRestart;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccess;
-
-  /// 传入后，从 [ToolSearchReplayDispatcher.pendingDeadlineListenable] 领取
-  /// 反悔窗口 deadline；window 内按秒起动倒计时 chip。
-  final ValueListenable<DateTime?>? replayPendingDeadlineListenable;
-
-  /// 点击 chip 时调用；通常接 [ToolSearchReplayDispatcher.cancel]。
-  final VoidCallback? onCancelPendingReplay;
 
   String _effectiveTitle(BuildContext context) =>
       (sessionTitle?.trim().isNotEmpty == true)
@@ -185,12 +176,6 @@ class _HePaneHeader extends StatelessWidget {
         label: _phaseProgressLabel(context),
         foregroundColor: _phaseProgressColor(colorScheme),
       ),
-      if (replayPendingDeadlineListenable != null)
-        HarnessPendingReplayBadge(
-          isZh: isZh,
-          deadlineListenable: replayPendingDeadlineListenable!,
-          onCancel: onCancelPendingReplay,
-        ),
       if (reviewRetries > 0)
         OhPill(
           icon: Icons.replay_rounded,

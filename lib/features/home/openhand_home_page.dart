@@ -1150,17 +1150,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       goalYieldPredicate,
     );
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
-    _observedSessionController?.toolSearchLoadedSignal.removeListener(
-      _handleToolSearchLoadedSignal,
-    );
     _observedSessionController = sessionController;
     _observedSessionController?.addGoalContinuationYieldPredicate(
       goalYieldPredicate,
     );
     _observedSessionController?.addListener(_handleSessionControllerChanged);
-    _observedSessionController?.toolSearchLoadedSignal.addListener(
-      _handleToolSearchLoadedSignal,
-    );
     _activeComposerSessionId = sessionController.currentSessionId;
     final messageGatewayController = _readMessageGatewayController();
     if (!identical(
@@ -1209,7 +1203,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _voiceConversationServiceSessionId = null;
     _inputRepairParticipantToken?.dispose();
     _inputRepairParticipantToken = null;
-    _toolSearchReplayDispatcher.dispose();
     _voiceConversationService.dispose();
     unawaited(_ttsPlaybackService.dispose());
     _translationService.dispose();
@@ -1257,9 +1250,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
     }
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
-    _observedSessionController?.toolSearchLoadedSignal.removeListener(
-      _handleToolSearchLoadedSignal,
-    );
     _observedMessageGatewayController = null;
     _cancelWriteApprovalSubscription('销毁时关闭写入审批流');
     _suppressWriteApprovalDialogResponse = true;
@@ -1865,277 +1855,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _releaseReverseRuntimeSlot(sessionId);
     }
     _removeTemplateRuntimeLinkage(sessionId);
-  }
-
-  /// 监听 [AiSessionController.toolSearchLoadedSignal]：当模型成功通过
-  /// `ToolSearch` 加载若干 MCP 工具时，仅在事件指向当前会话时弹出 SnackBar。
-  int _lastObservedToolSearchRevision = 0;
-  void _handleToolSearchLoadedSignal() {
-    if (!mounted) return;
-    final controller = _observedSessionController;
-    if (controller == null) return;
-    final event = controller.toolSearchLoadedSignal.value;
-    if (event == null) return;
-    if (event.revision == _lastObservedToolSearchRevision) return;
-    _lastObservedToolSearchRevision = event.revision;
-    if (event.sessionId != controller.currentSessionId) return;
-    final l10n = AppLocalizations.of(context);
-    if (l10n == null) return;
-    _showToolSearchLoadedSnack(
-      message: l10n.snackToolSearchLoaded(
-        event.loadedCount,
-        event.totalDeferred,
-      ),
-      actionLabel: l10n.snackToolSearchLoadedAction,
-      onViewDetails: () {
-        final controller = _observedSessionController;
-        final sessionId = event.sessionId;
-        final names = controller == null
-            ? const <String>[]
-            : controller.loadedMcpToolNamesForSession(sessionId);
-        final history = controller == null
-            ? const <AiToolSearchLoadHistoryEntry>[]
-            : controller.loadedMcpToolHistoryForSession(sessionId);
-        _showToolSearchLoadedDialog(
-          names: names,
-          history: history,
-          onClear: controller == null
-              ? null
-              : () => controller.clearLoadedMcpToolsForSession(sessionId),
-          onReplayBatch: _replayToolSearchSelectQuery,
-        );
-      },
-    );
-  }
-
-  /// ToolSearch 批量加载提示条：AI 会话与 Harness phase 两条链路共用同一
-  /// 外观（放大镜图标 + 文案 + 「查看」动作），只有文案与动作回调不同。
-  void _showToolSearchLoadedSnack({
-    required String message,
-    required String actionLabel,
-    required VoidCallback onViewDetails,
-  }) {
-    OpenHandSnackBar.show(
-      context,
-      ScaffoldMessenger.maybeOf(context),
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.search_rounded, size: 18),
-            kOpenHandHGap8,
-            Expanded(child: Text(message)),
-          ],
-        ),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(label: actionLabel, onPressed: onViewDetails),
-      ),
-    );
-  }
-
-  /// Harness ToolSearch 重放反悔窗口由
-  /// [SettingsController.toolSearchReplayCancelWindowSeconds] 提供
-  /// （默认 3 秒，范围 1..30）；dispatcher 自身不再持有硬编码默认。
-  late final ToolSearchReplayDispatcher _toolSearchReplayDispatcher =
-      ToolSearchReplayDispatcher();
-
-  /// Harness 阶段没有共享 tracker，因此本地维护一份按 phase-session 分桶的
-  /// ToolSearch 历史时间线，供 dialog 展示。用 [LinkedHashMap] 的插入序
-  /// 天然实现 LRU：每次写入都先 remove 再 put，让最近活跃的 phase 落在
-  /// Map 末尾；新增时若超过用户配置的上限（运行时读自
-  /// [SettingsController.harnessToolSearchHistoryMaxPhases]，默认值由
-  /// [AppSettingsSnapshot.defaultHarnessToolSearchHistoryMaxPhases] 给出，
-  /// 上下界 1..64），淘汰最早的 phase 桶，防止长会话内存膨胀（即使
-  /// onPhaseEnded 因异常路径漏调也兜底）。
-  final Map<String, List<AiToolSearchLoadHistoryEntry>>
-  _harnessToolSearchHistory = <String, List<AiToolSearchLoadHistoryEntry>>{};
-
-  /// 获取（或创建）指定 phase 的历史桶，并将其在 LRU Map 中提升为最近使用。
-  List<AiToolSearchLoadHistoryEntry> _touchHarnessHistoryBucket(
-    String phaseSessionId,
-  ) {
-    final existing = _harnessToolSearchHistory.remove(phaseSessionId);
-    final bucket = existing ?? <AiToolSearchLoadHistoryEntry>[];
-    _harnessToolSearchHistory[phaseSessionId] = bucket;
-    final cap = context
-        .read<SettingsController>()
-        .harnessToolSearchHistoryMaxPhases;
-    while (_harnessToolSearchHistory.length > cap) {
-      _harnessToolSearchHistory.remove(_harnessToolSearchHistory.keys.first);
-    }
-    return bucket;
-  }
-
-  void _handleHarnessToolSearchLoaded({
-    required String phaseSessionId,
-    required List<String> loadedNames,
-    required int totalDeferred,
-    required String query,
-  }) {
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context);
-    if (l10n == null) return;
-    final entry = AiToolSearchLoadHistoryEntry(
-      timestamp: DateTime.now().toUtc(),
-      query: query,
-      addedNames: loadedNames,
-      totalDeferred: totalDeferred,
-      source: AiToolSearchLoadSource.harnessPhase,
-    );
-    _touchHarnessHistoryBucket(phaseSessionId).add(entry);
-    _showToolSearchLoadedSnack(
-      message: l10n.snackToolSearchLoaded(loadedNames.length, totalDeferred),
-      actionLabel: l10n.snackToolSearchLoadedAction,
-      // Harness phase 自身的 tool loop 是自治的，无法直接重放；用户的意图
-      // 通常是「我想再加载这一批」——为了不污染当前 Harness 活跃会话的
-      // 上下文，专门走「先建独立 AI session 再在新 session 里发 select:」。
-      onViewDetails: () => _showToolSearchLoadedDialog(
-        names: List<String>.from(loadedNames)..sort(),
-        history: List<AiToolSearchLoadHistoryEntry>.unmodifiable(
-          _harnessToolSearchHistory[phaseSessionId] ??
-              const <AiToolSearchLoadHistoryEntry>[],
-        ),
-        onReplayBatch: _replayToolSearchInFreshSession,
-      ),
-    );
-  }
-
-  /// HarnessApiPhaseRunner.runPhase 在结束（成功/失败/取消/异常）时回调
-  /// 本方法。借机清理 [_harnessToolSearchHistory] 中与该 phase 关联的
-  /// 加载历史，避免长期累积。
-  void _handleHarnessPhaseEnded({required String phaseSessionId}) {
-    _harnessToolSearchHistory.remove(phaseSessionId);
-  }
-
-  void _showToolSearchLoadedDialog({
-    required List<String> names,
-    void Function()? onClear,
-    List<AiToolSearchLoadHistoryEntry> history =
-        const <AiToolSearchLoadHistoryEntry>[],
-    Future<void> Function(List<String> names)? onReplayBatch,
-  }) {
-    if (!mounted) return;
-    unawaited(
-      showToolSearchLoadedDialog(
-        context,
-        names: names,
-        onClear: onClear,
-        history: history,
-        onReplayBatch: onReplayBatch,
-      ),
-    );
-  }
-
-  /// 把一组 MCP 工具名打包成 `select:N1, select:N2, …`，写进 composer
-  /// 并等待 [SettingsController.toolSearchReplayCancelWindowSeconds]
-  /// 秒后才提交，期间用户可以通过 SnackBarAction 撤销。等价于用户手动
-  /// 复制粘贴后回车，但多了一个可配置（1..30s）的反悔窗口。
-  /// 由 [_showToolSearchLoadedDialog] 历史条目点击触发。
-  Future<void> _replayToolSearchSelectQuery(List<String> names) async {
-    if (!mounted || names.isEmpty) return;
-    final query = names.map((n) => 'select:$n').join(', ');
-    _replaceComposerTextAndRefocus(query);
-
-    final l10n = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final cancelWindow = Duration(
-      seconds: context
-          .read<SettingsController>()
-          .toolSearchReplayCancelWindowSeconds,
-    );
-    final completer = Completer<void>();
-
-    void onCancel() {
-      // 仅在 composer 仍然展示我们刚塞进去的内容时清空，避免误删
-      // 用户在反悔窗口内手动续写的文字。
-      if (_composerController.text == query) {
-        _composerController.clear();
-      }
-      if (mounted && l10n != null) {
-        replaceOpenHandSnack(
-          context,
-          l10n.snackToolSearchLoadedReplayCancelledToast,
-          duration: kOpenHandSnackBarBriefDuration,
-        );
-      }
-      if (!completer.isCompleted) completer.complete();
-    }
-
-    Future<void> onFire() async {
-      if (!mounted) {
-        if (!completer.isCompleted) completer.complete();
-        return;
-      }
-      await _sendMessage();
-      if (!mounted) {
-        if (!completer.isCompleted) completer.complete();
-        return;
-      }
-      final l10nNow = AppLocalizations.of(context);
-      final messengerNow = ScaffoldMessenger.maybeOf(context);
-      if (l10nNow != null && messengerNow != null) {
-        OpenHandSnackBar.show(
-          context,
-          messengerNow,
-          OpenHandSnackBar.success(
-            context,
-            l10nNow.snackToolSearchLoadedReplayedToast,
-          ),
-        );
-      }
-      if (!completer.isCompleted) completer.complete();
-    }
-
-    if (l10n != null && messenger != null) {
-      OpenHandSnackBar.show(
-        context,
-        messenger,
-        SnackBar(
-          content: Text(l10n.snackToolSearchLoadedReplayPendingToast),
-          behavior: SnackBarBehavior.floating,
-          duration: cancelWindow,
-          action: SnackBarAction(
-            label: l10n.snackToolSearchLoadedReplayCancelAction,
-            onPressed: _toolSearchReplayDispatcher.cancel,
-          ),
-        ),
-      );
-    }
-
-    _toolSearchReplayDispatcher.schedule(
-      onFire: onFire,
-      onCancel: onCancel,
-      window: cancelWindow,
-    );
-
-    return completer.future;
-  }
-
-  /// Harness 路径专用：先创建一个全新 AI session，再在新 session 里
-  /// 发起 select: 查询，避免污染当前 harness 活跃会话的上下文。
-  /// 模板沿用当前 AI session 的 templateId（若有），否则 fallback
-  /// 到模板仓库的第一个模板。
-  Future<void> _replayToolSearchInFreshSession(List<String> names) async {
-    if (!mounted || names.isEmpty) return;
-    final sessionController = context.read<AiSessionController>();
-    final fallbackTemplate =
-        sessionController.availableTemplates.firstOrNull ??
-        sessionController.templateRepository.templates.first;
-    final fallbackTemplateId =
-        sessionController.currentSession?.templateId ?? fallbackTemplate.id;
-    final initialMode = AiSessionMode.fromStorage(
-      context.read<SettingsController>().aiDefaultSessionMode,
-    );
-    await replayToolSearchInFreshSession(
-      names: names,
-      createSession: () => _createSession(
-        templateId: fallbackTemplateId,
-        initialMode: initialMode,
-      ),
-      replayInCurrentSession: (replayNames) async {
-        if (!mounted) return;
-        await _replayToolSearchSelectQuery(replayNames);
-      },
-    );
   }
 
   void _scheduleSessionControllerUiSync() {
@@ -5581,8 +5300,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       templateRepository: aiCtrl.templateRepository,
       usageSessionId: sessionId,
       confirmWriteCommand: _confirmHarnessApiWriteCommand,
-      onToolSearchLoaded: _handleHarnessToolSearchLoaded,
-      onPhaseEnded: _handleHarnessPhaseEnded,
     );
     orchestrator.resolveAiModelConfig = (String configId) {
       final settingsCtrl = context.read<SettingsController>();
@@ -10771,10 +10488,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ),
       AppSection.workflows => const WorkflowsView(),
       AppSection.services => const ServicesView(),
-      AppSection.settings => Provider<ToolSearchReplayDispatcher>.value(
-        value: _toolSearchReplayDispatcher,
-        child: const SettingsView(),
-      ),
+      AppSection.settings => const SettingsView(),
       AppSection.harnessSession =>
         _activeHarnessOrchestrator != null && _activeHarnessConfig != null
             ? HarnessSessionPane(
@@ -10820,9 +10534,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   setState(() => _selectedSection = AppSection.harnessSession);
                   _activeHarnessOrchestrator?.startOrResume();
                 },
-                replayPendingDeadlineListenable:
-                    _toolSearchReplayDispatcher.pendingDeadlineListenable,
-                onCancelPendingReplay: _toolSearchReplayDispatcher.cancel,
               )
             : SectionPlaceholder(
                 icon: Icons.construction_rounded,

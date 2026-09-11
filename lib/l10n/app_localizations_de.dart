@@ -1352,29 +1352,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bitte eine Ganzzahl zwischen 1000 und 1000000 eingeben.';
 
   @override
-  String get settingsHarnessToolSearchHistoryCapLabel =>
-      'Harness ToolSearch Verlaufslimit';
-
-  @override
-  String get settingsHarnessToolSearchHistoryCapBody =>
-      'Maximale Anzahl letzter Harness-Phasen, für die der ToolSearch-Verlauf im Dialog „Geladene Liste“ gespeichert bleibt. Ältere Phasen werden per LRU verworfen.';
-
-  @override
-  String settingsHarnessToolSearchHistoryCapValue(int cap) {
-    return 'Zurzeit werden die letzten $cap Phase(n) gespeichert';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapRange(int min, int max) {
-    return 'Bereich: $min–$max (Standard 8)';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapResetTooltip(int defaultCap) {
-    return 'Auf Standard zurücksetzen ($defaultCap)';
-  }
-
-  @override
   String get harnessCliLoginNoOutputHint =>
       '[Hinweis] Die CLI hat noch keine Ausgabe erzeugt. Sie initialisiert möglicherweise noch oder wartet auf eine Autorisierung im Browser.\n';
 
@@ -1596,29 +1573,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get harnessCliInstallDoneContinue => 'Fertig, weiter';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowLabel =>
-      'Wiedergabe-Abbruchfenster';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowBody =>
-      'Wartezeit der Snackbar vor dem Senden; innerhalb des Fensters kann mit Abbrechen verworfen werden.';
-
-  @override
-  String settingsToolSearchReplayCancelWindowValue(int seconds) {
-    return 'Fenster: $seconds s';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
-    return 'Bereich: $min–$max s (Standard 3)';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
-    return 'Auf Standard zurücksetzen ($defaultSeconds s)';
-  }
 
   @override
   String get mcpLazyLoadingHowItWorks =>
@@ -4599,14 +4553,6 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String snackToolSearchLoaded(int loaded, int total) {
-    return 'ToolSearch hat $loaded/$total MCP-Tool(s) geladen';
-  }
-
-  @override
-  String get snackToolSearchLoadedAction => 'Liste anzeigen';
-
-  @override
   String get snackToolSearchLoadedDialogTitle =>
       'Von ToolSearch geladene MCP-Tools';
 
@@ -4656,21 +4602,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedSourceHarness => 'Harness-Phase';
-
-  @override
-  String get snackToolSearchLoadedReplayedToast =>
-      'ToolSearch mit vorheriger Auswahl erneut ausgelöst';
-
-  @override
-  String get snackToolSearchLoadedReplayPendingToast =>
-      'Wird gesendet — auf Abbrechen tippen, um zu stoppen';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelAction => 'Abbrechen';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelledToast =>
-      'Versand abgebrochen — Composer geleert';
 
   @override
   String get snackToolSearchLoadedSourceFilterAll => 'Alle';
@@ -7095,17 +7026,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       'Wenn aktiviert, werden eigene und in Flutter eingebaute Animationen übersprungen (Dauer auf null). Wirkt zusammen mit der systemweiten Bedienungshilfe „Bewegung reduzieren“.';
-
-  @override
-  String get mcpToolSearchReplayLastCancelAction =>
-      'Letzten Abbruch wiederholen';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastFired =>
-      'Letzte abgebrochene Ladung wiederholt';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastEmpty => 'Nichts zu wiederholen';
 
   @override
   String get aiThrottleSettingsLabel => 'Drosselparameter';

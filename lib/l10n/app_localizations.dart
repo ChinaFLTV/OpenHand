@@ -2413,36 +2413,6 @@ abstract class AppLocalizations {
   /// **'请填写 1000 ~ 1000000 之间的整数。'**
   String get mcpLazyLoadingThresholdInvalid;
 
-  /// No description provided for @settingsHarnessToolSearchHistoryCapLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'Harness ToolSearch 历史保留上限'**
-  String get settingsHarnessToolSearchHistoryCapLabel;
-
-  /// No description provided for @settingsHarnessToolSearchHistoryCapBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'ToolSearch 已加载列表对话框保留的 Harness phase 最大个数，超出后以 LRU 淘汰。'**
-  String get settingsHarnessToolSearchHistoryCapBody;
-
-  /// No description provided for @settingsHarnessToolSearchHistoryCapValue.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前保留最近 {cap} 个 phase'**
-  String settingsHarnessToolSearchHistoryCapValue(int cap);
-
-  /// No description provided for @settingsHarnessToolSearchHistoryCapRange.
-  ///
-  /// In zh, this message translates to:
-  /// **'范围：{min}–{max}（默认 8）'**
-  String settingsHarnessToolSearchHistoryCapRange(int min, int max);
-
-  /// No description provided for @settingsHarnessToolSearchHistoryCapResetTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'重置为默认值（{defaultCap}）'**
-  String settingsHarnessToolSearchHistoryCapResetTooltip(int defaultCap);
-
   /// Harness CLI login dialog terminal hint when no output arrives.
   ///
   /// In zh, this message translates to:
@@ -2778,36 +2748,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'完成，继续'**
   String get harnessCliInstallDoneContinue;
-
-  /// No description provided for @settingsToolSearchReplayCancelWindowLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'重放反悔窗口'**
-  String get settingsToolSearchReplayCancelWindowLabel;
-
-  /// No description provided for @settingsToolSearchReplayCancelWindowBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'snackbar 在发送前等待的秒数；期间点取消即可撤销。'**
-  String get settingsToolSearchReplayCancelWindowBody;
-
-  /// No description provided for @settingsToolSearchReplayCancelWindowValue.
-  ///
-  /// In zh, this message translates to:
-  /// **'窗口：{seconds} 秒'**
-  String settingsToolSearchReplayCancelWindowValue(int seconds);
-
-  /// No description provided for @settingsToolSearchReplayCancelWindowRange.
-  ///
-  /// In zh, this message translates to:
-  /// **'范围：{min}–{max} 秒（默认 3）'**
-  String settingsToolSearchReplayCancelWindowRange(int min, int max);
-
-  /// No description provided for @settingsToolSearchReplayCancelWindowResetTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'重置为默认值（{defaultSeconds} 秒）'**
-  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds);
 
   /// No description provided for @mcpLazyLoadingHowItWorks.
   ///
@@ -8100,18 +8040,6 @@ abstract class AppLocalizations {
   /// **'MCP 已载 {loaded}/{total}'**
   String toolbarMcpLazyLoading(int loaded, int total);
 
-  /// No description provided for @snackToolSearchLoaded.
-  ///
-  /// In zh, this message translates to:
-  /// **'ToolSearch 已加载 {loaded}/{total} 个 MCP 工具'**
-  String snackToolSearchLoaded(int loaded, int total);
-
-  /// No description provided for @snackToolSearchLoadedAction.
-  ///
-  /// In zh, this message translates to:
-  /// **'查看列表'**
-  String get snackToolSearchLoadedAction;
-
   /// No description provided for @snackToolSearchLoadedDialogTitle.
   ///
   /// In zh, this message translates to:
@@ -8207,30 +8135,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'Harness 阶段'**
   String get snackToolSearchLoadedSourceHarness;
-
-  /// No description provided for @snackToolSearchLoadedReplayedToast.
-  ///
-  /// In zh, this message translates to:
-  /// **'已重新发起 ToolSearch'**
-  String get snackToolSearchLoadedReplayedToast;
-
-  /// No description provided for @snackToolSearchLoadedReplayPendingToast.
-  ///
-  /// In zh, this message translates to:
-  /// **'即将发起，3 秒内可点击「撤销」'**
-  String get snackToolSearchLoadedReplayPendingToast;
-
-  /// No description provided for @snackToolSearchLoadedReplayCancelAction.
-  ///
-  /// In zh, this message translates to:
-  /// **'撤销'**
-  String get snackToolSearchLoadedReplayCancelAction;
-
-  /// No description provided for @snackToolSearchLoadedReplayCancelledToast.
-  ///
-  /// In zh, this message translates to:
-  /// **'已撤销 — composer 已清空'**
-  String get snackToolSearchLoadedReplayCancelledToast;
 
   /// No description provided for @snackToolSearchLoadedSourceFilterAll.
   ///
@@ -12357,24 +12261,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'开启后，自研动画与 Flutter 内建动画的时长全部归零。与系统层「减少动画」辅助功能并联生效。'**
   String get settingsReduceMotionBody;
-
-  /// Settings/MCP debug button: replays the last ToolSearch load that was cancelled in the 3-second undo window.
-  ///
-  /// In zh, this message translates to:
-  /// **'重放上次取消'**
-  String get mcpToolSearchReplayLastCancelAction;
-
-  /// Toast: the last cancelled ToolSearch load has been re-fired.
-  ///
-  /// In zh, this message translates to:
-  /// **'已重发上次取消的载入'**
-  String get mcpToolSearchReplayLastCancelToastFired;
-
-  /// Toast: dispatcher has nothing to replay.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前没有可重放的取消'**
-  String get mcpToolSearchReplayLastCancelToastEmpty;
 
   /// Settings → AI: section header for the unified streaming throttle controls (master switch, auto mode, char/card rate, duration).
   ///

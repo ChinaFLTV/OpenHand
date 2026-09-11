@@ -66,7 +66,6 @@ import '../model/harness_role_config.dart';
 import '../model/harness_session_config.dart';
 import '../service/harness_cli_catalog.dart';
 import '../service/harness_orchestrator.dart';
-import 'harness_pending_replay_badge.dart';
 part 'harness_session_dashboard.header.part.dart';
 part 'harness_session_dashboard.phase_card.part.dart';
 part 'harness_session_dashboard.log_views.part.dart';
@@ -856,8 +855,6 @@ class HarnessSessionPane extends StatefulWidget {
     this.sessionUpdatedAt,
     this.controller,
     this.filePathRoots = const [],
-    this.replayPendingDeadlineListenable,
-    this.onCancelPendingReplay,
   });
 
   final HarnessSessionConfig config;
@@ -895,15 +892,6 @@ class HarnessSessionPane extends StatefulWidget {
 
   /// 消息文件路径的候选根目录。
   final List<String> filePathRoots;
-
-  /// 可选的 ToolSearch 重放反悔窗口 deadline。传入后，会在会话
-  /// header 右侧出现一个「撤销 Ns」倒计时 chip。顶层从
-  /// `ToolSearchReplayDispatcher.pendingDeadlineListenable` 取。
-  final ValueListenable<DateTime?>? replayPendingDeadlineListenable;
-
-  /// 点击「撤销 Ns」chip 时回调，通常接到
-  /// [ToolSearchReplayDispatcher.cancel] 立即取消重放。
-  final VoidCallback? onCancelPendingReplay;
 
   @override
   State<HarnessSessionPane> createState() => _HarnessSessionPaneState();
@@ -2042,9 +2030,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           onRestart: widget.onRestart,
           fullAccessPermission: widget.fullAccessPermission,
           onToggleFullAccess: widget.onToggleFullAccessPermission,
-          replayPendingDeadlineListenable:
-              widget.replayPendingDeadlineListenable,
-          onCancelPendingReplay: widget.onCancelPendingReplay,
         ),
         kOpenHandGap12,
         Expanded(child: _buildFeed(context)),

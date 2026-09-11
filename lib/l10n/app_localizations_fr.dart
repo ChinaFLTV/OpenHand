@@ -1360,29 +1360,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Veuillez saisir un entier entre 1000 et 1000000.';
 
   @override
-  String get settingsHarnessToolSearchHistoryCapLabel =>
-      'Limite d\'historique ToolSearch Harness';
-
-  @override
-  String get settingsHarnessToolSearchHistoryCapBody =>
-      'Nombre maximum de phases Harness récentes pour lesquelles la boîte de dialogue de l\'historique ToolSearch conserve les entrées. Les anciennes phases sont supprimées (LRU).';
-
-  @override
-  String settingsHarnessToolSearchHistoryCapValue(int cap) {
-    return 'Conserve actuellement les $cap dernière(s) phase(s)';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapRange(int min, int max) {
-    return 'Plage : $min–$max (par défaut 8)';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapResetTooltip(int defaultCap) {
-    return 'Réinitialiser à la valeur par défaut ($defaultCap)';
-  }
-
-  @override
   String get harnessCliLoginNoOutputHint =>
       '[Indice] La CLI n’a pas encore produit de sortie. Elle peut être en cours d’initialisation ou attendre une autorisation dans le navigateur.\n';
 
@@ -1603,29 +1580,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get harnessCliInstallDoneContinue => 'Terminé, continuer';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowLabel =>
-      'Fenêtre d’annulation du replay';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowBody =>
-      'Délai d’attente de la snackbar avant l’envoi ; appuyez sur Annuler pour ignorer.';
-
-  @override
-  String settingsToolSearchReplayCancelWindowValue(int seconds) {
-    return 'Fenêtre : $seconds s';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
-    return 'Plage : $min–$max s (par défaut 3)';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
-    return 'Réinitialiser à la valeur par défaut ($defaultSeconds s)';
-  }
 
   @override
   String get mcpLazyLoadingHowItWorks =>
@@ -4615,14 +4569,6 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String snackToolSearchLoaded(int loaded, int total) {
-    return 'ToolSearch a chargé $loaded/$total outil(s) MCP';
-  }
-
-  @override
-  String get snackToolSearchLoadedAction => 'Voir la liste';
-
-  @override
   String get snackToolSearchLoadedDialogTitle =>
       'Outils MCP chargés par ToolSearch';
 
@@ -4672,21 +4618,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedSourceHarness => 'Phase Harness';
-
-  @override
-  String get snackToolSearchLoadedReplayedToast =>
-      'ToolSearch relancé avec la sélection précédente';
-
-  @override
-  String get snackToolSearchLoadedReplayPendingToast =>
-      'Envoi imminent — appuyez sur Annuler pour interrompre';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelAction => 'Annuler';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelledToast =>
-      'Envoi annulé — composer vidé';
 
   @override
   String get snackToolSearchLoadedSourceFilterAll => 'Tous';
@@ -7120,17 +7051,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       'Lorsque cette option est activée, les animations personnalisées et intégrées sont ignorées (durées ramenées à zéro). Se combine avec le réglage d’accessibilité « Réduire les animations » du système.';
-
-  @override
-  String get mcpToolSearchReplayLastCancelAction =>
-      'Rejouer dernière annulation';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastFired =>
-      'Dernier chargement annulé rejoué';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastEmpty => 'Rien à rejouer';
 
   @override
   String get aiThrottleSettingsLabel => 'Paramètres de limitation';

@@ -252,10 +252,6 @@ class AppSettingsSnapshot {
     this.showSelfLearningMessages = true,
     this.cronAutoCleanupEnabled = true,
     this.cronAutoCleanupRetentionDays = defaultCronAutoCleanupRetentionDays,
-    this.harnessToolSearchHistoryMaxPhases =
-        defaultHarnessToolSearchHistoryMaxPhases,
-    this.toolSearchReplayCancelWindowSeconds =
-        defaultToolSearchReplayCancelWindowSeconds,
     this.reduceMotion = false,
     int subprocessGracefulShutdownMs = defaultSubprocessGracefulShutdownMs,
     int bashOutputMaxBytes = defaultBashOutputMaxBytes,
@@ -333,16 +329,6 @@ class AppSettingsSnapshot {
   static const int defaultCronAutoCleanupRetentionDays = 7;
   static const int minCronAutoCleanupRetentionDays = 1;
   static const int maxCronAutoCleanupRetentionDays = 365;
-
-  /// Harness ToolSearch 历史按 phase-session 分桶存储，同时保留
-  /// 的最近 phase 个数（LRU 淘汰）。默认 8，允许 1..64，避免
-  /// 长会话内存膨胀。
-  static const int defaultHarnessToolSearchHistoryMaxPhases = 8;
-  static const int minHarnessToolSearchHistoryMaxPhases = 1;
-  static const int maxHarnessToolSearchHistoryMaxPhases = 64;
-  static const int defaultToolSearchReplayCancelWindowSeconds = 3;
-  static const int minToolSearchReplayCancelWindowSeconds = 1;
-  static const int maxToolSearchReplayCancelWindowSeconds = 30;
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
   static const int minAiMessageCompressionThresholdChars = 2000;
@@ -1033,14 +1019,6 @@ class AppSettingsSnapshot {
   /// [maxCronAutoCleanupRetentionDays] 是输入安全护栏。
   final int cronAutoCleanupRetentionDays;
 
-  /// Harness ToolSearch 加载历史 LRU 桶上限，但到该上限后会从
-  /// 「全会话」维度淘汰最早的 phase 桶。默认 8。
-  final int harnessToolSearchHistoryMaxPhases;
-
-  /// ToolSearch 历史「重放」按钮按下后的反悔窗口（秒）。该窗口期内
-  /// 用户可在 snackbar 上点 Cancel 撤销发送，超时则提交。范围 1..30。
-  final int toolSearchReplayCancelWindowSeconds;
-
   /// 用户级减少动画开关。开启后禁用自定义和 Flutter 内置动画；
   /// 系统级减少动画仍由 MediaQuery 自动接管。
   final bool reduceMotion;
@@ -1165,8 +1143,6 @@ class AppSettingsSnapshot {
     bool? showSelfLearningMessages,
     bool? cronAutoCleanupEnabled,
     int? cronAutoCleanupRetentionDays,
-    int? harnessToolSearchHistoryMaxPhases,
-    int? toolSearchReplayCancelWindowSeconds,
     bool? reduceMotion,
     AppProxySettings? proxySettings,
     int? subprocessGracefulShutdownMs,
@@ -1377,12 +1353,6 @@ class AppSettingsSnapshot {
           cronAutoCleanupEnabled ?? this.cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays:
           cronAutoCleanupRetentionDays ?? this.cronAutoCleanupRetentionDays,
-      harnessToolSearchHistoryMaxPhases:
-          harnessToolSearchHistoryMaxPhases ??
-          this.harnessToolSearchHistoryMaxPhases,
-      toolSearchReplayCancelWindowSeconds:
-          toolSearchReplayCancelWindowSeconds ??
-          this.toolSearchReplayCancelWindowSeconds,
       reduceMotion: reduceMotion ?? this.reduceMotion,
       proxySettings: proxySettings ?? this.proxySettings,
       subprocessGracefulShutdownMs:

@@ -51,11 +51,9 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/buffered_console_log.dart';
 import '../../../shared/ui/error_snackbar.dart';
 import '../../../shared/ui/feature_page_shell.dart';
-import '../../../shared/ui/first_frame_pulse_box.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/interaction_timings.dart';
-import '../../../shared/ui/key_tweakable_slider.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
@@ -5185,24 +5183,6 @@ class _SettingsViewState extends State<SettingsView> {
             label: Text(l10n.mcpToolSearchExportLastDirResetAction),
           ),
         ),
-        // 恢复入口：重发上次在反悔窗口中取消的 ToolSearch 操作。
-        Align(
-          alignment: AlignmentDirectional.centerEnd,
-          child: ValueListenableBuilder<bool>(
-            valueListenable: context
-                .read<ToolSearchReplayDispatcher>()
-                .replayableListenable,
-            builder: (ctx, hasReplayable, _) {
-              return TextButton.icon(
-                onPressed: hasReplayable
-                    ? () => _replayLastCancelledToolSearch(ctx)
-                    : null,
-                icon: const Icon(Icons.replay_rounded, size: 18),
-                label: Text(l10n.mcpToolSearchReplayLastCancelAction),
-              );
-            },
-          ),
-        ),
         kOpenHandGap12,
         _ResponsiveSettingRow(
           title: l10n.mcpLazyLoadingModeLabel,
@@ -5286,184 +5266,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
-        kOpenHandGap18,
-        FirstFramePulseBox(
-          child: _buildHarnessToolSearchHistoryRow(
-            context,
-            settingsController,
-            l10n,
-          ),
-        ),
-        kOpenHandGap18,
-        FirstFramePulseBox(
-          child: _buildToolSearchReplayCancelWindowRow(
-            context,
-            settingsController,
-            l10n,
-          ),
-        ),
       ],
-    );
-  }
-
-  /// Harness ToolSearch 历史 LRU 桶上限滑块，1..64，默认 8。
-  /// 与 cron retention 同款 Slider，无需 TextEditingController。
-  Widget _buildHarnessToolSearchHistoryRow(
-    BuildContext context,
-    SettingsController settingsController,
-    AppLocalizations l10n,
-  ) {
-    final cap = settingsController.harnessToolSearchHistoryMaxPhases;
-    const minCap = AppSettingsSnapshot.minHarnessToolSearchHistoryMaxPhases;
-    const maxCap = AppSettingsSnapshot.maxHarnessToolSearchHistoryMaxPhases;
-    const defaultCap =
-        AppSettingsSnapshot.defaultHarnessToolSearchHistoryMaxPhases;
-    return _ResponsiveSettingRow(
-      title: l10n.settingsHarnessToolSearchHistoryCapLabel,
-      subtitle: l10n.settingsHarnessToolSearchHistoryCapBody,
-      controlMaxWidth: 360,
-      control: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.settingsHarnessToolSearchHistoryCapValue(cap),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-              IconButton(
-                tooltip: l10n.settingsHarnessToolSearchHistoryCapResetTooltip(
-                  defaultCap,
-                ),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                onPressed: cap == defaultCap
-                    ? null
-                    : () async {
-                        final saved = await settingsController
-                            .updateHarnessToolSearchHistoryMaxPhases(
-                              defaultCap,
-                            );
-                        if (!context.mounted || saved) return;
-                        _showPersistenceFailureSnackBar(context);
-                      },
-              ),
-            ],
-          ),
-          KeyTweakableSlider(
-            value: cap,
-            min: minCap,
-            max: maxCap,
-            onChanged: (next) async {
-              final saved = await settingsController
-                  .updateHarnessToolSearchHistoryMaxPhases(next);
-              if (!context.mounted || saved) return;
-              _showPersistenceFailureSnackBar(context);
-            },
-            buildSlider: (context, value) => OpenHandDeferredSlider(
-              min: minCap.toDouble(),
-              max: maxCap.toDouble(),
-              divisions: maxCap - minCap,
-              value: value.clamp(minCap, maxCap).toDouble(),
-              labelBuilder: (current) => '${current.round()}',
-              onCommit: (v) async {
-                final saved = await settingsController
-                    .updateHarnessToolSearchHistoryMaxPhases(v.round());
-                if (!context.mounted || saved) return;
-                _showPersistenceFailureSnackBar(context);
-              },
-            ),
-          ),
-          Text(
-            l10n.settingsHarnessToolSearchHistoryCapRange(minCap, maxCap),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// ToolSearch 历史「重放」按钮的反悔窗口（秒）。1..30，默认 3。
-  Widget _buildToolSearchReplayCancelWindowRow(
-    BuildContext context,
-    SettingsController settingsController,
-    AppLocalizations l10n,
-  ) {
-    final seconds = settingsController.toolSearchReplayCancelWindowSeconds;
-    const minSec = AppSettingsSnapshot.minToolSearchReplayCancelWindowSeconds;
-    const maxSec = AppSettingsSnapshot.maxToolSearchReplayCancelWindowSeconds;
-    const defaultSec =
-        AppSettingsSnapshot.defaultToolSearchReplayCancelWindowSeconds;
-    return _ResponsiveSettingRow(
-      title: l10n.settingsToolSearchReplayCancelWindowLabel,
-      subtitle: l10n.settingsToolSearchReplayCancelWindowBody,
-      controlMaxWidth: 360,
-      control: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.settingsToolSearchReplayCancelWindowValue(seconds),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-              IconButton(
-                tooltip: l10n.settingsToolSearchReplayCancelWindowResetTooltip(
-                  defaultSec,
-                ),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                onPressed: seconds == defaultSec
-                    ? null
-                    : () async {
-                        final saved = await settingsController
-                            .updateToolSearchReplayCancelWindowSeconds(
-                              defaultSec,
-                            );
-                        if (!context.mounted || saved) return;
-                        _showPersistenceFailureSnackBar(context);
-                      },
-              ),
-            ],
-          ),
-          KeyTweakableSlider(
-            value: seconds,
-            min: minSec,
-            max: maxSec,
-            onChanged: (next) async {
-              final saved = await settingsController
-                  .updateToolSearchReplayCancelWindowSeconds(next);
-              if (!context.mounted || saved) return;
-              _showPersistenceFailureSnackBar(context);
-            },
-            buildSlider: (context, value) => OpenHandDeferredSlider(
-              min: minSec.toDouble(),
-              max: maxSec.toDouble(),
-              divisions: maxSec - minSec,
-              value: value.clamp(minSec, maxSec).toDouble(),
-              labelBuilder: (current) => '${current.round()}s',
-              onCommit: (v) async {
-                final saved = await settingsController
-                    .updateToolSearchReplayCancelWindowSeconds(v.round());
-                if (!context.mounted || saved) return;
-                _showPersistenceFailureSnackBar(context);
-              },
-            ),
-          ),
-          Text(
-            l10n.settingsToolSearchReplayCancelWindowRange(minSec, maxSec),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -6732,20 +6535,6 @@ class _SettingsViewState extends State<SettingsView> {
         kind: OpenHandSnackKind.error,
       );
     }
-  }
-
-  /// 重发上次在反悔窗口中取消的 ToolSearch 操作。
-  Future<void> _replayLastCancelledToolSearch(BuildContext context) async {
-    final l10n = AppLocalizations.of(context)!;
-    final dispatcher = context.read<ToolSearchReplayDispatcher>();
-    final fired = await dispatcher.replayLastCancelled();
-    if (!context.mounted) return;
-    flashOpenHandSnack(
-      context,
-      fired
-          ? l10n.mcpToolSearchReplayLastCancelToastFired
-          : l10n.mcpToolSearchReplayLastCancelToastEmpty,
-    );
   }
 
   Future<void> _showAiModelDialog(

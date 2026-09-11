@@ -779,35 +779,6 @@
   "mcpLazyLoadingThresholdSaved": "MCP lazy-loading threshold saved.",
   "mcpLazyLoadingHowItWorks": "When lazy loading is active, MCP tool descriptions are folded into a name index. The built-in ToolSearch tool fetches full JSON Schema on demand via three query forms:\n• select:NAME (direct, space-separated for multi-select)\n• keyword (scored against name/description)\n• +KEYWORD (required term to filter noise)\nAfter a match, call ToolSearch with the exact tool_name and schema-matching arguments. The native tool list stays fixed to preserve prompt-cache reuse.",
   "mcpLazyLoadingThresholdInvalid": "Please enter an integer between 1000 and 1000000.",
-  "settingsHarnessToolSearchHistoryCapLabel": "Harness ToolSearch history cap",
-  "settingsHarnessToolSearchHistoryCapBody": "Maximum number of recent Harness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).",
-  "settingsHarnessToolSearchHistoryCapValue": "Currently keeping the last {cap} phase(s)",
-  "@settingsHarnessToolSearchHistoryCapValue": {
-    "placeholders": {
-      "cap": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsHarnessToolSearchHistoryCapRange": "Range: {min}–{max} (default 8)",
-  "@settingsHarnessToolSearchHistoryCapRange": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsHarnessToolSearchHistoryCapResetTooltip": "Reset to default ({defaultCap})",
-  "@settingsHarnessToolSearchHistoryCapResetTooltip": {
-    "placeholders": {
-      "defaultCap": {
-        "type": "int"
-      }
-    }
-  },
   "harnessCliLoginNoOutputHint": "[Hint] CLI has not produced output yet. It may be initializing, or waiting for browser-based authorization.\n",
   "@harnessCliLoginNoOutputHint": {
     "description": "Harness CLI login dialog terminal hint when no output arrives."
@@ -1088,35 +1059,6 @@
   "harnessCliInstallDoneContinue": "Done, continue",
   "@harnessCliInstallDoneContinue": {
     "description": "Harness CLI install dialog done/continue button."
-  },
-  "settingsToolSearchReplayCancelWindowLabel": "Replay cancel window",
-  "settingsToolSearchReplayCancelWindowBody": "How long the snackbar waits before sending; press Cancel inside this window to discard.",
-  "settingsToolSearchReplayCancelWindowValue": "Window: {seconds} s",
-  "@settingsToolSearchReplayCancelWindowValue": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsToolSearchReplayCancelWindowRange": "Range: {min}–{max} s (default 3)",
-  "@settingsToolSearchReplayCancelWindowRange": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsToolSearchReplayCancelWindowResetTooltip": "Reset to default ({defaultSeconds} s)",
-  "@settingsToolSearchReplayCancelWindowResetTooltip": {
-    "placeholders": {
-      "defaultSeconds": {
-        "type": "int"
-      }
-    }
   },
   "settingsGeneralSubtitle": "Manage theme, language, and core application information.",
   "settingsAiSubtitle": "Manage chat models, authentication, and protocol adapters.",
@@ -2378,18 +2320,6 @@
       }
     }
   },
-  "snackToolSearchLoaded": "ToolSearch loaded {loaded}/{total} MCP tool(s)",
-  "@snackToolSearchLoaded": {
-    "placeholders": {
-      "loaded": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "snackToolSearchLoadedAction": "View list",
   "snackToolSearchLoadedDialogTitle": "MCP tools loaded by ToolSearch",
   "snackToolSearchLoadedDialogClose": "Close",
   "snackToolSearchLoadedCopyAction": "Copy select:",
@@ -2406,10 +2336,6 @@
   "snackToolSearchLoadedHistoryFilterHint": "Filter by name or query…",
   "snackToolSearchLoadedSourceAi": "AI session",
   "snackToolSearchLoadedSourceHarness": "Harness phase",
-  "snackToolSearchLoadedReplayedToast": "Re-issued ToolSearch with previous selection",
-  "snackToolSearchLoadedReplayPendingToast": "About to dispatch — tap Cancel to abort",
-  "snackToolSearchLoadedReplayCancelAction": "Cancel",
-  "snackToolSearchLoadedReplayCancelledToast": "Dispatch cancelled — composer cleared",
   "snackToolSearchLoadedSourceFilterAll": "All",
   "snackToolSearchLoadedSourceFilterAi": "AI only",
   "snackToolSearchLoadedSourceFilterHarness": "Harness only",
@@ -3568,18 +3494,6 @@
   "settingsReduceMotionBody": "When enabled, custom and built-in animations are skipped (durations collapse to zero). Pairs with the system Reduce Motion accessibility setting.",
   "@settingsReduceMotionBody": {
     "description": "Settings → General: subtitle for the reduce-motion switch."
-  },
-  "mcpToolSearchReplayLastCancelAction": "Replay last cancel",
-  "@mcpToolSearchReplayLastCancelAction": {
-    "description": "Settings/MCP debug button: replays the last ToolSearch load that was cancelled in the 3-second undo window."
-  },
-  "mcpToolSearchReplayLastCancelToastFired": "Replayed last cancelled load",
-  "@mcpToolSearchReplayLastCancelToastFired": {
-    "description": "Toast: the last cancelled ToolSearch load has been re-fired."
-  },
-  "mcpToolSearchReplayLastCancelToastEmpty": "Nothing to replay",
-  "@mcpToolSearchReplayLastCancelToastEmpty": {
-    "description": "Toast: dispatcher has nothing to replay."
   },
   "aiThrottleSettingsLabel": "Throttle Settings",
   "@aiThrottleSettingsLabel": {

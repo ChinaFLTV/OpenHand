@@ -1349,29 +1349,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please enter an integer between 1000 and 1000000.';
 
   @override
-  String get settingsHarnessToolSearchHistoryCapLabel =>
-      'Harness ToolSearch history cap';
-
-  @override
-  String get settingsHarnessToolSearchHistoryCapBody =>
-      'Maximum number of recent Harness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).';
-
-  @override
-  String settingsHarnessToolSearchHistoryCapValue(int cap) {
-    return 'Currently keeping the last $cap phase(s)';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapRange(int min, int max) {
-    return 'Range: $min–$max (default 8)';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapResetTooltip(int defaultCap) {
-    return 'Reset to default ($defaultCap)';
-  }
-
-  @override
   String get harnessCliLoginNoOutputHint =>
       '[Hint] CLI has not produced output yet. It may be initializing, or waiting for browser-based authorization.\n';
 
@@ -1591,29 +1568,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get harnessCliInstallDoneContinue => 'Done, continue';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowLabel =>
-      'Replay cancel window';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowBody =>
-      'How long the snackbar waits before sending; press Cancel inside this window to discard.';
-
-  @override
-  String settingsToolSearchReplayCancelWindowValue(int seconds) {
-    return 'Window: $seconds s';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
-    return 'Range: $min–$max s (default 3)';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
-    return 'Reset to default ($defaultSeconds s)';
-  }
 
   @override
   String get mcpLazyLoadingHowItWorks =>
@@ -4558,14 +4512,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String snackToolSearchLoaded(int loaded, int total) {
-    return 'ToolSearch loaded $loaded/$total MCP tool(s)';
-  }
-
-  @override
-  String get snackToolSearchLoadedAction => 'View list';
-
-  @override
   String get snackToolSearchLoadedDialogTitle =>
       'MCP tools loaded by ToolSearch';
 
@@ -4615,21 +4561,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedSourceHarness => 'Harness phase';
-
-  @override
-  String get snackToolSearchLoadedReplayedToast =>
-      'Re-issued ToolSearch with previous selection';
-
-  @override
-  String get snackToolSearchLoadedReplayPendingToast =>
-      'About to dispatch — tap Cancel to abort';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelAction => 'Cancel';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelledToast =>
-      'Dispatch cancelled — composer cleared';
 
   @override
   String get snackToolSearchLoadedSourceFilterAll => 'All';
@@ -7033,16 +6964,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       'When enabled, custom and built-in animations are skipped (durations collapse to zero). Pairs with the system Reduce Motion accessibility setting.';
-
-  @override
-  String get mcpToolSearchReplayLastCancelAction => 'Replay last cancel';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastFired =>
-      'Replayed last cancelled load';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastEmpty => 'Nothing to replay';
 
   @override
   String get aiThrottleSettingsLabel => 'Throttle Settings';

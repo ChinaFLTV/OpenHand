@@ -491,10 +491,6 @@ class SettingsStore {
       'show_self_learning_messages': snapshot.showSelfLearningMessages,
       'cron_auto_cleanup_enabled': snapshot.cronAutoCleanupEnabled,
       'cron_auto_cleanup_retention_days': snapshot.cronAutoCleanupRetentionDays,
-      'harness_tool_search_history_max_phases':
-          snapshot.harnessToolSearchHistoryMaxPhases,
-      'tool_search_replay_cancel_window_seconds':
-          snapshot.toolSearchReplayCancelWindowSeconds,
       'reduce_motion': snapshot.reduceMotion,
       'proxy': snapshot.proxySettings.toJson(),
       'subprocess_graceful_shutdown_ms': snapshot.subprocessGracefulShutdownMs,
@@ -1194,20 +1190,6 @@ class SettingsStore {
       max: AppSettingsSnapshot.maxCronAutoCleanupRetentionDays,
     );
 
-    final harnessToolSearchHistoryMaxPhases = clampedIntFromValue(
-      json['harness_tool_search_history_max_phases'],
-      fallback: AppSettingsSnapshot.defaultHarnessToolSearchHistoryMaxPhases,
-      min: AppSettingsSnapshot.minHarnessToolSearchHistoryMaxPhases,
-      max: AppSettingsSnapshot.maxHarnessToolSearchHistoryMaxPhases,
-    );
-
-    final toolSearchReplayCancelWindowSeconds = clampedIntFromValue(
-      json['tool_search_replay_cancel_window_seconds'],
-      fallback: AppSettingsSnapshot.defaultToolSearchReplayCancelWindowSeconds,
-      min: AppSettingsSnapshot.minToolSearchReplayCancelWindowSeconds,
-      max: AppSettingsSnapshot.maxToolSearchReplayCancelWindowSeconds,
-    );
-
     final reduceMotion = boolFromValue(json['reduce_motion']);
 
     final proxySettings = AppProxySettings.fromJson(json['proxy']);
@@ -1333,8 +1315,6 @@ class SettingsStore {
       showSelfLearningMessages: showSelfLearningMessages,
       cronAutoCleanupEnabled: cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: cronAutoCleanupRetentionDays,
-      harnessToolSearchHistoryMaxPhases: harnessToolSearchHistoryMaxPhases,
-      toolSearchReplayCancelWindowSeconds: toolSearchReplayCancelWindowSeconds,
       reduceMotion: reduceMotion,
       proxySettings: proxySettings,
       subprocessGracefulShutdownMs: subprocessGracefulShutdownMs,

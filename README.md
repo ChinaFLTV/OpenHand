@@ -39,7 +39,7 @@ OpenHand 不只是聊天窗口，而是面向开发者、研究人员和团队�
 | 多模型接入 | 支持 OpenAI、Claude、Gemini、DeepSeek、Qwen、Kimi、GLM、Grok、Ollama、vLLM、SGLang、MiniMax、Seed、StepFun、Wenxin、Hunyuan、Meta、Mimo 等协议或 OpenAI 兼容服务。 |
 | 工具运行时 | 内置文件读写编辑、diff 应用、Bash / 后台命令、Git、LSP、WebFetch、WebSearch、ToolSearch、Todo、Task、Memory、Knowledge、Skill Manager、机器终端等工具。 |
 | 可控执行 | 支持命令 allow / deny 规则、写命令确认、沙箱设置、超时、取消、强制终止、工具输出压缩、审计元数据和 token / 成本统计。 |
-| MCP 与 ToolSearch | 管理 MCP server、stdio 进程、健康检查、工具目录、关键词索引、懒加载、历史导入导出和取消重放。 |
+| MCP 与 ToolSearch | 管理 MCP server、stdio 进程、健康检查、工具目录、关键词索引、懒加载和历史导入导出。 |
 | 技能与插件 | 管理本地 Claude Code skills、技能市场、插件扫描、安装、更新、卸载、依赖关系和运行状态。 |
 | 记忆与自学习 | 管理用户长期记忆、用户画像和 Hermes Talker 自学习定时任务，帮助对话持续个性化但不打断回复。 |
 | 知识库 | 导入 Markdown、Office、PDF、HTML、CSV、JSON、TOML、YAML、TXT、代码文件或笔记，使用 Qdrant 建立本地向量索引并提供检索详情。 |

@@ -774,35 +774,6 @@
   "mcpLazyLoadingThresholdSaved": "Seuil de chargement différé MCP enregistré.",
   "mcpLazyLoadingHowItWorks": "Lorsque le chargement différé est actif, les descriptions des outils MCP sont repliées en un index de noms. L'outil intégré ToolSearch récupère le schéma JSON complet à la demande via trois formes :\n• select:NAME (sélection directe, multi-sélection séparée par espaces)\n• mot-clé (scoré sur name/description)\n• +MOTCLE (terme requis pour filtrer le bruit)\nAprès une correspondance, ToolSearch est appelé avec le tool_name exact et des arguments conformes au schéma. La liste native reste fixe pour préserver le cache du prompt.",
   "mcpLazyLoadingThresholdInvalid": "Veuillez saisir un entier entre 1000 et 1000000.",
-  "settingsHarnessToolSearchHistoryCapLabel": "Limite d'historique ToolSearch Harness",
-  "settingsHarnessToolSearchHistoryCapBody": "Nombre maximum de phases Harness récentes pour lesquelles la boîte de dialogue de l'historique ToolSearch conserve les entrées. Les anciennes phases sont supprimées (LRU).",
-  "settingsHarnessToolSearchHistoryCapValue": "Conserve actuellement les {cap} dernière(s) phase(s)",
-  "@settingsHarnessToolSearchHistoryCapValue": {
-    "placeholders": {
-      "cap": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsHarnessToolSearchHistoryCapRange": "Plage : {min}–{max} (par défaut 8)",
-  "@settingsHarnessToolSearchHistoryCapRange": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsHarnessToolSearchHistoryCapResetTooltip": "Réinitialiser à la valeur par défaut ({defaultCap})",
-  "@settingsHarnessToolSearchHistoryCapResetTooltip": {
-    "placeholders": {
-      "defaultCap": {
-        "type": "int"
-      }
-    }
-  },
   "harnessCliLoginNoOutputHint": "[Indice] La CLI n’a pas encore produit de sortie. Elle peut être en cours d’initialisation ou attendre une autorisation dans le navigateur.\n",
   "@harnessCliLoginNoOutputHint": {
     "description": "Harness CLI login dialog terminal hint when no output arrives."
@@ -1083,35 +1054,6 @@
   "harnessCliInstallDoneContinue": "Terminé, continuer",
   "@harnessCliInstallDoneContinue": {
     "description": "Harness CLI install dialog done/continue button."
-  },
-  "settingsToolSearchReplayCancelWindowLabel": "Fenêtre d’annulation du replay",
-  "settingsToolSearchReplayCancelWindowBody": "Délai d’attente de la snackbar avant l’envoi ; appuyez sur Annuler pour ignorer.",
-  "settingsToolSearchReplayCancelWindowValue": "Fenêtre : {seconds} s",
-  "@settingsToolSearchReplayCancelWindowValue": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsToolSearchReplayCancelWindowRange": "Plage : {min}–{max} s (par défaut 3)",
-  "@settingsToolSearchReplayCancelWindowRange": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsToolSearchReplayCancelWindowResetTooltip": "Réinitialiser à la valeur par défaut ({defaultSeconds} s)",
-  "@settingsToolSearchReplayCancelWindowResetTooltip": {
-    "placeholders": {
-      "defaultSeconds": {
-        "type": "int"
-      }
-    }
   },
   "settingsGeneralSubtitle": "Gérez le thème, la langue et les informations principales de l'application.",
   "settingsAiSubtitle": "Gérer les modèles de chat, l’authentification et les adaptateurs de protocole.",
@@ -2373,18 +2315,6 @@
       }
     }
   },
-  "snackToolSearchLoaded": "ToolSearch a chargé {loaded}/{total} outil(s) MCP",
-  "@snackToolSearchLoaded": {
-    "placeholders": {
-      "loaded": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "snackToolSearchLoadedAction": "Voir la liste",
   "snackToolSearchLoadedDialogTitle": "Outils MCP chargés par ToolSearch",
   "snackToolSearchLoadedDialogClose": "Fermer",
   "snackToolSearchLoadedCopyAction": "Copier select:",
@@ -2401,10 +2331,6 @@
   "snackToolSearchLoadedHistoryFilterHint": "Filtrer par nom ou requête…",
   "snackToolSearchLoadedSourceAi": "Session IA",
   "snackToolSearchLoadedSourceHarness": "Phase Harness",
-  "snackToolSearchLoadedReplayedToast": "ToolSearch relancé avec la sélection précédente",
-  "snackToolSearchLoadedReplayPendingToast": "Envoi imminent — appuyez sur Annuler pour interrompre",
-  "snackToolSearchLoadedReplayCancelAction": "Annuler",
-  "snackToolSearchLoadedReplayCancelledToast": "Envoi annulé — composer vidé",
   "snackToolSearchLoadedSourceFilterAll": "Tous",
   "snackToolSearchLoadedSourceFilterAi": "IA seulement",
   "snackToolSearchLoadedSourceFilterHarness": "Harness uniquement",
@@ -3563,18 +3489,6 @@
   "settingsReduceMotionBody": "Lorsque cette option est activée, les animations personnalisées et intégrées sont ignorées (durées ramenées à zéro). Se combine avec le réglage d’accessibilité « Réduire les animations » du système.",
   "@settingsReduceMotionBody": {
     "description": "Settings → General: subtitle for the reduce-motion switch."
-  },
-  "mcpToolSearchReplayLastCancelAction": "Rejouer dernière annulation",
-  "@mcpToolSearchReplayLastCancelAction": {
-    "description": "Settings/MCP debug button: replays the last ToolSearch load that was cancelled in the 3-second undo window."
-  },
-  "mcpToolSearchReplayLastCancelToastFired": "Dernier chargement annulé rejoué",
-  "@mcpToolSearchReplayLastCancelToastFired": {
-    "description": "Toast: the last cancelled ToolSearch load has been re-fired."
-  },
-  "mcpToolSearchReplayLastCancelToastEmpty": "Rien à rejouer",
-  "@mcpToolSearchReplayLastCancelToastEmpty": {
-    "description": "Toast: dispatcher has nothing to replay."
   },
   "aiThrottleSettingsLabel": "Paramètres de limitation",
   "@aiThrottleSettingsLabel": {

@@ -1330,29 +1330,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpLazyLoadingThresholdInvalid => '1000～1000000の整数を入力してください。';
 
   @override
-  String get settingsHarnessToolSearchHistoryCapLabel =>
-      'Harness ToolSearch 履歴の保持上限';
-
-  @override
-  String get settingsHarnessToolSearchHistoryCapBody =>
-      'ToolSearch 読み込み済みダイアログが保持する Harness phase の最大件数。超えた分は LRU で逆出されます。';
-
-  @override
-  String settingsHarnessToolSearchHistoryCapValue(int cap) {
-    return '現在 $cap 件の phase を保持中';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapRange(int min, int max) {
-    return '範囲: $min–$max（デフォルト 8）';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapResetTooltip(int defaultCap) {
-    return 'デフォルトにリセット（$defaultCap）';
-  }
-
-  @override
   String get harnessCliLoginNoOutputHint =>
       '[ヒント] CLI はまだ出力していません。初期化中か、外部ブラウザでの認証を待っている可能性があります。\n';
 
@@ -1569,28 +1546,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get harnessCliInstallDoneContinue => '完了して続行';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowLabel => 'リプレイキャンセルされるまでの待ち時間';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowBody =>
-      'snackbar が送信するまでの秒数。期間中にキャンセルを押すとキャンセルされます。';
-
-  @override
-  String settingsToolSearchReplayCancelWindowValue(int seconds) {
-    return 'ウィンドウ：$seconds 秒';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
-    return '範囲：$min–$max 秒（デフォルト 3）';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
-    return 'デフォルトにリセット（$defaultSeconds 秒）';
-  }
 
   @override
   String get mcpLazyLoadingHowItWorks =>
@@ -4444,14 +4399,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String snackToolSearchLoaded(int loaded, int total) {
-    return 'ToolSearch が MCP ツールを $loaded/$total 件ロードしました';
-  }
-
-  @override
-  String get snackToolSearchLoadedAction => '一覧を表示';
-
-  @override
   String get snackToolSearchLoadedDialogTitle => 'ToolSearch がロードした MCP ツール';
 
   @override
@@ -4499,19 +4446,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedSourceHarness => 'Harness フェーズ';
-
-  @override
-  String get snackToolSearchLoadedReplayedToast => '以前の選択で ToolSearch を再実行しました';
-
-  @override
-  String get snackToolSearchLoadedReplayPendingToast => '送信予定です — キャンセルをタップで中止';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelAction => 'キャンセル';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelledToast =>
-      '送信をキャンセル — composer をクリア';
 
   @override
   String get snackToolSearchLoadedSourceFilterAll => '全て';
@@ -6847,16 +6781,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       '有効にすると、自社カスタムおよび Flutter 組み込みアニメーションの時間がゼロになります。OS の「視差効果を減らす」と併用できます。';
-
-  @override
-  String get mcpToolSearchReplayLastCancelAction => '直前のキャンセルを再実行';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastFired =>
-      '直前のキャンセル済み読み込みを再実行しました';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastEmpty => '再実行できる項目はありません';
 
   @override
   String get aiThrottleSettingsLabel => 'スロットル設定';

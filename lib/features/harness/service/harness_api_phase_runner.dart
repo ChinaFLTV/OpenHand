@@ -124,8 +124,6 @@ class HarnessApiPhaseRunner {
     required this._templateRepository,
     required this.usageSessionId,
     this.confirmWriteCommand,
-    this.onToolSearchLoaded,
-    this.onPhaseEnded,
   });
 
   final AiChatClient _chatClient;
@@ -138,22 +136,6 @@ class HarnessApiPhaseRunner {
   )?
   confirmWriteCommand;
 
-  /// ToolSearch 在当前阶段新增匹配工具时回调。
-  final void Function({
-    required String phaseSessionId,
-    required List<String> loadedNames,
-    required int totalDeferred,
-    required String query,
-  })?
-  onToolSearchLoaded;
-
-  /// 阶段结束时回调一次，供调用方清理对应 UI 缓存。
-  final void Function({required String phaseSessionId})? onPhaseEnded;
-
-  /// 按 phaseSessionId 记录 ToolSearch 已匹配的工具名，仅用于 UI 统计。
-  final Map<String, Set<String>> _matchedToolsBySession =
-      <String, Set<String>>{};
-
   /// 上下文 Token 粗略估算参数。
   static const int _estimatedCharsPerToken = 4;
   static const int _responseReserveTokens = 4096;
@@ -161,10 +143,6 @@ class HarnessApiPhaseRunner {
   static const int _maxToolRoundsPerPhase = 64;
   static const int _maxToolCallsPerRound = 64;
   static const int _maxToolCallsPerPhase = 256;
-  static const int _maxTrackedToolNames =
-      McpLoadedToolsTracker.defaultMaxNamesPerSession;
-  static const int _maxTrackedToolNameCharacters =
-      McpLoadedToolsTracker.defaultMaxNameCharacters;
   static const int _maxToolArgumentsCharacters = 256 * kBytesPerKiB;
   static const int _maxErrorCharacters = 2000;
 
@@ -184,22 +162,17 @@ class HarnessApiPhaseRunner {
   }) async {
     final phaseSessionId =
         'harness-phase-${phase.storageValue}-${DateTime.now().microsecondsSinceEpoch}';
-    try {
-      return await _runPhaseInner(
-        model: model,
-        phase: phase,
-        phasePrompt: phasePrompt,
-        runtimeContext: runtimeContext,
-        persistenceDirectory: persistenceDirectory,
-        onLine: onLine,
-        requireWriteCommandConfirmation: requireWriteCommandConfirmation,
-        cancelSignal: cancelSignal,
-        phaseSessionId: phaseSessionId,
-      );
-    } finally {
-      _matchedToolsBySession.remove(phaseSessionId);
-      onPhaseEnded?.call(phaseSessionId: phaseSessionId);
-    }
+    return _runPhaseInner(
+      model: model,
+      phase: phase,
+      phasePrompt: phasePrompt,
+      runtimeContext: runtimeContext,
+      persistenceDirectory: persistenceDirectory,
+      onLine: onLine,
+      requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+      cancelSignal: cancelSignal,
+      phaseSessionId: phaseSessionId,
+    );
   }
 
   Future<HarnessApiPhaseResult> _runPhaseInner({
@@ -584,49 +557,6 @@ class HarnessApiPhaseRunner {
             final filePath = args['file_path'] ?? args['path'];
             if (filePath is String && filePath.isNotEmpty) {
               previouslyReadFiles.add(filePath);
-            }
-          }
-
-          // 记录 ToolSearch 匹配结果供 UI 展示，工具目录保持不变。
-          final loadedNames = result.metadata['tool_search_loaded_names'];
-          if (loadedNames is List && loadedNames.isNotEmpty) {
-            final bucket = _matchedToolsBySession.putIfAbsent(
-              phaseSessionId,
-              () => <String>{},
-            );
-            final addedNames = <String>[];
-            for (final rawName in loadedNames.take(_maxTrackedToolNames * 2)) {
-              if (bucket.length >= _maxTrackedToolNames) break;
-              if (rawName is String) {
-                final name = rawName.trim();
-                if (name.isNotEmpty &&
-                    name.length <= _maxTrackedToolNameCharacters &&
-                    bucket.add(name)) {
-                  addedNames.add(name);
-                }
-              }
-            }
-            final cb = onToolSearchLoaded;
-            if (cb != null && addedNames.isNotEmpty) {
-              addedNames.sort();
-              final totalDeferredRaw =
-                  result.metadata['tool_search_total_deferred'];
-              final queryRaw = result.metadata['tool_search_query'];
-              cb(
-                phaseSessionId: phaseSessionId,
-                loadedNames: List<String>.unmodifiable(addedNames),
-                totalDeferred: nonNegativeIntFromValue(
-                  totalDeferredRaw,
-                  fallback: addedNames.length,
-                ),
-                query: queryRaw is String
-                    ? clipText(
-                        queryRaw.trim(),
-                        McpLoadedToolsTracker.defaultMaxQueryCharacters,
-                        suffix: '',
-                      )
-                    : '',
-              );
             }
           }
 

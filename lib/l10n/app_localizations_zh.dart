@@ -1319,29 +1319,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpLazyLoadingThresholdInvalid => '请填写 1000 ~ 1000000 之间的整数。';
 
   @override
-  String get settingsHarnessToolSearchHistoryCapLabel =>
-      'Harness ToolSearch 历史保留上限';
-
-  @override
-  String get settingsHarnessToolSearchHistoryCapBody =>
-      'ToolSearch 已加载列表对话框保留的 Harness phase 最大个数，超出后以 LRU 淘汰。';
-
-  @override
-  String settingsHarnessToolSearchHistoryCapValue(int cap) {
-    return '当前保留最近 $cap 个 phase';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapRange(int min, int max) {
-    return '范围：$min–$max（默认 8）';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapResetTooltip(int defaultCap) {
-    return '重置为默认值（$defaultCap）';
-  }
-
-  @override
   String get harnessCliLoginNoOutputHint =>
       '[提示] CLI 尚未产生输出。可能正在初始化，或需要在外部浏览器中完成授权。\n';
 
@@ -1554,28 +1531,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get harnessCliInstallDoneContinue => '完成，继续';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowLabel => '重放反悔窗口';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowBody =>
-      'snackbar 在发送前等待的秒数；期间点取消即可撤销。';
-
-  @override
-  String settingsToolSearchReplayCancelWindowValue(int seconds) {
-    return '窗口：$seconds 秒';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
-    return '范围：$min–$max 秒（默认 3）';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
-    return '重置为默认值（$defaultSeconds 秒）';
-  }
 
   @override
   String get mcpLazyLoadingHowItWorks =>
@@ -4397,14 +4352,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String snackToolSearchLoaded(int loaded, int total) {
-    return 'ToolSearch 已加载 $loaded/$total 个 MCP 工具';
-  }
-
-  @override
-  String get snackToolSearchLoadedAction => '查看列表';
-
-  @override
   String get snackToolSearchLoadedDialogTitle => 'ToolSearch 已加载的 MCP 工具';
 
   @override
@@ -4451,18 +4398,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get snackToolSearchLoadedSourceHarness => 'Harness 阶段';
-
-  @override
-  String get snackToolSearchLoadedReplayedToast => '已重新发起 ToolSearch';
-
-  @override
-  String get snackToolSearchLoadedReplayPendingToast => '即将发起，3 秒内可点击「撤销」';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelAction => '撤销';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelledToast => '已撤销 — composer 已清空';
 
   @override
   String get snackToolSearchLoadedSourceFilterAll => '全部';
@@ -6749,15 +6684,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get settingsReduceMotionBody =>
       '开启后，自研动画与 Flutter 内建动画的时长全部归零。与系统层「减少动画」辅助功能并联生效。';
-
-  @override
-  String get mcpToolSearchReplayLastCancelAction => '重放上次取消';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastFired => '已重发上次取消的载入';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastEmpty => '当前没有可重放的取消';
 
   @override
   String get aiThrottleSettingsLabel => '节流参数';
@@ -11881,29 +11807,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get mcpLazyLoadingThresholdInvalid => '請填寫 1000 ~ 1000000 之間的整數。';
 
   @override
-  String get settingsHarnessToolSearchHistoryCapLabel =>
-      'Harness ToolSearch 歷史保留上限';
-
-  @override
-  String get settingsHarnessToolSearchHistoryCapBody =>
-      'ToolSearch 已載入清單對話框保留的 Harness phase 最大個數，超出後以 LRU 淘汰。';
-
-  @override
-  String settingsHarnessToolSearchHistoryCapValue(int cap) {
-    return '當前保留最近 $cap 個 phase';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapRange(int min, int max) {
-    return '範圍：$min–$max（預設 8）';
-  }
-
-  @override
-  String settingsHarnessToolSearchHistoryCapResetTooltip(int defaultCap) {
-    return '重設為預設值（$defaultCap）';
-  }
-
-  @override
   String get harnessCliLoginNoOutputHint =>
       '[提示] CLI 尚未產生輸出。可能正在初始化，或需要在外部瀏覽器中完成授權。\n';
 
@@ -12116,28 +12019,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get harnessCliInstallDoneContinue => '完成，繼續';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowLabel => '重播後悔視窗';
-
-  @override
-  String get settingsToolSearchReplayCancelWindowBody =>
-      'snackbar 送出前等待的秒數；期間按取消即可撤銷。';
-
-  @override
-  String settingsToolSearchReplayCancelWindowValue(int seconds) {
-    return '視窗：$seconds 秒';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowRange(int min, int max) {
-    return '範圍：$min–$max 秒（預設 3）';
-  }
-
-  @override
-  String settingsToolSearchReplayCancelWindowResetTooltip(int defaultSeconds) {
-    return '重設為預設值（$defaultSeconds 秒）';
-  }
 
   @override
   String get mcpLazyLoadingHowItWorks =>
@@ -14959,14 +14840,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String snackToolSearchLoaded(int loaded, int total) {
-    return 'ToolSearch 已載入 $loaded/$total 個 MCP 工具';
-  }
-
-  @override
-  String get snackToolSearchLoadedAction => '檢視列表';
-
-  @override
   String get snackToolSearchLoadedDialogTitle => 'ToolSearch 已載入的 MCP 工具';
 
   @override
@@ -15013,18 +14886,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get snackToolSearchLoadedSourceHarness => 'Harness 階段';
-
-  @override
-  String get snackToolSearchLoadedReplayedToast => '已重新發起 ToolSearch';
-
-  @override
-  String get snackToolSearchLoadedReplayPendingToast => '即將發起，3 秒內可點擊「撤銷」';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelAction => '撤銷';
-
-  @override
-  String get snackToolSearchLoadedReplayCancelledToast => '已撤銷 — composer 已清空';
 
   @override
   String get snackToolSearchLoadedSourceFilterAll => '全部';
@@ -17308,15 +17169,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get settingsReduceMotionBody =>
       '開啟後，自研動畫與 Flutter 內建動畫的時長全部歸零。與系統層「減少動畫」輔助功能並聯生效。';
-
-  @override
-  String get mcpToolSearchReplayLastCancelAction => '重播上次取消';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastFired => '已重發上次取消的載入';
-
-  @override
-  String get mcpToolSearchReplayLastCancelToastEmpty => '目前沒有可重播的取消';
 
   @override
   String get aiThrottleSettingsLabel => '节流参数';

@@ -57,7 +57,6 @@ Future<void> showToolSearchLoadedDialog(
   void Function()? onClear,
   List<AiToolSearchLoadHistoryEntry> history =
       const <AiToolSearchLoadHistoryEntry>[],
-  Future<void> Function(List<String> names)? onReplayBatch,
 }) {
   return showAnimatedDialog<void>(
     context: context,
@@ -65,7 +64,6 @@ Future<void> showToolSearchLoadedDialog(
       initialNames: names,
       onClear: onClear,
       initialHistory: history,
-      onReplayBatch: onReplayBatch,
     ),
   );
 }
@@ -80,18 +78,11 @@ class ToolSearchLoadedDialog extends StatefulWidget {
     required this.initialNames,
     this.onClear,
     this.initialHistory = const <AiToolSearchLoadHistoryEntry>[],
-    this.onReplayBatch,
   });
 
   final List<String> initialNames;
   final void Function()? onClear;
   final List<AiToolSearchLoadHistoryEntry> initialHistory;
-
-  /// 当用户点击「加载历史」中的某一条目时被调用：调用方应直接重新发起
-  /// 一次 `select:N1, select:N2,...` 的 ToolSearch 调用（一般做法是把
-  /// 文本填入 composer 然后立刻 submit），从而省去用户手动复制粘贴。
-  /// 为 `null` 时退化为复制到剪贴板的旧行为。
-  final Future<void> Function(List<String> names)? onReplayBatch;
 
   @override
   State<ToolSearchLoadedDialog> createState() => _ToolSearchLoadedDialogState();
@@ -230,19 +221,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     );
   }
 
-  Future<void> _handleReplayHistoryEntry(
+  Future<void> _handleCopyHistoryEntry(
     AiToolSearchLoadHistoryEntry entry,
   ) async {
     if (entry.addedNames.isEmpty) return;
-    final cb = widget.onReplayBatch;
-    if (cb != null) {
-      // 直接重新调用 ToolSearch：先关闭 dialog 再交给上游执行（一般是
-      // 把 select: 文本填入 composer 并触发 submit）。
-      Navigator.of(context).pop();
-      await cb(entry.addedNames);
-      return;
-    }
-    // 退化路径：未提供 onReplayBatch 时，回退为复制到剪贴板。
     final payload = entry.addedNames.map((n) => 'select:$n').join(', ');
     final l10n = AppLocalizations.of(context);
     await copyOpenHandTextToClipboard(
@@ -1015,7 +997,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: canReplay ? () => _handleReplayHistoryEntry(entry) : null,
+        onTap: canReplay ? () => _handleCopyHistoryEntry(entry) : null,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 10, 13),
           child: Column(
@@ -1076,19 +1058,14 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   kOpenHandHGap8,
                   IconButton(
                     tooltip: l10n.snackToolSearchLoadedHistoryReplayAction,
-                    icon: Icon(
-                      widget.onReplayBatch == null
-                          ? Icons.copy_all_rounded
-                          : Icons.replay_rounded,
-                      size: 18,
-                    ),
+                    icon: const Icon(Icons.copy_all_rounded, size: 18),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints.tightFor(
                       width: _toolSearchCardActionExtent,
                       height: _toolSearchCardActionExtent,
                     ),
                     onPressed: canReplay
-                        ? () => _handleReplayHistoryEntry(entry)
+                        ? () => _handleCopyHistoryEntry(entry)
                         : null,
                   ),
                 ],

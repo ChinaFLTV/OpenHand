@@ -5,26 +5,6 @@ import 'package:flutter/foundation.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 
-/// 描述一次成功的 `ToolSearch` 加载，用于触发 transcript 顶部的 SnackBar 提示。
-@immutable
-class AiToolSearchLoadedEvent {
-  const AiToolSearchLoadedEvent({
-    required this.sessionId,
-    required this.loadedNames,
-    required this.totalDeferred,
-    required this.query,
-    required this.revision,
-  });
-
-  final String sessionId;
-  final List<String> loadedNames;
-  final int totalDeferred;
-  final String query;
-  final int revision;
-
-  int get loadedCount => loadedNames.length;
-}
-
 /// 单次 `ToolSearch` 加载在历史时间线中的来源类别，用于在 dialog 上贴
 /// 一个区分标签（普通 AI session vs Harness phase）。
 enum AiToolSearchLoadSource {
@@ -64,8 +44,7 @@ class AiToolSearchLoadHistoryEntry {
   int get addedCount => addedNames.length;
 }
 
-/// 跨调用累计每个会话已通过 `ToolSearch` 匹配的工具名，并以
-/// [ValueListenable] 形式向 UI 广播一次性事件。
+/// 跨调用累计每个会话已通过 `ToolSearch` 匹配的工具名及加载历史。
 class McpLoadedToolsTracker {
   McpLoadedToolsTracker({
     this.maxTrackedSessions = defaultMaxTrackedSessions,
@@ -97,12 +76,7 @@ class McpLoadedToolsTracker {
   final Map<String, Set<String>> _loadedBySession = <String, Set<String>>{};
   final Map<String, List<AiToolSearchLoadHistoryEntry>> _historyBySession =
       <String, List<AiToolSearchLoadHistoryEntry>>{};
-  final ValueNotifier<AiToolSearchLoadedEvent?> _signal =
-      ValueNotifier<AiToolSearchLoadedEvent?>(null);
-  int _revision = 0;
   bool _disposed = false;
-
-  ValueListenable<AiToolSearchLoadedEvent?> get signal => _signal;
 
   /// 返回指定会话已加载的工具名（按字母升序，不可变视图）。
   List<String> namesForSession(String sessionId) {
@@ -130,7 +104,7 @@ class McpLoadedToolsTracker {
   }
 
   /// 吸收 ToolSearch 工具结果中 `tool_search_loaded_names` 元数据，更新累计
-  /// 集合并广播事件。返回本次真正新增的名字，若无新增则返回空。
+  /// 集合与历史记录。返回本次真正新增的名字，若无新增则返回空。
   List<String> absorb({
     required String sessionId,
     required Object? loadedNamesRaw,
@@ -167,7 +141,6 @@ class McpLoadedToolsTracker {
       _touchSession(normalizedSessionId);
       return const <String>[];
     }
-    _revision += 1;
     final totalDeferred = _nonNegativeIntFromMetadata(
       totalDeferredRaw,
       fallback: addedNames.length,
@@ -193,13 +166,6 @@ class McpLoadedToolsTracker {
     }
     _touchSession(normalizedSessionId);
     _trimTrackedSessions();
-    _signal.value = AiToolSearchLoadedEvent(
-      sessionId: normalizedSessionId,
-      loadedNames: List<String>.unmodifiable(sortedAdded),
-      totalDeferred: totalDeferred,
-      query: query,
-      revision: _revision,
-    );
     return List<String>.unmodifiable(sortedAdded);
   }
 
@@ -218,7 +184,6 @@ class McpLoadedToolsTracker {
     _disposed = true;
     _loadedBySession.clear();
     _historyBySession.clear();
-    _signal.dispose();
   }
 
   void _touchSession(String sessionId) {

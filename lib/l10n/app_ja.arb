@@ -774,35 +774,6 @@
   "mcpLazyLoadingThresholdSaved": "MCP遅延読み込みのしきい値を保存しました。",
   "mcpLazyLoadingHowItWorks": "遅延読み込みが有効な間、MCP ツールの説明は名前インデックスに折りたたまれ、組み込みの ToolSearch ツールが必要に応じて完全な JSON Schema を取得します。3 つのクエリ形式に対応：\n• select:NAME（直接選択、空白区切りで複数指定可）\n• キーワード（name/description にスコアリング）\n• +KEYWORD（ノイズ除去のための必須語）\n一致後は、正確な tool_name と Schema に準拠した arguments を ToolSearch に渡します。ネイティブツール一覧は固定され、プロンプトキャッシュが維持されます。",
   "mcpLazyLoadingThresholdInvalid": "1000～1000000の整数を入力してください。",
-  "settingsHarnessToolSearchHistoryCapLabel": "Harness ToolSearch 履歴の保持上限",
-  "settingsHarnessToolSearchHistoryCapBody": "ToolSearch 読み込み済みダイアログが保持する Harness phase の最大件数。超えた分は LRU で逆出されます。",
-  "settingsHarnessToolSearchHistoryCapValue": "現在 {cap} 件の phase を保持中",
-  "@settingsHarnessToolSearchHistoryCapValue": {
-    "placeholders": {
-      "cap": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsHarnessToolSearchHistoryCapRange": "範囲: {min}–{max}（デフォルト 8）",
-  "@settingsHarnessToolSearchHistoryCapRange": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsHarnessToolSearchHistoryCapResetTooltip": "デフォルトにリセット（{defaultCap}）",
-  "@settingsHarnessToolSearchHistoryCapResetTooltip": {
-    "placeholders": {
-      "defaultCap": {
-        "type": "int"
-      }
-    }
-  },
   "harnessCliLoginNoOutputHint": "[ヒント] CLI はまだ出力していません。初期化中か、外部ブラウザでの認証を待っている可能性があります。\n",
   "@harnessCliLoginNoOutputHint": {
     "description": "Harness CLI login dialog terminal hint when no output arrives."
@@ -1083,35 +1054,6 @@
   "harnessCliInstallDoneContinue": "完了して続行",
   "@harnessCliInstallDoneContinue": {
     "description": "Harness CLI install dialog done/continue button."
-  },
-  "settingsToolSearchReplayCancelWindowLabel": "リプレイキャンセルされるまでの待ち時間",
-  "settingsToolSearchReplayCancelWindowBody": "snackbar が送信するまでの秒数。期間中にキャンセルを押すとキャンセルされます。",
-  "settingsToolSearchReplayCancelWindowValue": "ウィンドウ：{seconds} 秒",
-  "@settingsToolSearchReplayCancelWindowValue": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsToolSearchReplayCancelWindowRange": "範囲：{min}–{max} 秒（デフォルト 3）",
-  "@settingsToolSearchReplayCancelWindowRange": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsToolSearchReplayCancelWindowResetTooltip": "デフォルトにリセット（{defaultSeconds} 秒）",
-  "@settingsToolSearchReplayCancelWindowResetTooltip": {
-    "placeholders": {
-      "defaultSeconds": {
-        "type": "int"
-      }
-    }
   },
   "settingsGeneralSubtitle": "テーマ、言語、アプリの基本情報を管理します。",
   "settingsAiSubtitle": "チャットモデル、認証、プロトコルアダプターを管理します。",
@@ -2373,18 +2315,6 @@
       }
     }
   },
-  "snackToolSearchLoaded": "ToolSearch が MCP ツールを {loaded}/{total} 件ロードしました",
-  "@snackToolSearchLoaded": {
-    "placeholders": {
-      "loaded": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "snackToolSearchLoadedAction": "一覧を表示",
   "snackToolSearchLoadedDialogTitle": "ToolSearch がロードした MCP ツール",
   "snackToolSearchLoadedDialogClose": "閉じる",
   "snackToolSearchLoadedCopyAction": "select: をコピー",
@@ -2401,10 +2331,6 @@
   "snackToolSearchLoadedHistoryFilterHint": "名前またはクエリでフィルタ…",
   "snackToolSearchLoadedSourceAi": "AI セッション",
   "snackToolSearchLoadedSourceHarness": "Harness フェーズ",
-  "snackToolSearchLoadedReplayedToast": "以前の選択で ToolSearch を再実行しました",
-  "snackToolSearchLoadedReplayPendingToast": "送信予定です — キャンセルをタップで中止",
-  "snackToolSearchLoadedReplayCancelAction": "キャンセル",
-  "snackToolSearchLoadedReplayCancelledToast": "送信をキャンセル — composer をクリア",
   "snackToolSearchLoadedSourceFilterAll": "全て",
   "snackToolSearchLoadedSourceFilterAi": "AI のみ",
   "snackToolSearchLoadedSourceFilterHarness": "Harness のみ",
@@ -3563,18 +3489,6 @@
   "settingsReduceMotionBody": "有効にすると、自社カスタムおよび Flutter 組み込みアニメーションの時間がゼロになります。OS の「視差効果を減らす」と併用できます。",
   "@settingsReduceMotionBody": {
     "description": "Settings → General: subtitle for the reduce-motion switch."
-  },
-  "mcpToolSearchReplayLastCancelAction": "直前のキャンセルを再実行",
-  "@mcpToolSearchReplayLastCancelAction": {
-    "description": "Settings/MCP debug button: replays the last ToolSearch load that was cancelled in the 3-second undo window."
-  },
-  "mcpToolSearchReplayLastCancelToastFired": "直前のキャンセル済み読み込みを再実行しました",
-  "@mcpToolSearchReplayLastCancelToastFired": {
-    "description": "Toast: the last cancelled ToolSearch load has been re-fired."
-  },
-  "mcpToolSearchReplayLastCancelToastEmpty": "再実行できる項目はありません",
-  "@mcpToolSearchReplayLastCancelToastEmpty": {
-    "description": "Toast: dispatcher has nothing to replay."
   },
   "aiThrottleSettingsLabel": "スロットル設定",
   "@aiThrottleSettingsLabel": {
