@@ -1627,12 +1627,13 @@ class _HermesTalkerSessionCard extends StatelessWidget {
       child: Theme(
         // ExpansionTile 默认会插入 Divider，关闭它以贴合 Material You 视感。
         data: theme.copyWith(dividerColor: Colors.transparent),
-        child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow.withValues(alpha: 0.85),
+        child: Material(
+          color: colorScheme.surfaceContainerLow.withValues(alpha: 0.85),
+          shape: RoundedRectangleBorder(
             borderRadius: kOpenHandBorderRadius14,
-            border: Border.all(color: accent.withValues(alpha: 0.22)),
+            side: BorderSide(color: accent.withValues(alpha: 0.22)),
           ),
+          clipBehavior: Clip.antiAlias,
           child: ExpansionTile(
             tilePadding: const EdgeInsets.symmetric(
               horizontal: 12,

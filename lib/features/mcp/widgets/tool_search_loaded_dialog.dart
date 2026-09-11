@@ -1164,12 +1164,15 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       de: expanded ? 'Tool-Gruppe einklappen' : 'Tool-Gruppe ausklappen',
       ja: expanded ? 'ツールグループを折りたたむ' : 'ツールグループを展開',
     );
-    return Container(
+    return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kOpenHandRadius16),
-        border: Border.all(color: colorScheme.outlineVariant),
+        side: BorderSide(color: colorScheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
       child: Theme(

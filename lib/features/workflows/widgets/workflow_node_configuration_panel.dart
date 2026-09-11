@@ -2714,12 +2714,13 @@ class _ResourceSection extends StatelessWidget {
         hoverColor: Colors.transparent,
         focusColor: Colors.transparent,
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainer,
+      child: Material(
+        color: theme.colorScheme.surfaceContainer,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kOpenHandRadius14),
-          border: Border.all(color: theme.colorScheme.outlineVariant),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
+        clipBehavior: Clip.antiAlias,
         child: ExpansionTile(
           shape: const Border(),
           collapsedShape: const Border(),
