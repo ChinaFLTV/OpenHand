@@ -37,6 +37,7 @@ import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_json_tree.dart';
@@ -116,7 +117,6 @@ const double _mcpToolDebugMenuItemInset = 8;
 const double _mcpToolDebugMenuItemRadius = 10;
 const double _mcpServerCardSpacing = 14;
 const double _mcpServerCardHoverClearance = 6;
-const double _mcpTemplateHeaderCompactBreakpoint = 520;
 const double _mcpTemplateChipLabelMaxWidth = 280;
 const double _mcpChipStripHeight = 40;
 const double _mcpToolPreviewExpandedHeight = 160;
@@ -1482,182 +1482,227 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     final useUrlField =
         _type == McpServerType.streamableHttp || _type == McpServerType.sse;
 
-    return PopScope(
+    return OpenHandEditorDialogScaffold(
+      title: widget.initialServer == null
+          ? l10n.mcpDialogCreateTitle
+          : l10n.mcpDialogEditTitle,
+      subtitle: widget.initialServer == null
+          ? _localizedText(
+              context,
+              zh: '配置接入方式、线程可见范围与请求身份。',
+              en: 'Configure transport, thread visibility, and request identity.',
+            )
+          : _localizedText(
+              context,
+              zh: '调整接入方式、线程可见范围与请求身份。',
+              en: 'Update transport, thread visibility, and request identity.',
+            ),
+      icon: Icons.extension_rounded,
+      iconColor: colorScheme.primary,
+      busy: _isSaving,
+      closeEnabled: !_isSaving,
       canPop: !_isSaving,
-      child: buildOpenHandResponsiveDialogShell(
-        context: context,
-        maxWidth: kOpenHandDialogWidthWide,
-        maxHeight: kOpenHandDialogHeightFull,
-        safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.initialServer == null
-                    ? l10n.mcpDialogCreateTitle
-                    : l10n.mcpDialogEditTitle,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              kOpenHandGap16,
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextFormField(
-                          controller: _nameController,
-                          enabled: !_isSaving,
-                          decoration: InputDecoration(
-                            labelText: l10n.mcpNameField,
-                          ),
-                          validator: (value) {
-                            final name = value?.trim() ?? '';
-                            if (name.isEmpty) {
-                              return l10n.mcpNameRequired;
-                            }
-                            if (widget.existingNames.contains(
-                              name.toLowerCase(),
-                            )) {
-                              return l10n.mcpNameDuplicate;
-                            }
-                            return null;
-                          },
-                        ),
-                        kOpenHandGap16,
-                        SizedBox(
-                          width: 320,
-                          child: AnimatedDropdownButtonFormField<McpServerType>(
-                            initialValue: _type,
-                            decoration: InputDecoration(
-                              labelText: l10n.mcpTypeField,
-                            ),
-                            items: McpServerType.values
-                                .map(
-                                  (item) => DropdownMenuItem<McpServerType>(
-                                    value: item,
-                                    child: Text(item.label(l10n)),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: _isSaving
-                                ? null
-                                : (value) {
-                                    if (value == null) {
-                                      return;
-                                    }
-                                    setState(() {
-                                      _type = value;
-                                      _headerErrorMessage = null;
-                                    });
-                                  },
-                          ),
-                        ),
-                        kOpenHandGap16,
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(l10n.mcpServerEnabledLabel),
-                          subtitle: Text(l10n.mcpServerEnabledBody),
-                          value: _enabled,
-                          onChanged: _isSaving
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    _enabled = value;
-                                  });
-                                },
-                        ),
-                        kOpenHandGap16,
-                        _buildTemplateVisibilityEditor(context),
-                        kOpenHandGap20,
-                        if (useUrlField) ...[
-                          TextFormField(
-                            controller: _urlController,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: l10n.mcpUrlField,
-                            ),
-                            validator: (value) {
-                              final rawValue = value?.trim() ?? '';
-                              if (rawValue.isEmpty) {
-                                return l10n.mcpUrlRequired;
-                              }
-                              if (!isValidHttpUrl(rawValue)) {
-                                return l10n.mcpUrlInvalid;
-                              }
-                              if (context
-                                  .read<McpController>()
-                                  .isSelfReferencingServer(
-                                    McpServer(
-                                      name: _nameController.text.trim(),
-                                      type: _type,
-                                      enabled: _enabled,
-                                      url: rawValue,
-                                    ),
-                                  )) {
-                                return _localizedText(
-                                  context,
-                                  zh: '该地址指向 OpenHand 自身的 MCP 运维入口，无法添加，否则会造成引用循环与工具无限膨胀。',
-                                  en: 'This URL points to OpenHand\'s own MCP operations endpoint and cannot be added; it would create a reference cycle and unbounded tool growth.',
-                                );
-                              }
-                              return null;
-                            },
-                          ),
-                          kOpenHandGap16,
-                          _buildHeaderEditor(context),
-                        ] else ...[
-                          TextFormField(
-                            controller: _commandController,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: l10n.mcpCommandField,
-                            ),
-                            validator: (value) {
-                              if ((value?.trim() ?? '').isEmpty) {
-                                return l10n.mcpCommandRequired;
-                              }
-                              return null;
-                            },
-                          ),
-                          kOpenHandGap16,
-                          TextField(
-                            controller: _argsController,
-                            enabled: !_isSaving,
-                            minLines: 4,
-                            maxLines: 8,
-                            decoration: InputDecoration(
-                              labelText: l10n.mcpArgsField,
-                              hintText: l10n.mcpArgsHint,
-                              alignLabelWithHint: true,
-                            ),
-                          ),
-                        ],
-                        OpenHandDialogErrorText(
-                          message: _errorMessage,
-                          topGap: 16,
-                        ),
-                      ],
-                    ),
+      maxHeight: kOpenHandDialogHeightFull,
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OpenHandDialogSectionCard(
+              icon: Icons.badge_outlined,
+              accent: colorScheme.primary,
+              title: _localizedText(context, zh: '基础信息', en: 'Basics'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    enabled: !_isSaving,
+                    decoration: InputDecoration(labelText: l10n.mcpNameField),
+                    validator: (value) {
+                      final name = value?.trim() ?? '';
+                      if (name.isEmpty) {
+                        return l10n.mcpNameRequired;
+                      }
+                      if (widget.existingNames.contains(name.toLowerCase())) {
+                        return l10n.mcpNameDuplicate;
+                      }
+                      return null;
+                    },
                   ),
+                  kOpenHandGap16,
+                  AnimatedDropdownButtonFormField<McpServerType>(
+                    initialValue: _type,
+                    decoration: InputDecoration(labelText: l10n.mcpTypeField),
+                    items: McpServerType.values
+                        .map(
+                          (item) => DropdownMenuItem<McpServerType>(
+                            value: item,
+                            child: Text(item.label(l10n)),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: _isSaving
+                        ? null
+                        : (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setState(() {
+                              _type = value;
+                              _headerErrorMessage = null;
+                            });
+                          },
+                  ),
+                  kOpenHandGap16,
+                  OpenHandAnimatedSwitchTile(
+                    icon: Icons.power_settings_new_rounded,
+                    title: l10n.mcpServerEnabledLabel,
+                    description: l10n.mcpServerEnabledBody,
+                    value: _enabled,
+                    enabled: !_isSaving,
+                    onChanged: (value) {
+                      setState(() {
+                        _enabled = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            kOpenHandGap14,
+            OpenHandDialogSectionCard(
+              icon: Icons.visibility_rounded,
+              accent: colorScheme.tertiary,
+              title: _localizedText(
+                context,
+                zh: '线程模板可见性',
+                en: 'Thread template visibility',
+              ),
+              subtitle: _localizedText(
+                context,
+                zh: '仅选中的线程模板可查看并调用此服务提供的工具。',
+                en: 'Only selected thread templates can see and call tools from this service.',
+              ),
+              trailing: _buildTemplateSelectAllButton(context),
+              child: _buildTemplateVisibilityChips(context),
+            ),
+            kOpenHandGap14,
+            if (useUrlField) ...[
+              OpenHandDialogSectionCard(
+                icon: Icons.link_rounded,
+                accent: OpenHandStatusColors.info,
+                title: l10n.mcpUrlField,
+                child: TextFormField(
+                  controller: _urlController,
+                  enabled: !_isSaving,
+                  decoration: InputDecoration(labelText: l10n.mcpUrlField),
+                  validator: (value) {
+                    final rawValue = value?.trim() ?? '';
+                    if (rawValue.isEmpty) {
+                      return l10n.mcpUrlRequired;
+                    }
+                    if (!isValidHttpUrl(rawValue)) {
+                      return l10n.mcpUrlInvalid;
+                    }
+                    if (context.read<McpController>().isSelfReferencingServer(
+                      McpServer(
+                        name: _nameController.text.trim(),
+                        type: _type,
+                        enabled: _enabled,
+                        url: rawValue,
+                      ),
+                    )) {
+                      return _localizedText(
+                        context,
+                        zh: '该地址指向 OpenHand 自身的 MCP 运维入口，无法添加，否则会造成引用循环与工具无限膨胀。',
+                        en: 'This URL points to OpenHand\'s own MCP operations endpoint and cannot be added; it would create a reference cycle and unbounded tool growth.',
+                      );
+                    }
+                    return null;
+                  },
                 ),
               ),
-              OpenHandDialogSaveActions(
-                busy: _isSaving,
-                cancelLabel: l10n.commonCancel,
-                confirmLabel: l10n.commonSave,
-                onConfirm: _handleSave,
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.vpn_key_outlined,
+                accent: colorScheme.secondary,
+                title: _localizedText(
+                  context,
+                  zh: '请求 Header',
+                  en: 'Request Headers',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '按键值对逐项维护，将随 HTTP / SSE 请求一起发送。',
+                  en: 'Manage headers as key-value rows for HTTP / SSE requests.',
+                ),
+                trailing: FilledButton.tonalIcon(
+                  key: const ValueKey<String>('mcpHeaderAddButton'),
+                  onPressed: _isSaving ? null : _addHeaderRow,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(
+                    _localizedText(context, zh: '新增 Header', en: 'Add Header'),
+                  ),
+                ),
+                child: _buildHeaderEditorRows(context),
+              ),
+            ] else ...[
+              OpenHandDialogSectionCard(
+                icon: Icons.terminal_rounded,
+                accent: OpenHandStatusColors.warning,
+                title: l10n.mcpCommandField,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      controller: _commandController,
+                      enabled: !_isSaving,
+                      decoration: InputDecoration(
+                        labelText: l10n.mcpCommandField,
+                      ),
+                      validator: (value) {
+                        if ((value?.trim() ?? '').isEmpty) {
+                          return l10n.mcpCommandRequired;
+                        }
+                        return null;
+                      },
+                    ),
+                    kOpenHandGap16,
+                    TextField(
+                      controller: _argsController,
+                      enabled: !_isSaving,
+                      minLines: 4,
+                      maxLines: 8,
+                      decoration: InputDecoration(
+                        labelText: l10n.mcpArgsField,
+                        hintText: l10n.mcpArgsHint,
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
-          ),
+            OpenHandDialogErrorText(message: _errorMessage, topGap: 16),
+          ],
         ),
       ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          label: l10n.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: _handleSave,
+          busy: _isSaving,
+          label: l10n.commonSave,
+        ),
+      ],
     );
   }
 
@@ -1763,13 +1808,51 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
     Navigator.of(context).pop(true);
   }
 
-  Widget _buildTemplateVisibilityEditor(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final locale = Localizations.localeOf(context);
+  Widget _buildTemplateSelectAllButton(BuildContext context) {
     final knownIdsSelected = _mcpThreadTemplateIds.every(
       _visibleTemplateIds.contains,
     );
+    return FilledButton.tonalIcon(
+      key: const ValueKey<String>('mcpTemplateVisibilitySelectAllButton'),
+      onPressed: _isSaving || knownIdsSelected
+          ? null
+          : () {
+              setState(() {
+                _visibleTemplateIds.addAll(_mcpThreadTemplateIds);
+                _visibilityErrorMessage = null;
+              });
+            },
+      icon: Icon(
+        knownIdsSelected ? Icons.done_all_rounded : Icons.select_all_rounded,
+      ),
+      label: Text(
+        knownIdsSelected
+            ? _localizedText(
+                context,
+                zh: '已全选',
+                en: 'All selected',
+                zhHant: '已全選',
+                fr: 'Tout sélectionné',
+                de: 'Alle ausgewählt',
+                ja: 'すべて選択済み',
+              )
+            : _localizedText(
+                context,
+                zh: '全选',
+                en: 'Select all',
+                zhHant: '全選',
+                fr: 'Tout sélectionner',
+                de: 'Alle auswählen',
+                ja: 'すべて選択',
+              ),
+      ),
+    );
+  }
+
+  Widget _buildTemplateVisibilityChips(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final locale = Localizations.localeOf(context);
     final unknownTemplateIds =
         _visibleTemplateIds
             .where((id) => !_mcpThreadTemplateIds.contains(id))
@@ -1858,118 +1941,9 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
       );
     }
 
-    final selectAllButton = FilledButton.tonalIcon(
-      key: const ValueKey<String>('mcpTemplateVisibilitySelectAllButton'),
-      onPressed: _isSaving || knownIdsSelected
-          ? null
-          : () {
-              setState(() {
-                _visibleTemplateIds.addAll(_mcpThreadTemplateIds);
-                _visibilityErrorMessage = null;
-              });
-            },
-      icon: Icon(
-        knownIdsSelected ? Icons.done_all_rounded : Icons.select_all_rounded,
-      ),
-      label: Text(
-        knownIdsSelected
-            ? _localizedText(
-                context,
-                zh: '已全选',
-                en: 'All selected',
-                zhHant: '已全選',
-                fr: 'Tout sélectionné',
-                de: 'Alle ausgewählt',
-                ja: 'すべて選択済み',
-              )
-            : _localizedText(
-                context,
-                zh: '全选',
-                en: 'Select all',
-                zhHant: '全選',
-                fr: 'Tout sélectionner',
-                de: 'Alle auswählen',
-                ja: 'すべて選択',
-              ),
-      ),
-    );
-
-    final sectionHeading = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.visibility_rounded,
-              size: 20,
-              color: colorScheme.primary,
-            ),
-            kOpenHandHGap8,
-            Expanded(
-              child: Text(
-                _localizedText(
-                  context,
-                  zh: '线程模板可见性',
-                  en: 'Thread template visibility',
-                  zhHant: '執行緒範本可見性',
-                  fr: 'Visibilité par modèle de fil',
-                  de: 'Sichtbarkeit nach Thread-Vorlage',
-                  ja: 'スレッドテンプレートの表示範囲',
-                ),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-        kOpenHandGap4,
-        Text(
-          _localizedText(
-            context,
-            zh: '仅选中的线程模板可查看并调用此服务提供的工具。',
-            en: 'Only selected thread templates can see and call tools from this service.',
-            zhHant: '只有選取的執行緒範本可以查看並呼叫此服務提供的工具。',
-            fr: 'Seuls les modèles sélectionnés peuvent voir et appeler les outils de ce service.',
-            de: 'Nur ausgewählte Thread-Vorlagen können die Tools dieses Dienstes sehen und aufrufen.',
-            ja: '選択したスレッドテンプレートだけが、このサービスのツールを表示して呼び出せます。',
-          ),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < _mcpTemplateHeaderCompactBreakpoint) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  sectionHeading,
-                  kOpenHandGap10,
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: selectAllButton,
-                  ),
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: sectionHeading),
-                kOpenHandHGap16,
-                selectAllButton,
-              ],
-            );
-          },
-        ),
-        kOpenHandGap12,
         AnimatedSize(
           duration: openHandMotionDuration(context, kOpenHandMotion220),
           curve: kOpenHandSwitchInCurve,
@@ -2013,54 +1987,13 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
     );
   }
 
-  Widget _buildHeaderEditor(BuildContext context) {
+  Widget _buildHeaderEditorRows(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _localizedText(
-                      context,
-                      zh: '请求 Header',
-                      en: 'Request Headers',
-                    ),
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  kOpenHandGap4,
-                  Text(
-                    _localizedText(
-                      context,
-                      zh: '按键值对逐项维护，将随 HTTP / SSE 请求一起发送。',
-                      en: 'Manage headers as key-value rows for HTTP / SSE requests.',
-                    ),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            kOpenHandHGap12,
-            FilledButton.tonalIcon(
-              key: const ValueKey<String>('mcpHeaderAddButton'),
-              onPressed: _isSaving ? null : _addHeaderRow,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(
-                _localizedText(context, zh: '新增 Header', en: 'Add Header'),
-              ),
-            ),
-          ],
-        ),
-        kOpenHandGap12,
         Column(
           children: _headerRows
               .asMap()
@@ -12786,8 +12719,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final inputSchemaMetadata = _displayedSchemaMetadata(
       rawSchema: tool.rawInputSchema,
       normalizedSchema: tool.inputSchema,
@@ -12802,192 +12734,158 @@ class _McpToolDetailsDialog extends StatelessWidget {
     final outputFields = _schemaFields(outputSchemaMetadata);
     final outputDescription = tool.outputDescription?.trim() ?? '';
 
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthWide,
-      maxHeight: kOpenHandDialogHeightTall,
-      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tool.name, style: theme.textTheme.headlineSmall),
-                      kOpenHandGap8,
-                      SelectableText(
-                        '${_localizedText(context, zh: 'Tool ID', en: 'Tool ID')}: ${tool.id}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                kOpenHandHGap12,
-                IconButton(
-                  key: ValueKey<String>('mcpToolDetailsDebugButton-${tool.id}'),
-                  tooltip: _localizedText(
-                    context,
-                    zh: '调试 Tool',
-                    en: 'Debug Tool',
-                  ),
-                  onPressed: () => _showToolDebugDialog(
-                    context,
-                    mcpController: mcpController,
-                    server: server,
-                    toolCatalog: toolCatalog,
-                    initialTool: tool,
-                  ),
-                  icon: const Icon(Icons.play_circle_outline_rounded),
-                ),
-                kOpenHandHGap4,
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
+    return OpenHandEditorDialogScaffold(
+      title: tool.name,
+      subtitle:
+          '${_localizedText(context, zh: 'Tool ID', en: 'Tool ID')}: ${tool.id}',
+      icon: Icons.build_circle_outlined,
+      iconColor: colorScheme.primary,
+      headerActions: [
+        IconButton(
+          key: ValueKey<String>('mcpToolDetailsDebugButton-${tool.id}'),
+          tooltip: _localizedText(context, zh: '调试 Tool', en: 'Debug Tool'),
+          onPressed: () => _showToolDebugDialog(
+            context,
+            mcpController: mcpController,
+            server: server,
+            toolCatalog: toolCatalog,
+            initialTool: tool,
+          ),
+          icon: const Icon(Icons.play_circle_outline_rounded),
+        ),
+      ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (tool.description.trim().isNotEmpty) ...[
+            OpenHandDialogSectionCard(
+              icon: Icons.notes_outlined,
+              accent: colorScheme.primary,
+              title: _localizedText(context, zh: '工具说明', en: 'Description'),
+              child: _ToolDescriptionPanel(description: tool.description),
             ),
-            kOpenHandGap18,
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (tool.description.trim().isNotEmpty) ...[
-                      _ToolDescriptionPanel(description: tool.description),
-                      kOpenHandGap14,
-                    ],
-                    if (tool.hasMetadataWarning) ...[
-                      OpenHandInlineNoticeFactory.warning(
-                        context,
-                        tool.metadataWarning!,
-                      ),
-                      kOpenHandGap14,
-                    ],
-                    _ToolMetaGrid(
-                      children: [
-                        _ToolMetaTile(
-                          label: _localizedText(
-                            context,
-                            zh: '入參信息',
-                            en: 'Input Metadata',
-                          ),
-                          value: _schemaSummary(
-                            context,
-                            rawSchema: inputSchemaMetadata,
-                            fields: inputFields,
-                          ),
-                        ),
-                        _ToolMetaTile(
-                          label: _localizedText(
-                            context,
-                            zh: '返回信息',
-                            en: 'Output Metadata',
-                          ),
-                          value: _schemaSummary(
-                            context,
-                            rawSchema: outputSchemaMetadata,
-                            fields: outputFields,
-                            description: outputDescription,
-                          ),
-                        ),
-                        _ToolMetaTile(
-                          label: _localizedText(
-                            context,
-                            zh: '执行能力',
-                            en: 'Execution',
-                          ),
-                          value: _executionSummary(context, tool),
-                        ),
-                      ],
-                    ),
-                    kOpenHandGap20,
-                    _ToolSchemaSection(
-                      title: _localizedText(
-                        context,
-                        zh: '入參',
-                        en: 'Parameters',
-                      ),
-                      fields: inputFields,
-                      schema: inputSchemaMetadata,
-                      emptyLabel: _localizedText(
-                        context,
-                        zh: '该 Tool 未声明结构化入參字段。',
-                        en: 'This tool does not declare structured input fields.',
-                      ),
-                    ),
-                    kOpenHandGap20,
-                    if (outputDescription.isNotEmpty) ...[
-                      _ToolTextSection(
-                        title: _localizedText(
-                          context,
-                          zh: '返回说明',
-                          en: 'Return Description',
-                        ),
-                        body: outputDescription,
-                        caption: tool.outputDescriptionIsInferred
-                            ? _localizedText(
-                                context,
-                                zh: '基于 Tool 描述推断',
-                                en: 'Derived from the tool description',
-                              )
-                            : null,
-                      ),
-                      kOpenHandGap20,
-                    ],
-                    _ToolSchemaSection(
-                      title: _localizedText(
-                        context,
-                        zh: '返回值',
-                        en: 'Return Value',
-                      ),
-                      fields: outputFields,
-                      schema: outputSchemaMetadata,
-                      emptyLabel: outputSchemaMetadata == null
-                          ? outputDescription.isNotEmpty
-                                ? _localizedText(
-                                    context,
-                                    zh: '该 Tool 未声明结构化返回值定义。',
-                                    en: 'This tool does not declare a structured output schema.',
-                                  )
-                                : _localizedText(
-                                    context,
-                                    zh: '该 Tool 未声明返回值定义。',
-                                    en: 'This tool does not declare an output schema.',
-                                  )
-                          : _localizedText(
-                              context,
-                              zh: '返回值定义未提供结构化字段。',
-                              en: 'The output schema does not expose structured fields.',
-                            ),
-                    ),
-                    if (tool.hasMetadataWarning && tool.hasRawMetadata) ...[
-                      kOpenHandGap20,
-                      Text(
-                        _localizedText(
-                          context,
-                          zh: '服务端原始元数据',
-                          en: 'Raw Server Metadata',
-                        ),
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      kOpenHandGap12,
-                      _ToolSchemaPanel(schema: tool.rawMetadata),
-                    ],
-                  ],
+            kOpenHandGap14,
+          ],
+          if (tool.hasMetadataWarning) ...[
+            OpenHandInlineNoticeFactory.warning(context, tool.metadataWarning!),
+            kOpenHandGap14,
+          ],
+          _ToolMetaGrid(
+            children: [
+              _ToolMetaTile(
+                label: _localizedText(
+                  context,
+                  zh: '入參信息',
+                  en: 'Input Metadata',
                 ),
+                value: _schemaSummary(
+                  context,
+                  rawSchema: inputSchemaMetadata,
+                  fields: inputFields,
+                ),
+                accent: colorScheme.primary,
+              ),
+              _ToolMetaTile(
+                label: _localizedText(
+                  context,
+                  zh: '返回信息',
+                  en: 'Output Metadata',
+                ),
+                value: _schemaSummary(
+                  context,
+                  rawSchema: outputSchemaMetadata,
+                  fields: outputFields,
+                  description: outputDescription,
+                ),
+                accent: colorScheme.tertiary,
+              ),
+              _ToolMetaTile(
+                label: _localizedText(context, zh: '执行能力', en: 'Execution'),
+                value: _executionSummary(context, tool),
+                accent: OpenHandStatusColors.info,
+              ),
+            ],
+          ),
+          kOpenHandGap14,
+          OpenHandDialogSectionCard(
+            icon: Icons.input_rounded,
+            accent: colorScheme.primary,
+            title: _localizedText(context, zh: '入參', en: 'Parameters'),
+            child: _ToolSchemaSection(
+              title: '',
+              fields: inputFields,
+              schema: inputSchemaMetadata,
+              emptyLabel: _localizedText(
+                context,
+                zh: '该 Tool 未声明结构化入參字段。',
+                en: 'This tool does not declare structured input fields.',
               ),
             ),
+          ),
+          if (outputDescription.isNotEmpty) ...[
+            kOpenHandGap14,
+            OpenHandDialogSectionCard(
+              icon: Icons.notes_outlined,
+              accent: colorScheme.tertiary,
+              title: _localizedText(
+                context,
+                zh: '返回说明',
+                en: 'Return Description',
+              ),
+              subtitle: tool.outputDescriptionIsInferred
+                  ? _localizedText(
+                      context,
+                      zh: '基于 Tool 描述推断',
+                      en: 'Derived from the tool description',
+                    )
+                  : null,
+              child: _ToolDescriptionPanel(description: outputDescription),
+            ),
           ],
-        ),
+          kOpenHandGap14,
+          OpenHandDialogSectionCard(
+            icon: Icons.output_rounded,
+            accent: colorScheme.tertiary,
+            title: _localizedText(context, zh: '返回值', en: 'Return Value'),
+            child: _ToolSchemaSection(
+              title: '',
+              fields: outputFields,
+              schema: outputSchemaMetadata,
+              emptyLabel: outputSchemaMetadata == null
+                  ? outputDescription.isNotEmpty
+                        ? _localizedText(
+                            context,
+                            zh: '该 Tool 未声明结构化返回值定义。',
+                            en: 'This tool does not declare a structured output schema.',
+                          )
+                        : _localizedText(
+                            context,
+                            zh: '该 Tool 未声明返回值定义。',
+                            en: 'This tool does not declare an output schema.',
+                          )
+                  : _localizedText(
+                      context,
+                      zh: '返回值定义未提供结构化字段。',
+                      en: 'The output schema does not expose structured fields.',
+                    ),
+            ),
+          ),
+          if (tool.hasMetadataWarning && tool.hasRawMetadata) ...[
+            kOpenHandGap14,
+            OpenHandDialogSectionCard(
+              icon: Icons.data_object_rounded,
+              accent: OpenHandStatusColors.warning,
+              title: _localizedText(
+                context,
+                zh: '服务端原始元数据',
+                en: 'Raw Server Metadata',
+              ),
+              child: _ToolSchemaPanel(schema: tool.rawMetadata),
+            ),
+          ],
+        ],
       ),
+      actions: const <Widget>[],
     );
   }
 }
@@ -13467,243 +13365,155 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
             normalizedSchema: tool.inputSchema,
             hasRawMetadata: tool.hasRawMetadata,
           );
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
+    return OpenHandEditorDialogScaffold(
+      title: _localizedText(context, zh: '调试MCP工具', en: 'Debug MCP Tool'),
+      subtitle:
+          '${widget.server.name} · ${widget.server.type.label(AppLocalizations.of(context)!)}',
+      icon: Icons.play_circle_outline_rounded,
+      iconColor: colorScheme.primary,
+      busy: _isRunning,
+      closeEnabled: !_isRunning,
+      canPop: !_isRunning,
       maxWidth: kOpenHandDialogWidthExtraWide,
       maxHeight: kOpenHandDialogHeightFull,
-      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: tool == null
+          ? OpenHandInlineEmptyState(
+              message: _localizedText(
+                context,
+                zh: '当前服务还没有可调试的工具，请先刷新工具列表。',
+                en: 'No tools are available for debugging yet. Refresh the tool list first.',
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _localizedText(
-                          context,
-                          zh: '调试MCP工具',
-                          en: 'Debug MCP Tool',
+                OpenHandDialogSectionCard(
+                  icon: Icons.build_circle_outlined,
+                  accent: colorScheme.primary,
+                  title: _localizedText(context, zh: '选择工具', en: 'Tool'),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      key: ValueKey<String>('mcpToolDebugToolField-${tool.id}'),
+                      onTap: _isRunning ? null : _showToolMenu,
+                      borderRadius: kOpenHandBorderRadius18,
+                      child: InputDecorator(
+                        key: _toolMenuAnchorKey,
+                        isFocused: _toolMenuOpen,
+                        isEmpty: tool.name.trim().isEmpty,
+                        decoration: InputDecoration(
+                          labelText: _localizedText(
+                            context,
+                            zh: '选择工具',
+                            en: 'Tool',
+                          ),
+                          suffixIcon: Icon(
+                            _toolMenuOpen
+                                ? Icons.arrow_drop_up_rounded
+                                : Icons.arrow_drop_down_rounded,
+                          ),
                         ),
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                      kOpenHandGap8,
-                      Text(
-                        '${widget.server.name} · ${widget.server.type.label(AppLocalizations.of(context)!)}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                        child: Row(
+                          children: [
+                            Icon(
+                              tool.hasMetadataWarning
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.build_circle_outlined,
+                              size: 18,
+                              color: tool.hasMetadataWarning
+                                  ? colorScheme.error
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                            kOpenHandHGap10,
+                            Expanded(
+                              child: Text(
+                                tool.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyLarge,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            kOpenHandGap18,
-            if (tool == null)
-              Expanded(
-                child: OpenHandInlineEmptyState(
-                  message: _localizedText(
+                if (tool.description.trim().isNotEmpty) ...[
+                  kOpenHandGap14,
+                  OpenHandDialogSectionCard(
+                    icon: Icons.notes_outlined,
+                    accent: colorScheme.tertiary,
+                    title: _localizedText(
+                      context,
+                      zh: '工具说明',
+                      en: 'Description',
+                    ),
+                    child: _ToolDescriptionPanel(description: tool.description),
+                  ),
+                ],
+                kOpenHandGap14,
+                OpenHandDialogSectionCard(
+                  icon: Icons.tune_rounded,
+                  accent: OpenHandStatusColors.info,
+                  title: _localizedText(context, zh: '参数配置', en: 'Arguments'),
+                  subtitle: _localizedText(
                     context,
-                    zh: '当前服务还没有可调试的工具，请先刷新工具列表。',
-                    en: 'No tools are available for debugging yet. Refresh the tool list first.',
+                    zh: '按工具 Schema 逐项填写，提交前会自动校验并组装参数。',
+                    en: 'Complete the schema-driven fields. Values are validated and assembled automatically.',
+                  ),
+                  child: _McpToolArgumentsForm(
+                    key: ObjectKey(_argumentsDraft),
+                    draft: _argumentsDraft,
+                    enabled: !_isRunning,
+                    onChanged: () {
+                      if (_errorMessage != null) {
+                        setState(() => _errorMessage = null);
+                      }
+                    },
                   ),
                 ),
-              )
-            else
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          key: ValueKey<String>(
-                            'mcpToolDebugToolField-${tool.id}',
+                if (widget.server.type == McpServerType.streamableHttp ||
+                    widget.server.type == McpServerType.sse) ...[
+                  kOpenHandGap14,
+                  _buildHeaderConfigSection(context),
+                ],
+                OpenHandInlineNoticeSlot(
+                  child: _errorMessage != null
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: OpenHandInlineNoticeFactory.error(
+                            context,
+                            _errorMessage!,
                           ),
-                          onTap: _isRunning ? null : _showToolMenu,
-                          borderRadius: kOpenHandBorderRadius18,
-                          child: InputDecorator(
-                            key: _toolMenuAnchorKey,
-                            isFocused: _toolMenuOpen,
-                            isEmpty: tool.name.trim().isEmpty,
-                            decoration: InputDecoration(
-                              labelText: _localizedText(
-                                context,
-                                zh: '选择工具',
-                                en: 'Tool',
-                              ),
-                              border: const OutlineInputBorder(
-                                borderRadius: kOpenHandBorderRadius18,
-                              ),
-                              suffixIcon: Icon(
-                                _toolMenuOpen
-                                    ? Icons.arrow_drop_up_rounded
-                                    : Icons.arrow_drop_down_rounded,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  tool.hasMetadataWarning
-                                      ? Icons.warning_amber_rounded
-                                      : Icons.build_circle_outlined,
-                                  size: 18,
-                                  color: tool.hasMetadataWarning
-                                      ? colorScheme.error
-                                      : colorScheme.onSurfaceVariant,
-                                ),
-                                kOpenHandHGap10,
-                                Expanded(
-                                  child: Text(
-                                    tool.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyLarge,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      kOpenHandGap14,
-                      if (tool.description.trim().isNotEmpty) ...[
-                        _ToolDescriptionPanel(description: tool.description),
-                        kOpenHandGap14,
-                      ],
-                      Text(
-                        _localizedText(context, zh: '参数配置', en: 'Arguments'),
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      kOpenHandGap4,
-                      Text(
-                        _localizedText(
-                          context,
-                          zh: '按工具 Schema 逐项填写，提交前会自动校验并组装参数。',
-                          en: 'Complete the schema-driven fields. Values are validated and assembled automatically.',
-                        ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      kOpenHandGap12,
-                      _McpToolArgumentsForm(
-                        key: ObjectKey(_argumentsDraft),
-                        draft: _argumentsDraft,
-                        enabled: !_isRunning,
-                        onChanged: () {
-                          if (_errorMessage != null) {
-                            setState(() => _errorMessage = null);
-                          }
-                        },
-                      ),
-                      kOpenHandGap16,
-                      if (widget.server.type == McpServerType.streamableHttp ||
-                          widget.server.type == McpServerType.sse)
-                        _buildHeaderConfigSection(context),
-                      kOpenHandGap12,
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          OpenHandDialogActionButton.primary(
-                            key: const ValueKey<String>(
-                              'mcpToolDebugRunButton',
-                            ),
-                            onPressed: _isRunning ? null : _runTool,
-                            icon: Icons.play_arrow_rounded,
-                            busy: _isRunning,
-                            label: _isRunning
-                                ? _localizedText(
-                                    context,
-                                    zh: '执行中',
-                                    en: 'Running',
-                                  )
-                                : _localizedText(
-                                    context,
-                                    zh: '执行工具',
-                                    en: 'Run Tool',
-                                  ),
-                          ),
-                          OpenHandDialogActionButton.secondary(
-                            onPressed: _isRunning
-                                ? null
-                                : () {
-                                    final previousDraft = _argumentsDraft;
-                                    setState(() {
-                                      _argumentsDraft =
-                                          _McpArgumentObjectDraft.fromSchema(
-                                            tool.inputSchema,
-                                          );
-                                      _errorMessage = null;
-                                    });
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback(
-                                          (_) => previousDraft.dispose(),
-                                        );
-                                  },
-                            icon: Icons.restart_alt_rounded,
-                            label: _localizedText(
-                              context,
-                              zh: '恢复示例参数',
-                              en: 'Reset Sample',
-                            ),
-                          ),
-                        ],
-                      ),
-                      OpenHandInlineNoticeSlot(
-                        child: _errorMessage != null
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 14),
-                                child: OpenHandInlineNoticeFactory.error(
-                                  context,
-                                  _errorMessage!,
-                                ),
-                              )
-                            : null,
-                      ),
-                      kOpenHandGap20,
-                      Text(
-                        _localizedText(
-                          context,
-                          zh: '工具 Schema 定义',
-                          en: 'Tool Schema',
-                        ),
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      kOpenHandGap12,
-                      _ToolSchemaPanel(
-                        schema:
-                            inputSchemaMetadata ??
-                            const <String, Object?>{'type': 'object'},
-                        label: _localizedText(
-                          context,
-                          zh: 'Schema',
-                          en: 'Schema',
-                        ),
-                      ),
-                      kOpenHandGap20,
-                      Text(
-                        _localizedText(context, zh: '执行结果', en: 'Result'),
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      kOpenHandGap12,
-                      if (_result == null &&
-                          _errorMessage == null &&
-                          !_isRunning)
-                        Text(
+                        )
+                      : null,
+                ),
+                kOpenHandGap14,
+                OpenHandDialogSectionCard(
+                  icon: Icons.data_object_rounded,
+                  accent: colorScheme.secondary,
+                  title: _localizedText(
+                    context,
+                    zh: '工具 Schema 定义',
+                    en: 'Tool Schema',
+                  ),
+                  child: _ToolSchemaPanel(
+                    schema:
+                        inputSchemaMetadata ??
+                        const <String, Object?>{'type': 'object'},
+                    label: _localizedText(context, zh: 'Schema', en: 'Schema'),
+                  ),
+                ),
+                kOpenHandGap14,
+                OpenHandDialogSectionCard(
+                  icon: Icons.terminal_rounded,
+                  accent: _result?.isError == true
+                      ? colorScheme.error
+                      : OpenHandStatusColors.success,
+                  title: _localizedText(context, zh: '执行结果', en: 'Result'),
+                  child: _result == null && _errorMessage == null && !_isRunning
+                      ? Text(
                           _localizedText(
                             context,
                             zh: '执行后会在这里展示原始返回结果。',
@@ -13713,46 +13523,75 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                             color: colorScheme.onSurfaceVariant,
                           ),
                         )
-                      else if (_result != null) ...[
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
+                      : _result != null
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _McpStatusChip(
-                              icon: _result!.isError
-                                  ? Icons.error_outline_rounded
-                                  : Icons.check_circle_outline_rounded,
-                              label: _result!.isError
-                                  ? _localizedText(
-                                      context,
-                                      zh: '服务端返回错误',
-                                      en: 'Server Returned Error',
-                                    )
-                                  : _localizedText(
-                                      context,
-                                      zh: '执行成功',
-                                      en: 'Succeeded',
-                                    ),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _McpStatusChip(
+                                  icon: _result!.isError
+                                      ? Icons.error_outline_rounded
+                                      : Icons.check_circle_outline_rounded,
+                                  label: _result!.isError
+                                      ? _localizedText(
+                                          context,
+                                          zh: '服务端返回错误',
+                                          en: 'Server Returned Error',
+                                        )
+                                      : _localizedText(
+                                          context,
+                                          zh: '执行成功',
+                                          en: 'Succeeded',
+                                        ),
+                                ),
+                              ],
                             ),
+                            kOpenHandGap12,
+                            _McpFormattedResultPanel(result: _result!),
                           ],
-                        ),
-                        kOpenHandGap12,
-                        _McpFormattedResultPanel(result: _result!),
-                      ] else if (_isRunning)
-                        _ToolConsolePanel(
+                        )
+                      : _ToolConsolePanel(
                           content: _localizedText(
                             context,
                             zh: '正在等待 MCP 服务返回结果...',
                             en: 'Waiting for the MCP service to return a result...',
                           ),
                         ),
-                    ],
-                  ),
                 ),
-              ),
-          ],
+              ],
+            ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: tool == null || _isRunning
+              ? null
+              : () {
+                  final previousDraft = _argumentsDraft;
+                  setState(() {
+                    _argumentsDraft = _McpArgumentObjectDraft.fromSchema(
+                      tool.inputSchema,
+                    );
+                    _errorMessage = null;
+                  });
+                  WidgetsBinding.instance.addPostFrameCallback(
+                    (_) => previousDraft.dispose(),
+                  );
+                },
+          icon: Icons.restart_alt_rounded,
+          label: _localizedText(context, zh: '恢复示例参数', en: 'Reset Sample'),
         ),
-      ),
+        OpenHandDialogActionButton.primary(
+          key: const ValueKey<String>('mcpToolDebugRunButton'),
+          onPressed: tool == null || _isRunning ? null : _runTool,
+          icon: Icons.play_arrow_rounded,
+          busy: _isRunning,
+          label: _isRunning
+              ? _localizedText(context, zh: '执行中', en: 'Running')
+              : _localizedText(context, zh: '执行工具', en: 'Run Tool'),
+        ),
+      ],
     );
   }
 }
@@ -14694,33 +14533,28 @@ class _McpToolDebugMenuItem extends StatelessWidget {
 }
 
 class _ToolMetaTile extends StatelessWidget {
-  const _ToolMetaTile({required this.label, required this.value});
+  const _ToolMetaTile({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
 
   final String label;
   final String value;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: kOpenHandBorderRadius18,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          kOpenHandGap6,
-          Text(value, style: Theme.of(context).textTheme.titleLarge),
-        ],
+    final theme = Theme.of(context);
+    return OpenHandTintedPanel(
+      accent: accent,
+      title: label,
+      child: Text(
+        value,
+        style: theme.textTheme.titleLarge?.copyWith(
+          color: accent,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -14811,41 +14645,6 @@ class _ToolDescriptionPanel extends StatelessWidget {
   }
 }
 
-class _ToolTextSection extends StatelessWidget {
-  const _ToolTextSection({
-    required this.title,
-    required this.body,
-    this.caption,
-  });
-
-  final String title;
-  final String body;
-  final String? caption;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.titleLarge),
-        if (caption?.trim().isNotEmpty ?? false) ...[
-          kOpenHandGap4,
-          Text(
-            caption!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-        kOpenHandGap12,
-        _ToolDescriptionPanel(description: body),
-      ],
-    );
-  }
-}
-
 class _ToolSchemaSection extends StatelessWidget {
   const _ToolSchemaSection({
     required this.title,
@@ -14865,8 +14664,10 @@ class _ToolSchemaSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.titleLarge),
-        kOpenHandGap12,
+        if (title.trim().isNotEmpty) ...[
+          Text(title, style: theme.textTheme.titleLarge),
+          kOpenHandGap12,
+        ],
         if (fields.isEmpty)
           Text(
             emptyLabel,

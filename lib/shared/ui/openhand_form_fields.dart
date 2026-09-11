@@ -992,6 +992,7 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
     required this.actions,
     this.subtitle,
     this.iconColor,
+    this.headerActions = const <Widget>[],
     this.busy = false,
     this.closeEnabled = true,
     this.canPop = true,
@@ -1003,6 +1004,7 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
   final String? subtitle;
   final IconData icon;
   final Color? iconColor;
+  final List<Widget> headerActions;
   final Widget body;
   final List<Widget> actions;
   final bool busy;
@@ -1030,6 +1032,7 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
               iconColor: iconColor ?? colorScheme.primary,
               title: title,
               subtitle: subtitle,
+              actions: headerActions,
               closeEnabled: closeEnabled,
             ),
             Expanded(
@@ -1038,30 +1041,35 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
                 child: body,
               ),
             ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.94),
-                border: Border(
-                  top: BorderSide(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+            if (actions.isEmpty)
+              const SizedBox.shrink()
+            else
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHigh.withValues(
+                    alpha: 0.94,
+                  ),
+                  border: Border(
+                    top: BorderSide(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OpenHandDialogBusyBar(busy: busy, topGap: 0),
+                      if (busy) kOpenHandGap10,
+                      buildOpenHandDialogActionsBar(
+                        padding: EdgeInsets.zero,
+                        actions: actions,
+                      ),
+                    ],
                   ),
                 ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OpenHandDialogBusyBar(busy: busy, topGap: 0),
-                    if (busy) kOpenHandGap10,
-                    buildOpenHandDialogActionsBar(
-                      padding: EdgeInsets.zero,
-                      actions: actions,
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       ),
