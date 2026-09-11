@@ -1626,6 +1626,9 @@ class McpController extends ChangeNotifier {
     }
     final normalizedServer = server.copyWith(
       name: normalizedName,
+      url: server.type == McpServerType.stdio
+          ? server.url
+          : migrateLegacyMcpEndpointUrl(server.url),
       visibleTemplateIds: server.visibleTemplateIds == null
           ? null
           : Set<String>.unmodifiable(server.visibleTemplateIds!),

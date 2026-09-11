@@ -15,6 +15,28 @@ import '../../../shared/util/user_failure_message.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 
+const Map<String, String> _legacyMcpEndpointHosts = <String, String>{
+  'agi.op.zuoyebang.cc': 'agi.op.yukework.com',
+  'cb.op.zuoyebang.cc': 'cb.op.yukework.com',
+};
+
+/// 将已下线的作业帮 MCP 域名迁移到当前工作域名。
+///
+/// 仅替换明确下线的完整主机名；协议、端口、路径、查询参数和片段保持不变。
+String migrateLegacyMcpEndpointUrl(String rawUrl) {
+  final uri = Uri.tryParse(rawUrl);
+  if (uri == null ||
+      (uri.scheme != 'http' && uri.scheme != 'https') ||
+      uri.host.isEmpty) {
+    return rawUrl;
+  }
+  final host = uri.host.toLowerCase();
+  final migratedHost = _legacyMcpEndpointHosts[host];
+  return migratedHost == null
+      ? rawUrl
+      : uri.replace(host: migratedHost).toString();
+}
+
 enum McpPersistenceIssueKind { loadFailed, invalidContent, saveFailed }
 
 class McpPersistenceIssue {
@@ -105,6 +127,13 @@ class McpStore {
           expectedContent: raw,
           rootExtraFields: parsed.rootExtraFields,
         );
+        if (parsed.requiresRewrite) {
+          try {
+            await save(parsed.servers);
+          } catch (error, stack) {
+            silentLog('mcp_store', '保存 MCP 旧域名迁移结果', error, stack);
+          }
+        }
         return McpLoadResult(servers: parsed.servers, canPersist: true);
       } catch (error, stack) {
         silentLog('mcp_store', '解析 MCP 配置', error, stack);
@@ -141,11 +170,16 @@ class McpStore {
     }
     final servers = <McpServer>[];
     final normalizedNames = <String>{};
+    var requiresRewrite = false;
     for (final entry in rawServers.entries) {
       if (entry.key is! String) {
         throw const FormatException('MCP 服务名称必须为文本。');
       }
       final server = _parseServer(entry.key as String, entry.value);
+      final rawUrl = entry.value is Map ? entry.value['url'] : null;
+      if (rawUrl is String && rawUrl != server.url) {
+        requiresRewrite = true;
+      }
       if (!normalizedNames.add(server.name.toLowerCase())) {
         throw FormatException('MCP 服务名称重复：${server.name}');
       }
@@ -157,6 +191,7 @@ class McpStore {
         for (final entry in root.entries)
           if (entry.key != _serversRootKey) entry.key: entry.value,
       }),
+      requiresRewrite: requiresRewrite,
     );
   }
 
@@ -168,9 +203,12 @@ class McpStore {
       throw const FormatException('MCP 服务名称无效。');
     }
     final source = _jsonObject(rawValue, 'MCP 服务 $name');
-    final url = _optionalText(source, 'url');
+    final rawUrl = _optionalText(source, 'url');
     final command = _optionalText(source, 'command');
-    final type = _resolveType(source, url: url, command: command);
+    final type = _resolveType(source, url: rawUrl, command: command);
+    final url = type == McpServerType.stdio
+        ? rawUrl
+        : migrateLegacyMcpEndpointUrl(rawUrl);
     final server = McpServer(
       name: name,
       type: type,
@@ -230,7 +268,12 @@ class McpStore {
     }
     final names = <String>{};
     final entries = <String, Object?>{};
-    for (final server in servers) {
+    for (final sourceServer in servers) {
+      final server = sourceServer.type == McpServerType.stdio
+          ? sourceServer
+          : sourceServer.copyWith(
+              url: migrateLegacyMcpEndpointUrl(sourceServer.url),
+            );
       _validateServer(server);
       if (!names.add(server.name.toLowerCase())) {
         throw FormatException('MCP 服务重复：${server.name}');
@@ -502,8 +545,13 @@ class McpStore {
 }
 
 class _ParsedRoot {
-  const _ParsedRoot({required this.servers, required this.rootExtraFields});
+  const _ParsedRoot({
+    required this.servers,
+    required this.rootExtraFields,
+    required this.requiresRewrite,
+  });
 
   final List<McpServer> servers;
   final Map<String, Object?> rootExtraFields;
+  final bool requiresRewrite;
 }
