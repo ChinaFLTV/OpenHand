@@ -485,14 +485,11 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
             ),
             actions: [
               if (widget.onClear != null)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 8),
-                  child: IconButton(
-                    key: const ValueKey<String>('toolSearchClearAction'),
-                    tooltip: l10n.snackToolSearchLoadedClearAction,
-                    onPressed: _names.isEmpty ? null : _handleClear,
-                    icon: const Icon(Icons.delete_sweep_rounded, size: 19),
-                  ),
+                IconButton(
+                  key: const ValueKey<String>('toolSearchClearAction'),
+                  tooltip: l10n.snackToolSearchLoadedClearAction,
+                  onPressed: _names.isEmpty ? null : _handleClear,
+                  icon: const Icon(Icons.delete_sweep_rounded, size: 19),
                 ),
             ],
             closeTooltip: l10n.snackToolSearchLoadedDialogClose,
