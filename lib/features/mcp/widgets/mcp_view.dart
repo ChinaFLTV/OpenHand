@@ -572,7 +572,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               case _McpCardAction.viewHistory:
                 _showHealthHistorySheet(context, server.name);
               case _McpCardAction.viewDetails:
-                _showServerDetailsSheet(context, server);
+                _showServerDetailsDialog(context, server);
             }
           },
         );
@@ -932,32 +932,25 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     );
   }
 
-  /// 服务详情抽屉：基于 healthStatus / toolCatalog 聚合可读统计（成功率、平均耗时、
+  /// 服务详情弹窗：基于 healthStatus / toolCatalog 聚合可读统计（成功率、平均耗时、
   /// 最近成功 / 失败时间、Tool 数量），同时展示 server 的关键配置摘要。仅读，不可编辑。
-  void _showServerDetailsSheet(BuildContext context, McpServer server) {
-    showAnimatedModalSheet<void>(
+  void _showServerDetailsDialog(BuildContext context, McpServer server) {
+    showAnimatedDialog<void>(
       context: context,
-      builder: (sheetContext) {
-        return ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.86,
-            minHeight: 320,
+      builder: (_) {
+        return Selector<
+          McpController,
+          ({McpServerHealth health, McpToolCatalog catalog})
+        >(
+          selector: (_, controller) => (
+            health: controller.healthStatusFor(server.name),
+            catalog: controller.toolCatalogFor(server.name),
           ),
-          child:
-              Selector<
-                McpController,
-                ({McpServerHealth health, McpToolCatalog catalog})
-              >(
-                selector: (_, controller) => (
-                  health: controller.healthStatusFor(server.name),
-                  catalog: controller.toolCatalogFor(server.name),
-                ),
-                builder: (context, snapshot, _) => _McpServerDetailsSheet(
-                  server: server,
-                  health: snapshot.health,
-                  toolCatalog: snapshot.catalog,
-                ),
-              ),
+          builder: (context, snapshot, _) => _McpServerDetailsDialog(
+            server: server,
+            health: snapshot.health,
+            toolCatalog: snapshot.catalog,
+          ),
         );
       },
     );
@@ -10655,6 +10648,12 @@ class _McpAttentionChip extends StatelessWidget {
   }
 }
 
+int _mcpSchemaPropertyCount(Map<String, Object?>? schema) {
+  final properties = schema?['properties'];
+  if (properties is Map) return properties.length;
+  return 0;
+}
+
 ({int successCount, int failureCount, int? successRate, int? avgLatency})
 _mcpProbeStats(List<McpHealthProbeRecord> probes) {
   final successCount = probes
@@ -10680,10 +10679,10 @@ _mcpProbeStats(List<McpHealthProbeRecord> probes) {
   );
 }
 
-/// 服务详情抽屉：展示服务配置摘要 + 聚合健康统计 + Tool 数量。
+/// 服务详情弹窗：展示服务配置摘要 + 聚合健康统计 + Tool 数量。
 /// 数据来源全部为 controller 既有快照，无独立请求。
-class _McpServerDetailsSheet extends StatelessWidget {
-  const _McpServerDetailsSheet({
+class _McpServerDetailsDialog extends StatelessWidget {
+  const _McpServerDetailsDialog({
     required this.server,
     required this.health,
     required this.toolCatalog,
@@ -10749,285 +10748,322 @@ class _McpServerDetailsSheet extends StatelessWidget {
         ? null
         : _formatRelativePast(context, lastFailureAt);
     final endpoint = server.summary.trim();
+    final l10n = AppLocalizations.of(context)!;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        buildOpenHandToolDialogHeader(
-          context: context,
-          icon: Icons.dns_outlined,
-          iconColor: colorScheme.primary,
-          iconWidget: ClipRRect(
-            borderRadius: kOpenHandBorderRadius12,
-            child: ColoredBox(
-              color: colorScheme.primaryContainer,
-              child: SizedBox(
-                width: 36,
-                height: 36,
-                child: Center(
-                  child: Text(
-                    server.initials,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightFull,
+      safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.dns_outlined,
+            iconColor: colorScheme.primary,
+            iconWidget: ClipRRect(
+              borderRadius: kOpenHandBorderRadius12,
+              child: ColoredBox(
+                color: colorScheme.primaryContainer,
+                child: SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Center(
+                    child: Text(
+                      server.initials,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
+            title: _localizedText(context, zh: '服务详情', en: 'Server details'),
+            subtitle: server.name,
           ),
-          title: _localizedText(context, zh: '服务详情', en: 'Server details'),
-          subtitle: server.name,
-        ),
-        Flexible(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-            children: [
-              OpenHandDialogSectionCard(
-                icon: Icons.tune_rounded,
-                accent: colorScheme.primary,
-                title: _localizedText(context, zh: '配置摘要', en: 'Configuration'),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OpenHandStatusPill(
-                          icon: Icons.swap_horiz_rounded,
-                          label: server.type.label(
-                            AppLocalizations.of(context)!,
-                          ),
-                          color: colorScheme.primary,
-                        ),
-                        OpenHandStatusPill(
-                          icon: server.enabled
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.pause_circle_outline_rounded,
-                          label: server.enabled
-                              ? _localizedText(
-                                  context,
-                                  zh: '已启用',
-                                  en: 'Enabled',
-                                )
-                              : _localizedText(
-                                  context,
-                                  zh: '已停用',
-                                  en: 'Disabled',
-                                ),
-                          color: server.enabled
-                              ? OpenHandStatusColors.success
-                              : colorScheme.outline,
-                        ),
-                        if (server.headers.isNotEmpty)
-                          OpenHandFactChip(
-                            icon: Icons.badge_outlined,
-                            label: _localizedText(
-                              context,
-                              zh: '请求头 ${server.headers.length}',
-                              en: '${server.headers.length} headers',
-                            ),
-                            color: colorScheme.secondary,
-                          ),
-                      ],
-                    ),
-                    kOpenHandGap12,
-                    OpenHandTintedPanel(
-                      accent: OpenHandStatusColors.info,
-                      icon: Icons.link_rounded,
-                      title: _localizedText(
-                        context,
-                        zh: '接入地址',
-                        en: 'Endpoint',
-                      ),
-                      child: SelectableText(
-                        endpoint.isEmpty ? '—' : endpoint,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                          height: 1.45,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              kOpenHandGap14,
-              OpenHandDialogSectionCard(
-                icon: Icons.monitor_heart_outlined,
-                accent: healthColor,
-                title: _localizedText(context, zh: '健康统计', en: 'Health'),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    OpenHandMetricsStrip(
-                      items: [
-                        (
-                          label: _localizedText(
-                            context,
-                            zh: '当前状态',
-                            en: 'Status',
-                          ),
-                          value: healthLabel,
-                          accent: healthColor,
-                        ),
-                        (
-                          label: _localizedText(
-                            context,
-                            zh: '近期成功率',
-                            en: 'Success rate',
-                          ),
-                          value: stats.successRate == null
-                              ? '—'
-                              : '${stats.successRate}%',
-                          accent: colorScheme.primary,
-                        ),
-                        (
-                          label: _localizedText(
-                            context,
-                            zh: '平均耗时',
-                            en: 'Avg latency',
-                          ),
-                          value: stats.avgLatency == null
-                              ? '—'
-                              : '${stats.avgLatency} ms',
-                          accent: OpenHandStatusColors.info,
-                        ),
-                        (
-                          label: _localizedText(
-                            context,
-                            zh: '连续失败',
-                            en: 'Fail streak',
-                          ),
-                          value: '${health.consecutiveFailures}',
-                          accent: health.consecutiveFailures > 0
-                              ? colorScheme.error
-                              : OpenHandStatusColors.success,
-                        ),
-                      ],
-                    ),
-                    kOpenHandGap12,
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OpenHandFactChip(
-                          icon: Icons.check_circle_outline_rounded,
-                          label: lastSuccessRelative == null
-                              ? _localizedText(
-                                  context,
-                                  zh: '尚无成功',
-                                  en: 'No success yet',
-                                )
-                              : _localizedText(
-                                  context,
-                                  zh: '上次成功 · $lastSuccessRelative',
-                                  en: 'Last ok · $lastSuccessRelative',
-                                ),
-                          color: OpenHandStatusColors.success,
-                        ),
-                        OpenHandFactChip(
-                          icon: Icons.error_outline_rounded,
-                          label: lastFailureRelative == null
-                              ? _localizedText(
-                                  context,
-                                  zh: '尚无失败',
-                                  en: 'No failure yet',
-                                )
-                              : _localizedText(
-                                  context,
-                                  zh: '上次失败 · $lastFailureRelative',
-                                  en: 'Last fail · $lastFailureRelative',
-                                ),
-                          color: colorScheme.error,
-                        ),
-                        OpenHandFactChip(
-                          icon: Icons.layers_outlined,
-                          label: _localizedText(
-                            context,
-                            zh: '样本 ${probes.length} · 成功 ${stats.successCount} / 失败 ${stats.failureCount}',
-                            en: '${probes.length} samples · ${stats.successCount} ok / ${stats.failureCount} fail',
-                          ),
-                          color: colorScheme.tertiary,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (probes.length >= 2) ...[
-                kOpenHandGap14,
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+              children: [
                 OpenHandDialogSectionCard(
-                  icon: Icons.show_chart_rounded,
-                  accent: colorScheme.tertiary,
-                  title: _localizedText(context, zh: '探测趋势', en: 'Probe trend'),
-                  child: _ProbeTrendSection(probes: probes),
-                ),
-              ],
-              kOpenHandGap14,
-              OpenHandDialogSectionCard(
-                icon: Icons.build_circle_outlined,
-                accent: colorScheme.secondary,
-                title: _localizedText(context, zh: '工具目录', en: 'Tool catalog'),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    OpenHandMetricsStrip(
-                      items: [
-                        (
-                          label: _localizedText(
-                            context,
-                            zh: '加载状态',
-                            en: 'Status',
+                  icon: Icons.tune_rounded,
+                  accent: colorScheme.primary,
+                  title: _localizedText(
+                    context,
+                    zh: '配置摘要',
+                    en: 'Configuration',
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OpenHandStatusPill(
+                            icon: Icons.swap_horiz_rounded,
+                            label: server.type.label(
+                              AppLocalizations.of(context)!,
+                            ),
+                            color: colorScheme.primary,
                           ),
-                          value: catalogStatus,
-                          accent: catalogColor,
-                        ),
-                        (
-                          label: _localizedText(
-                            context,
-                            zh: 'Tool 数量',
-                            en: 'Tool count',
+                          OpenHandStatusPill(
+                            icon: server.enabled
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.pause_circle_outline_rounded,
+                            label: server.enabled
+                                ? _localizedText(
+                                    context,
+                                    zh: '已启用',
+                                    en: 'Enabled',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '已停用',
+                                    en: 'Disabled',
+                                  ),
+                            color: server.enabled
+                                ? OpenHandStatusColors.success
+                                : colorScheme.outline,
                           ),
-                          value: '${toolCatalog.tools.length}',
-                          accent: colorScheme.primary,
-                        ),
-                      ],
-                    ),
-                    if (toolCatalog.errorMessage != null) ...[
+                          if (server.headers.isNotEmpty)
+                            OpenHandFactChip(
+                              icon: Icons.badge_outlined,
+                              label: _localizedText(
+                                context,
+                                zh: '请求头 ${server.headers.length}',
+                                en: '${server.headers.length} headers',
+                              ),
+                              color: colorScheme.secondary,
+                            ),
+                        ],
+                      ),
                       kOpenHandGap12,
                       OpenHandTintedPanel(
-                        accent: colorScheme.error,
-                        icon: Icons.error_outline_rounded,
+                        accent: OpenHandStatusColors.info,
+                        icon: Icons.link_rounded,
                         title: _localizedText(
                           context,
-                          zh: '最近错误',
-                          en: 'Last error',
+                          zh: '接入地址',
+                          en: 'Endpoint',
                         ),
-                        child: Text(
-                          toolCatalog.errorMessage!,
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
+                        child: SelectableText(
+                          endpoint.isEmpty ? '—' : endpoint,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.error,
-                            height: 1.4,
+                            fontFamily: kOpenHandMonospaceFontFamily,
+                            height: 1.45,
                           ),
                         ),
                       ),
                     ],
-                    if (toolCatalog.tools.isNotEmpty) ...[
+                  ),
+                ),
+                kOpenHandGap14,
+                OpenHandDialogSectionCard(
+                  icon: Icons.monitor_heart_outlined,
+                  accent: healthColor,
+                  title: _localizedText(context, zh: '健康统计', en: 'Health'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      OpenHandMetricsStrip(
+                        items: [
+                          (
+                            label: _localizedText(
+                              context,
+                              zh: '当前状态',
+                              en: 'Status',
+                            ),
+                            value: healthLabel,
+                            accent: healthColor,
+                          ),
+                          (
+                            label: _localizedText(
+                              context,
+                              zh: '近期成功率',
+                              en: 'Success rate',
+                            ),
+                            value: stats.successRate == null
+                                ? '—'
+                                : '${stats.successRate}%',
+                            accent: colorScheme.primary,
+                          ),
+                          (
+                            label: _localizedText(
+                              context,
+                              zh: '平均耗时',
+                              en: 'Avg latency',
+                            ),
+                            value: stats.avgLatency == null
+                                ? '—'
+                                : '${stats.avgLatency} ms',
+                            accent: OpenHandStatusColors.info,
+                          ),
+                          (
+                            label: _localizedText(
+                              context,
+                              zh: '连续失败',
+                              en: 'Fail streak',
+                            ),
+                            value: '${health.consecutiveFailures}',
+                            accent: health.consecutiveFailures > 0
+                                ? colorScheme.error
+                                : OpenHandStatusColors.success,
+                          ),
+                        ],
+                      ),
                       kOpenHandGap12,
-                      _ToolListPreview(tools: toolCatalog.tools),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OpenHandFactChip(
+                            icon: Icons.check_circle_outline_rounded,
+                            label: lastSuccessRelative == null
+                                ? _localizedText(
+                                    context,
+                                    zh: '尚无成功',
+                                    en: 'No success yet',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '上次成功 · $lastSuccessRelative',
+                                    en: 'Last ok · $lastSuccessRelative',
+                                  ),
+                            color: OpenHandStatusColors.success,
+                          ),
+                          OpenHandFactChip(
+                            icon: Icons.error_outline_rounded,
+                            label: lastFailureRelative == null
+                                ? _localizedText(
+                                    context,
+                                    zh: '尚无失败',
+                                    en: 'No failure yet',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '上次失败 · $lastFailureRelative',
+                                    en: 'Last fail · $lastFailureRelative',
+                                  ),
+                            color: colorScheme.error,
+                          ),
+                          OpenHandFactChip(
+                            icon: Icons.layers_outlined,
+                            label: _localizedText(
+                              context,
+                              zh: '样本 ${probes.length} · 成功 ${stats.successCount} / 失败 ${stats.failureCount}',
+                              en: '${probes.length} samples · ${stats.successCount} ok / ${stats.failureCount} fail',
+                            ),
+                            color: colorScheme.tertiary,
+                          ),
+                        ],
+                      ),
                     ],
-                  ],
+                  ),
+                ),
+                if (probes.length >= 2) ...[
+                  kOpenHandGap14,
+                  OpenHandDialogSectionCard(
+                    icon: Icons.show_chart_rounded,
+                    accent: colorScheme.tertiary,
+                    title: _localizedText(
+                      context,
+                      zh: '探测趋势',
+                      en: 'Probe trend',
+                    ),
+                    child: _ProbeTrendSection(probes: probes),
+                  ),
+                ],
+                kOpenHandGap14,
+                OpenHandDialogSectionCard(
+                  icon: Icons.build_circle_outlined,
+                  accent: colorScheme.secondary,
+                  title: _localizedText(
+                    context,
+                    zh: '工具目录',
+                    en: 'Tool catalog',
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      OpenHandMetricsStrip(
+                        items: [
+                          (
+                            label: _localizedText(
+                              context,
+                              zh: '加载状态',
+                              en: 'Status',
+                            ),
+                            value: catalogStatus,
+                            accent: catalogColor,
+                          ),
+                          (
+                            label: _localizedText(
+                              context,
+                              zh: 'Tool 数量',
+                              en: 'Tool count',
+                            ),
+                            value: '${toolCatalog.tools.length}',
+                            accent: colorScheme.primary,
+                          ),
+                        ],
+                      ),
+                      if (toolCatalog.errorMessage != null) ...[
+                        kOpenHandGap12,
+                        OpenHandTintedPanel(
+                          accent: colorScheme.error,
+                          icon: Icons.error_outline_rounded,
+                          title: _localizedText(
+                            context,
+                            zh: '最近错误',
+                            en: 'Last error',
+                          ),
+                          child: Text(
+                            toolCatalog.errorMessage!,
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.error,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (toolCatalog.tools.isNotEmpty) ...[
+                        kOpenHandGap12,
+                        _ToolListPreview(tools: toolCatalog.tools),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.94),
+              border: Border(
+                top: BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.55),
                 ),
               ),
-            ],
+            ),
+            child: buildOpenHandDialogActionsBar(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+              actions: [
+                OpenHandDialogActionButton.secondary(
+                  label: l10n.commonClose,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -11288,7 +11324,10 @@ class _ToolListPreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ...preview.map((tool) => _ToolPreviewTile(tool: tool)),
+        for (var i = 0; i < preview.length; i++) ...[
+          if (i > 0) kOpenHandGap10,
+          _ToolPreviewTile(tool: preview[i]),
+        ],
         if (overflow > 0)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -11348,130 +11387,202 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
         ? motion.curve.curve
         : motion.curve.reverseCurve;
     final description = widget.tool.description.trim();
-    final identity = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: kOpenHandBorderRadius8,
-          child: ColoredBox(
-            color: colorScheme.primary.withValues(alpha: 0.14),
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: Icon(
-                Icons.handyman_outlined,
-                size: 16,
-                color: colorScheme.primary,
-              ),
-            ),
-          ),
-        ),
-        kOpenHandHGap8,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SelectableText(
-                widget.tool.name,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: kOpenHandMonospaceFontFamily,
-                ),
-              ),
-              if (description.isNotEmpty) ...[
-                kOpenHandGap2,
-                Text(
-                  description,
-                  maxLines: _expanded ? 6 : 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
+    final inputCount = _mcpSchemaPropertyCount(widget.tool.inputSchema);
+    final outputCount = _mcpSchemaPropertyCount(widget.tool.outputSchema);
+    final accent = widget.tool.hasMetadataWarning
+        ? OpenHandStatusColors.warning
+        : colorScheme.primary;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: _canExpand ? _toggle : null,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 4,
-                      horizontal: 4,
-                    ),
-                    child: identity,
-                  ),
-                ),
-              ),
-              if (_canExpand)
-                IconButton(
-                  tooltip: _expanded
-                      ? _localizedText(context, zh: '收起', en: 'Collapse')
-                      : _localizedText(context, zh: '展开', en: 'Expand'),
-                  style: openHandFeatureCircleIconButtonStyle(colorScheme),
-                  onPressed: _toggle,
-                  icon: AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0.0,
-                    duration: expandDuration,
-                    curve: expandCurve,
-                    child: const Icon(Icons.expand_more_rounded),
-                  ),
-                ),
-            ],
-          ),
-          AnimatedSize(
-            duration: expandDuration,
-            curve: expandCurve,
-            alignment: Alignment.topLeft,
-            child: _expanded
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 8, left: 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AnimatedContainer(
+      duration: expandDuration,
+      curve: expandCurve,
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accent.withValues(alpha: _expanded ? 0.10 : 0.06),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(
+          color: accent.withValues(alpha: _expanded ? 0.28 : 0.16),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _canExpand ? _toggle : null,
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_hasInputSchema)
-                          _ToolSchemaPanel(
-                            schema: widget.tool.inputSchema,
-                            label: _localizedText(
-                              context,
-                              zh: '入参结构',
-                              en: 'Input schema',
+                        ClipRRect(
+                          borderRadius: kOpenHandBorderRadius12,
+                          child: ColoredBox(
+                            color: accent.withValues(alpha: 0.16),
+                            child: SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: Icon(
+                                Icons.handyman_outlined,
+                                size: 20,
+                                color: accent,
+                              ),
                             ),
-                            bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
                           ),
-                        if (_hasOutputSchema) ...[
-                          if (_hasInputSchema) kOpenHandGap8,
-                          _ToolSchemaPanel(
-                            schema:
-                                widget.tool.outputSchema ??
-                                const <String, Object?>{},
-                            label: _localizedText(
-                              context,
-                              zh: '出参结构',
-                              en: 'Output schema',
-                            ),
-                            bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SelectableText(
+                                widget.tool.name,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  fontFamily: kOpenHandMonospaceFontFamily,
+                                ),
+                              ),
+                              if (description.isNotEmpty) ...[
+                                kOpenHandGap4,
+                                Text(
+                                  description,
+                                  maxLines: _expanded ? 4 : 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                              kOpenHandGap8,
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: [
+                                  OpenHandFactChip(
+                                    icon: Icons.login_rounded,
+                                    label: inputCount > 0
+                                        ? _localizedText(
+                                            context,
+                                            zh: '入参 $inputCount',
+                                            en: '$inputCount inputs',
+                                          )
+                                        : _localizedText(
+                                            context,
+                                            zh: '无入参',
+                                            en: 'No input',
+                                          ),
+                                    color: inputCount > 0
+                                        ? colorScheme.primary
+                                        : colorScheme.outline,
+                                  ),
+                                  OpenHandFactChip(
+                                    icon: Icons.output_rounded,
+                                    label: _hasOutputSchema
+                                        ? (outputCount > 0
+                                              ? _localizedText(
+                                                  context,
+                                                  zh: '出参 $outputCount',
+                                                  en: '$outputCount outputs',
+                                                )
+                                              : _localizedText(
+                                                  context,
+                                                  zh: '有返回',
+                                                  en: 'Has output',
+                                                ))
+                                        : _localizedText(
+                                            context,
+                                            zh: '无返回',
+                                            en: 'No output',
+                                          ),
+                                    color: _hasOutputSchema
+                                        ? colorScheme.secondary
+                                        : colorScheme.outline,
+                                  ),
+                                  if (widget.tool.hasMetadataWarning)
+                                    OpenHandFactChip(
+                                      icon: Icons.warning_amber_rounded,
+                                      label: _localizedText(
+                                        context,
+                                        zh: '元数据告警',
+                                        en: 'Metadata warning',
+                                      ),
+                                      color: OpenHandStatusColors.warning,
+                                    ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ],
                     ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
+                  ),
+                ),
+                if (_canExpand) ...[
+                  kOpenHandHGap8,
+                  IconButton(
+                    tooltip: _expanded
+                        ? _localizedText(context, zh: '收起', en: 'Collapse')
+                        : _localizedText(context, zh: '展开', en: 'Expand'),
+                    style: openHandFeatureCircleIconButtonStyle(colorScheme),
+                    onPressed: _toggle,
+                    icon: AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0.0,
+                      duration: expandDuration,
+                      curve: expandCurve,
+                      child: const Icon(Icons.expand_more_rounded),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            AnimatedSize(
+              duration: expandDuration,
+              curve: expandCurve,
+              alignment: Alignment.topLeft,
+              child: _expanded
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_hasInputSchema)
+                            _ToolSchemaPanel(
+                              schema: widget.tool.inputSchema,
+                              label: _localizedText(
+                                context,
+                                zh: '入参结构',
+                                en: 'Input schema',
+                              ),
+                              bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
+                            ),
+                          if (_hasOutputSchema) ...[
+                            if (_hasInputSchema) kOpenHandGap8,
+                            _ToolSchemaPanel(
+                              schema:
+                                  widget.tool.outputSchema ??
+                                  const <String, Object?>{},
+                              label: _localizedText(
+                                context,
+                                zh: '出参结构',
+                                en: 'Output schema',
+                              ),
+                              bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }
