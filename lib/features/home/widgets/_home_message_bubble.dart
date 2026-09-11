@@ -782,14 +782,13 @@ class _MessageBubbleState extends State<_MessageBubble>
       _cachedFilePathParseKey = _cachedFilePathRoots!.join('|');
       _cachedBuilders = <String, MarkdownElementBuilder>{
         'code': _cachedMarkdownThemeData!.inlineCodeBuilder,
-        'pre': _HighlightedCodeBlockBuilder(
+        'pre': OpenHandHighlightedCodeBlockBuilder(
           theme: theme,
           baseColor: textColor,
           darkSurface: useDarkCodeSurface,
           // 始终允许文本选择/复制，便于用户随时复制响应内容。
           // “选中模式”依然控制 action buttons 的可见性，
           // 但选择/复制不再需要预先点击进入选中态。
-          selectable: true,
         ),
         messageResolvedPathElementTag: _FilePathMarkdownBuilder(
           textColor: textColor,

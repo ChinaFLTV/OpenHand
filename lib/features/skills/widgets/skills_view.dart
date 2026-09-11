@@ -29,6 +29,7 @@ import '../../ai/index.dart'
         AiResourceUsageKind,
         resourceUsageStatisticsLabel,
         showResourceUsageStatisticsDialog;
+import '../../home/index.dart' show OpenHandHighlightedCodeBlockBuilder;
 import '../model/local_skill.dart';
 import '../skills_controller.dart';
 import 'skill_market_dialog.dart';
@@ -445,7 +446,6 @@ class _SkillsViewState extends State<SkillsView> {
             theme: theme,
             backgroundColor: markdownBackground,
             textColor: colorScheme.onSurface,
-            useCustomCodeBlockBuilder: false,
           );
           return buildOpenHandToolDialogShell(
             context: dialogContext,
@@ -519,6 +519,10 @@ class _SkillsViewState extends State<SkillsView> {
                               styleSheet: markdownTheme.styleSheet,
                               builders: {
                                 'code': markdownTheme.inlineCodeBuilder,
+                                'pre': OpenHandHighlightedCodeBlockBuilder(
+                                  theme: theme,
+                                  baseColor: colorScheme.onSurface,
+                                ),
                               },
                             ),
                           ),

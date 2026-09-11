@@ -224,18 +224,19 @@ void _warmHighlightedCodeSpan({
   warmup();
 }
 
-class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
-  _HighlightedCodeBlockBuilder({
-    required this._theme,
-    required this._baseColor,
-    required this._darkSurface,
-    required this._selectable,
+/// 线程消息与技能详情共用的围栏代码块 / Mermaid 构建器。
+class OpenHandHighlightedCodeBlockBuilder extends MarkdownElementBuilder {
+  OpenHandHighlightedCodeBlockBuilder({
+    required this.theme,
+    required this.baseColor,
+    this.darkSurface = false,
+    this.selectable = true,
   });
 
-  final ThemeData _theme;
-  final Color _baseColor;
-  final bool _darkSurface;
-  final bool _selectable;
+  final ThemeData theme;
+  final Color baseColor;
+  final bool darkSurface;
+  final bool selectable;
 
   @override
   bool isBlockElement() => true;
@@ -263,11 +264,11 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
     return RepaintBoundary(
       child: _HighlightedCodePanel(
         content: content,
-        theme: _theme,
+        theme: theme,
         language: language,
-        selectable: _selectable,
-        baseColor: _baseColor,
-        forceDarkSurface: _darkSurface,
+        selectable: selectable,
+        baseColor: baseColor,
+        forceDarkSurface: darkSurface,
       ),
     );
   }
