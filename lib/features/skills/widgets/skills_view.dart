@@ -40,6 +40,7 @@ const double _kSkillIconPreviewExtent = 72;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
 const double _kSkillCardMainAxisExtent = 360;
 const double _kSkillCardIconExtent = 52;
+const double _kSkillPreviewIconExtent = 64;
 const double _kSkillCardIconEmojiSize = 20;
 const double _kSkillCardIconInset = 8;
 
@@ -453,13 +454,37 @@ class _SkillsViewState extends State<SkillsView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(skill.name, style: theme.textTheme.headlineSmall),
-                  kOpenHandGap8,
-                  Text(
-                    skill.displayDirectoryPath,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SkillCardIcon(
+                        skill: skill,
+                        extent: _kSkillPreviewIconExtent,
+                      ),
+                      kOpenHandHGap16,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              skill.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.headlineSmall,
+                            ),
+                            kOpenHandGap8,
+                            Text(
+                              skill.displayDirectoryPath,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   if (skill.defaultPrompt != null) ...[
                     kOpenHandGap12,
@@ -1217,13 +1242,20 @@ String? _skillCardDescription(String raw) {
 }
 
 class _SkillCardIcon extends StatelessWidget {
-  const _SkillCardIcon({required this.skill});
+  const _SkillCardIcon({
+    required this.skill,
+    this.extent = _kSkillCardIconExtent,
+  });
 
   final LocalSkill skill;
+  final double extent;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final scale = extent / _kSkillCardIconExtent;
+    final inset = _kSkillCardIconInset * scale;
+    final emojiSize = _kSkillCardIconEmojiSize * scale;
     final fallback = Center(
       child: Text(
         skill.initials,
@@ -1236,17 +1268,14 @@ class _SkillCardIcon extends StatelessWidget {
     final Widget child;
     if (skill.hasEmojiIcon) {
       child = Padding(
-        padding: const EdgeInsets.all(_kSkillCardIconInset),
-        child: _SkillEmojiGlyph(
-          emoji: skill.emojiIcon!,
-          fontSize: _kSkillCardIconEmojiSize,
-        ),
+        padding: EdgeInsets.all(inset),
+        child: _SkillEmojiGlyph(emoji: skill.emojiIcon!, fontSize: emojiSize),
       );
     } else if (skill.hasIcon) {
       final path = skill.iconPath!;
       child = switch (skill.iconKind) {
         LocalSkillIconKind.svg => Padding(
-          padding: const EdgeInsets.all(_kSkillCardIconInset),
+          padding: EdgeInsets.all(inset),
           child: buildLocalSvgPicture(
             path,
             fit: BoxFit.contain,
@@ -1267,11 +1296,7 @@ class _SkillCardIcon extends StatelessWidget {
       borderRadius: kOpenHandBorderRadius18,
       child: ColoredBox(
         color: colorScheme.primaryContainer,
-        child: SizedBox(
-          width: _kSkillCardIconExtent,
-          height: _kSkillCardIconExtent,
-          child: child,
-        ),
+        child: SizedBox(width: extent, height: extent, child: child),
       ),
     );
   }
