@@ -2706,9 +2706,6 @@ class AiSessionController extends ChangeNotifier {
     }
     final now = _clock().toUtc();
     _lastErrorMessage = null;
-    final defaultMetadataFuture = metadata == null
-        ? _buildDefaultSessionMetadata(runtimeContext)
-        : null;
     final sessionMetadata = metadata == null
         ? const <String, Object?>{}
         : Map<String, Object?>.of(stringKeyedMapFromValue(metadata));
@@ -2752,11 +2749,11 @@ class AiSessionController extends ChangeNotifier {
       }
       return false;
     }
-    if (defaultMetadataFuture != null) {
+    if (metadata == null) {
       unawaited(
         _completeDefaultSessionMetadata(
           sessionId: session.id,
-          metadataFuture: defaultMetadataFuture,
+          metadataFuture: _buildDefaultSessionMetadata(runtimeContext),
         ),
       );
     }
