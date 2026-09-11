@@ -3515,7 +3515,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Steuert, ob lange Werkzeugausgaben beim Erstellen von Kompressions-Checkpoints zusammengefasst werden. Normale Gespräche liefern dem Modell immer vollständige Ergebnisse; bei Deaktivierung bleiben auch in Checkpoints Rohausgaben erhalten, was die Kompressionskosten erhöhen kann.';
+      'Steuert, ob übergroße Werkzeugausgaben in stabile strukturierte Zusammenfassungen umgewandelt werden. Dies senkt die Eingabekosten in Gesprächen und Kompressions-Checkpoints; bei Deaktivierung bleibt die Rohausgabe erhalten.';
 
   @override
   String get aiMicroCompressionEnabledLabel => 'Mikro-Kompression';
@@ -6239,7 +6239,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'Wird nur beim Erstellen von Kompressions-Checkpoints verwendet: Historische Werkzeugergebnisse über diesem Schwellwert werden strukturiert zusammengefasst. Normale Gespräche liefern dem Modell immer vollständige Ergebnisse. Standard: 1024.';
+      'Werkzeugergebnisse über diesem Schwellwert werden beim ersten Einfügen strukturiert zusammengefasst und behalten diese Darstellung in späteren Runden, damit das Cache-Präfix stabil bleibt. Standard: 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

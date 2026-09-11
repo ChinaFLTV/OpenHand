@@ -5760,8 +5760,8 @@ $content
     bool isFreshUnconsumedResult = false,
     bool inlineSystemReminders = false,
   }) {
-    if (!compressionConfig.enabled || !compressionConfig.summarizeResults) {
-      // 普通会话始终交付完整工具结果；摘要只用于生成压缩检查点。
+    if (!compressionConfig.enabled) {
+      // 总开关关闭时保留原始结果。
       return _promptContentForMessage(
         message,
         inlineSystemReminders: inlineSystemReminders,
@@ -6883,7 +6883,6 @@ class _MappedToolExchange {
 class _ToolCompressionConfig {
   const _ToolCompressionConfig({
     required this.enabled,
-    required this.summarizeResults,
     required this.thresholdChars,
     required this.headTailWindowChars,
     required this.maxPathHits,
@@ -6902,8 +6901,9 @@ class _ToolCompressionConfig {
         .toolResultCompressionHeadTailWindowChars
         .clamp(0, 1 << 20);
     return _ToolCompressionConfig(
+      // 工具结果第一次进入普通会话时就使用最终摘要形态，
+      // 后续轮次只追加新内容，不改写已发送的 Prompt 前缀。
       enabled: runtimeContext.toolResultCompressionEnabled,
-      summarizeResults: false,
       thresholdChars: thresholdChars,
       headTailWindowChars: headTailWindowChars,
       maxPathHits: runtimeContext.toolResultCompressionMaxPathHits.clamp(
@@ -6914,7 +6914,7 @@ class _ToolCompressionConfig {
         0,
         1 << 20,
       ),
-      // 普通会话保持原文与追加稳定；微压缩仅用于压缩检查点。
+      // 普通会话不二次改写已消费结果；微压缩仅用于压缩检查点。
       microCompressionEnabled: false,
     );
   }
@@ -6924,8 +6924,7 @@ class _ToolCompressionConfig {
   ) {
     final base = _ToolCompressionConfig.forConversationHistory(runtimeContext);
     return _ToolCompressionConfig(
-      enabled: true,
-      summarizeResults: true,
+      enabled: base.enabled,
       thresholdChars: math.min(
         base.thresholdChars,
         AiPromptBuilder._compressionPromptToolResultThresholdChars,
@@ -6944,14 +6943,13 @@ class _ToolCompressionConfig {
   }
 
   final bool enabled;
-  final bool summarizeResults;
   final int thresholdChars;
   final int headTailWindowChars;
   final int maxPathHits;
   final int writeSummaryMaxChars;
   final bool microCompressionEnabled;
 
-  bool get guardsFreshToolResults => enabled && summarizeResults;
+  bool get guardsFreshToolResults => enabled;
 }
 
 class _ExtractedReminderContent {

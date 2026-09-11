@@ -3527,7 +3527,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Détermine si les longues sorties d’outils sont résumées lors de la création des points de compression. Les conversations normales transmettent toujours les résultats complets au modèle ; la désactivation conserve aussi la sortie brute dans les points de compression et peut augmenter leur coût.';
+      'Détermine si les sorties d’outils trop longues deviennent des résumés structurés stables. L’activation réduit le coût des conversations et des points de compression ; la désactivation conserve la sortie brute.';
 
   @override
   String get aiMicroCompressionEnabledLabel => 'Micro-Compression';
@@ -6259,7 +6259,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'Utilisé uniquement lors de la création des points de compression : les anciens résultats d’outils dépassant ce seuil deviennent des résumés structurés. Les conversations normales transmettent toujours les résultats complets au modèle. Valeur par défaut : 1024.';
+      'Les résultats d’outils dépassant ce seuil deviennent des résumés structurés dès leur première insertion et gardent la même représentation afin de stabiliser le préfixe du cache. Valeur par défaut : 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

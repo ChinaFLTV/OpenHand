@@ -331,9 +331,9 @@ class AiSessionRuntimeContext {
   final String userMemoryFilePath;
   final int compressionThresholdChars;
 
-  /// 工具调用输出进入 prompt history 时的结构化摘要阈值。尚未被模型消费
-  /// 的最新工具结果保留原文；已消费的旧结果超过阈值后会摘要，避免大文件
-  /// 输出长期占用上下文和缓存预算。
+  /// 工具调用输出进入 prompt history 时的结构化摘要阈值。超限结果
+  /// 首次进入对话时就摘要，后续保持同一表示，避免大段新内容占用
+  /// 上下文且避免改写旧前缀。
   final int toolResultCompressionThresholdChars;
 
   /// 工具调用输出压缩总开关。关闭后返回原始内容。

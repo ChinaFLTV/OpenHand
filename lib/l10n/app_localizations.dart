@@ -6201,7 +6201,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiToolResultCompressionEnabledBody.
   ///
   /// In zh, this message translates to:
-  /// **'控制生成压缩检查点时是否摘要过长工具输出。普通对话始终向模型交付完整结果；关闭后检查点也保留原文，可能增加压缩成本。'**
+  /// **'控制是否将超限工具输出稳定地转为结构化摘要。开启后可减少对话与压缩检查点的输入成本；关闭后保留原始输出。'**
   String get aiToolResultCompressionEnabledBody;
 
   /// No description provided for @aiMicroCompressionEnabledLabel.
@@ -11019,7 +11019,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsWhenAToolCallReturnsMore.
   ///
   /// In zh, this message translates to:
-  /// **'仅用于生成压缩检查点：超过阈值的历史工具结果会转为结构化摘要。普通对话始终向模型交付完整结果。默认 1024。'**
+  /// **'超过阈值的工具结果首次进入对话时就会转为结构化摘要，后续轮次保持同一表示以维持缓存前缀稳定。默认 1024。'**
   String get settingsWhenAToolCallReturnsMore;
 
   /// No description provided for @settingsDefaultsTo40IfOneAssistant.
