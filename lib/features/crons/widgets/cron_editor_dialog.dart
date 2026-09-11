@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/model/cron_config.dart';
+import '../../../app/model/editor_code_theme.dart';
+import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_notification_service.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
@@ -14,6 +16,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
@@ -239,7 +242,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           if (_formError != null) kOpenHandGap12,
           _buildBasicsSection(),
           kOpenHandGap14,
-          _buildTaskSection(theme, colorScheme),
+          _buildTaskSection(colorScheme),
           kOpenHandGap14,
           _buildScheduleSection(theme, colorScheme),
           kOpenHandGap14,
@@ -297,7 +300,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     );
   }
 
-  Widget _buildTaskSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildTaskSection(ColorScheme colorScheme) {
     return OpenHandDialogSectionCard(
       icon: Icons.terminal_rounded,
       accent: colorScheme.tertiary,
@@ -364,28 +367,21 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     )
                   : KeyedSubtree(
                       key: const ValueKey<String>('cron-command'),
-                      child: TextField(
-                        controller: _scriptContentController,
-                        maxLines: 6,
-                        minLines: 3,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                          fontSize: 13,
-                        ),
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.all(12),
-                          labelText: l10n.cronsFieldCommand,
-                          hintText: Platform.isWindows
-                              ? l10n.cronsFieldCommandHintWindows
-                              : l10n.cronsFieldCommandHintShell,
-                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.5,
+                      child: OpenHandCodeEditor(
+                        value: _scriptContentController.text,
+                        language: Platform.isWindows ? 'powershell' : 'bash',
+                        fileName: Platform.isWindows ? 'cron.ps1' : 'cron.sh',
+                        codeTheme: context
+                            .select<SettingsController, EditorCodeTheme>(
+                              (controller) => controller.editorCodeTheme,
                             ),
-                            fontFamily: kOpenHandMonospaceFontFamily,
-                            fontSize: 13,
-                          ),
-                        ),
+                        icon: Icons.terminal_rounded,
+                        height: 280,
+                        borderRadius: kOpenHandBorderRadius14,
+                        readOnly: _saving,
+                        onChanged: (value) {
+                          _scriptContentController.text = value;
+                        },
                       ),
                     ),
             ),
