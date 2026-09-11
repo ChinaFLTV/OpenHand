@@ -484,9 +484,7 @@ class _CronHistoryDialog extends StatelessWidget {
                       icon: Icons.inbox_outlined,
                       tone: FeatureStateTone.neutral,
                       title: l10n.cronsNoExecutionRecords,
-                      body: entry.description.isNotEmpty
-                          ? entry.description
-                          : entry.cronExpression,
+                      body: '',
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),

@@ -83,14 +83,16 @@ class FeatureStateCard extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall,
                   ),
-                  kOpenHandGap10,
-                  Text(
-                    body,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (body.trim().isNotEmpty) ...[
+                    kOpenHandGap10,
+                    Text(
+                      body,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
+                  ],
                   if (action != null || noticeActions != null) ...[
                     kOpenHandGap20,
                     Wrap(
