@@ -18,6 +18,7 @@ import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
@@ -202,6 +203,7 @@ enum _HookCardAction { edit, delete }
 
 const double _kHookCardIdentityExtent = 48;
 const int _kHookScriptPreviewMaxLines = 3;
+const int _kHookScriptPreviewMaxChars = 4000;
 
 class _HookEntryCard extends StatelessWidget {
   const _HookEntryCard({
@@ -355,15 +357,43 @@ class _HookEntryCard extends StatelessWidget {
               accent: scriptColor,
               icon: scriptIcon,
               title: scriptLabel,
-              child: Text(
-                preview,
-                maxLines: _kHookScriptPreviewMaxLines,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: kOpenHandMonospaceFontFamily,
-                  height: 1.45,
-                ),
-              ),
+              child: hasInline
+                  ? Text.rich(
+                      OpenHandCodeSyntaxHighlighter(
+                        baseStyle:
+                            theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: kOpenHandMonospaceFontFamily,
+                              height: 1.45,
+                            ) ??
+                            const TextStyle(
+                              fontFamily: kOpenHandMonospaceFontFamily,
+                              fontSize: 12,
+                              height: 1.45,
+                            ),
+                        darkSurface: theme.brightness == Brightness.dark,
+                      ).build(
+                        preview.length > _kHookScriptPreviewMaxChars
+                            ? preview.substring(0, _kHookScriptPreviewMaxChars)
+                            : preview,
+                        language: _hookScriptLanguage(
+                          scriptPath: scriptPath,
+                          inline: inline,
+                          hasFile: hasFile,
+                        ),
+                        allowAutoDetection: true,
+                      ),
+                      maxLines: _kHookScriptPreviewMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : Text(
+                      preview,
+                      maxLines: _kHookScriptPreviewMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: kOpenHandMonospaceFontFamily,
+                        height: 1.45,
+                      ),
+                    ),
             ),
       metrics: [
         (
@@ -402,6 +432,30 @@ String _hookScriptFileName(String path) {
   if (normalized.isEmpty) return normalized;
   final slash = normalized.lastIndexOf('/');
   return slash < 0 ? normalized : normalized.substring(slash + 1);
+}
+
+String? _hookScriptLanguage({
+  required String scriptPath,
+  required String inline,
+  required bool hasFile,
+}) {
+  if (hasFile) {
+    final name = _hookScriptFileName(scriptPath).toLowerCase();
+    if (name.endsWith('.ps1') || name.endsWith('.psm1')) return 'powershell';
+    if (name.endsWith('.bat') || name.endsWith('.cmd')) return 'dos';
+    if (name.endsWith('.py')) return 'python';
+    if (name.endsWith('.js') || name.endsWith('.mjs')) return 'javascript';
+    return 'bash';
+  }
+  final shebang = inline.split('\n').first.trim().toLowerCase();
+  if (shebang.startsWith('#!')) {
+    if (shebang.contains('python')) return 'python';
+    if (shebang.contains('pwsh') || shebang.contains('powershell')) {
+      return 'powershell';
+    }
+    if (shebang.contains('node')) return 'javascript';
+  }
+  return Platform.isWindows ? 'powershell' : 'bash';
 }
 
 IconData _hookEventIcon(HookEvent event) {
