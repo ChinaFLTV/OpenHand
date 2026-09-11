@@ -6406,6 +6406,7 @@ class AiSessionController extends ChangeNotifier {
     List<String> additionalSystemReminders = const <String>[],
     Map<String, Object?>? selectedSkillMetadata,
     Map<String, Object?>? userMessageMetadata,
+    void Function(AiSessionMessage message)? onUserMessagePrepared,
     bool revealUserMessageBeforePreflight = false,
     AiSessionGoalStartOptions? goalStartOptions,
     bool allowGoalContinuation = false,
@@ -6451,6 +6452,7 @@ class AiSessionController extends ChangeNotifier {
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: selectedSkillMetadata,
         userMessageMetadata: userMessageMetadata,
+        onUserMessagePrepared: onUserMessagePrepared,
         revealUserMessageBeforePreflight: revealUserMessageBeforePreflight,
         goalStartOptions: goalStartOptions,
         allowGoalContinuation: allowGoalContinuation,
@@ -6474,6 +6476,7 @@ class AiSessionController extends ChangeNotifier {
     List<String> additionalSystemReminders = const <String>[],
     Map<String, Object?>? selectedSkillMetadata,
     Map<String, Object?>? userMessageMetadata,
+    void Function(AiSessionMessage message)? onUserMessagePrepared,
     bool revealUserMessageBeforePreflight = false,
     AiSessionGoalStartOptions? goalStartOptions,
     bool allowGoalContinuation = false,
@@ -6603,6 +6606,13 @@ class AiSessionController extends ChangeNotifier {
       final sendPreflightTimingsMs = <String, int>{...callerPreflightTimingsMs};
       _PreparedUserTurn? preparedUserTurn;
       var userTurnAlreadyCommitted = false;
+      var userMessagePreparedNotified = false;
+      void notifyUserMessagePrepared(AiSessionMessage message) {
+        if (userMessagePreparedNotified) return;
+        userMessagePreparedNotified = true;
+        onUserMessagePrepared?.call(message);
+      }
+
       final preflightSessionId = session.id;
       bool preflightStopped() {
         if (!_isStopRequestedForSession(preflightSessionId)) {
@@ -6803,6 +6813,7 @@ class AiSessionController extends ChangeNotifier {
           sendPreflightTimingsMs['prepare_user_turn'] =
               prepareUserTurnStopwatch.elapsedMilliseconds;
           session = preparedUserTurn.session;
+          notifyUserMessagePrepared(preparedUserTurn.userMessage);
           final persistUserTurnStopwatch = Stopwatch()..start();
           final userCommitted = await _commitSessionLocked(session);
           sendPreflightTimingsMs['persist_user_turn'] =
@@ -6907,6 +6918,7 @@ class AiSessionController extends ChangeNotifier {
               preparedUserTurnBeforeMetadata.importedAttachments,
         );
         preparedUserTurn = preparedUserTurnWithMetadata;
+        notifyUserMessagePrepared(preparedUserTurnWithMetadata.userMessage);
         final persistUserTurnStopwatch = Stopwatch()..start();
         final userCommitted = await _commitSessionLocked(session);
         if (preflightStopped()) {

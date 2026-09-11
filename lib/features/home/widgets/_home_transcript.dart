@@ -2769,6 +2769,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         !entry.exiting &&
         isSelected &&
         _messageUsesHtmlRenderer(message, settingsController);
+    final isLocalSubmissionPreview =
+        message.metadata[_localSubmissionPreviewMetadataKey] == true;
     final bubble = _TranscriptBubbleRegistrar(
       messageId: message.id,
       registry: _bubbleRegistry,
@@ -2805,15 +2807,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _consumedMessageActionPanelMotionKey = motionKey;
         },
         isScrollHighlighted: _highlightedMessageId == message.id,
-        onSelect: () {
-          if (_selectedMessageId == message.id) {
-            return;
-          }
-          setState(() {
-            _selectedMessageId = message.id;
-            _messageActionPanelMotionKey += 1;
-          });
-        },
+        onSelect: isLocalSubmissionPreview
+            ? () {}
+            : () {
+                if (_selectedMessageId == message.id) {
+                  return;
+                }
+                setState(() {
+                  _selectedMessageId = message.id;
+                  _messageActionPanelMotionKey += 1;
+                });
+              },
         onDeselect: () {
           if (_selectedMessageId != message.id) {
             return;
@@ -2822,7 +2826,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             _selectedMessageId = null;
           });
         },
-        onEdit: !entry.exiting && message.kind == AiSessionMessageKind.user
+        onEdit:
+            !isLocalSubmissionPreview &&
+                !entry.exiting &&
+                message.kind == AiSessionMessageKind.user
             ? () => widget.messageActions.onEdit(message)
             : null,
         onCopy: () => widget.messageActions.onCopy(message),

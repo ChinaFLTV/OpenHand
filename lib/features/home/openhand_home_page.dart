@@ -203,6 +203,9 @@ part 'widgets/_home_motion_tokens.dart';
 part 'widgets/_openhand_home_page_helpers.dart';
 part 'widgets/_openhand_home_page_prelude.dart';
 
+const String _localSubmissionPreviewMetadataKey =
+    'openhand_local_submission_preview';
+
 /// HTML WebView 抽搐 bug 真凶的关键协调信号。
 /// 外层 ListView 检测到"用户正在主动滚动"时标记 active，滚动结束（含
 /// 宽限期）后标记 inactive。`_HtmlBubbleWebView` 订阅此信号：
@@ -334,6 +337,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String? _submittingSessionId;
   int _submissionSerial = 0;
   int _queuedMessageSerial = 0;
+  final Map<String, AiSessionMessage> _localSubmissionPreviewsBySessionId =
+      <String, AiSessionMessage>{};
   final Map<String, int> _activeSubmissionSerialsBySessionId = <String, int>{};
   final Map<String, int> _locallyStoppedSubmissionSerialsBySessionId =
       <String, int>{};
@@ -1807,6 +1812,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _activeSubmissionSerialsBySessionId.remove(sessionId);
     _locallyStoppedSubmissionSerialsBySessionId.remove(sessionId);
     _locallyStoppedPendingSubmissionSessionIds.remove(sessionId);
+    _localSubmissionPreviewsBySessionId.remove(sessionId);
     final removedQueue = _queuedMessagesBySessionId.remove(sessionId);
     if (removedQueue != null) {
       _releaseComposerTempPaths(
@@ -6392,16 +6398,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           return;
         }
       }
-      final runtimeContextStopwatch = Stopwatch()..start();
-      runtimeContext = await _buildRuntimeContext(
-        workingDirectory: peConfig?.projectRoot,
-        skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
-      );
-      submitPreflightTimingsMs['runtime_context_build'] =
-          runtimeContextStopwatch.elapsedMilliseconds;
-      if (!mounted) {
-        return;
-      }
     }
     final targetSessionId = sessionController.currentSessionId;
     if (targetSessionId == null) {
@@ -7085,9 +7081,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return _SubmitTextOutcome.failedBeforeSubmit;
     }
-    if (!await _ensureReverseRuntimeReadyForSubmission(initialSession)) {
-      return _SubmitTextOutcome.failedBeforeSubmit;
-    }
     final initialUserMessageCount = initialSession != null
         ? _visibleUserMessageCount(initialSession)
         : 0;
@@ -7115,8 +7108,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _voiceConversationRuntimeSessionId == targetSessionId) {
       _voiceConversationService.interruptAssistantResponse();
     }
+    final localPreview = editingMessageIdBeforeSend == null
+        ? _buildLocalSubmissionPreview(
+            sessionId: targetSessionId,
+            prompt: prompt,
+            attachments: pendingAttachments,
+            creationRequest: creationRequest,
+            selectedSkillMetadata: selectedSkillMetadata,
+          )
+        : null;
     setState(() {
       _submittingSessionId = targetSessionId;
+      if (localPreview != null) {
+        _localSubmissionPreviewsBySessionId[targetSessionId] = localPreview;
+      }
       _armAutoFollowToBottom(notifyPausedState: false);
     });
     onSubmissionStarted?.call();
@@ -7179,6 +7184,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         restoreSubmittedDraftIfNeeded(localStop: true);
         return _SubmitTextOutcome.stoppedBeforeSubmit;
       }
+      if (!await _ensureReverseRuntimeReadyForSubmission(initialSession)) {
+        restoreSubmittedDraftIfNeeded(localStop: false);
+        return _SubmitTextOutcome.failedBeforeSubmit;
+      }
       final submitPreflightTimingsMs = <String, int>{
         ...callerPreflightTimingsMs,
       };
@@ -7227,6 +7236,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _confirmWriteCommand(request, sessionId: targetSessionId),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: selectedSkillMetadata,
+        onUserMessagePrepared: (_) {
+          _removeLocalSubmissionPreview(targetSessionId);
+        },
+        revealUserMessageBeforePreflight: true,
         goalStartOptions: goalStartOptions,
         allowQueuedGoalInterruption: allowQueuedGoalInterruption,
       );
@@ -7290,6 +7303,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return unresolvedOutcome(stopped: submissionWasStopped());
     } finally {
+      _removeLocalSubmissionPreview(targetSessionId);
       final isActiveSubmission =
           _activeSubmissionSerialsBySessionId[targetSessionId] ==
           submissionSerial;
@@ -7315,6 +7329,57 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _submittingSessionId = null;
       }
     }
+  }
+
+  AiSessionMessage _buildLocalSubmissionPreview({
+    required String sessionId,
+    required String prompt,
+    required List<_ComposerAttachmentDraft> attachments,
+    required AiCreationRequest creationRequest,
+    required Map<String, Object?>? selectedSkillMetadata,
+  }) {
+    final metadata = <String, Object?>{
+      _localSubmissionPreviewMetadataKey: true,
+      aiSessionMessageSenderOriginJsonKey:
+          aiSessionMessageSenderOriginExplicitUser,
+      aiSessionMessageConversationSideJsonKey:
+          aiSessionMessageConversationSideNonAi,
+      aiSessionMessageStartsConversationRoundJsonKey: true,
+      if (creationRequest.isActive)
+        AiCreationRequest.metadataKey: creationRequest.toMetadata(),
+      if (selectedSkillMetadata != null && selectedSkillMetadata.isNotEmpty)
+        aiUserSkillSelectionMetadataKey: Map<String, Object?>.from(
+          selectedSkillMetadata,
+        ),
+      if (attachments.isNotEmpty)
+        aiSessionMessageAttachmentsMetadataKey:
+            AiMessageAttachment.listToMetadata(<AiMessageAttachment>[
+              for (var index = 0; index < attachments.length; index++)
+                AiMessageAttachment(
+                  id: 'preview-$sessionId-$index',
+                  name: attachments[index].name,
+                  storagePath: attachments[index].filePath,
+                  kind: attachments[index].kind,
+                  mimeType: '',
+                  sizeBytes: attachments[index].sizeBytes,
+                  originalSourcePath: attachments[index].filePath,
+                ),
+            ]),
+    };
+    return AiSessionMessage.user(
+      id: 'preview-${const Uuid().v4()}',
+      content: prompt,
+      createdAt: DateTime.now().toUtc(),
+      metadata: metadata,
+    );
+  }
+
+  void _removeLocalSubmissionPreview(String sessionId) {
+    if (_localSubmissionPreviewsBySessionId.remove(sessionId) == null ||
+        !mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   void _replaceComposerText(String value) {
@@ -10185,9 +10250,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         : context.read<McpController>();
     final sessionController = context.read<AiSessionController>();
     final appInfo = context.read<AppInfo>();
-    final currentSession = workspaceSelected
+    final storedCurrentSession = workspaceSelected
         ? workspaceSessionSnapshot?.session ?? sessionController.currentSession
         : sessionController.currentSession;
+    final localSubmissionPreview = storedCurrentSession == null
+        ? null
+        : _localSubmissionPreviewsBySessionId[storedCurrentSession.id];
+    final currentSession =
+        storedCurrentSession != null && localSubmissionPreview != null
+        ? storedCurrentSession.copyWithTailMessage(
+            localSubmissionPreview,
+            append: true,
+            updatedAt: storedCurrentSession.updatedAt,
+          )
+        : storedCurrentSession;
     final machineTerminalSessionId =
         currentSession?.templateId == kMachineExpertTemplateId
         ? currentSession!.id
