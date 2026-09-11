@@ -4,14 +4,15 @@ import 'text_clip.dart';
 
 /// 长会话列表窗口算法，限制首帧和滚动路径的物化规模。
 abstract final class TranscriptListWindowing {
-  static const int defaultInitialWindowSize = 6;
+  static const int defaultInitialWindowSize = 4;
   static const int defaultWindowIncrement = 6;
   static const int defaultWindowingThreshold = 8;
 
   /// UI 同时物化的消息软上限，超出部分仍保留在数据层。
-  /// 48 张 HTML/Markdown 卡会在首屏布局阶段同步拖垮 UI 线程（ANR）。
-  static const int defaultMaxMaterializedWindow = 16;
-  static const int defaultWarmupMaxMessages = 6;
+  /// 首屏再按 [defaultInitialPaintRows] 切开，避免一次挂满整窗富文本卡。
+  static const int defaultMaxMaterializedWindow = 12;
+  static const int defaultInitialPaintRows = 2;
+  static const int defaultWarmupMaxMessages = 4;
   static const int defaultHtmlWarmupMaxPerPass = 1;
 
   /// 计算最近消息窗口的起始索引。
@@ -135,6 +136,18 @@ abstract final class TranscriptListWindowing {
   }) {
     final desired = math.max(initialWindowSize, windowIncrement);
     return math.max(1, math.min(desired, maxWarmup));
+  }
+
+  /// 首帧只挂最新尾部，其余窗口消息按帧补齐。
+  static List<T> initialPaintSlice<T>(
+    List<T> messages, {
+    int paintRows = defaultInitialPaintRows,
+  }) {
+    final count = messages.length;
+    if (count <= 0) return messages;
+    final rows = math.max(1, paintRows);
+    if (count <= rows) return messages;
+    return messages.sublist(count - rows);
   }
 
   /// 截取固定开销的正文预览，并避免切断 UTF-16 代理对。

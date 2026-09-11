@@ -177,6 +177,7 @@ import {
   MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE,
   MESSAGE_LIST_DEFAULT_PAGE_SIZE,
   MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
+  MESSAGE_LIST_INITIAL_VISIBLE_ROWS,
   MESSAGE_LIST_MAX_LOADED_MESSAGES,
   MESSAGE_LIST_MAX_VISIBLE_ROWS,
   MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
@@ -240,13 +241,13 @@ const AUTO_FOLLOW_USER_SCROLL_INTENT_MS = 1200;
 const AUTO_FOLLOW_SETTLE_MAX_FRAMES = 36;
 const AUTO_FOLLOW_SETTLE_STABLE_FRAMES = 4;
 const AUTO_FOLLOW_SETTLE_EPSILON_PX = 0.75;
-const TRANSCRIPT_INITIAL_SETTLE_MAX_FRAMES = 72;
-const TRANSCRIPT_INITIAL_SETTLE_MAX_MS = 1400;
-const TRANSCRIPT_INITIAL_SETTLE_MIN_FRAMES = 14;
-const TRANSCRIPT_INITIAL_SETTLE_STABLE_FRAMES = 4;
+const TRANSCRIPT_INITIAL_SETTLE_MAX_FRAMES = 24;
+const TRANSCRIPT_INITIAL_SETTLE_MAX_MS = 480;
+const TRANSCRIPT_INITIAL_SETTLE_MIN_FRAMES = 2;
+const TRANSCRIPT_INITIAL_SETTLE_STABLE_FRAMES = 2;
 const TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX = 0.75;
 // 测量任务仅在宽限帧内阻断首屏揭示，避免微小布局调整持续重置稳定计数。
-const TRANSCRIPT_INITIAL_SETTLE_MEASURE_GRACE_FRAMES = 24;
+const TRANSCRIPT_INITIAL_SETTLE_MEASURE_GRACE_FRAMES = 8;
 const COMPOSER_LAYOUT_TRANSITION_GUARD_MS = 440;
 const KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS = 420;
 const COMPOSER_INSTRUCTION_HOVER_PREVIEW_DELAY_MS = 480;
@@ -2904,6 +2905,11 @@ function VirtualMessageList({
   renderMessage,
 }: VirtualMessageListProps) {
   const virtualized = shouldVirtualizeMessageList(messages.length);
+  const [visibleRowBudget, setVisibleRowBudget] = useState(
+    () => Math.min(MESSAGE_LIST_MAX_VISIBLE_ROWS, MESSAGE_LIST_INITIAL_VISIBLE_ROWS),
+  );
+  const visibleRowBudgetRef = useRef(visibleRowBudget);
+  visibleRowBudgetRef.current = visibleRowBudget;
   const listRef = useRef<HTMLDivElement | null>(null);
   const rangeFrameRef = useRef<number | null>(null);
   const heightCommitFrameRef = useRef<number | null>(null);
@@ -2986,11 +2992,14 @@ function VirtualMessageList({
   ) {
     renderRange = initialRange;
   }
+  const renderRowBudget = membershipChanged
+    ? Math.min(MESSAGE_LIST_MAX_VISIBLE_ROWS, MESSAGE_LIST_INITIAL_VISIBLE_ROWS)
+    : visibleRowBudget;
   if (virtualized) {
     renderRange = clampVirtualMessageRange(
       renderRange,
       messages.length,
-      MESSAGE_LIST_MAX_VISIBLE_ROWS,
+      renderRowBudget,
     );
   }
 
@@ -3131,7 +3140,7 @@ function VirtualMessageList({
       viewportTop,
       viewportBottom,
       overscanPx: MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
-      maxVisibleRows: MESSAGE_LIST_MAX_VISIBLE_ROWS,
+      maxVisibleRows: visibleRowBudgetRef.current,
       virtualized: true,
     }));
   }, [scrollContainerRef]);
@@ -3142,8 +3151,43 @@ function VirtualMessageList({
   }, [updateRange]);
 
   useLayoutEffect(() => {
+    const initialBudget = Math.min(
+      MESSAGE_LIST_MAX_VISIBLE_ROWS,
+      MESSAGE_LIST_INITIAL_VISIBLE_ROWS,
+    );
+    setVisibleRowBudget((current) =>
+      current === initialBudget ? current : initialBudget,
+    );
+  }, [membershipKey]);
+
+  useEffect(() => {
+    if (!virtualized) return undefined;
+    let budget = Math.min(
+      MESSAGE_LIST_MAX_VISIBLE_ROWS,
+      MESSAGE_LIST_INITIAL_VISIBLE_ROWS,
+    );
+    let frame: number | null = null;
+    const bump = () => {
+      frame = null;
+      if (isTranscriptScrollActive()) {
+        frame = window.requestAnimationFrame(bump);
+        return;
+      }
+      budget = Math.min(MESSAGE_LIST_MAX_VISIBLE_ROWS, budget + 1);
+      setVisibleRowBudget((current) => (current === budget ? current : budget));
+      if (budget < MESSAGE_LIST_MAX_VISIBLE_ROWS) {
+        frame = window.requestAnimationFrame(bump);
+      }
+    };
+    frame = window.requestAnimationFrame(bump);
+    return () => {
+      if (frame != null) window.cancelAnimationFrame(frame);
+    };
+  }, [membershipKey, virtualized]);
+
+  useLayoutEffect(() => {
     scheduleRangeUpdate();
-  }, [scheduleRangeUpdate, totalHeight, messages.length, revealIndex, virtualized]);
+  }, [scheduleRangeUpdate, totalHeight, messages.length, revealIndex, virtualized, visibleRowBudget]);
 
   useEffect(() => {
     const scroller = scrollContainerRef.current;

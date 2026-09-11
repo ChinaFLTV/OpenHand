@@ -22,9 +22,10 @@ const int _markdownPlainTextSkipThresholdChars = 120 * kBytesPerKiB;
 const int _toolResultMarkdownCollapseLineThreshold = 32;
 const int _htmlPreparedCacheMaxEntries = 160;
 const int _htmlPreparedCacheMaxCost = 2 * kBytesPerMiB;
-const int _htmlProgressiveRenderCharThreshold = 14 * kBytesPerKiB;
-const int _htmlProgressiveRenderTagThreshold = 160;
-const int _htmlProgressiveRenderHighCostTagThreshold = 12;
+const int _htmlProgressiveRenderCharThreshold = 4 * kBytesPerKiB;
+const int _htmlProgressiveRenderTagThreshold = 48;
+const int _htmlProgressiveRenderHighCostTagThreshold = 4;
+const int _htmlSniffScanCharCap = 8 * kBytesPerKiB;
 const int _htmlProgressiveRenderPreviewCharCap = 1800;
 const int _htmlProgressiveRenderPreviewScanCharCap = 12 * kBytesPerKiB;
 const int _htmlHealFullScanCharLimit = 48 * kBytesPerKiB;
@@ -1341,14 +1342,10 @@ void _warmMarkdownAst({
     }
   }
 
-  if (data.length > _markdownDeferredParseThresholdChars) {
-    _markdownFrameScheduler.schedule(
-      warmup,
-      onDropped: () => _pendingMarkdownWarmups.remove(astCacheKey),
-    );
-    return;
-  }
-  warmup();
+  _markdownFrameScheduler.schedule(
+    warmup,
+    onDropped: () => _pendingMarkdownWarmups.remove(astCacheKey),
+  );
 }
 
 md.Element? _findMarkdownCodeElement(md.Element element) {
@@ -1631,10 +1628,12 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final deferredThreshold = widget.streaming
         ? _markdownStreamingDeferredParseThresholdChars
         : _markdownDeferredParseThresholdChars;
-    if (widget.data.length > deferredThreshold &&
+    final deferHistoricalInitial = initial && !widget.streaming;
+    final overDeferredThreshold = widget.data.length > deferredThreshold;
+    if ((deferHistoricalInitial || (overDeferredThreshold && !hasWarmAst)) &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
-        !_canRenderMarkdownAsPlainText(widget.data) &&
-        !hasWarmAst) {
+        (overDeferredThreshold ||
+            !_canRenderMarkdownAsPlainText(widget.data))) {
       // 仅首次挂载使用占位，后续更新保留上一帧富文本直到新解析完成。
       final hadChildren = _children != null;
       if (widget.streaming &&
@@ -2984,10 +2983,15 @@ final RegExp _htmlLikelyTagPattern = RegExp(
   caseSensitive: false,
 );
 
+String _htmlSniffScanWindow(String value) {
+  if (value.length <= _htmlSniffScanCharCap) return value;
+  return value.substring(0, _htmlSniffScanCharCap);
+}
+
 bool _looksLikeHtml(String value) {
   if (value.isEmpty) return false;
   if (!value.contains('<')) return false;
-  return _htmlLikelyTagPattern.hasMatch(value);
+  return _htmlLikelyTagPattern.hasMatch(_htmlSniffScanWindow(value));
 }
 
 /// 宽松的 HTML 标签结构检测：识别任意 `<标签名>` 或 `</标签名>` 形式，
@@ -3023,7 +3027,7 @@ bool _hasHtmlTagStructure(String value) {
   if (value.isEmpty) return false;
   if (!value.contains('<')) return false;
   // 至少包含 1 个完整的 HTML 标签（开/闭/自闭合均可）。
-  return _htmlAnyTagPattern.hasMatch(value);
+  return _htmlAnyTagPattern.hasMatch(_htmlSniffScanWindow(value));
 }
 
 bool _startsWithFencedMermaidBlock(String source) {
@@ -3204,6 +3208,18 @@ String _preparedHtmlCacheKey(String value, int fingerprint) {
   // fingerprint 已含首尾采样 + 长度，再拼 value.hashCode 对长 HTML 是 O(n)
   // 且无额外区分力；用 length + fingerprint 即可。
   return '${value.length}:$fingerprint';
+}
+
+_PreparedHtmlRenderData? _peekPreparedHtmlRenderData(String value) {
+  final sourceFingerprint = boundedTextFingerprint(value);
+  final cacheKey = _preparedHtmlCacheKey(value, sourceFingerprint);
+  final cached = _preparedHtmlRenderCache.get(cacheKey);
+  if (cached != null &&
+      cached.sourceLength == value.length &&
+      cached.sourceFingerprint == sourceFingerprint) {
+    return cached;
+  }
+  return null;
 }
 
 _PreparedHtmlRenderData _preparedHtmlRenderDataFor(String value) {
@@ -5704,6 +5720,78 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 }
 
+class _DeferredPreparedHtmlBody extends StatefulWidget {
+  const _DeferredPreparedHtmlBody({
+    required this.data,
+    required this.backgroundColor,
+    required this.builder,
+  });
+
+  final String data;
+  final Color backgroundColor;
+  final Widget Function(_PreparedHtmlRenderData prepared) builder;
+
+  @override
+  State<_DeferredPreparedHtmlBody> createState() =>
+      _DeferredPreparedHtmlBodyState();
+}
+
+class _DeferredPreparedHtmlBodyState extends State<_DeferredPreparedHtmlBody> {
+  _PreparedHtmlRenderData? _prepared;
+  bool _prepareScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _prepared = _peekPreparedHtmlRenderData(widget.data);
+    if (_prepared == null) {
+      _schedulePrepare();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _DeferredPreparedHtmlBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data == widget.data) return;
+    _prepared = _peekPreparedHtmlRenderData(widget.data);
+    if (_prepared == null) {
+      _schedulePrepare();
+    }
+  }
+
+  void _schedulePrepare() {
+    if (_prepareScheduled) return;
+    _prepareScheduled = true;
+    _markdownFrameScheduler.schedule(
+      () {
+        _prepareScheduled = false;
+        if (!mounted) return;
+        final next = _preparedHtmlRenderDataFor(widget.data);
+        if (identical(_prepared, next)) return;
+        setState(() => _prepared = next);
+      },
+      priority: true,
+      isValid: () => mounted,
+      onDropped: () => _prepareScheduled = false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final prepared = _prepared;
+    if (prepared == null) {
+      return SizedBox(
+        height: _estimateHtmlBubbleHeight(widget.data),
+        child: ColoredBox(
+          color: widget.backgroundColor,
+          child: const _HtmlBubbleShimmer(),
+        ),
+      );
+    }
+    return widget.builder(prepared);
+  }
+}
+
 class _ProgressiveHtmlMessageBody extends StatefulWidget {
   const _ProgressiveHtmlMessageBody({
     required this.prepared,
@@ -5930,32 +6018,36 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       }
       return _buildMarkdown();
     }
-    // Markdown 格式智能回退：仅当内容整体看起来像 HTML 文档时，才优先尝试
-    // HTML 渲染。若消息里已经出现 fenced code block，则必须坚持走 Markdown
-    // 路径 —— 代码块正文可能合法包含 `<br/>` / `<div>` / `<table>` 等字样
-    //（典型如 mermaid、HTML 示例代码），此时回退到 WebView 会把整个 fenced
-    // block 当普通文本吃掉，导致代码块/mermaid 完全失效。
-    // fence 判定与 HTML 嗅探结果都随 prepared 数据按内容缓存，build 路径
-    // 不再重复对全文跑正则。
-    final preparedHtml = _preparedHtmlRenderDataFor(data);
-    if (preparedHtml.hasMarkdownFence) {
+    if (!data.contains('<') ||
+        _containsMarkdownCodeFence(data) ||
+        _startsWithFencedMermaidBlock(data)) {
       return _buildMarkdown();
     }
-
-    if (preparedHtml.isHtmlCandidate) {
-      return _ProgressiveHtmlMessageBody(
-        prepared: preparedHtml,
-        textColor: textColor,
-        backgroundColor: backgroundColor,
-        baseTextStyle: markdownStyleSheet.p,
-        previewMaxHeight: previewMaxHeight,
-        collapsedOverride: collapsedOverride,
-        onCollapsedChanged: onCollapsedChanged,
-        animateSize: collapsedOverride == null,
-        scrollStateKey: scrollStateKey == null ? null : '$scrollStateKey|html',
-      );
+    if (!_looksLikeHtml(data) && !_hasHtmlTagStructure(data)) {
+      return _buildMarkdown();
     }
-    return _buildMarkdown();
+    return _DeferredPreparedHtmlBody(
+      data: data,
+      backgroundColor: backgroundColor,
+      builder: (preparedHtml) {
+        if (preparedHtml.hasMarkdownFence || !preparedHtml.isHtmlCandidate) {
+          return _buildMarkdown();
+        }
+        return _ProgressiveHtmlMessageBody(
+          prepared: preparedHtml,
+          textColor: textColor,
+          backgroundColor: backgroundColor,
+          baseTextStyle: markdownStyleSheet.p,
+          previewMaxHeight: previewMaxHeight,
+          collapsedOverride: collapsedOverride,
+          onCollapsedChanged: onCollapsedChanged,
+          animateSize: collapsedOverride == null,
+          scrollStateKey: scrollStateKey == null
+              ? null
+              : '$scrollStateKey|html',
+        );
+      },
+    );
   }
 
   Widget _buildMarkdown() {
@@ -6007,25 +6099,35 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     // ._buildDocument` 会先走 `_healUnbalancedHtml` 轻量自愈，进一步降低
     // layout 阶段崩溃的概率；旧版本走 markdown fallback 时，未闭合的
     // `<table>` 经常渲染成 0 高度占位 → 用户看到的就是「空白卡片 / 展开后空」。
-    final preparedHtml = _preparedHtmlRenderDataFor(data);
-
-    if (preparedHtml.isHtmlCandidate) {
-      return _ProgressiveHtmlMessageBody(
-        prepared: preparedHtml,
-        textColor: textColor,
-        backgroundColor: backgroundColor,
-        baseTextStyle: markdownStyleSheet.p,
-        previewMaxHeight: previewMaxHeight,
-        collapsedOverride: collapsedOverride,
-        onCollapsedChanged: onCollapsedChanged,
-        animateSize: collapsedOverride == null,
-        scrollStateKey: scrollStateKey == null ? null : '$scrollStateKey|html',
-      );
+    if (!data.contains('<')) {
+      return htmlFallback == AiHtmlRenderFallback.plainText
+          ? _buildPlainText()
+          : _buildMarkdown();
     }
-    // 不像 HTML 时走 fallback 降级链。
-    return htmlFallback == AiHtmlRenderFallback.plainText
-        ? _buildPlainText()
-        : _buildMarkdown();
+    return _DeferredPreparedHtmlBody(
+      data: data,
+      backgroundColor: backgroundColor,
+      builder: (preparedHtml) {
+        if (preparedHtml.isHtmlCandidate) {
+          return _ProgressiveHtmlMessageBody(
+            prepared: preparedHtml,
+            textColor: textColor,
+            backgroundColor: backgroundColor,
+            baseTextStyle: markdownStyleSheet.p,
+            previewMaxHeight: previewMaxHeight,
+            collapsedOverride: collapsedOverride,
+            onCollapsedChanged: onCollapsedChanged,
+            animateSize: collapsedOverride == null,
+            scrollStateKey: scrollStateKey == null
+                ? null
+                : '$scrollStateKey|html',
+          );
+        }
+        return htmlFallback == AiHtmlRenderFallback.plainText
+            ? _buildPlainText()
+            : _buildMarkdown();
+      },
+    );
   }
 
   bool _buildsPlatformHtmlBody() {
@@ -6036,13 +6138,11 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     // 无需先 trim 复制一份再判空。
     return switch (format) {
       AiMessageContentFormat.plainText => false,
-      AiMessageContentFormat.html => _preparedHtmlRenderDataFor(
-        data,
-      ).isHtmlCandidate,
-      AiMessageContentFormat.markdown => () {
-        final prepared = _preparedHtmlRenderDataFor(data);
-        return !prepared.hasMarkdownFence && prepared.isHtmlCandidate;
-      }(),
+      AiMessageContentFormat.html =>
+        _looksLikeHtml(data) || _hasHtmlTagStructure(data),
+      AiMessageContentFormat.markdown =>
+        !_containsMarkdownCodeFence(data) &&
+            (_looksLikeHtml(data) || _hasHtmlTagStructure(data)),
     };
   }
 

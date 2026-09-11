@@ -12,9 +12,9 @@ const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
 /// 一旦截断，锚点补偿每次都会算出非零 delta 并写 scrollTop，列表永远抖动。
 const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 40_000;
 const MESSAGE_LIST_GAP_PX = 12;
-/** 首次打开或滚动的范围约为视口行数加预渲染行数，并始终从尾部开始。 */
-const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 4;
-const MESSAGE_LIST_INITIAL_OVERSCAN_ROWS = 1;
+/** 首次打开只挂最新尾部，随后按帧放开可见行预算。 */
+export const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 2;
+const MESSAGE_LIST_INITIAL_OVERSCAN_ROWS = 0;
 
 export interface VirtualMessageRange {
   start: number;

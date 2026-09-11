@@ -116,18 +116,18 @@ const Duration _transcriptHistoryRevealCooldown = Duration(milliseconds: 120);
 const int _scrollToBottomPositionRetryLimit = 16;
 const int _scrollToBottomSettleFrameLimit = 36;
 const int _scrollToBottomSettleStableFrameLimit = 4;
-const int _transcriptInitialRevealMaxFrameCount = 48;
-const int _transcriptInitialRevealMinimumFrameCount = 6;
+const int _transcriptInitialRevealMaxFrameCount = 8;
+const int _transcriptInitialRevealMinimumFrameCount = 2;
 
-/// 首屏稳定循环的墙钟上限。纯帧预算在掉帧时会被拉到数秒，用户全程只能看到
-/// 占位符；超时后直接揭示内容，剩余的高度收敛交给常规自动跟随。
+/// 首屏不再等待整窗富文本测高。占位符只覆盖列表挂载前的一两帧，
+/// 超时后立刻揭示；剩余高度收敛交给自动跟随与分帧补齐。
 const Duration _transcriptInitialRevealMaxDuration = Duration(
-  milliseconds: 900,
+  milliseconds: 240,
 );
 
 /// 富文本卡片逐帧挂载会持续改变 maxScrollExtent。超过该宽限帧数后，只有
 /// 「距离底部仍有偏差」才继续判定为不稳定，避免自激循环永远跑满帧预算。
-const int _transcriptInitialRevealExtentGraceFrameCount = 12;
+const int _transcriptInitialRevealExtentGraceFrameCount = 4;
 const double _scrollToBottomSettleTolerance = 0.75;
 const double _messageScrollActivityDeltaThreshold = 0.05;
 const double _messageDistanceToBottomDeltaThreshold = 0.15;

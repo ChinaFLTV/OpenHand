@@ -89,9 +89,9 @@ function loadRehypeKatex(): Promise<MarkdownPlugin> {
 
 const CONTENT_TOO_BIG_CHARS = 120 * 1024;
 const OVERSIZED_MARKDOWN_PREVIEW_MAX_CHARS = 12 * 1024;
-/// 超过该阈值的 Markdown 首次挂载走分帧解析，短消息保持同步渲染。
+/// 超过该阈值的 Markdown 首次挂载走分帧解析；历史卡片无论长短都走延迟路径。
 const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 8 * 1024;
-const HISTORICAL_MARKDOWN_DEFERRED_PARSE_THRESHOLD = 320;
+const HTML_SNIFF_SCAN_CHARS = 8 * 1024;
 const MARKDOWN_PLACEHOLDER_MIN_HEIGHT_PX = 44;
 const MARKDOWN_PLACEHOLDER_MAX_HEIGHT_PX = 520;
 const MARKDOWN_PLACEHOLDER_CHARS_PER_LINE = 92;
@@ -125,9 +125,9 @@ const HTML_PLACEHOLDER_MIN_HEIGHT_PX = 96;
 const HTML_PLACEHOLDER_MAX_HEIGHT_PX = 520;
 const HTML_PLACEHOLDER_CHARS_PER_LINE = 90;
 const HTML_PLACEHOLDER_LINE_HEIGHT_PX = 24;
-const HTML_COMPLEX_SOURCE_MIN_CHARS = 9 * 1024;
-const HTML_COMPLEX_TAG_COUNT = 96;
-const HTML_COMPLEX_RENDER_COST = 18;
+const HTML_COMPLEX_SOURCE_MIN_CHARS = 4 * 1024;
+const HTML_COMPLEX_TAG_COUNT = 48;
+const HTML_COMPLEX_RENDER_COST = 12;
 const HTML_COMPLEX_PREVIEW_MAX_CHARS = 1400;
 const HTML_COMPLEX_PREVIEW_SCAN_CHARS = 12 * 1024;
 const HTML_LIKE_DETECT_CACHE_LIMIT = 512;
@@ -387,7 +387,10 @@ function looksLikeRenderableHtml(value: string): boolean {
   const key = contentCacheKey('htmlish', value);
   const cached = htmlLikeDetectCache.get(key);
   if (cached != null) return cached;
-  const stripped = stripFencedCodeBlocks(value);
+  const sniffSource = value.length > HTML_SNIFF_SCAN_CHARS
+    ? value.slice(0, HTML_SNIFF_SCAN_CHARS)
+    : value;
+  const stripped = stripFencedCodeBlocks(sniffSource);
   const result = HTML_LIKELY_TAG_RE.test(stripped) || HTML_ANY_TAG_RE.test(stripped);
   rememberLru(htmlLikeDetectCache, key, result, HTML_LIKE_DETECT_CACHE_LIMIT);
   return result;
@@ -1222,13 +1225,13 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
   // 帧节流。中等以上内容 (> MARKDOWN_DEFERRED_PARSE_THRESHOLD) 首次挂载时
   // 先骨架占位, 把 react-markdown / rehype 解析推迟到下一空闲帧
   // (帧节流调度器), 避免长会话首屏多卡片同步 parse 撑爆主线程。
-  const shouldDeferHistoricalParse = deferInitialRender && (
-    content.length > HISTORICAL_MARKDOWN_DEFERRED_PARSE_THRESHOLD
-    || FENCED_CODE_RE.test(content)
-    || MATH_DELIMITER_RE.test(content)
-  );
   const shouldDeferParse = !streaming && !raw && format !== 'plain_text' && !stickyLooksHtml && !tooBig
-    && (content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD || shouldDeferHistoricalParse);
+    && (
+      deferInitialRender
+      || content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD
+      || FENCED_CODE_RE.test(content)
+      || MATH_DELIMITER_RE.test(content)
+    );
   const markdownReadyKey = useMemo(
     () =>
       shouldDeferParse
@@ -1574,7 +1577,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
   // 流式收尾或历史卡片重新进入视窗时保留可读正文，
   // 禁止已显示的内容在 deferred parse 期间回退成骨架屏。
   if (!parseReady) {
-    if (deferInitialRender) {
+    if (deferInitialRender && markdownContent.length <= MARKDOWN_DEFERRED_PARSE_THRESHOLD) {
       return (
         <pre
           class="oh-markdown whitespace-pre-wrap break-words text-sm"

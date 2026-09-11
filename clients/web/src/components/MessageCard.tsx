@@ -2087,7 +2087,7 @@ function StreamingMarkdownReveal({
   htmlFallback?: 'markdown' | 'plain_text';
   deferInitialRender: boolean;
 }) {
-  const contentIsHtml = looksLikeRenderableHtml(content);
+  const contentIsHtml = streaming ? looksLikeRenderableHtml(content) : false;
   const canStageContent = streaming && format !== 'html' && !contentIsHtml;
   const { visibleContent: renderContent, staging } = useStreamingStagedText(
     content,
@@ -2581,7 +2581,9 @@ function MessageCardImpl({
   const supportsRenderedSourceToggle =
     !goalMessageView &&
     (effectiveFormat === 'html' || effectiveFormat === 'markdown');
-  const contentLooksHtml = looksLikeRenderableHtml(visibleContent);
+  const contentLooksHtml = badgeBodyCollapsed
+    ? looksLikeRenderableHtml(visibleContent)
+    : false;
   const renderedBodyContent = useMemo(() => {
     if (!badgeBodyCollapsed || activelyStreaming || contentLooksHtml) {
       return visibleContent;

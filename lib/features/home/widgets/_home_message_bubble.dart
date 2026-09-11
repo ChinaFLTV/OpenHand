@@ -1042,7 +1042,8 @@ class _MessageBubbleState extends State<_MessageBubble>
     final contentPreviewText =
         isContentPreview &&
             resolvedMessageContentFormat == AiMessageContentFormat.html
-        ? _preparedHtmlRenderDataFor(effectiveContent).previewText
+        ? (_peekPreparedHtmlRenderData(effectiveContent)?.previewText ??
+              effectiveContent)
         : effectiveContent;
     final responseVariantBodyMotionKey =
         isAssistantResponse && message.responseVariants.length > 1
@@ -1636,7 +1637,10 @@ class _MessageBubbleState extends State<_MessageBubble>
             // 稳定内容改读缓存结果，避免每次 build 重扫全文。
             (isStreamingAssistant
                 ? _looksLikeHtml(effectiveContent)
-                : _preparedHtmlRenderDataFor(effectiveContent).looksLikeHtml))
+                : (_peekPreparedHtmlRenderData(
+                        effectiveContent,
+                      )?.looksLikeHtml ??
+                      _looksLikeHtml(effectiveContent))))
           _MessageActionSpec(
             id: 'open-html',
             onPressed: () async {

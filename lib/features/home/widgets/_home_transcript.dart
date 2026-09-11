@@ -31,11 +31,17 @@ final Expando<bool> _transcriptMultimediaContentCache = Expando<bool>(
   'transcriptMultimediaContent',
 );
 
-/// 消息是否走 HTML WebView 渲染器的判定缓存。结果只取决于消息内容
-///（不可变），按对象缓存避免每帧对每条可见消息重复正则扫描。
-final Expando<bool> _transcriptHtmlRendererCache = Expando<bool>(
-  'transcriptHtmlRenderer',
-);
+/// 消息是否走 HTML WebView 渲染器的判定缓存。结果取决于正文与当前
+/// 内容格式设置；按对象缓存，格式变化时丢弃该条。
+class _HtmlRendererCacheEntry {
+  const _HtmlRendererCacheEntry({required this.format, required this.usesHtml});
+
+  final AiMessageContentFormat format;
+  final bool usesHtml;
+}
+
+final Expando<_HtmlRendererCacheEntry> _transcriptHtmlRendererCache =
+    Expando<_HtmlRendererCacheEntry>('transcriptHtmlRenderer');
 
 /// 知识库元数据判定缓存。消息对象不可变，直接元数据结果恒定。
 // 包装类：Expando 的值类型必须为 Object（非可空），用包装区分 null 与未缓存。
@@ -467,6 +473,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     maxPerFrame: _transcriptWarmupMaxPerFrame,
   );
   int _warmupGeneration = 0;
+  int _staggerFillGeneration = 0;
+  bool _staggerFillActive = false;
   int? _warmupContextSignature;
   final Set<int> _warmupSignatures = <int>{};
   final Queue<int> _warmupSignatureOrder = Queue<int>();
@@ -535,6 +543,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       elapsedFrames += 1;
       final positions = widget.controller.positions.toList(growable: false);
       if (positions.length != 1) {
+        // 首屏故意不挂载列表，避免在占位符下面同步解析整窗卡片。
+        // 没有 ScrollPosition 时不必空等到超时，两帧后直接揭示。
+        if (elapsedFrames >= _transcriptInitialRevealMinimumFrameCount) {
+          reveal();
+          return;
+        }
         stableFrames = 0;
         WidgetsBinding.instance.addPostFrameCallback(settle);
         return;
@@ -728,13 +742,27 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _scrollRequestGeneration += 1;
     _activeScrollFuture = null;
     _activeScrollTargetId = null;
+    _staggerFillGeneration += 1;
+    _staggerFillActive = false;
   }
 
   void _setInitialRevealPhase(_TranscriptInitialRevealPhase next) {
     if (_initialRevealPhase == next) {
       return;
     }
+    final wasHidden =
+        _initialRevealPhase != _TranscriptInitialRevealPhase.revealingContent &&
+        _initialRevealPhase != _TranscriptInitialRevealPhase.ready;
+    final nowVisible =
+        next == _TranscriptInitialRevealPhase.revealingContent ||
+        next == _TranscriptInitialRevealPhase.ready;
     _initialRevealPhase = next;
+    if (wasHidden && nowVisible) {
+      _scheduleStaggeredWindowFill();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pinTranscriptToLatestIfOpening();
+      });
+    }
   }
 
   void _handleInitialPlaceholderDismissed() {
@@ -806,13 +834,155 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   void _materializeOpenWindow() {
     final visibleMessages = _visibleMessagesForWindow();
-    _replaceRenderEntries(visibleMessages, animate: false);
+    final firstPaint = TranscriptListWindowing.initialPaintSlice(
+      visibleMessages,
+    );
+    _replaceRenderEntries(firstPaint, animate: false);
+    final needsFill = firstPaint.length < visibleMessages.length;
+    _staggerFillActive = needsFill;
+    if (needsFill &&
+        _initialRevealPhase != _TranscriptInitialRevealPhase.preparing) {
+      _scheduleStaggeredWindowFill();
+    }
+  }
+
+  void _scheduleStaggeredWindowFill() {
+    if (!_staggerFillActive) return;
+    final generation = ++_staggerFillGeneration;
+    _warmupScheduler.schedule(
+      () => _staggerFillNext(generation),
+      priority: true,
+      isValid: () =>
+          mounted && generation == _staggerFillGeneration && _staggerFillActive,
+    );
+  }
+
+  void _staggerFillNext(int generation) {
+    if (!mounted ||
+        generation != _staggerFillGeneration ||
+        !_staggerFillActive) {
+      return;
+    }
+    final visibleMessages = _visibleMessagesForWindow();
+    if (visibleMessages.isEmpty) {
+      _staggerFillActive = false;
+      return;
+    }
+    var firstPaintedIndex = -1;
+    for (var index = 0; index < visibleMessages.length; index += 1) {
+      if (_renderEntryIndexById.containsKey(visibleMessages[index].id)) {
+        firstPaintedIndex = index;
+        break;
+      }
+    }
+    if (firstPaintedIndex <= 0) {
+      _staggerFillActive = false;
+      if (firstPaintedIndex < 0) {
+        setState(() {
+          _replaceRenderEntries(visibleMessages, animate: false);
+        });
+      }
+      return;
+    }
+    final message = visibleMessages[firstPaintedIndex - 1];
+    final pinToBottom =
+        _initialRevealPhase != _TranscriptInitialRevealPhase.ready;
+    final anchor = pinToBottom ? null : _capturePrependAnchor();
+    setState(() {
+      _animatedMessageIds.add(message.id);
+      _renderEntries = <_TranscriptRenderEntry>[
+        _TranscriptRenderEntry(message: message),
+        ..._renderEntries,
+      ];
+      _syncRenderEntryIndex();
+    });
+    _scheduleWarmRichRenderEntries(<AiSessionMessage>[message]);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _staggerFillGeneration) return;
+      if (anchor != null) {
+        _restorePrependAnchor(anchor);
+      } else {
+        _pinTranscriptToLatestIfOpening();
+      }
+    });
+    if (firstPaintedIndex - 1 > 0) {
+      _warmupScheduler.schedule(
+        () => _staggerFillNext(generation),
+        priority: true,
+        isValid: () =>
+            mounted &&
+            generation == _staggerFillGeneration &&
+            _staggerFillActive,
+      );
+    } else {
+      _staggerFillActive = false;
+    }
+  }
+
+  void _reconcileStaggeredRenderEntries(
+    List<AiSessionMessage> visibleMessages,
+  ) {
+    if (visibleMessages.isEmpty) {
+      _staggerFillActive = false;
+      _renderEntries = const <_TranscriptRenderEntry>[];
+      _syncRenderEntryIndex();
+      return;
+    }
+    final visibleById = <String, AiSessionMessage>{
+      for (final message in visibleMessages) message.id: message,
+    };
+    final retained = <_TranscriptRenderEntry>[
+      for (final entry in _renderEntries)
+        if (visibleById.containsKey(entry.id))
+          identical(entry.message, visibleById[entry.id])
+              ? entry
+              : entry.copyWith(message: visibleById[entry.id]),
+    ];
+    if (retained.isEmpty) {
+      _materializeOpenWindow();
+      return;
+    }
+    final lastId = retained.last.id;
+    final lastVisibleIndex = visibleMessages.indexWhere(
+      (message) => message.id == lastId,
+    );
+    if (lastVisibleIndex >= 0) {
+      for (
+        var index = lastVisibleIndex + 1;
+        index < visibleMessages.length;
+        index += 1
+      ) {
+        final message = visibleMessages[index];
+        _animatedMessageIds.add(message.id);
+        retained.add(_TranscriptRenderEntry(message: message));
+      }
+    }
+    _renderEntries = retained;
+    _syncRenderEntryIndex();
+    _scheduleWarmRichRenderEntries(
+      retained.map((entry) => entry.message).toList(growable: false),
+    );
+  }
+
+  void _pinTranscriptToLatestIfOpening() {
+    if (!mounted || !widget.controller.hasClients) return;
+    if (_isTranscriptScrollActive(context)) return;
+    if (_initialRevealPhase == _TranscriptInitialRevealPhase.ready &&
+        !_staggerFillActive) {
+      return;
+    }
+    final position = widget.controller.position;
+    widget.onProgrammaticScrollCorrection(
+      () => position.jumpTo(position.maxScrollExtent),
+    );
   }
 
   void _replaceRenderEntries(
     List<AiSessionMessage> visibleMessages, {
     bool animate = true,
   }) {
+    _staggerFillGeneration += 1;
+    _staggerFillActive = false;
     _scheduleWarmRichRenderEntries(visibleMessages);
     if (!animate) {
       _animatedMessageIds.addAll(visibleMessages.map((message) => message.id));
@@ -825,6 +995,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _syncRenderEntriesAfterHistoryPrepend() {
+    _staggerFillGeneration += 1;
+    _staggerFillActive = false;
     final visibleMessages = _visibleMessagesForWindow();
     if (_renderEntries.isEmpty || visibleMessages.isEmpty) {
       _replaceRenderEntries(visibleMessages, animate: false);
@@ -1181,9 +1353,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       case AiMessageContentFormat.html:
         if (hasHtmlLikeTags || hasTagStructure) {
-          // 预热 prepared LRU（嗅探 + 自愈 + 预览文本）；高度只能由
-          // WebView 测高回调写入，预热阶段无事可做。
-          _preparedHtmlRenderDataFor(normalizedContent);
+          // HTML 自愈与 WebView 挂载改由卡片分帧路径负责，避免打开会话时
+          // 在占位符阶段同步扫描整段正文。
           return;
         }
         if (settings.aiHtmlRenderFallback == AiHtmlRenderFallback.markdown) {
@@ -1192,7 +1363,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       case AiMessageContentFormat.markdown:
         if (!containsMarkdownFence && (hasHtmlLikeTags || hasTagStructure)) {
-          _preparedHtmlRenderDataFor(normalizedContent);
           return;
         }
         warmMarkdownBody();
@@ -1202,7 +1372,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   void _syncRenderEntries({bool forceReset = false}) {
     final visibleMessages = _visibleMessagesForWindow();
-    if (forceReset || _renderEntries.isEmpty) {
+    if (_renderEntries.isEmpty) {
+      _materializeOpenWindow();
+      return;
+    }
+    if (_staggerFillActive) {
+      _reconcileStaggeredRenderEntries(visibleMessages);
+      return;
+    }
+    if (forceReset) {
       _replaceRenderEntries(visibleMessages, animate: false);
       return;
     }
@@ -1313,6 +1491,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = null;
     _warmupGeneration += 1;
+    _staggerFillGeneration += 1;
+    _staggerFillActive = false;
     _activeRevealOlderFuture = null;
     _warmupScheduler.clear();
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
@@ -1452,6 +1632,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     if (targetDisplayIndex < 0 || anchorMessageId == null) return false;
     if (await tryEnsureVisible(anchorMessageId)) return true;
+
+    if (!_renderEntryIndexById.containsKey(anchorMessageId)) {
+      final visible = _visibleMessagesForWindow();
+      if (visible.any((message) => message.id == anchorMessageId)) {
+        setState(() {
+          _replaceRenderEntries(visible, animate: false);
+        });
+        await _awaitEndOfFrameBounded();
+        if (await tryEnsureVisible(anchorMessageId)) return true;
+        if (!requestIsCurrent()) return false;
+      }
+    }
 
     final renderIndex = _renderEntryIndexById[anchorMessageId] ?? -1;
     if (renderIndex < 0) return false;
@@ -1865,10 +2057,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final trimmed = content.trim();
     if (trimmed.isEmpty) return false;
 
-    final lower = trimmed.toLowerCase();
-    if (lower.contains('<img') ||
-        lower.contains('<video') ||
-        lower.contains('<audio')) {
+    if (trimmed.contains('<')) {
       for (final match in _transcriptHtmlMediaSrcPattern.allMatches(trimmed)) {
         if ((match.group(1) ?? '').trim().isNotEmpty) {
           return true;
@@ -2032,17 +2221,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (message.kind != AiSessionMessageKind.assistant) {
       return false;
     }
-    // 仅当消息自身存储了格式标记时缓存才安全，否则结果依赖全局设置。
-    final hasStoredFormat =
-        message.metadata[aiSessionMessageContentFormatKey] is String;
-    if (hasStoredFormat) {
-      final cached = _transcriptHtmlRendererCache[message];
-      if (cached != null) return cached;
+    final format = _messageContentFormat(message, settings);
+    final cached = _transcriptHtmlRendererCache[message];
+    if (cached != null && cached.format == format) {
+      return cached.usesHtml;
     }
     final result = _computeMessageUsesHtmlRenderer(message, settings);
-    if (hasStoredFormat) {
-      _transcriptHtmlRendererCache[message] = result;
-    }
+    _transcriptHtmlRendererCache[message] = _HtmlRendererCacheEntry(
+      format: format,
+      usesHtml: result,
+    );
     return result;
   }
 
@@ -2125,7 +2313,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (nextStart == _windowStartIndex) return;
     setState(() {
       _windowStartIndex = nextStart;
-      _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+      _materializeOpenWindow();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !widget.controller.hasClients) return;
@@ -3244,7 +3432,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         duration: motionSettings.entranceDuration,
                         curve: motionSettings.curve.curve,
                         onEnd: _handleInitialContentRevealed,
-                        child: transcriptList,
+                        child: contentVisible
+                            ? transcriptList
+                            : const SizedBox.expand(),
                       ),
                     ),
                   ),
