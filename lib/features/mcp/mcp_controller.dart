@@ -421,7 +421,7 @@ class McpController extends ChangeNotifier {
       servers: snapshot,
       resolveTools: (server) async {
         // 仅索引「当前可用」的服务 —— 即 catalog 已 ready 且工具列表非空。
-        // 未探测的 stdio 服务首启可达 6 分钟，强行 fresh-discover 会让弹窗
+        // 未探测的 stdio 服务首次启动可达 6 分钟，强行 fresh-discover 会让弹窗
         // 卡住数分钟，违反「按钮触发的轻量任务」体感。索引刷新依赖
         // 用户/自动 probe 自行先把 catalog 拉好，未拉到的服务计入 skipped。
         final cached = toolCatalogFor(server.name);

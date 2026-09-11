@@ -9897,13 +9897,13 @@ class _McpServerCardState extends State<_McpServerCard> {
                                 liveLine != null && liveLine.isNotEmpty
                                 ? '$tooltipBase\n\n$liveLine'
                                 : tooltipBase;
-                            // 标签：拿到 stderr 行后切到「首启 · 实时进度」，否则保持初始文案。
+                            // 标签：拿到 stderr 行后切到「首次启动 · 实时进度」，否则保持初始文案。
                             final label = server.type == McpServerType.stdio
                                 ? (liveLine != null && liveLine.isNotEmpty
                                       ? clipMiddleText(liveLine, maxChars: 36)
                                       : _localizedText(
                                           context,
-                                          zh: '首启准备中…',
+                                          zh: '首次启动准备中…',
                                           en: 'Bootstrapping…',
                                         ))
                                 : _localizedText(

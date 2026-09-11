@@ -804,7 +804,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mcpStdioMirrorModeBody =>
-      'stdio MCP 服务首启时，是否注入国内镜像源（npmmirror / 清华 PyPI）。auto = 按系统语言自判；强制开启 / 关闭 = 无视 locale。环变 OPENHAND_MCP_MIRROR=on/off 能运行时再覆盖一次。';
+      'stdio MCP 服务首次启动时，是否注入国内镜像源（npmmirror / 清华 PyPI）。auto = 按系统语言自判；强制开启 / 关闭 = 无视 locale。环境变量 OPENHAND_MCP_MIRROR=on/off 可在运行时覆盖此设置。';
 
   @override
   String get mcpStdioMirrorModeAuto => '跟随语言';

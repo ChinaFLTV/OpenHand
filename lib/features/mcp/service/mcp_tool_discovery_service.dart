@@ -1001,7 +1001,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       requestTimeout: _requestTimeout,
       onStderrLine: (line) {
         if (!bootstrapActive) return;
-        // 把 npm/uvx 首启时的下载进度行实时透出给 UI 「正在 bootstrap」chip。
+        // 把 npm/uvx 首次启动时的下载进度行实时透出给 UI 「正在 bootstrap」chip。
         // 行已经在 _StdioSession 里 trim 过，这里做长度截断防爆 Tooltip。
         final clean = clipTextWithEllipsis(line, 200);
         mcpStdioBootstrapStatus.update(server.name, clean);
@@ -3549,7 +3549,7 @@ String _friendlyTimeoutMessage(
       zh:
           '· 在终端单独跑一遍 server.command 看下载是否走得通 (网络/代理/镜像源)\n'
           '· 已把 stdio 缓存隔离到 ~/.openhand/mcp/package-cache，可手动 rm -rf 重置\n'
-          '· 首启过后命中缓存即恢复秒级，故失败可直接重试\n'
+          '· 首次启动后命中缓存即可恢复秒级，失败时可直接重试\n'
           '· 必要时给 npm/uv 配镜像源 (例：~/.npmrc -> registry=$_kNpmMirrorRegistry)',
       zhHant:
           '· 在終端單獨執行 server.command，確認下載是否可行 (網路/代理/映像源)\n'
