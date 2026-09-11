@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/model/editor_code_theme.dart';
 import '../../../app/model/hook_config.dart';
+import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -815,28 +817,25 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          TextField(
-                            controller: _scriptContentController,
-                            enabled: !_saving,
-                            maxLines: 8,
-                            minLines: 4,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontFamily: kOpenHandMonospaceFontFamily,
-                              fontSize: 13,
-                            ),
-                            decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.all(12),
-                              hintText: Platform.isWindows
-                                  ? l10n.hooksInlineWindowsHint
-                                  : l10n.hooksInlineShellHint,
-                              hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant.withValues(
-                                  alpha: 0.5,
+                          OpenHandCodeEditor(
+                            value: _scriptContentController.text,
+                            language: Platform.isWindows
+                                ? 'powershell'
+                                : 'bash',
+                            fileName: Platform.isWindows
+                                ? 'hook.ps1'
+                                : 'hook.sh',
+                            codeTheme: context
+                                .select<SettingsController, EditorCodeTheme>(
+                                  (controller) => controller.editorCodeTheme,
                                 ),
-                                fontFamily: kOpenHandMonospaceFontFamily,
-                                fontSize: 13,
-                              ),
-                            ),
+                            icon: Icons.terminal_rounded,
+                            height: 280,
+                            borderRadius: kOpenHandBorderRadius14,
+                            readOnly: _saving,
+                            onChanged: (value) {
+                              _scriptContentController.text = value;
+                            },
                           ),
                           kOpenHandGap12,
                           OpenHandTintedPanel(
