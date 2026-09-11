@@ -43,6 +43,7 @@ const double _kSkillCardIconExtent = 52;
 const double _kSkillPreviewIconExtent = 64;
 const double _kSkillCardIconEmojiSize = 20;
 const double _kSkillCardIconInset = 8;
+const double _kSkillCardIconInitialsFactor = 0.46;
 
 const List<String> _skillEmojiOptions = <String>[
   '🧠',
@@ -1259,8 +1260,12 @@ class _SkillCardIcon extends StatelessWidget {
     final fallback = Center(
       child: Text(
         skill.initials,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: extent * _kSkillCardIconInitialsFactor,
           fontWeight: FontWeight.w800,
+          height: 1,
+          leadingDistribution: TextLeadingDistribution.even,
           color: colorScheme.onPrimaryContainer,
         ),
       ),
@@ -1344,28 +1349,14 @@ class _SkillEmojiGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: Center(
-        child: Transform.translate(
-          offset: const Offset(0, -1),
-          child: Text(
-            emoji,
-            textAlign: TextAlign.center,
-            textHeightBehavior: const TextHeightBehavior(
-              applyHeightToFirstAscent: false,
-              applyHeightToLastDescent: false,
-            ),
-            strutStyle: StrutStyle(
-              fontSize: fontSize,
-              height: 1,
-              forceStrutHeight: true,
-            ),
-            style: TextStyle(
-              fontSize: fontSize,
-              height: 1,
-              leadingDistribution: TextLeadingDistribution.even,
-            ),
-          ),
+    return Center(
+      child: Text(
+        emoji,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: fontSize,
+          height: 1,
+          leadingDistribution: TextLeadingDistribution.even,
         ),
       ),
     );
