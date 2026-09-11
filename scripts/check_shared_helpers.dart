@@ -302,6 +302,15 @@ int _checkJsonDecode() {
     stderr.writeln('tryDecodeJsonValue 未拒绝无效 JSON');
     failures++;
   }
+  if (tryDecodeJsonValue('[0]', maxTextCodeUnits: 2).success) {
+    stderr.writeln('tryDecodeJsonValue 未拒绝超长 JSON');
+    failures++;
+  }
+  final excessiveNesting = '${'[' * 65}0${']' * 65}';
+  if (tryDecodeJsonValue(excessiveNesting).success) {
+    stderr.writeln('tryDecodeJsonValue 未拒绝超深 JSON');
+    failures++;
+  }
   final decoded = decodeJsonTextUsingConfig(
     '{"a":1,"b":[true,null]}',
     maxTextCodeUnits: 64,

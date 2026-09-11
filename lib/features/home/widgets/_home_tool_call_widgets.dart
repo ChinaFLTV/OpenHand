@@ -2839,13 +2839,11 @@ String? _tryFormatLegacyToolSearchContent(String content) {
   for (final match in _legacyToolSearchFunctionPattern.allMatches(content)) {
     final rawFunction = match.group(1)?.trim();
     if (rawFunction == null || rawFunction.isEmpty) continue;
-    try {
-      final decoded = jsonDecode(rawFunction);
-      if (decoded is Map) {
-        functions.add(Map<String, Object?>.from(decoded));
-      }
-    } catch (_) {
-      return null;
+    final decoded = tryDecodeJsonValue(rawFunction);
+    if (!decoded.success) return null;
+    final decodedValue = decoded.value;
+    if (decodedValue is Map) {
+      functions.add(Map<String, Object?>.from(decodedValue));
     }
   }
   final loadedTools = functions

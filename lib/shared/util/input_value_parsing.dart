@@ -1,6 +1,8 @@
 import 'dart:collection';
 import 'dart:convert';
 
+import 'bounded_json_conversion.dart';
+
 String? nullIfBlank(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
@@ -106,6 +108,7 @@ T enumByNameOr<T extends Enum>(
 
 final RegExp _looseDelimitedValueSeparator = RegExp(r'[\s,，;；]+');
 const int _autoMillisecondsTimestampThreshold = 1000000000000;
+const int kInlineJsonDecodeMaxCodeUnits = 4 * 1024 * 1024;
 const double kUnitIntervalMinimum = 0;
 const double kUnitIntervalMaximum = 1;
 const Set<String> _truthyBoolTexts = <String>{
@@ -126,9 +129,18 @@ const Set<String> _falsyBoolTexts = <String>{
 };
 
 /// 尝试解析 JSON，并区分解析失败与合法的 `null` 值。
-({bool success, Object? value}) tryDecodeJsonValue(String value) {
+({bool success, Object? value}) tryDecodeJsonValue(
+  String value, {
+  int maxTextCodeUnits = kInlineJsonDecodeMaxCodeUnits,
+}) {
   try {
-    return (success: true, value: jsonDecode(value));
+    return (
+      success: true,
+      value: decodeJsonTextUsingConfig(
+        value,
+        maxTextCodeUnits: maxTextCodeUnits,
+      ),
+    );
   } on FormatException {
     return (success: false, value: null);
   }

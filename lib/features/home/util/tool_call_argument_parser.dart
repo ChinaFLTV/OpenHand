@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -27,33 +25,31 @@ String _readToolArgumentValue(
   if (trimmed.isEmpty) {
     return '';
   }
-  try {
-    final decoded = jsonDecode(trimmed);
-    if (decoded is Map) {
+  final decoded = tryDecodeJsonValue(trimmed);
+  if (decoded.success) {
+    if (decoded.value is Map) {
       return _readPreferredArgumentValue(
-        stringKeyedMapFromValue(decoded),
+        stringKeyedMapFromValue(decoded.value),
         preferredKeys,
       );
     }
     return '';
-  } catch (_) {
-    // 上游可能把多个 tool_call 参数拼成 `{...}{...}`，先尝试恢复再记录异常。
-    final concatMerged = _mergeConcatenatedJsonObjects(trimmed);
-    if (concatMerged != null) {
-      return _readPreferredArgumentValue(concatMerged, preferredKeys);
-    } else {
-      // 流式参数未闭合属于预期中间态，不重复输出日志。
-      final looksIncomplete =
-          trimmed.codeUnitAt(0) == 0x7B &&
-          _findBalancedObjectEnd(trimmed, 0) < 0;
-      if (!looksIncomplete) {
-        silentLog(
-          'tool_call_argument_parser',
-          '解码工具参数 JSON',
-          '无法恢复：${_truncateForLog(trimmed)}',
-        );
-      }
-    }
+  }
+
+  // 上游可能把多个 tool_call 参数拼成 `{...}{...}`，先尝试恢复再记录异常。
+  final concatMerged = _mergeConcatenatedJsonObjects(trimmed);
+  if (concatMerged != null) {
+    return _readPreferredArgumentValue(concatMerged, preferredKeys);
+  }
+  // 流式参数未闭合属于预期中间态，不重复输出日志。
+  final looksIncomplete =
+      trimmed.codeUnitAt(0) == 0x7B && _findBalancedObjectEnd(trimmed, 0) < 0;
+  if (!looksIncomplete) {
+    silentLog(
+      'tool_call_argument_parser',
+      '解码工具参数 JSON',
+      '无法恢复：${_truncateForLog(trimmed)}',
+    );
   }
   return _readPartialJsonStringField(trimmed, preferredKeys);
 }
@@ -95,17 +91,12 @@ Map<String, Object?>? _mergeConcatenatedJsonObjects(String source) {
       return null;
     }
     final slice = source.substring(cursor, end + 1);
-    try {
-      final decoded = jsonDecode(slice);
-      if (decoded is Map) {
-        merged.addAll(stringKeyedMapFromValue(decoded));
-        foundAny = true;
-      } else {
-        return null;
-      }
-    } catch (_) {
+    final decoded = tryDecodeJsonValue(slice);
+    if (!decoded.success || decoded.value is! Map) {
       return null;
     }
+    merged.addAll(stringKeyedMapFromValue(decoded.value));
+    foundAny = true;
     cursor = end + 1;
   }
   return foundAny ? merged : null;
