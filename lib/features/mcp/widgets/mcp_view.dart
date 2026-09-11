@@ -111,6 +111,7 @@ const double _mcpToolDebugMenuMaxHeight = 360;
 const double _mcpToolDebugCompactFieldHeight = 48;
 const double _mcpHeaderEditorRowHeight = 56;
 const double _mcpToolDebugPayloadMaxHeight = 560;
+const double _mcpDialogCardListMaxHeight = 420;
 const int _mcpToolDebugMaxArrayItems = 256;
 const double _mcpNoticeMaxMessageHeight = 320;
 const double _mcpToolDebugMenuItemInset = 8;
@@ -10642,6 +10643,28 @@ class _McpAttentionChip extends StatelessWidget {
   }
 }
 
+Widget _mcpDialogBoundedItemList({
+  required BuildContext context,
+  required int itemCount,
+  required IndexedWidgetBuilder itemBuilder,
+  double maxHeight = _mcpDialogCardListMaxHeight,
+}) {
+  final height = maxHeight.isFinite && maxHeight > 0
+      ? maxHeight
+      : _mcpDialogCardListMaxHeight;
+  return ConstrainedBox(
+    constraints: BoxConstraints(maxHeight: height),
+    child: ListView.separated(
+      primary: false,
+      shrinkWrap: true,
+      physics: openHandDialogAwareScrollPhysics(context),
+      itemCount: itemCount,
+      separatorBuilder: (_, _) => kOpenHandGap10,
+      itemBuilder: itemBuilder,
+    ),
+  );
+}
+
 Widget _mcpDialogCloseBar(BuildContext context) {
   final colorScheme = Theme.of(context).colorScheme;
   return DecoratedBox(
@@ -11311,40 +11334,13 @@ class _ToolListPreview extends StatelessWidget {
 
   final List<McpTool> tools;
 
-  static const int _previewLimit = 12;
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final preview = tools.take(_previewLimit).toList();
-    final overflow = tools.length - preview.length;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < preview.length; i++) ...[
-          if (i > 0) kOpenHandGap10,
-          _ToolPreviewTile(tool: preview[i]),
-        ],
-        if (overflow > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              _localizedText(
-                context,
-                zh: '另有 $overflow 个工具未在此列出',
-                en: '$overflow more tools not shown here',
-                zhHant: '另有 $overflow 個工具未在此列出',
-                fr: '$overflow autres tools non affichés ici',
-                de: '$overflow weitere Tools hier nicht angezeigt',
-                ja: 'ほかに $overflow 件の Tool はここに表示されていません',
-              ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-      ],
+    if (tools.isEmpty) return const SizedBox.shrink();
+    return _mcpDialogBoundedItemList(
+      context: context,
+      itemCount: tools.length,
+      itemBuilder: (context, index) => _ToolPreviewTile(tool: tools[index]),
     );
   }
 }
@@ -11634,6 +11630,7 @@ class _McpHealthHistoryDialog extends StatelessWidget {
       maxHeight: kOpenHandDialogHeightTall,
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           buildOpenHandToolDialogHeader(
@@ -11649,22 +11646,20 @@ class _McpHealthHistoryDialog extends StatelessWidget {
             actions: [if (probes.isNotEmpty) copyMenu],
           ),
           if (probes.isEmpty)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                child: FeatureStateCard.centered(
-                  icon: Icons.monitor_heart_outlined,
-                  tone: FeatureStateTone.neutral,
-                  title: _localizedText(
-                    context,
-                    zh: '尚无探测记录',
-                    en: 'No probes yet',
-                  ),
-                  body: _localizedText(
-                    context,
-                    zh: '请先发起一次健康检测或一键重连。',
-                    en: 'Run a health check or reconnect to populate this list.',
-                  ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+              child: FeatureStateCard.centered(
+                icon: Icons.monitor_heart_outlined,
+                tone: FeatureStateTone.neutral,
+                title: _localizedText(
+                  context,
+                  zh: '尚无探测记录',
+                  en: 'No probes yet',
+                ),
+                body: _localizedText(
+                  context,
+                  zh: '请先发起一次健康检测或一键重连。',
+                  en: 'Run a health check or reconnect to populate this list.',
                 ),
               ),
             )
@@ -11704,14 +11699,13 @@ class _McpHealthHistoryDialog extends StatelessWidget {
                 ],
               ),
             ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: _mcpDialogBoundedItemList(
+                context: context,
                 itemCount: probes.length,
-                separatorBuilder: (_, _) => kOpenHandGap10,
-                itemBuilder: (context, index) {
-                  return _McpHealthProbeTile(probe: probes[index]);
-                },
+                itemBuilder: (context, index) =>
+                    _McpHealthProbeTile(probe: probes[index]),
               ),
             ),
           ],
