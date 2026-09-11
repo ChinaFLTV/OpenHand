@@ -4,10 +4,8 @@ import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 /// 垂直展开档默认时长：入场略长于退场，收起时更干脆。
-const Duration kOpenHandVerticalRevealDuration = Duration(milliseconds: 320);
-const Duration kOpenHandVerticalRevealReverseDuration = Duration(
-  milliseconds: 240,
-);
+const Duration kOpenHandVerticalRevealDuration = kOpenHandMotion320;
+const Duration kOpenHandVerticalRevealReverseDuration = kOpenHandMotion240;
 
 /// 顶部锚定的垂直展开/收起切换动效。
 ///
@@ -99,10 +97,8 @@ class OpenHandVerticalRevealSwitcher extends StatelessWidget {
 }
 
 /// 行内展开档默认时长：比纵向档略短，行内元素的宽度变化不宜拖沓。
-const Duration kOpenHandInlineRevealDuration = Duration(milliseconds: 220);
-const Duration kOpenHandInlineRevealReverseDuration = Duration(
-  milliseconds: 180,
-);
+const Duration kOpenHandInlineRevealDuration = kOpenHandMotion220;
+const Duration kOpenHandInlineRevealReverseDuration = kOpenHandMotion180;
 
 /// 行内（横向）展开/收起切换动效，[OpenHandVerticalRevealSwitcher] 的同轴兄弟。
 ///
@@ -280,7 +276,7 @@ class OpenHandFadeSizeSwitcher extends StatelessWidget {
 }
 
 /// 内容态切换的默认时长。
-const Duration kOpenHandContentStateDuration = Duration(milliseconds: 220);
+const Duration kOpenHandContentStateDuration = kOpenHandMotion220;
 
 /// 「加载中 / 空态 / 正文」这类内容态之间的淡入淡出切换。
 ///

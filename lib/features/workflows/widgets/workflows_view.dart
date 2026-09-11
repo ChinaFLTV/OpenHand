@@ -465,7 +465,7 @@ class _WorkflowsViewState extends State<WorkflowsView> {
           title: Text(exporting ? '导出工作流失败' : '导入工作流失败'),
           content: buildOpenHandDialogConstrainedContent(
             maxWidth: kOpenHandDialogWidthCompact,
-            maxHeight: 560,
+            maxHeight: kOpenHandDialogHeightCompact,
             child: SingleChildScrollView(
               child: Container(
                 width: double.infinity,

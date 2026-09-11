@@ -474,7 +474,7 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
         : colors.surfaceContainer;
     final card = AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       decoration: BoxDecoration(
         color: background,
         borderRadius: kOpenHandBorderRadius12,
@@ -838,7 +838,7 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
     return showOpenHandInfoDialog(
       context: context,
       title: '消息审计',
-      maxWidth: 520,
+      maxWidth: kOpenHandDialogDefaultMaxWidth,
       icon: const Icon(Icons.fact_check_outlined),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 460),

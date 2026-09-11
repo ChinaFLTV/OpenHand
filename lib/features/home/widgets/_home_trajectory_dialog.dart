@@ -4828,16 +4828,10 @@ String _trajectoryContentText(Object? content) {
 String _trajectoryPrettyValue(Object? value) {
   if (value == null) return '';
   if (value is String) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return '';
-    try {
-      return const JsonEncoder.withIndent('  ').convert(jsonDecode(trimmed));
-    } on FormatException {
-      return trimmed;
-    }
+    return prettyPrintJsonIfDecodable(value);
   }
   try {
-    return const JsonEncoder.withIndent('  ').convert(value);
+    return prettyPrintJson(value);
   } on JsonUnsupportedObjectError {
     return '$value';
   }

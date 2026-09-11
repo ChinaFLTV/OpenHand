@@ -1320,7 +1320,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         ja: '元ソースを選択',
       ),
       position: PopupMenuPosition.under,
-      constraints: const BoxConstraints(minWidth: 300, maxWidth: 560),
+      constraints: const BoxConstraints(
+        minWidth: 300,
+        maxWidth: kOpenHandDialogWidthCompact,
+      ),
       itemBuilder: (ctx) {
         return <PopupMenuEntry<int>>[
           PopupMenuItem<int>(

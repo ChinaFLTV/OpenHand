@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -1536,7 +1535,7 @@ class _QueryConsole extends StatelessWidget {
             constraints: const BoxConstraints(maxHeight: 280),
             child: SingleChildScrollView(
               child: SelectableText(
-                const JsonEncoder.withIndent('  ').convert(rows),
+                prettyPrintJson(rows),
                 style: const TextStyle(
                   color: Color(0xffd1d5db),
                   fontFamily: 'monospace',

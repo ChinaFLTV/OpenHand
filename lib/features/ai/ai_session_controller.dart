@@ -6381,11 +6381,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   String _boundedGoalText(String value, int maxCharacters) {
-    final normalized = value.trim();
-    if (maxCharacters <= 0 || normalized.characters.length <= maxCharacters) {
-      return normalized;
-    }
-    return '${normalized.characters.take(maxCharacters)}...';
+    return clipText(value.trim(), maxCharacters);
   }
 
   Future<bool> sendMessage({

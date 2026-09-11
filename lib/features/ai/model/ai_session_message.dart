@@ -1,6 +1,7 @@
 import 'package:characters/characters.dart';
 
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import 'ai_attachment.dart';
 import 'ai_session_goal.dart';
@@ -1027,12 +1028,7 @@ class _AiRequestCardCodec {
   }
 
   static String boundedDisplayField(String value) {
-    final normalized = value.trim();
-    if (normalized.characters.length <=
-        aiSessionExpertRequestCardMaxFieldCharacters) {
-      return normalized;
-    }
-    return '${normalized.characters.take(aiSessionExpertRequestCardMaxFieldCharacters).toString().trimRight()}...';
+    return clipText(value.trim(), aiSessionExpertRequestCardMaxFieldCharacters);
   }
 }
 

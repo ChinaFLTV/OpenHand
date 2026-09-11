@@ -1148,9 +1148,7 @@ String _exportIconGlyph(WorkflowNodeKind kind) => switch (kind) {
 };
 
 String _clipSvgText(String text, {int maxChars = 24}) {
-  final characters = text.runes.toList(growable: false);
-  if (characters.length <= maxChars) return text;
-  return '${String.fromCharCodes(characters.take(maxChars - 1))}…';
+  return clipText(text, maxChars, suffix: '…');
 }
 
 List<String> _annotationSvgLines(WorkflowAnnotation annotation) {

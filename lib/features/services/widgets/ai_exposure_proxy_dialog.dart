@@ -33,6 +33,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/duration_bounds.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
@@ -2048,22 +2049,21 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Future<void> _exportAll() {
-    final payload = const JsonEncoder.withIndent('  ')
-        .convert(<String, Object?>{
-          'type': 'openhand_ai_exposure_proxy_pool',
-          'version': 2,
-          'enabled': _enabled,
-          'mode': _proxyMode.id,
-          'strategy': _strategy.id,
-          'rotationEvery': _rotationEvery.round(),
-          'bypassLocal': _bypassLocal,
-          'inspectionEnabled': _inspectionEnabled,
-          'inspectionIntervalMinutes': _normalizedInspectionInterval,
-          'inspectionConcurrency': _normalizedInspectionConcurrency,
-          'endpoints': _endpoints
-              .map((endpoint) => endpoint.toJson())
-              .toList(growable: false),
-        });
+    final payload = prettyPrintJson(<String, Object?>{
+      'type': 'openhand_ai_exposure_proxy_pool',
+      'version': 2,
+      'enabled': _enabled,
+      'mode': _proxyMode.id,
+      'strategy': _strategy.id,
+      'rotationEvery': _rotationEvery.round(),
+      'bypassLocal': _bypassLocal,
+      'inspectionEnabled': _inspectionEnabled,
+      'inspectionIntervalMinutes': _normalizedInspectionInterval,
+      'inspectionConcurrency': _normalizedInspectionConcurrency,
+      'endpoints': _endpoints
+          .map((endpoint) => endpoint.toJson())
+          .toList(growable: false),
+    });
     return _exportPayload(
       suggestedName: 'openhand-ai-exposure-proxies.json',
       payload: payload,
@@ -2072,13 +2072,11 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Future<void> _exportOne(AiExposureProxyEndpoint endpoint) {
-    final payload = const JsonEncoder.withIndent('  ').convert(
-      <String, Object?>{
-        'type': 'openhand_ai_exposure_proxy',
-        'version': 2,
-        ...endpoint.toJson(),
-      },
-    );
+    final payload = prettyPrintJson(<String, Object?>{
+      'type': 'openhand_ai_exposure_proxy',
+      'version': 2,
+      ...endpoint.toJson(),
+    });
     return _exportPayload(
       suggestedName: 'openhand-ai-exposure-proxy.json',
       payload: payload,
@@ -2137,7 +2135,10 @@ class _SystemProxyEndpointTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 260, maxWidth: 520),
+      constraints: const BoxConstraints(
+        minWidth: 260,
+        maxWidth: kOpenHandDialogDefaultMaxWidth,
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(

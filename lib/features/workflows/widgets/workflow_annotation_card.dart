@@ -202,17 +202,17 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
     return AnimatedScale(
       scale: _visible ? (widget.selected ? 1.012 : 1) : 0.94,
       duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       child: AnimatedOpacity(
         opacity: _visible ? 1 : 0,
         duration: openHandMotionDuration(context, kOpenHandMotion180),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             AnimatedContainer(
               duration: openHandMotionDuration(context, kOpenHandMotion180),
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               decoration: BoxDecoration(
                 color: background,
                 borderRadius: kOpenHandBorderRadius14,
@@ -256,7 +256,7 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
                       context,
                       kOpenHandMotion180,
                     ),
-                    curve: Curves.easeOutCubic,
+                    curve: kOpenHandSwitchInCurve,
                     child: widget.selected
                         ? Padding(
                             padding: const EdgeInsets.fromLTRB(8, 7, 8, 0),

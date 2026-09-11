@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -173,7 +172,7 @@ class DingTalkMessageGatewayStore {
             .map((conversation) => conversation.toJson())
             .toList(growable: false),
       };
-      return '${const JsonEncoder.withIndent('  ').convert(payload)}\n';
+      return '${prettyPrintJson(payload)}\n';
     }
 
     var content = encodePayload();

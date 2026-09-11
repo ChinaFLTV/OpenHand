@@ -163,6 +163,14 @@ String prettyPrintJson(Object? value, {bool emptyMapAsBlank = false}) {
   return kPrettyJsonEncoder.convert(value);
 }
 
+/// 文本能解析为 JSON 时输出缩进 JSON，否则原样返回（已 trim）。
+String prettyPrintJsonIfDecodable(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return '';
+  final decoded = tryDecodeJsonValue(trimmed);
+  return decoded.success ? prettyPrintJson(decoded.value) : trimmed;
+}
+
 List<String> splitTrimmed(String value, {Pattern separator = ','}) {
   if (separator is String && separator.isEmpty) {
     return <String>[value.trim()];

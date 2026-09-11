@@ -148,7 +148,7 @@ class _OpenRouterModelSyncDialogState
             TweenAnimationBuilder<double>(
               tween: Tween<double>(end: _progress.fraction),
               duration: openHandMotionDuration(context, kOpenHandMotion260),
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               builder: (context, value, _) => LinearProgressIndicator(
                 value: isRunning && _progress.total == 0 ? null : value,
                 minHeight: 8,

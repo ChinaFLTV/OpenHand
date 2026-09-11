@@ -10075,7 +10075,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                       kOpenHandMotion400,
                     ),
                     switchInCurve: kOpenHandEntranceCurve,
-                    switchOutCurve: Curves.easeInBack,
+                    switchOutCurve: kOpenHandSpringExitCurve,
                     transitionBuilder: (child, animation) {
                       return SizeTransition(
                         sizeFactor: animation,

@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/url_validation.dart';
-import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
@@ -80,40 +79,36 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
     Future<void>? cancelSignal,
     required WebFetchUriBlockReason uriBlockReason,
   }) async {
-    var current = uri;
-    var redirectCount = 0;
-    while (true) {
-      final blockedReason = await uriBlockReason(current);
-      if (blockedReason != null) {
-        throw WebEngineHttpException(
-          '${kind.name} 拒绝访问 ${current.host}: $blockedReason',
-        );
-      }
-      final request = http.Request('GET', current);
-      request.followRedirects = false;
-      request.headers[kUserAgentHeaderName] = userAgent;
-      request.headers[kAcceptHeaderName] =
-          'text/html,application/xhtml+xml,*/*;q=0.8';
-      final stream = await sendAbortableHttpRequest(
-        client: httpClient,
-        request: request,
-        connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
-        cancelSignal: cancelSignal,
-      );
-      if (!isRedirectStatusCode(stream.statusCode)) return stream;
-
-      if (redirectCount >= maxRedirects) {
-        await _discardResponse(stream.stream);
+    final response = await sendHttpRequestFollowingRedirects(
+      client: httpClient,
+      method: 'GET',
+      uri: uri,
+      headers: <String, String>{
+        kUserAgentHeaderName: userAgent,
+        kAcceptHeaderName: 'text/html,application/xhtml+xml,*/*;q=0.8',
+      },
+      timeout: Duration(seconds: config.connectionTimeoutSeconds),
+      maxRedirects: maxRedirects,
+      cancelSignal: cancelSignal,
+      beforeRequest: (current) async {
+        final blockedReason = await uriBlockReason(current);
+        if (blockedReason != null) {
+          throw WebEngineHttpException(
+            '${kind.name} 拒绝访问 ${current.host}: $blockedReason',
+          );
+        }
+      },
+      drainResponse: (redirected) => _discardResponse(redirected.stream),
+      onTooManyRedirects: (redirected) async {
+        await _discardResponse(redirected.stream);
         throw WebEngineHttpException('${kind.name} 重定向次数过多');
-      }
-      final location = readResponseHeader(stream.headers, 'location');
-      await _discardResponse(stream.stream);
-      if (location.isEmpty) {
-        throw WebEngineHttpException('${kind.name} 重定向缺少 Location');
-      }
-      current = current.resolve(location);
-      redirectCount++;
+      },
+    );
+    if (isRedirectStatusCode(response.statusCode)) {
+      await _discardResponse(response.stream);
+      throw WebEngineHttpException('${kind.name} 重定向缺少 Location');
     }
+    return response;
   }
 
   Future<void> _discardResponse(Stream<List<int>> stream) async {

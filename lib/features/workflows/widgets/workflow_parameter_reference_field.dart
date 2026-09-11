@@ -534,7 +534,7 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
         _scrollController.animateTo(
           offset,
           duration: duration,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
         );
       }
     });
@@ -919,7 +919,7 @@ class _WorkflowReferenceMenuItem extends StatelessWidget {
             '${description.isEmpty ? '' : '，$description'}',
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion160),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           decoration: BoxDecoration(
             color: selected
                 ? accent.withValues(alpha: 0.14)

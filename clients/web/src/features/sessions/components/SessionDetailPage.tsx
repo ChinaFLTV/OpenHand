@@ -9485,7 +9485,7 @@ function GoalKv({ label, value }: { label: string; value: ComponentChildren }) {
 /// 消息审计弹窗：展示原始 JSON（id / kind / role / metadata / created_at / character_count），
 /// 用于排查 tool_call 元数据 / 文件变动等问题。复用全局对话框样式。
 function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onClose: () => void }) {
-  const json = JSON.stringify(message, null, 2);
+  const json = stringifyJsonSafely(message, 2) ?? '';
   const { closing, requestClose } = useDialogExitMotion(onClose);
   return (
     <DialogFrame
@@ -10539,7 +10539,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
         border: '1px solid var(--m3-outline-variant)',
       }}
     >
-      {JSON.stringify(content ?? {}, null, 2)}
+      {stringifyJsonSafely(content ?? {}, 2) ?? ''}
     </pre>
   );
   const machineMetadataFieldTitle = (key: string): string => {
@@ -10994,25 +10994,23 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   };
 
   const cacheHitPanel = renderCacheHitPanel(promptBudgetTokens > 0);
-  const metadataSnapshotJson = JSON.stringify(
+  const metadataSnapshotJson = stringifyJsonSafely(
     {
       session,
       runtime: detail.runtime,
       loaded_messages: messages.length,
     },
-    null,
     2,
-  );
-  const auditSnapshotJson = JSON.stringify(
+  ) ?? '';
+  const auditSnapshotJson = stringifyJsonSafely(
     {
       session,
       runtime: detail.runtime,
       loaded_message_count: messages.length,
       loaded_message_ids: messages.map((item) => item.id),
     },
-    null,
     2,
-  );
+  ) ?? '';
   const auditSummary = [`${session.message_count} ${t('sessions.messageUnit', '条消息')}`, `${session.total_tokens ?? 0} tokens`, `${session.tool_message_count ?? 0} tool`, `${session.compression_point_count ?? 0} compress`];
   const auditCacheRead = readStatNumber(stats['cache_read_tokens'], 0);
   const auditCacheWrite = readStatNumber(stats['cache_creation_tokens'], 0);

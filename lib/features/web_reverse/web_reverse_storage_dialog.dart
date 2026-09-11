@@ -344,7 +344,7 @@ class _StorageDialogState extends State<_StorageDialog>
             : (loc?.webReverseStorageEditEntry ?? 'Edit entry'),
         submitLabel: loc?.webReverseStorageSave ?? 'Save',
         cancelLabel: loc?.webReverseStorageCancel ?? 'Cancel',
-        maxWidth: 520,
+        maxWidth: kOpenHandDialogDefaultMaxWidth,
         onSubmit: (_) => true,
         contentBuilder: (_) {
           return Column(

@@ -8,6 +8,7 @@ import 'package:openhand/shared/net/loopback_hosts.dart';
 import 'package:openhand/shared/util/bounded_file_io.dart';
 import 'package:openhand/shared/util/bounded_json_conversion.dart';
 import 'package:openhand/shared/util/date_time_format.dart';
+import 'package:openhand/shared/util/duration_bounds.dart';
 import 'package:openhand/shared/util/exponential_backoff.dart';
 import 'package:openhand/shared/util/hex_encoding.dart';
 import 'package:openhand/shared/util/input_value_parsing.dart';
@@ -25,6 +26,9 @@ Future<void> main() async {
   failures += _checkJsonMapKeyCollision();
   failures += _checkContentLength();
   failures += _checkBackoff();
+  failures += _checkDurationBounds();
+  failures += _checkDialogMotionDurationClamp();
+  failures += _checkPrettyJsonIfDecodable();
   failures += _checkLoopback();
   failures += _checkStringFromValue();
   failures += _checkFiniteNumberParsing();
@@ -414,6 +418,86 @@ int _checkBackoff() {
   if (durationBackoff.inMilliseconds !=
       exponentialBackoffMs(attempt: 5, baseMs: 250, capMs: 4000)) {
     stderr.writeln('Duration 退避应与毫秒公式一致，得到 $durationBackoff');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkDurationBounds() {
+  if (nonNegativeDuration(const Duration(milliseconds: -40)) != Duration.zero) {
+    stderr.writeln('nonNegativeDuration 未把负时长归零');
+    return 1;
+  }
+  if (shorterDuration(
+        const Duration(milliseconds: 80),
+        const Duration(milliseconds: 20),
+      ) !=
+      const Duration(milliseconds: 20)) {
+    stderr.writeln('shorterDuration 未取较短者');
+    return 1;
+  }
+  if (clampDuration(
+        const Duration(milliseconds: -8),
+        min: Duration.zero,
+        max: const Duration(milliseconds: 120),
+      ) !=
+      Duration.zero) {
+    stderr.writeln('clampDuration 未夹到下限');
+    return 1;
+  }
+  if (clampDuration(
+        const Duration(milliseconds: 500),
+        min: const Duration(milliseconds: 80),
+        max: const Duration(milliseconds: 120),
+      ) !=
+      const Duration(milliseconds: 120)) {
+    stderr.writeln('clampDuration 未夹到上限');
+    return 1;
+  }
+  if (clampDuration(
+        const Duration(milliseconds: 90),
+        min: const Duration(milliseconds: 200),
+        max: const Duration(milliseconds: 40),
+      ) !=
+      const Duration(milliseconds: 90)) {
+    stderr.writeln('clampDuration 未在颠倒边界内保留合法值');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkDialogMotionDurationClamp() {
+  const range = IntValueRange(fallback: 360, min: 80, max: 1200);
+  if (range.normalize(40) != 80 ||
+      range.normalize(5000) != 1200 ||
+      range.normalize(360) != 360) {
+    stderr.writeln('弹窗动效时长夹取未把 40→80、5000→1200、360 保持原值');
+    return 1;
+  }
+  if (clampDuration(
+        const Duration(milliseconds: 40),
+        min: const Duration(milliseconds: 80),
+        max: const Duration(milliseconds: 1200),
+      ) !=
+      const Duration(milliseconds: 80)) {
+    stderr.writeln('clampDuration 未把短于下限的动效时长夹到 80ms');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkPrettyJsonIfDecodable() {
+  if (prettyPrintJson(<String, Object?>{'state': '就绪'}) !=
+      '{\n  "state": "就绪"\n}') {
+    stderr.writeln('prettyPrintJson 未按双空格缩进输出');
+    return 1;
+  }
+  if (prettyPrintJsonIfDecodable('{"a":1}') != '{\n  "a": 1\n}') {
+    stderr.writeln('prettyPrintJsonIfDecodable 未格式化合法 JSON');
+    return 1;
+  }
+  if (prettyPrintJsonIfDecodable('  not-json  ') != 'not-json') {
+    stderr.writeln('prettyPrintJsonIfDecodable 未原样返回非法 JSON');
     return 1;
   }
   return 0;

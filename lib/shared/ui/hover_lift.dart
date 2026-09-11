@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 mixin OpenHandHoverState<W extends StatefulWidget> on State<W> {
@@ -31,7 +32,7 @@ class HoverLift extends StatefulWidget {
     super.key,
     required this.child,
     this.liftDistance = 2.0,
-    this.duration = const Duration(milliseconds: 180),
+    this.duration = kOpenHandMotion180,
     this.curve = kOpenHandSwitchInCurve,
   });
 

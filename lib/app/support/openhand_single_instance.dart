@@ -9,6 +9,8 @@ import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/byte_size_format.dart';
+import '../../shared/util/duration_bounds.dart';
+import '../../shared/util/exponential_backoff.dart';
 import 'openhand_paths.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
@@ -267,13 +269,17 @@ final class OpenHandSingleInstance {
     var remaining = await _matchingProcesses(expected);
     if (remaining.isEmpty || timeout <= Duration.zero) return remaining;
     final stopwatch = Stopwatch()..start();
-    var delay = _processPollMinDelay;
+    var attempt = 1;
     while (remaining.isNotEmpty && stopwatch.elapsed < timeout) {
       final available = timeout - stopwatch.elapsed;
-      await Future<void>.delayed(delay < available ? delay : available);
+      final delay = exponentialBackoffDuration(
+        attempt: attempt,
+        base: _processPollMinDelay,
+        cap: _processPollMaxDelay,
+      );
+      await Future<void>.delayed(shorterDuration(delay, available));
       remaining = await _matchingProcesses(remaining);
-      final doubled = delay * 2;
-      delay = doubled < _processPollMaxDelay ? doubled : _processPollMaxDelay;
+      attempt += 1;
     }
     stopwatch.stop();
     return remaining;

@@ -12,6 +12,7 @@ import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
 import '../shared/ui/animated_dialog.dart';
 import '../shared/ui/motion_durations.dart';
+import '../shared/ui/motion_preference.dart';
 import '../shared/ui/openhand_scroll_behaviors.dart';
 import '../shared/ui/openhand_snack_bar.dart';
 import '../shared/ui/openhand_tooltip_dismissal.dart';
@@ -115,7 +116,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
       locale: locale,
       supportedLocales: supportedAppLocales,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      themeAnimationCurve: Curves.easeOutCubic,
+      themeAnimationCurve: kOpenHandSwitchInCurve,
       themeAnimationDuration: reduceMotion ? Duration.zero : kOpenHandMotion220,
       scrollBehavior: const OpenHandImplicitScrollbarBehavior(),
       // 用户层 reduceMotion 通过 MediaQuery.disableAnimations 向会读取该

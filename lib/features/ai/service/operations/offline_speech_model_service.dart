@@ -25,6 +25,7 @@ import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/offline_speech_model.dart';
@@ -1125,7 +1126,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         cancellation.throwIfCancelled();
         await writeFileAtomically(
           File(p.join(staging.path, 'openhand-model.json')),
-          const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+          prettyPrintJson(<String, Object?>{
             'id': model.id,
             'repository': _repositoryFor(model, configuration),
             'downloaded_at': DateTime.now().toUtc().toIso8601String(),
@@ -4367,7 +4368,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       cancellation.throwIfCancelled();
       await writeFileAtomically(
         File(p.join(staging.path, 'openhand-runtime.json')),
-        const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+        prettyPrintJson(<String, Object?>{
           'runtime': model.runtime.name,
           'revision': spec.revision,
           'python': spec.pythonVersion,

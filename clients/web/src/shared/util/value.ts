@@ -104,6 +104,22 @@ export function stringifyJsonSafely(value: unknown, space?: number): string | nu
   }
 }
 
+export function looksLikeJsonText(value: string): boolean {
+  if (value.length < 2) return false;
+  return (
+    (value.startsWith('{') && value.endsWith('}')) ||
+    (value.startsWith('[') && value.endsWith(']'))
+  );
+}
+
+export function tryPrettyJsonText(value: string): string | null {
+  const trimmed = value.trim();
+  if (!looksLikeJsonText(trimmed)) return null;
+  const decoded = parseJsonSafely(trimmed);
+  if (decoded == null) return null;
+  return stringifyJsonSafely(decoded, 2);
+}
+
 export function parseJsonSafely(value: string): unknown | null {
   try {
     return parseJsonBounded(value, SAFE_INLINE_JSON_BOUNDS);

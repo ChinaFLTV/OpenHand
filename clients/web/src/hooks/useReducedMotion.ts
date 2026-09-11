@@ -102,6 +102,11 @@ export function initReducedMotionAttribute(): void {
   syncRootAttribute(resolveReducedMotion());
 }
 
+/** 同步读取当前降低动效状态（OS / 用户开关 / 远端设置）。 */
+export function isReducedMotion(): boolean {
+  return resolveReducedMotion();
+}
+
 /** 给业务组件用的 Hook：返回当前是否处于「降低动效」模式。 */
 export function useReducedMotion(): boolean {
   const [reduced, setReduced] = useState<boolean>(() => {

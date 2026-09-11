@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
+import { DIALOG_MOTION_DEFAULT_DURATION_MS } from '../hooks/useDialogMotionSettings';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
 interface RollingTextProps {
@@ -17,7 +18,7 @@ interface Segment {
   value: string;
 }
 
-const DIGIT_ROLL_DURATION_MS = 360;
+const DIGIT_ROLL_DURATION_MS = DIALOG_MOTION_DEFAULT_DURATION_MS;
 const DIGIT_ROLL_STAGGER_MS = 28;
 const DIGIT_ROLL_STAGGER_MAX_SLOTS = 5;
 const DIGIT_ROLL_MAX_SLOTS = 18;

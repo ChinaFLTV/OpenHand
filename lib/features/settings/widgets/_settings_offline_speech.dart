@@ -1258,7 +1258,10 @@ class _OfflineSpeechRichChoiceField extends StatelessWidget {
       decoration: InputDecoration(labelText: label),
       child: AnimatedPopupMenuButton<String>(
         tooltip: '选择$label',
-        constraints: const BoxConstraints(minWidth: 360, maxWidth: 520),
+        constraints: const BoxConstraints(
+          minWidth: 360,
+          maxWidth: kOpenHandDialogDefaultMaxWidth,
+        ),
         onSelected: onChanged,
         itemBuilder: (context) => <PopupMenuEntry<String>>[
           for (final option in options)
@@ -1391,7 +1394,7 @@ class _OfflineSpeechSuggestionFieldState
                 icon: AnimatedRotation(
                   turns: _overlay.hasEntry ? 0.5 : 0,
                   duration: openHandMotionDuration(context, kOpenHandMotion180),
-                  curve: Curves.easeOutBack,
+                  curve: kOpenHandEntranceCurve,
                   child: const Icon(Icons.expand_more_rounded),
                 ),
               ),
@@ -1784,7 +1787,7 @@ class _OfflineSpeechSuggestionTile extends StatelessWidget {
         borderRadius: kOpenHandBorderRadius12,
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion120),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: emphasized

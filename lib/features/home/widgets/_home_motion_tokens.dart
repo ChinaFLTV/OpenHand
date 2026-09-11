@@ -14,8 +14,8 @@ part of '../openhand_home_page.dart';
 ///   * 阴影、边框等装饰插值使用同曲线的有界版本，避免超调产生非法数值。
 ///   * 全局禁动或当前 [TickerMode] 暂停时降为 `Duration.zero`。
 
-const Duration kCardMotionDurationExpand = Duration(milliseconds: 280);
-const Duration kCardMotionDurationCollapse = Duration(milliseconds: 220);
+const Duration kCardMotionDurationExpand = kOpenHandMotion280;
+const Duration kCardMotionDurationCollapse = kOpenHandMotion220;
 const Curve kCardMotionCurve = Cubic(0.22, 1.22, 0.36, 1);
 const Curve kCardDecorationMotionCurve = OpenHandBoundedCurve(kCardMotionCurve);
 

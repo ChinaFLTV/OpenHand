@@ -508,7 +508,7 @@ class _AiTtsSettingsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SettingsScrollablePanel(
-      maxHeight: 560,
+      maxHeight: kOpenHandDialogHeightCompact,
       children: [
         _ResponsiveSettingRow(
           title: openHandLocalizedText(context, zh: '朗读超时', en: 'Read Timeout'),
@@ -3328,7 +3328,7 @@ class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
   late final OpenHandDebouncer _commitDebouncer = OpenHandDebouncer(
     delay: _commitDebounceDelay,
   );
-  static const Duration _commitDebounceDelay = Duration(milliseconds: 420);
+  static const Duration _commitDebounceDelay = kOpenHandFieldCommitDebounce;
   String? _lastCommittedValue;
 
   @override

@@ -7,6 +7,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import 'service_dialog_controls.dart';
 
 const List<String> _kRedisTypes = <String>[
@@ -546,9 +547,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
     if (mode == _jsonRootMode) return;
     try {
       if (mode == _RedisJsonRootMode.raw) {
-        _jsonRaw.text = const JsonEncoder.withIndent(
-          '  ',
-        ).convert(_buildJsonValue());
+        _jsonRaw.text = prettyPrintJson(_buildJsonValue());
       } else if (_jsonRootMode == _RedisJsonRootMode.raw) {
         final value = jsonDecode(_jsonRaw.text);
         if (mode == _RedisJsonRootMode.object) {
@@ -1212,7 +1211,7 @@ class _RedisJsonValueDraft {
     if (value is Map || value is List) {
       return _RedisJsonValueDraft(
         key: key,
-        value: const JsonEncoder.withIndent('  ').convert(value),
+        value: prettyPrintJson(value),
         type: _RedisJsonValueType.json,
       );
     }
@@ -1247,32 +1246,22 @@ String _initialTtl(Object? value) {
 Object? _decodeJsonCollection(Object? value) {
   if (value is Map || value is List) return value;
   if (value is! String || value.trim().isEmpty) return null;
-  try {
-    final decoded = jsonDecode(value);
-    return decoded is Map || decoded is List ? decoded : null;
-  } on FormatException {
-    return null;
-  }
+  final decoded = tryDecodeJson(value);
+  return decoded is Map || decoded is List ? decoded : null;
 }
 
 Object? _decodeJsonValue(Object? value) {
   if (value is! String || value.trim().isEmpty) return null;
-  try {
-    return jsonDecode(value);
-  } on FormatException {
-    return null;
-  }
+  return tryDecodeJson(value);
 }
 
 String _initialJsonText(Object? value) {
   if (value == null) return '{}';
   if (value is String) {
     final decoded = _decodeJsonValue(value);
-    return decoded == null
-        ? value
-        : const JsonEncoder.withIndent('  ').convert(decoded);
+    return decoded == null ? value : prettyPrintJson(decoded);
   }
-  return const JsonEncoder.withIndent('  ').convert(value);
+  return prettyPrintJson(value);
 }
 
 num _parseFiniteNumber(String value, String errorMessage) {

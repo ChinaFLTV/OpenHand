@@ -13,6 +13,7 @@ import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/byte_size_format.dart';
+import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -240,7 +241,7 @@ class MachineTerminalTransferTask {
     if (start == null) return Duration.zero;
     final end = completedAt ?? DateTime.now();
     final value = end.difference(start);
-    return value.isNegative ? Duration.zero : value;
+    return nonNegativeDuration(value);
   }
 
   double get effectiveSpeedBytesPerSecond {

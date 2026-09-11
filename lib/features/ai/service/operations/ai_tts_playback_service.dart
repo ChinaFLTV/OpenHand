@@ -22,6 +22,7 @@ import '../../../../shared/util/bounded_base64.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/duration_bounds.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/stable_hash.dart';
@@ -2081,21 +2082,11 @@ class AiTtsPlaybackService {
       _audiblePlaybackGrace.inMilliseconds,
       (baselineMs * _audiblePlaybackGraceRatio).ceil(),
     );
-    return _clampDuration(
+    return clampDuration(
       Duration(milliseconds: baselineMs + graceMs),
       min: _audiblePlaybackMinTimeout,
       max: _audiblePlaybackMaxTimeout,
     );
-  }
-
-  static Duration _clampDuration(
-    Duration value, {
-    required Duration min,
-    required Duration max,
-  }) {
-    if (value < min) return min;
-    if (value > max) return max;
-    return value;
   }
 
   static int _linuxRate(double speed) {

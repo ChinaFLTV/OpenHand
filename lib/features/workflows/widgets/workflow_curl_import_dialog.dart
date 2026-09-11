@@ -137,7 +137,7 @@ class _WorkflowCurlImportDialogState extends State<_WorkflowCurlImportDialog> {
                       context,
                       kOpenHandMotion180,
                     ),
-                    curve: Curves.easeOutCubic,
+                    curve: kOpenHandSwitchInCurve,
                     child: _error == null
                         ? const SizedBox.shrink()
                         : Container(

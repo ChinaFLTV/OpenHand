@@ -5310,12 +5310,7 @@ class _GoalMessageViewData {
     if (start < 0) {
       return null;
     }
-    try {
-      final decoded = jsonDecode(content.substring(start).trim());
-      return _object(decoded);
-    } catch (_) {
-      return null;
-    }
+    return _object(tryDecodeJson(content.substring(start).trim()));
   }
 
   static Map<String, Object?>? _object(Object? value) {

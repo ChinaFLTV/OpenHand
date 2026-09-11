@@ -3672,7 +3672,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
   }
 
   String _diagnosticJson() {
-    return const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+    return prettyPrintJson(<String, Object?>{
       'trace_id': record.traceId,
       'started_at': record.startedAt.toIso8601String(),
       'duration_ms': record.durationMs,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../workflows/index.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -317,7 +318,7 @@ abstract class _WorkflowTool extends AiTool {
     Stopwatch sw, {
     Map<String, Object?> metadata = const <String, Object?>{},
   }) {
-    final output = const JsonEncoder.withIndent('  ').convert(value);
+    final output = prettyPrintJson(value);
     return AiToolUtils.simpleSuccessResult(
       command: command,
       output: output,

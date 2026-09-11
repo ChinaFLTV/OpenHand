@@ -1934,7 +1934,7 @@ String _mcpServerResponseDetail(Object? response) {
     raw = '';
   } else {
     try {
-      raw = const JsonEncoder.withIndent('  ').convert(response);
+      raw = prettyPrintJson(response);
     } catch (_) {
       raw = '$response';
     }

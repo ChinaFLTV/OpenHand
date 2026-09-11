@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -21,6 +20,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/csv_encoding.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../plugin_service/index.dart';
 import '../model/ai_exposure_models.dart';
@@ -1836,7 +1836,7 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
     final tone = _toolTone(tool);
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       decoration: BoxDecoration(
         borderRadius: kOpenHandBorderRadius8,
         color: Color.alphaBlend(
@@ -4854,7 +4854,7 @@ Future<void> _exportResults(
     );
     if (location == null) return;
     final payload = format == _ExposureExportFormat.json
-        ? const JsonEncoder.withIndent('  ').convert(
+        ? prettyPrintJson(
             results.map((result) => result.toJson()).toList(growable: false),
           )
         : _resultsCsv(results);

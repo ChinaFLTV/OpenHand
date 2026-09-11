@@ -3031,9 +3031,7 @@ abstract final class WorkflowStructuredOutputParser {
     List<WorkflowOutputField> fields, {
     Map<String, Object?> variables = const <String, Object?>{},
   }) {
-    final schema = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(jsonSchema(fields, variables: variables));
+    final schema = prettyPrintJson(jsonSchema(fields, variables: variables));
     return '''# 响应格式
 仅返回一个符合下列 JSON Schema 的 JSON 对象，不要添加 Markdown、解释或额外字段。
 

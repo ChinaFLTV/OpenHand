@@ -609,7 +609,7 @@ String formatServiceDetailValue(Object? value) {
   if (value is DateTime) return value.toLocal().toIso8601String();
   if (value is Map || value is Iterable) {
     try {
-      return const JsonEncoder.withIndent('  ').convert(value);
+      return prettyPrintJson(value);
     } on JsonUnsupportedObjectError {
       return '$value';
     }

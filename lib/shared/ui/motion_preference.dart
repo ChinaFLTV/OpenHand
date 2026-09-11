@@ -6,10 +6,9 @@ import '../../app/state/settings_controller.dart';
 
 /// 全局共享的切换曲线 —— 进场用 easeOutCubic，退场用 easeInCubic。
 ///
-/// 此前 30+ 弹窗文件各自定义 `_kSwitchInCurve = Curves.easeOutCubic` /
-/// `_kSwitchOutCurve = Curves.easeInCubic`，改一档要翻遍全库。这里收敛为
-/// 单一来源，与 [DialogAnimationCurve.easeOutCubic] 的 curve/reverseCurve
-/// 保持一致。
+/// 业务动效应引用这些 token，不要再写 `Curves.easeOutCubic` /
+/// `Curves.easeInCubic`。与 [DialogAnimationCurve.easeOutCubic] 的
+/// curve/reverseCurve 保持一致。
 const Curve kOpenHandSwitchInCurve = Curves.easeOutCubic;
 const Curve kOpenHandSwitchOutCurve = Curves.easeInCubic;
 

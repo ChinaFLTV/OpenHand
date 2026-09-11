@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
-
+import './motion_preference.dart';
 import 'motion_durations.dart';
 import 'openhand_spacing.dart';
 
@@ -152,7 +152,7 @@ class _StartupFailureBody extends StatelessWidget {
             child: Center(
               child: TweenAnimationBuilder<double>(
                 duration: duration,
-                curve: Curves.easeOutBack,
+                curve: kOpenHandEntranceCurve,
                 tween: Tween<double>(begin: 0, end: 1),
                 builder: (context, value, child) {
                   final opacity = value.clamp(0.0, 1.0);

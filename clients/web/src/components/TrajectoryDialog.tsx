@@ -9,7 +9,13 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t, tFmt } from '../i18n';
 import { formatDurationMs } from '../shared/util/date_time';
 import { ignoreError } from '../shared/util/errors';
-import { parseJsonSafely } from '../shared/util/value';
+import {
+  parseJsonSafely,
+  recordFromUnknown,
+  stringifyJsonSafely,
+  stringFromUnknown,
+  tryPrettyJsonText,
+} from '../shared/util/value';
 import { Markdown } from './Markdown';
 import { StructuredJsonView } from './StructuredJsonView';
 import {
@@ -118,15 +124,6 @@ const DETAIL_MIN_WIDTH = 320;
 const DETAIL_MAX_WIDTH = 560;
 const THROUGHPUT_MAX_POINTS = 300;
 
-function recordOf(value: unknown): Record<string, unknown> {
-  if (value == null || typeof value !== 'object' || Array.isArray(value)) return {};
-  return value as Record<string, unknown>;
-}
-
-function textOf(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
-}
-
 function finiteNumber(value: unknown): number | null {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -194,7 +191,7 @@ function usageOf(message: SessionMessage): TrajectoryUsage | null {
 }
 
 function messageTiming(message: SessionMessage, kind: TrajectoryKind): [number | null, number | null] {
-  const metadata = recordOf(message.metadata);
+  const metadata = recordFromUnknown(message.metadata);
   const startKeys = kind === 'tool' || kind === 'subtool'
     ? ['tool_execution_started_at', 'started_at']
     : kind === 'assistant' && message.kind === 'reasoning'
@@ -228,7 +225,7 @@ function toolOutput(metadata: Record<string, unknown>): string {
     'tool_execution_stdout',
     'tool_execution_stderr',
   ]) {
-    const value = textOf(metadata[key]);
+    const value = stringFromUnknown(metadata[key]);
     if (value) return value;
   }
   return '';
@@ -252,7 +249,7 @@ function messageRecord(
   requestNumber: number,
   kind: TrajectoryKind,
 ): TrajectoryRecord {
-  const metadata = recordOf(message.metadata);
+  const metadata = recordFromUnknown(message.metadata);
   const [startedAt, recordedDurationMs] = messageTiming(message, kind);
   const durationMs = kind === 'user' || kind === 'context' ? 0 : recordedDurationMs;
   const content = (message.content ?? '').trim();
@@ -270,7 +267,7 @@ function messageRecord(
     startedAt,
     durationMs,
     running: metadata.streaming === true || metadata.telemetry_in_flight === true,
-    error: textOf(metadata.error) !== '',
+    error: stringFromUnknown(metadata.error) !== '',
     usage: usageOf(message),
     sourceMessageId: message.id,
     resultMessageId: null,
@@ -288,12 +285,12 @@ function toolRecord(
   step: number,
   requestNumber: number,
 ): TrajectoryRecord {
-  const metadata = recordOf(message.metadata);
-  const callId = textOf(metadata.tool_call_id);
-  const toolName = textOf(metadata.tool_name ?? metadata.name);
-  const input = textOf(metadata.tool_arguments ?? metadata.arguments ?? message.content);
+  const metadata = recordFromUnknown(message.metadata);
+  const callId = stringFromUnknown(metadata.tool_call_id);
+  const toolName = stringFromUnknown(metadata.tool_name ?? metadata.name);
+  const input = stringFromUnknown(metadata.tool_arguments ?? metadata.arguments ?? message.content);
   const output = (result?.content ?? toolOutput(metadata)).trim();
-  const status = textOf(metadata.tool_execution_status).toLowerCase();
+  const status = stringFromUnknown(metadata.tool_execution_status).toLowerCase();
   const [startedAt, durationMs] = messageTiming(message, 'tool');
   return {
     id: callId ? `tool-${callId}` : `message-${message.id}`,
@@ -309,7 +306,7 @@ function toolRecord(
     startedAt,
     durationMs,
     running: status === 'running' || metadata.tool_arguments_streaming === true || (!result && !output && !status),
-    error: TOOL_ERROR_STATES.has(status) || textOf(result?.metadata?.error) !== '',
+    error: TOOL_ERROR_STATES.has(status) || stringFromUnknown(result?.metadata?.error) !== '',
     usage: usageOf(message),
     sourceMessageId: message.id,
     resultMessageId: result?.id ?? null,
@@ -326,10 +323,10 @@ function standaloneToolRecord(
   step: number,
   requestNumber: number,
 ): TrajectoryRecord {
-  const metadata = recordOf(message.metadata);
-  const callId = textOf(metadata.tool_call_id);
-  const toolName = textOf(metadata.tool_name) || message.kind;
-  const status = textOf(metadata.tool_execution_status).toLowerCase();
+  const metadata = recordFromUnknown(message.metadata);
+  const callId = stringFromUnknown(metadata.tool_call_id);
+  const toolName = stringFromUnknown(metadata.tool_name) || message.kind;
+  const status = stringFromUnknown(metadata.tool_execution_status).toLowerCase();
   return {
     id: callId ? `tool-result-${callId}` : `result-${message.id}`,
     index,
@@ -359,19 +356,19 @@ function standaloneToolRecord(
 }
 
 function hasRequestTelemetry(message: SessionMessage): boolean {
-  const metadata = recordOf(message.metadata);
+  const metadata = recordFromUnknown(message.metadata);
   if (metadata[DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY] === true) return true;
   return Object.keys(metadata).some((key) => TELEMETRY_KEYS.has(key));
 }
 
 function buildSnapshot(messages: readonly SessionMessage[], sessionCreatedAt?: string): TrajectorySnapshot {
   const ordered = [...messages]
-    .filter((message) => recordOf(message.metadata).deleted !== true)
+    .filter((message) => recordFromUnknown(message.metadata).deleted !== true)
     .sort((left, right) => (timestampOf(left.created_at) ?? 0) - (timestampOf(right.created_at) ?? 0));
   const resultByCallId = new Map<string, SessionMessage>();
   for (const message of ordered) {
     if (!TOOL_RESULT_KINDS.has(message.kind)) continue;
-    const callId = textOf(message.metadata?.tool_call_id);
+    const callId = stringFromUnknown(message.metadata?.tool_call_id);
     if (callId) resultByCallId.set(callId, message);
   }
   const records: TrajectoryRecord[] = [];
@@ -397,7 +394,7 @@ function buildSnapshot(messages: readonly SessionMessage[], sessionCreatedAt?: s
     resultMessageId: null,
     callId: null,
     toolName: null,
-    metadata: recordOf(firstTelemetry?.metadata),
+    metadata: recordFromUnknown(firstTelemetry?.metadata),
   });
 
   let turn = 0;
@@ -406,8 +403,8 @@ function buildSnapshot(messages: readonly SessionMessage[], sessionCreatedAt?: s
   let nextAssistantStartsStep = true;
   for (const message of ordered) {
     if (pairedResults.has(message.id)) continue;
-    const metadata = recordOf(message.metadata);
-    const callId = textOf(metadata.tool_call_id);
+    const metadata = recordFromUnknown(message.metadata);
+    const callId = stringFromUnknown(metadata.tool_call_id);
     switch (message.kind) {
       case 'user':
         if (metadata.goal_evaluation === true || metadata.is_goal_evaluation_message === true) {
@@ -550,31 +547,26 @@ function prettyValue(value: unknown): string {
   if (typeof value === 'string') {
     const trimmed = value.trim();
     if (!trimmed) return '';
-    const parsed = parseJsonSafely(trimmed);
-    return parsed == null ? trimmed : JSON.stringify(parsed, null, 2);
+    return tryPrettyJsonText(trimmed) ?? trimmed;
   }
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
+  return stringifyJsonSafely(value, 2) ?? String(value);
 }
 
 function requestPayload(metadata: Record<string, unknown>): Record<string, unknown> {
   const raw = metadata.request_payload;
   if (typeof raw === 'string') {
-    return recordOf(parseJsonSafely(raw));
+    return recordFromUnknown(parseJsonSafely(raw));
   }
-  return recordOf(raw);
+  return recordFromUnknown(raw);
 }
 
 function contentText(content: unknown): string {
   if (typeof content === 'string') return content.trim();
-  if (!Array.isArray(content)) return textOf(content);
+  if (!Array.isArray(content)) return stringFromUnknown(content);
   return content.map((item) => {
     if (typeof item === 'string') return item.trim();
-    const block = recordOf(item);
-    return textOf(block.text ?? block.content);
+    const block = recordFromUnknown(item);
+    return stringFromUnknown(block.text ?? block.content);
   }).filter(Boolean).join('\n');
 }
 
@@ -582,12 +574,12 @@ function systemPrompt(metadata: Record<string, unknown>): string {
   const messages = requestPayload(metadata).messages;
   if (Array.isArray(messages)) {
     const parts = messages.flatMap((item) => {
-      const message = recordOf(item);
-      return textOf(message.role).toLowerCase() === 'system' ? [contentText(message.content)] : [];
+      const message = recordFromUnknown(item);
+      return stringFromUnknown(message.role).toLowerCase() === 'system' ? [contentText(message.content)] : [];
     }).filter(Boolean);
     if (parts.length) return parts.join('\n\n');
   }
-  return textOf(metadata.composed_prompt_text);
+  return stringFromUnknown(metadata.composed_prompt_text);
 }
 
 function toolCatalog(metadata: Record<string, unknown>): string {
@@ -1033,8 +1025,8 @@ function TimingDetail({ record, metadata }: { record: TrajectoryRecord; metadata
   const charactersPerSecond = firstNumber(metadata, ['characters_per_second']);
   const streamEvents = firstNumber(metadata, ['stream_event_count']);
   const fallbackCount = firstNumber(metadata, ['request_fallback_count']);
-  const finishReason = textOf(metadata.finish_reason);
-  const responseStatus = textOf(metadata.response_status);
+  const finishReason = stringFromUnknown(metadata.finish_reason);
+  const responseStatus = stringFromUnknown(metadata.response_status);
   const statusLabel = responseStatus === 'completed'
     ? t('trajectory.completed', '已完成')
     : responseStatus === 'cancelled'
@@ -1107,7 +1099,7 @@ function DetailBody({
     : record.running
       ? t('trajectory.pending', '等待中')
       : t('trajectory.completed', '已完成');
-  const model = textOf(record.metadata.model ?? record.metadata.model_id ?? metadata.model ?? metadata.model_id);
+  const model = stringFromUnknown(record.metadata.model ?? record.metadata.model_id ?? metadata.model ?? metadata.model_id);
   return (
     <div class="oh-trajectory-summary">
       <DetailRows rows={[
@@ -1313,7 +1305,7 @@ export function TrajectoryDialog({
     setCollapsedCalls(() => allCallsCollapsed ? new Set() : new Set(snapshot.callCounts.keys()));
   };
   const selectedMetadata = selectedRecord
-    ? recordOf(hydratedMessages.get(selectedRecord.sourceMessageId ?? '')?.metadata ?? selectedRecord.metadata)
+    ? recordFromUnknown(hydratedMessages.get(selectedRecord.sourceMessageId ?? '')?.metadata ?? selectedRecord.metadata)
     : {};
   const messageRangeEnd = messageWindowStart + messages.length;
   const messageRangeTotal = Math.max(messageTotal, messageRangeEnd);

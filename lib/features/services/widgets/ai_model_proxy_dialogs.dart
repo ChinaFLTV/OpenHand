@@ -1914,7 +1914,7 @@ class _ProxyMappingCard extends StatelessWidget {
     final borderRadius = BorderRadius.circular(kOpenHandRadius16);
     final card = AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 8, 10),
       decoration: BoxDecoration(
         color: enabled

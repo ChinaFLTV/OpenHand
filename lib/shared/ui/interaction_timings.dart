@@ -21,3 +21,9 @@ const Duration kOpenHandDenseTooltipWait = Duration(milliseconds: 250);
 
 /// 关闭输入焦点后，等 IME / 焦点链落稳再做校验或发请求。
 const Duration kOpenHandFocusSettleDelay = Duration(milliseconds: 80);
+
+/// 复制成功、操作完成一类短暂反馈的复位时长。
+const Duration kOpenHandCopiedFeedbackDuration = Duration(milliseconds: 1600);
+
+/// 设置页文本/滑杆提交前的去抖，避免每个按键都写盘。
+const Duration kOpenHandFieldCommitDebounce = Duration(milliseconds: 420);

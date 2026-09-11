@@ -33,7 +33,9 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
           );
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 520),
+      constraints: const BoxConstraints(
+        maxWidth: kOpenHandDialogDefaultMaxWidth,
+      ),
       child: MouseRegion(
         onEnter: (_) => setOpenHandHovered(true),
         onExit: (_) => setOpenHandHovered(false),

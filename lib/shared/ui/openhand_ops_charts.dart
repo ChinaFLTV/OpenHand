@@ -3121,7 +3121,7 @@ class _ChartFillTrack extends StatelessWidget {
             TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: factor),
               duration: kOpenHandMotion420,
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               builder: (context, value, _) {
                 if (value <= 0) return const SizedBox.shrink();
                 return Align(
@@ -3294,7 +3294,7 @@ class _VerticalComparisonBars extends StatelessWidget {
                                                     .clamp(0.04, 1.0),
                                         ),
                                         duration: kOpenHandMotion420,
-                                        curve: Curves.easeOutCubic,
+                                        curve: kOpenHandSwitchInCurve,
                                         builder: (context, value, _) {
                                           if (value <= 0) {
                                             return const SizedBox.shrink();

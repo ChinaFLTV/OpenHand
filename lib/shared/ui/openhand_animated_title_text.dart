@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'bounded_animation.dart';
 import 'interaction_timings.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 /// 为会话标题提供统一的淡入、纵向切换与轻微弹性缩放动效。
@@ -30,7 +31,7 @@ class OpenHandAnimatedTitleText extends StatefulWidget {
 
 class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
     with SingleTickerProviderStateMixin {
-  static const Duration _fallbackDuration = Duration(milliseconds: 360);
+  static const Duration _fallbackDuration = kOpenHandMotion360;
   static const Curve _incomingMotionCurve = Cubic(0.22, 1.22, 0.36, 1);
 
   int _snapshotId = 0;

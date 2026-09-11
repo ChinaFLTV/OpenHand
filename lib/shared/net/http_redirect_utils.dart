@@ -53,6 +53,7 @@ Future<http.StreamedResponse> sendHttpRequestFollowingRedirects({
   String? body,
   Set<String> additionalSensitiveHeaderNames = const <String>{},
   Future<void>? cancelSignal,
+  Future<void> Function(Uri uri)? beforeRequest,
 }) async {
   requireNonNegativeInt(maxRedirects, 'maxRedirects');
   var currentMethod = method;
@@ -61,6 +62,9 @@ Future<http.StreamedResponse> sendHttpRequestFollowingRedirects({
   final currentHeaders = Map<String, String>.from(headers);
 
   for (var redirectCount = 0; ; redirectCount++) {
+    if (beforeRequest != null) {
+      await beforeRequest(currentUri);
+    }
     final request = http.Request(currentMethod, currentUri)
       ..followRedirects = false
       ..headers.addAll(currentHeaders);

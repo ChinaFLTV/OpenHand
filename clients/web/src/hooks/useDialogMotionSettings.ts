@@ -41,7 +41,7 @@ const DIALOG_MOTION_CURVE_VALUES = [
 type DialogMotionCurve = (typeof DIALOG_MOTION_CURVE_VALUES)[number];
 
 export const DIALOG_MOTION_DEFAULT_DURATION_MS = 360;
-const DIALOG_MOTION_MIN_ANIMATED_DURATION_MS = 80;
+export const DIALOG_MOTION_MIN_ANIMATED_DURATION_MS = 80;
 const DIALOG_MOTION_MAX_DURATION_MS = 1200;
 const DIALOG_MOTION_DEFAULT_STYLE: DialogMotionStyle = 'spring_scale';
 const DIALOG_MOTION_DEFAULT_CURVE: DialogMotionCurve = 'ease_out_cubic';

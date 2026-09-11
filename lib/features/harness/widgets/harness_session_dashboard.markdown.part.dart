@@ -740,7 +740,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
             setState(() => _copied = false);
           }),
     );
-    _copiedResetTimer = startSafeTimer(const Duration(milliseconds: 1600), () {
+    _copiedResetTimer = startSafeTimer(kOpenHandCopiedFeedbackDuration, () {
       if (mounted) setState(() => _copied = false);
     });
   }

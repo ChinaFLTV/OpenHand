@@ -1,11 +1,12 @@
-import 'dart:convert';
-
 import '../util/input_value_parsing.dart';
 import '../util/text_clip.dart';
 import '../util/text_normalization.dart';
 
 /// API 错误文本默认上限，防止异常响应淹没日志或弹窗。
 const int kDefaultApiErrorMessageMaxLength = 4000;
+
+/// 错误正文里 JSON 解析的字符上限，避免异常响应撑爆内存。
+const int kApiErrorJsonMaxCodeUnits = 32 * 1024;
 
 const String _emptyErrorResponseMessage = '错误响应为空。';
 
@@ -72,9 +73,9 @@ String extractApiErrorMessage(
   final trimmed = nullIfBlank(body);
   if (trimmed == null) return emptyFallback ?? _emptyErrorResponseMessage;
 
-  try {
-    final decoded = jsonDecode(trimmed);
-    if (decoded is Map<String, Object?>) {
+  if (trimmed.length <= kApiErrorJsonMaxCodeUnits) {
+    final decoded = tryDecodeJson(trimmed);
+    if (decoded is Map) {
       final error = decoded['error'];
       final errorText = optionalStringFromValue(error);
       if (errorText != null) return bounded(errorText);
@@ -101,8 +102,6 @@ String extractApiErrorMessage(
           optionalStringFromValue(decoded['error_description']);
       if (message != null) return bounded(message);
     }
-  } catch (_) {
-    // 非 JSON 响应继续按 gRPC 文本、HTML 或纯文本处理。
   }
 
   // 非 JSON 但形如 gRPC 状态（键名无引号的 Dart/Go toString 输出）。

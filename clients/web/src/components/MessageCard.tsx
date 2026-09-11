@@ -69,12 +69,12 @@ import {
   finiteNumberOrNullFromUnknown,
   nonNegativeIntegerFromUnknown,
   parseJsonRecordSafely,
-  parseJsonSafely,
   recordOrNullFromUnknown,
   strictStringFromUnknown,
   stringifyJsonSafely,
   stringFromUnknown,
   stringListFromUnknown,
+  tryPrettyJsonText,
 } from '../shared/util/value';
 import {
   isTranscriptScrollActive,
@@ -3350,7 +3350,7 @@ function KnowledgeBaseRetrievalDialog({
   const status = strictStringFromUnknown(metadata['status']) || 'unknown';
   const error = strictStringFromUnknown(metadata['error']);
   const copyJson = async () => {
-    const ok = await copyTextToClipboard(JSON.stringify(metadata, null, 2));
+    const ok = await copyTextToClipboard(stringifyJsonSafely(metadata, 2) ?? '');
     showSnackbar(ok ? t('detail.copy.ok', '已复制') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
       tone: ok ? 'success' : 'error',
     });
@@ -3649,7 +3649,7 @@ function KnowledgeChunkDetailDialog({
           </KnowledgeBaseDialogSection>
           {metadata ? (
             <KnowledgeBaseDialogSection title={t('message.kbDialog.metadata', '元数据')}>
-              <pre class="oh-kb-dialog-pre is-json">{JSON.stringify(metadata, null, 2)}</pre>
+              <pre class="oh-kb-dialog-pre is-json">{stringifyJsonSafely(metadata, 2) ?? ''}</pre>
             </KnowledgeBaseDialogSection>
           ) : null}
           <KnowledgeBaseDialogSection title={chunk ? t('message.kbDialog.fullContent', '完整内容') : t('message.kbDialog.hitPreview', '命中预览')}>
@@ -3657,7 +3657,7 @@ function KnowledgeChunkDetailDialog({
           </KnowledgeBaseDialogSection>
           {!chunk ? (
             <KnowledgeBaseDialogSection title={t('message.kbDialog.rawHitMetadata', '原始命中元数据')}>
-              <pre class="oh-kb-dialog-pre is-json">{JSON.stringify(hit, null, 2)}</pre>
+              <pre class="oh-kb-dialog-pre is-json">{stringifyJsonSafely(hit, 2) ?? ''}</pre>
             </KnowledgeBaseDialogSection>
           ) : null}
       </div>
@@ -4929,17 +4929,7 @@ function formatToolSectionContent(content: string): string {
   const trimmed = normalized.trim();
   const legacyToolSearchContent = formatLegacyToolSearchContent(trimmed);
   if (legacyToolSearchContent) return legacyToolSearchContent;
-  if (!looksLikeJsonText(trimmed)) return normalized;
-  const parsed = parseJsonSafely(trimmed);
-  return parsed == null ? normalized : stringifyJsonSafely(parsed, 2) ?? normalized;
-}
-
-function looksLikeJsonText(text: string): boolean {
-  if (text.length < 2) return false;
-  return (
-    (text.startsWith('{') && text.endsWith('}')) ||
-    (text.startsWith('[') && text.endsWith(']'))
-  );
+  return tryPrettyJsonText(trimmed) ?? normalized;
 }
 
 /// 有界换行计数：只需知道换行数是否达到 [limit]，数够即停，
@@ -5084,8 +5074,7 @@ function ToolArgumentsBlock({
     if (typeof raw === 'string') {
       const trimmed = raw.trim();
       if (trimmed === '') return null;
-      const parsed = parseJsonSafely(trimmed);
-      return parsed == null ? trimmed : stringifyJsonSafely(parsed, 2) ?? trimmed;
+      return tryPrettyJsonText(trimmed) ?? trimmed;
     }
     return stringifyJsonSafely(raw, 2) ?? String(raw);
   }, [raw]);

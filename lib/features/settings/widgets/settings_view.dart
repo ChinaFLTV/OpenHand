@@ -85,6 +85,7 @@ import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/bounded_xfile_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/csv_encoding.dart';
@@ -118,6 +119,7 @@ import '../service/throttle_cloud_sync_service.dart';
 import 'openrouter_model_sync_dialog.dart';
 import 'prompt_cache_breakpoint_bar.dart';
 import 'thread_session_management_dialog.dart';
+
 part '_settings_ai_model_editor.dart';
 part '_settings_editor_lsp.dart';
 part '_settings_command_rules.dart';
@@ -5671,11 +5673,11 @@ class _SettingsViewState extends State<SettingsView> {
         maxBytes: _kThrottleConfigImportMaxBytes,
       );
       final raw = utf8.decode(bytes);
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) {
-        throw const FormatException('JSON 根节点必须是对象');
-      }
-      nextDoc = stringKeyedMapFromValue(decoded);
+      nextDoc = decodeJsonObjectTextUsingConfig(
+        raw,
+        maxTextCodeUnits: math.max(1, raw.length),
+        invalidRootMessage: 'JSON 根节点必须是对象',
+      );
     } catch (error, stack) {
       silentLog('settings', '解析节流配置', error, stack);
       if (!context.mounted) return;

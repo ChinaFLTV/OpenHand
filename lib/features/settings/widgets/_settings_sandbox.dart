@@ -39,7 +39,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     _httpProxyPortController = TextEditingController();
     _socksProxyPortController = TextEditingController();
     _proxySaveDebouncer = OpenHandDebouncer(
-      delay: const Duration(milliseconds: 420),
+      delay: kOpenHandFieldCommitDebounce,
     );
     _serviceSettings = widget.settingsController.aiSandboxSettings;
     _sandboxService = AiSandboxService(settings: _serviceSettings);
@@ -1307,9 +1307,7 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
   void initState() {
     super.initState();
     _draft = widget.settings;
-    _saveDebouncer = OpenHandDebouncer(
-      delay: const Duration(milliseconds: 420),
-    );
+    _saveDebouncer = OpenHandDebouncer(delay: kOpenHandFieldCommitDebounce);
     _syncControllers();
   }
 

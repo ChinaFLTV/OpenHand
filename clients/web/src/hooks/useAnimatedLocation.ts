@@ -1,6 +1,7 @@
 import { useLocation } from 'preact-iso';
 import { ignoreError } from '../shared/util/errors';
 import { normalizeDurationMs } from '../shared/util/number';
+import { isReducedMotion } from './useReducedMotion';
 
 type ViewTransitionDocument = Document & {
   startViewTransition?: (callback: () => Promise<void> | void) => {
@@ -23,20 +24,9 @@ function routeTransitionCleanupDelayMs(): number {
   });
 }
 
-function shouldReduceMotion(): boolean {
-  try {
-    return (
-      document.documentElement.dataset.motion === 'reduced' ||
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    );
-  } catch {
-    return true;
-  }
-}
-
 function runWithRouteTransition(update: () => void): void {
   const doc = document as ViewTransitionDocument;
-  if (typeof doc.startViewTransition !== 'function' || shouldReduceMotion()) {
+  if (typeof doc.startViewTransition !== 'function' || isReducedMotion()) {
     routeTransitionGeneration += 1;
     delete document.documentElement.dataset.routeTransition;
     update();

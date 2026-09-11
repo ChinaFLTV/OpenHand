@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../util/date_time_format.dart';
+import '../util/duration_bounds.dart';
 import '../util/timer_safety.dart';
 import 'bounded_animation.dart';
 import 'collision_safe_animated_switcher.dart';
@@ -243,7 +244,7 @@ class _OpenHandLiveDurationState extends State<OpenHandLiveDuration> {
         ? Duration.zero
         : DateTime.now().difference(start);
     return OpenHandCompactDurationLabel(
-      elapsed: elapsed.isNegative ? Duration.zero : elapsed,
+      elapsed: nonNegativeDuration(elapsed),
       prefix: widget.prefix,
       style: widget.style,
     );

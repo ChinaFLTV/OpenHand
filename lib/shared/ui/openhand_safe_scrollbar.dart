@@ -12,7 +12,7 @@ import 'oh_pill.dart';
 
 const Duration _kStableScrollbarSettleDelay = kOpenHandMotion140;
 const Duration _kStableScrollbarSettleDuration = kOpenHandMotion180;
-const Duration _kStableScrollbarFadeDelay = Duration(milliseconds: 360);
+const Duration _kStableScrollbarFadeDelay = kOpenHandMotion360;
 const Duration _kStableScrollbarFadeDuration = kOpenHandMotion240;
 
 bool openHandPlatformUsesImplicitScrollbars(TargetPlatform platform) {

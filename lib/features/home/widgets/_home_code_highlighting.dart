@@ -490,7 +490,7 @@ class _InlineCodexDiffPanel extends StatefulWidget {
 }
 
 class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
-  static const Duration _actionResetDelay = Duration(milliseconds: 1600);
+  static const Duration _actionResetDelay = kOpenHandCopiedFeedbackDuration;
   static const int _expandedStateCacheLimit = 500;
   static final Map<int, bool> _expandedByContentKey = <int, bool>{};
 
@@ -905,7 +905,7 @@ class _HighlightedCodePanel extends StatefulWidget {
 }
 
 class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
-  static const Duration _codeActionResetDelay = Duration(milliseconds: 1600);
+  static const Duration _codeActionResetDelay = kOpenHandCopiedFeedbackDuration;
 
   TextSpan? _highlightedSpan;
   int? _highlightSignature;
@@ -3132,7 +3132,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         // 不会把 pointer 事件回灌到 Flutter；iOS / Android 上的 webview_flutter 也是
         // 直接由 platform view 消费事件，Listener 收到的是 platform view 之外的空白处。
         ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 220, maxHeight: 560),
+          constraints: const BoxConstraints(
+            minHeight: 220,
+            maxHeight: kOpenHandDialogHeightCompact,
+          ),
           child: ClipRRect(borderRadius: kOpenHandBorderRadius10, child: body),
         ),
       ],

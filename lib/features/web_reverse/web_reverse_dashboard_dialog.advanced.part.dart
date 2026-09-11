@@ -1455,7 +1455,7 @@ Future<void> _showExtraHeadersDialog(
       ),
       submitLabel: openHandSaveLabel(context),
       cancelLabel: openHandCancelLabel(context),
-      maxWidth: 520,
+      maxWidth: kOpenHandDialogDefaultMaxWidth,
       onSubmit: (_) => true,
       contentBuilder: (dialogContext) => SizedBox(
         width: 520,

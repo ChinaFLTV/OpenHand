@@ -38,6 +38,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../../shared/ui/generated_media_result_card.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
+import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/markdown_inline_code.dart';
 import '../../../shared/ui/media_preview_dialog.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
@@ -2891,7 +2892,7 @@ class _WebGatewayConnectivityDialogState
         ja: '接続テスト結果をコピーしました',
       ),
       logAction: '复制连通性测试结果',
-      successDuration: const Duration(milliseconds: 1600),
+      successDuration: kOpenHandCopiedFeedbackDuration,
     );
   }
 }
@@ -18922,7 +18923,7 @@ class _DingTalkMessageAuditDialogState
     late final String encoded;
     try {
       encoded = clipTextByCodeUnits(
-        const JsonEncoder.withIndent('  ').convert(payload),
+        prettyPrintJson(payload),
         _maxSnapshotCharacters,
         suffix: '\n…审计快照已截断，完整消息仍保留在本地会话数据中。',
       );

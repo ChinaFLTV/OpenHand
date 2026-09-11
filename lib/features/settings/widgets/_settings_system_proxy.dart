@@ -544,7 +544,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
       builder: (dialogContext, setDialogState) => buildOpenHandAlertDialog(
         title: Text(AppLocalizations.of(dialogContext)!.inputRepairTitle),
         content: buildOpenHandDialogConstrainedContent(
-          maxWidth: 560,
+          maxWidth: kOpenHandDialogWidthCompact,
           child: SingleChildScrollView(
             child: SelectableText(
               _formatRepairReport(report),

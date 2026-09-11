@@ -13,6 +13,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../mcp_errors.dart';
@@ -84,7 +85,7 @@ class StdioProcessInfo {
       return _mcpStdioProcessStopwatch.elapsed - startedAtElapsed;
     }
     final elapsed = DateTime.now().toUtc().difference(startedAt!);
-    return elapsed.isNegative ? Duration.zero : elapsed;
+    return nonNegativeDuration(elapsed);
   }
 
   StdioProcessInfo copyWith({

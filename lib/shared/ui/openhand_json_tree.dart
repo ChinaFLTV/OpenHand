@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../util/bounded_json_conversion.dart';
 import '../util/byte_size_format.dart';
+import '../util/input_value_parsing.dart';
 import '../util/localized_text.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
@@ -107,7 +108,7 @@ String? tryPrettyOpenHandJsonText(String text) {
       maxTextCodeUnits: kOpenHandJsonTreeMaxCharacters,
       config: _openHandJsonTreeConversionConfig,
     );
-    return const JsonEncoder.withIndent('  ').convert(decoded);
+    return prettyPrintJson(decoded);
   } catch (_) {
     return null;
   }

@@ -74,7 +74,7 @@ class _MachineTerminalOperationStatus {
 
   Duration get elapsed {
     final value = DateTime.now().difference(startedAt);
-    return value.isNegative ? Duration.zero : value;
+    return nonNegativeDuration(value);
   }
 
   _MachineTerminalOperationStatus update(MachineTerminalFileProgress progress) {
@@ -1552,7 +1552,9 @@ class _MachineTerminalDeferredError extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
+          constraints: const BoxConstraints(
+            maxWidth: kOpenHandDialogWidthCompact,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

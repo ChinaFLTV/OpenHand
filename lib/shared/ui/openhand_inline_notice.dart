@@ -263,4 +263,4 @@ class OpenHandInlineErrorText extends StatelessWidget {
 }
 
 /// 行内错误展开 / 收起的时长。
-const Duration kOpenHandInlineErrorRevealDuration = Duration(milliseconds: 180);
+const Duration kOpenHandInlineErrorRevealDuration = kOpenHandMotion180;

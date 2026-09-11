@@ -650,7 +650,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           ),
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: enabled
                 ? Padding(
@@ -728,7 +728,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           ),
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: switch (strategy) {
               WorkflowErrorStrategy.terminate => Padding(
@@ -1463,7 +1463,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               ),
               AnimatedSize(
                 duration: openHandMotionDuration(context, kOpenHandMotion220),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 child: bodyVisible
                     ? Padding(
                         padding: const EdgeInsets.only(top: 14),
@@ -2370,7 +2370,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           ),
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -2419,7 +2419,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           ),
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -3486,7 +3486,7 @@ class _KeyValueEditor extends StatelessWidget {
         ),
         AnimatedSize(
           duration: openHandMotionDuration(context, kOpenHandMotion220),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           alignment: Alignment.topCenter,
           child: entries.isEmpty
               ? const SizedBox.shrink()
@@ -3747,7 +3747,7 @@ class _CodeRuntimeStatus extends StatelessWidget {
     final executable = runtime?.executable?.trim() ?? '';
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.09),
@@ -3875,7 +3875,7 @@ class _OutputFieldEditor extends StatelessWidget {
       children: [
         AnimatedSize(
           duration: openHandMotionDuration(context, kOpenHandMotion220),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           alignment: Alignment.topCenter,
           child: fields.isEmpty
               ? emptyMessage == null
@@ -4288,7 +4288,7 @@ class _OutputFieldCard extends StatelessWidget {
             ),
             AnimatedSize(
               duration: openHandMotionDuration(context, kOpenHandMotion180),
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               child: nameError == null
                   ? const SizedBox.shrink()
                   : Padding(

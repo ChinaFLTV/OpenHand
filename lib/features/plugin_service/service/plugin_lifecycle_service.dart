@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:openhand/shared/util/text_normalization.dart';
@@ -1312,8 +1311,10 @@ exit 4''';
     );
     if (result.exitCode != 0) return null;
     try {
-      final decoded = jsonDecode(result.stdout.toString());
-      return _homebrewStableVersionFromDecoded(decoded);
+      final decoded = tryDecodeJson(result.stdout.toString());
+      return decoded == null
+          ? null
+          : _homebrewStableVersionFromDecoded(decoded);
     } catch (_) {
       return null;
     }

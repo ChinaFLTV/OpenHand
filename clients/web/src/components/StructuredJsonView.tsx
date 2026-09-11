@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { useTransientFlag } from '../hooks/useTransientFlag';
 import { t, tFmt } from '../i18n';
-import { parseJsonSafely } from '../shared/util/value';
+import { looksLikeJsonText, parseJsonSafely, stringifyJsonSafely, tryPrettyJsonText } from '../shared/util/value';
 import { copyTextToClipboard } from '../utils/clipboard';
 import {
   DIALOG_OVERLAY_CENTER_CLASS,
@@ -154,21 +154,6 @@ function needsJsonFullView(text: string): boolean {
   return trimmed.endsWith('…') && trimmed.length >= 80;
 }
 
-function tryPrettyJsonText(text: string): string | null {
-  const trimmed = text.trim();
-  if (
-    trimmed.length < 2
-    || !((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))
-  ) return null;
-  const decoded = parseJsonSafely(trimmed);
-  if (decoded == null) return null;
-  try {
-    return JSON.stringify(decoded, null, 2);
-  } catch {
-    return null;
-  }
-}
-
 function StructuredJsonFullDialog({
   text,
   label,
@@ -255,7 +240,7 @@ function parseStructuredJsonDocument(text: string): JsonDocument | null {
   if (
     trimmed.length < 2
     || trimmed.length > JSON_TREE_MAX_CHARACTERS
-    || !((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))
+    || !looksLikeJsonText(trimmed)
   ) return null;
   const decoded = parseJsonSafely(trimmed);
   if (decoded == null || typeof decoded !== 'object') return null;
@@ -375,11 +360,7 @@ function JsonNode({
 }
 
 function stringifyJsonLeaf(value: unknown): string {
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return JSON.stringify(String(value));
-  }
+  return stringifyJsonSafely(value) ?? stringifyJsonSafely(String(value)) ?? '';
 }
 
 function CopyIcon() {

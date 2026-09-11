@@ -1236,7 +1236,7 @@ class _PendingFetchBanner extends StatelessWidget {
           ja: '送信',
         ),
         cancelLabel: openHandCancelLabel(context),
-        maxWidth: 560,
+        maxWidth: kOpenHandDialogWidthCompact,
         onSubmit: (_) => true,
         contentBuilder: (_) => SizedBox(
           width: 560,

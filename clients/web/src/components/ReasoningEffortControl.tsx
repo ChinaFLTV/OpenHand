@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import type { ApiMetaModel, ApiReasoningEffortOption } from '../api/meta';
+import { getDialogEnterDurationMs } from '../hooks/useDialogMotionSettings';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { PopMenu } from './PopMenu';
 import {
@@ -160,7 +161,7 @@ function ReasoningEffortPanel({
     const timer = window.setTimeout(() => {
       pixel.resize();
       stream.resize();
-    }, 360);
+    }, getDialogEnterDurationMs());
     return () => {
       window.cancelAnimationFrame(raf);
       window.clearTimeout(timer);

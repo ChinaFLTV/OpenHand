@@ -224,7 +224,7 @@ _digitRollFrame(double rawT, double height, int direction) {
         ) ??
         1;
   } else {
-    final u = Curves.easeInOutCubic.transform(
+    final u = kOpenHandEmphasizedTransitionCurve.transform(
       ((t - peak) / (1.0 - peak)).clamp(0.0, 1.0),
     );
     inShift = lerpDouble(-kOpenHandDigitRollOvershoot, 0.0, u) ?? 0;

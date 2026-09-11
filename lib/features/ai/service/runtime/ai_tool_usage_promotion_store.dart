@@ -14,6 +14,7 @@ import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/date_time_format.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/sensitive_data.dart';
 import '../../../../shared/util/serial_task_queue.dart';
@@ -1675,7 +1676,7 @@ final class AiToolUsagePromotionStore {
       return value;
     }
     try {
-      return const JsonEncoder.withIndent('  ').convert(
+      return prettyPrintJson(
         decodeJsonTextUsingConfig(
           trimmed,
           maxTextCodeUnits: _maxPersistedPayloadChars,

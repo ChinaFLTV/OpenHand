@@ -96,7 +96,7 @@ void showFriendlyErrorDetailsDialog(
         title: Text(title ?? l10n.sessMetaErrorDetail),
         content: buildOpenHandDialogConstrainedContent(
           maxWidth: 680,
-          maxHeight: 560,
+          maxHeight: kOpenHandDialogHeightCompact,
           child: hasSources
               ? _MultiSourceErrorBody(
                   fullText: fullText,

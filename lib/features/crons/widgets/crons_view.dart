@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
@@ -1307,7 +1305,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
     final raw = appContext[CronsController.hermesTalkerReportsKey];
     if (raw == null || raw.isEmpty) return const <SelfLearningSessionReport>[];
     try {
-      final parsed = jsonDecode(raw);
+      final parsed = tryDecodeJson(raw);
       if (parsed is! List) return const <SelfLearningSessionReport>[];
       final out = <SelfLearningSessionReport>[];
       for (final item in parsed) {
@@ -1328,7 +1326,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
     final raw = appContext[CronsController.hermesTalkerStatsKey];
     if (raw == null || raw.isEmpty) return const <String, int>{};
     try {
-      final parsed = jsonDecode(raw);
+      final parsed = tryDecodeJson(raw);
       if (parsed is! Map) return const <String, int>{};
       final out = <String, int>{};
       stringKeyedMapFromValue(parsed).forEach((key, value) {

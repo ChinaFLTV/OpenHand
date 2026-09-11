@@ -19,6 +19,7 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
@@ -338,7 +339,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                           context,
                           kOpenHandMotion260,
                         ),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         width: _selectedNode == null ? 0 : panelWidth,
                         clipBehavior: Clip.hardEdge,
                         decoration: const BoxDecoration(),
@@ -774,14 +775,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                             context,
                             kOpenHandMotion180,
                           ),
-                          curve: Curves.easeOutCubic,
+                          curve: kOpenHandSwitchInCurve,
                           child: AnimatedSwitcher(
                             duration: openHandMotionDuration(
                               context,
                               kOpenHandMotion180,
                             ),
-                            switchInCurve: Curves.easeOutBack,
-                            switchOutCurve: Curves.easeInCubic,
+                            switchInCurve: kOpenHandEntranceCurve,
+                            switchOutCurve: kOpenHandSwitchOutCurve,
                             transitionBuilder: (child, animation) =>
                                 FadeTransition(
                                   opacity: animation,
@@ -961,10 +962,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     final controller = _ensureViewportAnimationController();
     controller.stop();
     controller.duration = effectiveDuration;
-    _viewportAnimation = Matrix4Tween(
-      begin: _transformationController.value.clone(),
-      end: target,
-    ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutCubic));
+    _viewportAnimation =
+        Matrix4Tween(
+          begin: _transformationController.value.clone(),
+          end: target,
+        ).animate(
+          CurvedAnimation(parent: controller, curve: kOpenHandSwitchInCurve),
+        );
     controller.forward(from: 0);
   }
 
@@ -1221,7 +1225,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       duration: _organizingNodes
           ? openHandMotionDuration(context, kOpenHandMotion260)
           : Duration.zero,
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       left: node.x,
       top: node.y,
       width: _nodeWidth + _nodeAddButtonHitSize / 2,
@@ -1243,10 +1247,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               child: AnimatedScale(
                 scale: connectionTarget ? 1.015 : 1,
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 child: AnimatedContainer(
                   duration: openHandMotionDuration(context, kOpenHandMotion180),
-                  curve: Curves.easeOutCubic,
+                  curve: kOpenHandSwitchInCurve,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: connectionTarget
@@ -1392,7 +1396,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       duration: _organizingNodes
           ? openHandMotionDuration(context, kOpenHandMotion260)
           : Duration.zero,
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       left: node.x,
       top: node.y,
       child: TweenAnimationBuilder<Offset>(
@@ -1401,7 +1405,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           end: Offset(width, height),
         ),
         duration: openHandMotionDuration(context, kOpenHandMotion260),
-        curve: Curves.easeOutBack,
+        curve: kOpenHandEntranceCurve,
         builder: (context, size, _) {
           final animatedWidth = size.dx;
           final animatedHeight = size.dy;
@@ -1438,7 +1442,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                         context,
                         kOpenHandMotion180,
                       ),
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       decoration: BoxDecoration(
                         color: Color.alphaBlend(
                           descriptor.color.withValues(alpha: 0.055),
@@ -1793,7 +1797,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               child: AnimatedScale(
                 scale: connecting ? 0.92 : 1,
                 duration: openHandMotionDuration(context, kOpenHandMotion120),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 child: AnimatedContainer(
                   duration: openHandMotionDuration(context, kOpenHandMotion180),
                   width: _nodeAddButtonSize,
@@ -4151,10 +4155,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     final controller = _ensureViewportAnimationController();
     controller.stop();
     controller.duration = duration;
-    _viewportAnimation = Matrix4Tween(
-      begin: _transformationController.value.clone(),
-      end: Matrix4.identity(),
-    ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutCubic));
+    _viewportAnimation =
+        Matrix4Tween(
+          begin: _transformationController.value.clone(),
+          end: Matrix4.identity(),
+        ).animate(
+          CurvedAnimation(parent: controller, curve: kOpenHandSwitchInCurve),
+        );
     controller.forward(from: 0);
   }
 }
@@ -4538,7 +4545,7 @@ class _WorkflowNodeStatusBadge extends StatelessWidget {
     };
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.13),
@@ -4931,7 +4938,7 @@ class _WorkflowMetadataDialogState extends State<_WorkflowMetadataDialog> {
                             kOpenHandMotion220,
                           ),
                           switchInCurve: kOpenHandSwitchInCurve,
-                          switchOutCurve: Curves.easeInCubic,
+                          switchOutCurve: kOpenHandSwitchOutCurve,
                           layoutBuilder: (currentChild, previousChildren) =>
                               Stack(
                                 alignment: Alignment.topLeft,
@@ -5396,9 +5403,7 @@ double _nodeWidthFor(WorkflowNode node) => node.isContainer
 
 String _formatExecutionResult(WorkflowNodeExecutionResult result) {
   final output = result.output;
-  final formatted = output is String
-      ? output
-      : const JsonEncoder.withIndent('  ').convert(output);
+  final formatted = output is String ? output : prettyPrintJson(output);
   return '尝试 ${result.attempts} 次 · ${result.duration.inMilliseconds} 毫秒\n\n$formatted';
 }
 

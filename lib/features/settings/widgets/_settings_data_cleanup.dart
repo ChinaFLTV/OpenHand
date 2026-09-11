@@ -209,7 +209,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       ),
       cancelLabel: l10n.commonCancel,
       destructive: true,
-      maxWidth: 520,
+      maxWidth: kOpenHandDialogDefaultMaxWidth,
       icon: Icon(
         Icons.warning_amber_outlined,
         color: Theme.of(navigatorContext).colorScheme.error,
@@ -1151,7 +1151,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       ),
       confirmLabel: openHandImportLabel(context),
       cancelLabel: AppLocalizations.of(context)!.commonCancel,
-      maxWidth: 520,
+      maxWidth: kOpenHandDialogDefaultMaxWidth,
       icon: Icon(
         Icons.download_rounded,
         color: Theme.of(context).colorScheme.primary,

@@ -14,6 +14,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_node_executor.dart';
 import 'workflow_numeric_input.dart';
@@ -329,7 +330,7 @@ class _WorkflowTestInputDialogState extends State<_WorkflowTestInputDialog> {
           ),
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             child: _error == null
                 ? const SizedBox.shrink()
                 : Padding(
@@ -1843,7 +1844,7 @@ String _serializeOutputValue(Object? value) {
   if (value == null) return 'null';
   if (value is String) return value;
   try {
-    return const JsonEncoder.withIndent('  ').convert(value);
+    return prettyPrintJson(value);
   } on JsonUnsupportedObjectError {
     return '$value';
   }

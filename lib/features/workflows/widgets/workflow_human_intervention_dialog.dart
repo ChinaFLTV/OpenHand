@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +12,7 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_node_executor.dart';
@@ -288,7 +288,7 @@ class _WorkflowHumanInterventionDialogState
                         context,
                         kOpenHandMotion180,
                       ),
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       child: _error == null
                           ? const SizedBox.shrink()
                           : Container(
@@ -406,7 +406,7 @@ class _WorkflowHumanInterventionDialogState
 String _displayValue(Object? value) {
   if (value == null) return '';
   if (value is Map || value is List) {
-    return const JsonEncoder.withIndent('  ').convert(value);
+    return prettyPrintJson(value);
   }
   return '$value';
 }

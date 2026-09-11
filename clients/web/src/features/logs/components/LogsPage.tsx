@@ -15,6 +15,7 @@ import { showSnackbar } from '../../../components/Snackbar';
 import { TopBar } from '../../../components/TopBar';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { isAbortError } from '../../../shared/util/errors';
+import { stringifyJsonSafely } from '../../../shared/util/value';
 import { describeApiError } from '../../../utils/api_error';
 
 const PAGE_SIZE = 200;
@@ -301,7 +302,7 @@ export function LogsPage() {
                     <pre
                       class="oh-log-data"
                     >
-                      {JSON.stringify(it.data, null, 2)}
+                      {stringifyJsonSafely(it.data, 2) ?? ''}
                     </pre>
                   )}
                 </li>

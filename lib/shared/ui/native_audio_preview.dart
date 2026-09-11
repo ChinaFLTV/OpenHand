@@ -18,6 +18,7 @@ import '../util/async_concurrency.dart';
 import '../util/bounded_file_io.dart';
 import '../util/byte_size_format.dart';
 import '../util/date_time_format.dart';
+import '../util/duration_bounds.dart';
 import '../util/input_value_parsing.dart';
 import '../util/serial_task_queue.dart';
 import '../util/text_normalization.dart';
@@ -165,7 +166,7 @@ class NativeAudioPreview extends StatefulWidget {
     this.controller,
     this.onOpenExternal,
     this.autoplay = false,
-    this.motionDuration = const Duration(milliseconds: 280),
+    this.motionDuration = kOpenHandMotion280,
     this.motionCurve = kNativeAudioMotionCurve,
   });
 
@@ -2764,9 +2765,8 @@ class _Mp4Box {
 }
 
 Duration _clampDuration(Duration value, Duration max) {
-  if (value < Duration.zero) return Duration.zero;
-  if (max > Duration.zero && value > max) return max;
-  return value;
+  if (max <= Duration.zero) return nonNegativeDuration(value);
+  return clampDuration(value, min: Duration.zero, max: max);
 }
 
 Duration _durationDistance(Duration a, Duration b) {
