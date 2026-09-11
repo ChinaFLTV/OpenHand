@@ -768,7 +768,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                             spacing: 8,
                             runSpacing: 6,
                             children: [
-                              OpenHandStatusPill(
+                              OpenHandFactChip(
                                 icon: switch (record.status) {
                                   'success' =>
                                     Icons.check_circle_outline_rounded,
@@ -820,20 +820,24 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         color: colorScheme.error,
                       ),
                     ),
-                    kOpenHandHGap4,
-                    AnimatedRotation(
-                      turns: _expanded ? 0.5 : 0.0,
-                      duration: _expanded
-                          ? (_animController.duration ?? Duration.zero)
-                          : (_animController.reverseDuration ?? Duration.zero),
-                      curve: _expanded
-                          ? _fadeAnimation.curve
-                          : (_fadeAnimation.reverseCurve ??
-                                _fadeAnimation.curve),
-                      child: Icon(
-                        Icons.expand_more_rounded,
-                        size: 18,
-                        color: colorScheme.onSurfaceVariant,
+                    kOpenHandHGap8,
+                    IconButton(
+                      tooltip: _expanded
+                          ? l10n.cronsCollapse
+                          : l10n.cronsExpand,
+                      style: openHandFeatureCircleIconButtonStyle(colorScheme),
+                      onPressed: _toggle,
+                      icon: AnimatedRotation(
+                        turns: _expanded ? 0.5 : 0.0,
+                        duration: _expanded
+                            ? (_animController.duration ?? Duration.zero)
+                            : (_animController.reverseDuration ??
+                                  Duration.zero),
+                        curve: _expanded
+                            ? _fadeAnimation.curve
+                            : (_fadeAnimation.reverseCurve ??
+                                  _fadeAnimation.curve),
+                        child: const Icon(Icons.expand_more_rounded),
                       ),
                     ),
                   ],
