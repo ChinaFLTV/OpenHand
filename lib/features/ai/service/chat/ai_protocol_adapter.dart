@@ -826,7 +826,14 @@ class AiChatTurn {
   }
 
   int get promptCharacterCount {
-    var total = content.length;
+    var total =
+        content.length +
+        (toolCallId?.length ?? 0) +
+        (reasoningContent?.length ?? 0);
+    for (final toolCall in toolCalls) {
+      total +=
+          toolCall.id.length + toolCall.name.length + toolCall.arguments.length;
+    }
     for (final part in parts) {
       total += switch (part.kind) {
         AiChatContentPartKind.text => part.text?.length ?? 0,

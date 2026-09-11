@@ -125,6 +125,8 @@ class AiPromptBuilder {
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
   static const JsonEncoder _promptJsonEncoder = kPrettyJsonEncoder;
   static const int _microCompactKeepRecentToolResults = 2;
+  static const int _parallelToolResultSummaryBudgetChars = 640;
+  static const int _parallelToolResultMinSummaryChars = 128;
   static const int _historyAssistantContentMaxChars = 1600;
   static const int _historyAssistantContentEdgeChars = 700;
   static const int _contextBudgetSummaryReserveTokens = 20000;
@@ -830,6 +832,10 @@ class AiPromptBuilder {
           historyToolCompressionConfig.thresholdChars
       ..['tool_result_prompt_head_tail_chars'] =
           historyToolCompressionConfig.headTailWindowChars
+      ..['tool_result_prompt_parallel_summary_budget_chars'] =
+          historyToolCompressionConfig.enabled
+          ? _parallelToolResultSummaryBudgetChars
+          : 0
       ..['dynamic_session_state_delivery'] = runtimeTailReplayedFromHistory
           ? 'round_anchor_history'
           : includeDynamicSessionState
@@ -3463,13 +3469,14 @@ $identity''';
         nextIndex: cursor,
       );
     }
-    final groupedToolContent = _promptHistoryToolCallAssistantContent(
-      groupedToolCalls,
+    final exchangeCompressionConfig = compressionConfig.forToolExchange(
+      groupedToolCalls.length,
     );
     final turns = <AiChatTurn>[
       ..._mapMessageContent(
         role: AiChatRole.assistant,
-        content: groupedToolContent,
+        // 工具名与参数已存在于结构化 tool_calls，重复文本只会增加输入成本。
+        content: '',
         toolCalls: groupedToolCalls,
       ),
     ];
@@ -3485,7 +3492,7 @@ $identity''';
           toolCallId: toolCall.id,
           content: _promptHistoryToolResultContent(
             toolMessage,
-            compressionConfig,
+            exchangeCompressionConfig,
             isFreshUnconsumedResult: toolMessageIndex > lastConsumerIndex,
             inlineSystemReminders: true,
           ),
@@ -5782,7 +5789,7 @@ $content
         return knowledgeResult;
       }
       if (!compressionConfig.guardsFreshToolResults ||
-          original.length <= compressionConfig.thresholdChars) {
+          compressionConfig.keepsRawResult(original.length)) {
         return original;
       }
       // 首次与后续历史使用相同表示，避免工具循环改写前缀缓存位置。
@@ -5828,10 +5835,12 @@ $content
     final resultText =
         '${metadata['result_text'] ?? metadata['tool_execution_result'] ?? ''}'
             .trim();
-    final lines = <String>[
+    final headerLines = <String>[
       '[write_result] ${toolName.isEmpty ? 'Tool' : toolName}',
       if (status.isNotEmpty) 'status: $status',
       ..._writeConfirmationSummaryLines(metadata),
+    ];
+    final detailLines = <String>[
       if (mutationKind.isNotEmpty) 'mutation: $mutationKind',
       if (targetPaths.isNotEmpty) 'targets: ${targetPaths.join(', ')}',
       if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
@@ -5841,9 +5850,18 @@ $content
               ? resultText.length <= 280
               : resultText.length <= compressionConfig.writeSummaryMaxChars))
         'summary: $resultText',
-      'note: Large write payloads and file contents were omitted from prompt history to save tokens. Inspect the local filesystem if exact contents are needed.',
     ];
-    return lines.join('\n');
+    return _boundedToolResultSummary(
+      headerLines: headerLines,
+      detailLines: detailLines,
+      recoveryNote: compressionConfig.summaryBudgetChars > 0
+          ? _compactToolResultRecoveryNote(
+              metadata,
+              fallback: 'Inspect local files for exact output.',
+            )
+          : 'note: Large write payloads and file contents were omitted from prompt history to save tokens. Inspect the local filesystem if exact contents are needed.',
+      maxChars: compressionConfig.summaryBudgetChars,
+    );
   }
 
   String _microCompactToolResultContent(
@@ -6323,6 +6341,20 @@ $content
                 '${metadata['tool_execution_write_analysis_reason'] ?? ''}'
                     .trim(),
         });
+      case 'read':
+        // Read 的 purpose 不参与实际读取，结构化历史只保留能还原读取范围的参数。
+        // 文件内容由紧随其后的 tool result 表达，避免并行读取时重复堆积描述文本。
+        final filePath = '${arguments['file_path'] ?? ''}'.trim();
+        if (filePath.isEmpty) return toolCall.arguments;
+        final pages = arguments['pages'];
+        return jsonEncode(<String, Object?>{
+          if (filePath.isNotEmpty) 'file_path': filePath,
+          if (arguments['offset'] != null) 'offset': arguments['offset'],
+          if (arguments['limit'] != null) 'limit': arguments['limit'],
+          if (pages is String && pages.trim().isNotEmpty ||
+              pages is List && pages.isNotEmpty)
+            'pages': pages,
+        });
       default:
         return toolCall.arguments;
     }
@@ -6373,29 +6405,38 @@ $content
         '${metadata['status'] ?? metadata['tool_execution_status'] ?? kb?['status'] ?? ''}'
             .trim();
     final query = '${kb?['query'] ?? metadata['query'] ?? ''}'.trim();
-    final lines = <String>[
+    final headerLines = <String>[
       '[knowledge_tool_result] ${toolName.isEmpty ? 'KnowledgeTool' : toolName}',
       'original_chars: ${original.length}',
       if (status.isNotEmpty) 'status: $status',
       if (query.isNotEmpty) 'query: $query',
       'result_count: ${results.length}',
+    ];
+    final detailLines = <String>[
       'instruction: Use matching Knowledge Base rows as evidence. Ignore unrelated lower-ranked rows; do not claim no match when a relevant title, heading, preview, or content is present.',
     ];
     if (promptContext.isNotEmpty) {
-      lines
+      detailLines
         ..add('context:')
         ..add(
           clipTextWithEllipsis(promptContext, _knowledgeToolPromptMaxChars),
         );
     } else {
-      lines
+      detailLines
         ..add('results:')
         ..add(_knowledgeToolResultRowsForPrompt(results));
     }
-    lines.add(
-      'note: Call KnowledgeRead with chunk_id only when exact content beyond this context is needed.',
+    return _boundedToolResultSummary(
+      headerLines: headerLines,
+      detailLines: detailLines,
+      recoveryNote: compressionConfig.summaryBudgetChars > 0
+          ? _compactToolResultRecoveryNote(
+              metadata,
+              fallback: 'Call KnowledgeRead for exact content.',
+            )
+          : 'note: Call KnowledgeRead with chunk_id only when exact content beyond this context is needed.',
+      maxChars: compressionConfig.summaryBudgetChars,
     );
-    return lines.join('\n');
   }
 
   bool _isKnowledgeToolName(String toolName) {
@@ -6456,6 +6497,7 @@ $content
   /// - 受影响文件路径与行号（基于正则提取，去重保留前 12 条）
   /// - 首尾各 256 字符片段，保留语义钩子但杜绝海量正文进入 prompt
   ///
+  /// 并行调用会进一步共享固定摘要预算，避免单条限制在一个批次内成倍膨胀。
   /// 这样可以显著降低 conversation history 的 token 占比，让模型把注意力
   /// 集中在结构化线索上，避免被冗长 raw 输出淹没。
   String _compressGenericToolResultContent(
@@ -6479,7 +6521,10 @@ $content
       metadata,
     ).where((line) => !original.contains(line)).toList(growable: false);
     final threshold = thresholdOverride ?? compressionConfig.thresholdChars;
-    if (original.length <= threshold) {
+    if (compressionConfig.keepsRawResult(
+      original.length,
+      thresholdOverride: threshold,
+    )) {
       if (toolStateLines.isEmpty) return original;
       return '$original\n${toolStateLines.join('\n')}';
     }
@@ -6512,24 +6557,78 @@ $content
       math.max(0, original.length - headTail),
     );
     final tail = headTail <= 0 ? '' : original.substring(tailStart).trim();
-    final lines = <String>[
+    final headerLines = <String>[
       '$summaryMarker ${toolName.isEmpty ? 'Tool' : toolName}',
       'original_chars: ${original.length}',
       if (status.isNotEmpty) 'status: $status',
       ...toolStateLines,
+    ];
+    final detailLines = <String>[
       if (purpose != null && purpose.isNotEmpty) 'purpose: $purpose',
       if (pathHits.isNotEmpty)
         'affected:\n${pathHits.map((h) => '  - $h').join('\n')}',
       if (head.isNotEmpty) 'head:\n$head',
       if (tail.isNotEmpty && tail != head) 'tail:\n$tail',
-      _toolResultRecoveryNote(
-        metadata,
-        fallback:
-            recoveryFallback ??
-            'Tool result exceeded $threshold chars and was condensed for the prompt history. Re-run the tool or read the local file directly if exact contents are needed.',
-      ),
     ];
-    return lines.join('\n');
+    final recoveryNote = compressionConfig.summaryBudgetChars > 0
+        ? _compactToolResultRecoveryNote(
+            metadata,
+            fallback: 'Rerun the tool for exact output.',
+          )
+        : _toolResultRecoveryNote(
+            metadata,
+            fallback:
+                recoveryFallback ??
+                'Tool result exceeded $threshold chars and was condensed for the prompt history. Re-run the tool or read the local file directly if exact contents are needed.',
+          );
+    return _boundedToolResultSummary(
+      headerLines: headerLines,
+      detailLines: detailLines,
+      recoveryNote: recoveryNote,
+      maxChars: compressionConfig.summaryBudgetChars,
+    );
+  }
+
+  String _boundedToolResultSummary({
+    required List<String> headerLines,
+    required List<String> detailLines,
+    required String recoveryNote,
+    required int maxChars,
+  }) {
+    final full = <String>[
+      ...headerLines,
+      ...detailLines,
+      recoveryNote,
+    ].join('\n');
+    if (maxChars <= 0 || full.length <= maxChars) return full;
+
+    final header = headerLines.join('\n');
+    final fixedChars = header.length + recoveryNote.length + 2;
+    if (fixedChars >= maxChars) {
+      final headerBudget = math.max(1, maxChars - recoveryNote.length - 1);
+      return '${clipTextByCodeUnitsWithEllipsis(header, headerBudget)}\n$recoveryNote';
+    }
+    final detailBudget = maxChars - fixedChars;
+    final detail = clipTextByCodeUnitsWithEllipsis(
+      detailLines.join('\n'),
+      detailBudget,
+    );
+    return <String>[
+      header,
+      if (detail.isNotEmpty) detail,
+      recoveryNote,
+    ].join('\n');
+  }
+
+  String _compactToolResultRecoveryNote(
+    Map<String, Object?> metadata, {
+    required String fallback,
+  }) {
+    return _metadataTrimmedString(
+          metadata['tool_output_persisted_path'],
+        ).isNotEmpty
+        ? 'note: Read tool_output_persisted_path for exact output.'
+        : 'note: $fallback';
   }
 
   String _toolResultRecoveryNote(
@@ -6888,6 +6987,7 @@ class _ToolCompressionConfig {
     required this.maxPathHits,
     required this.writeSummaryMaxChars,
     required this.microCompressionEnabled,
+    this.summaryBudgetChars = 0,
   });
 
   factory _ToolCompressionConfig.forConversationHistory(
@@ -6942,14 +7042,37 @@ class _ToolCompressionConfig {
     );
   }
 
+  _ToolCompressionConfig forToolExchange(int resultCount) {
+    if (!enabled || resultCount <= 1) return this;
+    final perResultBudget = math.max(
+      AiPromptBuilder._parallelToolResultMinSummaryChars,
+      AiPromptBuilder._parallelToolResultSummaryBudgetChars ~/ resultCount,
+    );
+    return _ToolCompressionConfig(
+      enabled: enabled,
+      thresholdChars: thresholdChars,
+      headTailWindowChars: headTailWindowChars,
+      maxPathHits: maxPathHits,
+      writeSummaryMaxChars: writeSummaryMaxChars,
+      microCompressionEnabled: microCompressionEnabled,
+      summaryBudgetChars: perResultBudget,
+    );
+  }
+
   final bool enabled;
   final int thresholdChars;
   final int headTailWindowChars;
   final int maxPathHits;
   final int writeSummaryMaxChars;
   final bool microCompressionEnabled;
+  final int summaryBudgetChars;
 
   bool get guardsFreshToolResults => enabled;
+
+  bool keepsRawResult(int characterCount, {int? thresholdOverride}) {
+    return characterCount <= (thresholdOverride ?? thresholdChars) &&
+        (summaryBudgetChars <= 0 || characterCount <= summaryBudgetChars);
+  }
 }
 
 class _ExtractedReminderContent {

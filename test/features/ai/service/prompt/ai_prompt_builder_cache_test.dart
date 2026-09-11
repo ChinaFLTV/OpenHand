@@ -102,48 +102,95 @@ void main() {
       );
     });
 
-    test('并行工具结果统一压缩且不改写历史', () async {
-      final fixture = _PromptFixture(
-        templateId: AiPromptTemplatePolicies.defaultTemplateId,
-        compressionEnabled: true,
-      );
-      final messages = fixture.parallelMessages(4);
-      final first = await fixture.build(
-        messages,
-        runtimeContextAnchorMessageId: 'result-3',
-      );
-      final toolTurns = first.messages
-          .where((turn) => turn.role == AiChatRole.tool)
-          .toList(growable: false);
+    test('所有线程模板共享并行结果总预算且不改写历史', () async {
+      for (final entry in AiPromptTemplatePolicies.entries) {
+        final fixture = _PromptFixture(
+          templateId: entry.id,
+          compressionEnabled: true,
+        );
+        final messages = fixture.parallelMessages(4);
+        final first = await fixture.build(
+          messages,
+          runtimeContextAnchorMessageId: 'result-3',
+        );
+        final assistantToolTurn = first.messages.singleWhere(
+          (turn) =>
+              turn.role == AiChatRole.assistant && turn.toolCalls.length == 4,
+        );
+        final toolTurns = first.messages
+            .where((turn) => turn.role == AiChatRole.tool)
+            .toList(growable: false);
 
-      expect(toolTurns, hasLength(4));
+        expect(assistantToolTurn.content, isEmpty, reason: entry.id);
+        expect(
+          assistantToolTurn.toolCalls.every((call) {
+            final arguments =
+                jsonDecode(call.arguments) as Map<String, Object?>;
+            return arguments.containsKey('file_path') &&
+                arguments.containsKey('limit') &&
+                !arguments.containsKey('purpose') &&
+                !arguments.containsKey('pages');
+          }),
+          isTrue,
+          reason: entry.id,
+        );
+        expect(toolTurns, hasLength(4), reason: entry.id);
+        expect(
+          toolTurns.every(
+            (turn) => turn.content.startsWith('[tool_result_summary] Read'),
+          ),
+          isTrue,
+          reason: entry.id,
+        );
+        expect(
+          toolTurns.fold<int>(0, (sum, turn) => sum + turn.content.length),
+          lessThanOrEqualTo(640),
+          reason: entry.id,
+        );
+
+        final lastResult = messages.last.copyWith(
+          metadata: <String, Object?>{
+            ...messages.last.metadata,
+            aiPromptRuntimeTailSnapshotMetadataKey:
+                first.metadata[aiPromptRuntimeTailSnapshotMetadataKey],
+          },
+        );
+        final second = await fixture.build(<AiSessionMessage>[
+          ...messages.take(messages.length - 1),
+          lastResult,
+          AiSessionMessage.assistant(
+            id: 'assistant',
+            content: '继续处理。',
+            createdAt: fixture.now.add(const Duration(seconds: 1)),
+          ),
+        ], runtimeContextAnchorMessageId: 'result-3');
+
+        expect(
+          _turnSignatures(second.messages.take(first.messages.length)),
+          _turnSignatures(first.messages),
+          reason: entry.id,
+        );
+      }
+    });
+
+    test('Prompt 字符统计覆盖结构化工具调用与推理内容', () {
+      const turn = AiChatTurn(
+        role: AiChatRole.assistant,
+        content: '正文',
+        reasoningContent: '推理',
+        toolCallId: '结果标识',
+        toolCalls: <AiToolCall>[
+          AiToolCall(
+            id: '调用标识',
+            name: 'Read',
+            arguments: '{"file_path":"/tmp/a"}',
+          ),
+        ],
+      );
+
       expect(
-        toolTurns.every(
-          (turn) => turn.content.startsWith('[tool_result_summary] Read'),
-        ),
-        isTrue,
-      );
-
-      final lastResult = messages.last.copyWith(
-        metadata: <String, Object?>{
-          ...messages.last.metadata,
-          aiPromptRuntimeTailSnapshotMetadataKey:
-              first.metadata[aiPromptRuntimeTailSnapshotMetadataKey],
-        },
-      );
-      final second = await fixture.build(<AiSessionMessage>[
-        ...messages.take(messages.length - 1),
-        lastResult,
-        AiSessionMessage.assistant(
-          id: 'assistant',
-          content: '继续处理。',
-          createdAt: fixture.now.add(const Duration(seconds: 1)),
-        ),
-      ], runtimeContextAnchorMessageId: 'result-3');
-
-      expect(
-        _turnSignatures(second.messages.take(first.messages.length)),
-        _turnSignatures(first.messages),
+        turn.promptCharacterCount,
+        '正文推理结果标识调用标识Read{"file_path":"/tmp/a"}'.length,
       );
     });
   });
@@ -242,7 +289,13 @@ class _PromptFixture {
               <String, Object?>{
                 'id': 'tool-call-$index',
                 'name': 'Read',
-                'arguments': '{"file_path":"/tmp/project/$index.txt"}',
+                'arguments': jsonEncode(<String, Object?>{
+                  'file_path': '/tmp/project/$index.txt',
+                  'offset': 1,
+                  'limit': 200,
+                  'pages': '',
+                  'purpose': '读取第 $index 个测试文件并提取完整内容。',
+                }),
               },
             ],
           },
@@ -250,7 +303,7 @@ class _PromptFixture {
       for (var index = 0; index < count; index++)
         AiSessionMessage.toolResult(
           id: 'result-$index',
-          content: '$largeToolResult-$index',
+          content: index == 0 ? '短结果${'a' * 790}' : '$largeToolResult-$index',
           createdAt: now,
           metadata: <String, Object?>{
             'tool_call_id': 'tool-call-$index',
