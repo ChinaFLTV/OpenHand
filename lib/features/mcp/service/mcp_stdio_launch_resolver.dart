@@ -121,8 +121,12 @@ Future<McpStdioLaunch> resolveMcpStdioLaunch(McpServer server) async {
 
   final mergedSegments = <String>[];
   final seen = <String>{};
+  final managedNodeSegments = shellSegments.where(
+    (segment) => _isManagedNodeBinPath(segment, home),
+  );
   for (final segment in <String>[
     ...configuredSegments,
+    ...managedNodeSegments,
     ...shellSegments,
     ...originalSegments,
     ...heuristicSegments,
@@ -224,6 +228,17 @@ Future<String?> _resolvePathExecutable(
     }
   }
   return null;
+}
+
+bool _isManagedNodeBinPath(String path, String? homeDirectory) {
+  if (homeDirectory == null || homeDirectory.isEmpty) return false;
+  final normalizedPath = path.replaceAll('\\', '/');
+  final home = homeDirectory
+      .replaceAll('\\', '/')
+      .replaceFirst(RegExp(r'/+$'), '');
+  return normalizedPath == '$home/.volta/bin' ||
+      normalizedPath.startsWith('$home/.nvm/versions/node/') &&
+          normalizedPath.endsWith('/bin');
 }
 
 Future<String?> _probeNodeRuntimeKey(String? nodeExecutable) async {
