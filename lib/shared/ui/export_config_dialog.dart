@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
+import '../../app/theme/openhand_status_colors.dart';
 import '../../features/ai/model/ai_session_message.dart';
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/input_value_parsing.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
+import 'openhand_form_fields.dart';
 
 /// 显示 AI 会话导出配置弹窗；确认后返回 [AiSessionExportConfig]，取消时返回
 /// `null`。
@@ -51,10 +53,7 @@ class _ExportIndexRange {
   final int endIndex;
 }
 
-const double _kAiSessionExportDialogWidth = 480;
-const double _kHarnessExportDialogWidth = 460;
 const double _kExportRangeFieldSpacing = 12;
-const double _kExportSectionGap = 8;
 
 _ExportIndexRange? _tryParseExportIndexRange({
   required String startText,
@@ -96,32 +95,6 @@ Widget _buildExportIndexRangeFields({
   );
 }
 
-List<Widget> _buildExportRangeSection({
-  required AppLocalizations l10n,
-  required String title,
-  required bool useRange,
-  required ValueChanged<bool> onUseRangeChanged,
-  required TextEditingController startController,
-  required TextEditingController endController,
-}) {
-  return <Widget>[
-    _SectionHeader(text: title),
-    SwitchListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(l10n.exportOnlyRange),
-      value: useRange,
-      onChanged: onUseRangeChanged,
-    ),
-    if (useRange)
-      _buildExportIndexRangeFields(
-        l10n: l10n,
-        startController: startController,
-        endController: endController,
-      ),
-  ];
-}
-
 List<Widget> _buildExportDialogActions({
   required BuildContext context,
   required AppLocalizations l10n,
@@ -156,12 +129,44 @@ class _ExportIndexTextField extends StatelessWidget {
         controller: controller,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: InputDecoration(
-          labelText: label,
-          isDense: true,
-          border: const OutlineInputBorder(),
-        ),
+        decoration: InputDecoration(labelText: label),
       ),
+    );
+  }
+}
+
+class _ExportOptionChip extends StatelessWidget {
+  const _ExportOptionChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.color,
+    required this.onSelected,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final Color color;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      avatar: Icon(icon, size: 16, color: color),
+      label: Text(label),
+      selected: selected,
+      showCheckmark: false,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      selectedColor: color.withValues(alpha: 0.22),
+      backgroundColor: color.withValues(alpha: 0.08),
+      side: BorderSide(color: color.withValues(alpha: selected ? 0.55 : 0.28)),
+      labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+        color: color,
+        fontWeight: FontWeight.w700,
+      ),
+      onSelected: onSelected,
     );
   }
 }
@@ -235,6 +240,32 @@ class _AiSessionExportConfigDialogState
     }
   }
 
+  IconData _roleIcon(AiSessionMessageRole role) {
+    switch (role) {
+      case AiSessionMessageRole.system:
+        return Icons.settings_suggest_outlined;
+      case AiSessionMessageRole.user:
+        return Icons.person_outline_rounded;
+      case AiSessionMessageRole.assistant:
+        return Icons.smart_toy_outlined;
+      case AiSessionMessageRole.tool:
+        return Icons.build_outlined;
+    }
+  }
+
+  Color _roleColor(AiSessionMessageRole role, ColorScheme colorScheme) {
+    switch (role) {
+      case AiSessionMessageRole.system:
+        return colorScheme.tertiary;
+      case AiSessionMessageRole.user:
+        return OpenHandStatusColors.info;
+      case AiSessionMessageRole.assistant:
+        return colorScheme.primary;
+      case AiSessionMessageRole.tool:
+        return OpenHandStatusColors.warning;
+    }
+  }
+
   String _kindLabel(AiSessionMessageKind kind, AppLocalizations l10n) {
     switch (kind) {
       case AiSessionMessageKind.user:
@@ -264,23 +295,97 @@ class _AiSessionExportConfigDialogState
     }
   }
 
-  void _selectAllRoles(bool? value) {
+  IconData _kindIcon(AiSessionMessageKind kind) {
+    switch (kind) {
+      case AiSessionMessageKind.user:
+        return Icons.chat_bubble_outline_rounded;
+      case AiSessionMessageKind.assistant:
+        return Icons.reply_rounded;
+      case AiSessionMessageKind.reasoning:
+        return Icons.psychology_alt_outlined;
+      case AiSessionMessageKind.toolCall:
+        return Icons.handyman_outlined;
+      case AiSessionMessageKind.tool:
+        return Icons.output_outlined;
+      case AiSessionMessageKind.compressionPoint:
+        return Icons.compress_rounded;
+      case AiSessionMessageKind.mcp:
+        return Icons.extension_outlined;
+      case AiSessionMessageKind.skill:
+        return Icons.auto_awesome_outlined;
+      case AiSessionMessageKind.hook:
+        return Icons.webhook_outlined;
+      case AiSessionMessageKind.selfLearning:
+        return Icons.school_outlined;
+      case AiSessionMessageKind.fileMutationSummary:
+        return Icons.folder_open_outlined;
+      case AiSessionMessageKind.status:
+        return Icons.info_outline_rounded;
+    }
+  }
+
+  Color _kindColor(AiSessionMessageKind kind, ColorScheme colorScheme) {
+    switch (kind) {
+      case AiSessionMessageKind.user:
+        return OpenHandStatusColors.info;
+      case AiSessionMessageKind.assistant:
+        return colorScheme.primary;
+      case AiSessionMessageKind.reasoning:
+        return colorScheme.tertiary;
+      case AiSessionMessageKind.toolCall:
+        return OpenHandStatusColors.warning;
+      case AiSessionMessageKind.tool:
+        return colorScheme.secondary;
+      case AiSessionMessageKind.compressionPoint:
+        return OpenHandStatusColors.caution;
+      case AiSessionMessageKind.mcp:
+        return OpenHandStatusColors.info;
+      case AiSessionMessageKind.skill:
+        return colorScheme.primary;
+      case AiSessionMessageKind.hook:
+        return colorScheme.tertiary;
+      case AiSessionMessageKind.selfLearning:
+        return OpenHandStatusColors.success;
+      case AiSessionMessageKind.fileMutationSummary:
+        return colorScheme.secondary;
+      case AiSessionMessageKind.status:
+        return colorScheme.outline;
+    }
+  }
+
+  void _toggleRole(AiSessionMessageRole role, bool selected) {
     setState(() {
-      if (value == true) {
-        _roles = AiSessionMessageRole.values.toSet();
+      if (selected) {
+        _roles.add(role);
       } else {
-        _roles.clear();
+        _roles.remove(role);
       }
     });
   }
 
-  void _selectAllKinds(bool? value) {
+  void _toggleKind(AiSessionMessageKind kind, bool selected) {
     setState(() {
-      if (value == true) {
-        _kinds = AiSessionMessageKind.values.toSet();
+      if (selected) {
+        _kinds.add(kind);
       } else {
-        _kinds.clear();
+        _kinds.remove(kind);
       }
+    });
+  }
+
+  void _selectAllRoles(bool selected) {
+    setState(() {
+      _roles = selected
+          ? AiSessionMessageRole.values.toSet()
+          : <AiSessionMessageRole>{};
+    });
+  }
+
+  void _selectAllKinds(bool selected) {
+    setState(() {
+      _kinds = selected
+          ? AiSessionMessageKind.values.toSet()
+          : <AiSessionMessageKind>{};
     });
   }
 
@@ -331,114 +436,124 @@ class _AiSessionExportConfigDialogState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final allRolesSelected =
         _roles.length == AiSessionMessageRole.values.length;
     final allKindsSelected =
         _kinds.length == AiSessionMessageKind.values.length;
-    return buildOpenHandAlertDialog(
-      title: Text(l10n.exportSessionSettingsTitle),
-      content: buildOpenHandDialogConstrainedContent(
-        width: _kAiSessionExportDialogWidth,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                l10n.exportTotalMessages(widget.totalMessages),
-                style: theme.textTheme.bodyMedium,
-              ),
-              kOpenHandGap12,
-              _SectionHeader(text: l10n.exportRolesSection),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                value: allRolesSelected,
-                tristate: !allRolesSelected && _roles.isNotEmpty,
-                onChanged: _selectAllRoles,
-                title: Text(l10n.exportAllRoles),
-              ),
-              ...AiSessionMessageRole.values.map(
-                (role) => CheckboxListTile(
-                  dense: true,
-                  contentPadding: const EdgeInsets.only(left: 24),
-                  value: _roles.contains(role),
-                  onChanged: (value) {
-                    setState(() {
-                      if (value == true) {
-                        _roles.add(role);
-                      } else {
-                        _roles.remove(role);
-                      }
-                    });
-                  },
-                  title: Text(_roleLabel(role, l10n)),
-                ),
-              ),
-              kOpenHandGap8,
-              _SectionHeader(text: l10n.exportMessageKindsSection),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                value: allKindsSelected,
-                tristate: !allKindsSelected && _kinds.isNotEmpty,
-                onChanged: _selectAllKinds,
-                title: Text(l10n.exportAllKinds),
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: AiSessionMessageKind.values
-                    .map((kind) {
-                      final selected = _kinds.contains(kind);
-                      return FilterChip(
-                        label: Text(_kindLabel(kind, l10n)),
-                        selected: selected,
-                        onSelected: (value) {
-                          setState(() {
-                            if (value) {
-                              _kinds.add(kind);
-                            } else {
-                              _kinds.remove(kind);
-                            }
-                          });
-                        },
-                      );
-                    })
-                    .toList(growable: false),
-              ),
-              if (widget.allowRange) ...[
-                const SizedBox(height: _kExportSectionGap),
-                ..._buildExportRangeSection(
-                  l10n: l10n,
-                  title: l10n.exportMessageRangeSection,
-                  useRange: _useRange,
-                  onUseRangeChanged: (value) =>
-                      setState(() => _useRange = value),
-                  startController: _startController,
-                  endController: _endController,
-                ),
+    return OpenHandEditorDialogScaffold(
+      title: l10n.exportSessionSettingsTitle,
+      subtitle: l10n.exportTotalMessages(widget.totalMessages),
+      icon: Icons.ios_share_rounded,
+      iconColor: colorScheme.primary,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightStandard,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandDialogSectionCard(
+            icon: Icons.badge_outlined,
+            accent: colorScheme.primary,
+            title: l10n.exportRolesSection,
+            subtitle: '${_roles.length}/${AiSessionMessageRole.values.length}',
+            trailing: _ExportOptionChip(
+              label: l10n.exportAllRoles,
+              icon: Icons.select_all_rounded,
+              selected: allRolesSelected,
+              color: colorScheme.primary,
+              onSelected: _selectAllRoles,
+            ),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final role in AiSessionMessageRole.values)
+                  _ExportOptionChip(
+                    label: _roleLabel(role, l10n),
+                    icon: _roleIcon(role),
+                    selected: _roles.contains(role),
+                    color: _roleColor(role, colorScheme),
+                    onSelected: (selected) => _toggleRole(role, selected),
+                  ),
               ],
-              const SizedBox(height: _kExportSectionGap),
-              _SectionHeader(text: l10n.exportOtherOptions),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                value: _includeDeleted,
-                onChanged: (value) =>
-                    setState(() => _includeDeleted = value ?? false),
-                title: Text(l10n.exportIncludeDeleted),
-              ),
-              const SizedBox(height: _kExportSectionGap),
-              buildOpenHandDialogValidationMessage(
-                context,
-                message: _rangeError,
-              ),
-            ],
+            ),
           ),
-        ),
+          kOpenHandGap14,
+          OpenHandDialogSectionCard(
+            icon: Icons.category_outlined,
+            accent: colorScheme.tertiary,
+            title: l10n.exportMessageKindsSection,
+            subtitle: '${_kinds.length}/${AiSessionMessageKind.values.length}',
+            trailing: _ExportOptionChip(
+              label: l10n.exportAllKinds,
+              icon: Icons.select_all_rounded,
+              selected: allKindsSelected,
+              color: colorScheme.tertiary,
+              onSelected: _selectAllKinds,
+            ),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final kind in AiSessionMessageKind.values)
+                  _ExportOptionChip(
+                    label: _kindLabel(kind, l10n),
+                    icon: _kindIcon(kind),
+                    selected: _kinds.contains(kind),
+                    color: _kindColor(kind, colorScheme),
+                    onSelected: (selected) => _toggleKind(kind, selected),
+                  ),
+              ],
+            ),
+          ),
+          if (widget.allowRange) ...[
+            kOpenHandGap14,
+            OpenHandDialogSectionCard(
+              icon: Icons.linear_scale_rounded,
+              accent: OpenHandStatusColors.info,
+              title: l10n.exportMessageRangeSection,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OpenHandAnimatedSwitchTile(
+                    icon: Icons.filter_alt_outlined,
+                    title: l10n.exportOnlyRange,
+                    description: '',
+                    value: _useRange,
+                    onChanged: (value) => setState(() => _useRange = value),
+                  ),
+                  if (_useRange) ...[
+                    kOpenHandGap12,
+                    _buildExportIndexRangeFields(
+                      l10n: l10n,
+                      startController: _startController,
+                      endController: _endController,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+          kOpenHandGap14,
+          OpenHandDialogSectionCard(
+            icon: Icons.tune_rounded,
+            accent: colorScheme.secondary,
+            title: l10n.exportOtherOptions,
+            child: OpenHandAnimatedSwitchTile(
+              icon: Icons.delete_outline_rounded,
+              disabledIcon: Icons.delete_outline_rounded,
+              title: l10n.exportIncludeDeleted,
+              description: '',
+              value: _includeDeleted,
+              onChanged: (value) => setState(() => _includeDeleted = value),
+            ),
+          ),
+          if (_rangeError != null) ...[
+            kOpenHandGap14,
+            buildOpenHandDialogValidationMessage(context, message: _rangeError),
+          ],
+        ],
       ),
       actions: _buildExportDialogActions(
         context: context,
@@ -517,64 +632,53 @@ class _HarnessSessionExportConfigDialogState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    return buildOpenHandAlertDialog(
-      title: Text(l10n.exportSessionSettingsTitle),
-      content: buildOpenHandDialogConstrainedContent(
-        width: _kHarnessExportDialogWidth,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                l10n.exportTotalPhaseLogs(widget.totalPhaseLogs),
-                style: theme.textTheme.bodyMedium,
-              ),
-              kOpenHandGap12,
-              ..._buildExportRangeSection(
-                l10n: l10n,
-                title: l10n.exportPhaseLogRangeSection,
-                useRange: _useRange,
-                onUseRangeChanged: (value) => setState(() => _useRange = value),
-                startController: _startController,
-                endController: _endController,
-              ),
-              kOpenHandGap12,
-              _SectionHeader(text: l10n.exportOtherOptions),
-              buildOpenHandDialogValidationMessage(
-                context,
-                message: _rangeError,
-              ),
-            ],
+    return OpenHandEditorDialogScaffold(
+      title: l10n.exportSessionSettingsTitle,
+      subtitle: l10n.exportTotalPhaseLogs(widget.totalPhaseLogs),
+      icon: Icons.ios_share_rounded,
+      iconColor: colorScheme.primary,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightCompact,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandDialogSectionCard(
+            icon: Icons.linear_scale_rounded,
+            accent: OpenHandStatusColors.info,
+            title: l10n.exportPhaseLogRangeSection,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OpenHandAnimatedSwitchTile(
+                  icon: Icons.filter_alt_outlined,
+                  title: l10n.exportOnlyRange,
+                  description: '',
+                  value: _useRange,
+                  onChanged: (value) => setState(() => _useRange = value),
+                ),
+                if (_useRange) ...[
+                  kOpenHandGap12,
+                  _buildExportIndexRangeFields(
+                    l10n: l10n,
+                    startController: _startController,
+                    endController: _endController,
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
+          if (_rangeError != null) ...[
+            kOpenHandGap14,
+            buildOpenHandDialogValidationMessage(context, message: _rangeError),
+          ],
+        ],
       ),
       actions: _buildExportDialogActions(
         context: context,
         l10n: l10n,
         onConfirm: () => _popExportConfig(context, _buildConfig()),
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 6),
-      child: Text(
-        text,
-        style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: theme.colorScheme.primary,
-        ),
       ),
     );
   }

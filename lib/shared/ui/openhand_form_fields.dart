@@ -213,13 +213,15 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
                         if (badge != null) ...[kOpenHandHGap8, badge!],
                       ],
                     ),
-                    kOpenHandGap3,
-                    Text(
-                      description,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                    if (description.trim().isNotEmpty) ...[
+                      kOpenHandGap3,
+                      Text(
+                        description,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
