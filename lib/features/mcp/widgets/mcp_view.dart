@@ -956,13 +956,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                   server: server,
                   health: snapshot.health,
                   toolCatalog: snapshot.catalog,
-                  onEdit: () {
-                    Navigator.of(sheetContext).pop();
-                    if (!context.mounted) {
-                      return;
-                    }
-                    _showServerDialog(context, initialServer: server);
-                  },
                 ),
               ),
         );
@@ -10694,13 +10687,11 @@ class _McpServerDetailsSheet extends StatelessWidget {
     required this.server,
     required this.health,
     required this.toolCatalog,
-    this.onEdit,
   });
 
   final McpServer server;
   final McpServerHealth health;
   final McpToolCatalog toolCatalog;
-  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -10788,21 +10779,6 @@ class _McpServerDetailsSheet extends StatelessWidget {
           ),
           title: _localizedText(context, zh: '服务详情', en: 'Server details'),
           subtitle: server.name,
-          actions: [
-            if (onEdit != null)
-              Tooltip(
-                message: _localizedText(
-                  context,
-                  zh: '跳转到编辑',
-                  en: 'Edit configuration',
-                ),
-                child: FilledButton.tonalIcon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: Text(_localizedText(context, zh: '编辑', en: 'Edit')),
-                ),
-              ),
-          ],
         ),
         Flexible(
           child: ListView(
@@ -11356,6 +11332,16 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    final expandDuration = _expanded
+        ? motion.entranceDuration
+        : motion.exitDuration;
+    final expandCurve = _expanded
+        ? motion.curve.curve
+        : motion.curve.reverseCurve;
     final description = widget.tool.description.trim();
     final header = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -11406,7 +11392,8 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
             padding: const EdgeInsets.only(left: 8, top: 2),
             child: AnimatedRotation(
               turns: _expanded ? 0.5 : 0.0,
-              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              duration: expandDuration,
+              curve: expandCurve,
               child: Icon(
                 Icons.expand_more_rounded,
                 size: 18,
@@ -11419,127 +11406,60 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: InkWell(
-        onTap: _canExpand ? () => setState(() => _expanded = !_expanded) : null,
-        borderRadius: kOpenHandBorderRadius8,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              header,
-              AnimatedSize(
-                duration: openHandMotionDuration(context, kOpenHandMotion180),
-                curve: kOpenHandSwitchInCurve,
-                alignment: Alignment.topLeft,
-                child: _expanded
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 8, left: 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (_hasInputSchema)
-                              _ToolSchemaBlock(
-                                title: _localizedText(
-                                  context,
-                                  zh: '入参结构',
-                                  en: 'Input schema',
-                                ),
-                                payload: widget.tool.inputSchema,
-                              ),
-                            if (_hasOutputSchema) ...[
-                              kOpenHandGap8,
-                              _ToolSchemaBlock(
-                                title: _localizedText(
-                                  context,
-                                  zh: '出参结构',
-                                  en: 'Output schema',
-                                ),
-                                payload:
-                                    widget.tool.outputSchema ??
-                                    const <String, Object?>{},
-                              ),
-                            ],
-                          ],
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ToolSchemaBlock extends StatelessWidget {
-  const _ToolSchemaBlock({required this.title, required this.payload});
-
-  final String title;
-  final Map<String, Object?> payload;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    String pretty;
-    try {
-      pretty = prettyPrintJson(payload);
-    } catch (error, stack) {
-      silentLog('mcp', '渲染工具 schema JSON', error, stack);
-      pretty = payload.toString();
-    }
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: kOpenHandBorderRadius8,
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.primary,
-                ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _canExpand
+                  ? () => setState(() => _expanded = !_expanded)
+                  : null,
+              borderRadius: kOpenHandBorderRadius8,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                child: header,
               ),
-              const Spacer(),
-              Tooltip(
-                message: _localizedText(context, zh: '复制', en: 'Copy'),
-                child: IconButton(
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.copy_rounded, size: 16),
-                  onPressed: () async {
-                    await copyOpenHandTextToClipboard(
-                      logTag: 'mcp',
-                      context: context,
-                      text: pretty,
-                      successMessage: _localizedText(
-                        context,
-                        zh: '已复制结构定义',
-                        en: 'Schema copied',
-                      ),
-                      logAction: '复制工具 Schema',
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-          kOpenHandGap4,
-          SelectableText(
-            pretty,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: kOpenHandMonospaceFontFamily,
-              color: colorScheme.onSurface,
-              height: 1.4,
             ),
+          ),
+          AnimatedSize(
+            duration: expandDuration,
+            curve: expandCurve,
+            alignment: Alignment.topLeft,
+            child: _expanded
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 8, left: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_hasInputSchema)
+                          _ToolSchemaPanel(
+                            schema: widget.tool.inputSchema,
+                            label: _localizedText(
+                              context,
+                              zh: '入参结构',
+                              en: 'Input schema',
+                            ),
+                            bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
+                          ),
+                        if (_hasOutputSchema) ...[
+                          if (_hasInputSchema) kOpenHandGap8,
+                          _ToolSchemaPanel(
+                            schema:
+                                widget.tool.outputSchema ??
+                                const <String, Object?>{},
+                            label: _localizedText(
+                              context,
+                              zh: '出参结构',
+                              en: 'Output schema',
+                            ),
+                            bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -14873,19 +14793,30 @@ class _ToolSchemaFieldCard extends StatelessWidget {
 }
 
 class _ToolSchemaPanel extends StatelessWidget {
-  const _ToolSchemaPanel({required this.schema, this.label});
+  const _ToolSchemaPanel({
+    required this.schema,
+    this.label,
+    this.bodyMaxHeight = _mcpToolDebugPayloadMaxHeight,
+  });
 
   final Object? schema;
   final String? label;
+  final double bodyMaxHeight;
 
   @override
   Widget build(BuildContext context) {
-    final content = prettyPrintJson(_jsonFriendlyValue(schema));
+    String content;
+    try {
+      content = prettyPrintJson(_jsonFriendlyValue(schema));
+    } catch (error, stack) {
+      silentLog('mcp', '渲染工具 schema JSON', error, stack);
+      content = '$schema';
+    }
     return OpenHandJsonTreeView(
       text: content,
       label: label,
       logTag: 'mcp',
-      bodyMaxHeight: _mcpToolDebugPayloadMaxHeight,
+      bodyMaxHeight: bodyMaxHeight,
     );
   }
 }
