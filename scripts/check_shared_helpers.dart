@@ -15,6 +15,7 @@ import 'package:openhand/shared/util/input_value_parsing.dart';
 import 'package:openhand/shared/util/message_frame_scan.dart';
 import 'package:openhand/shared/util/path_safety.dart';
 import 'package:openhand/shared/util/sensitive_data.dart';
+import 'package:openhand/shared/util/storage_identifier.dart';
 import 'package:openhand/shared/util/text_clip.dart';
 import 'package:openhand/shared/util/text_search.dart';
 import 'package:openhand/shared/util/xml_escape.dart';
@@ -56,6 +57,12 @@ Future<void> main() async {
 }
 
 int _checkPortableFileNameSanitization() {
+  if (isSafeStorageIdentifier('.') ||
+      isSafeStorageIdentifier('..') ||
+      isSafeStorageIdentifier('CON')) {
+    stderr.writeln('isSafeStorageIdentifier 未拒绝保留目录或设备名');
+    return 1;
+  }
   if (sanitizePortableFileNamePart('.', fallback: 'session') != 'session' ||
       sanitizePortableFileNamePart('..', fallback: 'session') != 'session') {
     stderr.writeln('sanitizePortableFileNamePart 未阻止点目录标识符');

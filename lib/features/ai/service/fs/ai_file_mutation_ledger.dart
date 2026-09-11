@@ -33,6 +33,7 @@ import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/serial_task_queue.dart';
+import '../../../../shared/util/storage_identifier.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/unified_diff.dart' as unified_diff;
 import '../../model/ai_session_message.dart';
@@ -510,17 +511,13 @@ class AiFileMutationLedger {
     _pendingSessionMutations += 1;
     try {
       if (waitForMaintenance) {
-        while (_maintenanceGate != null) {
-          await _maintenanceGate!.future;
-        }
+        await _waitForMaintenance();
       }
       if (ensureInitialized) await _ensureInitialized();
       final key = _safeSessionId(sessionId);
       if (waitForMaintenance) {
         // 初始化期间可能启动维护，入队前必须再次原子检查门闩。
-        while (_maintenanceGate != null) {
-          await _maintenanceGate!.future;
-        }
+        await _waitForMaintenance();
       }
       final lane = _sessionMutationLanes.putIfAbsent(
         key,
@@ -549,9 +546,7 @@ class AiFileMutationLedger {
   }
 
   Future<T> _runExclusiveMaintenance<T>(Future<T> Function() operation) async {
-    while (_maintenanceGate != null) {
-      await _maintenanceGate!.future;
-    }
+    await _waitForMaintenance();
     final maintenance = Completer<void>();
     _maintenanceGate = maintenance;
     final pendingMutations = _sessionMutationLanes.values
@@ -575,6 +570,25 @@ class AiFileMutationLedger {
       if (identical(_maintenanceGate, maintenance)) {
         _maintenanceGate = null;
       }
+    }
+  }
+
+  Future<void> _waitForMaintenance() async {
+    final deadline = MonotonicDeadline(
+      _ledgerTreeScanTimeout,
+      timeoutMessage: '等待文件变更账本维护完成超时。',
+    );
+    try {
+      while (true) {
+        final maintenance = _maintenanceGate;
+        if (maintenance == null) return;
+        await maintenance.future.timeout(
+          deadline.remaining(),
+          onTimeout: () => throw deadline.timeoutException(),
+        );
+      }
+    } finally {
+      deadline.stop();
     }
   }
 
@@ -2237,6 +2251,7 @@ class AiFileMutationLedger {
     final trimmed = nullIfBlank(raw) ?? '';
     if (trimmed.isNotEmpty &&
         trimmed.length <= _maxSessionIdCharacters &&
+        isSafeStorageIdentifier(trimmed) &&
         !_unsafeSessionIdCharPattern.hasMatch(trimmed)) {
       return trimmed;
     }
