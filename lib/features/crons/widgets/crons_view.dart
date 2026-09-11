@@ -468,6 +468,7 @@ class _CronHistoryDialog extends StatelessWidget {
               if (history.isNotEmpty)
                 IconButton(
                   tooltip: l10n.cronsClearAllExecutionHistory,
+                  style: openHandFeatureCircleIconButtonStyle(colorScheme),
                   onPressed: () => _confirmClearAll(context, controller, l10n),
                   icon: Icon(
                     Icons.delete_sweep_outlined,
@@ -737,88 +738,87 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    kOpenHandHGap10,
-                    Text(
-                      statusLabel,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: statusColor,
-                        fontWeight: FontWeight.w600,
+                    ClipRRect(
+                      borderRadius: kOpenHandBorderRadius12,
+                      child: ColoredBox(
+                        color: statusColor.withValues(alpha: 0.16),
+                        child: SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: Icon(
+                            switch (record.status) {
+                              'success' => Icons.check_rounded,
+                              'failed' || 'killed' => Icons.close_rounded,
+                              'timed_out' => Icons.timer_off_outlined,
+                              'running' => Icons.play_arrow_rounded,
+                              _ => Icons.circle_outlined,
+                            },
+                            size: 20,
+                            color: statusColor,
+                          ),
+                        ),
                       ),
                     ),
                     kOpenHandHGap12,
-                    Text(
-                      formatYearMonthDayHms(record.startedAt),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${record.elapsedMs}ms',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontFamily: kOpenHandMonospaceFontFamily,
-                      ),
-                    ),
-                    kOpenHandHGap12,
-                    if (record.exitCode != null)
-                      Text(
-                        'exit: ${record.exitCode}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                        ),
-                      ),
-                    kOpenHandHGap8,
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: record.triggerType == 'manual'
-                            ? colorScheme.tertiaryContainer
-                            : colorScheme.surfaceContainerHigh,
-                        borderRadius: kOpenHandBorderRadius8,
-                      ),
-                      child: Text(
-                        record.triggerType == 'manual'
-                            ? l10n.cronsTriggerManual
-                            : l10n.cronsTriggerScheduled,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontSize: 9,
-                          color: record.triggerType == 'manual'
-                              ? colorScheme.onTertiaryContainer
-                              : colorScheme.onSurfaceVariant,
-                        ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              OpenHandStatusPill(
+                                icon: switch (record.status) {
+                                  'success' =>
+                                    Icons.check_circle_outline_rounded,
+                                  'failed' ||
+                                  'killed' => Icons.error_outline_rounded,
+                                  'timed_out' => Icons.timer_outlined,
+                                  'running' =>
+                                    Icons.play_circle_outline_rounded,
+                                  _ => Icons.info_outline_rounded,
+                                },
+                                label: statusLabel,
+                                color: statusColor,
+                              ),
+                              OpenHandFactChip(
+                                icon: record.triggerType == 'manual'
+                                    ? Icons.touch_app_outlined
+                                    : Icons.schedule_rounded,
+                                label: record.triggerType == 'manual'
+                                    ? l10n.cronsTriggerManual
+                                    : l10n.cronsTriggerScheduled,
+                                color: record.triggerType == 'manual'
+                                    ? colorScheme.tertiary
+                                    : colorScheme.secondary,
+                              ),
+                              OpenHandFactChip(
+                                icon: Icons.speed_rounded,
+                                label: '${record.elapsedMs}ms',
+                                color: OpenHandStatusColors.info,
+                              ),
+                            ],
+                          ),
+                          kOpenHandGap6,
+                          Text(
+                            formatYearMonthDayHms(record.startedAt),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     kOpenHandHGap8,
                     IconButton(
+                      tooltip: l10n.cronsDeleteThisRecord,
+                      style: openHandFeatureCircleIconButtonStyle(colorScheme),
+                      onPressed: widget.onDelete,
                       icon: Icon(
                         Icons.delete_outline_rounded,
-                        size: 16,
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.6,
-                        ),
+                        color: colorScheme.error,
                       ),
-                      iconSize: 16,
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
-                      ),
-                      tooltip: l10n.cronsDeleteThisRecord,
-                      onPressed: widget.onDelete,
                     ),
                     kOpenHandHGap4,
                     AnimatedRotation(
@@ -850,7 +850,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         colorScheme,
                         l10n: l10n,
                         record: record,
-                        accentColor: statusColor,
                       ),
                     ),
                   ),
@@ -868,220 +867,152 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     ColorScheme colorScheme, {
     required AppLocalizations l10n,
     required CronExecutionRecord record,
-    required Color accentColor,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            accentColor.withValues(alpha: 0.10),
-            colorScheme.surfaceContainerLow.withValues(alpha: 0.66),
-          ],
+    final metaChips = <Widget>[
+      if (record.retryAttempt > 0)
+        OpenHandFactChip(
+          icon: Icons.replay_rounded,
+          label: '${l10n.cronsRetryAttempt} ${record.retryAttempt}',
+          color: colorScheme.tertiary,
         ),
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(color: accentColor.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (record.retryAttempt > 0)
-            _detailRow(
-              l10n.cronsRetryAttempt,
-              '${record.retryAttempt}',
-              theme,
-              colorScheme,
-            ),
-          if (record.pid != null)
-            _detailRow('PID', '${record.pid}', theme, colorScheme),
-          if (record.runAsUser != null)
-            _detailRow(l10n.cronsRunAs, record.runAsUser!, theme, colorScheme),
-          if (record.workingDirectory != null)
-            _detailRow(
-              l10n.cronsWorkingDir,
-              record.workingDirectory!,
-              theme,
-              colorScheme,
-            ),
-          if (record.environment.isNotEmpty) ...[
-            kOpenHandGap4,
-            Text(
-              l10n.cronsScriptEnvironmentOverrides,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+      if (record.pid != null)
+        OpenHandFactChip(
+          icon: Icons.memory_rounded,
+          label: 'PID ${record.pid}',
+          color: colorScheme.secondary,
+        ),
+      if (record.runAsUser != null)
+        OpenHandFactChip(
+          icon: Icons.person_outline_rounded,
+          label: '${l10n.cronsRunAs} ${record.runAsUser}',
+          color: colorScheme.primary,
+        ),
+      if (record.workingDirectory != null)
+        OpenHandFactChip(
+          icon: Icons.folder_outlined,
+          label: record.workingDirectory!,
+          color: OpenHandStatusColors.info,
+        ),
+    ];
+    final hasHermes =
+        record.appContext.containsKey(CronsController.hermesTalkerReportsKey) ||
+        record.appContext.containsKey(CronsController.hermesTalkerStatsKey);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (metaChips.isNotEmpty)
+          Wrap(spacing: 8, runSpacing: 8, children: metaChips),
+        if (record.environment.isNotEmpty) ...[
+          if (metaChips.isNotEmpty) kOpenHandGap10,
+          OpenHandTintedPanel(
+            accent: colorScheme.secondary,
+            icon: Icons.tune_rounded,
+            title: l10n.cronsScriptEnvironmentOverrides,
+            child: SelectableText(
+              record.environment.entries
+                  .map((e) => '${e.key}=${e.value}')
+                  .join('\n'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 11,
+                height: 1.4,
               ),
             ),
-            kOpenHandGap2,
-            ...record.environment.entries.map(
-              (e) => Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Text(
-                  '${e.key}=${e.value}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                    fontSize: 11,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
+          ),
+        ],
+        if (record.appContext.isNotEmpty) ...[
+          if (hasHermes) ...[
+            kOpenHandGap10,
+            _HermesTalkerHistoryPanel(appContext: record.appContext),
           ],
-          if (record.appContext.isNotEmpty) ...[
-            // 结构化报告使用专用面板，并从原始上下文隐藏已消费字段。
-            if (record.appContext.containsKey(
-                  CronsController.hermesTalkerReportsKey,
-                ) ||
-                record.appContext.containsKey(
-                  CronsController.hermesTalkerStatsKey,
-                )) ...[
-              kOpenHandGap8,
-              _HermesTalkerHistoryPanel(appContext: record.appContext),
-            ],
-            ..._buildPlainAppContextSection(
-              theme: theme,
-              colorScheme: colorScheme,
-              l10n: l10n,
-              record: record,
-            ),
-          ],
-          if (record.environmentSnapshot.isNotEmpty) ...[
-            kOpenHandGap8,
-            _kvSection(
-              title: l10n.cronsEnvironmentSnapshot,
-              data: record.environmentSnapshot,
-              theme: theme,
-              colorScheme: colorScheme,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ],
-          if (record.errorMessage != null &&
-              record.errorMessage!.isNotEmpty) ...[
-            kOpenHandGap8,
-            Text(
-              l10n.cronsErrorReason,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.error,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            kOpenHandGap2,
-            SelectableText(
+          ..._buildPlainAppContextSection(
+            theme: theme,
+            colorScheme: colorScheme,
+            l10n: l10n,
+            record: record,
+          ),
+        ],
+        if (record.environmentSnapshot.isNotEmpty) ...[
+          kOpenHandGap10,
+          _kvSection(
+            title: l10n.cronsEnvironmentSnapshot,
+            data: record.environmentSnapshot,
+            theme: theme,
+            colorScheme: colorScheme,
+            accent: colorScheme.secondary,
+          ),
+        ],
+        if (record.errorMessage != null && record.errorMessage!.isNotEmpty) ...[
+          kOpenHandGap10,
+          OpenHandTintedPanel(
+            accent: colorScheme.error,
+            icon: Icons.error_outline_rounded,
+            title: l10n.cronsErrorReason,
+            child: SelectableText(
               record.errorMessage!,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.error,
                 fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
+                height: 1.4,
               ),
             ),
-          ],
-          if (record.stdout.isNotEmpty) ...[
-            kOpenHandGap8,
-            Text(
-              l10n.cronsStdout,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            kOpenHandGap2,
-            Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(maxHeight: 200),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.58),
-                borderRadius: kOpenHandBorderRadius10,
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-                ),
-              ),
-              child: SingleChildScrollView(
-                child: ansiText(
-                  record.stdout,
-                  colorScheme: colorScheme,
-                  base: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                    fontSize: 11,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-            ),
-          ],
-          if (record.stderr.isNotEmpty) ...[
-            kOpenHandGap8,
-            Text(
-              l10n.cronsStderr,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.error,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            kOpenHandGap2,
-            Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(maxHeight: 200),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colorScheme.errorContainer.withValues(alpha: 0.22),
-                borderRadius: kOpenHandBorderRadius10,
-                border: Border.all(
-                  color: colorScheme.error.withValues(alpha: 0.32),
-                ),
-              ),
-              child: SingleChildScrollView(
-                child: ansiText(
-                  record.stderr,
-                  colorScheme: colorScheme,
-                  base: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                    fontSize: 11,
-                    color: colorScheme.onErrorContainer,
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ],
-      ),
+        if (record.stdout.isNotEmpty) ...[
+          kOpenHandGap10,
+          _scrollableLogPanel(
+            theme: theme,
+            colorScheme: colorScheme,
+            accent: colorScheme.primary,
+            icon: Icons.terminal_rounded,
+            title: l10n.cronsStdout,
+            text: record.stdout,
+            textColor: colorScheme.onSurface,
+          ),
+        ],
+        if (record.stderr.isNotEmpty) ...[
+          kOpenHandGap10,
+          _scrollableLogPanel(
+            theme: theme,
+            colorScheme: colorScheme,
+            accent: colorScheme.error,
+            icon: Icons.bug_report_outlined,
+            title: l10n.cronsStderr,
+            text: record.stderr,
+            textColor: colorScheme.onErrorContainer,
+          ),
+        ],
+      ],
     );
   }
 
-  Widget _detailRow(
-    String label,
-    String value,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
+  Widget _scrollableLogPanel({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required Color accent,
+    required IconData icon,
+    required String title,
+    required String text,
+    required Color textColor,
+  }) {
+    return OpenHandTintedPanel(
+      accent: accent,
+      icon: icon,
+      title: title,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 200),
+        child: SingleChildScrollView(
+          child: ansiText(
+            text,
+            colorScheme: colorScheme,
+            base: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              fontSize: 11,
+              color: textColor,
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: kOpenHandMonospaceFontFamily,
-                fontSize: 11,
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1102,13 +1033,13 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     };
     if (filtered.isEmpty) return const <Widget>[];
     return <Widget>[
-      kOpenHandGap8,
+      kOpenHandGap10,
       _kvSection(
         title: l10n.cronsExecutionContext,
         data: filtered,
         theme: theme,
         colorScheme: colorScheme,
-        color: colorScheme.onSurfaceVariant,
+        accent: colorScheme.tertiary,
       ),
     ];
   }
@@ -1118,51 +1049,34 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     required Map<String, String> data,
     required ThemeData theme,
     required ColorScheme colorScheme,
-    required Color color,
+    required Color accent,
   }) {
     final sortedKeys = data.keys.toList()..sort();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        kOpenHandGap4,
-        Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(maxHeight: 160),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: colorScheme.surface.withValues(alpha: 0.55),
-            borderRadius: kOpenHandBorderRadius10,
-            border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-            ),
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: sortedKeys.map((k) {
-                return Padding(
+    return OpenHandTintedPanel(
+      accent: accent,
+      title: title,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 160),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final key in sortedKeys)
+                Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: SelectableText(
-                    '$k=${data[k] ?? ''}',
+                    '$key=${data[key] ?? ''}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 11,
                       color: colorScheme.onSurface,
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
