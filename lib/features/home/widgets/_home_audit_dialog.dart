@@ -1367,7 +1367,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
               ),
               kOpenHandGap10,
               Align(
-                alignment: Alignment.centerRight,
+                alignment: Alignment.centerLeft,
                 child: OpenHandDialogActionButton.primary(
                   onPressed: _busy ? null : _saveTitle,
                   icon: Icons.save_outlined,
@@ -1409,7 +1409,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
               ),
               kOpenHandGap10,
               Align(
-                alignment: Alignment.centerRight,
+                alignment: Alignment.centerLeft,
                 child: OpenHandDialogActionButton.primary(
                   onPressed: _busy ? null : _saveMetadata,
                   icon: Icons.save_outlined,
