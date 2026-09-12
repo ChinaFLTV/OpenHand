@@ -7685,7 +7685,7 @@ class _FullscreenChromeButton extends StatefulWidget {
 }
 
 class _FullscreenChromeButtonState extends State<_FullscreenChromeButton>
-    with OpenHandHoverState {
+    with OpenHandHoverState<_FullscreenChromeButton> {
   @override
   Widget build(BuildContext context) {
     final bg = openHandHovered

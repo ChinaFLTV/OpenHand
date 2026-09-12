@@ -69,6 +69,7 @@ import '../../shared/ui/export_config_dialog.dart';
 import '../../shared/ui/export_progress_dialog.dart';
 import '../../shared/ui/generated_media_result_card.dart';
 import '../../shared/ui/highlight_pulse.dart';
+import '../../shared/ui/hover_lift.dart';
 import '../../shared/ui/image_editor_dialog.dart';
 import '../../shared/ui/interaction_timings.dart';
 import '../../shared/ui/interactive_image_preview.dart';

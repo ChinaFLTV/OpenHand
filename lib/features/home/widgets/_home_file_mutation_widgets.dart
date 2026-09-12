@@ -3164,7 +3164,7 @@ class _HoverElevateBox extends StatefulWidget {
 }
 
 class _HoverElevateBoxState extends State<_HoverElevateBox>
-    with OpenHandHoverState {
+    with OpenHandHoverState<_HoverElevateBox> {
   @override
   Widget build(BuildContext context) {
     final dur = openHandMotionDuration(context, kOpenHandMotion200);
