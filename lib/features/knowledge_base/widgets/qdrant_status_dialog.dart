@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -12,6 +13,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -26,7 +28,6 @@ import 'knowledge_dialog_widgets.dart';
 const int _qdrantTrendSampleCap = 48;
 const int _qdrantMinRefreshSeconds = 3;
 const int _qdrantMaxRefreshSeconds = 60;
-const double _qdrantOpsDialogWidth = 980;
 const double _qdrantOpsChartHeight = 172;
 const Duration _qdrantRefreshTimeout = Duration(seconds: 30);
 
@@ -422,30 +423,48 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     final controllerUnavailable = context.select<KnowledgeBaseController, bool>(
       (controller) => controller.loading || controller.busy,
     );
     final operationBusy = _operating || controllerUnavailable;
-    final height = math.min(MediaQuery.sizeOf(context).height * 0.82, 760.0);
-    final dialog = buildOpenHandAlertDialog(
-      title: Text(l10n.qdrantStatusTitle),
-      content: buildOpenHandDialogConstrainedContent(
-        width: _qdrantOpsDialogWidth,
-        height: height,
-        child: DefaultTabController(
-          length: 4,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              KnowledgeDialogErrorNotice(message: _error, bottomSpacing: 10),
-              _QdrantOpsHeader(
-                snapshot: _snapshot,
-                refreshing: _refreshing,
-                l10n: l10n,
-              ),
-              kOpenHandGap10,
-              TabBar(
+    return OpenHandEditorDialogScaffold(
+      title: l10n.qdrantStatusTitle,
+      subtitle: l10n.qdrantStatusHeaderTitle,
+      icon: Icons.monitor_heart_outlined,
+      iconColor: OpenHandStatusColors.info,
+      busy: _refreshing || _operating,
+      closeEnabled: !_operating,
+      canPop: !_operating,
+      scrollBody: false,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightFull,
+      body: DefaultTabController(
+        length: 4,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            KnowledgeDialogErrorNotice(message: _error, bottomSpacing: 10),
+            _QdrantOpsHeader(
+              snapshot: _snapshot,
+              refreshing: _refreshing,
+              l10n: l10n,
+            ),
+            kOpenHandGap12,
+            Material(
+              color: colorScheme.surfaceContainerLow,
+              borderRadius: kOpenHandBorderRadius16,
+              child: TabBar(
                 isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                dividerColor: Colors.transparent,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.72),
+                  borderRadius: kOpenHandBorderRadius12,
+                ),
+                labelColor: colorScheme.onSurface,
+                unselectedLabelColor: colorScheme.onSurfaceVariant,
                 tabs: [
                   Tab(text: l10n.qdrantStatusTabOverview),
                   Tab(text: l10n.qdrantStatusTabCollections),
@@ -453,47 +472,50 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
                   Tab(text: l10n.qdrantStatusTabDiagnostics),
                 ],
               ),
-              kOpenHandGap10,
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _OverviewTab(
-                      snapshot: _snapshot,
-                      samples: _samples,
-                      l10n: l10n,
-                    ),
-                    _CollectionsTab(
-                      collections: _collections,
-                      busy: operationBusy,
-                      l10n: l10n,
-                      onInfo: _loadCollectionInfo,
-                      onDelete: _deleteCollection,
-                    ),
-                    _PointsTab(
-                      pointIds: _pointIds,
-                      sourceId: _sourceId,
-                      tag: _tag,
-                      limit: _limit,
-                      rawVector: _rawVector,
-                      busy: operationBusy,
-                      result: _operationResult,
-                      l10n: l10n,
-                      onLoadIds: _loadPointIds,
-                      onScroll: _scrollPoints,
-                      onSearchVector: _searchVector,
-                      onCreatePayloadIndexes: _createPayloadIndexes,
-                      onDeletePoints: _deletePoints,
-                    ),
-                    _DiagnosticsTab(
-                      snapshot: _snapshot,
-                      operationResult: _operationResult,
-                      l10n: l10n,
-                    ),
-                  ],
-                ),
+            ),
+            kOpenHandGap12,
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _OverviewTab(
+                    snapshot: _snapshot,
+                    samples: _samples,
+                    refreshing: _refreshing,
+                    error: _error,
+                    l10n: l10n,
+                  ),
+                  _CollectionsTab(
+                    collections: _collections,
+                    busy: operationBusy,
+                    refreshing: _refreshing,
+                    l10n: l10n,
+                    onInfo: _loadCollectionInfo,
+                    onDelete: _deleteCollection,
+                  ),
+                  _PointsTab(
+                    pointIds: _pointIds,
+                    sourceId: _sourceId,
+                    tag: _tag,
+                    limit: _limit,
+                    rawVector: _rawVector,
+                    busy: operationBusy,
+                    result: _operationResult,
+                    l10n: l10n,
+                    onLoadIds: _loadPointIds,
+                    onScroll: _scrollPoints,
+                    onSearchVector: _searchVector,
+                    onCreatePayloadIndexes: _createPayloadIndexes,
+                    onDeletePoints: _deletePoints,
+                  ),
+                  _DiagnosticsTab(
+                    snapshot: _snapshot,
+                    operationResult: _operationResult,
+                    l10n: l10n,
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       actions: [
@@ -514,7 +536,6 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
         ),
       ],
     );
-    return PopScope(canPop: !_operating, child: dialog);
   }
 }
 
@@ -531,64 +552,26 @@ class _QdrantOpsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final overview = snapshot?.sections['overview'];
     final status =
         '${overview?['service_status'] ?? (refreshing ? 'loading' : 'unknown')}';
     final statusColor = status == 'healthy'
-        ? colorScheme.primary
+        ? OpenHandStatusColors.success
         : status == 'loading'
         ? colorScheme.tertiary
         : colorScheme.error;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.70),
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(kOpenHandRadius11),
-            ),
-            child: Icon(Icons.monitor_heart_outlined, color: statusColor),
-          ),
-          kOpenHandHGap12,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.qdrantStatusHeaderTitle,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                kOpenHandGap2,
-                Text(
-                  '${overview?['rest_endpoint'] ?? '-'} · ${overview?['current_collection'] ?? '-'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          kOpenHandHGap12,
-          _StatusPill(
-            icon: Icons.circle,
-            label: '${_localizedMetricValue(l10n, status)}',
-            color: statusColor,
-          ),
-        ],
+    return KnowledgeDialogSection(
+      title: l10n.qdrantStatusHeaderTitle,
+      icon: Icons.monitor_heart_outlined,
+      accent: statusColor,
+      margin: EdgeInsets.zero,
+      subtitle:
+          '${overview?['rest_endpoint'] ?? '-'} · ${overview?['current_collection'] ?? '-'}',
+      trailing: OhPill(
+        icon: Icons.circle,
+        label: '${_localizedMetricValue(l10n, status)}',
+        foregroundColor: statusColor,
       ),
     );
   }
@@ -598,17 +581,37 @@ class _OverviewTab extends StatelessWidget {
   const _OverviewTab({
     required this.snapshot,
     required this.samples,
+    required this.refreshing,
+    required this.error,
     required this.l10n,
   });
 
   final QdrantMonitoringSnapshot? snapshot;
   final List<_QdrantMetricSample> samples;
+  final bool refreshing;
+  final String? error;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     if (snapshot == null) {
-      return const Center(child: CircularProgressIndicator());
+      if (refreshing) {
+        return KnowledgeDialogLoading(
+          height: 240,
+          message: l10n.qdrantStatusRefresh,
+        );
+      }
+      return Center(
+        child: KnowledgeDialogNotice(
+          icon: error == null
+              ? Icons.info_outline_rounded
+              : Icons.error_outline_rounded,
+          message: error ?? l10n.qdrantStatusNoDiagnostics,
+          tone: error == null
+              ? KnowledgeDialogNoticeTone.neutral
+              : KnowledgeDialogNoticeTone.error,
+        ),
+      );
     }
     final api = snapshot!.sections['qdrant_api'] ?? const {};
     final storage = snapshot!.sections['storage_optimizer'] ?? const {};
@@ -626,31 +629,37 @@ class _OverviewTab extends StatelessWidget {
                 icon: Icons.dataset_outlined,
                 label: l10n.qdrantStatusMetricCollections,
                 value: '${api['collections_total'] ?? 0}',
+                accent: Theme.of(context).colorScheme.primary,
               ),
               _MetricCard(
                 icon: Icons.scatter_plot_outlined,
                 label: l10n.qdrantStatusMetricPoints,
                 value: '${api['points_total'] ?? 0}',
+                accent: Theme.of(context).colorScheme.tertiary,
               ),
               _MetricCard(
                 icon: Icons.polyline_outlined,
                 label: l10n.qdrantStatusMetricIndexedVectors,
                 value: '${api['indexed_vectors_total'] ?? 0}',
+                accent: OpenHandStatusColors.info,
               ),
               _MetricCard(
                 icon: Icons.segment_outlined,
                 label: l10n.qdrantStatusMetricChunks,
                 value: '${openhand['chunk_count'] ?? 0}',
+                accent: OpenHandStatusColors.success,
               ),
               _MetricCard(
                 icon: Icons.pending_actions_outlined,
                 label: l10n.qdrantStatusMetricPendingJobs,
                 value: '${openhand['pending_embedding_jobs'] ?? 0}',
+                accent: OpenHandStatusColors.warning,
               ),
               _MetricCard(
                 icon: Icons.storage_outlined,
                 label: l10n.qdrantStatusMetricWalCapacity,
                 value: '${storage['wal_capacity_mb'] ?? '-'}',
+                accent: Theme.of(context).colorScheme.secondary,
               ),
             ],
           ),
@@ -658,6 +667,7 @@ class _OverviewTab extends StatelessWidget {
           KnowledgeDialogSection(
             title: l10n.qdrantStatusSmoothTrend,
             icon: Icons.show_chart_rounded,
+            accent: Theme.of(context).colorScheme.primary,
             child: _QdrantTrendChart(samples: samples, l10n: l10n),
           ),
           for (final section in snapshot!.sections.entries)
@@ -676,6 +686,7 @@ class _CollectionsTab extends StatelessWidget {
   const _CollectionsTab({
     required this.collections,
     required this.busy,
+    required this.refreshing,
     required this.l10n,
     required this.onInfo,
     required this.onDelete,
@@ -683,6 +694,7 @@ class _CollectionsTab extends StatelessWidget {
 
   final List<Map<String, Object?>> collections;
   final bool busy;
+  final bool refreshing;
   final AppLocalizations l10n;
   final ValueChanged<String> onInfo;
   final ValueChanged<String> onDelete;
@@ -690,6 +702,12 @@ class _CollectionsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (collections.isEmpty) {
+      if (refreshing) {
+        return KnowledgeDialogLoading(
+          height: 220,
+          message: l10n.qdrantStatusRefresh,
+        );
+      }
       return Center(
         child: KnowledgeDialogNotice(
           icon: Icons.info_outline_rounded,
@@ -756,6 +774,7 @@ class _PointsTab extends StatelessWidget {
           KnowledgeDialogSection(
             title: l10n.qdrantStatusPointsSectionTitle,
             icon: Icons.manage_search_rounded,
+            accent: OpenHandStatusColors.info,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -791,9 +810,8 @@ class _PointsTab extends StatelessWidget {
                   controller: rawVector,
                   minLines: 3,
                   maxLines: 6,
-                  decoration: knowledgeDialogInputDecoration(
-                    context,
-                    l10n.qdrantStatusRawVectorLabel,
+                  decoration: InputDecoration(
+                    labelText: l10n.qdrantStatusRawVectorLabel,
                     alignLabelWithHint: true,
                   ),
                 ),
@@ -840,6 +858,7 @@ class _PointsTab extends StatelessWidget {
             KnowledgeDialogSection(
               title: l10n.qdrantStatusOperationResult,
               icon: Icons.data_object_rounded,
+              accent: Theme.of(context).colorScheme.secondary,
               margin: EdgeInsets.zero,
               child: KnowledgeDialogJsonBox(value: result, maxHeight: 420),
             ),
@@ -871,6 +890,7 @@ class _DiagnosticsTab extends StatelessWidget {
           KnowledgeDialogSection(
             title: l10n.qdrantStatusRawDiagnosticsJson,
             icon: Icons.data_object_rounded,
+            accent: OpenHandStatusColors.warning,
             child: snapshot == null
                 ? KnowledgeDialogNotice(
                     icon: Icons.info_outline_rounded,
@@ -889,6 +909,7 @@ class _DiagnosticsTab extends StatelessWidget {
             KnowledgeDialogSection(
               title: l10n.qdrantStatusLatestOperationResult,
               icon: Icons.receipt_long_outlined,
+              accent: Theme.of(context).colorScheme.secondary,
               child: KnowledgeDialogJsonBox(
                 value: operationResult,
                 maxHeight: 300,
@@ -897,6 +918,7 @@ class _DiagnosticsTab extends StatelessWidget {
           KnowledgeDialogSection(
             title: l10n.qdrantStatusOperationLog,
             icon: Icons.history_rounded,
+            accent: Theme.of(context).colorScheme.primary,
             margin: EdgeInsets.zero,
             child: controller.qdrantAdminLogs.isEmpty
                 ? KnowledgeDialogNotice(
@@ -928,11 +950,13 @@ class _MetricCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    required this.accent,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -942,9 +966,12 @@ class _MetricCard extends StatelessWidget {
       width: 176,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: Color.alphaBlend(
+          accent.withValues(alpha: 0.10),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: accent.withValues(alpha: 0.20)),
       ),
       child: Row(
         children: [
@@ -952,10 +979,10 @@ class _MetricCard extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withValues(alpha: 0.62),
+              color: accent.withValues(alpha: 0.16),
               borderRadius: kOpenHandBorderRadius10,
             ),
-            child: Icon(icon, size: 18, color: colorScheme.onPrimaryContainer),
+            child: Icon(icon, size: 18, color: accent),
           ),
           kOpenHandHGap10,
           Expanded(
@@ -1220,6 +1247,7 @@ class _StatusSection extends StatelessWidget {
     return KnowledgeDialogSection(
       title: _localizedSectionTitle(l10n, title),
       icon: _iconForSection(title),
+      accent: _accentForSection(Theme.of(context).colorScheme, title),
       child: KnowledgeDialogKeyValueList(
         rows: {
           for (final entry in values.entries)
@@ -1243,6 +1271,19 @@ class _StatusSection extends StatelessWidget {
       'telemetry' => Icons.sensors_outlined,
       'openhand_knowledge' => Icons.library_books_outlined,
       _ => Icons.monitor_heart_outlined,
+    };
+  }
+
+  Color _accentForSection(ColorScheme colorScheme, String value) {
+    return switch (value) {
+      'overview' => colorScheme.primary,
+      'docker_container' => colorScheme.tertiary,
+      'qdrant_api' => OpenHandStatusColors.info,
+      'collection_config' => colorScheme.secondary,
+      'storage_optimizer' => OpenHandStatusColors.warning,
+      'telemetry' => OpenHandStatusColors.success,
+      'openhand_knowledge' => colorScheme.primary,
+      _ => colorScheme.primary,
     };
   }
 }
@@ -1375,7 +1416,7 @@ class _OpsTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
-        decoration: knowledgeDialogInputDecoration(context, label),
+        decoration: InputDecoration(labelText: label),
       ),
     );
   }

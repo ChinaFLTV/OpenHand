@@ -263,79 +263,91 @@ class KnowledgeDialogSection extends StatelessWidget {
     super.key,
     required this.title,
     required this.icon,
-    required this.child,
+    this.child,
     this.subtitle,
+    this.accent,
+    this.trailing,
     this.margin = const EdgeInsets.only(bottom: 12),
   });
 
   final String title;
   final String? subtitle;
   final IconData icon;
-  final Widget child;
+  final Widget? child;
+  final Color? accent;
+  final Widget? trailing;
   final EdgeInsetsGeometry margin;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Container(
-      width: double.infinity,
-      margin: margin,
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer.withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(kOpenHandRadius14),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.84),
+    final tone = accent ?? colorScheme.primary;
+    return Padding(
+      padding: margin,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            tone.withValues(alpha: 0.07),
+            colorScheme.surfaceContainerLow,
+          ),
+          borderRadius: kOpenHandBorderRadius20,
+          border: Border.all(color: tone.withValues(alpha: 0.18)),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.78,
-                  ),
-                  borderRadius: BorderRadius.circular(kOpenHandRadius9),
-                ),
-                child: Icon(icon, size: 17, color: colorScheme.primary),
-              ),
-              kOpenHandHGap10,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w800,
-                      ),
+              Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: tone.withValues(alpha: 0.16),
+                      borderRadius: kOpenHandBorderRadius12,
                     ),
-                    if (subtitle?.trim().isNotEmpty == true) ...[
-                      kOpenHandGap2,
-                      Text(
-                        subtitle!.trim(),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.28,
+                    child: SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: Center(child: Icon(icon, size: 18, color: tone)),
+                    ),
+                  ),
+                  kOpenHandHGap10,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
+                        if (subtitle != null &&
+                            subtitle!.trim().isNotEmpty) ...[
+                          kOpenHandGap2,
+                          Text(
+                            subtitle!.trim(),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (trailing != null) ...[kOpenHandHGap8, trailing!],
+                ],
               ),
+              if (child != null) ...[kOpenHandGap14, child!],
             ],
           ),
-          kOpenHandGap12,
-          child,
-        ],
+        ),
       ),
     );
   }
@@ -430,23 +442,67 @@ class KnowledgeDialogJsonBox extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final text = prettyPrintJson(value);
-    return Container(
-      constraints: BoxConstraints(maxHeight: maxHeight ?? 320),
-      padding: const EdgeInsets.all(12),
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.64),
-        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        color: colorScheme.surface,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.56),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.22),
+          width: 0.5,
         ),
       ),
-      child: SingleChildScrollView(
-        child: SelectableText(
-          text,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontFamily: kOpenHandMonospaceFontFamily,
-            height: 1.38,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight ?? 320),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: SelectableText(
+            text,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              height: 1.38,
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class KnowledgeDialogLoading extends StatelessWidget {
+  const KnowledgeDialogLoading({super.key, this.message, this.height = 180});
+
+  final String? message;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return SizedBox(
+      height: height,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.8,
+                color: colorScheme.primary,
+              ),
+            ),
+            if (message != null && message!.trim().isNotEmpty) ...[
+              kOpenHandGap14,
+              Text(
+                message!.trim(),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -789,61 +845,100 @@ class KnowledgeCollectionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final name = '${item['name'] ?? ''}';
-    return Container(
-      margin: margin,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(kOpenHandRadius14),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.dataset_outlined, size: 20, color: colorScheme.primary),
-          kOpenHandHGap10,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SelectableText(
-                  name.isEmpty ? '-' : name,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+    final status = '${item['status'] ?? ''}'.trim();
+    return Padding(
+      padding: margin ?? EdgeInsets.zero,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            colorScheme.tertiary.withValues(alpha: 0.08),
+            colorScheme.surfaceContainerLow,
+          ),
+          borderRadius: kOpenHandBorderRadius16,
+          border: Border.all(
+            color: colorScheme.tertiary.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          child: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.tertiary.withValues(alpha: 0.16),
+                  borderRadius: kOpenHandBorderRadius12,
+                ),
+                child: SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Center(
+                    child: Icon(
+                      Icons.dataset_outlined,
+                      size: 18,
+                      color: colorScheme.tertiary,
+                    ),
                   ),
                 ),
-                kOpenHandGap2,
-                Text(
-                  jsonEncode(item),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                  ),
+              ),
+              kOpenHandHGap10,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name.isEmpty ? '-' : name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    kOpenHandGap2,
+                    Text(
+                      status.isEmpty
+                          ? openHandLocalizedText(
+                              context,
+                              zh: 'Qdrant collection',
+                              zhHant: 'Qdrant collection',
+                              en: 'Qdrant collection',
+                              fr: 'Collection Qdrant',
+                              de: 'Qdrant-Collection',
+                              ja: 'Qdrant collection',
+                            )
+                          : status,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              IconButton(
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '查看配置',
+                  zhHant: '查看設定',
+                  en: 'View config',
+                  fr: 'Voir la configuration',
+                  de: 'Konfiguration anzeigen',
+                  ja: '設定を表示',
+                ),
+                onPressed: busy || name.isEmpty ? null : onInfo,
+                icon: const Icon(Icons.info_outline_rounded),
+              ),
+              IconButton(
+                tooltip: openHandDeleteLabel(context),
+                onPressed: busy || name.isEmpty ? null : onDelete,
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: colorScheme.error,
+                ),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '查看配置',
-              zhHant: '查看設定',
-              en: 'View config',
-              fr: 'Voir la configuration',
-              de: 'Konfiguration anzeigen',
-              ja: '設定を表示',
-            ),
-            onPressed: busy ? null : onInfo,
-            icon: const Icon(Icons.info_outline_rounded),
-          ),
-          kOpenHandHGap8,
-          IconButton(
-            tooltip: openHandDeleteLabel(context),
-            onPressed: busy ? null : onDelete,
-            icon: const Icon(Icons.delete_outline_rounded),
-          ),
-        ],
+        ),
       ),
     );
   }

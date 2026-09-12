@@ -996,6 +996,7 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
     this.busy = false,
     this.closeEnabled = true,
     this.canPop = true,
+    this.scrollBody = true,
     this.maxWidth = kOpenHandDialogWidthWide,
     this.maxHeight = kOpenHandDialogHeightTall,
   });
@@ -1010,6 +1011,7 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
   final bool busy;
   final bool closeEnabled;
   final bool canPop;
+  final bool scrollBody;
   final double maxWidth;
   final double maxHeight;
 
@@ -1036,10 +1038,15 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
               closeEnabled: closeEnabled,
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                child: body,
-              ),
+              child: scrollBody
+                  ? SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                      child: body,
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                      child: body,
+                    ),
             ),
             if (actions.isEmpty)
               const SizedBox.shrink()
