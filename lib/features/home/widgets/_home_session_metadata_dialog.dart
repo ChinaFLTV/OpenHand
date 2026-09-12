@@ -424,6 +424,8 @@ class _SessionMetadataDialog extends StatelessWidget {
                 ? [
                     OpenHandTintedPanel(
                       accent: OpenHandStatusColors.warning,
+                      hugContents: true,
+                      padding: kOpenHandTintedHintPadding,
                       icon: Icons.info_outline_rounded,
                       child: Text(
                         AppLocalizations.of(
@@ -648,6 +650,8 @@ class _SessionMetadataDialog extends StatelessWidget {
                 ? [
                     OpenHandTintedPanel(
                       accent: OpenHandStatusColors.success,
+                      hugContents: true,
+                      padding: kOpenHandTintedHintPadding,
                       icon: Icons.check_circle_outline_rounded,
                       child: Text(
                         AppLocalizations.of(
@@ -1763,7 +1767,8 @@ class _RuntimeToolHoverCard extends StatelessWidget {
                 kOpenHandGap8,
                 OpenHandTintedPanel(
                   accent: tone,
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  hugContents: description.isEmpty,
+                  padding: kOpenHandTintedHintPadding,
                   child: Text(
                     description.isEmpty
                         ? openHandLocalizedText(

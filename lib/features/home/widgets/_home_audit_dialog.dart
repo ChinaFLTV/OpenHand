@@ -303,8 +303,9 @@ class _AuditJsonBlock extends StatelessWidget {
     final Widget content;
     if (_isEmpty) {
       content = OpenHandTintedPanel(
-        accent: colorScheme.outline,
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        accent: colorScheme.secondary,
+        hugContents: true,
+        padding: kOpenHandTintedHintPadding,
         child: Text(
           emptyHint ?? AppLocalizations.of(context)!.auditNoData,
           style: theme.textTheme.bodySmall?.copyWith(
@@ -1439,6 +1440,8 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
           child: session.messages.isEmpty
               ? OpenHandTintedPanel(
                   accent: OpenHandStatusColors.info,
+                  hugContents: true,
+                  padding: kOpenHandTintedHintPadding,
                   icon: Icons.chat_bubble_outline_rounded,
                   child: Text(
                     AppLocalizations.of(context)!.auditNoMessages,

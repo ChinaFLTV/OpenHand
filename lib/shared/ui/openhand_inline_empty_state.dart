@@ -38,37 +38,46 @@ class OpenHandInlineEmptyState extends StatelessWidget {
   static const double _kIconSize = 40;
   static const double _kIconGap = 10;
 
+  static const EdgeInsets _kCompactPadding = EdgeInsets.symmetric(
+    horizontal: 10,
+    vertical: 12,
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (compact) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.62),
-          borderRadius: kOpenHandBorderRadius7,
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.62),
-          ),
+      final colorScheme = theme.colorScheme;
+      final text = Text(
+        message,
+        textAlign: textAlign,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontStyle: FontStyle.italic,
         ),
-        child: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-              kOpenHandHGap8,
-            ],
-            Expanded(
-              child: Text(
-                message,
-                textAlign: textAlign,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
+      );
+      return OpenHandHugWidth(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainer.withValues(alpha: 0.62),
+            borderRadius: kOpenHandBorderRadius7,
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.62),
             ),
-          ],
+          ),
+          child: Padding(
+            padding: _kCompactPadding,
+            child: icon == null
+                ? text
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
+                      kOpenHandHGap8,
+                      Flexible(child: text),
+                    ],
+                  ),
+          ),
         ),
       );
     }

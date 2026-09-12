@@ -167,3 +167,16 @@ BoxDecoration openHandQuoteBoxDecoration({
     border: Border.all(color: accent.withValues(alpha: opacity)),
   );
 }
+
+/// 按内容宽度排布子组件，避免 stretch Column 把提示条拉满整行。
+/// 长文本仍可在父级最大宽度内换行。
+class OpenHandHugWidth extends StatelessWidget {
+  const OpenHandHugWidth({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [Flexible(child: child)]);
+  }
+}

@@ -967,6 +967,19 @@ class OpenHandFeatureListCard extends StatelessWidget {
   }
 }
 
+const EdgeInsets kOpenHandTintedPanelPadding = EdgeInsets.fromLTRB(
+  14,
+  12,
+  14,
+  12,
+);
+const EdgeInsets kOpenHandTintedHintPadding = EdgeInsets.fromLTRB(
+  12,
+  10,
+  12,
+  10,
+);
+
 /// 卡片内的浅色信息块：标题/正文分区用色块分层，不用竖条。
 class OpenHandTintedPanel extends StatelessWidget {
   const OpenHandTintedPanel({
@@ -975,7 +988,8 @@ class OpenHandTintedPanel extends StatelessWidget {
     required this.child,
     this.icon,
     this.title,
-    this.padding = const EdgeInsets.fromLTRB(14, 12, 14, 12),
+    this.padding = kOpenHandTintedPanelPadding,
+    this.hugContents = false,
   });
 
   final Color accent;
@@ -983,6 +997,9 @@ class OpenHandTintedPanel extends StatelessWidget {
   final IconData? icon;
   final String? title;
   final EdgeInsetsGeometry padding;
+
+  /// 为 true 时按内容宽度收缩，不被 stretch 父级拉满整行。
+  final bool hugContents;
 
   @override
   Widget build(BuildContext context) {
@@ -1017,7 +1034,7 @@ class OpenHandTintedPanel extends StatelessWidget {
               child,
             ],
           );
-    return DecoratedBox(
+    final panel = DecoratedBox(
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           accent.withValues(alpha: 0.12),
@@ -1028,6 +1045,8 @@ class OpenHandTintedPanel extends StatelessWidget {
       ),
       child: Padding(padding: padding, child: body),
     );
+    if (!hugContents) return panel;
+    return OpenHandHugWidth(child: panel);
   }
 }
 
