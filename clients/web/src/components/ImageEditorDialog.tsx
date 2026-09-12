@@ -147,15 +147,15 @@ const DEFAULT_SETTINGS: EditorSettings = {
   watermarkLightness: 0.94,
 };
 
-const ASPECTS: { key: CropAspect; label: string }[] = [
-  { key: 'free', label: '自由' },
-  { key: 'original', label: '原始' },
-  { key: '1:1', label: '1:1' },
-  { key: '4:3', label: '4:3' },
-  { key: '3:4', label: '3:4' },
-  { key: '16:9', label: '16:9' },
-  { key: '9:16', label: '9:16' },
-  { key: 'circle', label: '圆形' },
+const ASPECTS: readonly CropAspect[] = [
+  'free',
+  'original',
+  '1:1',
+  '4:3',
+  '3:4',
+  '16:9',
+  '9:16',
+  'circle',
 ];
 
 const IMAGE_ENCODE_TIMEOUT_MS = 15_000;
@@ -410,20 +410,21 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
             </section>
 
             <div class="oh-image-editor-aspects">
-              {ASPECTS.map((item) => {
-                const active = settings.aspect === item.key;
+              {ASPECTS.map((aspect) => {
+                const active = settings.aspect === aspect;
                 return (
                 <button
-                  key={item.key}
+                  key={aspect}
                   type="button"
                   class="oh-tap-press"
                   data-active={active ? 'true' : 'false'}
-                  onClick={() => { pushUndo(); setSettings((prev) => ({ ...prev, aspect: item.key, panX: 0, panY: 0 })); }}
+                  aria-pressed={active}
+                  onClick={() => { pushUndo(); setSettings((prev) => ({ ...prev, aspect, panX: 0, panY: 0 })); }}
                 >
                   <span class="oh-image-editor-button-icon">
                     {active ? <ImageEditorIcon name="check" size={13} /> : null}
                   </span>
-                  {item.label}
+                  {imageEditorAspectLabel(aspect)}
                 </button>
                 );
               })}
@@ -480,7 +481,15 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
               <EditorSlider label={t('imageEditor.watermarkLightness', '文字明度')} value={settings.watermarkLightness} min={0} max={1} step={0.01} onChange={(v) => update('watermarkLightness', v)} />
               <div class="oh-image-editor-position-grid">
                 {(['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'] as WatermarkPosition[]).map((pos) => (
-                  <button type="button" data-active={settings.watermarkPosition === pos ? 'true' : 'false'} onClick={() => update('watermarkPosition', pos)} aria-label={pos}><ImageEditorIcon name="dot" size={12} /></button>
+                  <button
+                    type="button"
+                    data-active={settings.watermarkPosition === pos ? 'true' : 'false'}
+                    aria-pressed={settings.watermarkPosition === pos}
+                    onClick={() => update('watermarkPosition', pos)}
+                    aria-label={imageEditorWatermarkPositionLabel(pos)}
+                  >
+                    <ImageEditorIcon name="dot" size={12} />
+                  </button>
                 ))}
               </div>
             </details>
@@ -554,6 +563,42 @@ function aspectRatio(aspect: CropAspect, size: { width: number; height: number }
     case 'original':
     default:
       return original;
+  }
+}
+
+function imageEditorAspectLabel(aspect: CropAspect): string {
+  switch (aspect) {
+    case 'free':
+      return t('imageEditor.aspect.free', '自由');
+    case 'original':
+      return t('imageEditor.aspect.original', '原始');
+    case 'circle':
+      return t('imageEditor.aspect.circle', '圆形');
+    default:
+      return aspect;
+  }
+}
+
+function imageEditorWatermarkPositionLabel(position: WatermarkPosition): string {
+  switch (position) {
+    case 'tl':
+      return t('imageEditor.watermarkPosition.topLeft', '左上');
+    case 'tc':
+      return t('imageEditor.watermarkPosition.topCenter', '顶部居中');
+    case 'tr':
+      return t('imageEditor.watermarkPosition.topRight', '右上');
+    case 'ml':
+      return t('imageEditor.watermarkPosition.middleLeft', '左侧居中');
+    case 'mc':
+      return t('imageEditor.watermarkPosition.center', '居中');
+    case 'mr':
+      return t('imageEditor.watermarkPosition.middleRight', '右侧居中');
+    case 'bl':
+      return t('imageEditor.watermarkPosition.bottomLeft', '左下');
+    case 'bc':
+      return t('imageEditor.watermarkPosition.bottomCenter', '底部居中');
+    case 'br':
+      return t('imageEditor.watermarkPosition.bottomRight', '右下');
   }
 }
 
@@ -734,7 +779,7 @@ async function encodeCanvas(
   if (blob == null) {
     const dataUrl = canvas.toDataURL(mime, quality);
     const dataBase64 = base64PayloadFromDataUrl(dataUrl) ?? '';
-    if (!dataBase64) throw new Error('图片编码失败');
+    if (!dataBase64) throw new Error(t('imageEditor.encodeFailed', '图片编码失败'));
     const fallbackBlob = await runWithTimeout(
       async () => (await fetch(dataUrl)).blob(),
       { timeoutMs: IMAGE_DATA_URL_DECODE_TIMEOUT_MS },
@@ -749,11 +794,11 @@ async function encodeCanvas(
 
   const dataUrl = await readBlobAsDataUrl(blob, {
     timeoutMs: IMAGE_ENCODE_TIMEOUT_MS,
-    failureMessage: '图片编码失败',
-    timeoutMessage: '图片编码超时',
+    failureMessage: t('imageEditor.encodeFailed', '图片编码失败'),
+    timeoutMessage: t('imageEditor.encodeTimeout', '图片编码超时'),
   });
   const dataBase64 = base64PayloadFromDataUrl(dataUrl) ?? '';
-  if (!dataBase64) throw new Error('图片编码失败');
+  if (!dataBase64) throw new Error(t('imageEditor.encodeFailed', '图片编码失败'));
   return { dataUrl, dataBase64, size: blob.size, blob };
 }
 
