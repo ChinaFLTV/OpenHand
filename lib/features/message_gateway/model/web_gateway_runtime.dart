@@ -6,6 +6,7 @@ import 'package:openhand/shared/util/text_normalization.dart';
 
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 
 const int webGatewayOpsTrafficWindowMinutes = 12;
@@ -263,10 +264,12 @@ class WebGatewayConnectivityTestResult {
   int get failureCount => targets.length - successCount;
   int get durationMs => finishedAt.difference(startedAt).inMilliseconds;
   String get summary {
-    if (targets.isEmpty) return '没有可测试的 URL';
-    return ok
-        ? '全部 ${targets.length} 个入口连通'
-        : '$failureCount 个入口不可达 / ${targets.length} 个入口';
+    return openHandConnectivityProbeSummary(
+      text: openHandTextResolverForLocale(openHandAmbientLocale),
+      total: targets.length,
+      failureCount: failureCount,
+      allOk: ok,
+    );
   }
 
   Map<String, Object?> toJson() {

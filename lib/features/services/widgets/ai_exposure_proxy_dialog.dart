@@ -4498,7 +4498,10 @@ class _ProxyEndpointDetailsDialogState
                 if (sample?.statusCode != null)
                   OpenHandInlineIconLabel(
                     icon: Icons.http_rounded,
-                    label: 'HTTP ${sample!.statusCode}',
+                    label: openHandHttpStatusCodeLabel(
+                      context,
+                      sample!.statusCode!,
+                    ),
                     color: forwardingColor,
                   ),
                 if (sample != null)
@@ -4830,8 +4833,15 @@ class _ProxyEndpointDetailsDialogState
                 ? text(zh: '请求超时', en: 'Timed out')
                 : text(zh: '请求失败', en: 'Failed'),
             detail: item.statusCode == null
-                ? text(zh: '无 HTTP 状态', en: 'No HTTP status')
-                : 'HTTP ${item.statusCode}',
+                ? text(
+                    zh: '无状态码',
+                    zhHant: '無狀態碼',
+                    en: 'No status code',
+                    fr: 'Aucun code',
+                    de: 'Kein Statuscode',
+                    ja: 'ステータスなし',
+                  )
+                : openHandHttpStatusCodeLabel(context, item.statusCode!),
             color: color,
             icon: item.succeeded
                 ? Icons.check_circle_outline_rounded
@@ -4850,7 +4860,7 @@ class _ProxyEndpointDetailsDialogState
             status: text(zh: '连接成功', en: 'Connection succeeded'),
             detail: item.statusCode == null
                 ? text(zh: '代理连接可用', en: 'Proxy connection ready')
-                : 'HTTP ${item.statusCode}',
+                : openHandHttpStatusCodeLabel(context, item.statusCode!),
             color: OpenHandStatusColors.success,
             icon: Icons.network_check_rounded,
           ),
@@ -5034,7 +5044,7 @@ class _ProxyEndpointDetailsDialogState
                               SizedBox(
                                 width: 56,
                                 child: Text(
-                                  'HTTP ${item.statusCode}',
+                                  '${item.statusCode}',
                                   style: Theme.of(context).textTheme.labelSmall,
                                 ),
                               ),
@@ -6278,7 +6288,7 @@ class _ProxyLatencyTooltip extends StatelessWidget {
                       zh: '连接成功',
                       en: 'Connection succeeded',
                     )
-                  : 'HTTP ${sample.statusCode}',
+                  : openHandHttpStatusCodeLabel(context, sample.statusCode!),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: OpenHandStatusColors.success,
               ),

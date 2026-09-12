@@ -875,7 +875,15 @@ class _SourceEntityInsightBody extends StatelessWidget {
                   : '${quota!.latencyMs} ms',
             ),
             _OpsKeyValue(
-              label: 'HTTP 状态',
+              label: openHandLocalizedText(
+                context,
+                zh: '状态码',
+                zhHant: '狀態碼',
+                en: 'Status code',
+                fr: 'Code',
+                de: 'Statuscode',
+                ja: 'ステータス',
+              ),
               value: quota?.httpStatus == null
                   ? quotaNotApplicable || !requiresCredential
                         ? '不适用'
@@ -2116,7 +2124,14 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
           ),
           _InsightKpi(
             icon: Icons.http_rounded,
-            label: text(zh: 'HTTP 状态', en: 'HTTP status'),
+            label: text(
+              zh: '状态码',
+              zhHant: '狀態碼',
+              en: 'Status code',
+              fr: 'Code',
+              de: 'Statuscode',
+              ja: 'ステータス',
+            ),
             value: sample.statusCode == null
                 ? unavailable
                 : '${sample.statusCode}',
@@ -2236,7 +2251,8 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
                     '${_entitySafeText(item.method, unavailable: '方法未上报')} · ${_entitySafeText(item.routeMode, unavailable: '选路模式未上报')}',
                 tags: [
                   '${item.responseTimeMs} ms',
-                  if (item.statusCode != null) 'HTTP ${item.statusCode}',
+                  if (item.statusCode != null)
+                    openHandAmbientHttpStatusCodeLabel(item.statusCode!),
                   _reportedShortDateTime(item.at, item.atReported),
                 ],
                 color: item.succeeded
@@ -2558,7 +2574,15 @@ class _ProxyProbeEntityInsightBody extends StatelessWidget {
           ('最终结果', sample.reachable ? '通过' : '失败'),
           ('响应耗时', sample.latencyMs == null ? '不可用' : '${sample.latencyMs} ms'),
           (
-            'HTTP 状态',
+            openHandLocalizedText(
+              context,
+              zh: '状态码',
+              zhHant: '狀態碼',
+              en: 'Status code',
+              fr: 'Code',
+              de: 'Statuscode',
+              ja: 'ステータス',
+            ),
             sample.statusCode == null ? '不可用' : '${sample.statusCode}',
           ),
           (

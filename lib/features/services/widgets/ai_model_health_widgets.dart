@@ -742,7 +742,7 @@ class _HealthBar extends StatelessWidget {
           label: text(zh: '响应码', en: 'Status code'),
           value: record.responseCode == null
               ? '—'
-              : 'HTTP ${record.responseCode}',
+              : '${record.responseCode}',
           icon: Icons.http_rounded,
           color: record.success
               ? OpenHandStatusColors.success

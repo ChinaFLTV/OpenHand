@@ -1830,3 +1830,355 @@ String openHandWorkingDirectoryLabel(BuildContext context) {
     ja: '作業ディレクトリ',
   );
 }
+
+String openHandHttpStatusCodeLabel(BuildContext context, int statusCode) {
+  return _httpStatusCodeLabel(openHandTextResolver(context), statusCode);
+}
+
+String openHandAmbientHttpStatusCodeLabel(int statusCode) {
+  return _httpStatusCodeLabel(
+    openHandTextResolverForLocale(openHandAmbientLocale),
+    statusCode,
+  );
+}
+
+String _httpStatusCodeLabel(
+  OpenHandLocalizedTextResolver text,
+  int statusCode,
+) {
+  return text(
+    zh: '状态码 $statusCode',
+    zhHant: '狀態碼 $statusCode',
+    en: 'Status $statusCode',
+    fr: 'Code $statusCode',
+    de: 'Status $statusCode',
+    ja: 'ステータス $statusCode',
+  );
+}
+
+String openHandMillisecondsLabel(BuildContext context, int milliseconds) {
+  return _millisecondsLabel(openHandTextResolver(context), milliseconds);
+}
+
+String openHandAmbientMillisecondsLabel(int milliseconds) {
+  return _millisecondsLabel(
+    openHandTextResolverForLocale(openHandAmbientLocale),
+    milliseconds,
+  );
+}
+
+String _millisecondsLabel(
+  OpenHandLocalizedTextResolver text,
+  int milliseconds,
+) {
+  return text(
+    zh: '$milliseconds 毫秒',
+    zhHant: '$milliseconds 毫秒',
+    en: '${milliseconds}ms',
+    fr: '$milliseconds ms',
+    de: '$milliseconds ms',
+    ja: '$millisecondsミリ秒',
+  );
+}
+
+String openHandConnectivityProbeSummary({
+  required OpenHandLocalizedTextResolver text,
+  required int total,
+  required int failureCount,
+  required bool allOk,
+}) {
+  if (total <= 0) {
+    return text(
+      zh: '没有可测试的入口',
+      zhHant: '沒有可測試的入口',
+      en: 'No testable entries',
+      fr: 'Aucune entrée testable',
+      de: 'Keine testbaren Einträge',
+      ja: 'テスト可能な入口がありません',
+    );
+  }
+  if (allOk) {
+    return text(
+      zh: '全部 $total 个入口连通',
+      zhHant: '全部 $total 個入口連通',
+      en: 'All $total entries reachable',
+      fr: 'Les $total entrées sont joignables',
+      de: 'Alle $total Einträge erreichbar',
+      ja: '全 $total 件の入口が接続可能',
+    );
+  }
+  return text(
+    zh: '$failureCount 个入口不可达 / 共 $total 个',
+    zhHant: '$failureCount 個入口不可達 / 共 $total 個',
+    en: '$failureCount unreachable / $total entries',
+    fr: '$failureCount injoignables / $total entrées',
+    de: '$failureCount nicht erreichbar / $total Einträge',
+    ja: '$failureCount 件到達不可 / 全 $total 件',
+  );
+}
+
+String openHandJsonFieldLabel(BuildContext context, String key) {
+  final text = openHandTextResolver(context);
+  switch (key.trim().toLowerCase()) {
+    case 'status':
+    case 'status_code':
+      return text(
+        zh: '状态',
+        zhHant: '狀態',
+        en: 'Status',
+        fr: 'Statut',
+        de: 'Status',
+        ja: 'ステータス',
+      );
+    case 'service':
+      return text(
+        zh: '服务',
+        zhHant: '服務',
+        en: 'Service',
+        fr: 'Service',
+        de: 'Dienst',
+        ja: 'サービス',
+      );
+    case 'state':
+      return text(
+        zh: '运行状态',
+        zhHant: '執行狀態',
+        en: 'Runtime state',
+        fr: 'État d’exécution',
+        de: 'Laufzeitstatus',
+        ja: '実行状態',
+      );
+    case 'time':
+    case 'timestamp':
+    case 'started_at':
+    case 'finished_at':
+    case 'checked_at':
+      return text(
+        zh: '时间',
+        zhHant: '時間',
+        en: 'Time',
+        fr: 'Heure',
+        de: 'Zeit',
+        ja: '時刻',
+      );
+    case 'ok':
+      return text(
+        zh: '是否成功',
+        zhHant: '是否成功',
+        en: 'Succeeded',
+        fr: 'Réussi',
+        de: 'Erfolgreich',
+        ja: '成功',
+      );
+    case 'host':
+      return text(
+        zh: '主机',
+        zhHant: '主機',
+        en: 'Host',
+        fr: 'Hôte',
+        de: 'Host',
+        ja: 'ホスト',
+      );
+    case 'port':
+      return text(
+        zh: '端口',
+        zhHant: '連接埠',
+        en: 'Port',
+        fr: 'Port',
+        de: 'Port',
+        ja: 'ポート',
+      );
+    case 'path':
+      return text(
+        zh: '路径',
+        zhHant: '路徑',
+        en: 'Path',
+        fr: 'Chemin',
+        de: 'Pfad',
+        ja: 'パス',
+      );
+    case 'url':
+    case 'base_url':
+      return text(
+        zh: '地址',
+        zhHant: '位址',
+        en: 'Address',
+        fr: 'Adresse',
+        de: 'Adresse',
+        ja: 'アドレス',
+      );
+    case 'endpoint_url':
+      return text(
+        zh: '探测地址',
+        zhHant: '探測位址',
+        en: 'Probe URL',
+        fr: 'URL de sonde',
+        de: 'Prüf-URL',
+        ja: '検査URL',
+      );
+    case 'error':
+    case 'error_message':
+    case 'message':
+      return text(
+        zh: '说明',
+        zhHant: '說明',
+        en: 'Message',
+        fr: 'Message',
+        de: 'Meldung',
+        ja: '説明',
+      );
+    case 'duration':
+    case 'duration_ms':
+    case 'latency':
+    case 'latency_ms':
+      return text(
+        zh: '耗时',
+        zhHant: '耗時',
+        en: 'Duration',
+        fr: 'Durée',
+        de: 'Dauer',
+        ja: '所要時間',
+      );
+    case 'name':
+      return text(
+        zh: '名称',
+        zhHant: '名稱',
+        en: 'Name',
+        fr: 'Nom',
+        de: 'Name',
+        ja: '名前',
+      );
+    case 'id':
+      return text(
+        zh: '标识',
+        zhHant: '識別',
+        en: 'ID',
+        fr: 'ID',
+        de: 'ID',
+        ja: 'ID',
+      );
+    default:
+      return key;
+  }
+}
+
+String openHandJsonScalarLabel(BuildContext context, String raw) {
+  final text = openHandTextResolver(context);
+  switch (raw.trim().toLowerCase()) {
+    case 'ok':
+    case 'success':
+    case 'healthy':
+      return text(
+        zh: '正常',
+        zhHant: '正常',
+        en: 'Healthy',
+        fr: 'Sain',
+        de: 'Gesund',
+        ja: '正常',
+      );
+    case 'error':
+    case 'failed':
+    case 'unhealthy':
+      return text(
+        zh: '异常',
+        zhHant: '異常',
+        en: 'Unhealthy',
+        fr: 'Défaillant',
+        de: 'Gestört',
+        ja: '異常',
+      );
+    case 'running':
+      return text(
+        zh: '运行中',
+        zhHant: '執行中',
+        en: 'Running',
+        fr: 'En cours',
+        de: 'Läuft',
+        ja: '実行中',
+      );
+    case 'stopped':
+      return text(
+        zh: '已停止',
+        zhHant: '已停止',
+        en: 'Stopped',
+        fr: 'Arrêté',
+        de: 'Gestoppt',
+        ja: '停止',
+      );
+    case 'starting':
+      return text(
+        zh: '启动中',
+        zhHant: '啟動中',
+        en: 'Starting',
+        fr: 'Démarrage',
+        de: 'Startet',
+        ja: '起動中',
+      );
+    case 'stopping':
+      return text(
+        zh: '停止中',
+        zhHant: '停止中',
+        en: 'Stopping',
+        fr: 'Arrêt',
+        de: 'Stoppt',
+        ja: '停止中',
+      );
+    case 'crashed':
+      return text(
+        zh: '已崩溃',
+        zhHant: '已崩潰',
+        en: 'Crashed',
+        fr: 'Planté',
+        de: 'Abgestürzt',
+        ja: 'クラッシュ',
+      );
+    case 'idle':
+    case 'ready':
+      return text(
+        zh: '就绪',
+        zhHant: '就緒',
+        en: 'Ready',
+        fr: 'Prêt',
+        de: 'Bereit',
+        ja: '準備完了',
+      );
+    case 'degraded':
+      return text(
+        zh: '降级',
+        zhHant: '降級',
+        en: 'Degraded',
+        fr: 'Dégradé',
+        de: 'Beeinträchtigt',
+        ja: '低下',
+      );
+    case 'true':
+      return text(
+        zh: '是',
+        zhHant: '是',
+        en: 'Yes',
+        fr: 'Oui',
+        de: 'Ja',
+        ja: 'はい',
+      );
+    case 'false':
+      return text(
+        zh: '否',
+        zhHant: '否',
+        en: 'No',
+        fr: 'Non',
+        de: 'Nein',
+        ja: 'いいえ',
+      );
+    case 'null':
+      return text(
+        zh: '无',
+        zhHant: '無',
+        en: 'None',
+        fr: 'Aucun',
+        de: 'Keine',
+        ja: 'なし',
+      );
+    default:
+      return raw;
+  }
+}

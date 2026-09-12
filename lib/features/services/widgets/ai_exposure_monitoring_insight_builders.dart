@@ -1856,7 +1856,8 @@ _InsightRecord _proxyRequestRecord(
     tags: [
       if (clientEndpoint != '--') clientEndpoint,
       '${request.responseTimeMs} ms',
-      if (request.statusCode != null) 'HTTP ${request.statusCode}',
+      if (request.statusCode != null)
+        openHandAmbientHttpStatusCodeLabel(request.statusCode!),
       _reportedShortDateTime(request.at, request.atReported),
     ],
     color: tone,
@@ -1886,7 +1887,8 @@ _InsightRecord _proxyProbeRecord(
     tags: [
       probe.gatewayReachable ? '网关可达' : '网关不可达',
       if (probe.latencyMs != null) '${probe.latencyMs} ms',
-      if (probe.statusCode != null) 'HTTP ${probe.statusCode}',
+      if (probe.statusCode != null)
+        openHandAmbientHttpStatusCodeLabel(probe.statusCode!),
       if (probe.failure != null) _proxyProbeFailureName(probe.failure!),
       _reportedShortDateTime(probe.checkedAt, probe.checkedAtReported),
     ],
@@ -2320,7 +2322,8 @@ Widget _proxyRequestInsightPanel(
                 ? '超时'
                 : '失败',
             '${sample.responseTimeMs} ms',
-            if (sample.statusCode != null) 'HTTP ${sample.statusCode}',
+            if (sample.statusCode != null)
+              openHandAmbientHttpStatusCodeLabel(sample.statusCode!),
             _reportedShortDateTime(sample.at, sample.atReported),
           ],
           color: tone,
@@ -4277,7 +4280,7 @@ Widget _httpStatusDistributionInsight(
       items: exactCodes.entries
           .map(
             (entry) => _InsightRankItem(
-              label: 'HTTP ${entry.key}',
+              label: openHandAmbientHttpStatusCodeLabel(entry.key),
               value: entry.value.toDouble(),
               valueLabel: '${entry.value} 次',
               helper: '来自近期保留请求样本',
