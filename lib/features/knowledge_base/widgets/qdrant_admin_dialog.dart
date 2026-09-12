@@ -4,13 +4,12 @@ import 'package:provider/provider.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
-import '../../../shared/ui/openhand_typography.dart';
-import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../knowledge_base_errors.dart';
@@ -196,8 +195,9 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
   Widget build(BuildContext context) {
     final controller = context.watch<KnowledgeBaseController>();
     final operationBusy = _busy || controller.loading || controller.busy;
-    final isChineseLayout = openHandIsChineseLocale(context);
     final colorScheme = Theme.of(context).colorScheme;
+    final collectionName = controller.settings.effectiveCollectionName;
+    final dangerousEnabled = controller.settings.enableDangerousAdminOperations;
     return OpenHandEditorDialogScaffold(
       title: knowledgeQdrantAdminLabel(context),
       subtitle: openHandLocalizedText(
@@ -220,6 +220,45 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           KnowledgeDialogErrorNotice(message: _error),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OpenHandFactChip(
+                icon: Icons.dataset_outlined,
+                label: collectionName.trim().isEmpty ? '-' : collectionName,
+                color: colorScheme.tertiary,
+              ),
+              OpenHandFactChip(
+                icon: dangerousEnabled
+                    ? Icons.warning_amber_rounded
+                    : Icons.shield_outlined,
+                label: dangerousEnabled
+                    ? openHandLocalizedText(
+                        context,
+                        zh: '危险操作已启用',
+                        zhHant: '危險操作已啟用',
+                        en: 'Dangerous ops on',
+                        fr: 'Ops dangereuses activées',
+                        de: 'Gefährliche Aktionen an',
+                        ja: '危険操作は有効',
+                      )
+                    : openHandLocalizedText(
+                        context,
+                        zh: '危险操作已关闭',
+                        zhHant: '危險操作已關閉',
+                        en: 'Dangerous ops off',
+                        fr: 'Ops dangereuses désactivées',
+                        de: 'Gefährliche Aktionen aus',
+                        ja: '危険操作は無効',
+                      ),
+                color: dangerousEnabled
+                    ? OpenHandStatusColors.warning
+                    : OpenHandStatusColors.success,
+              ),
+            ],
+          ),
+          kOpenHandGap12,
           KnowledgeDialogSection(
             title: openHandLocalizedText(
               context,
@@ -302,34 +341,18 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                KnowledgeDialogKeyValueList(
-                  rows: {
-                    openHandLocalizedText(
-                      context,
-                      zh: '当前 collection',
-                      zhHant: '目前 collection',
-                      en: 'Current collection',
-                      fr: 'Collection actuelle',
-                      de: 'Aktuelle Collection',
-                      ja: '現在の collection',
-                    ): controller.settings.effectiveCollectionName,
-                  },
-                  labelWidth: isChineseLayout ? 150 : 170,
-                ),
-                kOpenHandGap12,
-                FilledButton.tonalIcon(
+                KnowledgeDialogActionChip(
                   onPressed: operationBusy ? null : _scroll,
-                  icon: const Icon(Icons.list_alt_rounded),
-                  label: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '滚动读取前 20 个 points',
-                      zhHant: '捲動讀取前 20 個 points',
-                      en: 'Scroll first 20 points',
-                      fr: 'Lire les 20 premiers points',
-                      de: 'Erste 20 Points scrollen',
-                      ja: '先頭 20 points をスクロール取得',
-                    ),
+                  icon: Icons.list_alt_rounded,
+                  accent: OpenHandStatusColors.info,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '滚动读取前 20 个 points',
+                    zhHant: '捲動讀取前 20 個 points',
+                    en: 'Scroll first 20 points',
+                    fr: 'Lire les 20 premiers points',
+                    de: 'Erste 20 Points scrollen',
+                    ja: '先頭 20 points をスクロール取得',
                   ),
                 ),
                 OpenHandVerticalRevealSwitcher(
@@ -339,7 +362,18 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                       ? null
                       : Padding(
                           padding: const EdgeInsets.only(top: 12),
-                          child: KnowledgeDialogJsonBox(value: _scrollResult),
+                          child: KnowledgeDialogJsonBox(
+                            value: _scrollResult,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '滚动结果',
+                              zhHant: '捲動結果',
+                              en: 'Scroll result',
+                              fr: 'Résultat du scroll',
+                              de: 'Scroll-Ergebnis',
+                              ja: 'スクロール結果',
+                            ),
+                          ),
                         ),
                 ),
               ],
@@ -362,7 +396,18 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                     ),
                     icon: Icons.schema_outlined,
                     accent: colorScheme.secondary,
-                    child: KnowledgeDialogJsonBox(value: _collectionInfo),
+                    child: KnowledgeDialogJsonBox(
+                      value: _collectionInfo,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '集合配置',
+                        zhHant: '集合設定',
+                        en: 'Collection config',
+                        fr: 'Configuration de collection',
+                        de: 'Collection-Konfiguration',
+                        ja: 'コレクション設定',
+                      ),
+                    ),
                   ),
           ),
           KnowledgeDialogSection(
@@ -378,36 +423,25 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
             icon: Icons.receipt_long_outlined,
             accent: colorScheme.primary,
             margin: EdgeInsets.zero,
-            child: controller.qdrantAdminLogs.isEmpty
-                ? KnowledgeDialogNotice(
-                    icon: Icons.history_toggle_off_rounded,
-                    message: openHandLocalizedText(
-                      context,
-                      zh: '暂无操作。',
-                      zhHant: '暫無操作。',
-                      en: 'No operations yet.',
-                      fr: 'Aucune opération pour le moment.',
-                      de: 'Noch keine Aktionen.',
-                      ja: '操作はまだありません。',
-                    ),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final log in controller.qdrantAdminLogs)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            '${formatYearMonthDayHmsLocal(log.createdAt)} · ${log.action} · ${log.detail}',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  fontFamily: kOpenHandMonospaceFontFamily,
-                                  height: 1.4,
-                                ),
-                          ),
-                        ),
-                    ],
+            child: KnowledgeDialogLogList(
+              logs: [
+                for (final log in controller.qdrantAdminLogs)
+                  (
+                    createdAt: log.createdAt,
+                    action: log.action,
+                    detail: log.detail,
                   ),
+              ],
+              emptyMessage: openHandLocalizedText(
+                context,
+                zh: '暂无操作。',
+                zhHant: '暫無操作。',
+                en: 'No operations yet.',
+                fr: 'Aucune opération pour le moment.',
+                de: 'Noch keine Aktionen.',
+                ja: '操作はまだありません。',
+              ),
+            ),
           ),
         ],
       ),

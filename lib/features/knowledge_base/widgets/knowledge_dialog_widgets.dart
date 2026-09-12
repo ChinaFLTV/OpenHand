@@ -4,11 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/micro_press_feedback.dart';
+import '../../../shared/ui/motion_durations.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
-import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_json_tree.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 
@@ -224,6 +228,21 @@ const double _kKnowledgeBlockquoteBarWidth = 3;
 const BorderRadius _kKnowledgeMarkdownBlockRadius = BorderRadius.all(
   Radius.circular(kOpenHandRadius10),
 );
+const double kKnowledgeDialogMetricMinWidth = 168;
+const double kKnowledgeDialogMetricGridGap = 10;
+const double kKnowledgeDialogActionChipHeight = 36;
+const double kKnowledgeDialogJsonDefaultMaxHeight = 320;
+const Duration kKnowledgeDialogTabSwitchDuration = kOpenHandMotion280;
+
+Color knowledgeDialogHealthColor(BuildContext context, String status) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return switch (status.trim().toLowerCase()) {
+    'healthy' || 'green' || 'ok' || 'ready' => OpenHandStatusColors.success,
+    'loading' || 'yellow' || 'pending' => OpenHandStatusColors.warning,
+    'unhealthy' || 'red' || 'error' || 'failed' => colorScheme.error,
+    _ => colorScheme.tertiary,
+  };
+}
 
 /// 知识库弹窗顶部的错误提示，出现与消失沿用全局动效。
 class KnowledgeDialogErrorNotice extends StatelessWidget {
@@ -242,7 +261,7 @@ class KnowledgeDialogErrorNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = message;
     return OpenHandVerticalRevealSwitcher(
-      duration: kOpenHandInlineErrorRevealDuration,
+      duration: kOpenHandMotion180,
       presentKey: ValueKey<String>(text ?? ''),
       child: text == null
           ? null
@@ -432,38 +451,20 @@ class KnowledgeDialogJsonBox extends StatelessWidget {
     super.key,
     required this.value,
     this.maxHeight,
+    this.label,
   });
 
   final Object? value;
   final double? maxHeight;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final text = prettyPrintJson(value);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: kOpenHandBorderRadius16,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.22),
-          width: 0.5,
-        ),
-      ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight ?? 320),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(12),
-          child: SelectableText(
-            text,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: kOpenHandMonospaceFontFamily,
-              height: 1.38,
-            ),
-          ),
-        ),
-      ),
+    return OpenHandJsonTreeView(
+      text: prettyPrintJson(value),
+      label: label,
+      logTag: 'knowledge_base',
+      bodyMaxHeight: maxHeight ?? kKnowledgeDialogJsonDefaultMaxHeight,
     );
   }
 }
@@ -478,31 +479,43 @@ class KnowledgeDialogLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return SizedBox(
-      height: height,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.8,
-                color: colorScheme.primary,
-              ),
-            ),
-            if (message != null && message!.trim().isNotEmpty) ...[
-              kOpenHandGap14,
-              Text(
-                message!.trim(),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+    final text = message?.trim() ?? '';
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(alpha: 0.07),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.16)),
+      ),
+      child: SizedBox(
+        height: height,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.8,
+                  color: colorScheme.primary,
                 ),
               ),
+              if (text.isNotEmpty) ...[
+                kOpenHandGap14,
+                Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -784,6 +797,527 @@ class KnowledgeDialogChip extends StatelessWidget {
   }
 }
 
+class KnowledgeDialogMetric {
+  const KnowledgeDialogMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color accent;
+}
+
+class KnowledgeDialogMetricGrid extends StatelessWidget {
+  const KnowledgeDialogMetricGrid({super.key, required this.items});
+
+  final List<KnowledgeDialogMetric> items;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : kKnowledgeDialogMetricMinWidth;
+        final columns = maxWidth >= 720
+            ? 3
+            : maxWidth >= 480
+            ? 2
+            : 1;
+        final itemWidth = columns <= 1
+            ? maxWidth
+            : (maxWidth - kKnowledgeDialogMetricGridGap * (columns - 1)) /
+                  columns;
+        return Wrap(
+          spacing: kKnowledgeDialogMetricGridGap,
+          runSpacing: kKnowledgeDialogMetricGridGap,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: itemWidth,
+                child: _KnowledgeDialogMetricCard(item: item),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _KnowledgeDialogMetricCard extends StatelessWidget {
+  const _KnowledgeDialogMetricCard({required this.item});
+
+  final KnowledgeDialogMetric item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final value = item.value.trim().isEmpty ? '-' : item.value.trim();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          item.accent.withValues(alpha: 0.12),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: item.accent.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: item.accent.withValues(alpha: 0.18),
+                borderRadius: kOpenHandBorderRadius10,
+              ),
+              child: SizedBox(
+                width: 34,
+                height: 34,
+                child: Center(
+                  child: Icon(item.icon, size: 18, color: item.accent),
+                ),
+              ),
+            ),
+            kOpenHandHGap10,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  kOpenHandGap2,
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: item.accent,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum KnowledgeDialogActionTone { accent, destructive }
+
+class KnowledgeDialogActionChip extends StatelessWidget {
+  const KnowledgeDialogActionChip({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.accent,
+    this.tone = KnowledgeDialogActionTone.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final Color? accent;
+  final KnowledgeDialogActionTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final color = tone == KnowledgeDialogActionTone.destructive
+        ? colorScheme.error
+        : (accent ?? colorScheme.primary);
+    final enabled = onPressed != null;
+    return MicroPressFeedback(
+      enabled: enabled,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: kOpenHandPillBorderRadius,
+          child: AnimatedOpacity(
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
+            opacity: enabled ? 1 : 0.48,
+            child: AnimatedContainer(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              curve: kOpenHandSwitchInCurve,
+              height: kKnowledgeDialogActionChipHeight,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  color.withValues(alpha: 0.14),
+                  colorScheme.surfaceContainerLow,
+                ),
+                borderRadius: kOpenHandPillBorderRadius,
+                border: Border.all(color: color.withValues(alpha: 0.28)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  kOpenHandHGap8,
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class KnowledgeDialogTabItem {
+  const KnowledgeDialogTabItem({
+    required this.icon,
+    required this.label,
+    required this.child,
+    this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final Widget child;
+  final Color? accent;
+}
+
+class KnowledgeDialogTabScaffold extends StatelessWidget {
+  const KnowledgeDialogTabScaffold({
+    super.key,
+    required this.index,
+    required this.onChanged,
+    required this.tabs,
+  });
+
+  final int index;
+  final ValueChanged<int> onChanged;
+  final List<KnowledgeDialogTabItem> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tabs.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final safeIndex = index.clamp(0, tabs.length - 1);
+    final viewport = SizedBox.expand(
+      key: ValueKey<int>(safeIndex),
+      child: tabs[safeIndex].child,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              colorScheme.primary.withValues(alpha: 0.06),
+              colorScheme.surfaceContainerLow,
+            ),
+            borderRadius: kOpenHandBorderRadius16,
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.42),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (var i = 0; i < tabs.length; i++)
+                    _KnowledgeDialogTabChip(
+                      selected: i == safeIndex,
+                      icon: tabs[i].icon,
+                      label: tabs[i].label,
+                      accent: tabs[i].accent ?? colorScheme.primary,
+                      onPressed: i == safeIndex ? null : () => onChanged(i),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        kOpenHandGap12,
+        Expanded(
+          child: openHandTickerMotionEnabled(context)
+              ? AnimatedSwitcher(
+                  duration: openHandMotionDuration(
+                    context,
+                    kKnowledgeDialogTabSwitchDuration,
+                  ),
+                  switchInCurve: kOpenHandEntranceCurve,
+                  switchOutCurve: kOpenHandSwitchOutCurve,
+                  layoutBuilder: (currentChild, previousChildren) {
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ...previousChildren,
+                        if (currentChild != null) currentChild,
+                      ],
+                    );
+                  },
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(0.03, 0.05),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: kOpenHandEntranceCurve,
+                              ),
+                            ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: viewport,
+                )
+              : viewport,
+        ),
+      ],
+    );
+  }
+}
+
+class _KnowledgeDialogTabChip extends StatelessWidget {
+  const _KnowledgeDialogTabChip({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.accent,
+    required this.onPressed,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final Color accent;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final foreground = selected ? accent : colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: MicroPressFeedback(
+        enabled: onPressed != null,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: kOpenHandPillBorderRadius,
+            child: AnimatedContainer(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              curve: kOpenHandEntranceCurve,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: selected
+                    ? Color.alphaBlend(
+                        accent.withValues(alpha: 0.18),
+                        colorScheme.surface,
+                      )
+                    : Colors.transparent,
+                borderRadius: kOpenHandPillBorderRadius,
+                border: Border.all(
+                  color: selected
+                      ? accent.withValues(alpha: 0.36)
+                      : Colors.transparent,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, size: 16, color: foreground),
+                  kOpenHandHGap8,
+                  Text(
+                    label,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: foreground,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class KnowledgeDialogLogList extends StatelessWidget {
+  const KnowledgeDialogLogList({
+    super.key,
+    required this.logs,
+    required this.emptyMessage,
+  });
+
+  final List<({DateTime createdAt, String action, String detail})> logs;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    if (logs.isEmpty) {
+      return KnowledgeDialogNotice(
+        icon: Icons.history_toggle_off_rounded,
+        message: emptyMessage,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < logs.length; i++)
+          Padding(
+            padding: EdgeInsets.only(bottom: i == logs.length - 1 ? 0 : 8),
+            child: _KnowledgeDialogLogTile(log: logs[i]),
+          ),
+      ],
+    );
+  }
+}
+
+class _KnowledgeDialogLogTile extends StatelessWidget {
+  const _KnowledgeDialogLogTile({required this.log});
+
+  final ({DateTime createdAt, String action, String detail}) log;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final accent = _accentFor(colorScheme, log.action);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accent.withValues(alpha: 0.10),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius12,
+        border: Border.all(color: accent.withValues(alpha: 0.20)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(_iconFor(log.action), size: 16, color: accent),
+            kOpenHandHGap10,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          log.action,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: accent,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      kOpenHandHGap8,
+                      Text(
+                        formatYearMonthDayHmsLocal(log.createdAt),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (log.detail.trim().isNotEmpty) ...[
+                    kOpenHandGap4,
+                    Text(
+                      log.detail.trim(),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _iconFor(String action) {
+    final normalized = action.toLowerCase();
+    if (normalized.contains('delete') || normalized.contains('删除')) {
+      return Icons.delete_outline_rounded;
+    }
+    if (normalized.contains('create') ||
+        normalized.contains('rebuild') ||
+        normalized.contains('重建')) {
+      return Icons.build_circle_outlined;
+    }
+    if (normalized.contains('search') ||
+        normalized.contains('scroll') ||
+        normalized.contains('查询') ||
+        normalized.contains('滚动')) {
+      return Icons.manage_search_rounded;
+    }
+    return Icons.receipt_long_outlined;
+  }
+
+  Color _accentFor(ColorScheme colorScheme, String action) {
+    final normalized = action.toLowerCase();
+    if (normalized.contains('delete') || normalized.contains('删除')) {
+      return colorScheme.error;
+    }
+    if (normalized.contains('create') ||
+        normalized.contains('rebuild') ||
+        normalized.contains('重建')) {
+      return OpenHandStatusColors.success;
+    }
+    if (normalized.contains('search') ||
+        normalized.contains('scroll') ||
+        normalized.contains('查询') ||
+        normalized.contains('滚动')) {
+      return OpenHandStatusColors.info;
+    }
+    return colorScheme.primary;
+  }
+}
+
 InputDecoration knowledgeDialogInputDecoration(
   BuildContext context,
   String label, {
@@ -844,20 +1378,55 @@ class KnowledgeCollectionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final name = '${item['name'] ?? ''}';
+    final name = '${item['name'] ?? ''}'.trim();
     final status = '${item['status'] ?? ''}'.trim();
+    final points = '${item['points_count'] ?? item['points'] ?? ''}'.trim();
+    final vectors =
+        '${item['indexed_vectors_count'] ?? item['vectors_count'] ?? ''}'
+            .trim();
+    final accent = status.isEmpty
+        ? colorScheme.tertiary
+        : knowledgeDialogHealthColor(context, status);
+    final pills = <Widget>[
+      if (status.isNotEmpty)
+        OpenHandFactChip(icon: Icons.circle, label: status, color: accent)
+      else
+        OpenHandFactChip(
+          icon: Icons.dataset_outlined,
+          label: openHandLocalizedText(
+            context,
+            zh: 'Qdrant collection',
+            zhHant: 'Qdrant collection',
+            en: 'Qdrant collection',
+            fr: 'Collection Qdrant',
+            de: 'Qdrant-Collection',
+            ja: 'Qdrant collection',
+          ),
+          color: accent,
+        ),
+      if (points.isNotEmpty)
+        OpenHandFactChip(
+          icon: Icons.scatter_plot_outlined,
+          label: points,
+          color: OpenHandStatusColors.info,
+        ),
+      if (vectors.isNotEmpty)
+        OpenHandFactChip(
+          icon: Icons.polyline_outlined,
+          label: vectors,
+          color: colorScheme.secondary,
+        ),
+    ];
     return Padding(
       padding: margin ?? EdgeInsets.zero,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: Color.alphaBlend(
-            colorScheme.tertiary.withValues(alpha: 0.08),
+            accent.withValues(alpha: 0.10),
             colorScheme.surfaceContainerLow,
           ),
           borderRadius: kOpenHandBorderRadius16,
-          border: Border.all(
-            color: colorScheme.tertiary.withValues(alpha: 0.18),
-          ),
+          border: Border.all(color: accent.withValues(alpha: 0.22)),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
@@ -865,7 +1434,7 @@ class KnowledgeCollectionTile extends StatelessWidget {
             children: [
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: colorScheme.tertiary.withValues(alpha: 0.16),
+                  color: accent.withValues(alpha: 0.16),
                   borderRadius: kOpenHandBorderRadius12,
                 ),
                 child: SizedBox(
@@ -875,7 +1444,7 @@ class KnowledgeCollectionTile extends StatelessWidget {
                     child: Icon(
                       Icons.dataset_outlined,
                       size: 18,
-                      color: colorScheme.tertiary,
+                      color: accent,
                     ),
                   ),
                 ),
@@ -887,31 +1456,14 @@ class KnowledgeCollectionTile extends StatelessWidget {
                   children: [
                     Text(
                       name.isEmpty ? '-' : name,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    kOpenHandGap2,
-                    Text(
-                      status.isEmpty
-                          ? openHandLocalizedText(
-                              context,
-                              zh: 'Qdrant collection',
-                              zhHant: 'Qdrant collection',
-                              en: 'Qdrant collection',
-                              fr: 'Collection Qdrant',
-                              de: 'Qdrant-Collection',
-                              ja: 'Qdrant collection',
-                            )
-                          : status,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+                    kOpenHandGap6,
+                    Wrap(spacing: 6, runSpacing: 6, children: pills),
                   ],
                 ),
               ),

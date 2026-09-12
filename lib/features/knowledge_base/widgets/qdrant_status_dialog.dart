@@ -15,9 +15,9 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
-import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../knowledge_base_controller.dart';
@@ -58,6 +58,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   final List<_QdrantMetricSample> _samples = <_QdrantMetricSample>[];
   Map<String, Object?>? _operationResult;
   String? _error;
+  int _tabIndex = 0;
   bool _refreshPending = false;
   Future<void>? _refreshTask;
   bool _refreshing = false;
@@ -439,52 +440,38 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       scrollBody: false,
       maxWidth: kOpenHandDialogWidthExtraWide,
       maxHeight: kOpenHandDialogHeightFull,
-      body: DefaultTabController(
-        length: 4,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            KnowledgeDialogErrorNotice(message: _error, bottomSpacing: 10),
-            _QdrantOpsHeader(
-              snapshot: _snapshot,
-              refreshing: _refreshing,
-              l10n: l10n,
-            ),
-            kOpenHandGap12,
-            Material(
-              color: colorScheme.surfaceContainerLow,
-              borderRadius: kOpenHandBorderRadius16,
-              child: TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                dividerColor: Colors.transparent,
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicator: BoxDecoration(
-                  color: colorScheme.primaryContainer.withValues(alpha: 0.72),
-                  borderRadius: kOpenHandBorderRadius12,
-                ),
-                labelColor: colorScheme.onSurface,
-                unselectedLabelColor: colorScheme.onSurfaceVariant,
-                tabs: [
-                  Tab(text: l10n.qdrantStatusTabOverview),
-                  Tab(text: l10n.qdrantStatusTabCollections),
-                  Tab(text: l10n.qdrantStatusTabPoints),
-                  Tab(text: l10n.qdrantStatusTabDiagnostics),
-                ],
-              ),
-            ),
-            kOpenHandGap12,
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _OverviewTab(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          KnowledgeDialogErrorNotice(message: _error, bottomSpacing: 10),
+          _QdrantOpsHeader(
+            snapshot: _snapshot,
+            refreshing: _refreshing,
+            l10n: l10n,
+          ),
+          kOpenHandGap12,
+          Expanded(
+            child: KnowledgeDialogTabScaffold(
+              index: _tabIndex,
+              onChanged: (index) => setState(() => _tabIndex = index),
+              tabs: [
+                KnowledgeDialogTabItem(
+                  icon: Icons.dashboard_customize_outlined,
+                  label: l10n.qdrantStatusTabOverview,
+                  accent: colorScheme.primary,
+                  child: _OverviewTab(
                     snapshot: _snapshot,
                     samples: _samples,
                     refreshing: _refreshing,
                     error: _error,
                     l10n: l10n,
                   ),
-                  _CollectionsTab(
+                ),
+                KnowledgeDialogTabItem(
+                  icon: Icons.dataset_outlined,
+                  label: l10n.qdrantStatusTabCollections,
+                  accent: colorScheme.tertiary,
+                  child: _CollectionsTab(
                     collections: _collections,
                     busy: operationBusy,
                     refreshing: _refreshing,
@@ -492,7 +479,12 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
                     onInfo: _loadCollectionInfo,
                     onDelete: _deleteCollection,
                   ),
-                  _PointsTab(
+                ),
+                KnowledgeDialogTabItem(
+                  icon: Icons.manage_search_rounded,
+                  label: l10n.qdrantStatusTabPoints,
+                  accent: OpenHandStatusColors.info,
+                  child: _PointsTab(
                     pointIds: _pointIds,
                     sourceId: _sourceId,
                     tag: _tag,
@@ -507,16 +499,21 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
                     onCreatePayloadIndexes: _createPayloadIndexes,
                     onDeletePoints: _deletePoints,
                   ),
-                  _DiagnosticsTab(
+                ),
+                KnowledgeDialogTabItem(
+                  icon: Icons.monitor_heart_outlined,
+                  label: l10n.qdrantStatusTabDiagnostics,
+                  accent: OpenHandStatusColors.warning,
+                  child: _DiagnosticsTab(
                     snapshot: _snapshot,
                     operationResult: _operationResult,
                     l10n: l10n,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
@@ -556,22 +553,41 @@ class _QdrantOpsHeader extends StatelessWidget {
     final overview = snapshot?.sections['overview'];
     final status =
         '${overview?['service_status'] ?? (refreshing ? 'loading' : 'unknown')}';
-    final statusColor = status == 'healthy'
-        ? OpenHandStatusColors.success
-        : status == 'loading'
-        ? colorScheme.tertiary
-        : colorScheme.error;
+    final statusColor = knowledgeDialogHealthColor(context, status);
+    final endpoint = '${overview?['rest_endpoint'] ?? '-'}';
+    final collection = '${overview?['current_collection'] ?? '-'}';
+    final version = '${overview?['qdrant_version'] ?? ''}'.trim();
     return KnowledgeDialogSection(
       title: l10n.qdrantStatusHeaderTitle,
       icon: Icons.monitor_heart_outlined,
       accent: statusColor,
       margin: EdgeInsets.zero,
-      subtitle:
-          '${overview?['rest_endpoint'] ?? '-'} · ${overview?['current_collection'] ?? '-'}',
-      trailing: OhPill(
+      trailing: OpenHandStatusPill(
         icon: Icons.circle,
         label: '${_localizedMetricValue(l10n, status)}',
-        foregroundColor: statusColor,
+        color: statusColor,
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          OpenHandFactChip(
+            icon: Icons.link_rounded,
+            label: endpoint,
+            color: OpenHandStatusColors.info,
+          ),
+          OpenHandFactChip(
+            icon: Icons.dataset_outlined,
+            label: collection,
+            color: colorScheme.tertiary,
+          ),
+          if (version.isNotEmpty)
+            OpenHandFactChip(
+              icon: Icons.tag_rounded,
+              label: version,
+              color: colorScheme.secondary,
+            ),
+        ],
       ),
     );
   }
@@ -616,50 +632,49 @@ class _OverviewTab extends StatelessWidget {
     final api = snapshot!.sections['qdrant_api'] ?? const {};
     final storage = snapshot!.sections['storage_optimizer'] ?? const {};
     final openhand = snapshot!.sections['openhand_knowledge'] ?? const {};
+    final colorScheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       physics: openHandDialogAwareScrollPhysics(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _MetricCard(
+          KnowledgeDialogMetricGrid(
+            items: [
+              KnowledgeDialogMetric(
                 icon: Icons.dataset_outlined,
                 label: l10n.qdrantStatusMetricCollections,
                 value: '${api['collections_total'] ?? 0}',
-                accent: Theme.of(context).colorScheme.primary,
+                accent: colorScheme.primary,
               ),
-              _MetricCard(
+              KnowledgeDialogMetric(
                 icon: Icons.scatter_plot_outlined,
                 label: l10n.qdrantStatusMetricPoints,
                 value: '${api['points_total'] ?? 0}',
-                accent: Theme.of(context).colorScheme.tertiary,
+                accent: colorScheme.tertiary,
               ),
-              _MetricCard(
+              KnowledgeDialogMetric(
                 icon: Icons.polyline_outlined,
                 label: l10n.qdrantStatusMetricIndexedVectors,
                 value: '${api['indexed_vectors_total'] ?? 0}',
                 accent: OpenHandStatusColors.info,
               ),
-              _MetricCard(
+              KnowledgeDialogMetric(
                 icon: Icons.segment_outlined,
                 label: l10n.qdrantStatusMetricChunks,
                 value: '${openhand['chunk_count'] ?? 0}',
                 accent: OpenHandStatusColors.success,
               ),
-              _MetricCard(
+              KnowledgeDialogMetric(
                 icon: Icons.pending_actions_outlined,
                 label: l10n.qdrantStatusMetricPendingJobs,
                 value: '${openhand['pending_embedding_jobs'] ?? 0}',
                 accent: OpenHandStatusColors.warning,
               ),
-              _MetricCard(
+              KnowledgeDialogMetric(
                 icon: Icons.storage_outlined,
                 label: l10n.qdrantStatusMetricWalCapacity,
                 value: '${storage['wal_capacity_mb'] ?? '-'}',
-                accent: Theme.of(context).colorScheme.secondary,
+                accent: colorScheme.secondary,
               ),
             ],
           ),
@@ -810,58 +825,68 @@ class _PointsTab extends StatelessWidget {
                   controller: rawVector,
                   minLines: 3,
                   maxLines: 6,
-                  decoration: InputDecoration(
-                    labelText: l10n.qdrantStatusRawVectorLabel,
+                  decoration: knowledgeDialogInputDecoration(
+                    context,
+                    l10n.qdrantStatusRawVectorLabel,
                     alignLabelWithHint: true,
                   ),
                 ),
                 kOpenHandGap12,
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    FilledButton.tonalIcon(
+                    KnowledgeDialogActionChip(
                       onPressed: busy ? null : onLoadIds,
-                      icon: const Icon(Icons.search_rounded),
-                      label: Text(l10n.qdrantStatusQueryIds),
+                      icon: Icons.search_rounded,
+                      label: l10n.qdrantStatusQueryIds,
                     ),
-                    FilledButton.tonalIcon(
+                    KnowledgeDialogActionChip(
                       onPressed: busy ? null : onScroll,
-                      icon: const Icon(Icons.list_alt_rounded),
-                      label: Text(l10n.qdrantStatusScrollFilter),
+                      icon: Icons.list_alt_rounded,
+                      accent: OpenHandStatusColors.info,
+                      label: l10n.qdrantStatusScrollFilter,
                     ),
-                    FilledButton.tonalIcon(
+                    KnowledgeDialogActionChip(
                       onPressed: busy ? null : onSearchVector,
-                      icon: const Icon(Icons.polyline_outlined),
-                      label: Text(l10n.qdrantStatusRawVectorSearch),
+                      icon: Icons.polyline_outlined,
+                      accent: Theme.of(context).colorScheme.tertiary,
+                      label: l10n.qdrantStatusRawVectorSearch,
                     ),
-                    FilledButton.tonalIcon(
+                    KnowledgeDialogActionChip(
                       onPressed: busy ? null : onCreatePayloadIndexes,
-                      icon: const Icon(Icons.manage_search_rounded),
-                      label: Text(l10n.qdrantStatusRebuildPayloadIndexes),
+                      icon: Icons.manage_search_rounded,
+                      accent: OpenHandStatusColors.success,
+                      label: l10n.qdrantStatusRebuildPayloadIndexes,
                     ),
-                    FilledButton.icon(
+                    KnowledgeDialogActionChip(
                       onPressed: busy ? null : onDeletePoints,
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      label: Text(l10n.qdrantStatusDeletePoints),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.error,
-                        foregroundColor: Theme.of(context).colorScheme.onError,
-                      ),
+                      icon: Icons.delete_outline_rounded,
+                      tone: KnowledgeDialogActionTone.destructive,
+                      label: l10n.qdrantStatusDeletePoints,
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          if (result != null)
-            KnowledgeDialogSection(
-              title: l10n.qdrantStatusOperationResult,
-              icon: Icons.data_object_rounded,
-              accent: Theme.of(context).colorScheme.secondary,
-              margin: EdgeInsets.zero,
-              child: KnowledgeDialogJsonBox(value: result, maxHeight: 420),
-            ),
+          OpenHandVerticalRevealSwitcher(
+            presentKey: const ValueKey<String>('qdrant-ops-result'),
+            slideBeginOffsetY: 0.04,
+            child: result == null
+                ? null
+                : KnowledgeDialogSection(
+                    title: l10n.qdrantStatusOperationResult,
+                    icon: Icons.data_object_rounded,
+                    accent: Theme.of(context).colorScheme.secondary,
+                    margin: EdgeInsets.zero,
+                    child: KnowledgeDialogJsonBox(
+                      value: result,
+                      maxHeight: 420,
+                      label: l10n.qdrantStatusOperationResult,
+                    ),
+                  ),
+          ),
         ],
       ),
     );
@@ -903,111 +928,40 @@ class _DiagnosticsTab extends StatelessWidget {
                       'raw': snapshot!.raw,
                     },
                     maxHeight: 360,
+                    label: l10n.qdrantStatusRawDiagnosticsJson,
                   ),
           ),
-          if (operationResult != null)
-            KnowledgeDialogSection(
-              title: l10n.qdrantStatusLatestOperationResult,
-              icon: Icons.receipt_long_outlined,
-              accent: Theme.of(context).colorScheme.secondary,
-              child: KnowledgeDialogJsonBox(
-                value: operationResult,
-                maxHeight: 300,
-              ),
-            ),
+          OpenHandVerticalRevealSwitcher(
+            presentKey: const ValueKey<String>('qdrant-ops-latest-result'),
+            slideBeginOffsetY: 0.04,
+            child: operationResult == null
+                ? null
+                : KnowledgeDialogSection(
+                    title: l10n.qdrantStatusLatestOperationResult,
+                    icon: Icons.receipt_long_outlined,
+                    accent: Theme.of(context).colorScheme.secondary,
+                    child: KnowledgeDialogJsonBox(
+                      value: operationResult,
+                      maxHeight: 300,
+                      label: l10n.qdrantStatusLatestOperationResult,
+                    ),
+                  ),
+          ),
           KnowledgeDialogSection(
             title: l10n.qdrantStatusOperationLog,
             icon: Icons.history_rounded,
             accent: Theme.of(context).colorScheme.primary,
             margin: EdgeInsets.zero,
-            child: controller.qdrantAdminLogs.isEmpty
-                ? KnowledgeDialogNotice(
-                    icon: Icons.history_toggle_off_rounded,
-                    message: l10n.qdrantStatusNoOperations,
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final log in controller.qdrantAdminLogs)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            '${formatYearMonthDayHmsLocal(log.createdAt)} · '
-                            '${log.action} · ${log.detail}',
-                          ),
-                        ),
-                    ],
+            child: KnowledgeDialogLogList(
+              logs: [
+                for (final log in controller.qdrantAdminLogs)
+                  (
+                    createdAt: log.createdAt,
+                    action: log.action,
+                    detail: log.detail,
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.accent,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      width: 176,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          accent.withValues(alpha: 0.10),
-          colorScheme.surfaceContainerLow,
-        ),
-        borderRadius: kOpenHandBorderRadius16,
-        border: Border.all(color: accent.withValues(alpha: 0.20)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.16),
-              borderRadius: kOpenHandBorderRadius10,
-            ),
-            child: Icon(icon, size: 18, color: accent),
-          ),
-          kOpenHandHGap10,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                kOpenHandGap2,
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
               ],
+              emptyMessage: l10n.qdrantStatusNoOperations,
             ),
           ),
         ],
@@ -1064,17 +1018,17 @@ class _QdrantTrendChart extends StatelessWidget {
           spacing: 10,
           runSpacing: 8,
           children: [
-            _StatusPill(
+            OpenHandStatusPill(
               icon: Icons.show_chart_rounded,
               label: l10n.qdrantStatusTrendPoints,
               color: colorScheme.primary,
             ),
-            _StatusPill(
+            OpenHandStatusPill(
               icon: Icons.show_chart_rounded,
               label: l10n.qdrantStatusTrendChunks,
               color: colorScheme.tertiary,
             ),
-            _StatusPill(
+            OpenHandStatusPill(
               icon: Icons.show_chart_rounded,
               label: l10n.qdrantStatusTrendPendingFailed,
               color: colorScheme.error,
@@ -1416,46 +1370,7 @@ class _OpsTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
-        decoration: InputDecoration(labelText: label),
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: color.withValues(alpha: 0.26)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          kOpenHandHGap5,
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+        decoration: knowledgeDialogInputDecoration(context, label),
       ),
     );
   }

@@ -270,14 +270,25 @@ class _KnowledgeVectorDistributionViewState
   BoxDecoration _sceneDecoration(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return BoxDecoration(
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
-      borderRadius: kOpenHandBorderRadius18,
-      border: Border.all(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.70),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color.alphaBlend(
+            colorScheme.primary.withValues(alpha: 0.10),
+            colorScheme.surfaceContainerLow,
+          ),
+          Color.alphaBlend(
+            colorScheme.tertiary.withValues(alpha: 0.12),
+            colorScheme.surfaceContainerHighest,
+          ),
+        ],
       ),
+      borderRadius: kOpenHandBorderRadius18,
+      border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
       boxShadow: [
         BoxShadow(
-          color: colorScheme.shadow.withValues(alpha: 0.08),
+          color: colorScheme.primary.withValues(alpha: 0.08),
           blurRadius: 22,
           offset: const Offset(0, 12),
         ),

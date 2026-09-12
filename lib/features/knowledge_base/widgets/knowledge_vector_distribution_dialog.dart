@@ -4,8 +4,11 @@ import 'package:provider/provider.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../knowledge_base_errors.dart';
 import '../model/knowledge_vector_distribution.dart';
@@ -43,9 +46,7 @@ class _KnowledgeVectorDistributionDialogState
         final loading = snapshot.connectionState != ConnectionState.done;
         return OpenHandEditorDialogScaffold(
           title: l10n.knowledgeVectorDistributionTitle,
-          subtitle: snapshot.connectionState != ConnectionState.done
-              ? l10n.knowledgeVectorDistributionLoading
-              : l10n.knowledgeVectorProjectionSection,
+          subtitle: _subtitle(l10n, snapshot),
           icon: Icons.scatter_plot_outlined,
           iconColor: OpenHandStatusColors.info,
           busy: loading,
@@ -74,21 +75,29 @@ class _KnowledgeVectorDistributionDialogState
     );
   }
 
+  String _subtitle(
+    AppLocalizations l10n,
+    AsyncSnapshot<KnowledgeVectorDistribution> snapshot,
+  ) {
+    if (snapshot.connectionState != ConnectionState.done) {
+      return l10n.knowledgeVectorDistributionLoading;
+    }
+    if (snapshot.hasError || snapshot.data == null || snapshot.data!.isEmpty) {
+      return l10n.knowledgeVectorProjectionSection;
+    }
+    final distribution = snapshot.data!;
+    return '${distribution.algorithm} · ${distribution.points.length}';
+  }
+
   Widget _buildBody(
     BuildContext context,
     AppLocalizations l10n,
     AsyncSnapshot<KnowledgeVectorDistribution> snapshot,
   ) {
     if (snapshot.connectionState != ConnectionState.done) {
-      return KnowledgeDialogSection(
-        title: l10n.knowledgeVectorDistributionTitle,
-        icon: Icons.scatter_plot_outlined,
-        accent: OpenHandStatusColors.info,
-        margin: EdgeInsets.zero,
-        child: KnowledgeDialogLoading(
-          height: 280,
-          message: l10n.knowledgeVectorDistributionLoading,
-        ),
+      return KnowledgeDialogLoading(
+        height: 280,
+        message: l10n.knowledgeVectorDistributionLoading,
       );
     }
     if (snapshot.hasError) {
@@ -108,34 +117,79 @@ class _KnowledgeVectorDistributionDialogState
         message: l10n.knowledgeVectorDistributionEmpty,
       );
     }
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OpenHandFactChip(
+              icon: Icons.auto_awesome_outlined,
+              label:
+                  '${l10n.knowledgeVectorAlgorithm} · ${distribution.algorithm}',
+              color: colorScheme.primary,
+            ),
+          ],
+        ),
+        kOpenHandGap12,
+        KnowledgeDialogMetricGrid(
+          items: [
+            KnowledgeDialogMetric(
+              icon: Icons.grid_4x4_rounded,
+              label: l10n.knowledgeVectorOriginalDimensions,
+              value: '${distribution.originalDimensions}',
+              accent: colorScheme.tertiary,
+            ),
+            KnowledgeDialogMetric(
+              icon: Icons.scatter_plot_outlined,
+              label: l10n.knowledgeVectorVisiblePoints,
+              value: '${distribution.points.length}',
+              accent: OpenHandStatusColors.info,
+            ),
+            KnowledgeDialogMetric(
+              icon: Icons.filter_alt_outlined,
+              label: l10n.knowledgeVectorSampled,
+              value: distribution.hasMore
+                  ? openHandLocalizedText(
+                      context,
+                      zh: '已采样',
+                      zhHant: '已取樣',
+                      en: 'Sampled',
+                      fr: 'Échantillonné',
+                      de: 'Abgetastet',
+                      ja: 'サンプル済み',
+                    )
+                  : openHandLocalizedText(
+                      context,
+                      zh: '全量',
+                      zhHant: '全量',
+                      en: 'Full',
+                      fr: 'Complet',
+                      de: 'Vollständig',
+                      ja: '全量',
+                    ),
+              accent: OpenHandStatusColors.warning,
+            ),
+            if (distribution.durationMs != null)
+              KnowledgeDialogMetric(
+                icon: Icons.timer_outlined,
+                label: l10n.knowledgeVectorDurationMs,
+                value: '${distribution.durationMs}',
+                accent: OpenHandStatusColors.success,
+              ),
+          ],
+        ),
+        kOpenHandGap12,
         KnowledgeDialogSection(
-          title: l10n.knowledgeVectorDistributionTitle,
-          icon: Icons.scatter_plot_outlined,
+          title: l10n.knowledgeVectorProjectionSection,
+          icon: Icons.threed_rotation_rounded,
           accent: OpenHandStatusColors.info,
-          subtitle: l10n.knowledgeVectorProjectionSection,
+          margin: EdgeInsets.zero,
           child: KnowledgeVectorDistributionView(
             distribution: distribution,
             height: 480,
-          ),
-        ),
-        KnowledgeDialogSection(
-          title: l10n.knowledgeVectorProjectionSection,
-          icon: Icons.account_tree_outlined,
-          accent: Theme.of(context).colorScheme.tertiary,
-          margin: EdgeInsets.zero,
-          child: KnowledgeDialogKeyValueList(
-            rows: {
-              l10n.knowledgeVectorAlgorithm: distribution.algorithm,
-              l10n.knowledgeVectorOriginalDimensions:
-                  distribution.originalDimensions,
-              l10n.knowledgeVectorVisiblePoints: distribution.points.length,
-              l10n.knowledgeVectorSampled: distribution.hasMore,
-              if (distribution.durationMs != null)
-                l10n.knowledgeVectorDurationMs: distribution.durationMs,
-            },
           ),
         ),
       ],
