@@ -12,9 +12,10 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/buffered_console_log.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
-import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -29,6 +30,19 @@ import '../service/mcp_stdio_process_manager.dart';
 
 /// 包管理器的列举 / 查版本命令，可能要读本地安装树或访问 registry。
 const Duration _kPackageQueryTimeout = Duration(seconds: 10);
+
+const List<String> _kStdioProcessInfoKeys = <String>[
+  '状态',
+  'PID',
+  '运行时长',
+  '启动时间',
+];
+const List<String> _kStdioEnvMetricKeys = <String>[
+  '处理器数',
+  'Dart 版本',
+  '内存 (RSS)',
+  '线程数',
+];
 
 // STDIO 弹窗公共标题栏
 
@@ -556,113 +570,149 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final processInfo = McpStdioProcessManager.instance.infoFor(
       widget.server.name,
     );
-
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthCompact,
-      maxHeight: kOpenHandDialogHeightCompact,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _StdioDialogHeader(
-            icon: Icons.analytics_outlined,
-            title: l10n.mcpStdioDialogRuntimeDetailsTitle(widget.server.name),
-            subtitle: widget.server.summary,
-            actions: [
-              _StdioDialogHeaderAction(
-                tooltip: l10n.mcpStdioDialogRefresh,
-                icon: Icons.refresh_rounded,
-                onPressed: _loading ? null : _loadInfo,
-              ),
-            ],
+    final running = processInfo.isRunning;
+    final statusColor = running
+        ? OpenHandStatusColors.success
+        : colorScheme.onSurfaceVariant;
+    final processRows = <Widget>[
+      for (final key in _kStdioProcessInfoKeys)
+        if (_runtimeInfo.containsKey(key))
+          _InfoRow(
+            label: key,
+            value: _runtimeInfo[key]!,
+            accent: key == '状态' ? statusColor : null,
           ),
-          // 内容
-          Flexible(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView(
-                    padding: const EdgeInsets.all(20),
+    ];
+    final envMetrics =
+        <({IconData icon, String label, String value, Color accent})>[
+          for (final key in _kStdioEnvMetricKeys)
+            if (_runtimeInfo.containsKey(key))
+              (
+                icon: switch (key) {
+                  '处理器数' => Icons.speed_rounded,
+                  'Dart 版本' => Icons.code_rounded,
+                  '内存 (RSS)' => Icons.memory_rounded,
+                  _ => Icons.account_tree_outlined,
+                },
+                label: key,
+                value: _runtimeInfo[key]!,
+                accent: switch (key) {
+                  '处理器数' => OpenHandStatusColors.success,
+                  'Dart 版本' => const Color(0xff0175c2),
+                  '内存 (RSS)' => colorScheme.tertiary,
+                  _ => OpenHandStatusColors.caution,
+                },
+              ),
+        ];
+    final envRows = <Widget>[
+      for (final entry in _runtimeInfo.entries)
+        if (!_kStdioProcessInfoKeys.contains(entry.key) &&
+            !_kStdioEnvMetricKeys.contains(entry.key))
+          _InfoRow(label: entry.key, value: entry.value),
+    ];
+    return OpenHandEditorDialogScaffold(
+      title: l10n.mcpStdioDialogRuntimeDetailsTitle(widget.server.name),
+      subtitle: widget.server.summary,
+      icon: Icons.analytics_outlined,
+      iconColor: statusColor,
+      busy: _loading,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
+      headerActions: [
+        IconButton(
+          tooltip: l10n.mcpStdioDialogRefresh,
+          onPressed: _loading ? null : _loadInfo,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
+      actions: const <Widget>[],
+      body: _loading
+          ? OpenHandTintedPanel(
+              accent: statusColor,
+              child: const SizedBox(
+                height: 160,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _InfoSection(
+                  title: l10n.mcpStdioDialogProcessStatus,
+                  icon: Icons.memory_rounded,
+                  color: statusColor,
+                  trailing: OhPill(
+                    icon: running
+                        ? Icons.play_circle_rounded
+                        : Icons.stop_circle_outlined,
+                    label:
+                        _runtimeInfo['状态'] ??
+                        (running
+                            ? l10n.mcpStdioDialogYes
+                            : l10n.mcpStdioDialogNo),
+                    foregroundColor: statusColor,
+                  ),
+                  children: processRows,
+                ),
+                _InfoSection(
+                  title: l10n.mcpStdioDialogServiceConfig,
+                  icon: Icons.settings_rounded,
+                  color: colorScheme.secondary,
+                  children: [
+                    _InfoRow(label: l10n.mcpStdioDialogType, value: 'STDIO'),
+                    _InfoRow(
+                      label: l10n.mcpStdioDialogCommand,
+                      value: widget.server.command,
+                    ),
+                    if (widget.server.args.isNotEmpty)
+                      _InfoRow(
+                        label: l10n.mcpStdioDialogArgs,
+                        value: widget.server.args.join(' '),
+                      ),
+                    _InfoRow(
+                      label: l10n.mcpStdioDialogEnabled,
+                      value: widget.server.enabled
+                          ? l10n.mcpStdioDialogYes
+                          : l10n.mcpStdioDialogNo,
+                      accent: widget.server.enabled
+                          ? OpenHandStatusColors.success
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+                _InfoSection(
+                  title: l10n.mcpStdioDialogEnvironment,
+                  icon: Icons.computer_rounded,
+                  color: colorScheme.tertiary,
+                  children: [
+                    if (envMetrics.isNotEmpty)
+                      _StdioMetricStrip(items: envMetrics),
+                    ...envRows,
+                  ],
+                ),
+                if (processInfo.errorMessage != null)
+                  _InfoSection(
+                    title: l10n.mcpStdioDialogError,
+                    icon: Icons.error_outline_rounded,
+                    color: colorScheme.error,
                     children: [
-                      // 进程状态
-                      _InfoSection(
-                        title: l10n.mcpStdioDialogProcessStatus,
-                        icon: Icons.memory_rounded,
-                        color: processInfo.isRunning
-                            ? OpenHandStatusColors.success
-                            : theme.colorScheme.onSurfaceVariant,
-                        children: [
-                          for (final entry in _runtimeInfo.entries.take(5))
-                            _InfoRow(label: entry.key, value: entry.value),
-                        ],
-                      ),
-                      kOpenHandGap16,
-                      // 服务配置
-                      _InfoSection(
-                        title: l10n.mcpStdioDialogServiceConfig,
-                        icon: Icons.settings_rounded,
-                        children: [
-                          _InfoRow(
-                            label: l10n.mcpStdioDialogType,
-                            value: 'STDIO',
-                          ),
-                          _InfoRow(
-                            label: l10n.mcpStdioDialogCommand,
-                            value: widget.server.command,
-                          ),
-                          if (widget.server.args.isNotEmpty)
-                            _InfoRow(
-                              label: l10n.mcpStdioDialogArgs,
-                              value: widget.server.args.join(' '),
-                            ),
-                          _InfoRow(
-                            label: l10n.mcpStdioDialogEnabled,
-                            value: widget.server.enabled
-                                ? l10n.mcpStdioDialogYes
-                                : l10n.mcpStdioDialogNo,
-                          ),
-                        ],
-                      ),
-                      kOpenHandGap16,
-                      // 环境信息
-                      _InfoSection(
-                        title: l10n.mcpStdioDialogEnvironment,
-                        icon: Icons.computer_rounded,
-                        children: [
-                          for (final entry in _runtimeInfo.entries.skip(5))
-                            _InfoRow(label: entry.key, value: entry.value),
-                        ],
-                      ),
-                      if (processInfo.errorMessage != null) ...[
-                        kOpenHandGap16,
-                        _InfoSection(
-                          title: l10n.mcpStdioDialogError,
-                          icon: Icons.error_outline_rounded,
-                          color: theme.colorScheme.error,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Text(
-                                processInfo.errorMessage!,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.error,
-                                  fontFamily: kOpenHandMonospaceFontFamily,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                          ],
+                      SelectableText(
+                        processInfo.errorMessage!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.error,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
+                      ),
                     ],
                   ),
-          ),
-        ],
-      ),
+              ],
+            ),
     );
   }
 }
@@ -673,89 +723,149 @@ class _InfoSection extends StatelessWidget {
     required this.icon,
     required this.children,
     this.color,
+    this.trailing,
   });
 
   final String title;
   final IconData icon;
   final List<Widget> children;
   final Color? color;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final outline = Theme.of(context).colorScheme.outlineVariant;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: OpenHandDialogSectionCard(
+        icon: icon,
+        title: title,
+        accent: color,
+        trailing: trailing,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var index = 0; index < children.length; index++) ...[
+              if (index > 0)
+                Divider(height: 18, color: outline.withValues(alpha: 0.45)),
+              children[index],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StdioMetricStrip extends StatelessWidget {
+  const _StdioMetricStrip({required this.items});
+
+  final List<({IconData icon, String label, String value, Color accent})> items;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final effectiveColor = color ?? theme.colorScheme.primary;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 560.0;
+        final columns = maxWidth >= 520 ? 2 : 1;
+        const gap = 10.0;
+        final width = columns == 1 ? maxWidth : (maxWidth - gap) / 2;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
           children: [
-            Icon(icon, size: 16, color: effectiveColor),
-            kOpenHandHGap8,
-            Text(
-              title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: effectiveColor,
+            for (final item in items)
+              SizedBox(
+                width: width,
+                child: OpenHandTintedPanel(
+                  accent: item.accent,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Row(
+                    children: [
+                      Icon(item.icon, size: 18, color: item.accent),
+                      kOpenHandHGap8,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: item.accent,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            kOpenHandGap2,
+                            Text(
+                              item.value,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                height: 1.25,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
           ],
-        ),
-        kOpenHandGap8,
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(
-              alpha: 0.3,
-            ),
-            borderRadius: BorderRadius.circular(kOpenHandRadius10),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
+  const _InfoRow({required this.label, required this.value, this.accent});
 
   final String label;
   final String value;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: SelectableText(
-              value,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface,
-                fontFamily: kOpenHandMonospaceFontFamily,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final colorScheme = theme.colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 420;
+        final labelStyle = theme.textTheme.labelLarge?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        );
+        final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+          color: accent ?? colorScheme.onSurface,
+          fontWeight: accent == null ? FontWeight.w500 : FontWeight.w700,
+          height: 1.35,
+        );
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: labelStyle),
+              kOpenHandGap4,
+              SelectableText(value, style: valueStyle),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 108, child: Text(label, style: labelStyle)),
+            kOpenHandHGap12,
+            Expanded(child: SelectableText(value, style: valueStyle)),
+          ],
+        );
+      },
     );
   }
 }
@@ -1055,152 +1165,161 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog>
         _installedVersion != null &&
         _latestVersion != _installedVersion;
 
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
+    final colorScheme = theme.colorScheme;
+    final statusColor = _packageInstalled
+        ? (hasUpdate
+              ? OpenHandStatusColors.warning
+              : OpenHandStatusColors.success)
+        : colorScheme.onSurfaceVariant;
+    final showLog = logLines.isNotEmpty || _operating;
+    return OpenHandEditorDialogScaffold(
+      title: l10n.mcpStdioDialogDepsTitle,
+      subtitle: cleanPkg.isEmpty ? widget.server.summary : cleanPkg,
+      icon: Icons.inventory_2_outlined,
+      iconColor: statusColor,
+      busy: _operating || _checking,
+      scrollBody: !showLog,
       maxWidth: kOpenHandDialogWidthStandard,
-      maxHeight: kOpenHandDialogHeightCompact,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      maxHeight: kOpenHandDialogHeightStandard,
+      actions: const <Widget>[],
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _StdioDialogHeader(
-            icon: Icons.inventory_2_outlined,
-            title: l10n.mcpStdioDialogDepsTitle,
-            subtitle: cleanPkg,
-          ),
-          // 状态 + 操作按钮
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-            child: OpenHandContentStateSwitcher(
-              stateKey: _checking
-                  ? 'checking'
-                  : (!_isPackageManagerService || cleanPkg.isEmpty)
-                  ? 'unmanaged'
-                  : 'ready',
-              child: _checking
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
+          OpenHandContentStateSwitcher(
+            stateKey: _checking
+                ? 'checking'
+                : (!_isPackageManagerService || cleanPkg.isEmpty)
+                ? 'unmanaged'
+                : 'ready',
+            child: _checking
+                ? OpenHandTintedPanel(
+                    accent: colorScheme.primary,
+                    child: const SizedBox(
+                      height: 88,
+                      child: Center(
                         child: SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 22,
+                          height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2.2),
                         ),
                       ),
-                    )
-                  : !_isPackageManagerService || cleanPkg.isEmpty
-                  ? Text(
+                    ),
+                  )
+                : !_isPackageManagerService || cleanPkg.isEmpty
+                ? OpenHandTintedPanel(
+                    accent: colorScheme.tertiary,
+                    icon: Icons.info_outline_rounded,
+                    title: l10n.mcpStdioDialogDepsTitle,
+                    child: Text(
                       l10n.mcpStdioDialogNoDepsToManage,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.4,
                       ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    ),
+                  )
+                : OpenHandDialogSectionCard(
+                    icon: _packageInstalled
+                        ? Icons.verified_rounded
+                        : Icons.cloud_off_outlined,
+                    title: _packageInstalled
+                        ? l10n.mcpStdioDialogInstalledVersion(
+                            _installedVersion ??
+                                l10n.mcpStdioDialogUnknownVersion,
+                          )
+                        : l10n.mcpStdioDialogNotGloballyInstalled,
+                    subtitle: _latestVersion == null
+                        ? null
+                        : l10n.mcpStdioDialogLatestVersion(_latestVersion!) +
+                              (hasUpdate
+                                  ? l10n.mcpStdioDialogUpdateAvailableSuffix
+                                  : ''),
+                    accent: statusColor,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              _packageInstalled
-                                  ? Icons.check_circle
-                                  : Icons.cancel,
-                              size: 18,
-                              color: _packageInstalled
-                                  ? OpenHandStatusColors.success
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            kOpenHandHGap8,
-                            Expanded(
-                              child: Text(
-                                _packageInstalled
-                                    ? l10n.mcpStdioDialogInstalledVersion(
-                                        _installedVersion ??
-                                            l10n.mcpStdioDialogUnknownVersion,
-                                      )
-                                    : l10n.mcpStdioDialogNotGloballyInstalled,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            // 操作按钮
-                            if (!_packageInstalled)
-                              FilledButton.tonalIcon(
-                                onPressed: _operating ? null : _installDeps,
-                                icon: const Icon(
-                                  Icons.download_rounded,
-                                  size: 18,
-                                ),
-                                label: Text(l10n.mcpStdioDialogInstall),
-                              )
-                            else ...[
-                              if (hasUpdate)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: FilledButton.tonalIcon(
-                                    onPressed: _operating ? null : _updateDeps,
-                                    icon: const Icon(
-                                      Icons.system_update_alt_rounded,
-                                      size: 18,
-                                    ),
-                                    label: Text(l10n.mcpStdioDialogUpdate),
-                                  ),
-                                ),
-                              IconButton.filledTonal(
-                                tooltip: l10n.mcpStdioDialogUninstall,
-                                onPressed: _operating ? null : _uninstallDeps,
-                                style: IconButton.styleFrom(
-                                  foregroundColor: theme.colorScheme.error,
-                                ),
-                                icon: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 18,
-                                ),
-                              ),
-                            ],
-                          ],
+                        OhPill(
+                          icon: _packageInstalled
+                              ? Icons.check_circle_rounded
+                              : Icons.cancel_outlined,
+                          label: _packageInstalled
+                              ? l10n.mcpStdioDialogYes
+                              : l10n.mcpStdioDialogNotGloballyInstalled,
+                          foregroundColor: statusColor,
                         ),
-                        if (_latestVersion != null) ...[
-                          kOpenHandGap6,
-                          Text(
-                            l10n.mcpStdioDialogLatestVersion(_latestVersion!) +
-                                (hasUpdate
-                                    ? l10n.mcpStdioDialogUpdateAvailableSuffix
-                                    : ''),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: hasUpdate
-                                  ? OpenHandStatusColors.warning
-                                  : theme.colorScheme.onSurfaceVariant,
+                        if (_installedVersion != null)
+                          OhPill(
+                            icon: Icons.verified_rounded,
+                            label: 'v$_installedVersion',
+                            foregroundColor: OpenHandStatusColors.success,
+                          ),
+                        if (_latestVersion != null)
+                          OhPill(
+                            icon: hasUpdate
+                                ? Icons.north_east_rounded
+                                : Icons.new_releases_outlined,
+                            label: 'v$_latestVersion',
+                            foregroundColor: hasUpdate
+                                ? OpenHandStatusColors.warning
+                                : OpenHandStatusColors.info,
+                          ),
+                        if (!_packageInstalled)
+                          OpenHandCompactActionChip(
+                            icon: Icons.download_rounded,
+                            label: l10n.mcpStdioDialogInstall,
+                            accent: OpenHandStatusColors.info,
+                            onPressed: _operating ? null : _installDeps,
+                          )
+                        else ...[
+                          if (hasUpdate)
+                            OpenHandCompactActionChip(
+                              icon: Icons.system_update_alt_rounded,
+                              label: l10n.mcpStdioDialogUpdate,
+                              accent: OpenHandStatusColors.warning,
+                              onPressed: _operating ? null : _updateDeps,
                             ),
+                          OpenHandCompactActionChip(
+                            icon: Icons.delete_outline_rounded,
+                            label: l10n.mcpStdioDialogUninstall,
+                            tone: OpenHandCompactActionTone.destructive,
+                            onPressed: _operating ? null : _uninstallDeps,
                           ),
                         ],
                       ],
                     ),
-            ),
+                  ),
           ),
-          OpenHandInlineErrorText(message: _error),
-          if (_operating)
-            LinearProgressIndicator(
-              minHeight: 3,
-              color: theme.colorScheme.primary,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            )
-          else
-            kOpenHandGap3,
-          if (logLines.isNotEmpty || _operating)
-            Flexible(
+          if (_error != null && _error!.trim().isNotEmpty) ...[
+            kOpenHandGap12,
+            OpenHandTintedPanel(
+              accent: colorScheme.error,
+              icon: Icons.error_outline_rounded,
+              child: Text(
+                _error!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+          if (showLog) ...[
+            kOpenHandGap12,
+            Expanded(
               child: OpenHandConsoleLogPanel(
                 lineCount: logLines.length,
                 lineAt: (index) => logLines[index],
                 controller: logScrollController,
                 onNotification: logScrollGuard.handleNotification,
-                margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                 emptyPlaceholder: const Padding(
                   padding: EdgeInsets.all(20),
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
             ),
+          ],
         ],
       ),
     );

@@ -2962,120 +2962,74 @@ class _WebGatewayConnectivityDialogState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final result = _result;
     final error = _error;
 
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
+    final statusColor = result == null
+        ? colorScheme.primary
+        : result.ok
+        ? OpenHandStatusColors.success
+        : colorScheme.error;
+    return OpenHandEditorDialogScaffold(
+      title: _messageGatewayPortConnectivityTestLabel(context),
+      subtitle: openHandLocalizedText(
+        context,
+        zh: '逐一探测当前可用 IP + 端口入口的 /api/health',
+        zhHant: '逐一探測目前可用 IP + 連接埠入口的 /api/health',
+        en: 'Probe /api/health for each available IP + port entry',
+        fr: 'Sonde /api/health pour chaque entrée IP + port disponible',
+        de: '/api/health für jeden verfügbaren IP- und Port-Eintrag prüfen',
+        ja: '利用可能なIP + ポート入口ごとに /api/health を検査',
+      ),
+      icon: Icons.network_check_rounded,
+      iconColor: statusColor,
+      busy: _running,
+      scrollBody: false,
       maxWidth: kOpenHandDialogWidthExtraWide,
-      maxHeight: kOpenHandDialogHeightTall,
-      minAvailableHeight: 420,
-      minHeight: 480,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 8, 12),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.network_check_rounded,
-                  color: result == null
-                      ? colorScheme.primary
-                      : result.ok
-                      ? OpenHandStatusColors.success
-                      : colorScheme.error,
-                ),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _messageGatewayPortConnectivityTestLabel(context),
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      kOpenHandGap2,
-                      Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '逐一探测当前可用 IP + 端口入口的 /api/health',
-                          zhHant: '逐一探測目前可用 IP + 連接埠入口的 /api/health',
-                          en: 'Probe /api/health for each available IP + port entry',
-                          fr: 'Sonde /api/health pour chaque entrée IP + port disponible',
-                          de: '/api/health für jeden verfügbaren IP- und Port-Eintrag prüfen',
-                          ja: '利用可能なIP + ポート入口ごとに /api/health を検査',
-                        ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    IconButton.filledTonal(
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: '复制结果 JSON',
-                        zhHant: '複製結果 JSON',
-                        en: 'Copy result JSON',
-                        fr: 'Copier le JSON du résultat',
-                        de: 'Ergebnis-JSON kopieren',
-                        ja: '結果JSONをコピー',
-                      ),
-                      onPressed: result == null
-                          ? null
-                          : () => _copyResult(result),
-                      icon: const Icon(Icons.content_copy_rounded),
-                    ),
-                    IconButton.filledTonal(
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: '重新测试',
-                        zhHant: '重新測試',
-                        en: 'Test again',
-                        fr: 'Relancer le test',
-                        de: 'Erneut testen',
-                        ja: '再テスト',
-                      ),
-                      onPressed: _running ? null : _run,
-                      icon: _running
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh_rounded),
-                    ),
-                    IconButton.filledTonal(
-                      tooltip: openHandCloseLabel(context),
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+      headerActions: [
+        IconButton(
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '复制结果 JSON',
+            zhHant: '複製結果 JSON',
+            en: 'Copy result JSON',
+            fr: 'Copier le JSON du résultat',
+            de: 'Ergebnis-JSON kopieren',
+            ja: '結果JSONをコピー',
           ),
-          const Divider(height: 1),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: openHandMotionDurationMs(context, 260),
-              switchInCurve: kOpenHandEntranceCurve,
-              switchOutCurve: kOpenHandSwitchOutCurve,
-              child: error != null
-                  ? _ConnectivityErrorView(error: error)
-                  : result == null
-                  ? const _ConnectivityLoadingView()
-                  : _ConnectivityResultView(result: result),
-            ),
+          onPressed: result == null ? null : () => _copyResult(result),
+          icon: const Icon(Icons.content_copy_rounded),
+        ),
+        IconButton(
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '重新测试',
+            zhHant: '重新測試',
+            en: 'Test again',
+            fr: 'Relancer le test',
+            de: 'Erneut testen',
+            ja: '再テスト',
           ),
-        ],
+          onPressed: _running ? null : _run,
+          icon: _running
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_rounded),
+        ),
+      ],
+      actions: const <Widget>[],
+      body: AnimatedSwitcher(
+        duration: openHandMotionDurationMs(context, 260),
+        switchInCurve: kOpenHandEntranceCurve,
+        switchOutCurve: kOpenHandSwitchOutCurve,
+        child: error != null
+            ? _ConnectivityErrorView(error: error)
+            : result == null
+            ? const _ConnectivityLoadingView()
+            : _ConnectivityResultView(result: result),
       ),
     );
   }
@@ -3152,14 +3106,28 @@ class _ConnectivityErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          error,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.error,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: OpenHandTintedPanel(
+          accent: Theme.of(context).colorScheme.error,
+          icon: Icons.error_outline_rounded,
+          title: openHandLocalizedText(
+            context,
+            zh: '探测失败',
+            zhHant: '探測失敗',
+            en: 'Probe failed',
+            fr: 'Sonde échouée',
+            de: 'Prüfung fehlgeschlagen',
+            ja: '検査に失敗',
+          ),
+          child: Text(
+            error,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ),
@@ -3176,64 +3144,34 @@ class _ConnectivityResultView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final tone = result.ok ? OpenHandStatusColors.success : colorScheme.error;
     return SingleChildScrollView(
       primary: false,
       physics: kOpenHandClampingPhysics,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color:
-                  (result.ok ? OpenHandStatusColors.success : colorScheme.error)
-                      .withValues(alpha: .10),
-              borderRadius: kOpenHandBorderRadius14,
-              border: Border.all(
-                color:
-                    (result.ok
-                            ? OpenHandStatusColors.success
-                            : colorScheme.error)
-                        .withValues(alpha: .35),
+          OpenHandTintedPanel(
+            accent: tone,
+            icon: result.ok
+                ? Icons.check_circle_outline_rounded
+                : Icons.error_outline_rounded,
+            title: result.summary,
+            child: Text(
+              openHandLocalizedText(
+                context,
+                zh: '${formatYearMonthDayHmsLocal(result.startedAt)} · 总耗时 ${result.durationMs}ms',
+                zhHant:
+                    '${formatYearMonthDayHmsLocal(result.startedAt)} · 總耗時 ${result.durationMs}ms',
+                en: '${formatYearMonthDayHmsLocal(result.startedAt)} · Total ${result.durationMs}ms',
+                fr: '${formatYearMonthDayHmsLocal(result.startedAt)} · Total ${result.durationMs}ms',
+                de: '${formatYearMonthDayHmsLocal(result.startedAt)} · Gesamt ${result.durationMs}ms',
+                ja: '${formatYearMonthDayHmsLocal(result.startedAt)} · 合計 ${result.durationMs}ms',
               ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  result.ok
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.error_outline_rounded,
-                  color: result.ok
-                      ? OpenHandStatusColors.success
-                      : colorScheme.error,
-                ),
-                kOpenHandHGap12,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(result.summary, style: theme.textTheme.titleMedium),
-                      kOpenHandGap4,
-                      Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '${formatYearMonthDayHmsLocal(result.startedAt)} · 总耗时 ${result.durationMs}ms',
-                          zhHant:
-                              '${formatYearMonthDayHmsLocal(result.startedAt)} · 總耗時 ${result.durationMs}ms',
-                          en: '${formatYearMonthDayHmsLocal(result.startedAt)} · Total ${result.durationMs}ms',
-                          fr: '${formatYearMonthDayHmsLocal(result.startedAt)} · Total ${result.durationMs}ms',
-                          de: '${formatYearMonthDayHmsLocal(result.startedAt)} · Gesamt ${result.durationMs}ms',
-                          ja: '${formatYearMonthDayHmsLocal(result.startedAt)} · 合計 ${result.durationMs}ms',
-                        ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           kOpenHandGap14,
@@ -3255,6 +3193,7 @@ class _ConnectivityResultView extends StatelessWidget {
                       ja: '入口数',
                     ),
                     value: '${result.targets.length}',
+                    accent: OpenHandStatusColors.info,
                   ),
                   _MetricTile(
                     label: openHandLocalizedText(
@@ -3267,6 +3206,7 @@ class _ConnectivityResultView extends StatelessWidget {
                       ja: '接続可',
                     ),
                     value: '${result.successCount}',
+                    accent: OpenHandStatusColors.success,
                   ),
                   _MetricTile(
                     label: openHandLocalizedText(
@@ -3279,18 +3219,21 @@ class _ConnectivityResultView extends StatelessWidget {
                       ja: '失敗',
                     ),
                     value: '${result.failureCount}',
+                    accent: colorScheme.error,
                   ),
                   _MetricTile(
                     label: openHandTotalTimeLabel(context),
                     value: '${result.durationMs}ms',
+                    accent: colorScheme.tertiary,
                   ),
                 ],
               );
             },
           ),
           kOpenHandGap18,
-          _SectionTitle(
-            openHandLocalizedText(
+          OpenHandDialogSectionCard(
+            icon: Icons.monitor_heart_outlined,
+            title: openHandLocalizedText(
               context,
               zh: '入口探测结果',
               zhHant: '入口探測結果',
@@ -3299,32 +3242,40 @@ class _ConnectivityResultView extends StatelessWidget {
               de: 'Ergebnisse der Eintragsprüfung',
               ja: '入口検査結果',
             ),
-            icon: Icons.monitor_heart_outlined,
+            accent: OpenHandStatusColors.info,
+            child: result.targets.isEmpty
+                ? Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '当前服务没有可测试入口。请先启动 Web 通用消息平台服务。',
+                      zhHant: '目前服務沒有可測試入口。請先啟動 Web 通用訊息平台服務。',
+                      en: 'The current service has no testable entries. Start the web message platform service first.',
+                      fr: 'Le service actuel n’a aucune entrée testable. Démarrez d’abord la passerelle web.',
+                      de: 'Der aktuelle Dienst hat keine testbaren Einträge. Starten Sie zuerst den Webnachrichtendienst.',
+                      ja: '現在のサービスにはテスト可能な入口がありません。先にWebメッセージプラットフォームサービスを起動してください。',
+                    ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : Column(
+                    children: [
+                      for (
+                        var index = 0;
+                        index < result.targets.length;
+                        index++
+                      )
+                        _ConnectivityTargetCard(
+                          target: result.targets[index],
+                          index: index,
+                        ),
+                    ],
+                  ),
           ),
-          if (result.targets.isEmpty)
-            Text(
-              openHandLocalizedText(
-                context,
-                zh: '当前服务没有可测试入口。请先启动 Web 通用消息平台服务。',
-                zhHant: '目前服務沒有可測試入口。請先啟動 Web 通用訊息平台服務。',
-                en: 'The current service has no testable entries. Start the web message platform service first.',
-                fr: 'Le service actuel n’a aucune entrée testable. Démarrez d’abord la passerelle web.',
-                de: 'Der aktuelle Dienst hat keine testbaren Einträge. Starten Sie zuerst den Webnachrichtendienst.',
-                ja: '現在のサービスにはテスト可能な入口がありません。先にWebメッセージプラットフォームサービスを起動してください。',
-              ),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            )
-          else
-            for (var index = 0; index < result.targets.length; index++)
-              _ConnectivityTargetCard(
-                target: result.targets[index],
-                index: index,
-              ),
-          kOpenHandGap18,
-          _SectionTitle(
-            openHandLocalizedText(
+          kOpenHandGap14,
+          OpenHandDialogSectionCard(
+            icon: Icons.article_outlined,
+            title: openHandLocalizedText(
               context,
               zh: '测试流程日志',
               zhHant: '測試流程日誌',
@@ -3333,33 +3284,36 @@ class _ConnectivityResultView extends StatelessWidget {
               de: 'Testablauf-Protokolle',
               ja: 'テストフローログ',
             ),
-            icon: Icons.article_outlined,
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _webGatewayDarkSurface,
-              borderRadius: kOpenHandBorderRadius12,
-              border: Border.all(color: colorScheme.outlineVariant),
-            ),
-            child: SelectableText(
-              result.logs.isEmpty
-                  ? openHandLocalizedText(
-                      context,
-                      zh: '暂无流程日志',
-                      zhHant: '暫無流程日誌',
-                      en: 'No flow logs yet',
-                      fr: 'Aucun journal de test',
-                      de: 'Noch keine Ablaufprotokolle',
-                      ja: 'フローログはまだありません',
-                    )
-                  : result.logs.join('\n'),
-              style: const TextStyle(
-                fontFamily: kOpenHandMonospaceFontFamily,
-                fontSize: 12,
-                height: 1.45,
-                color: _webGatewayLightGray,
+            accent: colorScheme.tertiary,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: _webGatewayDarkSurface,
+                borderRadius: kOpenHandBorderRadius16,
+                border: Border.all(
+                  color: colorScheme.tertiary.withValues(alpha: 0.28),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: SelectableText(
+                  result.logs.isEmpty
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '暂无流程日志',
+                          zhHant: '暫無流程日誌',
+                          en: 'No flow logs yet',
+                          fr: 'Aucun journal de test',
+                          de: 'Noch keine Ablaufprotokolle',
+                          ja: 'フローログはまだありません',
+                        )
+                      : result.logs.join('\n'),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                    height: 1.45,
+                    color: _webGatewayLightGray,
+                  ),
+                ),
               ),
             ),
           ),
@@ -3386,9 +3340,12 @@ class _ConnectivityTargetCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: .42),
-        borderRadius: kOpenHandBorderRadius12,
-        border: Border.all(color: stateColor.withValues(alpha: .32)),
+        color: Color.alphaBlend(
+          stateColor.withValues(alpha: 0.08),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: stateColor.withValues(alpha: 0.28)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -8369,32 +8326,28 @@ String _formatStructuredValue(Object? value) {
 }
 
 class _MetricTile extends StatelessWidget {
-  const _MetricTile({required this.label, required this.value});
+  const _MetricTile({required this.label, required this.value, this.accent});
 
   final String label;
   final String value;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final tone = accent ?? colorScheme.primary;
     return AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
       curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.62),
-        borderRadius: kOpenHandBorderRadius8,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        color: Color.alphaBlend(
+          tone.withValues(alpha: 0.08),
+          colorScheme.surfaceContainerLow,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 7),
-          ),
-        ],
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: tone.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -8405,7 +8358,7 @@ class _MetricTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: tone,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -8415,6 +8368,7 @@ class _MetricTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleMedium?.copyWith(
+              color: tone,
               fontWeight: FontWeight.w900,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),

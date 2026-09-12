@@ -4,20 +4,22 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_message_markdown_theme.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
+import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -29,6 +31,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_search.dart';
+import '../../home/index.dart' show OpenHandHighlightedCodeBlockBuilder;
 import '../knowledge_base_controller.dart';
 import '../knowledge_base_errors.dart';
 import '../model/knowledge_chunk.dart';
@@ -489,67 +492,28 @@ class _KnowledgeSourceContentDialogState
 
   @override
   Widget build(BuildContext context) {
-    final dialogHeight = math.min(
-      MediaQuery.sizeOf(context).height * 0.82,
-      760.0,
-    );
     final snapshot = _snapshot;
-    return buildOpenHandAlertDialog(
-      title: Text(
-        openHandLocalizedText(
-          context,
-          zh: '查看知识库文档',
-          zhHant: '查看知識庫文件',
-          en: 'View Knowledge Source',
-          fr: 'Voir la source de connaissance',
-          de: 'Wissensquelle anzeigen',
-          ja: 'ナレッジソースを表示',
-        ),
+    final colorScheme = Theme.of(context).colorScheme;
+    final source = snapshot?.source;
+    return OpenHandEditorDialogScaffold(
+      title: openHandLocalizedText(
+        context,
+        zh: '查看知识库文档',
+        zhHant: '查看知識庫文件',
+        en: 'View Knowledge Source',
+        fr: 'Voir la source de connaissance',
+        de: 'Wissensquelle anzeigen',
+        ja: 'ナレッジソースを表示',
       ),
-      content: buildOpenHandDialogConstrainedContent(
-        width: 980,
-        height: dialogHeight,
-        child: OpenHandContentStateSwitcher(
-          // 外层 SizedBox 已定高，这里只做淡入淡出。
-          animateSize: false,
-          stateKey: _loading
-              ? 'loading'
-              : _loadError != null
-              ? 'error'
-              : snapshot?.source == null
-              ? 'missing'
-              : 'content',
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _loadError != null
-              ? KnowledgeDialogNotice(
-                  icon: Icons.error_outline_rounded,
-                  message: openHandLocalizedText(
-                    context,
-                    zh: '文档内容加载失败：$_loadError',
-                    zhHant: '文件內容載入失敗：$_loadError',
-                    en: 'Failed to load document content: $_loadError',
-                    fr: 'Échec du chargement du contenu : $_loadError',
-                    de: 'Dokumentinhalt konnte nicht geladen werden: $_loadError',
-                    ja: 'ドキュメント内容の読み込みに失敗しました: $_loadError',
-                  ),
-                  error: true,
-                )
-              : snapshot?.source == null
-              ? KnowledgeDialogNotice(
-                  icon: Icons.info_outline_rounded,
-                  message: knowledgeSourceMissingMessage(context),
-                )
-              : _KnowledgeSourceContentBody(
-                  snapshot: snapshot!,
-                  contentController: _sourceController,
-                  preview: _preview,
-                  editable: _showEditActions,
-                  editorControls: _editorControls(),
-                  onPreviewChanged: (value) => setState(() => _preview = value),
-                ),
-        ),
-      ),
+      subtitle: source?.title,
+      icon: Icons.menu_book_rounded,
+      iconColor: source == null
+          ? colorScheme.primary
+          : knowledgeSourceKindAccent(source.kind, colorScheme),
+      busy: _saving || _loading,
+      scrollBody: false,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightFull,
       actions: [
         if (_showEditActions)
           OpenHandDialogActionButton.secondary(
@@ -581,13 +545,13 @@ class _KnowledgeSourceContentDialogState
             ),
           ),
         OpenHandDialogActionButton.secondary(
-          onPressed: snapshot?.source == null
+          onPressed: source == null
               ? null
               : () async {
                   await copyOpenHandTextToClipboard(
                     logTag: 'knowledge_base',
                     context: context,
-                    text: snapshot!.source!.originalPath,
+                    text: source.originalPath,
                     successMessage: knowledgePathCopiedMessage(context),
                     logAction: '复制知识源路径',
                   );
@@ -600,6 +564,50 @@ class _KnowledgeSourceContentDialogState
           label: openHandCloseLabel(context),
         ),
       ],
+      body: OpenHandContentStateSwitcher(
+        animateSize: false,
+        stateKey: _loading
+            ? 'loading'
+            : _loadError != null
+            ? 'error'
+            : snapshot?.source == null
+            ? 'missing'
+            : 'content',
+        child: _loading
+            ? OpenHandTintedPanel(
+                accent: colorScheme.primary,
+                child: const SizedBox.expand(
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              )
+            : _loadError != null
+            ? KnowledgeDialogNotice(
+                icon: Icons.error_outline_rounded,
+                message: openHandLocalizedText(
+                  context,
+                  zh: '文档内容加载失败：$_loadError',
+                  zhHant: '文件內容載入失敗：$_loadError',
+                  en: 'Failed to load document content: $_loadError',
+                  fr: 'Échec du chargement du contenu : $_loadError',
+                  de: 'Dokumentinhalt konnte nicht geladen werden: $_loadError',
+                  ja: 'ドキュメント内容の読み込みに失敗しました: $_loadError',
+                ),
+                error: true,
+              )
+            : snapshot?.source == null
+            ? KnowledgeDialogNotice(
+                icon: Icons.info_outline_rounded,
+                message: knowledgeSourceMissingMessage(context),
+              )
+            : _KnowledgeSourceContentBody(
+                snapshot: snapshot!,
+                contentController: _sourceController,
+                preview: _preview,
+                editable: _showEditActions,
+                editorControls: _editorControls(),
+                onPreviewChanged: (value) => setState(() => _preview = value),
+              ),
+      ),
     );
   }
 }
@@ -1119,17 +1127,25 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
+                  DecoratedBox(
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
+                      color: knowledgeSourceKindAccent(
+                        source.kind,
+                        colorScheme,
+                      ).withValues(alpha: 0.16),
                       borderRadius: kOpenHandBorderRadius12,
                     ),
-                    child: Icon(
-                      knowledgeSourceKindIcon(source.kind),
-                      color: colorScheme.primary,
-                      size: 22,
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Icon(
+                        knowledgeSourceKindIcon(source.kind),
+                        color: knowledgeSourceKindAccent(
+                          source.kind,
+                          colorScheme,
+                        ),
+                        size: 22,
+                      ),
                     ),
                   ),
                   kOpenHandHGap12,
@@ -1234,38 +1250,29 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                         onChanged: onPreviewChanged,
                       ),
                     if (previewAvailable) kOpenHandHGap8,
-                    SizedBox(
-                      height: 48,
-                      child: FilledButton.tonalIcon(
-                        onPressed: text.trim().isEmpty
-                            ? null
-                            : () async {
-                                await copyOpenHandTextToClipboard(
-                                  logTag: 'knowledge_base',
-                                  context: context,
-                                  text: text,
-                                  successMessage: openHandLocalizedText(
-                                    context,
-                                    zh: '内容已复制。',
-                                    zhHant: '內容已複製。',
-                                    en: 'Content copied.',
-                                    fr: 'Contenu copié.',
-                                    de: 'Inhalt kopiert.',
-                                    ja: '内容をコピーしました。',
-                                  ),
-                                  logAction: '复制知识源内容',
-                                );
-                              },
-                        icon: const Icon(Icons.copy_all_rounded),
-                        label: Text(knowledgeCopyContentLabel(context)),
-                        style: FilledButton.styleFrom(
-                          visualDensity: const VisualDensity(
-                            horizontal: -1,
-                            vertical: -1,
-                          ),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
+                    OpenHandCompactActionChip(
+                      icon: Icons.copy_all_rounded,
+                      label: knowledgeCopyContentLabel(context),
+                      accent: colorScheme.secondary,
+                      onPressed: text.trim().isEmpty
+                          ? null
+                          : () async {
+                              await copyOpenHandTextToClipboard(
+                                logTag: 'knowledge_base',
+                                context: context,
+                                text: text,
+                                successMessage: openHandLocalizedText(
+                                  context,
+                                  zh: '内容已复制。',
+                                  zhHant: '內容已複製。',
+                                  en: 'Content copied.',
+                                  fr: 'Contenu copié.',
+                                  de: 'Inhalt kopiert.',
+                                  ja: '内容をコピーしました。',
+                                ),
+                                logAction: '复制知识源内容',
+                              );
+                            },
                     ),
                     kOpenHandHGap12,
                     Expanded(
@@ -1363,11 +1370,12 @@ class _KnowledgeViewerPanel extends StatelessWidget {
 BoxDecoration _knowledgeViewerPanelDecoration(BuildContext context) {
   final colorScheme = Theme.of(context).colorScheme;
   return BoxDecoration(
-    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
-    borderRadius: kOpenHandBorderRadius14,
-    border: Border.all(
-      color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+    color: Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.05),
+      colorScheme.surfaceContainerLow,
     ),
+    borderRadius: kOpenHandBorderRadius20,
+    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.16)),
   );
 }
 
@@ -1378,15 +1386,33 @@ class _KnowledgeMarkdownViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final markdownBackground = colorScheme.surfaceContainerLow;
+    final markdownTheme = OpenHandMessageMarkdownThemeData.resolve(
+      theme: theme,
+      backgroundColor: markdownBackground,
+      textColor: colorScheme.onSurface,
+    );
+    return DecoratedBox(
       decoration: _knowledgeViewerPanelDecoration(context),
-      child: Markdown(
-        data: text.trim(),
-        selectable: true,
-        softLineBreak: true,
-        extensionSet: md.ExtensionSet.gitHubFlavored,
-        padding: const EdgeInsets.all(14),
-        styleSheet: knowledgeMarkdownStyleSheet(context),
+      child: ColoredBox(
+        color: markdownBackground,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: OpenHandSafeMarkdownBody(
+            data: stripOpenHandMarkdownFrontMatter(text.trim()),
+            selectable: true,
+            styleSheet: markdownTheme.styleSheet,
+            builders: {
+              'code': markdownTheme.inlineCodeBuilder,
+              'pre': OpenHandHighlightedCodeBlockBuilder(
+                theme: theme,
+                baseColor: colorScheme.onSurface,
+              ),
+            },
+          ),
+        ),
       ),
     );
   }
