@@ -358,6 +358,7 @@ class OpenHandDialogSectionCard extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.accent,
+    this.onHeaderTap,
     this.padding = const EdgeInsets.fromLTRB(16, 14, 16, 16),
   });
 
@@ -367,6 +368,7 @@ class OpenHandDialogSectionCard extends StatelessWidget {
   final Widget? trailing;
   final Widget child;
   final Color? accent;
+  final VoidCallback? onHeaderTap;
   final EdgeInsetsGeometry padding;
 
   @override
@@ -374,6 +376,50 @@ class OpenHandDialogSectionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final tone = accent ?? colorScheme.primary;
+    final header = Row(
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: tone.withValues(alpha: 0.16),
+            borderRadius: kOpenHandBorderRadius12,
+          ),
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Center(child: Icon(icon, size: 18, color: tone)),
+          ),
+        ),
+        kOpenHandHGap10,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+                kOpenHandGap2,
+                Text(
+                  subtitle!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (trailing != null) ...[kOpenHandHGap8, trailing!],
+      ],
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Color.alphaBlend(
@@ -388,50 +434,17 @@ class OpenHandDialogSectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: tone.withValues(alpha: 0.16),
-                    borderRadius: kOpenHandBorderRadius12,
-                  ),
-                  child: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: Center(child: Icon(icon, size: 18, color: tone)),
-                  ),
+            if (onHeaderTap == null)
+              header
+            else
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onHeaderTap,
+                  borderRadius: kOpenHandBorderRadius12,
+                  child: header,
                 ),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-                        kOpenHandGap2,
-                        Text(
-                          subtitle!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            height: 1.35,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (trailing != null) ...[kOpenHandHGap8, trailing!],
-              ],
-            ),
+              ),
             kOpenHandGap14,
             child,
           ],

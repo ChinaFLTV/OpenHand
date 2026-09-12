@@ -120,7 +120,6 @@ const Duration _auditShimmerPeriod = kOpenHandMotion1400;
 const double _auditShimmerLineHeight = 14;
 const double _auditShimmerLastLineWidth = 180;
 const BorderRadius _auditShimmerRadius = kOpenHandBorderRadius6;
-const Duration _auditShellSizeDuration = kOpenHandMotion260;
 const Duration _auditToggleRotationDuration = kOpenHandMotion200;
 const Duration _auditContentSizeDuration = kOpenHandMotion220;
 const Curve _auditMotionCurve = kOpenHandEmphasizedTransitionCurve;
@@ -151,32 +150,14 @@ Widget _auditShimmerBlock({int lines = 3, double spacing = 8}) {
   );
 }
 
-/// 平滑处理审计区块展开或折叠引起的弹窗尺寸变化。
-class _AuditDialogSizeAnimator extends StatelessWidget {
-  const _AuditDialogSizeAnimator({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      child: AnimatedSize(
-        duration: openHandMotionDuration(context, _auditShellSizeDuration),
-        curve: _auditMotionCurve,
-        alignment: Alignment.topCenter,
-        child: child,
-      ),
-    );
-  }
-}
-
-/// 消息与会话审计弹窗共用的区块卡片，可选平滑折叠。
+/// 消息与会话审计弹窗共用的着色分区卡，可选平滑折叠。
 class _AuditSectionCard extends StatefulWidget {
   const _AuditSectionCard({
     required this.title,
     required this.child,
     this.subtitle,
     this.icon,
+    this.accent,
     this.collapsible = false,
     this.initiallyExpanded = true,
   });
@@ -184,12 +165,9 @@ class _AuditSectionCard extends StatefulWidget {
   final String title;
   final String? subtitle;
   final IconData? icon;
+  final Color? accent;
   final Widget child;
-
-  /// 正文是否可折叠。
   final bool collapsible;
-
-  /// 可折叠时是否默认展开。
   final bool initiallyExpanded;
 
   @override
@@ -201,90 +179,42 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: kOpenHandBorderRadius20,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: widget.collapsible
-                ? () => setState(() => _expanded = !_expanded)
-                : null,
-            borderRadius: kOpenHandBorderRadius12,
-            child: Row(
-              children: [
-                if (widget.icon != null) ...[
-                  Icon(widget.icon, size: 18, color: colorScheme.primary),
-                  kOpenHandHGap8,
-                ],
-                Expanded(
-                  child: Text(
-                    widget.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+    final colorScheme = Theme.of(context).colorScheme;
+    final tone = widget.accent ?? colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: OpenHandDialogSectionCard(
+        icon: widget.icon ?? Icons.layers_rounded,
+        title: widget.title,
+        subtitle: widget.subtitle,
+        accent: tone,
+        onHeaderTap: widget.collapsible
+            ? () => setState(() => _expanded = !_expanded)
+            : null,
+        trailing: widget.collapsible
+            ? AnimatedRotation(
+                turns: _expanded ? 0.5 : 0.0,
+                duration: openHandMotionDuration(
+                  context,
+                  _auditToggleRotationDuration,
                 ),
-                if (widget.collapsible)
-                  AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0.0,
-                    duration: openHandMotionDuration(
-                      context,
-                      _auditToggleRotationDuration,
-                    ),
-                    curve: _auditMotionCurve,
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      size: 20,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
+                curve: _auditMotionCurve,
+                child: Icon(Icons.expand_more_rounded, size: 20, color: tone),
+              )
+            : null,
+        child: ClipRect(
+          child: AnimatedSize(
+            duration: openHandMotionDuration(
+              context,
+              _auditContentSizeDuration,
             ),
+            curve: _auditMotionCurve,
+            alignment: Alignment.topLeft,
+            child: !widget.collapsible || _expanded
+                ? widget.child
+                : const SizedBox(width: double.infinity),
           ),
-          if (widget.subtitle != null) ...[
-            kOpenHandGap4,
-            Text(
-              widget.subtitle!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-          ClipRect(
-            child: AnimatedSize(
-              duration: openHandMotionDuration(
-                context,
-                _auditContentSizeDuration,
-              ),
-              curve: _auditMotionCurve,
-              alignment: Alignment.topLeft,
-              child: !widget.collapsible || _expanded
-                  ? KeyedSubtree(
-                      key: const ValueKey<String>('audit-section-expanded'),
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: widget.child,
-                      ),
-                    )
-                  : const KeyedSubtree(
-                      key: ValueKey<String>('audit-section-collapsed'),
-                      child: SizedBox(width: double.infinity, height: 0),
-                    ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -301,8 +231,6 @@ class _AuditKvRow extends StatelessWidget {
 
   final String label;
   final String? value;
-
-  /// 替代文本值的可选组件，用于流式微光占位。
   final Widget? valueWidget;
   final bool mono;
 
@@ -310,36 +238,33 @@ class _AuditKvRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final display = (value ?? '').trim().isEmpty ? '—' : value!.trim();
     final valueStyle =
         (mono
                 ? theme.textTheme.bodySmall?.copyWith(
                     fontFamily: kOpenHandMonospaceFontFamily,
                   )
                 : theme.textTheme.bodyMedium)
-            ?.copyWith(color: colorScheme.onSurface);
+            ?.copyWith(height: 1.4);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 160,
+            width: kOpenHandMetadataEntryLabelWidth,
             child: Text(
               label,
-              style: theme.textTheme.labelLarge?.copyWith(
+              style: theme.textTheme.labelMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
               ),
             ),
           ),
           kOpenHandHGap12,
           Expanded(
-            child:
-                valueWidget ??
-                SelectableText(
-                  (value ?? '').isEmpty ? '—' : value!,
-                  style: valueStyle,
-                ),
+            child: valueWidget ?? SelectableText(display, style: valueStyle),
           ),
         ],
       ),
@@ -347,8 +272,8 @@ class _AuditKvRow extends StatelessWidget {
   }
 }
 
-/// 支持复制并可平滑折叠的 JSON 区块，展开后走结构化 JSON 树。
-class _AuditJsonBlock extends StatefulWidget {
+/// 审计 JSON：走结构化树，空值用着色空态。
+class _AuditJsonBlock extends StatelessWidget {
   const _AuditJsonBlock({
     required this.label,
     required this.json,
@@ -361,15 +286,8 @@ class _AuditJsonBlock extends StatefulWidget {
   final bool initiallyExpanded;
   final String? emptyHint;
 
-  @override
-  State<_AuditJsonBlock> createState() => _AuditJsonBlockState();
-}
-
-class _AuditJsonBlockState extends State<_AuditJsonBlock> {
-  late bool _expanded = widget.initiallyExpanded;
-
   bool get _isEmpty {
-    final value = widget.json;
+    final value = json;
     if (value == null) return true;
     if (value is Map && value.isEmpty) return true;
     if (value is Iterable && value.isEmpty) return true;
@@ -381,109 +299,25 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final rendered = _isEmpty ? '' : _auditFormatJson(widget.json);
-    final emptyHint =
-        widget.emptyHint ?? AppLocalizations.of(context)!.auditNoData;
-    return Container(
-      margin: const EdgeInsets.only(top: 6, bottom: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: kOpenHandBorderRadius14,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: _isEmpty
-                ? null
-                : () => setState(() => _expanded = !_expanded),
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(kOpenHandRadius14),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-              child: Row(
-                children: [
-                  AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0.0,
-                    duration: openHandMotionDuration(
-                      context,
-                      _auditToggleRotationDuration,
-                    ),
-                    curve: _auditMotionCurve,
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      size: 18,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  kOpenHandHGap6,
-                  Expanded(
-                    child: Text(
-                      widget.label,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  if (!_isEmpty)
-                    IconButton(
-                      tooltip: AppLocalizations.of(context)!.auditCopyJson,
-                      icon: const Icon(Icons.copy_all_rounded, size: 18),
-                      onPressed: () async {
-                        await copyOpenHandTextToClipboard(
-                          logTag: 'home',
-                          context: context,
-                          text: rendered,
-                          successMessage: AppLocalizations.of(
-                            context,
-                          )!.auditCopiedToClipboard,
-                          logAction: '复制审计 JSON',
-                        );
-                      },
-                    ),
-                ],
-              ),
-            ),
+    if (_isEmpty) {
+      return OpenHandTintedPanel(
+        accent: colorScheme.outline,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Text(
+          emptyHint ?? AppLocalizations.of(context)!.auditNoData,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.4,
+            fontWeight: FontWeight.w600,
           ),
-          if (_isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-              child: Text(
-                emptyHint,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            )
-          else
-            ClipRect(
-              child: AnimatedSize(
-                duration: openHandMotionDuration(
-                  context,
-                  _auditContentSizeDuration,
-                ),
-                curve: _auditMotionCurve,
-                alignment: Alignment.topLeft,
-                child: _expanded
-                    ? KeyedSubtree(
-                        key: const ValueKey<String>('audit-json-expanded'),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                          child: OpenHandJsonTreeView.fromValue(
-                            value: widget.json,
-                            logTag: 'session_audit',
-                          ),
-                        ),
-                      )
-                    : const KeyedSubtree(
-                        key: ValueKey<String>('audit-json-collapsed'),
-                        child: SizedBox.shrink(),
-                      ),
-              ),
-            ),
-        ],
-      ),
+        ),
+      );
+    }
+    return OpenHandJsonTreeView.fromValue(
+      value: json,
+      label: label,
+      logTag: 'session_audit',
+      enableFullView: !initiallyExpanded,
     );
   }
 }
@@ -560,9 +394,6 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
     final relatedMessage = _auditRelatedTelemetryMessage(session, message);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final size = MediaQuery.sizeOf(context);
-    final maxWidth = size.width * 0.88;
-    final maxHeight = size.height * 0.88;
     final metadata = Map<String, Object?>.from(message.metadata);
     final relatedMetadata = relatedMessage == null
         ? const <String, Object?>{}
@@ -817,543 +648,531 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 previousToolCatalogHash.isNotEmpty &&
                 toolCatalogHash != previousToolCatalogHash));
 
-    return _AuditDialogSizeAnimator(
-      child: buildOpenHandAlertDialog(
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        surfaceTintColor: Colors.transparent,
-        titlePadding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
-        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        shape: const RoundedRectangleBorder(
-          borderRadius: kOpenHandBorderRadius26,
+    final kindStyle = _auditMessageKindStyle(colorScheme, message.kind);
+    final hasError = error != null && error.isNotEmpty;
+    final statusAccent = hasError
+        ? OpenHandStatusColors.error
+        : streaming
+        ? OpenHandStatusColors.warning
+        : OpenHandStatusColors.success;
+    final statusLabel = hasError
+        ? openHandLocalizedText(context, zh: '报错', en: 'Error')
+        : streaming
+        ? openHandLocalizedText(context, zh: '流式中', en: 'Streaming')
+        : openHandLocalizedText(context, zh: '已完成', en: 'Complete');
+    final tokenLabel = displayUsage?.totalTokens != null
+        ? '${displayUsage!.totalTokens}'
+        : estimatedTotalTokens == null
+        ? '—'
+        : '~$estimatedTotalTokens';
+
+    return OpenHandEditorDialogScaffold(
+      title: AppLocalizations.of(context)!.auditMessageAudit,
+      subtitle:
+          '${message.kind.storageValue} · ${clipTextByCodeUnits(message.id, 18, suffix: '…')}',
+      icon: kindStyle.icon,
+      iconColor: kindStyle.accent,
+      maxHeight: kOpenHandDialogHeightFull,
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () async {
+            final payload = <String, Object?>{
+              'message': message.toJson(),
+              'session_id': session.id,
+              'session_title': session.title,
+              'environment': _auditSafeMap(session.environment.toJson),
+            };
+            await copyOpenHandTextToClipboard(
+              logTag: 'home',
+              context: context,
+              text: _auditFormatJson(payload),
+              successMessage: AppLocalizations.of(
+                context,
+              )!.auditAuditSnapshotCopied,
+              logAction: '复制审计快照',
+            );
+          },
+          icon: Icons.copy_all_rounded,
+          label: AppLocalizations.of(context)!.auditCopyAuditSnapshot,
         ),
-        title: Row(
-          children: [
-            Icon(Icons.fact_check_outlined, color: colorScheme.primary),
-            kOpenHandHGap10,
-            Expanded(
-              child: Text(
-                AppLocalizations.of(context)!.auditMessageAudit,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: AppLocalizations.of(context)!.auditClose,
+        ),
+      ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandMetadataSummaryGrid(
+            children: [
+              OpenHandMetadataSummaryTile(
+                icon: kindStyle.icon,
+                accent: kindStyle.accent,
+                label: AppLocalizations.of(context)!.auditKind,
+                value: message.kind.storageValue,
               ),
-            ),
-            IconButton(
-              tooltip: AppLocalizations.of(context)!.auditClose,
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
-        content: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
-          child: SingleChildScrollView(
+              OpenHandMetadataSummaryTile(
+                icon: Icons.timer_outlined,
+                accent: colorScheme.tertiary,
+                label: AppLocalizations.of(context)!.auditDurationMs,
+                value: durationMs == null ? '—' : '$durationMs',
+              ),
+              OpenHandMetadataSummaryTile(
+                icon: Icons.token_rounded,
+                accent: colorScheme.primary,
+                label: AppLocalizations.of(context)!.auditTotalTokens,
+                value: tokenLabel,
+              ),
+              OpenHandMetadataSummaryTile(
+                icon: hasError
+                    ? Icons.error_outline_rounded
+                    : streaming
+                    ? Icons.graphic_eq_rounded
+                    : Icons.check_circle_outline_rounded,
+                accent: statusAccent,
+                label: AppLocalizations.of(context)!.auditOverview,
+                value: statusLabel,
+              ),
+            ],
+          ),
+          kOpenHandGap16,
+          _AuditSectionCard(
+            icon: Icons.info_outline_rounded,
+            accent: OpenHandStatusColors.info,
+            title: AppLocalizations.of(context)!.auditOverview,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
-                _AuditSectionCard(
-                  icon: Icons.info_outline_rounded,
-                  title: AppLocalizations.of(context)!.auditOverview,
-                  child: Column(
-                    children: [
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditMessageId,
-                        value: message.id,
-                        mono: true,
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditSessionId,
-                        value: session.id,
-                        mono: true,
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditRole,
-                        value: message.role.storageValue,
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditKind,
-                        value: message.kind.storageValue,
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(
-                          context,
-                        )!.auditCharacterCount,
-                        value: '${message.characterCount}',
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditStreaming,
-                        value: _auditFormatBool(streaming),
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditDeleted,
-                        value: _auditFormatBool(message.isDeleted),
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditHasError,
-                        value: _auditFormatBool(
-                          error != null && error.isNotEmpty,
-                        ),
-                      ),
-                    ],
-                  ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditMessageId,
+                  value: message.id,
+                  mono: true,
                 ),
-                _AuditSectionCard(
-                  icon: Icons.schedule_outlined,
-                  title: AppLocalizations.of(context)!.auditTiming,
-                  child: Column(
-                    children: [
-                      _AuditKvRow(
-                        label: AppLocalizations.of(
-                          context,
-                        )!.auditStartedCreated,
-                        value: _auditFormatInstant(
-                          startedAt ?? message.createdAt,
-                        ),
-                      ),
-                      if (waitingForTelemetry && endedAt == null)
-                        _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditEnded,
-                          valueWidget: _auditShimmerLine(width: 200),
-                        )
-                      else
-                        _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditEnded,
-                          value: _auditFormatInstant(endedAt),
-                        ),
-                      if (waitingForTelemetry && durationMs == null)
-                        _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditDurationMs,
-                          valueWidget: _auditShimmerLine(width: 120),
-                        )
-                      else
-                        _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditDurationMs,
-                          value: durationMs == null ? '—' : '$durationMs',
-                        ),
-                      if (sendPreflightElapsedMs != null)
-                        _AuditKvRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '发送前耗时 (ms)',
-                            zhHant: '送出前耗時 (ms)',
-                            en: 'Send Preflight (ms)',
-                            fr: 'Pré-envoi (ms)',
-                            de: 'Vor dem Senden (ms)',
-                            ja: '送信前処理 (ms)',
-                          ),
-                          value: '$sendPreflightElapsedMs',
-                        ),
-                      if (preRequestElapsedMs != null)
-                        _AuditKvRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '请求前耗时 (ms)',
-                            zhHant: '請求前耗時 (ms)',
-                            en: 'Pre-request (ms)',
-                            fr: 'Avant requête (ms)',
-                            de: 'Vor Anfrage (ms)',
-                            ja: 'リクエスト前 (ms)',
-                          ),
-                          value: '$preRequestElapsedMs',
-                        ),
-                      if (sendPreflightTimings != null &&
-                          sendPreflightTimings.isNotEmpty) ...[
-                        kOpenHandGap10,
-                        _AuditJsonBlock(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '发送前阶段耗时',
-                            zhHant: '送出前階段耗時',
-                            en: 'Send Preflight Timings',
-                            fr: 'Durées de pré-envoi',
-                            de: 'Vor-Senden-Zeiten',
-                            ja: '送信前処理の時間',
-                          ),
-                          json: sendPreflightTimings,
-                        ),
-                      ],
-                      if (preRequestTimings != null &&
-                          preRequestTimings.isNotEmpty) ...[
-                        kOpenHandGap10,
-                        _AuditJsonBlock(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '请求前阶段耗时',
-                            zhHant: '請求前階段耗時',
-                            en: 'Pre-request Timings',
-                            fr: 'Durées avant requête',
-                            de: 'Vor-Anfrage-Zeiten',
-                            ja: 'リクエスト前の時間',
-                          ),
-                          json: preRequestTimings,
-                        ),
-                      ],
-                    ],
-                  ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditSessionId,
+                  value: session.id,
+                  mono: true,
                 ),
-                _AuditSectionCard(
-                  icon: Icons.memory_outlined,
-                  title: AppLocalizations.of(context)!.auditModelTokens,
-                  child: Column(
-                    children: [
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditModelId,
-                        value: _auditFormatOrDash(displayModelId),
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditModelLabel,
-                        value: _auditFormatOrDash(displayModelLabel),
-                      ),
-                      if (waitingForTelemetry && displayUsage == null) ...[
-                        _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditTotalTokens,
-                          value: estimatedTotalTokens == null
-                              ? null
-                              : '~$estimatedTotalTokens',
-                          valueWidget: estimatedTotalTokens == null
-                              ? _auditShimmerLine(width: 100)
-                              : null,
-                        ),
-                        _AuditKvRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.auditPromptTokens,
-                          value: estimatedPromptTokens == null
-                              ? null
-                              : '~$estimatedPromptTokens',
-                          valueWidget: estimatedPromptTokens == null
-                              ? _auditShimmerLine(width: 100)
-                              : null,
-                        ),
-                        _AuditKvRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.auditCompletionTokens,
-                          valueWidget: _auditShimmerLine(width: 100),
-                        ),
-                      ] else ...[
-                        _AuditKvRow(
-                          label: AppLocalizations.of(context)!.auditTotalTokens,
-                          value:
-                              '${displayUsage?.totalTokens ?? (estimatedTotalTokens == null ? '—' : '~$estimatedTotalTokens')}',
-                        ),
-                        _AuditKvRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.auditPromptTokens,
-                          value:
-                              '${displayUsage?.promptTokens ?? (estimatedPromptTokens == null ? '—' : '~$estimatedPromptTokens')}',
-                        ),
-                        _AuditKvRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.auditCompletionTokens,
-                          value: '${displayUsage?.completionTokens ?? '—'}',
-                        ),
-                        if ((displayUsage?.reasoningTokens ?? 0) > 0)
-                          _AuditKvRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.tokenPopupReasoning,
-                            value: '${displayUsage!.reasoningTokens}',
-                          ),
-                        if ((displayUsage?.cacheReadTokens ?? 0) > 0)
-                          _AuditKvRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.tokenPopupCacheRead,
-                            value: '${displayUsage!.cacheReadTokens}',
-                          ),
-                        if ((displayUsage?.cacheCreationTokens ?? 0) > 0)
-                          _AuditKvRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.tokenPopupCacheWrite,
-                            value: '${displayUsage!.cacheCreationTokens}',
-                          ),
-                        if (displayUsage != null &&
-                            _auditMessageHitRatio(
-                                  promptTokens: displayUsage.promptTokens,
-                                  cacheReadTokens: displayUsage.cacheReadTokens,
-                                  cacheWriteTokens:
-                                      displayUsage.cacheCreationTokens,
-                                  claudeStyle: widget.claudeStyle,
-                                ) !=
-                                null)
-                          _AuditKvRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.auditCacheHitRatio,
-                            value: _auditFormatHitRatio(
-                              _auditMessageHitRatio(
-                                promptTokens: displayUsage.promptTokens,
-                                cacheReadTokens: displayUsage.cacheReadTokens,
-                                cacheWriteTokens:
-                                    displayUsage.cacheCreationTokens,
-                                claudeStyle: widget.claudeStyle,
-                              ),
-                            ),
-                          ),
-                      ],
-                      if (displayUsage != null)
-                        _AuditJsonBlock(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.auditTokenBreakdown,
-                          json: displayUsage.toJson(),
-                        ),
-                      if (cacheIdleGapSeconds != null ||
-                          cacheTtlSuspected ||
-                          prefixDriftSuspected ||
-                          automaticProviderMissSuspected ||
-                          cacheAffinityDegraded)
-                        _AuditJsonBlock(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '缓存诊断',
-                            zhHant: '快取診斷',
-                            en: 'Cache Diagnostics',
-                            fr: 'Diagnostics du cache',
-                            de: 'Cache-Diagnose',
-                            ja: 'キャッシュ診断',
-                          ),
-                          initiallyExpanded: true,
-                          json: <String, Object?>{
-                            'idle_gap_seconds': cacheIdleGapSeconds,
-                            'ttl_suspected': cacheTtlSuspected,
-                            'prefix_drift_suspected': prefixDriftSuspected,
-                            'automatic_provider_cache_miss_suspected':
-                                automaticProviderMissSuspected,
-                            'cache_affinity_degraded': cacheAffinityDegraded,
-                            'stable_prefix_hash': stablePrefixHash,
-                            'previous_stable_prefix_hash':
-                                previousStablePrefixHash,
-                            'tool_catalog_hash': toolCatalogHash,
-                            'previous_tool_catalog_hash':
-                                previousToolCatalogHash,
-                            'cache_control_strategy': cacheControlStrategy,
-                            'stable_cache_key': stableCacheKey,
-                            'previous_stable_cache_key': previousStableCacheKey,
-                          },
-                        ),
-                    ],
-                  ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditRole,
+                  value: message.role.storageValue,
                 ),
-                if (error != null && error.isNotEmpty)
-                  _AuditSectionCard(
-                    icon: Icons.error_outline_rounded,
-                    title: AppLocalizations.of(context)!.auditError,
-                    child: SelectableText(
-                      error,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.error,
-                        fontFamily: kOpenHandMonospaceFontFamily,
-                      ),
-                    ),
-                  ),
-                _AuditSectionCard(
-                  icon: Icons.article_outlined,
-                  collapsible: true,
-                  initiallyExpanded: false,
-                  title: AppLocalizations.of(context)!.auditContent,
-                  subtitle: composedPromptText != null
-                      ? AppLocalizations.of(
-                          context,
-                        )!.auditFullComposedPromptThatWasActually
-                      : streaming
-                      ? AppLocalizations.of(
-                          context,
-                        )!.auditWaitingForComposedPromptInjectionAuto
-                      : null,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface,
-                          borderRadius: kOpenHandBorderRadius12,
-                        ),
-                        child:
-                            waitingForTelemetry &&
-                                (composedPromptText == null ||
-                                    composedPromptText.isEmpty)
-                            ? _auditShimmerBlock(lines: 6)
-                            : SelectableText(
-                                composedPromptText != null &&
-                                        composedPromptText.isNotEmpty
-                                    ? composedPromptText
-                                    : (message.content.isEmpty
-                                          ? '—'
-                                          : message.content),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: kOpenHandMonospaceFontFamily,
-                                ),
-                              ),
-                      ),
-                      if (composedPromptText != null) ...[
-                        kOpenHandGap10,
-                        _AuditKvRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.auditUserRawInput,
-                          value: message.content.isEmpty
-                              ? '—'
-                              : message.content,
-                          mono: true,
-                        ),
-                        if (composedPromptTurns != null &&
-                            composedPromptTurns.isNotEmpty)
-                          _AuditJsonBlock(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.auditStructuredPromptTurns,
-                            json: composedPromptTurns,
-                            emptyHint: AppLocalizations.of(context)!.auditNone,
-                          ),
-                        if (promptMetadataFromMsg != null &&
-                            promptMetadataFromMsg.isNotEmpty)
-                          _AuditJsonBlock(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.auditPromptMetadata,
-                            json: promptMetadataFromMsg,
-                          ),
-                      ],
-                    ],
-                  ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditKind,
+                  value: message.kind.storageValue,
                 ),
-                _AuditSectionCard(
-                  icon: Icons.cloud_outlined,
-                  collapsible: true,
-                  initiallyExpanded: false,
-                  title: AppLocalizations.of(context)!.auditRequest,
-                  child: Column(
-                    children: [
-                      _AuditKvRow(
-                        label: 'URL',
-                        value: _auditFormatOrDash(requestUrl),
-                        mono: true,
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditMethod,
-                        value: _auditFormatOrDash(requestMethod),
-                      ),
-                      if (requestFallbacks != null &&
-                          requestFallbacks.isNotEmpty)
-                        _AuditJsonBlock(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '路由与兼容性调整',
-                            zhHant: '路由與相容性調整',
-                            en: 'Routing and Compatibility Adjustments',
-                            fr: 'Ajustements de routage et de compatibilité',
-                            de: 'Routing- und Kompatibilitätsanpassungen',
-                            ja: 'ルーティングと互換性の調整',
-                          ),
-                          json: requestFallbacks,
-                          initiallyExpanded: true,
-                        ),
-                      _AuditJsonBlock(
-                        label: AppLocalizations.of(context)!.auditHeaders,
-                        json: requestHeaders,
-                        emptyHint: AppLocalizations.of(
-                          context,
-                        )!.auditNotCapturedEnableSettingsAiTelemetry,
-                      ),
-                      _AuditJsonBlock(
-                        label: AppLocalizations.of(context)!.auditBodyQueryPath,
-                        json: requestPayload,
-                        emptyHint: AppLocalizations.of(
-                          context,
-                        )!.auditNotCapturedEnableSettingsAiTelemetry,
-                      ),
-                    ],
-                  ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditCharacterCount,
+                  value: '${message.characterCount}',
                 ),
-                _AuditSectionCard(
-                  icon: Icons.receipt_long_outlined,
-                  collapsible: true,
-                  initiallyExpanded: false,
-                  title: AppLocalizations.of(context)!.auditRawAiResponse,
-                  child: waitingForTelemetry && responseRaw == null
-                      ? _auditShimmerBlock(lines: 4)
-                      : _AuditJsonBlock(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.auditExpandRawResponse,
-                          json: responseRaw,
-                          emptyHint: AppLocalizations.of(
-                            context,
-                          )!.auditNotCapturedDebugDisabledOrResponse,
-                        ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditStreaming,
+                  value: _auditFormatBool(streaming),
                 ),
-                _AuditSectionCard(
-                  icon: Icons.attach_file_outlined,
-                  title: AppLocalizations.of(context)!.auditAttachments,
-                  child: _AuditJsonBlock(
-                    label: AppLocalizations.of(context)!.auditAttachmentList,
-                    json: attachments,
-                    emptyHint: AppLocalizations.of(context)!.auditNoAttachments,
-                  ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditDeleted,
+                  value: _auditFormatBool(message.isDeleted),
                 ),
-                _AuditSectionCard(
-                  icon: Icons.data_object_rounded,
-                  collapsible: true,
-                  initiallyExpanded: false,
-                  title: AppLocalizations.of(context)!.auditFullMetadata,
-                  child: _AuditJsonBlock(
-                    label: AppLocalizations.of(context)!.auditMessageMetadata,
-                    json: metadata,
-                    initiallyExpanded: true,
-                  ),
-                ),
-                _AuditSectionCard(
-                  icon: Icons.public_outlined,
-                  collapsible: true,
-                  initiallyExpanded: false,
-                  title: AppLocalizations.of(context)!.auditSessionEnvironment,
-                  child: _AuditJsonBlock(
-                    label: AppLocalizations.of(
-                      context,
-                    )!.auditEnvironmentSnapshot,
-                    json:
-                        envSnapshot ??
-                        _auditSafeMap(session.environment.toJson),
-                  ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditHasError,
+                  value: _auditFormatBool(error != null && error.isNotEmpty),
                 ),
               ],
             ),
           ),
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () async {
-              final payload = <String, Object?>{
-                'message': message.toJson(),
-                'session_id': session.id,
-                'session_title': session.title,
-                'environment': _auditSafeMap(session.environment.toJson),
-              };
-              await copyOpenHandTextToClipboard(
-                logTag: 'home',
-                context: context,
-                text: _auditFormatJson(payload),
-                successMessage: AppLocalizations.of(
-                  context,
-                )!.auditAuditSnapshotCopied,
-                logAction: '复制审计快照',
-              );
-            },
-            icon: Icons.copy_all_rounded,
-            label: AppLocalizations.of(context)!.auditCopyAuditSnapshot,
+          _AuditSectionCard(
+            icon: Icons.schedule_outlined,
+            accent: colorScheme.tertiary,
+            title: AppLocalizations.of(context)!.auditTiming,
+            child: Column(
+              children: [
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditStartedCreated,
+                  value: _auditFormatInstant(startedAt ?? message.createdAt),
+                ),
+                if (waitingForTelemetry && endedAt == null)
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditEnded,
+                    valueWidget: _auditShimmerLine(width: 200),
+                  )
+                else
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditEnded,
+                    value: _auditFormatInstant(endedAt),
+                  ),
+                if (waitingForTelemetry && durationMs == null)
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditDurationMs,
+                    valueWidget: _auditShimmerLine(width: 120),
+                  )
+                else
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditDurationMs,
+                    value: durationMs == null ? '—' : '$durationMs',
+                  ),
+                if (sendPreflightElapsedMs != null)
+                  _AuditKvRow(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '发送前耗时 (ms)',
+                      zhHant: '送出前耗時 (ms)',
+                      en: 'Send Preflight (ms)',
+                      fr: 'Pré-envoi (ms)',
+                      de: 'Vor dem Senden (ms)',
+                      ja: '送信前処理 (ms)',
+                    ),
+                    value: '$sendPreflightElapsedMs',
+                  ),
+                if (preRequestElapsedMs != null)
+                  _AuditKvRow(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '请求前耗时 (ms)',
+                      zhHant: '請求前耗時 (ms)',
+                      en: 'Pre-request (ms)',
+                      fr: 'Avant requête (ms)',
+                      de: 'Vor Anfrage (ms)',
+                      ja: 'リクエスト前 (ms)',
+                    ),
+                    value: '$preRequestElapsedMs',
+                  ),
+                if (sendPreflightTimings != null &&
+                    sendPreflightTimings.isNotEmpty) ...[
+                  kOpenHandGap10,
+                  _AuditJsonBlock(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '发送前阶段耗时',
+                      zhHant: '送出前階段耗時',
+                      en: 'Send Preflight Timings',
+                      fr: 'Durées de pré-envoi',
+                      de: 'Vor-Senden-Zeiten',
+                      ja: '送信前処理の時間',
+                    ),
+                    json: sendPreflightTimings,
+                  ),
+                ],
+                if (preRequestTimings != null &&
+                    preRequestTimings.isNotEmpty) ...[
+                  kOpenHandGap10,
+                  _AuditJsonBlock(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '请求前阶段耗时',
+                      zhHant: '請求前階段耗時',
+                      en: 'Pre-request Timings',
+                      fr: 'Durées avant requête',
+                      de: 'Vor-Anfrage-Zeiten',
+                      ja: 'リクエスト前の時間',
+                    ),
+                    json: preRequestTimings,
+                  ),
+                ],
+              ],
+            ),
           ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: AppLocalizations.of(context)!.auditClose,
+          _AuditSectionCard(
+            icon: Icons.memory_outlined,
+            accent: colorScheme.primary,
+            title: AppLocalizations.of(context)!.auditModelTokens,
+            child: Column(
+              children: [
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditModelId,
+                  value: _auditFormatOrDash(displayModelId),
+                ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditModelLabel,
+                  value: _auditFormatOrDash(displayModelLabel),
+                ),
+                if (waitingForTelemetry && displayUsage == null) ...[
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditTotalTokens,
+                    value: estimatedTotalTokens == null
+                        ? null
+                        : '~$estimatedTotalTokens',
+                    valueWidget: estimatedTotalTokens == null
+                        ? _auditShimmerLine(width: 100)
+                        : null,
+                  ),
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditPromptTokens,
+                    value: estimatedPromptTokens == null
+                        ? null
+                        : '~$estimatedPromptTokens',
+                    valueWidget: estimatedPromptTokens == null
+                        ? _auditShimmerLine(width: 100)
+                        : null,
+                  ),
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditCompletionTokens,
+                    valueWidget: _auditShimmerLine(width: 100),
+                  ),
+                ] else ...[
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditTotalTokens,
+                    value:
+                        '${displayUsage?.totalTokens ?? (estimatedTotalTokens == null ? '—' : '~$estimatedTotalTokens')}',
+                  ),
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditPromptTokens,
+                    value:
+                        '${displayUsage?.promptTokens ?? (estimatedPromptTokens == null ? '—' : '~$estimatedPromptTokens')}',
+                  ),
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditCompletionTokens,
+                    value: '${displayUsage?.completionTokens ?? '—'}',
+                  ),
+                  if ((displayUsage?.reasoningTokens ?? 0) > 0)
+                    _AuditKvRow(
+                      label: AppLocalizations.of(context)!.tokenPopupReasoning,
+                      value: '${displayUsage!.reasoningTokens}',
+                    ),
+                  if ((displayUsage?.cacheReadTokens ?? 0) > 0)
+                    _AuditKvRow(
+                      label: AppLocalizations.of(context)!.tokenPopupCacheRead,
+                      value: '${displayUsage!.cacheReadTokens}',
+                    ),
+                  if ((displayUsage?.cacheCreationTokens ?? 0) > 0)
+                    _AuditKvRow(
+                      label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
+                      value: '${displayUsage!.cacheCreationTokens}',
+                    ),
+                  if (displayUsage != null &&
+                      _auditMessageHitRatio(
+                            promptTokens: displayUsage.promptTokens,
+                            cacheReadTokens: displayUsage.cacheReadTokens,
+                            cacheWriteTokens: displayUsage.cacheCreationTokens,
+                            claudeStyle: widget.claudeStyle,
+                          ) !=
+                          null)
+                    _AuditKvRow(
+                      label: AppLocalizations.of(context)!.auditCacheHitRatio,
+                      value: _auditFormatHitRatio(
+                        _auditMessageHitRatio(
+                          promptTokens: displayUsage.promptTokens,
+                          cacheReadTokens: displayUsage.cacheReadTokens,
+                          cacheWriteTokens: displayUsage.cacheCreationTokens,
+                          claudeStyle: widget.claudeStyle,
+                        ),
+                      ),
+                    ),
+                ],
+                if (displayUsage != null)
+                  _AuditJsonBlock(
+                    label: AppLocalizations.of(context)!.auditTokenBreakdown,
+                    json: displayUsage.toJson(),
+                  ),
+                if (cacheIdleGapSeconds != null ||
+                    cacheTtlSuspected ||
+                    prefixDriftSuspected ||
+                    automaticProviderMissSuspected ||
+                    cacheAffinityDegraded)
+                  _AuditJsonBlock(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '缓存诊断',
+                      zhHant: '快取診斷',
+                      en: 'Cache Diagnostics',
+                      fr: 'Diagnostics du cache',
+                      de: 'Cache-Diagnose',
+                      ja: 'キャッシュ診断',
+                    ),
+                    initiallyExpanded: true,
+                    json: <String, Object?>{
+                      'idle_gap_seconds': cacheIdleGapSeconds,
+                      'ttl_suspected': cacheTtlSuspected,
+                      'prefix_drift_suspected': prefixDriftSuspected,
+                      'automatic_provider_cache_miss_suspected':
+                          automaticProviderMissSuspected,
+                      'cache_affinity_degraded': cacheAffinityDegraded,
+                      'stable_prefix_hash': stablePrefixHash,
+                      'previous_stable_prefix_hash': previousStablePrefixHash,
+                      'tool_catalog_hash': toolCatalogHash,
+                      'previous_tool_catalog_hash': previousToolCatalogHash,
+                      'cache_control_strategy': cacheControlStrategy,
+                      'stable_cache_key': stableCacheKey,
+                      'previous_stable_cache_key': previousStableCacheKey,
+                    },
+                  ),
+              ],
+            ),
+          ),
+          if (error != null && error.isNotEmpty)
+            _AuditSectionCard(
+              icon: Icons.error_outline_rounded,
+              accent: OpenHandStatusColors.error,
+              title: AppLocalizations.of(context)!.auditError,
+              child: OpenHandTintedPanel(
+                accent: OpenHandStatusColors.error,
+                child: SelectableText(
+                  error,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.error,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ),
+          _AuditSectionCard(
+            icon: Icons.article_outlined,
+            accent: colorScheme.secondary,
+            collapsible: true,
+            initiallyExpanded: false,
+            title: AppLocalizations.of(context)!.auditContent,
+            subtitle: composedPromptText != null
+                ? AppLocalizations.of(
+                    context,
+                  )!.auditFullComposedPromptThatWasActually
+                : streaming
+                ? AppLocalizations.of(
+                    context,
+                  )!.auditWaitingForComposedPromptInjectionAuto
+                : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                OpenHandTintedPanel(
+                  accent: colorScheme.secondary,
+                  padding: const EdgeInsets.all(12),
+                  child:
+                      waitingForTelemetry &&
+                          (composedPromptText == null ||
+                              composedPromptText.isEmpty)
+                      ? _auditShimmerBlock(lines: 6)
+                      : SelectableText(
+                          composedPromptText != null &&
+                                  composedPromptText.isNotEmpty
+                              ? composedPromptText
+                              : (message.content.isEmpty
+                                    ? '—'
+                                    : message.content),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            height: 1.45,
+                          ),
+                        ),
+                ),
+                if (composedPromptText != null) ...[
+                  kOpenHandGap10,
+                  _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditUserRawInput,
+                    value: message.content.isEmpty ? '—' : message.content,
+                    mono: true,
+                  ),
+                  if (composedPromptTurns != null &&
+                      composedPromptTurns.isNotEmpty)
+                    _AuditJsonBlock(
+                      label: AppLocalizations.of(
+                        context,
+                      )!.auditStructuredPromptTurns,
+                      json: composedPromptTurns,
+                      emptyHint: AppLocalizations.of(context)!.auditNone,
+                    ),
+                  if (promptMetadataFromMsg != null &&
+                      promptMetadataFromMsg.isNotEmpty)
+                    _AuditJsonBlock(
+                      label: AppLocalizations.of(context)!.auditPromptMetadata,
+                      json: promptMetadataFromMsg,
+                    ),
+                ],
+              ],
+            ),
+          ),
+          _AuditSectionCard(
+            icon: Icons.cloud_outlined,
+            accent: OpenHandStatusColors.info,
+            collapsible: true,
+            initiallyExpanded: false,
+            title: AppLocalizations.of(context)!.auditRequest,
+            child: Column(
+              children: [
+                _AuditKvRow(
+                  label: 'URL',
+                  value: _auditFormatOrDash(requestUrl),
+                  mono: true,
+                ),
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.auditMethod,
+                  value: _auditFormatOrDash(requestMethod),
+                ),
+                if (requestFallbacks != null && requestFallbacks.isNotEmpty)
+                  _AuditJsonBlock(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '路由与兼容性调整',
+                      zhHant: '路由與相容性調整',
+                      en: 'Routing and Compatibility Adjustments',
+                      fr: 'Ajustements de routage et de compatibilité',
+                      de: 'Routing- und Kompatibilitätsanpassungen',
+                      ja: 'ルーティングと互換性の調整',
+                    ),
+                    json: requestFallbacks,
+                    initiallyExpanded: true,
+                  ),
+                _AuditJsonBlock(
+                  label: AppLocalizations.of(context)!.auditHeaders,
+                  json: requestHeaders,
+                  emptyHint: AppLocalizations.of(
+                    context,
+                  )!.auditNotCapturedEnableSettingsAiTelemetry,
+                ),
+                _AuditJsonBlock(
+                  label: AppLocalizations.of(context)!.auditBodyQueryPath,
+                  json: requestPayload,
+                  emptyHint: AppLocalizations.of(
+                    context,
+                  )!.auditNotCapturedEnableSettingsAiTelemetry,
+                ),
+              ],
+            ),
+          ),
+          _AuditSectionCard(
+            icon: Icons.receipt_long_outlined,
+            accent: OpenHandStatusColors.warning,
+            collapsible: true,
+            initiallyExpanded: false,
+            title: AppLocalizations.of(context)!.auditRawAiResponse,
+            child: waitingForTelemetry && responseRaw == null
+                ? _auditShimmerBlock(lines: 4)
+                : _AuditJsonBlock(
+                    label: AppLocalizations.of(context)!.auditExpandRawResponse,
+                    json: responseRaw,
+                    emptyHint: AppLocalizations.of(
+                      context,
+                    )!.auditNotCapturedDebugDisabledOrResponse,
+                  ),
+          ),
+          _AuditSectionCard(
+            icon: Icons.attach_file_outlined,
+            accent: OpenHandStatusColors.caution,
+            title: AppLocalizations.of(context)!.auditAttachments,
+            child: _AuditJsonBlock(
+              label: AppLocalizations.of(context)!.auditAttachmentList,
+              json: attachments,
+              emptyHint: AppLocalizations.of(context)!.auditNoAttachments,
+            ),
+          ),
+          _AuditSectionCard(
+            icon: Icons.data_object_rounded,
+            accent: colorScheme.primary,
+            collapsible: true,
+            initiallyExpanded: false,
+            title: AppLocalizations.of(context)!.auditFullMetadata,
+            child: _AuditJsonBlock(
+              label: AppLocalizations.of(context)!.auditMessageMetadata,
+              json: metadata,
+              initiallyExpanded: true,
+            ),
+          ),
+          _AuditSectionCard(
+            icon: Icons.public_outlined,
+            accent: OpenHandStatusColors.success,
+            collapsible: true,
+            initiallyExpanded: false,
+            title: AppLocalizations.of(context)!.auditSessionEnvironment,
+            child: _AuditJsonBlock(
+              label: AppLocalizations.of(context)!.auditEnvironmentSnapshot,
+              json: envSnapshot ?? _auditSafeMap(session.environment.toJson),
+            ),
           ),
         ],
       ),
@@ -1513,129 +1332,37 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final session = _liveSession;
-    final statistics = session.statistics;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Divider(height: 48),
-        Row(
-          children: [
-            Icon(Icons.assignment_outlined, color: colorScheme.primary),
-            kOpenHandHGap10,
-            Expanded(
-              child: Text(
-                AppLocalizations.of(context)!.auditSessionAudit,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            OpenHandInlineRevealSwitcher(
-              presentKey: const ValueKey<String>('audit-busy'),
-              child: _busy
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
-                      ),
-                    )
-                  : null,
-            ),
-          ],
-        ),
         kOpenHandGap16,
         _AuditSectionCard(
-          icon: Icons.info_outline_rounded,
-          title: AppLocalizations.of(context)!.auditOverview,
-          child: Column(
-            children: [
-              _AuditKvRow(
-                label: AppLocalizations.of(context)!.auditSessionId,
-                value: session.id,
-                mono: true,
-              ),
-              _AuditKvRow(
-                label: AppLocalizations.of(context)!.auditTemplate,
-                value:
-                    '${session.templateName} (${session.templateId}) · v${session.templateInternalVersion}',
-              ),
-              _AuditKvRow(
-                label: AppLocalizations.of(context)!.auditCreatedAt,
-                value: _auditFormatInstant(session.createdAt),
-              ),
-              _AuditKvRow(
-                label: AppLocalizations.of(context)!.auditUpdatedAt,
-                value: _auditFormatInstant(session.updatedAt),
-              ),
-              _AuditKvRow(
-                label: AppLocalizations.of(context)!.auditMessages,
-                value: '${statistics.totalMessageCount}',
-              ),
-              _AuditKvRow(
-                label: AppLocalizations.of(context)!.auditTotalTokens,
-                value: '${statistics.totalTokens ?? 0}',
-              ),
-              if ((statistics.cacheReadTokens ?? 0) > 0)
-                _AuditKvRow(
-                  label: AppLocalizations.of(context)!.tokenPopupCacheRead,
-                  value: '${statistics.cacheReadTokens}',
-                ),
-              if ((statistics.cacheCreationTokens ?? 0) > 0)
-                _AuditKvRow(
-                  label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
-                  value: '${statistics.cacheCreationTokens}',
-                ),
-              if ((statistics.reasoningTokens ?? 0) > 0)
-                _AuditKvRow(
-                  label: AppLocalizations.of(context)!.tokenPopupReasoning,
-                  value: '${statistics.reasoningTokens}',
-                ),
-              Builder(
-                builder: (context) {
-                  // 与 TopBar 胶囊 / 浮窗"Cache 命中率"走同一公式：
-                  // 完整统计趋势点优先，当前消息窗口仅作兜底。
-                  final trend = SessionCacheHitTrend.fromStatisticsOrSession(
-                    session,
-                    claudeStyle: widget.claudeStyle,
-                  );
-                  final ratio = trend
-                      .displayData(
-                        SessionCacheHitDisplayMode.excludeExpiredMisses,
-                      )
-                      .averageHitRatio;
-                  if (ratio <= 0 && (statistics.cacheReadTokens ?? 0) <= 0) {
-                    return const SizedBox.shrink();
-                  }
-                  return _AuditKvRow(
-                    label: AppLocalizations.of(context)!.auditCacheHitRatio,
-                    value: _auditFormatHitRatio(ratio),
-                  );
-                },
-              ),
-              _AuditKvRow(
-                label: AppLocalizations.of(context)!.auditLastModel,
-                value: _auditFormatOrDash(
-                  session.lastUsedModelLabel ?? session.lastUsedModelId,
-                ),
-              ),
-            ],
-          ),
-        ),
-        _AuditSectionCard(
           icon: Icons.edit_note_rounded,
+          accent: OpenHandStatusColors.info,
           title: AppLocalizations.of(context)!.auditTitleEditable,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: _titleController,
-                focusNode: _titleFocusNode,
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.auditSessionTitle,
+              if (_busy) ...[
+                LinearProgressIndicator(
+                  minHeight: 2.4,
+                  color: colorScheme.primary,
+                  backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+                ),
+                kOpenHandGap12,
+              ],
+              OpenHandTintedPanel(
+                accent: OpenHandStatusColors.info,
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                child: TextField(
+                  controller: _titleController,
+                  focusNode: _titleFocusNode,
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)!.auditSessionTitle,
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
                 ),
               ),
               kOpenHandGap10,
@@ -1652,6 +1379,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
         ),
         _AuditSectionCard(
           icon: Icons.data_object_rounded,
+          accent: colorScheme.tertiary,
           title: AppLocalizations.of(context)!.auditSessionMetadataEditableJson,
           subtitle: AppLocalizations.of(
             context,
@@ -1659,17 +1387,24 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: _metadataController,
-                focusNode: _metadataFocusNode,
-                minLines: 6,
-                maxLines: 16,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: kOpenHandMonospaceFontFamily,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'JSON',
-                  errorText: _metadataError,
+              OpenHandTintedPanel(
+                accent: colorScheme.tertiary,
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: TextField(
+                  controller: _metadataController,
+                  focusNode: _metadataFocusNode,
+                  minLines: 6,
+                  maxLines: 16,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    height: 1.45,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'JSON',
+                    errorText: _metadataError,
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
                 ),
               ),
               kOpenHandGap10,
@@ -1685,66 +1420,27 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
           ),
         ),
         _AuditSectionCard(
-          icon: Icons.route_outlined,
-          collapsible: true,
-          initiallyExpanded: false,
-          title: AppLocalizations.of(
-            context,
-          )!.auditRuntimePromptMetadataReadOnly,
-          subtitle: AppLocalizations.of(
-            context,
-          )!.auditUsefulForPromptConstructionTroubleshooti,
-          child: _AuditJsonBlock(
-            label: AppLocalizations.of(context)!.auditLastPromptMetadata,
-            json: session.lastPromptMetadata,
-            emptyHint: AppLocalizations.of(
-              context,
-            )!.auditNoRuntimePromptMetadataYet,
-          ),
-        ),
-        _AuditSectionCard(
-          icon: Icons.public_outlined,
-          title: AppLocalizations.of(context)!.auditEnvironment,
-          child: _AuditJsonBlock(
-            label: AppLocalizations.of(context)!.auditEnvironmentSnapshot,
-            json: _auditSafeMap(session.environment.toJson),
-            initiallyExpanded: true,
-          ),
-        ),
-        _AuditSectionCard(
-          icon: Icons.history_rounded,
-          title: AppLocalizations.of(context)!
-              .auditRecentErrorsSessionRecenterrorsLength(
-                session.recentErrors.length,
-              ),
-          child: _AuditJsonBlock(
-            label: AppLocalizations.of(context)!.auditErrorList,
-            json: session.recentErrors
-                .map((error) => _auditSafeMap(error.toJson))
-                .toList(growable: false),
-            emptyHint: AppLocalizations.of(context)!.auditNoErrorsRecorded,
-          ),
-        ),
-        _AuditSectionCard(
           icon: Icons.chat_bubble_outline_rounded,
+          accent: colorScheme.primary,
           title: AppLocalizations.of(
             context,
           )!.auditMessagesSessionMessagesLength(session.messages.length),
           subtitle: AppLocalizations.of(context)!.auditTapARowToInspectA,
-          child: Column(
-            children: session.messages.isEmpty
-                ? <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        AppLocalizations.of(context)!.auditNoMessages,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+          child: session.messages.isEmpty
+              ? OpenHandTintedPanel(
+                  accent: OpenHandStatusColors.info,
+                  icon: Icons.chat_bubble_outline_rounded,
+                  child: Text(
+                    AppLocalizations.of(context)!.auditNoMessages,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ]
-                : session.messages
+                  ),
+                )
+              : Column(
+                  children: session.messages
                       .map(
                         (message) => _AuditMessageRow(
                           message: message,
@@ -1763,11 +1459,67 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
                         ),
                       )
                       .toList(growable: false),
-          ),
+                ),
         ),
       ],
     );
   }
+}
+
+({Color accent, IconData icon}) _auditMessageKindStyle(
+  ColorScheme colorScheme,
+  AiSessionMessageKind kind,
+) {
+  return switch (kind) {
+    AiSessionMessageKind.user => (
+      accent: OpenHandStatusColors.info,
+      icon: Icons.person_outline_rounded,
+    ),
+    AiSessionMessageKind.assistant => (
+      accent: OpenHandStatusColors.success,
+      icon: Icons.smart_toy_outlined,
+    ),
+    AiSessionMessageKind.reasoning => (
+      accent: OpenHandStatusColors.caution,
+      icon: Icons.psychology_alt_rounded,
+    ),
+    AiSessionMessageKind.toolCall => (
+      accent: colorScheme.tertiary,
+      icon: Icons.build_circle_outlined,
+    ),
+    AiSessionMessageKind.tool => (
+      accent: colorScheme.secondary,
+      icon: Icons.handyman_outlined,
+    ),
+    AiSessionMessageKind.mcp => (
+      accent: colorScheme.tertiary,
+      icon: Icons.hub_outlined,
+    ),
+    AiSessionMessageKind.skill => (
+      accent: OpenHandStatusColors.info,
+      icon: Icons.auto_awesome_outlined,
+    ),
+    AiSessionMessageKind.hook => (
+      accent: OpenHandStatusColors.warning,
+      icon: Icons.bolt_outlined,
+    ),
+    AiSessionMessageKind.fileMutationSummary => (
+      accent: colorScheme.primary,
+      icon: Icons.difference_outlined,
+    ),
+    AiSessionMessageKind.compressionPoint => (
+      accent: OpenHandStatusColors.warning,
+      icon: Icons.compress_rounded,
+    ),
+    AiSessionMessageKind.selfLearning => (
+      accent: colorScheme.secondary,
+      icon: Icons.school_outlined,
+    ),
+    AiSessionMessageKind.status => (
+      accent: colorScheme.outline,
+      icon: Icons.info_outline_rounded,
+    ),
+  };
 }
 
 class _AuditMessageRow extends StatelessWidget {
@@ -1785,82 +1537,109 @@ class _AuditMessageRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final kindStyle = _auditMessageKindStyle(colorScheme, message.kind);
     final snippet = message.content.trim();
     final preview = snippet.isEmpty
         ? '—'
         : clipTextByCodeUnits(snippet, 140, suffix: '…');
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: kOpenHandBorderRadius14,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: colorScheme.secondaryContainer,
-              borderRadius: kOpenHandPillBorderRadius,
-            ),
-            child: Text(
-              message.kind.storageValue,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSecondaryContainer,
-                fontWeight: FontWeight.w700,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: HoverLift(
+        child: OpenHandTintedPanel(
+          accent: kindStyle.accent,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: kindStyle.accent.withValues(alpha: 0.18),
+                  borderRadius: kOpenHandBorderRadius10,
+                ),
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: Center(
+                    child: Icon(
+                      kindStyle.icon,
+                      size: 18,
+                      color: kindStyle.accent,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          kOpenHandHGap10,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message.id,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontFamily: kOpenHandMonospaceFontFamily,
+              kOpenHandHGap10,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        OpenHandFactChip(
+                          icon: kindStyle.icon,
+                          label: message.kind.storageValue,
+                          color: kindStyle.accent,
+                        ),
+                        if (message.isDeleted)
+                          OpenHandFactChip(
+                            icon: Icons.delete_outline_rounded,
+                            label: AppLocalizations.of(context)!.auditDeleted,
+                            color: colorScheme.error,
+                          ),
+                      ],
+                    ),
+                    kOpenHandGap6,
+                    Text(
+                      message.id,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontFamily: kOpenHandMonospaceFontFamily,
+                      ),
+                    ),
+                    kOpenHandGap4,
+                    Text(
+                      preview,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+                    ),
+                    kOpenHandGap6,
+                    Text(
+                      _auditFormatInstant(message.createdAt),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: AppLocalizations.of(context)!.auditAudit,
+                style: openHandFeatureCircleIconButtonStyle(colorScheme),
+                icon: const Icon(Icons.fact_check_outlined, size: 20),
+                onPressed: onInspect,
+              ),
+              kOpenHandHGap6,
+              IconButton(
+                tooltip: AppLocalizations.of(context)!.auditDelete,
+                style: IconButton.styleFrom(
+                  shape: const CircleBorder(),
+                  backgroundColor: colorScheme.error.withValues(
+                    alpha: onDelete == null ? 0.06 : 0.12,
                   ),
+                  foregroundColor: onDelete == null
+                      ? colorScheme.onSurfaceVariant
+                      : colorScheme.error,
                 ),
-                kOpenHandGap2,
-                Text(
-                  preview,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall,
-                ),
-                kOpenHandGap4,
-                Text(
-                  _auditFormatInstant(message.createdAt),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+                icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                onPressed: onDelete,
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: AppLocalizations.of(context)!.auditAudit,
-            icon: const Icon(Icons.fact_check_outlined, size: 20),
-            onPressed: onInspect,
-          ),
-          kOpenHandHGap6,
-          IconButton(
-            tooltip: AppLocalizations.of(context)!.auditDelete,
-            icon: Icon(
-              Icons.delete_outline_rounded,
-              size: 20,
-              color: onDelete == null
-                  ? colorScheme.onSurfaceVariant
-                  : colorScheme.error,
-            ),
-            onPressed: onDelete,
-          ),
-        ],
+        ),
       ),
     );
   }
