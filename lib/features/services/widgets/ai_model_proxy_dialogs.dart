@@ -46,11 +46,7 @@ import 'service_dialog_controls.dart';
 Future<void> showAiModelProxyProvidersDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const _ProxyProvidersDialog(),
-      ),
+      builder: (_) => const _ProxyProvidersDialog(),
     );
 
 Future<void> showAiModelProxyModelsDialog(BuildContext context) =>
@@ -298,116 +294,110 @@ class _ProxyProvidersDialogState extends State<_ProxyProvidersDialog> {
     final settings = context.watch<SettingsController>();
     final models = settings.aiModels;
     return ServiceDialogInteractionTheme(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-        child: Column(
-          children: [
-            _ProxyDialogHeader(
-              title: text(zh: 'AI 模型提供商', en: 'AI model providers'),
-              subtitle: text(
-                zh: '拖动条目调整优先级，越靠前越优先。模型配置与全局设置保持一致。',
-                en: 'Drag providers to change priority. Configuration is shared with Settings.',
-              ),
-              icon: Icons.hub_outlined,
-              onClose: () => Navigator.of(context).pop(),
-              actions: [
-                _RoundHeaderButton(
-                  tooltip: text(zh: '新增提供商', en: 'Add provider'),
-                  icon: Icons.add_rounded,
-                  onPressed: () => _add(context),
-                ),
-                const SizedBox(width: 8),
-                _RoundHeaderButton(
-                  tooltip: text(zh: '模型映射', en: 'Model routing'),
-                  icon: Icons.account_tree_outlined,
-                  onPressed: () => showAiModelProxyModelsDialog(context),
-                ),
-              ],
-            ),
-            Expanded(
-              child: ReorderableListView.builder(
-                buildDefaultDragHandles: false,
-                padding: const EdgeInsets.only(bottom: 14),
-                header: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const AiModelHealthSettingsPanel(showRequestMode: true),
-                    kOpenHandGap16,
-                    if (models.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 18),
-                        child: Text(
-                          text(
-                            zh: '还没有提供商配置，请先新增。',
-                            en: 'Add a provider to get started.',
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                itemCount: models.length,
-                onReorderItem: _reorder,
-                proxyDecorator: (child, index, animation) =>
-                    buildOpenHandReorderProxy(context, child, animation),
-                itemBuilder: (context, index) {
-                  final model = models[index];
-                  final enabled = !_mutatingIds.contains(model.id);
-                  return KeyedSubtree(
-                    key: ValueKey<String>(model.id),
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: OpenHandListRemovalTransition(
-                        collapsed: _removingIds.contains(model.id),
-                        child: buildAiModelProviderCard(
-                          model: model,
-                          dragIndex: index,
-                          isSelected: settings.selectedAiModelId == model.id,
-                          isTesting: _testingIds.contains(model.id),
-                          isFirst: index == 0,
-                          isLast: index == models.length - 1,
-                          actionsEnabled: enabled,
-                          onSelect: () =>
-                              settings.updateSelectedAiModel(model.id),
-                          onTest: () async {
-                            if (!enabled || _testingIds.contains(model.id)) {
-                              return;
-                            }
-                            setState(() => _testingIds.add(model.id));
-                            try {
-                              await testAiModelConfiguration(context, model);
-                            } finally {
-                              if (mounted) {
-                                setState(() => _testingIds.remove(model.id));
-                              }
-                            }
-                          },
-                          onHealthCheck: () => context
-                              .read<AiModelHealthController>()
-                              .checkProvider(model),
-                          onHealthCheckCancel: context
-                              .read<AiModelHealthController>()
-                              .cancelCheck,
-                          onEdit: () => showAiModelEditorDialog(
-                            context,
-                            initialModel: model,
-                          ),
-                          onMoveUp: () => _move(model, -1),
-                          onMoveDown: () => _move(model, 1),
-                          onDelete: () => _delete(model),
-                          onActiveModelChanged: (modelId) =>
-                              settings.updateProviderActiveModel(
-                                model.id,
-                                modelId,
-                                alsoSelectProvider: false,
-                              ),
-                        ),
+      child: OpenHandEditorDialogScaffold(
+        title: text(zh: 'AI 模型提供商', en: 'AI model providers'),
+        subtitle: text(
+          zh: '拖动条目调整优先级，越靠前越优先。模型配置与全局设置保持一致。',
+          en: 'Drag providers to change priority. Configuration is shared with Settings.',
+        ),
+        icon: Icons.hub_outlined,
+        iconColor: Theme.of(context).colorScheme.tertiary,
+        scrollBody: false,
+        headerActions: [
+          IconButton(
+            tooltip: text(zh: '新增提供商', en: 'Add provider'),
+            onPressed: () => _add(context),
+            icon: const Icon(Icons.add_rounded),
+          ),
+          IconButton(
+            tooltip: text(zh: '模型映射', en: 'Model routing'),
+            onPressed: () => showAiModelProxyModelsDialog(context),
+            icon: const Icon(Icons.account_tree_outlined),
+          ),
+        ],
+        actions: const <Widget>[],
+        body: ReorderableListView.builder(
+          buildDefaultDragHandles: false,
+          padding: const EdgeInsets.only(bottom: 14),
+          header: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AiModelHealthSettingsPanel(showRequestMode: true),
+              kOpenHandGap16,
+              if (models.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 18),
+                  child: OpenHandTintedPanel(
+                    accent: Theme.of(context).colorScheme.tertiary,
+                    icon: Icons.hub_outlined,
+                    title: text(zh: '暂无提供商', en: 'No providers'),
+                    child: Text(
+                      text(
+                        zh: '还没有提供商配置，请先新增。',
+                        en: 'Add a provider to get started.',
                       ),
                     ),
-                  );
-                },
+                  ),
+                ),
+            ],
+          ),
+          itemCount: models.length,
+          onReorderItem: _reorder,
+          proxyDecorator: (child, index, animation) =>
+              buildOpenHandReorderProxy(context, child, animation),
+          itemBuilder: (context, index) {
+            final model = models[index];
+            final enabled = !_mutatingIds.contains(model.id);
+            return KeyedSubtree(
+              key: ValueKey<String>(model.id),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: OpenHandListRemovalTransition(
+                  collapsed: _removingIds.contains(model.id),
+                  child: buildAiModelProviderCard(
+                    model: model,
+                    dragIndex: index,
+                    isSelected: settings.selectedAiModelId == model.id,
+                    isTesting: _testingIds.contains(model.id),
+                    isFirst: index == 0,
+                    isLast: index == models.length - 1,
+                    actionsEnabled: enabled,
+                    onSelect: () => settings.updateSelectedAiModel(model.id),
+                    onTest: () async {
+                      if (!enabled || _testingIds.contains(model.id)) {
+                        return;
+                      }
+                      setState(() => _testingIds.add(model.id));
+                      try {
+                        await testAiModelConfiguration(context, model);
+                      } finally {
+                        if (mounted) {
+                          setState(() => _testingIds.remove(model.id));
+                        }
+                      }
+                    },
+                    onHealthCheck: () => context
+                        .read<AiModelHealthController>()
+                        .checkProvider(model),
+                    onHealthCheckCancel: context
+                        .read<AiModelHealthController>()
+                        .cancelCheck,
+                    onEdit: () =>
+                        showAiModelEditorDialog(context, initialModel: model),
+                    onMoveUp: () => _move(model, -1),
+                    onMoveDown: () => _move(model, 1),
+                    onDelete: () => _delete(model),
+                    onActiveModelChanged: (modelId) =>
+                        settings.updateProviderActiveModel(
+                          model.id,
+                          modelId,
+                          alsoSelectProvider: false,
+                        ),
+                  ),
+                ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

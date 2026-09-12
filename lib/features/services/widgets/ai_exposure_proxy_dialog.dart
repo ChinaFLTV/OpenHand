@@ -19,6 +19,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -132,11 +133,7 @@ mixin _ProxyTrendRangeState<T extends StatefulWidget> on State<T> {
 Future<void> showAiExposureProxyDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthExtraWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const _ProxyDialog(),
-      ),
+      builder: (_) => const _ProxyDialog(),
     );
 
 class _ProxyDialog extends StatefulWidget {
@@ -260,301 +257,245 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         !controllerInspectionBusy &&
         _testingUrls.isEmpty &&
         _removingUrls.isEmpty;
-    return ServiceDialogInteractionTheme(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-        child: Column(
-          children: [
-            Expanded(
-              child: CustomScrollView(
-                physics: openHandDialogAwareScrollPhysics(context),
-                slivers: [
-                  SliverList.list(
-                    children: [
-                      OpenHandResponsiveHeaderLayout(
-                        compactBreakpoint: 620,
-                        identity: Row(
-                          children: [
-                            Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: colors.primaryContainer,
-                                borderRadius: kServiceInteractiveBorderRadius,
-                              ),
-                              alignment: Alignment.center,
-                              child: Icon(
-                                Icons.lan_outlined,
-                                color: colors.onPrimaryContainer,
-                              ),
-                            ),
-                            kOpenHandHGap12,
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    text(
-                                      zh: '网络代理与代理池',
-                                      en: 'Network proxy pool',
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleLarge,
-                                  ),
-                                  Text(
-                                    switch (route) {
-                                      AiExposureProxyRoute.pool => text(
-                                        zh: '$activeCount 个启用节点 · ${_strategyLabel(_strategy, text)}',
-                                        en: '$activeCount active · ${_strategyLabel(_strategy, text)}',
-                                      ),
-                                      AiExposureProxyRoute.system => text(
-                                        zh: '当前回退系统代理',
-                                        en: 'Falling back to system proxy',
-                                      ),
-                                      AiExposureProxyRoute.direct => text(
-                                        zh: '当前使用 DIRECT 直连',
-                                        en: 'Using DIRECT connection',
-                                      ),
-                                    },
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colors.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        actions: ServiceDialogHeaderIconButton(
-                          tooltip: MaterialLocalizations.of(
-                            context,
-                          ).closeButtonTooltip,
-                          onPressed: _busy ? null : _closeDialog,
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ),
-                      kOpenHandGap14,
-                      _ProxyPoolOverview(
-                        endpoints: _endpoints,
-                        statusStatistics: statusStatistics,
-                        inFlight: status?.inFlight ?? 0,
-                      ),
-                      kOpenHandGap14,
-                      _buildSettingsPanel(
-                        context,
-                        controllerInspectionBusy: controllerInspectionBusy,
-                        controllerInspectionCancelling:
-                            controllerInspectionCancelling,
-                        activeCount: activeCount,
-                        systemProxyAvailable: systemProxyAvailable,
-                      ),
-                      kOpenHandGap14,
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(
-                            kOpenHandRadius10,
-                          ),
-                          border: Border.all(color: colors.outlineVariant),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          child: _buildEndpointToolbar(
-                            context,
-                            controllerInspectionBusy: controllerInspectionBusy,
-                          ),
-                        ),
-                      ),
-                      if (_inspectionBusy) ...[
-                        kOpenHandGap10,
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: kOpenHandPillBorderRadius,
-                                child: ServiceAnimatedProgressBar(
-                                  value: _inspectionTotal == 0
-                                      ? null
-                                      : _inspectionCompleted / _inspectionTotal,
-                                  minHeight: 6,
-                                ),
-                              ),
-                            ),
-                            kOpenHandHGap10,
-                            Text(
-                              '$_inspectionCompleted/$_inspectionTotal',
-                              style: theme.textTheme.labelMedium,
-                            ),
-                          ],
-                        ),
-                      ],
-                      kOpenHandGap12,
-                    ],
-                  ),
-                  SliverToBoxAdapter(
-                    child: _endpoints.isEmpty
-                        ? SizedBox(
-                            height: 160,
-                            child: Center(
-                              child: Text(
-                                text(
-                                  zh: '代理池为空，可手工添加或批量导入 TXT/JSON。',
-                                  en: 'Add a proxy or import a TXT/JSON pool.',
-                                ),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          )
-                        : LayoutBuilder(
-                            builder: (context, constraints) {
-                              final availableHeight =
-                                  constraints.hasBoundedHeight
-                                  ? constraints.maxHeight
-                                  : _kProxyEndpointListMaxHeight;
-                              final listHeight = availableHeight.clamp(
-                                1.0,
-                                _kProxyEndpointListMaxHeight,
-                              );
-                              return SizedBox(
-                                height: listHeight,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(
-                                    right: _kProxyEndpointScrollbarGutter,
-                                  ),
-                                  child: OpenHandSafeScrollbar(
-                                    controller: _endpointScrollController,
-                                    thumbVisibility: true,
-                                    thickness: 5,
-                                    radius: kOpenHandPillRadius,
-                                    interactive: true,
-                                    scrollbarOrientation:
-                                        ScrollbarOrientation.right,
-                                    child: TooltipVisibility(
-                                      visible: endpointTooltipsVisible,
-                                      child: ListView.builder(
-                                        controller: _endpointScrollController,
-                                        primary: false,
-                                        physics:
-                                            openHandDialogAwareScrollPhysics(
-                                              context,
-                                            ),
-                                        itemCount: visibleEndpoints.length,
-                                        findChildIndexCallback: (key) =>
-                                            visibleEndpointIndexByKey[key],
-                                        itemBuilder: (context, index) {
-                                          final endpoint =
-                                              visibleEndpoints[index];
-                                          return OpenHandListRemovalTransition(
-                                            key: ValueKey<String>(endpoint.url),
-                                            collapsed: _removingUrls.contains(
-                                              endpoint.url,
-                                            ),
-                                            child: Padding(
-                                              padding: const EdgeInsets.only(
-                                                bottom: 8,
-                                              ),
-                                              child: _ProxyEndpointCard(
-                                                endpoint: endpoint,
-                                                statistics:
-                                                    statusStatistics[endpoint
-                                                        .runtimeId] ??
-                                                    endpoint.statistics,
-                                                testing: _testingUrls.contains(
-                                                  endpoint.url,
-                                                ),
-                                                busy:
-                                                    _busy ||
-                                                    inspectionBusy ||
-                                                    _removingUrls.isNotEmpty,
-                                                selectionMode: _selectionMode,
-                                                selected: _selectedUrls
-                                                    .contains(endpoint.url),
-                                                trailingSafeInset:
-                                                    _kProxyEndpointScrollbarGutter,
-                                                onSelectedChanged: (selected) =>
-                                                    setState(() {
-                                                      if (selected) {
-                                                        _selectedUrls.add(
-                                                          endpoint.url,
-                                                        );
-                                                      } else {
-                                                        _selectedUrls.remove(
-                                                          endpoint.url,
-                                                        );
-                                                      }
-                                                    }),
-                                                onEnabledChanged: (enabled) =>
-                                                    unawaited(
-                                                      _setEndpointEnabled(
-                                                        endpoint.url,
-                                                        enabled,
-                                                      ),
-                                                    ),
-                                                onTest: () =>
-                                                    _testEndpoint(endpoint.url),
-                                                onDetails: () =>
-                                                    _showEndpointDetails(
-                                                      endpoint,
-                                                      statusStatistics[endpoint
-                                                              .runtimeId] ??
-                                                          endpoint.statistics,
-                                                    ),
-                                                onExport: () =>
-                                                    _exportOne(endpoint),
-                                                onEdit: () =>
-                                                    _editEndpoint(endpoint),
-                                                onDelete: () => unawaited(
-                                                  _confirmDeleteEndpoints(
-                                                    <String>{endpoint.url},
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
+    final subtitle = switch (route) {
+      AiExposureProxyRoute.pool => text(
+        zh: '$activeCount 个启用节点 · ${_strategyLabel(_strategy, text)}',
+        en: '$activeCount active · ${_strategyLabel(_strategy, text)}',
+      ),
+      AiExposureProxyRoute.system => text(
+        zh: '当前回退系统代理',
+        en: 'Falling back to system proxy',
+      ),
+      AiExposureProxyRoute.direct => text(
+        zh: '当前使用 DIRECT 直连',
+        en: 'Using DIRECT connection',
+      ),
+    };
+    return PopScope(
+      canPop: !_busy,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) return;
+        dismissOpenHandTooltipsSafely(debugLabel: '关闭代理池弹窗前收起工具提示');
+        _cancelInspection();
+      },
+      child: ServiceDialogInteractionTheme(
+        child: OpenHandEditorDialogScaffold(
+          title: text(zh: '网络代理与代理池', en: 'Network proxy pool'),
+          subtitle: subtitle,
+          icon: Icons.lan_outlined,
+          iconColor: OpenHandStatusColors.info,
+          busy: _busy,
+          canPop: !_busy,
+          closeEnabled: !_busy,
+          scrollBody: false,
+          maxWidth: kOpenHandDialogWidthExtraWide,
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: _busy ? null : _closeDialog,
+              label: text(zh: '取消', en: 'Cancel'),
             ),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(top: 14),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: colors.outlineVariant)),
-              ),
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: kOpenHandDialogActionSpacing,
-                runSpacing: kOpenHandDialogActionSpacing,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: _busy ? null : _closeDialog,
-                    label: text(zh: '取消', en: 'Cancel'),
-                  ),
-                  OpenHandDialogActionButton.primary(
-                    busy: _busy,
-                    onPressed: _busy ? null : _save,
-                    label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
-                  ),
-                ],
-              ),
+            OpenHandDialogActionButton.primary(
+              busy: _busy,
+              onPressed: _busy ? null : _save,
+              label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
             ),
           ],
+          body: CustomScrollView(
+            physics: openHandDialogAwareScrollPhysics(context),
+            slivers: [
+              SliverList.list(
+                children: [
+                  _ProxyPoolOverview(
+                    endpoints: _endpoints,
+                    statusStatistics: statusStatistics,
+                    inFlight: status?.inFlight ?? 0,
+                  ),
+                  kOpenHandGap14,
+                  _buildSettingsPanel(
+                    context,
+                    controllerInspectionBusy: controllerInspectionBusy,
+                    controllerInspectionCancelling:
+                        controllerInspectionCancelling,
+                    activeCount: activeCount,
+                    systemProxyAvailable: systemProxyAvailable,
+                  ),
+                  kOpenHandGap14,
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                      border: Border.all(color: colors.outlineVariant),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      child: _buildEndpointToolbar(
+                        context,
+                        controllerInspectionBusy: controllerInspectionBusy,
+                      ),
+                    ),
+                  ),
+                  if (_inspectionBusy) ...[
+                    kOpenHandGap10,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: kOpenHandPillBorderRadius,
+                            child: ServiceAnimatedProgressBar(
+                              value: _inspectionTotal == 0
+                                  ? null
+                                  : _inspectionCompleted / _inspectionTotal,
+                              minHeight: 6,
+                            ),
+                          ),
+                        ),
+                        kOpenHandHGap10,
+                        Text(
+                          '$_inspectionCompleted/$_inspectionTotal',
+                          style: theme.textTheme.labelMedium,
+                        ),
+                      ],
+                    ),
+                  ],
+                  kOpenHandGap12,
+                ],
+              ),
+              SliverToBoxAdapter(
+                child: _endpoints.isEmpty
+                    ? SizedBox(
+                        height: 160,
+                        child: Center(
+                          child: OpenHandTintedPanel(
+                            accent: OpenHandStatusColors.warning,
+                            icon: Icons.inventory_2_outlined,
+                            title: text(zh: '代理池为空', en: 'Proxy pool empty'),
+                            child: Text(
+                              text(
+                                zh: '可手工添加或批量导入 TXT/JSON。',
+                                en: 'Add a proxy or import a TXT/JSON pool.',
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final availableHeight = constraints.hasBoundedHeight
+                              ? constraints.maxHeight
+                              : _kProxyEndpointListMaxHeight;
+                          final listHeight = availableHeight.clamp(
+                            1.0,
+                            _kProxyEndpointListMaxHeight,
+                          );
+                          return SizedBox(
+                            height: listHeight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                right: _kProxyEndpointScrollbarGutter,
+                              ),
+                              child: OpenHandSafeScrollbar(
+                                controller: _endpointScrollController,
+                                thumbVisibility: true,
+                                thickness: 5,
+                                radius: kOpenHandPillRadius,
+                                interactive: true,
+                                scrollbarOrientation:
+                                    ScrollbarOrientation.right,
+                                child: TooltipVisibility(
+                                  visible: endpointTooltipsVisible,
+                                  child: ListView.builder(
+                                    controller: _endpointScrollController,
+                                    primary: false,
+                                    physics: openHandDialogAwareScrollPhysics(
+                                      context,
+                                    ),
+                                    itemCount: visibleEndpoints.length,
+                                    findChildIndexCallback: (key) =>
+                                        visibleEndpointIndexByKey[key],
+                                    itemBuilder: (context, index) {
+                                      final endpoint = visibleEndpoints[index];
+                                      return OpenHandListRemovalTransition(
+                                        key: ValueKey<String>(endpoint.url),
+                                        collapsed: _removingUrls.contains(
+                                          endpoint.url,
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          child: _ProxyEndpointCard(
+                                            endpoint: endpoint,
+                                            statistics:
+                                                statusStatistics[endpoint
+                                                    .runtimeId] ??
+                                                endpoint.statistics,
+                                            testing: _testingUrls.contains(
+                                              endpoint.url,
+                                            ),
+                                            busy:
+                                                _busy ||
+                                                inspectionBusy ||
+                                                _removingUrls.isNotEmpty,
+                                            selectionMode: _selectionMode,
+                                            selected: _selectedUrls.contains(
+                                              endpoint.url,
+                                            ),
+                                            trailingSafeInset:
+                                                _kProxyEndpointScrollbarGutter,
+                                            onSelectedChanged: (selected) =>
+                                                setState(() {
+                                                  if (selected) {
+                                                    _selectedUrls.add(
+                                                      endpoint.url,
+                                                    );
+                                                  } else {
+                                                    _selectedUrls.remove(
+                                                      endpoint.url,
+                                                    );
+                                                  }
+                                                }),
+                                            onEnabledChanged: (enabled) =>
+                                                unawaited(
+                                                  _setEndpointEnabled(
+                                                    endpoint.url,
+                                                    enabled,
+                                                  ),
+                                                ),
+                                            onTest: () =>
+                                                _testEndpoint(endpoint.url),
+                                            onDetails: () =>
+                                                _showEndpointDetails(
+                                                  endpoint,
+                                                  statusStatistics[endpoint
+                                                          .runtimeId] ??
+                                                      endpoint.statistics,
+                                                ),
+                                            onExport: () =>
+                                                _exportOne(endpoint),
+                                            onEdit: () =>
+                                                _editEndpoint(endpoint),
+                                            onDelete: () => unawaited(
+                                              _confirmDeleteEndpoints(<String>{
+                                                endpoint.url,
+                                              }),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -825,210 +766,202 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.32),
-        borderRadius: kServiceInteractiveBorderRadius,
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        children: [
-          Row(
+    return Column(
+      children: [
+        OpenHandAnimatedSwitchTile(
+          icon: Icons.vpn_lock_rounded,
+          disabledIcon: Icons.public_rounded,
+          title: text(zh: '代理底层网络请求', en: 'Proxy network requests'),
+          description: text(
+            zh: '覆盖资产发现、目标探测、主动验证和 GPT 辅助请求。',
+            en: 'Covers discovery, probing, validation, and assisted requests.',
+          ),
+          value: _enabled,
+          onChanged: (value) => setState(() => _enabled = value),
+        ),
+        kOpenHandGap12,
+        OpenHandDialogSectionCard(
+          icon: Icons.alt_route_rounded,
+          title: text(zh: '选路与策略', en: 'Routing and strategy'),
+          subtitle: text(
+            zh: '默认使用代理池；系统代理仅在探测到有效配置时可选。',
+            en: 'Proxy pool is the default. System proxy requires a valid detected configuration.',
+          ),
+          accent: OpenHandStatusColors.info,
+          child: Column(
             children: [
-              Icon(
-                _enabled ? Icons.vpn_lock_rounded : Icons.public_rounded,
-                color: _enabled ? colors.primary : colors.onSurfaceVariant,
+              AnimatedDropdownButtonFormField<AiExposureProxyMode>(
+                initialValue: _proxyMode,
+                decoration: InputDecoration(
+                  labelText: text(zh: '代理方式', en: 'Proxy mode'),
+                ),
+                items: AiExposureProxyMode.values
+                    .map(
+                      (item) => DropdownMenuItem<AiExposureProxyMode>(
+                        value: item,
+                        enabled:
+                            item != AiExposureProxyMode.system ||
+                            systemProxyAvailable,
+                        child: Text(
+                          item == AiExposureProxyMode.pool
+                              ? text(zh: '代理池代理', en: 'Proxy pool')
+                              : text(zh: '系统代理', en: 'System proxy'),
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: !_enabled
+                    ? null
+                    : (value) {
+                        if (value == null) return;
+                        setState(() => _proxyMode = value);
+                      },
               ),
-              kOpenHandHGap12,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      text(zh: '代理底层网络请求', en: 'Proxy network requests'),
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    Text(
-                      text(
-                        zh: '覆盖资产发现、目标探测、主动验证和 GPT 辅助请求。',
-                        en: 'Covers discovery, probing, validation, and assisted requests.',
+              AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
+                child: _proxyMode == AiExposureProxyMode.system
+                    ? _buildSystemProxyDetails(
+                        context,
+                        available: systemProxyAvailable,
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey<String>('system-proxy-details-hidden'),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
+              ),
+              AnimatedOpacity(
+                duration: openHandMotionDuration(context, kOpenHandMotion240),
+                curve: kOpenHandSwitchInCurve,
+                opacity: _enabled ? 1 : .46,
+                child: IgnorePointer(
+                  ignoring: !_enabled,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      kOpenHandGap12,
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final strategy =
+                              AnimatedDropdownButtonFormField<
+                                AiExposureProxyStrategy
+                              >(
+                                initialValue: _strategy,
+                                decoration: InputDecoration(
+                                  labelText: text(
+                                    zh: '代理策略',
+                                    en: 'Proxy strategy',
+                                  ),
+                                ),
+                                items: AiExposureProxyStrategy.values
+                                    .map(
+                                      (item) => DropdownMenuItem(
+                                        value: item,
+                                        child: Text(_strategyLabel(item, text)),
+                                      ),
+                                    )
+                                    .toList(growable: false),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() => _strategy = value);
+                                  }
+                                },
+                              );
+                          final bypass = Row(
+                            children: [
+                              Checkbox(
+                                value: _bypassLocal,
+                                onChanged: (value) => setState(
+                                  () => _bypassLocal = value == true,
+                                ),
+                              ),
+                              kOpenHandHGap6,
+                              Expanded(
+                                child: Text(
+                                  text(
+                                    zh: '本地与私网直连',
+                                    en: 'Bypass local networks',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                          if (constraints.maxWidth < 680) {
+                            return Column(
+                              children: [strategy, kOpenHandGap8, bypass],
+                            );
+                          }
+                          return Row(
+                            children: [
+                              Expanded(child: strategy),
+                              kOpenHandHGap14,
+                              Expanded(child: bypass),
+                            ],
+                          );
+                        },
                       ),
-                    ),
-                  ],
+                      kOpenHandGap8,
+                      Text(
+                        text(
+                          zh: '每 ${_rotationEvery.round()} 次请求轮换',
+                          en: 'Rotate every ${_rotationEvery.round()} requests',
+                        ),
+                        style: theme.textTheme.labelLarge,
+                      ),
+                      Slider(
+                        value: _rotationEvery,
+                        min: 1,
+                        max: 100,
+                        divisions: 99,
+                        label: '${_rotationEvery.round()}',
+                        onChanged:
+                            _strategy == AiExposureProxyStrategy.roundRobin
+                            ? (value) => setState(() => _rotationEvery = value)
+                            : null,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              kOpenHandHGap10,
-              Switch(
-                value: _enabled,
-                onChanged: (value) => setState(() => _enabled = value),
+              AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
+                child:
+                    _enabled &&
+                        _proxyMode == AiExposureProxyMode.pool &&
+                        activeCount == 0
+                    ? Padding(
+                        key: const ValueKey<String>('empty-proxy-pool-hint'),
+                        padding: const EdgeInsets.only(top: 10),
+                        child: OpenHandTintedPanel(
+                          accent: OpenHandStatusColors.warning,
+                          icon: Icons.info_outline_rounded,
+                          child: Text(
+                            text(
+                              zh: '代理池暂无启用节点，保存后请求将使用 DIRECT 直连。',
+                              en: 'No proxy pool node is enabled; requests will use a DIRECT connection.',
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey<String>('proxy-pool-hint-hidden'),
+                      ),
               ),
             ],
           ),
-          kOpenHandGap12,
-          AnimatedDropdownButtonFormField<AiExposureProxyMode>(
-            initialValue: _proxyMode,
-            decoration: InputDecoration(
-              labelText: text(zh: '代理方式', en: 'Proxy mode'),
-              helperText: text(
-                zh: '默认使用代理池；系统代理仅在探测到有效配置时可选。',
-                en: 'Proxy pool is the default. System proxy requires a valid detected configuration.',
-              ),
-              border: const OutlineInputBorder(),
-            ),
-            items: AiExposureProxyMode.values
-                .map(
-                  (item) => DropdownMenuItem<AiExposureProxyMode>(
-                    value: item,
-                    enabled:
-                        item != AiExposureProxyMode.system ||
-                        systemProxyAvailable,
-                    child: Text(
-                      item == AiExposureProxyMode.pool
-                          ? text(zh: '代理池代理', en: 'Proxy pool')
-                          : text(zh: '系统代理', en: 'System proxy'),
-                    ),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: !_enabled
-                ? null
-                : (value) {
-                    if (value == null) return;
-                    setState(() => _proxyMode = value);
-                  },
+        ),
+        kOpenHandGap12,
+        OpenHandDialogSectionCard(
+          icon: Icons.monitor_heart_outlined,
+          title: text(zh: '定时巡检', en: 'Scheduled inspection'),
+          subtitle: text(
+            zh: '自动更新节点连通性与延迟趋势',
+            en: 'Refresh connectivity and latency trends',
           ),
-          AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion220),
-            switchInCurve: kOpenHandSwitchInCurve,
-            switchOutCurve: kOpenHandSwitchOutCurve,
-            child: _proxyMode == AiExposureProxyMode.system
-                ? _buildSystemProxyDetails(
-                    context,
-                    available: systemProxyAvailable,
-                  )
-                : const SizedBox.shrink(
-                    key: ValueKey<String>('system-proxy-details-hidden'),
-                  ),
-          ),
-          AnimatedOpacity(
-            duration: openHandMotionDuration(context, kOpenHandMotion240),
-            curve: kOpenHandSwitchInCurve,
-            opacity: _enabled ? 1 : .46,
-            child: IgnorePointer(
-              ignoring: !_enabled,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  kOpenHandGap12,
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final strategy =
-                          AnimatedDropdownButtonFormField<
-                            AiExposureProxyStrategy
-                          >(
-                            initialValue: _strategy,
-                            decoration: InputDecoration(
-                              labelText: text(zh: '代理策略', en: 'Proxy strategy'),
-                              border: const OutlineInputBorder(),
-                            ),
-                            items: AiExposureProxyStrategy.values
-                                .map(
-                                  (item) => DropdownMenuItem(
-                                    value: item,
-                                    child: Text(_strategyLabel(item, text)),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _strategy = value);
-                              }
-                            },
-                          );
-                      final bypass = Row(
-                        children: [
-                          Checkbox(
-                            value: _bypassLocal,
-                            onChanged: (value) =>
-                                setState(() => _bypassLocal = value == true),
-                          ),
-                          kOpenHandHGap6,
-                          Expanded(
-                            child: Text(
-                              text(zh: '本地与私网直连', en: 'Bypass local networks'),
-                            ),
-                          ),
-                        ],
-                      );
-                      if (constraints.maxWidth < 680) {
-                        return Column(
-                          children: [strategy, kOpenHandGap8, bypass],
-                        );
-                      }
-                      return Row(
-                        children: [
-                          Expanded(child: strategy),
-                          kOpenHandHGap14,
-                          Expanded(child: bypass),
-                        ],
-                      );
-                    },
-                  ),
-                  kOpenHandGap8,
-                  Text(
-                    text(
-                      zh: '每 ${_rotationEvery.round()} 次请求轮换',
-                      en: 'Rotate every ${_rotationEvery.round()} requests',
-                    ),
-                    style: theme.textTheme.labelLarge,
-                  ),
-                  Slider(
-                    value: _rotationEvery,
-                    min: 1,
-                    max: 100,
-                    divisions: 99,
-                    label: '${_rotationEvery.round()}',
-                    onChanged: _strategy == AiExposureProxyStrategy.roundRobin
-                        ? (value) => setState(() => _rotationEvery = value)
-                        : null,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion220),
-            switchInCurve: kOpenHandSwitchInCurve,
-            switchOutCurve: kOpenHandSwitchOutCurve,
-            child:
-                _enabled &&
-                    _proxyMode == AiExposureProxyMode.pool &&
-                    activeCount == 0
-                ? Padding(
-                    key: const ValueKey<String>('empty-proxy-pool-hint'),
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      text(
-                        zh: '代理池暂无启用节点，保存后请求将使用 DIRECT 直连。',
-                        en: 'No proxy pool node is enabled; requests will use a DIRECT connection.',
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.tertiary,
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(
-                    key: ValueKey<String>('proxy-pool-hint-hidden'),
-                  ),
-          ),
-          Divider(height: 20, color: colors.outlineVariant),
-          LayoutBuilder(
+          accent: OpenHandStatusColors.success,
+          child: LayoutBuilder(
             builder: (context, constraints) {
               final toggle = Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1069,7 +1002,6 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   initialValue: _normalizedInspectionInterval,
                   decoration: InputDecoration(
                     labelText: text(zh: '巡检周期', en: 'Interval'),
-                    border: const OutlineInputBorder(),
                   ),
                   items: _kInspectionIntervals
                       .map(
@@ -1094,7 +1026,6 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   initialValue: _normalizedInspectionConcurrency,
                   decoration: InputDecoration(
                     labelText: text(zh: '测试线程', en: 'Test threads'),
-                    border: const OutlineInputBorder(),
                   ),
                   items: _kInspectionConcurrencyOptions
                       .map(
@@ -1209,8 +1140,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               );
             },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -2598,81 +2529,45 @@ class _ProxyPoolOverview extends StatelessWidget {
         onTap: () => _showProxyAverageResponseDialog(context),
       ),
     ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: colors.primary.withValues(alpha: 0.12),
-                borderRadius: kServiceInteractiveBorderRadius,
-                border: Border.all(
-                  color: colors.primary.withValues(alpha: 0.28),
+    return OpenHandDialogSectionCard(
+      icon: Icons.monitor_heart_outlined,
+      title: text(zh: '代理池实时运维', en: 'Proxy pool operations'),
+      subtitle: text(zh: '请求明细已持久化', en: 'Request details persisted'),
+      accent: OpenHandStatusColors.info,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 700) {
+            return SizedBox(
+              height: 82,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: openHandDialogAwareScrollPhysics(context),
+                itemCount: metrics.length,
+                separatorBuilder: (_, _) => kOpenHandHGap8,
+                itemBuilder: (context, index) => SizedBox(
+                  width: 154,
+                  child: _ProxyPoolMetricTile(data: metrics[index]),
                 ),
               ),
-              child: Icon(
-                Icons.monitor_heart_outlined,
-                size: 19,
-                color: colors.primary,
-              ),
-            ),
-            kOpenHandHGap10,
-            Expanded(
-              child: Text(
-                text(zh: '代理池实时运维', en: 'Proxy pool operations'),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            Text(
-              text(zh: '请求明细已持久化', en: 'Request details persisted'),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-        kOpenHandGap10,
-        LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < 700) {
-              return SizedBox(
-                height: 82,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  physics: openHandDialogAwareScrollPhysics(context),
-                  itemCount: metrics.length,
-                  separatorBuilder: (_, _) => kOpenHandHGap8,
-                  itemBuilder: (context, index) => SizedBox(
-                    width: 154,
-                    child: _ProxyPoolMetricTile(data: metrics[index]),
-                  ),
-                ),
-              );
-            }
-            const columns = 3;
-            const gap = 8.0;
-            final width =
-                (constraints.maxWidth - gap * (columns - 1)) / columns;
-            return Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: metrics
-                  .map(
-                    (item) => SizedBox(
-                      width: width,
-                      child: _ProxyPoolMetricTile(data: item),
-                    ),
-                  )
-                  .toList(growable: false),
             );
-          },
-        ),
-      ],
+          }
+          const columns = 3;
+          const gap = 8.0;
+          final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: metrics
+                .map(
+                  (item) => SizedBox(
+                    width: width,
+                    child: _ProxyPoolMetricTile(data: item),
+                  ),
+                )
+                .toList(growable: false),
+          );
+        },
+      ),
     );
   }
 }

@@ -5,11 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
-import '../../../app/theme/openhand_theme.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -86,175 +87,232 @@ class _AiModelHealthSettingsPanelState
     }
     final text = openHandTextResolver(context);
     final theme = Theme.of(context);
-    final settingTitleStyle = theme.textTheme.titleMedium?.copyWith(
-      fontWeight: FontWeight.w800,
-    );
+    final colorScheme = theme.colorScheme;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          hoverColor: kOpenHandSettingsItemHoverColor,
-          title: Text(
-            text(zh: '定时健康巡检', en: 'Scheduled health checks'),
-            style: settingTitleStyle,
-          ),
-          subtitle: Text(
-            text(
-              zh: '按固定间隔检查所有提供商的所有模型，并保存每次结果。',
-              en: 'Check every configured model on a fixed interval and retain each result.',
-            ),
+        OpenHandAnimatedSwitchTile(
+          icon: Icons.monitor_heart_outlined,
+          disabledIcon: Icons.heart_broken_outlined,
+          title: text(zh: '定时健康巡检', en: 'Scheduled health checks'),
+          description: text(
+            zh: '按固定间隔检查所有提供商的所有模型，并保存每次结果。',
+            en: 'Check every configured model on a fixed interval and retain each result.',
           ),
           value: settings.enabled,
           onChanged: (value) => controller.updateSettings(enabled: value),
-          thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-            return states.contains(WidgetState.selected)
-                ? const Icon(Icons.check_rounded, size: 16)
-                : const Icon(Icons.close_rounded, size: 16);
-          }),
         ),
         kOpenHandGap12,
         _buildTimeoutFields(context),
         kOpenHandGap12,
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _intervalController,
-                focusNode: _intervalFocusNode,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: text(zh: '巡检间隔（分钟）', en: 'Interval (minutes)'),
-                  helperText: text(
-                    zh: '范围 1-1440 分钟。',
-                    en: 'Range: 1-1440 minutes.',
-                  ),
-                ),
-                onSubmitted: (value) {
-                  final minutes = int.tryParse(value);
-                  if (minutes != null) {
-                    controller.updateSettings(intervalMinutes: minutes);
-                  }
-                },
-              ),
-            ),
-            kOpenHandHGap12,
-            SizedBox(
-              width: 150,
-              height: _aiHealthControlHeight,
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: text(zh: '测试线程', en: 'Test threads'),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: AnimatedDropdownButton<int>(
-                    isExpanded: true,
-                    isDense: true,
-                    value: settings.concurrency,
-                    items: [
-                      for (final value in const <int>[1, 2, 4, 8, 16, 32])
-                        DropdownMenuItem(value: value, child: Text('$value')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        controller.updateSettings(concurrency: value);
+        OpenHandDialogSectionCard(
+          icon: Icons.schedule_rounded,
+          title: text(zh: '巡检节奏', en: 'Inspection cadence'),
+          subtitle: text(
+            zh: '间隔、并发与立即执行。',
+            en: 'Interval, concurrency, and a manual run.',
+          ),
+          accent: OpenHandStatusColors.success,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final interval = TextField(
+                    controller: _intervalController,
+                    focusNode: _intervalFocusNode,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: text(zh: '巡检间隔（分钟）', en: 'Interval (minutes)'),
+                      helperText: text(
+                        zh: '范围 1-1440 分钟。',
+                        en: 'Range: 1-1440 minutes.',
+                      ),
+                      prefixIcon: const Icon(Icons.timelapse_rounded),
+                    ),
+                    onSubmitted: (value) {
+                      final minutes = int.tryParse(value);
+                      if (minutes != null) {
+                        controller.updateSettings(intervalMinutes: minutes);
                       }
                     },
-                  ),
-                ),
-              ),
-            ),
-            kOpenHandHGap12,
-            SizedBox(
-              width: 156,
-              height: _aiHealthControlHeight,
-              child: AnimatedContainer(
-                duration: openHandMotionDuration(context, kOpenHandMotion220),
-                curve: kOpenHandEmphasizedTransitionCurve,
-                child: FilledButton.tonalIcon(
-                  onPressed: controller.cancelling
-                      ? null
-                      : controller.manualChecking
-                      ? controller.cancelCheck
-                      : controller.checking
-                      ? null
-                      : controller.checkAll,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: controller.manualChecking
-                        ? theme.colorScheme.error
-                        : null,
-                    foregroundColor: controller.manualChecking
-                        ? theme.colorScheme.onError
-                        : null,
-                  ),
-                  icon: AnimatedSwitcher(
-                    duration: openHandMotionDuration(
-                      context,
-                      kOpenHandMotion200,
-                    ),
-                    child: controller.cancelling
-                        ? const SizedBox.square(
-                            key: ValueKey<String>('cancelling'),
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : controller.manualChecking
-                        ? const Icon(
-                            Icons.stop_rounded,
-                            key: ValueKey<String>('stop'),
-                          )
-                        : controller.checking
-                        ? const OpenHandBusyStatusIcon(
-                            busy: true,
-                            icon: null,
-                            key: ValueKey<String>('busy'),
-                          )
-                        : const Icon(
-                            Icons.wifi_tethering_rounded,
-                            key: ValueKey<String>('idle'),
-                          ),
-                  ),
-                  label: AnimatedSwitcher(
-                    duration: openHandMotionDuration(
-                      context,
-                      kOpenHandMotion200,
-                    ),
-                    child: Text(
-                      controller.cancelling
-                          ? text(zh: '正在停止巡检', en: 'Stopping inspection')
-                          : controller.manualChecking
-                          ? text(zh: '停止巡检', en: 'Stop inspection')
-                          : controller.checking
-                          ? text(zh: '正在巡检', en: 'Checking')
-                          : text(zh: '立即巡检', en: 'Run now'),
-                      key: ValueKey<String>(
-                        controller.cancelling
-                            ? 'cancelling'
-                            : controller.checking
-                            ? 'checking'
-                            : 'idle',
+                  );
+                  final threads = SizedBox(
+                    width: 150,
+                    height: _aiHealthControlHeight,
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: text(zh: '测试线程', en: 'Test threads'),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: AnimatedDropdownButton<int>(
+                          isExpanded: true,
+                          isDense: true,
+                          value: settings.concurrency,
+                          items: [
+                            for (final value in const <int>[1, 2, 4, 8, 16, 32])
+                              DropdownMenuItem(
+                                value: value,
+                                child: Text('$value'),
+                              ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              controller.updateSettings(concurrency: value);
+                            }
+                          },
+                        ),
                       ),
                     ),
+                  );
+                  final run = SizedBox(
+                    width: 156,
+                    height: _aiHealthControlHeight,
+                    child: AnimatedContainer(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion220,
+                      ),
+                      curve: kOpenHandEmphasizedTransitionCurve,
+                      child: FilledButton.tonalIcon(
+                        onPressed: controller.cancelling
+                            ? null
+                            : controller.manualChecking
+                            ? controller.cancelCheck
+                            : controller.checking
+                            ? null
+                            : controller.checkAll,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: controller.manualChecking
+                              ? colorScheme.error
+                              : null,
+                          foregroundColor: controller.manualChecking
+                              ? colorScheme.onError
+                              : null,
+                        ),
+                        icon: AnimatedSwitcher(
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion200,
+                          ),
+                          child: controller.cancelling
+                              ? const SizedBox.square(
+                                  key: ValueKey<String>('cancelling'),
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : controller.manualChecking
+                              ? const Icon(
+                                  Icons.stop_rounded,
+                                  key: ValueKey<String>('stop'),
+                                )
+                              : controller.checking
+                              ? const OpenHandBusyStatusIcon(
+                                  busy: true,
+                                  icon: null,
+                                  key: ValueKey<String>('busy'),
+                                )
+                              : const Icon(
+                                  Icons.wifi_tethering_rounded,
+                                  key: ValueKey<String>('idle'),
+                                ),
+                        ),
+                        label: AnimatedSwitcher(
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion200,
+                          ),
+                          child: Text(
+                            controller.cancelling
+                                ? text(zh: '正在停止巡检', en: 'Stopping inspection')
+                                : controller.manualChecking
+                                ? text(zh: '停止巡检', en: 'Stop inspection')
+                                : controller.checking
+                                ? text(zh: '正在巡检', en: 'Checking')
+                                : text(zh: '立即巡检', en: 'Run now'),
+                            key: ValueKey<String>(
+                              controller.cancelling
+                                  ? 'cancelling'
+                                  : controller.checking
+                                  ? 'checking'
+                                  : 'idle',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                  if (constraints.maxWidth < 640) {
+                    return Column(
+                      children: [
+                        interval,
+                        kOpenHandGap12,
+                        Row(
+                          children: [
+                            threads,
+                            kOpenHandHGap12,
+                            Expanded(child: run),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: interval),
+                      kOpenHandHGap12,
+                      threads,
+                      kOpenHandHGap12,
+                      run,
+                    ],
+                  );
+                },
+              ),
+              if (widget.showRequestMode) ...[
+                kOpenHandGap12,
+                InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: text(
+                      zh: '巡检请求模式',
+                      en: 'Health-check request mode',
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: AnimatedDropdownButton<AiModelHealthRequestMode>(
+                      isExpanded: true,
+                      isDense: true,
+                      value: settings.requestMode,
+                      items: [
+                        for (final mode in AiModelHealthRequestMode.values)
+                          DropdownMenuItem(
+                            value: mode,
+                            child: Text(_modeLabel(context, mode)),
+                          ),
+                      ],
+                      onChanged: (mode) {
+                        if (mode != null) {
+                          controller.updateSettings(requestMode: mode);
+                        }
+                      },
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            ],
+          ),
         ),
-        if (!widget.showRequestMode)
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            hoverColor: kOpenHandSettingsItemHoverColor,
-            title: Text(
-              text(zh: '使用系统代理', en: 'Use system proxy'),
-              style: settingTitleStyle,
-            ),
-            subtitle: Text(
-              text(
-                zh: '健康巡检请求通过应用当前系统代理设置发出。',
-                en: 'Send health-check requests through the app system proxy.',
-              ),
+        if (!widget.showRequestMode) ...[
+          kOpenHandGap12,
+          OpenHandAnimatedSwitchTile(
+            icon: Icons.vpn_lock_rounded,
+            disabledIcon: Icons.public_rounded,
+            title: text(zh: '使用系统代理', en: 'Use system proxy'),
+            description: text(
+              zh: '健康巡检请求通过应用当前系统代理设置发出。',
+              en: 'Send health-check requests through the app system proxy.',
             ),
             value: usesSystemProxy,
             onChanged: (value) => controller.updateSettings(
@@ -263,51 +321,19 @@ class _AiModelHealthSettingsPanelState
                   ? AiModelHealthRequestMode.systemProxy
                   : AiModelHealthRequestMode.direct,
             ),
-            thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-              return states.contains(WidgetState.selected)
-                  ? const Icon(Icons.check_rounded, size: 16)
-                  : const Icon(Icons.close_rounded, size: 16);
-            }),
-          ),
-        if (widget.showRequestMode) ...[
-          kOpenHandGap8,
-          SizedBox(
-            height: _aiHealthControlHeight,
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: text(zh: '巡检请求模式', en: 'Health-check request mode'),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: AnimatedDropdownButton<AiModelHealthRequestMode>(
-                  isExpanded: true,
-                  isDense: true,
-                  value: settings.requestMode,
-                  items: [
-                    for (final mode in AiModelHealthRequestMode.values)
-                      DropdownMenuItem(
-                        value: mode,
-                        child: Text(_modeLabel(context, mode)),
-                      ),
-                  ],
-                  onChanged: (mode) {
-                    if (mode != null) {
-                      controller.updateSettings(requestMode: mode);
-                    }
-                  },
-                ),
-              ),
-            ),
           ),
         ],
         if (controller.records.isNotEmpty) ...[
-          kOpenHandGap8,
-          Text(
-            text(
-              zh: '已保存 ${controller.records.length} 条巡检记录',
-              en: '${controller.records.length} retained health records',
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          kOpenHandGap12,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: OhPill(
+              icon: Icons.history_rounded,
+              label: text(
+                zh: '已保存 ${controller.records.length} 条巡检记录',
+                en: '${controller.records.length} retained health records',
+              ),
+              foregroundColor: colorScheme.tertiary,
             ),
           ),
         ],
@@ -317,7 +343,6 @@ class _AiModelHealthSettingsPanelState
 
   Widget _buildTimeoutFields(BuildContext context) {
     final text = openHandTextResolver(context);
-    final theme = Theme.of(context);
 
     Widget buildField({
       required TextEditingController controller,
@@ -374,70 +399,33 @@ class _AiModelHealthSettingsPanelState
       connection: false,
     );
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.18),
-        borderRadius: kOpenHandBorderRadius20,
-        border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.18),
-        ),
+    return OpenHandDialogSectionCard(
+      icon: Icons.network_check_rounded,
+      title: text(
+        zh: '模型测试与健康巡检超时',
+        en: 'Model test and health-check timeouts',
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.network_check_rounded,
-                  size: 20,
-                  color: theme.colorScheme.primary,
-                ),
-                kOpenHandHGap8,
-                Expanded(
-                  child: Text(
-                    text(
-                      zh: '模型测试与健康巡检超时',
-                      en: 'Model test and health-check timeouts',
-                    ),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            kOpenHandGap4,
-            Text(
-              text(
-                zh: '右上角测试按钮与健康检查按钮共用这两个配置。',
-                en: 'The provider test and health-check buttons share these values.',
-              ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            kOpenHandGap12,
-            LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth < _aiHealthTimeoutStackBreakpoint) {
-                  return Column(
-                    children: [connectionField, kOpenHandGap12, responseField],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: connectionField),
-                    kOpenHandHGap12,
-                    Expanded(child: responseField),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
+      subtitle: text(
+        zh: '右上角测试按钮与健康检查按钮共用这两个配置。',
+        en: 'The provider test and health-check buttons share these values.',
+      ),
+      accent: OpenHandStatusColors.info,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < _aiHealthTimeoutStackBreakpoint) {
+            return Column(
+              children: [connectionField, kOpenHandGap12, responseField],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: connectionField),
+              kOpenHandHGap12,
+              Expanded(child: responseField),
+            ],
+          );
+        },
       ),
     );
   }
