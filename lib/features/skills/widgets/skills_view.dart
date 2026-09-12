@@ -18,6 +18,7 @@ import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_editor_chrome.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -830,7 +831,7 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
                       language: 'markdown',
                       fileName: 'SKILL.md',
                       icon: Icons.article_outlined,
-                      height: 280,
+                      height: kOpenHandDialogCodeEditorHeight,
                       borderRadius: kOpenHandBorderRadius16,
                       readOnly: _isSaving,
                       onChanged: (value) {

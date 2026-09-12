@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import '../../app/model/editor_code_theme.dart';
 import '../../app/state/settings_controller.dart';
 import '../util/bounded_xfile_io.dart';
+import '../util/input_value_parsing.dart';
 import '../util/localized_text.dart';
 import '../util/text_search.dart';
 import 'motion_durations.dart';
@@ -273,6 +274,7 @@ class OpenHandCodeEditor extends StatefulWidget {
     this.height = 360,
     this.borderRadius = BorderRadius.zero,
     this.readOnly = false,
+    this.focusNode,
   });
 
   final String value;
@@ -284,6 +286,7 @@ class OpenHandCodeEditor extends StatefulWidget {
   final double height;
   final BorderRadius borderRadius;
   final bool readOnly;
+  final FocusNode? focusNode;
 
   @override
   OpenHandCodeEditorState createState() => OpenHandCodeEditorState();
@@ -317,6 +320,7 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
         'windowspowershell': <String>['ps1', 'psm1', 'psd1'],
         'markdown': <String>['md', 'markdown'],
         'md': <String>['md', 'markdown'],
+        'json': <String>['json'],
       };
   static const Map<String, String> _codeLanguageLabels = <String, String>{
     'python': 'Python',
@@ -338,6 +342,7 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     'windowspowershell': 'PowerShell',
     'markdown': 'Markdown',
     'md': 'Markdown',
+    'json': 'JSON',
   };
   static final RegExp _languageSeparatorPattern = RegExp(r'[\s_-]+');
   static final RegExp _pythonDedentPattern = RegExp(
@@ -362,9 +367,10 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   late final ScrollController _scrollController = ScrollController();
   late final ScrollController _lineNumberScrollController = ScrollController();
   late final ScrollController _horizontalScrollController = ScrollController();
-  late final FocusNode _focusNode = FocusNode(
+  late final FocusNode _ownedFocusNode = FocusNode(
     debugLabel: 'openhand-code-editor',
   );
+  FocusNode get _focusNode => widget.focusNode ?? _ownedFocusNode;
   late final UndoHistoryController _undoController = UndoHistoryController();
   late final TextEditingController _findController = TextEditingController();
   late final TextEditingController _replaceController = TextEditingController();
@@ -419,7 +425,7 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   @override
   void didUpdateWidget(covariant OpenHandCodeEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_controller.text != widget.value) {
+    if (_controller.text != widget.value && !_focusNode.hasFocus) {
       _controller.value = TextEditingValue(
         text: widget.value,
         selection: TextSelection.collapsed(offset: widget.value.length),
@@ -441,7 +447,7 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     _replaceController.dispose();
     _findController.dispose();
     _undoController.dispose();
-    _focusNode.dispose();
+    _ownedFocusNode.dispose();
     _horizontalScrollController.dispose();
     _lineNumberScrollController.dispose();
     _scrollController.dispose();
@@ -1392,7 +1398,26 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
 
   void _formatCode() {
     final source = _controller.text;
-    final formatted = _formatSourceCode(source, widget.language);
+    final languageKey = widget.language.trim().toLowerCase().replaceAll(
+      _languageSeparatorPattern,
+      '',
+    );
+    final String formatted;
+    if (languageKey == 'json') {
+      final trimmed = source.trim();
+      if (trimmed.isEmpty) {
+        formatted = '';
+      } else {
+        final decoded = tryDecodeJsonValue(trimmed);
+        if (!decoded.success) {
+          showOpenHandErrorSnack(context, 'JSON 语法无效，无法格式化。');
+          return;
+        }
+        formatted = prettyPrintJson(decoded.value);
+      }
+    } else {
+      formatted = _formatSourceCode(source, widget.language);
+    }
     if (formatted == source) {
       showOpenHandInfoSnack(context, '代码已经是格式化状态。');
       return;

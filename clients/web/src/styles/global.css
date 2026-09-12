@@ -8607,15 +8607,6 @@ button.oh-composer-pill:not(:disabled):hover {
   min-width: 0;
   border-radius: 16px;
   padding: 12px 14px;
-  transition:
-    transform var(--oh-motion-duration-base) var(--oh-motion-spring),
-    border-color var(--oh-dialog-duration) var(--oh-dialog-curve),
-    box-shadow var(--oh-motion-duration-base) var(--oh-dialog-curve);
-}
-
-.oh-dialog-tinted-panel:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 28px -24px color-mix(in srgb, var(--m3-shadow, #000) 48%, transparent);
 }
 
 .oh-dialog-section-card {
@@ -8797,12 +8788,6 @@ button.oh-composer-pill:not(:disabled):hover {
   }
 }
 
-[data-motion='reduced'] .oh-dialog-tinted-panel,
-[data-motion='reduced'] .oh-dialog-tinted-panel:hover {
-  transform: none;
-  box-shadow: none;
-  transition: none;
-}
 .oh-goal-start-form {
   display: flex;
   flex-direction: column;
@@ -11231,9 +11216,6 @@ button.oh-composer-pill:not(:disabled):hover {
   font: 10.5px/1.48 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 button.oh-json-tree-row { cursor: pointer; }
-button.oh-json-tree-row:hover {
-  background: color-mix(in srgb, var(--m3-on-surface) 6%, transparent);
-}
 .oh-json-tree-row code {
   min-width: 0;
   overflow-wrap: anywhere;

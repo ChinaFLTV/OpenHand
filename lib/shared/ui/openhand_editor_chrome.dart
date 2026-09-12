@@ -11,6 +11,7 @@ import 'openhand_spacing.dart';
 import 'openhand_typography.dart';
 
 /// 编程专家文件编辑器与弹窗/工作流代码编辑器共用的尺寸与色值。
+const double kOpenHandDialogCodeEditorHeight = 280;
 const double kOpenHandEditorFontSizeDefault = 13;
 const double kOpenHandEditorFontSizeMin = 8;
 const double kOpenHandEditorFontSizeMax = 32;

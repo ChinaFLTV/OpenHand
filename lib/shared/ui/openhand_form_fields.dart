@@ -441,6 +441,12 @@ class OpenHandDialogSectionCard extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: onHeaderTap,
+                  hoverColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
                   borderRadius: kOpenHandBorderRadius12,
                   child: header,
                 ),

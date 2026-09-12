@@ -744,18 +744,21 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        InkWell(
-          borderRadius: kOpenHandBorderRadius4,
-          onTap: () => setState(() {
-            if (expanded) {
-              _expandedPaths.remove(path);
-            } else {
-              _expandedPaths.add(path);
-            }
-          }),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: row,
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() {
+              if (expanded) {
+                _expandedPaths.remove(path);
+              } else {
+                _expandedPaths.add(path);
+              }
+            }),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: row,
+            ),
           ),
         ),
         _jsonTreeAnimatedSize(

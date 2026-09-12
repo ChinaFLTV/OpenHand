@@ -123,6 +123,7 @@ const BorderRadius _auditShimmerRadius = kOpenHandBorderRadius6;
 const Duration _auditToggleRotationDuration = kOpenHandMotion200;
 const Duration _auditContentSizeDuration = kOpenHandMotion220;
 const Curve _auditMotionCurve = kOpenHandEmphasizedTransitionCurve;
+const String _auditMetadataEditorFileName = 'metadata.json';
 
 /// 审计字段的骨架占位：统一行高、圆角与扫光周期。
 Widget _auditShimmerLine({double? width}) {
@@ -1352,17 +1353,16 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
                 ),
                 kOpenHandGap12,
               ],
-              OpenHandTintedPanel(
-                accent: OpenHandStatusColors.info,
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                child: TextField(
-                  controller: _titleController,
-                  focusNode: _titleFocusNode,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context)!.auditSessionTitle,
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
+              TextField(
+                controller: _titleController,
+                focusNode: _titleFocusNode,
+                enabled: !_busy,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (!_busy) _saveTitle();
+                },
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.auditSessionTitle,
                 ),
               ),
               kOpenHandGap10,
@@ -1387,26 +1387,32 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              OpenHandTintedPanel(
-                accent: colorScheme.tertiary,
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                child: TextField(
-                  controller: _metadataController,
-                  focusNode: _metadataFocusNode,
-                  minLines: 6,
-                  maxLines: 16,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                    height: 1.45,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'JSON',
-                    errorText: _metadataError,
-                    border: InputBorder.none,
-                    isDense: true,
+              OpenHandCodeEditor(
+                value: _metadataController.text,
+                language: 'json',
+                fileName: _auditMetadataEditorFileName,
+                icon: Icons.data_object_rounded,
+                height: kOpenHandDialogCodeEditorHeight,
+                borderRadius: kOpenHandBorderRadius16,
+                readOnly: _busy,
+                focusNode: _metadataFocusNode,
+                onChanged: (value) {
+                  _metadataController.text = value;
+                  if (_metadataError != null) {
+                    setState(() => _metadataError = null);
+                  }
+                },
+              ),
+              if (_metadataError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 4),
+                  child: Text(
+                    _metadataError!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.error,
+                    ),
                   ),
                 ),
-              ),
               kOpenHandGap10,
               Align(
                 alignment: Alignment.centerLeft,
@@ -1544,101 +1550,99 @@ class _AuditMessageRow extends StatelessWidget {
         : clipTextByCodeUnits(snippet, 140, suffix: '…');
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: HoverLift(
-        child: OpenHandTintedPanel(
-          accent: kindStyle.accent,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: kindStyle.accent.withValues(alpha: 0.18),
-                  borderRadius: kOpenHandBorderRadius10,
-                ),
-                child: SizedBox(
-                  width: 34,
-                  height: 34,
-                  child: Center(
-                    child: Icon(
-                      kindStyle.icon,
-                      size: 18,
-                      color: kindStyle.accent,
-                    ),
+      child: OpenHandTintedPanel(
+        accent: kindStyle.accent,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: kindStyle.accent.withValues(alpha: 0.18),
+                borderRadius: kOpenHandBorderRadius10,
+              ),
+              child: SizedBox(
+                width: 34,
+                height: 34,
+                child: Center(
+                  child: Icon(
+                    kindStyle.icon,
+                    size: 18,
+                    color: kindStyle.accent,
                   ),
                 ),
               ),
-              kOpenHandHGap10,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
+            ),
+            kOpenHandHGap10,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      OpenHandFactChip(
+                        icon: kindStyle.icon,
+                        label: message.kind.storageValue,
+                        color: kindStyle.accent,
+                      ),
+                      if (message.isDeleted)
                         OpenHandFactChip(
-                          icon: kindStyle.icon,
-                          label: message.kind.storageValue,
-                          color: kindStyle.accent,
+                          icon: Icons.delete_outline_rounded,
+                          label: AppLocalizations.of(context)!.auditDeleted,
+                          color: colorScheme.error,
                         ),
-                        if (message.isDeleted)
-                          OpenHandFactChip(
-                            icon: Icons.delete_outline_rounded,
-                            label: AppLocalizations.of(context)!.auditDeleted,
-                            color: colorScheme.error,
-                          ),
-                      ],
-                    ),
-                    kOpenHandGap6,
-                    Text(
-                      message.id,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontFamily: kOpenHandMonospaceFontFamily,
-                      ),
-                    ),
-                    kOpenHandGap4,
-                    Text(
-                      preview,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-                    ),
-                    kOpenHandGap6,
-                    Text(
-                      _auditFormatInstant(message.createdAt),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: AppLocalizations.of(context)!.auditAudit,
-                style: openHandFeatureCircleIconButtonStyle(colorScheme),
-                icon: const Icon(Icons.fact_check_outlined, size: 20),
-                onPressed: onInspect,
-              ),
-              kOpenHandHGap6,
-              IconButton(
-                tooltip: AppLocalizations.of(context)!.auditDelete,
-                style: IconButton.styleFrom(
-                  shape: const CircleBorder(),
-                  backgroundColor: colorScheme.error.withValues(
-                    alpha: onDelete == null ? 0.06 : 0.12,
+                    ],
                   ),
-                  foregroundColor: onDelete == null
-                      ? colorScheme.onSurfaceVariant
-                      : colorScheme.error,
-                ),
-                icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                onPressed: onDelete,
+                  kOpenHandGap6,
+                  Text(
+                    message.id,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontFamily: kOpenHandMonospaceFontFamily,
+                    ),
+                  ),
+                  kOpenHandGap4,
+                  Text(
+                    preview,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+                  ),
+                  kOpenHandGap6,
+                  Text(
+                    _auditFormatInstant(message.createdAt),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            IconButton(
+              tooltip: AppLocalizations.of(context)!.auditAudit,
+              style: openHandFeatureCircleIconButtonStyle(colorScheme),
+              icon: const Icon(Icons.fact_check_outlined, size: 20),
+              onPressed: onInspect,
+            ),
+            kOpenHandHGap6,
+            IconButton(
+              tooltip: AppLocalizations.of(context)!.auditDelete,
+              style: IconButton.styleFrom(
+                shape: const CircleBorder(),
+                backgroundColor: colorScheme.error.withValues(
+                  alpha: onDelete == null ? 0.06 : 0.12,
+                ),
+                foregroundColor: onDelete == null
+                    ? colorScheme.onSurfaceVariant
+                    : colorScheme.error,
+              ),
+              icon: const Icon(Icons.delete_outline_rounded, size: 20),
+              onPressed: onDelete,
+            ),
+          ],
         ),
       ),
     );
