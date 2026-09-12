@@ -435,10 +435,8 @@ class MessageGatewayController extends ManagedChangeNotifier {
 
   Future<WebGatewayHealthResult> runHealthCheck() => _service.runHealthCheck();
 
-  Future<WebGatewayConnectivityTestResult> runConnectivityTest() async {
-    final result = await _service.runConnectivityTest();
-    notifyListeners();
-    return result;
+  Future<WebGatewayConnectivityTestResult> runConnectivityTest() {
+    return _service.runConnectivityTest();
   }
 
   Future<WebGatewayCleanupResult> cleanupLogs() async {

@@ -1208,9 +1208,14 @@ class _WebPlatformServiceCard extends StatelessWidget {
     BuildContext context,
     MessageGatewayController controller,
   ) async {
+    final pendingTest = controller.runConnectivityTest();
+    if (!context.mounted) return;
     await showAnimatedDialog<void>(
       context: context,
-      builder: (_) => _WebGatewayConnectivityDialog(controller: controller),
+      builder: (_) => _WebGatewayConnectivityDialog(
+        controller: controller,
+        pendingTest: pendingTest,
+      ),
     );
   }
 
@@ -2893,14 +2898,16 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
 }
 
 const double _kConnectivityPlaceholderMinHeight = 180;
-const double _kConnectivityProbeResultsMaxHeight = 360;
 const double _kConnectivityMetaChipMaxLabelWidth = 360;
-const Offset _kConnectivityCardEnterOffset = Offset(0, 8);
 
 class _WebGatewayConnectivityDialog extends StatefulWidget {
-  const _WebGatewayConnectivityDialog({required this.controller});
+  const _WebGatewayConnectivityDialog({
+    required this.controller,
+    this.pendingTest,
+  });
 
   final MessageGatewayController controller;
+  final Future<WebGatewayConnectivityTestResult>? pendingTest;
 
   @override
   State<_WebGatewayConnectivityDialog> createState() =>
@@ -2911,12 +2918,15 @@ class _WebGatewayConnectivityDialogState
     extends State<_WebGatewayConnectivityDialog> {
   WebGatewayConnectivityTestResult? _result;
   String? _error;
-  bool _running = false;
+  bool _running = true;
+  int _runId = 0;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_run());
+    unawaited(
+      _consume(widget.pendingTest ?? widget.controller.runConnectivityTest()),
+    );
   }
 
   Future<void> _run() async {
@@ -2925,15 +2935,24 @@ class _WebGatewayConnectivityDialogState
       _error = null;
       _result = null;
     });
+    await _consume(widget.controller.runConnectivityTest());
+  }
+
+  Future<void> _consume(Future<WebGatewayConnectivityTestResult> future) async {
+    final id = ++_runId;
     try {
-      final result = await widget.controller.runConnectivityTest();
-      if (!mounted) return;
-      setState(() => _result = result);
+      final result = await future;
+      if (!mounted || id != _runId) return;
+      setState(() {
+        _result = result;
+        _error = null;
+        _running = false;
+      });
     } catch (error, stack) {
       silentLog('message_gateway', '执行端口连通性测试', error, stack);
-      if (!mounted) return;
-      setState(
-        () => _error = messageGatewayFailureMessage(
+      if (!mounted || id != _runId) return;
+      setState(() {
+        _error = messageGatewayFailureMessage(
           error,
           fallback: openHandLocalizedText(
             context,
@@ -2944,10 +2963,9 @@ class _WebGatewayConnectivityDialogState
             de: 'Portverbindungstest fehlgeschlagen. Versuchen Sie es später erneut.',
             ja: 'ポート接続テストに失敗しました。後でもう一度お試しください。',
           ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _running = false);
+        );
+        _running = false;
+      });
     }
   }
 
@@ -2976,6 +2994,8 @@ class _WebGatewayConnectivityDialogState
       icon: Icons.network_check_rounded,
       iconColor: statusColor,
       maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightStandard,
+      scrollBody: false,
       headerActions: [
         IconButton(
           tooltip: openHandLocalizedText(
@@ -3010,32 +3030,17 @@ class _WebGatewayConnectivityDialogState
         ),
       ],
       actions: const <Widget>[],
-      body: AnimatedSwitcher(
-        duration: openHandMotionDuration(context, kOpenHandMotion260),
-        switchInCurve: kOpenHandSwitchInCurve,
-        switchOutCurve: kOpenHandSwitchOutCurve,
-        layoutBuilder: (currentChild, previousChildren) {
-          return buildCollisionSafeAnimatedSwitcherLayout(
-            currentChild,
-            previousChildren,
-            alignment: Alignment.topCenter,
-            sizeToCurrentChild: true,
-          );
-        },
-        child: error != null
-            ? _ConnectivityErrorView(
-                key: const ValueKey<String>('connectivity-error'),
-                error: error,
-              )
-            : result == null
-            ? const _ConnectivityLoadingView(
-                key: ValueKey<String>('connectivity-loading'),
-              )
-            : _ConnectivityResultView(
-                key: const ValueKey<String>('connectivity-result'),
-                result: result,
-              ),
-      ),
+      body: error != null
+          ? SingleChildScrollView(
+              primary: false,
+              child: _ConnectivityErrorView(error: error),
+            )
+          : result == null
+          ? const Center(child: _ConnectivityLoadingView())
+          : SingleChildScrollView(
+              primary: false,
+              child: _ConnectivityResultView(result: result),
+            ),
     );
   }
 
@@ -3060,7 +3065,7 @@ class _WebGatewayConnectivityDialogState
 }
 
 class _ConnectivityLoadingView extends StatelessWidget {
-  const _ConnectivityLoadingView({super.key});
+  const _ConnectivityLoadingView();
 
   @override
   Widget build(BuildContext context) {
@@ -3120,7 +3125,7 @@ class _ConnectivityLoadingView extends StatelessWidget {
 }
 
 class _ConnectivityErrorView extends StatelessWidget {
-  const _ConnectivityErrorView({super.key, required this.error});
+  const _ConnectivityErrorView({required this.error});
 
   final String error;
 
@@ -3158,7 +3163,7 @@ class _ConnectivityErrorView extends StatelessWidget {
 }
 
 class _ConnectivityResultView extends StatelessWidget {
-  const _ConnectivityResultView({super.key, required this.result});
+  const _ConnectivityResultView({required this.result});
 
   final WebGatewayConnectivityTestResult result;
 
@@ -3285,28 +3290,13 @@ class _ConnectivityResultView extends StatelessWidget {
                     ja: '現在のサービスにはテスト可能な入口がありません。先にWebメッセージプラットフォームサービスを起動してください。',
                   ),
                 )
-              : Align(
-                  alignment: Alignment.topCenter,
-                  heightFactor: 1,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxHeight: _kConnectivityProbeResultsMaxHeight,
-                    ),
-                    child: OpenHandSafeScrollbar(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        primary: false,
-                        padding: EdgeInsets.zero,
-                        itemCount: result.targets.length,
-                        itemBuilder: (context, index) {
-                          return _ConnectivityTargetCard(
-                            target: result.targets[index],
-                            index: index,
-                          );
-                        },
-                      ),
-                    ),
-                  ),
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final target in result.targets)
+                      _ConnectivityTargetCard(target: target),
+                  ],
                 ),
         ),
         kOpenHandGap14,
@@ -3413,10 +3403,9 @@ Color _connectivityLogLineColor(String line) {
 }
 
 class _ConnectivityTargetCard extends StatelessWidget {
-  const _ConnectivityTargetCard({required this.target, required this.index});
+  const _ConnectivityTargetCard({required this.target});
 
   final WebGatewayConnectivityProbeResult target;
-  final int index;
 
   @override
   Widget build(BuildContext context) {
@@ -3426,7 +3415,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
     final stateColor = target.ok
         ? OpenHandStatusColors.success
         : colorScheme.error;
-    final content = Padding(
+    return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: OpenHandAccentPanel(
         accent: stateColor,
@@ -3531,21 +3520,6 @@ class _ConnectivityTargetCard extends StatelessWidget {
         ),
       ),
     );
-    if (!openHandTickerMotionEnabled(context)) return content;
-    final stagger = Duration(milliseconds: math.min(index, 6) * 30);
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: openHandMotionDuration(context, kOpenHandMotion220) + stagger,
-      curve: kOpenHandEntranceCurve,
-      builder: (context, value, child) {
-        final t = clampUnitInterval(value);
-        return Transform.translate(
-          offset: _kConnectivityCardEnterOffset * (1 - t),
-          child: child,
-        );
-      },
-      child: content,
-    );
   }
 }
 
@@ -3599,22 +3573,49 @@ class _ConnectivityMetaChip extends StatelessWidget {
   }
 }
 
-class _StructuredResponsePreview extends StatelessWidget {
+class _StructuredResponsePreview extends StatefulWidget {
   const _StructuredResponsePreview({required this.raw});
 
   final String raw;
 
   @override
+  State<_StructuredResponsePreview> createState() =>
+      _StructuredResponsePreviewState();
+}
+
+class _StructuredResponsePreviewState
+    extends State<_StructuredResponsePreview> {
+  late List<MapEntry<String, Object?>> _entries;
+
+  @override
+  void initState() {
+    super.initState();
+    _decode(widget.raw);
+  }
+
+  @override
+  void didUpdateWidget(covariant _StructuredResponsePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.raw != widget.raw) _decode(widget.raw);
+  }
+
+  void _decode(String raw) {
+    final decoded = tryDecodeJson(raw);
+    _entries = decoded is Map
+        ? [
+            for (final entry in decoded.entries)
+              MapEntry<String, Object?>('${entry.key}', entry.value),
+          ]
+        : const <MapEntry<String, Object?>>[];
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final decoded = tryDecodeJson(raw);
-    final entries = decoded is Map
-        ? decoded.entries.toList(growable: false)
-        : const <MapEntry<Object?, Object?>>[];
-    if (entries.isEmpty) {
+    if (_entries.isEmpty) {
       return SelectableText(
-        raw,
+        widget.raw,
         style: theme.textTheme.bodySmall?.copyWith(
           color: colorScheme.onSurfaceVariant,
           fontFamily: kOpenHandMonospaceFontFamily,
@@ -3625,18 +3626,18 @@ class _StructuredResponsePreview extends StatelessWidget {
     return OpenHandMetadataSummaryGrid(
       maxColumns: 2,
       children: [
-        for (final entry in entries)
+        for (final entry in _entries)
           OpenHandMetadataSummaryTile(
-            icon: _connectivityFieldIcon('${entry.key}'),
-            label: openHandJsonFieldLabel(context, '${entry.key}'),
+            icon: _connectivityFieldIcon(entry.key),
+            label: openHandJsonFieldLabel(context, entry.key),
             value: _connectivityFieldValue(
               context,
-              key: '${entry.key}',
+              key: entry.key,
               value: entry.value,
             ),
             accent: _connectivityFieldAccent(
               colorScheme,
-              key: '${entry.key}',
+              key: entry.key,
               value: entry.value,
             ),
           ),

@@ -382,6 +382,9 @@ class WebMessagePlatformService {
   );
   static const int _connectivityProbeMinTimeoutMs = 500;
   static const int _connectivityProbeMaxTimeoutMs = 10000;
+  static const int _connectivityProbeMaxConcurrent = 4;
+  static const int _connectivityProbeMaxResponseBytes = 16 * kBytesPerKiB;
+  static const int _connectivityProbeBodyPreviewCharacters = 600;
   static const Duration _queuedGoalYieldLeaseDuration = Duration(minutes: 15);
   static const Duration _authSessionTtl = Duration(hours: 24);
   static const Duration _loginRateLimitWindow = Duration(minutes: 1);
@@ -1987,7 +1990,7 @@ class WebMessagePlatformService {
       return result;
     }
 
-    await refreshAccessibleUrls(force: true);
+    await refreshAccessibleUrls();
     final targets = <String>{...accessibleUrls}.toList(growable: false);
     addLog(
       text(
@@ -2007,211 +2010,241 @@ class WebMessagePlatformService {
       ),
     );
     final client = HttpClient()..connectionTimeout = timeout;
-    final results = <WebGatewayConnectivityProbeResult>[];
+    final probeOutputs =
+        List<
+          ({WebGatewayConnectivityProbeResult result, List<String> logs})?
+        >.filled(targets.length, null);
+    final limiter = OpenHandAsyncSemaphore(_connectivityProbeMaxConcurrent);
+
+    Future<({WebGatewayConnectivityProbeResult result, List<String> logs})>
+    probeOne(String baseUrl) async {
+      final logs = <String>[];
+      void probeLog(String message) {
+        logs.add('${DateTime.now().toUtc().toIso8601String()}  $message');
+      }
+
+      final probeStarted = Stopwatch()..start();
+      final baseUri = Uri.tryParse(baseUrl);
+      if (baseUri == null ||
+          !baseUri.hasScheme ||
+          baseUri.host.isEmpty ||
+          baseUri.scheme != 'http') {
+        probeStarted.stop();
+        final errorMessage = text(
+          zh: '地址格式无效。',
+          zhHant: '位址格式無效。',
+          en: 'The address format is invalid.',
+          fr: 'Le format d’adresse est invalide.',
+          de: 'Das Adressformat ist ungültig.',
+          ja: 'アドレス形式が無効です。',
+        );
+        probeLog(
+          text(
+            zh: '地址解析失败：$baseUrl',
+            zhHant: '位址解析失敗：$baseUrl',
+            en: 'Failed to parse address: $baseUrl',
+            fr: 'Échec d’analyse de l’adresse : $baseUrl',
+            de: 'Adresse konnte nicht gelesen werden: $baseUrl',
+            ja: 'アドレスを解析できませんでした: $baseUrl',
+          ),
+        );
+        return (
+          result: WebGatewayConnectivityProbeResult(
+            baseUrl: baseUrl,
+            endpointUrl: baseUrl,
+            host: baseUrl,
+            port: 0,
+            ok: false,
+            statusCode: 0,
+            durationMs: probeStarted.elapsedMilliseconds,
+            errorMessage: errorMessage,
+          ),
+          logs: logs,
+        );
+      }
+      final endpoint = baseUri.replace(path: '/api/health');
+      final deadline = MonotonicDeadline(
+        timeout,
+        timeoutMessage: text(
+          zh: 'Web 连通性探测超时。',
+          zhHant: 'Web 連通性探測逾時。',
+          en: 'Web connectivity probe timed out.',
+          fr: 'La sonde de connectivité web a expiré.',
+          de: 'Web-Konnektivitätstest ist abgelaufen.',
+          ja: 'Web接続検査がタイムアウトしました。',
+        ),
+      );
+      final hostPort = '${endpoint.host}:${endpoint.port}';
+      String elapsedLabel() =>
+          openHandAmbientMillisecondsLabel(probeStarted.elapsedMilliseconds);
+      probeLog(
+        text(
+          zh: '开始探测 $hostPort → $endpoint',
+          zhHant: '開始探測 $hostPort → $endpoint',
+          en: 'Probing $hostPort → $endpoint',
+          fr: 'Sondage de $hostPort → $endpoint',
+          de: 'Prüfung von $hostPort → $endpoint',
+          ja: '$hostPort → $endpoint を検査中',
+        ),
+      );
+      try {
+        final request = await openHttpClientRequestBounded(
+          () => client.getUrl(endpoint),
+          timeout: deadline.remaining(),
+          timeoutMessage: text(
+            zh: 'Web 连通性请求打开超时。',
+            zhHant: 'Web 連通性請求開啟逾時。',
+            en: 'Opening the connectivity request timed out.',
+            fr: 'L’ouverture de la requête de connectivité a expiré.',
+            de: 'Öffnen der Konnektivitätsanfrage ist abgelaufen.',
+            ja: '接続リクエストの開始がタイムアウトしました。',
+          ),
+        );
+        request.followRedirects = false;
+        final response = await closeHttpClientRequestBounded(
+          request,
+          timeout: deadline.remaining(),
+          timeoutMessage: text(
+            zh: 'Web 连通性响应头获取超时。',
+            zhHant: 'Web 連通性回應頭取得逾時。',
+            en: 'Reading connectivity response headers timed out.',
+            fr: 'La lecture des en-têtes de connectivité a expiré.',
+            de: 'Lesen der Konnektivitäts-Header ist abgelaufen.',
+            ja: '接続レスポンスヘッダーの取得がタイムアウトしました。',
+          ),
+        );
+        final remaining = deadline.remaining();
+        final body = await readBoundedHttpResponseText(
+          response,
+          maxBytes: _connectivityProbeMaxResponseBytes,
+          idleTimeout: remaining,
+          totalTimeout: remaining,
+          allowMalformed: true,
+        );
+        probeStarted.stop();
+        final ok = response.statusCode == HttpStatus.ok && body.contains('ok');
+        final statusLabel = openHandAmbientHttpStatusCodeLabel(
+          response.statusCode,
+        );
+        probeLog(
+          ok
+              ? text(
+                  zh: '探测通过 $hostPort · ${elapsedLabel()}',
+                  zhHant: '探測通過 $hostPort · ${elapsedLabel()}',
+                  en: 'Probe passed $hostPort · ${elapsedLabel()}',
+                  fr: 'Sonde réussie $hostPort · ${elapsedLabel()}',
+                  de: 'Prüfung bestanden $hostPort · ${elapsedLabel()}',
+                  ja: '検査成功 $hostPort · ${elapsedLabel()}',
+                )
+              : text(
+                  zh: '探测未通过 $hostPort · $statusLabel',
+                  zhHant: '探測未通過 $hostPort · $statusLabel',
+                  en: 'Probe failed $hostPort · $statusLabel',
+                  fr: 'Sonde échouée $hostPort · $statusLabel',
+                  de: 'Prüfung fehlgeschlagen $hostPort · $statusLabel',
+                  ja: '検査失敗 $hostPort · $statusLabel',
+                ),
+        );
+        return (
+          result: WebGatewayConnectivityProbeResult(
+            baseUrl: baseUrl,
+            endpointUrl: endpoint.toString(),
+            host: endpoint.host,
+            port: endpoint.port,
+            ok: ok,
+            statusCode: response.statusCode,
+            durationMs: probeStarted.elapsedMilliseconds,
+            bodyPreview: clipText(
+              body,
+              _connectivityProbeBodyPreviewCharacters,
+            ),
+            errorMessage: ok
+                ? ''
+                : response.statusCode == HttpStatus.ok
+                ? text(
+                    zh: '健康检查未通过。',
+                    zhHant: '健康檢查未通過。',
+                    en: 'Health check did not pass.',
+                    fr: 'Le contrôle de santé a échoué.',
+                    de: 'Der Gesundheitscheck ist fehlgeschlagen.',
+                    ja: 'ヘルスチェックに失敗しました。',
+                  )
+                : statusLabel,
+          ),
+          logs: logs,
+        );
+      } catch (error, stack) {
+        probeStarted.stop();
+        if (error is! TimeoutException) {
+          silentLog('web_message_platform_service', '执行连通性探测', error, stack);
+        }
+        final errorMessage = messageGatewayFailureMessage(
+          error,
+          fallback: error is TimeoutException
+              ? text(
+                  zh: '探测超时。',
+                  zhHant: '探測逾時。',
+                  en: 'Probe timed out.',
+                  fr: 'La sonde a expiré.',
+                  de: 'Prüfung abgelaufen.',
+                  ja: '検査がタイムアウトしました。',
+                )
+              : text(
+                  zh: '探测失败。',
+                  zhHant: '探測失敗。',
+                  en: 'Probe failed.',
+                  fr: 'La sonde a échoué.',
+                  de: 'Prüfung fehlgeschlagen.',
+                  ja: '検査に失敗しました。',
+                ),
+        );
+        probeLog(
+          text(
+            zh: '探测失败 $hostPort · ${elapsedLabel()} · $errorMessage',
+            zhHant: '探測失敗 $hostPort · ${elapsedLabel()} · $errorMessage',
+            en: 'Probe failed $hostPort · ${elapsedLabel()} · $errorMessage',
+            fr: 'Sonde échouée $hostPort · ${elapsedLabel()} · $errorMessage',
+            de: 'Prüfung fehlgeschlagen $hostPort · ${elapsedLabel()} · $errorMessage',
+            ja: '検査失敗 $hostPort · ${elapsedLabel()} · $errorMessage',
+          ),
+        );
+        return (
+          result: WebGatewayConnectivityProbeResult(
+            baseUrl: baseUrl,
+            endpointUrl: endpoint.toString(),
+            host: endpoint.host,
+            port: endpoint.port,
+            ok: false,
+            statusCode: 0,
+            durationMs: probeStarted.elapsedMilliseconds,
+            errorMessage: errorMessage,
+          ),
+          logs: logs,
+        );
+      } finally {
+        deadline.stop();
+      }
+    }
 
     try {
-      for (final baseUrl in targets) {
-        final probeStarted = Stopwatch()..start();
-        final baseUri = Uri.tryParse(baseUrl);
-        if (baseUri == null ||
-            !baseUri.hasScheme ||
-            baseUri.host.isEmpty ||
-            baseUri.scheme != 'http') {
-          probeStarted.stop();
-          final errorMessage = text(
-            zh: '地址格式无效。',
-            zhHant: '位址格式無效。',
-            en: 'The address format is invalid.',
-            fr: 'Le format d’adresse est invalide.',
-            de: 'Das Adressformat ist ungültig.',
-            ja: 'アドレス形式が無効です。',
-          );
-          addLog(
-            text(
-              zh: '地址解析失败：$baseUrl',
-              zhHant: '位址解析失敗：$baseUrl',
-              en: 'Failed to parse address: $baseUrl',
-              fr: 'Échec d’analyse de l’adresse : $baseUrl',
-              de: 'Adresse konnte nicht gelesen werden: $baseUrl',
-              ja: 'アドレスを解析できませんでした: $baseUrl',
-            ),
-          );
-          results.add(
-            WebGatewayConnectivityProbeResult(
-              baseUrl: baseUrl,
-              endpointUrl: baseUrl,
-              host: baseUrl,
-              port: 0,
-              ok: false,
-              statusCode: 0,
-              durationMs: probeStarted.elapsedMilliseconds,
-              errorMessage: errorMessage,
-            ),
-          );
-          continue;
-        }
-        final endpoint = baseUri.replace(path: '/api/health');
-        final deadline = MonotonicDeadline(
-          timeout,
-          timeoutMessage: text(
-            zh: 'Web 连通性探测超时。',
-            zhHant: 'Web 連通性探測逾時。',
-            en: 'Web connectivity probe timed out.',
-            fr: 'La sonde de connectivité web a expiré.',
-            de: 'Web-Konnektivitätstest ist abgelaufen.',
-            ja: 'Web接続検査がタイムアウトしました。',
-          ),
-        );
-        final hostPort = '${endpoint.host}:${endpoint.port}';
-        String elapsedLabel() =>
-            openHandAmbientMillisecondsLabel(probeStarted.elapsedMilliseconds);
-
-        addLog(
-          text(
-            zh: '开始探测 $hostPort → $endpoint',
-            zhHant: '開始探測 $hostPort → $endpoint',
-            en: 'Probing $hostPort → $endpoint',
-            fr: 'Sondage de $hostPort → $endpoint',
-            de: 'Prüfung von $hostPort → $endpoint',
-            ja: '$hostPort → $endpoint を検査中',
-          ),
-        );
-        try {
-          final request = await openHttpClientRequestBounded(
-            () => client.getUrl(endpoint),
-            timeout: deadline.remaining(),
-            timeoutMessage: text(
-              zh: 'Web 连通性请求打开超时。',
-              zhHant: 'Web 連通性請求開啟逾時。',
-              en: 'Opening the connectivity request timed out.',
-              fr: 'L’ouverture de la requête de connectivité a expiré.',
-              de: 'Öffnen der Konnektivitätsanfrage ist abgelaufen.',
-              ja: '接続リクエストの開始がタイムアウトしました。',
-            ),
-          );
-          request.followRedirects = false;
-          final response = await closeHttpClientRequestBounded(
-            request,
-            timeout: deadline.remaining(),
-            timeoutMessage: text(
-              zh: 'Web 连通性响应头获取超时。',
-              zhHant: 'Web 連通性回應頭取得逾時。',
-              en: 'Reading connectivity response headers timed out.',
-              fr: 'La lecture des en-têtes de connectivité a expiré.',
-              de: 'Lesen der Konnektivitäts-Header ist abgelaufen.',
-              ja: '接続レスポンスヘッダーの取得がタイムアウトしました。',
-            ),
-          );
-          final remaining = deadline.remaining();
-          final body = await readBoundedHttpResponseText(
-            response,
-            maxBytes: _maxHealthCheckResponseBytes,
-            idleTimeout: remaining,
-            totalTimeout: remaining,
-            allowMalformed: true,
-          );
-          probeStarted.stop();
-          final ok =
-              response.statusCode == HttpStatus.ok && body.contains('ok');
-          final statusLabel = openHandAmbientHttpStatusCodeLabel(
-            response.statusCode,
-          );
-          addLog(
-            ok
-                ? text(
-                    zh: '探测通过 $hostPort · ${elapsedLabel()}',
-                    zhHant: '探測通過 $hostPort · ${elapsedLabel()}',
-                    en: 'Probe passed $hostPort · ${elapsedLabel()}',
-                    fr: 'Sonde réussie $hostPort · ${elapsedLabel()}',
-                    de: 'Prüfung bestanden $hostPort · ${elapsedLabel()}',
-                    ja: '検査成功 $hostPort · ${elapsedLabel()}',
-                  )
-                : text(
-                    zh: '探测未通过 $hostPort · $statusLabel',
-                    zhHant: '探測未通過 $hostPort · $statusLabel',
-                    en: 'Probe failed $hostPort · $statusLabel',
-                    fr: 'Sonde échouée $hostPort · $statusLabel',
-                    de: 'Prüfung fehlgeschlagen $hostPort · $statusLabel',
-                    ja: '検査失敗 $hostPort · $statusLabel',
-                  ),
-          );
-          results.add(
-            WebGatewayConnectivityProbeResult(
-              baseUrl: baseUrl,
-              endpointUrl: endpoint.toString(),
-              host: endpoint.host,
-              port: endpoint.port,
-              ok: ok,
-              statusCode: response.statusCode,
-              durationMs: probeStarted.elapsedMilliseconds,
-              bodyPreview: clipText(body, 600),
-              errorMessage: ok
-                  ? ''
-                  : response.statusCode == HttpStatus.ok
-                  ? text(
-                      zh: '健康检查未通过。',
-                      zhHant: '健康檢查未通過。',
-                      en: 'Health check did not pass.',
-                      fr: 'Le contrôle de santé a échoué.',
-                      de: 'Der Gesundheitscheck ist fehlgeschlagen.',
-                      ja: 'ヘルスチェックに失敗しました。',
-                    )
-                  : statusLabel,
-            ),
-          );
-        } catch (error, stack) {
-          probeStarted.stop();
-          if (error is! TimeoutException) {
-            silentLog('web_message_platform_service', '执行连通性探测', error, stack);
-          }
-          final errorMessage = messageGatewayFailureMessage(
-            error,
-            fallback: error is TimeoutException
-                ? text(
-                    zh: '探测超时。',
-                    zhHant: '探測逾時。',
-                    en: 'Probe timed out.',
-                    fr: 'La sonde a expiré.',
-                    de: 'Prüfung abgelaufen.',
-                    ja: '検査がタイムアウトしました。',
-                  )
-                : text(
-                    zh: '探测失败。',
-                    zhHant: '探測失敗。',
-                    en: 'Probe failed.',
-                    fr: 'La sonde a échoué.',
-                    de: 'Prüfung fehlgeschlagen.',
-                    ja: '検査に失敗しました。',
-                  ),
-          );
-          addLog(
-            text(
-              zh: '探测失败 $hostPort · ${elapsedLabel()} · $errorMessage',
-              zhHant: '探測失敗 $hostPort · ${elapsedLabel()} · $errorMessage',
-              en: 'Probe failed $hostPort · ${elapsedLabel()} · $errorMessage',
-              fr: 'Sonde échouée $hostPort · ${elapsedLabel()} · $errorMessage',
-              de: 'Prüfung fehlgeschlagen $hostPort · ${elapsedLabel()} · $errorMessage',
-              ja: '検査失敗 $hostPort · ${elapsedLabel()} · $errorMessage',
-            ),
-          );
-          results.add(
-            WebGatewayConnectivityProbeResult(
-              baseUrl: baseUrl,
-              endpointUrl: endpoint.toString(),
-              host: endpoint.host,
-              port: endpoint.port,
-              ok: false,
-              statusCode: 0,
-              durationMs: probeStarted.elapsedMilliseconds,
-              errorMessage: errorMessage,
-            ),
-          );
-        } finally {
-          deadline.stop();
-        }
+      if (targets.isNotEmpty) {
+        await Future.wait<void>([
+          for (var index = 0; index < targets.length; index++)
+            limiter.withPermit(() async {
+              probeOutputs[index] = await probeOne(targets[index]);
+            }),
+        ]);
       }
     } finally {
+      limiter.cancelWaiters();
       client.close(force: true);
+    }
+
+    final results = <WebGatewayConnectivityProbeResult>[];
+    for (final output in probeOutputs) {
+      if (output == null) continue;
+      results.add(output.result);
+      flowLogs.addAll(output.logs);
     }
 
     final result = WebGatewayConnectivityTestResult(
