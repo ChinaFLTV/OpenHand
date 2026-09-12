@@ -21,6 +21,7 @@ import 'dart:io';
 ///  10. 业务文件读取必须使用有界入口，避免外部替换文件后无界占用内存。
 ///  11. 业务目录删除必须使用有界入口，避免递归清理永久占用资源。
 ///  12. 业务字节流文件写入必须使用有界入口，确保句柄、容量和超时受控。
+///  13. 系统剪贴板必须使用统一入口，确保超时、兼容回退与结果反馈一致。
 ///
 /// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
 ///
@@ -204,6 +205,15 @@ List<_RestrictedApiRule> _restrictedApiRules() => <_RestrictedApiRule>[
     allowedRelativePaths: const <String>{'shared/util/bounded_file_io.dart'},
     fallbackApiName: 'openWrite',
     advice: '请使用 shared/util/bounded_file_io.dart 的有界字节流写入入口',
+  ),
+  _RestrictedApiRule(
+    pattern: RegExp(
+      r'\bClipboard\s*\.\s*(setData|getData)\s*\('
+      r'|\bPasteboard\s*\.\s*(image|files|writeImage|writeFiles)\b',
+    ),
+    allowedRelativePaths: const <String>{'shared/ui/openhand_clipboard.dart'},
+    fallbackApiName: '系统剪贴板 API',
+    advice: '请使用 shared/ui/openhand_clipboard.dart 的统一剪贴板入口',
   ),
 ];
 
@@ -427,6 +437,11 @@ Future<int> _scanWebRestrictedApis(String root) async {
       pattern: RegExp(r'\bcreatePortal\s*\('),
       allowedRelativePath: 'components/OverlayPortal.tsx',
       message: 'Web Portal 必须使用 OverlayPortal',
+    ),
+    _WebRestrictedApiRule(
+      pattern: RegExp(r'\bnavigator\s*\.\s*clipboard\b'),
+      allowedRelativePath: 'utils/clipboard.ts',
+      message: 'Web 系统剪贴板必须使用 utils/clipboard.ts 的统一入口',
     ),
   ];
   final separator = Platform.pathSeparator;

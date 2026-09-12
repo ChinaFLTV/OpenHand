@@ -216,19 +216,17 @@ Future<Uint8List?> getOpenHandClipboardImage({
   }
 }
 
-/// 限时写入图片到剪贴板；失败时返回 false。
-Future<bool> writeOpenHandClipboardImage(
+/// 限时写入图片到剪贴板；失败时向调用方抛出原始异常。
+Future<void> setOpenHandClipboardImage(
   Uint8List bytes, {
   Duration timeout = kOpenHandClipboardWriteTimeout,
-}) async {
-  try {
-    await Pasteboard.writeImage(
-      bytes,
-    ).timeout(clampOpenHandClipboardTimeout(timeout));
-    return true;
-  } catch (_) {
-    return false;
+}) {
+  if (bytes.isEmpty) {
+    return Future<void>.error(ArgumentError('图片字节不能为空。'));
   }
+  return Pasteboard.writeImage(
+    bytes,
+  ).timeout(clampOpenHandClipboardTimeout(timeout));
 }
 
 /// 限时写入文件路径到剪贴板；失败时返回 false。

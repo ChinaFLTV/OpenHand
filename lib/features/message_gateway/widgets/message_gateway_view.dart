@@ -149,7 +149,7 @@ Future<_DingTalkMediaClipboardContent> _copyDingTalkMediaToClipboard(
       media.single.kind == DingTalkMediaKind.image &&
       singleFileSize != null &&
       singleFileSize <= _dingtalkClipboardImageMaxBytes) {
-    await writeOpenHandClipboardImage(
+    await setOpenHandClipboardImage(
       await readBoundedFileBytes(
         File(paths.single),
         maxBytes: _dingtalkClipboardImageMaxBytes,
@@ -3193,15 +3193,17 @@ class _ConnectivityResultView extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _ConnectivityMetaChip(
+              OpenHandStatusPill(
                 icon: Icons.schedule_rounded,
                 label: formatYearMonthDayHmsLocal(result.startedAt),
                 color: tone,
+                maxWidth: _kConnectivityMetaChipMaxLabelWidth,
               ),
-              _ConnectivityMetaChip(
+              OpenHandStatusPill(
                 icon: Icons.timer_outlined,
                 label: openHandMillisecondsLabel(context, result.durationMs),
                 color: colorScheme.tertiary,
+                maxWidth: _kConnectivityMetaChipMaxLabelWidth,
               ),
             ],
           ),
@@ -3464,7 +3466,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
               runSpacing: 8,
               children: [
                 if (target.statusCode > 0)
-                  _ConnectivityMetaChip(
+                  OpenHandStatusPill(
                     icon: Icons.verified_outlined,
                     label: openHandHttpStatusCodeLabel(
                       context,
@@ -3473,16 +3475,19 @@ class _ConnectivityTargetCard extends StatelessWidget {
                     color: target.ok
                         ? OpenHandStatusColors.success
                         : colorScheme.error,
+                    maxWidth: _kConnectivityMetaChipMaxLabelWidth,
                   ),
-                _ConnectivityMetaChip(
+                OpenHandStatusPill(
                   icon: Icons.timer_outlined,
                   label: openHandMillisecondsLabel(context, target.durationMs),
                   color: colorScheme.tertiary,
+                  maxWidth: _kConnectivityMetaChipMaxLabelWidth,
                 ),
-                _ConnectivityMetaChip(
+                OpenHandStatusPill(
                   icon: Icons.dns_outlined,
                   label: target.baseUrl,
                   color: OpenHandStatusColors.info,
+                  maxWidth: _kConnectivityMetaChipMaxLabelWidth,
                 ),
               ],
             ),
@@ -3517,56 +3522,6 @@ class _ConnectivityTargetCard extends StatelessWidget {
               _StructuredResponsePreview(raw: target.bodyPreview),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ConnectivityMetaChip extends StatelessWidget {
-  const _ConnectivityMetaChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(
-        maxWidth: _kConnectivityMetaChipMaxLabelWidth,
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: kOpenHandPillBorderRadius,
-          border: Border.all(color: color.withValues(alpha: 0.35)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 17, color: color),
-              kOpenHandHGap7,
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

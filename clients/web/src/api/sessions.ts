@@ -471,11 +471,13 @@ export function controlMachineTerminal(
     rows?: number;
     includeHistory?: boolean;
   },
+  options: ApiRequestSignalOptions = {},
 ): Promise<MachineTerminalResponse & { ok: boolean }> {
   return apiRequest<MachineTerminalResponse & { ok: boolean }>(
     `/api/sessions/${encodeURIComponent(id)}/terminal/control`,
     {
       method: 'POST',
+      ...options,
       body: {
         action: input.action,
         ...(input.terminalId ? { terminal_id: input.terminalId } : {}),

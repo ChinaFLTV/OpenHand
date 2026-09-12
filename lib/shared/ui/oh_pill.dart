@@ -79,16 +79,18 @@ class OpenHandStatusPill extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
+    this.maxWidth,
   });
 
   final IconData icon;
   final String label;
   final Color color;
+  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return DecoratedBox(
+    final pill = DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: kOpenHandPillBorderRadius,
@@ -116,6 +118,12 @@ class OpenHandStatusPill extends StatelessWidget {
           ],
         ),
       ),
+    );
+    final width = maxWidth;
+    if (width == null || !width.isFinite || width <= 0) return pill;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: width),
+      child: pill,
     );
   }
 }

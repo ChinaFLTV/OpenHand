@@ -1,6 +1,7 @@
 import { runWithTimeout } from './timed_abort';
 
 const DEFAULT_COPY_TEXT_TIMEOUT_MS = 2500;
+const DEFAULT_COPY_BLOB_TIMEOUT_MS = 5000;
 
 export async function copyTextToClipboard(
   text: string,
@@ -17,26 +18,15 @@ export async function copyTextToClipboard(
 }
 
 async function copyTextToClipboardNow(text: string): Promise<boolean> {
-  let modernWriteSucceeded = false;
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text);
-      modernWriteSucceeded = true;
-      if (typeof navigator.clipboard.readText === 'function') {
-        try {
-          if ((await navigator.clipboard.readText()) === text) return true;
-          modernWriteSucceeded = false;
-        } catch {
-          // 无法校验时继续尝试兼容路径。
-        }
-      }
+      return true;
     } catch {
-      modernWriteSucceeded = false;
+      // 权限被拒或 API 不可用时继续尝试兼容路径。
     }
   }
-  const fallbackOk = copyTextViaExecCommand(text);
-  if (fallbackOk) return true;
-  return modernWriteSucceeded;
+  return copyTextViaExecCommand(text);
 }
 
 function copyTextViaExecCommand(text: string): boolean {
@@ -67,10 +57,11 @@ function copyTextViaExecCommand(text: string): boolean {
   }
 }
 
-/// 把任意 blob 写到系统剪贴板（image/png / image/svg+xml 等）。
-/// 优先走 navigator.clipboard.write（剪贴板富媒体）；旧浏览器或
-/// 权限拒绝时回退为纯文本提示。
-export async function copyBlobToClipboard(blob: Blob): Promise<boolean> {
+/// 在明确时限内把 blob 写到系统剪贴板。
+export async function copyBlobToClipboard(
+  blob: Blob,
+  timeoutMs = DEFAULT_COPY_BLOB_TIMEOUT_MS,
+): Promise<boolean> {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
     return false;
   }
@@ -79,23 +70,15 @@ export async function copyBlobToClipboard(blob: Blob): Promise<boolean> {
   }
   if ('ClipboardItem' in window && navigator.clipboard?.write) {
     try {
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-      if (typeof navigator.clipboard?.read === 'function') {
-        try {
-          const items = await navigator.clipboard.read();
-          for (const item of items) {
-            for (const type of item.types) {
-              if (type === blob.type) {
-                const readBack = await item.getType(type);
-                if (readBack.size === blob.size) return true;
-              }
-            }
-          }
-        } catch {
-          // read 权限被拒不代表 write 失败。
-        }
-      }
-      return true;
+      return await runWithTimeout(
+        async () => {
+          await navigator.clipboard.write([
+            new ClipboardItem({ [blob.type]: blob }),
+          ]);
+          return true;
+        },
+        { timeoutMs },
+      );
     } catch {
       return false;
     }

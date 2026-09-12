@@ -3192,7 +3192,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
           maxBytes: _imageClipboardMaxBytes,
         );
         try {
-          await writeOpenHandClipboardImage(bytes);
+          await setOpenHandClipboardImage(bytes);
           if (!context.mounted) return;
           _showMediaClipboardSnack(
             context,
@@ -3224,7 +3224,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
           maxBytes: _imageClipboardMaxBytes,
           expectedPrimaryType: 'image',
         );
-        await writeOpenHandClipboardImage(bytes);
+        await setOpenHandClipboardImage(bytes);
         if (!context.mounted) return;
         _showMediaClipboardSnack(
           context,

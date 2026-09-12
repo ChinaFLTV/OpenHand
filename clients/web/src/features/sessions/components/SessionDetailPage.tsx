@@ -244,6 +244,18 @@ function positiveIntegerOr(value: unknown, fallback: number): number {
     : fallback;
 }
 
+function setWithMembership<T>(
+  current: Set<T>,
+  value: T,
+  included: boolean,
+): Set<T> {
+  if (included === current.has(value)) return current;
+  const next = new Set(current);
+  if (included) next.add(value);
+  else next.delete(value);
+  return next;
+}
+
 function decodedBase64Size(encoded: string): number {
   if (!encoded) return 0;
   const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
@@ -1552,6 +1564,7 @@ const MACHINE_TERMINAL_XTERM_THEME = {
 const MACHINE_TERMINAL_POLL_INTERVAL_MS = 1200;
 const MACHINE_TERMINAL_POLL_TIMEOUT_MS = 15_000;
 const MACHINE_TERMINAL_WRITE_TIMEOUT_MS = 15_000;
+const MACHINE_TERMINAL_CONTROL_TIMEOUT_MS = 15_000;
 const MACHINE_TERMINAL_INPUT_CHUNK_CODE_UNITS = 32 * 1024;
 const MACHINE_TERMINAL_MAX_BUFFERED_CODE_UNITS = 512 * 1024;
 let machineTerminalRuntimePromise: Promise<{
@@ -1596,6 +1609,12 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
   const lastResizeRef = useRef('');
   const resizeFrameRef = useRef<number | null>(null);
   const requestTerminalFitRef = useRef<(() => void) | null>(null);
+  const mountedRef = useRef(true);
+  const sessionIdRef = useRef(sessionId);
+  const busyActionRef = useRef<string | null>(null);
+  const actionAbortRef = useRef<AbortController | null>(null);
+  const historyRefreshingRef = useRef(false);
+  const historyAbortRef = useRef<AbortController | null>(null);
   const [workspace, setWorkspace] = useState<MachineTerminalWorkspace | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -1603,6 +1622,30 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
   const [detailTerminal, setDetailTerminal] = useState<MachineTerminalSnapshot | null>(null);
   const active = workspace?.active_terminal ?? null;
   const historyDetailsActive = historyOpen || Boolean(detailTerminal);
+  sessionIdRef.current = sessionId;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      actionAbortRef.current?.abort();
+      historyAbortRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    actionAbortRef.current?.abort();
+    historyAbortRef.current?.abort();
+    actionAbortRef.current = null;
+    historyAbortRef.current = null;
+    busyActionRef.current = null;
+    historyRefreshingRef.current = false;
+    setBusyAction(null);
+    setHistoryRefreshing(false);
+    setHistoryOpen(false);
+    setDetailTerminal(null);
+    setWorkspace(null);
+  }, [sessionId]);
 
   useEffect(() => {
     activeTerminalIdRef.current = active?.terminal_id || undefined;
@@ -1634,7 +1677,14 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     let bufferedInputCodeUnits = 0;
     let writingInput = false;
     let inputOverflowShown = false;
-    const writeAbortController = new AbortController();
+    let pendingResize: {
+      key: string;
+      terminalId?: string;
+      columns: number;
+      rows: number;
+    } | null = null;
+    let resizing = false;
+    const terminalRequestAbortController = new AbortController();
 
     void loadMachineTerminalRuntime()
       .then(({ TerminalConstructor, FitAddonConstructor }) => {
@@ -1682,7 +1732,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
                 sessionId,
                 { data, terminalId },
                 {
-                  signal: writeAbortController.signal,
+                  signal: terminalRequestAbortController.signal,
                   timeoutMs: MACHINE_TERMINAL_WRITE_TIMEOUT_MS,
                 },
               );
@@ -1727,6 +1777,37 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
           }
           void flushInput();
         });
+        const flushResize = async () => {
+          if (resizing || disposed) return;
+          resizing = true;
+          try {
+            while (!disposed && pendingResize) {
+              const resize = pendingResize;
+              pendingResize = null;
+              try {
+                await controlMachineTerminal(
+                  sessionId,
+                  {
+                    action: 'resize',
+                    terminalId: resize.terminalId,
+                    columns: resize.columns,
+                    rows: resize.rows,
+                  },
+                  {
+                    signal: terminalRequestAbortController.signal,
+                    timeoutMs: MACHINE_TERMINAL_CONTROL_TIMEOUT_MS,
+                  },
+                );
+              } catch (error) {
+                if (disposed || isAbortError(error)) return;
+                if (lastResizeRef.current === resize.key) lastResizeRef.current = '';
+              }
+            }
+          } finally {
+            resizing = false;
+            if (!disposed && pendingResize) void flushResize();
+          }
+        };
         const publishResize = () => {
           if (disposed || !terminal || root.clientWidth <= 0 || root.clientHeight <= 0) return;
           try {
@@ -1740,14 +1821,13 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
           const key = `${activeTerminalIdRef.current || ''}:${columns}x${rows}`;
           if (lastResizeRef.current === key) return;
           lastResizeRef.current = key;
-          void controlMachineTerminal(sessionId, {
-            action: 'resize',
+          pendingResize = {
+            key,
             terminalId: activeTerminalIdRef.current,
             columns,
             rows,
-          }).catch(() => {
-            lastResizeRef.current = '';
-          });
+          };
+          void flushResize();
         };
 
         scheduleResize = () => {
@@ -1780,8 +1860,9 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     return () => {
       disposed = true;
       pendingInputs = [];
+      pendingResize = null;
       bufferedInputCodeUnits = 0;
-      writeAbortController.abort();
+      terminalRequestAbortController.abort();
       dataDisposable?.dispose();
       resizeObserver?.disconnect();
       if (scheduleResize) window.removeEventListener('resize', scheduleResize);
@@ -1829,14 +1910,26 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     terminalId?: string,
     options: { includeHistory?: boolean; throwOnError?: boolean } = {},
   ): Promise<void> {
-    if (busyAction) return;
+    if (busyActionRef.current) return;
+    const requestSessionId = sessionId;
+    const controller = new AbortController();
+    busyActionRef.current = action;
+    actionAbortRef.current = controller;
     setBusyAction(action);
     try {
-      const res = await controlMachineTerminal(sessionId, {
-        action,
-        terminalId,
-        includeHistory: options.includeHistory,
-      });
+      const res = await controlMachineTerminal(
+        requestSessionId,
+        {
+          action,
+          terminalId,
+          includeHistory: options.includeHistory,
+        },
+        {
+          signal: controller.signal,
+          timeoutMs: MACHINE_TERMINAL_CONTROL_TIMEOUT_MS,
+        },
+      );
+      if (!mountedRef.current || sessionIdRef.current !== requestSessionId) return;
       setWorkspace(res.terminal);
       if (action === 'clear' || action === 'select' || action === 'new' || action === 'duplicate' || action === 'close' || action === 'restore' || action === 'delete') {
         lastAnsiOutputRef.current = '';
@@ -1848,25 +1941,57 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
       }
       terminalRef.current?.focus();
     } catch (error) {
+      if (controller.signal.aborted || isAbortError(error)) {
+        if (options.throwOnError) throw error;
+        return;
+      }
       const message = error instanceof Error ? error.message : String(error);
-      showSnackbar(`${t('terminal.control.failed', '终端操作失败')}：${message}`, { tone: 'error' });
+      if (mountedRef.current && sessionIdRef.current === requestSessionId) {
+        showSnackbar(`${t('terminal.control.failed', '终端操作失败')}：${message}`, { tone: 'error' });
+      }
       if (options.throwOnError) throw error;
     } finally {
-      setBusyAction(null);
+      const ownsRequest = actionAbortRef.current === controller;
+      if (ownsRequest) {
+        actionAbortRef.current = null;
+        busyActionRef.current = null;
+      }
+      if (ownsRequest && mountedRef.current && sessionIdRef.current === requestSessionId) {
+        setBusyAction(null);
+      }
     }
   }
 
   async function openHistoryDialog(): Promise<void> {
+    if (historyRefreshingRef.current) return;
+    const requestSessionId = sessionId;
+    const controller = new AbortController();
+    historyRefreshingRef.current = true;
+    historyAbortRef.current = controller;
     setHistoryOpen(true);
     setHistoryRefreshing(true);
     try {
-      const next = await fetchTerminal(false, { includeHistory: true });
+      const next = await fetchTerminal(false, {
+        includeHistory: true,
+        signal: controller.signal,
+      });
+      if (!mountedRef.current || sessionIdRef.current !== requestSessionId) return;
       setWorkspace(next);
     } catch (error) {
+      if (controller.signal.aborted || isAbortError(error)) return;
       const message = error instanceof Error ? error.message : String(error);
-      showSnackbar(`${t('terminal.history.sync.failed', '同步终端历史失败')}：${message}`, { tone: 'error' });
+      if (mountedRef.current && sessionIdRef.current === requestSessionId) {
+        showSnackbar(`${t('terminal.history.sync.failed', '同步终端历史失败')}：${message}`, { tone: 'error' });
+      }
     } finally {
-      setHistoryRefreshing(false);
+      const ownsRequest = historyAbortRef.current === controller;
+      if (ownsRequest) {
+        historyAbortRef.current = null;
+        historyRefreshingRef.current = false;
+      }
+      if (ownsRequest && mountedRef.current && sessionIdRef.current === requestSessionId) {
+        setHistoryRefreshing(false);
+      }
     }
   }
 
@@ -1890,7 +2015,13 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
             class="oh-machine-terminal-icon oh-tap-press"
             title={t('terminal.copyId', '复制终端 ID')}
             disabled={!active?.terminal_id}
-            onClick={() => active?.terminal_id ? void copyTextToClipboard(active.terminal_id).then(() => showSnackbar(t('terminal.copyId.ok', '终端 ID 已复制'), { tone: 'success' })) : undefined}
+            onClick={() => active?.terminal_id
+              ? void copyTextWithFeedback(
+                active.terminal_id,
+                t('terminal.copyId.ok', '终端 ID 已复制'),
+                t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'),
+              )
+              : undefined}
           >
             <ComposerIcon name="copy" size={16} />
           </button>
@@ -2245,8 +2376,11 @@ function MachineTerminalHistoryDetailDialog({
   }, [terminal.terminal_id, terminal.command_history?.length]);
 
   async function copyDetails(): Promise<void> {
-    await copyTextToClipboard(terminalHistoryPlainText(terminal));
-    showSnackbar(t('terminal.history.copy.ok', '终端历史详情已复制'), { tone: 'success' });
+    await copyTextWithFeedback(
+      terminalHistoryPlainText(terminal),
+      t('terminal.history.copy.ok', '终端历史详情已复制'),
+      t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'),
+    );
   }
 
   return (
@@ -2341,9 +2475,11 @@ function MachineTerminalCommandHistoryList({ terminal }: { terminal: MachineTerm
               class="oh-machine-terminal-history-action oh-tap-press"
               title={t('terminal.detail.command.copy', '复制输出')}
               onClick={() => {
-                void copyTextToClipboard(terminalCommandPlainText(entry)).then(() => {
-                  showSnackbar(t('terminal.detail.command.copy.ok', '命令输出已复制'), { tone: 'success' });
-                });
+                void copyTextWithFeedback(
+                  terminalCommandPlainText(entry),
+                  t('terminal.detail.command.copy.ok', '命令输出已复制'),
+                  t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'),
+                );
               }}
             >
               <ComposerIcon name="copy" size={14} />
@@ -4087,6 +4223,7 @@ export function SessionDetailPage() {
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
   const goalStartOptionsResolverRef = useRef<((result: GoalStartOptions | null) => void) | null>(null);
   const skillsLoadedRef = useRef(false);
+  const skillsLoadingRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
   const sessionIdRef = useRef(sessionId);
   const { scheduleTimer: scheduleComposerEditFocusTimer } =
@@ -4772,35 +4909,18 @@ export function SessionDetailPage() {
   }
 
   function setMessageFeedbackBusy(messageId: string, busy: boolean): void {
-    setFeedbackBusyMessageIds((current) => {
-      if (busy && current.has(messageId)) return current;
-      if (!busy && !current.has(messageId)) return current;
-      const next = new Set(current);
-      if (busy) next.add(messageId);
-      else next.delete(messageId);
-      return next;
-    });
+    setFeedbackBusyMessageIds((current) =>
+      setWithMembership(current, messageId, busy));
   }
 
   function setMessageRegenerating(messageId: string, busy: boolean): void {
-    setRegeneratingMessageIds((current) => {
-      if (busy && current.has(messageId)) return current;
-      if (!busy && !current.has(messageId)) return current;
-      const next = new Set(current);
-      if (busy) next.add(messageId);
-      else next.delete(messageId);
-      return next;
-    });
+    setRegeneratingMessageIds((current) =>
+      setWithMembership(current, messageId, busy));
   }
 
   function setFullContentLoading(messageId: string, loading: boolean): void {
-    setFullContentLoadingMessageIds((current) => {
-      if (loading === current.has(messageId)) return current;
-      const next = new Set(current);
-      if (loading) next.add(messageId);
-      else next.delete(messageId);
-      return next;
-    });
+    setFullContentLoadingMessageIds((current) =>
+      setWithMembership(current, messageId, loading));
   }
 
   function rememberFullMessageContent(message: SessionMessage): void {
@@ -6909,16 +7029,22 @@ export function SessionDetailPage() {
   }, [atMentionFilePickerVisible, recomputeAtMentionFilePickerAnchor]);
 
   async function ensureSkillsLoadedForPicker(): Promise<void> {
-    if (skillsLoadedRef.current || skillPickerLoading) return;
+    if (skillsLoadedRef.current || skillsLoadingRef.current) return;
+    const requestSessionId = sessionId;
+    skillsLoadingRef.current = true;
     setSkillPickerLoading(true);
     try {
       const res = await listSkills();
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       setSkills(res.items);
-    } catch (error: unknown) {
-      setComposerError(`${t('composer.skill.loadFailed', '加载技能列表失败')}：${error instanceof Error ? error.message : String(error)}`);
-    } finally {
       skillsLoadedRef.current = true;
-      setSkillPickerLoading(false);
+    } catch (error: unknown) {
+      if (ownsSessionAsyncResult(requestSessionId)) {
+        setComposerError(`${t('composer.skill.loadFailed', '加载技能列表失败')}：${error instanceof Error ? error.message : String(error)}`);
+      }
+    } finally {
+      skillsLoadingRef.current = false;
+      if (mountedRef.current) setSkillPickerLoading(false);
     }
   }
 
@@ -6940,7 +7066,6 @@ export function SessionDetailPage() {
         skillsLoadedRef.current = true;
       } catch {
         source = skills;
-        skillsLoadedRef.current = true;
       }
     }
     if (!ownsSessionAsyncResult(sessionId) || editingDraftMessageRef.current?.id !== message.id) {
@@ -11646,6 +11771,15 @@ function SessionThrottleDialog({
   const [enabledOverride, setEnabledOverride] = useState<boolean>(current?.enabled !== false);
   const [busy, setBusy] = useState(false);
   const { closing, requestClose } = useDialogExitMotion(onClose);
+  const mountedRef = useRef(true);
+  const operationBusyRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const parse = (raw: string): number | null | undefined => {
     const trimmed = raw.trim();
@@ -11653,7 +11787,28 @@ function SessionThrottleDialog({
     return roundedNonNegativeIntegerOrNullFromUnknown(trimmed);
   };
 
-  const apply = async () => {
+  const runMutation = async (
+    operation: () => Promise<unknown>,
+    successMessage: string,
+  ): Promise<void> => {
+    if (operationBusyRef.current || closing) return;
+    operationBusyRef.current = true;
+    setBusy(true);
+    try {
+      await operation();
+      if (!mountedRef.current) return;
+      showSnackbar(successMessage, { tone: 'success' });
+      requestClose();
+    } catch (err) {
+      if (!mountedRef.current) return;
+      showSnackbar(`${t('topbar.throttle.failed', '应用节流失败')}：${err instanceof Error ? err.message : String(err)}`, { tone: 'error' });
+    } finally {
+      operationBusyRef.current = false;
+      if (mountedRef.current) setBusy(false);
+    }
+  };
+
+  const apply = async (): Promise<void> => {
     const c = parse(chars);
     const m = parse(cards);
     if (c === null || m === null) {
@@ -11662,41 +11817,26 @@ function SessionThrottleDialog({
       });
       return;
     }
-    setBusy(true);
-    try {
-      const patch: {
-        charsPerSecond?: number | null;
-        cardsPerSecond?: number | null;
-        enabled?: boolean | null;
-      } = {};
-      patch.charsPerSecond = c === undefined ? null : c;
-      patch.cardsPerSecond = m === undefined ? null : m;
-      patch.enabled = enabledOverride;
-      await setSessionThrottle(sessionId, patch);
-      showSnackbar(t('topbar.throttle.saved', '已应用本会话节流'), {
-        tone: 'success',
-      });
-      requestClose();
-    } catch (err) {
-      showSnackbar(`${t('topbar.throttle.failed', '应用节流失败')}：${err instanceof Error ? err.message : String(err)}`, { tone: 'error' });
-    } finally {
-      setBusy(false);
-    }
+    const patch: {
+      charsPerSecond?: number | null;
+      cardsPerSecond?: number | null;
+      enabled?: boolean | null;
+    } = {
+      charsPerSecond: c === undefined ? null : c,
+      cardsPerSecond: m === undefined ? null : m,
+      enabled: enabledOverride,
+    };
+    await runMutation(
+      () => setSessionThrottle(sessionId, patch),
+      t('topbar.throttle.saved', '已应用本会话节流'),
+    );
   };
 
-  const reset = async () => {
-    setBusy(true);
-    try {
-      await clearSessionThrottle(sessionId);
-      showSnackbar(t('topbar.throttle.reset', '已恢复模板/全局节流'), {
-        tone: 'success',
-      });
-      requestClose();
-    } catch (err) {
-      showSnackbar(`${t('topbar.throttle.failed', '应用节流失败')}：${err instanceof Error ? err.message : String(err)}`, { tone: 'error' });
-    } finally {
-      setBusy(false);
-    }
+  const reset = async (): Promise<void> => {
+    await runMutation(
+      () => clearSessionThrottle(sessionId),
+      t('topbar.throttle.reset', '已恢复模板/全局节流'),
+    );
   };
 
   const buckets = current?.throughputBuckets ?? [];

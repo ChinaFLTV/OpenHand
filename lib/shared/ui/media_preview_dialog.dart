@@ -715,14 +715,14 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       if (bytes.length > _kClipboardMaxBytes) {
         throw const FileSystemException('图片数据超过剪贴板容量上限。');
       }
-      await writeOpenHandClipboardImage(bytes);
+      await setOpenHandClipboardImage(bytes);
       return true;
     }
     final filePath = widget.filePath;
     if (filePath != null) {
       final file = File(filePath);
       try {
-        await writeOpenHandClipboardImage(
+        await setOpenHandClipboardImage(
           await readBoundedFileBytes(
             file,
             maxBytes: _kClipboardMaxBytes,
@@ -742,7 +742,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         Uri.parse(url),
         expectedPrimaryType: 'image',
       );
-      await writeOpenHandClipboardImage(downloaded);
+      await setOpenHandClipboardImage(downloaded);
       return true;
     }
     throw const FileSystemException('图片源不可用。');
