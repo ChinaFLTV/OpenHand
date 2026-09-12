@@ -3083,244 +3083,282 @@ class _StreamThrottleSessionDialogState
             de: 'aus',
             ja: 'オフ',
           );
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthWide,
-      maxHeight: kOpenHandDialogHeightTall,
-      minAvailableWidth: 360,
-      minAvailableHeight: 420,
-      horizontalMargin: 48,
-      verticalMargin: 48,
-      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              text(
-                zh: '本会话流式节流',
-                zhHant: '本會話串流節流',
-                en: 'Session Throttle',
-                fr: 'Limitation de session',
-                de: 'Sitzungsdrosselung',
-                ja: 'セッションスロットル',
-              ),
-              style: theme.textTheme.titleLarge,
-            ),
-            kOpenHandGap8,
-            Text(
-              text(
-                zh: '调整后随会话持久保存，重启后仍保留。留空 = 沿用全局值。',
-                zhHant: '調整後會隨會話持久保存，重啟後仍保留。留空 = 沿用全域值。',
-                en: 'Saved with this session and restored after restart. Empty = use global.',
-                fr: 'Enregistré avec cette session et restauré au redémarrage. Vide = valeur globale.',
-                de: 'Wird mit dieser Sitzung gespeichert und nach Neustart wiederhergestellt. Leer = globaler Wert.',
-                ja: 'このセッションに保存され、再起動後も復元されます。空欄 = グローバル値。',
-              ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            kOpenHandGap12,
-            // 会话级启用开关：关闭后从现在起不再对 AI
-            // 流式响应做任何节流；立即推送给活跃 throttle，正在输出
-            // 的字符也会立刻全速放出。
-            Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.55,
-                ),
-                borderRadius: kOpenHandBorderRadius10,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          text(
-                            zh: '启用流式输出节流（本会话）',
-                            zhHant: '啟用串流輸出節流（本會話）',
-                            en: 'Enable stream throttle (this session)',
-                            fr: 'Activer la limitation du flux (cette session)',
-                            de: 'Stream-Drosselung aktivieren (diese Sitzung)',
-                            ja: 'ストリーム出力スロットルを有効化（このセッション）',
-                          ),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        kOpenHandGap2,
-                        Text(
-                          _enabledOverride == null
-                              ? text(
-                                  zh: '当前沿用全局：$globalStateLabel',
-                                  zhHant: '目前沿用全域：$globalStateLabel',
-                                  en: 'Following global: $globalStateLabel',
-                                  fr: 'Suit le global : $globalStateLabel',
-                                  de: 'Folgt global: $globalStateLabel',
-                                  ja: 'グローバルに従う: $globalStateLabel',
-                                )
-                              : text(
-                                  zh: '已会话级强制$forcedStateLabel',
-                                  zhHant: '已於會話級強制$forcedStateLabel',
-                                  en: 'Session-level forced $forcedStateLabel',
-                                  fr: 'Forcé au niveau session : $forcedStateLabel',
-                                  de: 'Auf Sitzungsebene erzwungen: $forcedStateLabel',
-                                  ja: 'セッション単位で $forcedStateLabel に固定',
-                                ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    // Material 3 Expressive 风格：原 Switch.adaptive
-                    // 在 macOS/iOS 走 Cupertino 渲染（与 M3 设计语言不一致），
-                    // 显式 Switch 强制走 M3 thumb/track。
-                    value: effectiveEnabled,
-                    thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-                      if (states.contains(WidgetState.selected)) {
-                        return const Icon(Icons.check_rounded, size: 16);
-                      }
-                      return const Icon(Icons.close_rounded, size: 16);
-                    }),
-                    onChanged: (v) {
-                      // 立即应用：会话级覆盖 + 推到活跃 throttle。
-                      setState(() => _enabledOverride = v);
-                      session.setSessionStreamEnabledOverride(
-                        widget.sessionId,
-                        v,
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            kOpenHandGap12,
-            // 实时字符吞吐仪表盘：长窗口按秒采样，绘制前
-            // 降采样；主曲线使用节流后的展示吞吐。
-            _StreamThroughputMiniGauge(
-              sessionId: widget.sessionId,
-              maxRate: effectiveChars <= 0 ? 1 : effectiveChars,
-            ),
-            kOpenHandGap16,
-            TextField(
-              controller: _charsCtrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.digitsOnly,
-              ],
-              decoration: InputDecoration(
-                labelText: text(
-                  zh: '字符 / 秒（当前生效：$effectiveChars）',
-                  zhHant: '字元 / 秒（目前生效：$effectiveChars）',
-                  en: 'Chars / Sec (current: $effectiveChars)',
-                  fr: 'Caractères / s (actuel : $effectiveChars)',
-                  de: 'Zeichen / Sek. (aktuell: $effectiveChars)',
-                  ja: '文字 / 秒（現在: $effectiveChars）',
-                ),
-                hintText:
-                    '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
-              ),
-              // 不再在输入时实时推送覆盖；仅在点击”应用”后
-              // 才正式生效。输入过程中仅刷新 UI 标签展示。
-              onChanged: (_) {
-                if (mounted) setState(() {});
-              },
-            ),
-            kOpenHandGap12,
-            TextField(
-              controller: _cardsCtrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.digitsOnly,
-              ],
-              decoration: InputDecoration(
-                labelText: text(
-                  zh: '卡片 / 秒（当前生效：$effectiveCards）',
-                  zhHant: '卡片 / 秒（目前生效：$effectiveCards）',
-                  en: 'Cards / Sec (current: $effectiveCards)',
-                  fr: 'Cartes / s (actuel : $effectiveCards)',
-                  de: 'Karten / Sek. (aktuell: $effectiveCards)',
-                  ja: 'カード / 秒（現在: $effectiveCards）',
-                ),
-                hintText:
-                    '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
-              ),
-              onChanged: (_) {
-                if (mounted) setState(() {});
-              },
-            ),
-            kOpenHandGap20,
-            // 三枚操作按钮明确居中聚集：丢到 SizedBox(double.infinity)
-            // 里以推翻外层 Column.crossAxisAlignment.start 带来的隱性左贴边；
-            // Wrap 仍用来兼顾窄幅对话框的软换行。
-            SizedBox(
-              width: double.infinity,
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () {
-                      session.clearSessionStreamThrottleOverride(
-                        widget.sessionId,
-                      );
-                      Navigator.of(context).pop();
-                    },
-                    label: text(
-                      zh: '恢复默认',
-                      zhHant: '恢復預設',
-                      en: 'Reset',
-                      fr: 'Réinitialiser',
-                      de: 'Zurücksetzen',
-                      ja: '既定に戻す',
-                    ),
-                  ),
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label: openHandCancelLabel(context),
-                  ),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: () {
-                      session.setSessionStreamCharsOverride(
-                        widget.sessionId,
-                        _parse(_charsCtrl.text),
-                      );
-                      session.setSessionStreamCardsOverride(
-                        widget.sessionId,
-                        _parse(_cardsCtrl.text),
-                      );
-                      // Switch 已即时下发；Apply 再确认一次最终状态。
-                      session.setSessionStreamEnabledOverride(
-                        widget.sessionId,
-                        _enabledOverride,
-                      );
-                      Navigator.of(context).pop();
-                    },
-                    label: text(
-                      zh: '应用',
-                      zhHant: '套用',
-                      en: 'Apply',
-                      fr: 'Appliquer',
-                      de: 'Anwenden',
-                      ja: '適用',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+    final enabledAccent = effectiveEnabled
+        ? OpenHandStatusColors.success
+        : theme.colorScheme.outline;
+    final followingGlobal = _enabledOverride == null;
+    return OpenHandEditorDialogScaffold(
+      title: text(
+        zh: '本会话流式节流',
+        zhHant: '本會話串流節流',
+        en: 'Session Stream Throttle',
+        fr: 'Limitation de flux de session',
+        de: 'Sitzungs-Stream-Drosselung',
+        ja: 'セッションのストリームスロットル',
       ),
+      subtitle: text(
+        zh: '调整后随会话持久保存，重启后仍保留。速率留空 = 沿用全局值。',
+        zhHant: '調整後會隨會話持久保存，重啟後仍保留。速率留空 = 沿用全域值。',
+        en: 'Saved with this session and restored after restart. Empty rates follow global settings.',
+        fr: 'Enregistré avec cette session et restauré au redémarrage. Un débit vide suit la valeur globale.',
+        de: 'Wird mit dieser Sitzung gespeichert und nach Neustart wiederhergestellt. Leere Raten folgen dem globalen Wert.',
+        ja: 'このセッションに保存され、再起動後も復元されます。空欄の速度はグローバル値に従います。',
+      ),
+      icon: Icons.speed_rounded,
+      iconColor: OpenHandStatusColors.info,
+      maxWidth: kOpenHandDialogWidthStandard,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandTintedPanel(
+            accent: enabledAccent,
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: enabledAccent.withValues(alpha: 0.16),
+                    borderRadius: kOpenHandBorderRadius12,
+                  ),
+                  child: Icon(
+                    effectiveEnabled
+                        ? Icons.bolt_rounded
+                        : Icons.flash_off_rounded,
+                    color: enabledAccent,
+                    size: 22,
+                  ),
+                ),
+                kOpenHandHGap12,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        text(
+                          zh: '启用流式输出节流',
+                          zhHant: '啟用串流輸出節流',
+                          en: 'Enable stream throttle',
+                          fr: 'Activer la limitation du flux',
+                          de: 'Stream-Drosselung aktivieren',
+                          ja: 'ストリーム出力スロットルを有効化',
+                        ),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: enabledAccent,
+                        ),
+                      ),
+                      kOpenHandGap4,
+                      Text(
+                        followingGlobal
+                            ? text(
+                                zh: '当前沿用全局：$globalStateLabel',
+                                zhHant: '目前沿用全域：$globalStateLabel',
+                                en: 'Following global: $globalStateLabel',
+                                fr: 'Suit le global : $globalStateLabel',
+                                de: 'Folgt global: $globalStateLabel',
+                                ja: 'グローバルに従う: $globalStateLabel',
+                              )
+                            : text(
+                                zh: '已对本会话强制$forcedStateLabel',
+                                zhHant: '已對本會話強制$forcedStateLabel',
+                                en: 'Forced for this session: $forcedStateLabel',
+                                fr: 'Forcé pour cette session : $forcedStateLabel',
+                                de: 'Für diese Sitzung erzwungen: $forcedStateLabel',
+                                ja: 'このセッションでは $forcedStateLabel に固定',
+                              ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                kOpenHandHGap12,
+                Switch(
+                  value: effectiveEnabled,
+                  thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return const Icon(Icons.check_rounded, size: 16);
+                    }
+                    return const Icon(Icons.close_rounded, size: 16);
+                  }),
+                  onChanged: (v) {
+                    setState(() => _enabledOverride = v);
+                    session.setSessionStreamEnabledOverride(
+                      widget.sessionId,
+                      v,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          kOpenHandGap14,
+          _StreamThroughputMiniGauge(
+            sessionId: widget.sessionId,
+            maxRate: effectiveChars <= 0 ? 1 : effectiveChars,
+          ),
+          kOpenHandGap14,
+          OpenHandTintedPanel(
+            accent: OpenHandStatusColors.warning,
+            icon: Icons.text_fields_rounded,
+            title: text(
+              zh: '字符速率',
+              zhHant: '字元速率',
+              en: 'Character rate',
+              fr: 'Débit de caractères',
+              de: 'Zeichenrate',
+              ja: '文字速度',
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  text(
+                    zh: '当前生效 ${openHandCharsPerSecondLabel(context, effectiveChars)} · 留空沿用全局',
+                    zhHant:
+                        '目前生效 ${openHandCharsPerSecondLabel(context, effectiveChars)} · 留空沿用全域',
+                    en: 'Effective ${openHandCharsPerSecondLabel(context, effectiveChars)} · empty follows global',
+                    fr: 'Effectif ${openHandCharsPerSecondLabel(context, effectiveChars)} · vide = global',
+                    de: 'Wirksam ${openHandCharsPerSecondLabel(context, effectiveChars)} · leer = global',
+                    ja: '現在 ${openHandCharsPerSecondLabel(context, effectiveChars)} · 空欄はグローバル',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+                kOpenHandGap10,
+                TextField(
+                  controller: _charsCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: InputDecoration(
+                    labelText: text(
+                      zh: '每秒最大渲染字符',
+                      zhHant: '每秒最大渲染字元',
+                      en: 'Max characters per second',
+                      fr: 'Caractères max par seconde',
+                      de: 'Max. Zeichen pro Sekunde',
+                      ja: '1 秒あたりの最大描画文字数',
+                    ),
+                    hintText:
+                        '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
+                  ),
+                  onChanged: (_) {
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ],
+            ),
+          ),
+          kOpenHandGap12,
+          OpenHandTintedPanel(
+            accent: OpenHandStatusColors.info,
+            icon: Icons.view_agenda_outlined,
+            title: text(
+              zh: '卡片速率',
+              zhHant: '卡片速率',
+              en: 'Card rate',
+              fr: 'Débit de cartes',
+              de: 'Kartenrate',
+              ja: 'カード速度',
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  text(
+                    zh: '当前生效 ${openHandCardsPerSecondLabel(context, effectiveCards)} · 留空沿用全局',
+                    zhHant:
+                        '目前生效 ${openHandCardsPerSecondLabel(context, effectiveCards)} · 留空沿用全域',
+                    en: 'Effective ${openHandCardsPerSecondLabel(context, effectiveCards)} · empty follows global',
+                    fr: 'Effectif ${openHandCardsPerSecondLabel(context, effectiveCards)} · vide = global',
+                    de: 'Wirksam ${openHandCardsPerSecondLabel(context, effectiveCards)} · leer = global',
+                    ja: '現在 ${openHandCardsPerSecondLabel(context, effectiveCards)} · 空欄はグローバル',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+                kOpenHandGap10,
+                TextField(
+                  controller: _cardsCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: InputDecoration(
+                    labelText: text(
+                      zh: '每秒最大输出卡片',
+                      zhHant: '每秒最大輸出卡片',
+                      en: 'Max cards per second',
+                      fr: 'Cartes max par seconde',
+                      de: 'Max. Karten pro Sekunde',
+                      ja: '1 秒あたりの最大カード数',
+                    ),
+                    hintText:
+                        '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
+                  ),
+                  onChanged: (_) {
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () {
+            session.clearSessionStreamThrottleOverride(widget.sessionId);
+            Navigator.of(context).pop();
+          },
+          label: text(
+            zh: '恢复默认',
+            zhHant: '恢復預設',
+            en: 'Reset',
+            fr: 'Réinitialiser',
+            de: 'Zurücksetzen',
+            ja: '既定に戻す',
+          ),
+        ),
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: openHandCancelLabel(context),
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: () {
+            session.setSessionStreamCharsOverride(
+              widget.sessionId,
+              _parse(_charsCtrl.text),
+            );
+            session.setSessionStreamCardsOverride(
+              widget.sessionId,
+              _parse(_cardsCtrl.text),
+            );
+            session.setSessionStreamEnabledOverride(
+              widget.sessionId,
+              _enabledOverride,
+            );
+            Navigator.of(context).pop();
+          },
+          label: text(
+            zh: '应用',
+            zhHant: '套用',
+            en: 'Apply',
+            fr: 'Appliquer',
+            de: 'Anwenden',
+            ja: '適用',
+          ),
+        ),
+      ],
     );
   }
 }
@@ -3374,6 +3412,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   static const int _kMinWindowSeconds = 30;
   static const int _kMaxPaintSamples = 420;
   static const Duration _kRefreshInterval = Duration(milliseconds: 200);
+  static const double _kChartHeight = 152;
   static const List<int> _kRangeOptions = <int>[
     5 * 60,
     10 * 60,
@@ -3698,6 +3737,54 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     ];
   }
 
+  Widget _controlSlider({
+    required String label,
+    required String valueText,
+    required Widget slider,
+  }) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            kOpenHandHGap8,
+            Text(
+              valueText,
+              maxLines: 1,
+              overflow: TextOverflow.fade,
+              softWrap: false,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+            trackHeight: 4,
+          ),
+          child: slider,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -3732,83 +3819,90 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
       0,
       granularityOptions.indexOf(effectiveGranularity),
     );
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(color: scheme.outlineVariant),
+    final yAxisUnit = openHandLocalizedText(
+      context,
+      zh: '字/秒',
+      zhHant: '字/秒',
+      en: 'chars/s',
+      fr: 'car./s',
+      de: 'Zeichen/s',
+      ja: '文字/秒',
+    );
+    return OpenHandTintedPanel(
+      accent: OpenHandStatusColors.info,
+      icon: Icons.show_chart_rounded,
+      title: openHandLocalizedText(
+        context,
+        zh: '节流后字符吞吐 · $headerWindow',
+        zhHant: '節流後字元吞吐 · $headerWindow',
+        en: 'Throttled character throughput · $headerWindow',
+        fr: 'Débit de caractères limité · $headerWindow',
+        de: 'Gedrosselter Zeichendurchsatz · $headerWindow',
+        ja: 'スロットル後の文字スループット · $headerWindow',
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Icon(Icons.show_chart_rounded, size: 14, color: scheme.primary),
-              kOpenHandHGap6,
-              Expanded(
-                child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '节流后字符吞吐 · $headerWindow',
-                    zhHant: '節流後字元吞吐 · $headerWindow',
-                    en: 'Throttled Chars · $headerWindow',
-                    fr: 'Caractères limités · $headerWindow',
-                    de: 'Gedrosselte Zeichen · $headerWindow',
-                    ja: 'スロットル後の文字 · $headerWindow',
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                  softWrap: false,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              kOpenHandHGap6,
-              Tooltip(
-                message: openHandLocalizedText(
+              OpenHandFactChip(
+                icon: Icons.bolt_rounded,
+                label: openHandLocalizedText(
                   context,
-                  zh: '触控板双指捏合或 Ctrl+滚轮放缩时间区间',
-                  zhHant: '觸控板雙指捏合或 Ctrl+滾輪縮放時間區間',
-                  en: 'Pinch or Ctrl+wheel to zoom the time range',
-                  fr: 'Pincez ou utilisez Ctrl+molette pour zoomer la période',
-                  de: 'Zum Zoomen des Zeitbereichs kneifen oder Strg+Mausrad nutzen',
-                  ja: 'ピンチまたは Ctrl+ホイールで時間範囲をズーム',
+                  zh: '当前 ${openHandRatePerSecond(context, current)}',
+                  zhHant: '目前 ${openHandRatePerSecond(context, current)}',
+                  en: 'Now ${openHandRatePerSecond(context, current)}',
+                  fr: 'Actuel ${openHandRatePerSecond(context, current)}',
+                  de: 'Jetzt ${openHandRatePerSecond(context, current)}',
+                  ja: '現在 ${openHandRatePerSecond(context, current)}',
                 ),
-                child: Icon(
-                  Icons.pinch_rounded,
-                  size: 12,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                ),
+                color: OpenHandStatusColors.success,
               ),
-              kOpenHandHGap8,
-              Flexible(
-                child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '当前 $current/s · 峰 $peak/s · 均 $average/s · 上限 ${widget.maxRate}/s',
-                    zhHant:
-                        '目前 $current/s · 峰 $peak/s · 均 $average/s · 上限 ${widget.maxRate}/s',
-                    en: 'now $current/s · peak $peak/s · avg $average/s · cap ${widget.maxRate}/s',
-                    fr: 'actuel $current/s · pic $peak/s · moy $average/s · limite ${widget.maxRate}/s',
-                    de: 'jetzt $current/s · Spitze $peak/s · Ø $average/s · Limit ${widget.maxRate}/s',
-                    ja: '現在 $current/s · 最大 $peak/s · 平均 $average/s · 上限 ${widget.maxRate}/s',
-                  ),
-                  textAlign: TextAlign.end,
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                  softWrap: false,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurface,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+              OpenHandFactChip(
+                icon: Icons.trending_up_rounded,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '峰值 ${openHandRatePerSecond(context, peak)}',
+                  zhHant: '峰值 ${openHandRatePerSecond(context, peak)}',
+                  en: 'Peak ${openHandRatePerSecond(context, peak)}',
+                  fr: 'Pic ${openHandRatePerSecond(context, peak)}',
+                  de: 'Spitze ${openHandRatePerSecond(context, peak)}',
+                  ja: '最大 ${openHandRatePerSecond(context, peak)}',
                 ),
+                color: OpenHandStatusColors.warning,
+              ),
+              OpenHandFactChip(
+                icon: Icons.horizontal_rule_rounded,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '均值 ${openHandRatePerSecond(context, average)}',
+                  zhHant: '均值 ${openHandRatePerSecond(context, average)}',
+                  en: 'Avg ${openHandRatePerSecond(context, average)}',
+                  fr: 'Moy. ${openHandRatePerSecond(context, average)}',
+                  de: 'Ø ${openHandRatePerSecond(context, average)}',
+                  ja: '平均 ${openHandRatePerSecond(context, average)}',
+                ),
+                color: OpenHandStatusColors.info,
+              ),
+              OpenHandFactChip(
+                icon: Icons.speed_rounded,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '上限 ${openHandRatePerSecond(context, widget.maxRate)}',
+                  zhHant:
+                      '上限 ${openHandRatePerSecond(context, widget.maxRate)}',
+                  en: 'Cap ${openHandRatePerSecond(context, widget.maxRate)}',
+                  fr: 'Limite ${openHandRatePerSecond(context, widget.maxRate)}',
+                  de: 'Limit ${openHandRatePerSecond(context, widget.maxRate)}',
+                  ja: '上限 ${openHandRatePerSecond(context, widget.maxRate)}',
+                ),
+                color: scheme.tertiary,
               ),
             ],
           ),
-          kOpenHandGap8,
+          kOpenHandGap12,
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<int>(
@@ -3837,89 +3931,88 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               ),
             ),
           ),
-          kOpenHandGap6,
-          Row(
-            children: [
-              Icon(
-                Icons.zoom_in_map_rounded,
-                size: 14,
-                color: scheme.onSurfaceVariant,
-              ),
-              Expanded(
-                child: Slider(
-                  min: _kMinZoom,
-                  max: maxZoom,
-                  value: zoomValue,
-                  label: headerWindow,
-                  onChanged: (value) =>
-                      _updateWindow(zoom: value, animate: false),
-                ),
-              ),
-              SizedBox(
-                width: 52,
-                child: Text(
-                  headerWindow,
-                  textAlign: TextAlign.end,
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                  softWrap: false,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ),
-            ],
+          kOpenHandGap10,
+          _controlSlider(
+            label: openHandLocalizedText(
+              context,
+              zh: '可见时间窗',
+              zhHant: '可見時間窗',
+              en: 'Visible window',
+              fr: 'Fenêtre visible',
+              de: 'Sichtbares Fenster',
+              ja: '表示時間窓',
+            ),
+            valueText: headerWindow,
+            slider: Slider(
+              min: _kMinZoom,
+              max: maxZoom,
+              value: zoomValue,
+              label: headerWindow,
+              onChanged: (value) => _updateWindow(zoom: value, animate: false),
+            ),
+          ),
+          _controlSlider(
+            label: openHandLocalizedText(
+              context,
+              zh: '采样粒度',
+              zhHant: '取樣粒度',
+              en: 'Sample granularity',
+              fr: 'Granularité d’échantillonnage',
+              de: 'Abtastgranularität',
+              ja: 'サンプリング粒度',
+            ),
+            valueText: _formatGranularityLabel(context, effectiveGranularity),
+            slider: Slider(
+              max: (granularityOptions.length - 1).toDouble(),
+              divisions: math.max(1, granularityOptions.length - 1),
+              value: granularityIndex.toDouble(),
+              label: _formatGranularityLabel(context, effectiveGranularity),
+              onChanged: (value) {
+                final index = value.round().clamp(
+                  0,
+                  granularityOptions.length - 1,
+                );
+                _updateWindow(
+                  bucketSeconds: granularityOptions[index],
+                  animate: false,
+                );
+              },
+            ),
           ),
           kOpenHandGap4,
           Row(
             children: [
               Icon(
-                Icons.tune_rounded,
+                Icons.pinch_rounded,
                 size: 14,
-                color: scheme.onSurfaceVariant,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.78),
               ),
+              kOpenHandHGap6,
               Expanded(
-                child: Slider(
-                  max: (granularityOptions.length - 1).toDouble(),
-                  divisions: math.max(1, granularityOptions.length - 1),
-                  value: granularityIndex.toDouble(),
-                  label: _formatGranularityLabel(context, effectiveGranularity),
-                  onChanged: (value) {
-                    final index = value.round().clamp(
-                      0,
-                      granularityOptions.length - 1,
-                    );
-                    _updateWindow(
-                      bucketSeconds: granularityOptions[index],
-                      animate: false,
-                    );
-                  },
-                ),
-              ),
-              SizedBox(
-                width: 64,
                 child: Text(
-                  _formatGranularityLabel(context, effectiveGranularity),
-                  textAlign: TextAlign.end,
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                  softWrap: false,
+                  openHandLocalizedText(
+                    context,
+                    zh: '触控板双指捏合或 Ctrl+滚轮缩放时间窗 · 纵轴为 $yAxisUnit',
+                    zhHant: '觸控板雙指捏合或 Ctrl+滾輪縮放時間窗 · 縱軸為 $yAxisUnit',
+                    en: 'Pinch or Ctrl+wheel to zoom · Y-axis is $yAxisUnit',
+                    fr: 'Pincez ou Ctrl+molette pour zoomer · axe Y : $yAxisUnit',
+                    de: 'Kneifen oder Strg+Mausrad zum Zoomen · Y-Achse: $yAxisUnit',
+                    ja: 'ピンチまたは Ctrl+ホイールでズーム · 縦軸は $yAxisUnit',
+                  ),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: scheme.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                    height: 1.35,
                   ),
                 ),
               ),
             ],
           ),
-          kOpenHandGap8,
+          kOpenHandGap10,
           SizedBox(
-            height: 96,
+            height: _kChartHeight,
             // 鼠标悬停 / 触屏拖动时高亮当前桶并展示
             // tooltip：根据指针 X 计算 bucketIndex，setState 重绘
-            // painter 让对应柱子 stroke 一圈高亮 + 头顶气泡显示
-            // "Ns 前 · X/s"。
+            // painter 让对应点高亮 + 头顶气泡显示相对时间与速率。
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
@@ -4035,10 +4128,10 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                                 cap: cap,
                                 color: scheme.primary,
                                 gridColor: scheme.outlineVariant.withValues(
-                                  alpha: 0.6,
+                                  alpha: 0.55,
                                 ),
                                 limitColor: scheme.tertiary.withValues(
-                                  alpha: 0.45,
+                                  alpha: 0.55,
                                 ),
                                 limitValue: widget.maxRate,
                                 overLimitColor: scheme.error,
@@ -4047,6 +4140,25 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                               ),
                             ),
                           ),
+                          if (peak <= 0)
+                            Center(
+                              child: Text(
+                                openHandLocalizedText(
+                                  context,
+                                  zh: '暂无吞吐数据，开始流式输出后将在此绘制',
+                                  zhHant: '暫無吞吐資料，開始串流輸出後將在此繪製',
+                                  en: 'No throughput yet. It will draw here once streaming starts.',
+                                  fr: 'Pas encore de débit. Il s’affichera ici dès le streaming.',
+                                  de: 'Noch kein Durchsatz. Die Kurve erscheint mit dem Streaming.',
+                                  ja: 'スループットはまだありません。ストリーミング開始後に描画されます。',
+                                ),
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                           if (_hoveredIndex != null && _hoverLocal != null)
                             _ThroughputTooltip(
                               samples: samples,
@@ -4064,21 +4176,20 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               },
             ),
           ),
-          kOpenHandGap8,
-          Text(
-            openHandLocalizedText(
+          kOpenHandGap10,
+          OpenHandFactChip(
+            icon: Icons.input_rounded,
+            label: openHandLocalizedText(
               context,
-              zh: '模型原始流入 当前 $rawCurrent/s · 峰 $rawPeak/s',
-              zhHant: '模型原始流入 目前 $rawCurrent/s · 峰 $rawPeak/s',
-              en: 'Raw ingress now $rawCurrent/s · peak $rawPeak/s',
-              fr: 'Entrée brute actuelle $rawCurrent/s · pic $rawPeak/s',
-              de: 'Roheingang jetzt $rawCurrent/s · Spitze $rawPeak/s',
-              ja: 'モデル原始流入 現在 $rawCurrent/s · 最大 $rawPeak/s',
+              zh: '模型原始流入 当前 ${openHandRatePerSecond(context, rawCurrent)} · 峰值 ${openHandRatePerSecond(context, rawPeak)}',
+              zhHant:
+                  '模型原始流入 目前 ${openHandRatePerSecond(context, rawCurrent)} · 峰值 ${openHandRatePerSecond(context, rawPeak)}',
+              en: 'Raw model ingress now ${openHandRatePerSecond(context, rawCurrent)} · peak ${openHandRatePerSecond(context, rawPeak)}',
+              fr: 'Entrée brute du modèle ${openHandRatePerSecond(context, rawCurrent)} · pic ${openHandRatePerSecond(context, rawPeak)}',
+              de: 'Roheingang Modell ${openHandRatePerSecond(context, rawCurrent)} · Spitze ${openHandRatePerSecond(context, rawPeak)}',
+              ja: 'モデル原始流入 現在 ${openHandRatePerSecond(context, rawCurrent)} · 最大 ${openHandRatePerSecond(context, rawPeak)}',
             ),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+            color: OpenHandStatusColors.caution,
           ),
         ],
       ),
@@ -4109,6 +4220,8 @@ class _ThroughputBarsPainter extends CustomPainter {
     this.hoverHighlightColor,
   });
 
+  static const int _kGridLines = 4;
+
   final List<double> samples;
   final int cap;
   final Color color;
@@ -4125,6 +4238,7 @@ class _ThroughputBarsPainter extends CustomPainter {
       _drawEmpty(canvas, size);
       return;
     }
+    _drawGrid(canvas, size);
     // 网格底线：底部 1px
     final gridPaint = Paint()
       ..color = gridColor
@@ -4270,7 +4384,28 @@ class _ThroughputBarsPainter extends CustomPainter {
     }
   }
 
+  void _drawGrid(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.8;
+    const dashWidth = 3.0;
+    const dashGap = 4.0;
+    for (var i = 1; i <= _kGridLines; i++) {
+      final y = size.height * (1 - i / _kGridLines);
+      var x = 0.0;
+      while (x < size.width) {
+        canvas.drawLine(
+          Offset(x, y),
+          Offset(math.min(x + dashWidth, size.width), y),
+          paint,
+        );
+        x += dashWidth + dashGap;
+      }
+    }
+  }
+
   void _drawEmpty(Canvas canvas, Size size) {
+    _drawGrid(canvas, size);
     final paint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
@@ -4341,34 +4476,22 @@ class _ThroughputTooltip extends StatelessWidget {
             ja: '現在',
           )
         : bucketSeconds <= 1
-        ? openHandLocalizedText(
+        ? openHandSecondsAgoLabel(context, agoStart)
+        : openHandSecondsRangeAgoLabel(
             context,
-            zh: '${agoStart}s 前',
-            zhHant: '${agoStart}s 前',
-            en: '${agoStart}s ago',
-            fr: 'il y a ${agoStart}s',
-            de: 'vor ${agoStart}s',
-            ja: '$agoStart秒前',
-          )
-        : openHandLocalizedText(
-            context,
-            zh: '$agoStart-${agoEnd}s 前',
-            zhHant: '$agoStart-${agoEnd}s 前',
-            en: '$agoStart-${agoEnd}s ago',
-            fr: 'il y a $agoStart-${agoEnd}s',
-            de: 'vor $agoStart-${agoEnd}s',
-            ja: '$agoStart-$agoEnd秒前',
+            startSeconds: agoStart,
+            endSeconds: agoEnd,
           );
     final valueLabel = bucketSeconds <= 1
-        ? '$value/s'
+        ? openHandRatePerSecond(context, value)
         : openHandLocalizedText(
             context,
-            zh: '峰 $value/s',
-            zhHant: '峰 $value/s',
-            en: 'peak $value/s',
-            fr: 'pic $value/s',
-            de: 'Spitze $value/s',
-            ja: '最大 $value/s',
+            zh: '峰 ${openHandRatePerSecond(context, value)}',
+            zhHant: '峰 ${openHandRatePerSecond(context, value)}',
+            en: 'peak ${openHandRatePerSecond(context, value)}',
+            fr: 'pic ${openHandRatePerSecond(context, value)}',
+            de: 'Spitze ${openHandRatePerSecond(context, value)}',
+            ja: '最大 ${openHandRatePerSecond(context, value)}',
           );
     return Positioned.fill(
       child: IgnorePointer(

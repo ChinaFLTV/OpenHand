@@ -270,42 +270,21 @@ class _CronsBodyState extends State<_CronsBody>
       );
     }
     if (s < 60) {
-      return _text(
-        zh: '${s}s 前',
-        zhHant: '${s}s 前',
-        en: '${s}s ago',
-        fr: 'il y a ${s}s',
-        de: 'vor ${s}s',
-        ja: '$s秒前',
-      );
+      return openHandSecondsAgoLabel(context, s);
     }
     final m = s ~/ 60;
     if (m < 60) {
-      return _text(
-        zh: '${m}m 前',
-        zhHant: '${m}m 前',
-        en: '${m}m ago',
-        fr: 'il y a $m min',
-        de: 'vor $m Min.',
-        ja: '$m分前',
-      );
+      return openHandMinutesAgoLabel(context, m);
     }
     final h = m ~/ 60;
-    return _text(
-      zh: '${h}h 前',
-      zhHant: '${h}h 前',
-      en: '${h}h ago',
-      fr: 'il y a $h h',
-      de: 'vor $h Std.',
-      ja: '$h時間前',
-    );
+    return openHandHoursAgoLabel(context, h);
   }
 
   String _cronStatusLabel(WebReverseCron cron) {
     final ago = _formatAgo(widget.controller.cronLastRunAt(cron.id));
     return _text(
-      zh: '每 ${cron.intervalSeconds}s · $ago',
-      zhHant: '每 ${cron.intervalSeconds}s · $ago',
+      zh: '每 ${cron.intervalSeconds} 秒 · $ago',
+      zhHant: '每 ${cron.intervalSeconds} 秒 · $ago',
       en: 'every ${cron.intervalSeconds}s · $ago',
       fr: 'toutes les ${cron.intervalSeconds}s · $ago',
       de: 'alle ${cron.intervalSeconds}s · $ago',

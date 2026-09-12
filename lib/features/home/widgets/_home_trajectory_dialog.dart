@@ -4141,7 +4141,15 @@ class _TrajectoryDetailBody extends StatelessWidget {
             false,
           ),
         (
-          'TTFT',
+          _trajectoryText(
+            context,
+            zh: '首 Token 耗时',
+            zhHant: '首 Token 耗時',
+            en: 'Time to first token',
+            fr: 'Délai jusqu’au premier token',
+            de: 'Zeit bis zum ersten Token',
+            ja: '最初の Token までの時間',
+          ),
           ttft == null ? notRecorded : _trajectoryDurationLabel(ttft),
           false,
         ),
@@ -4172,7 +4180,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
           tokensPerSecond == null
               ? notRecorded
-              : '${tokensPerSecond.toStringAsFixed(1)} tok/s',
+              : openHandTokensPerSecondLabel(context, tokensPerSecond),
           false,
         ),
         if (!compact && charactersPerSecond != null)
@@ -4186,7 +4194,11 @@ class _TrajectoryDetailBody extends StatelessWidget {
               de: 'Zeichendurchsatz',
               ja: '文字スループット',
             ),
-            '${charactersPerSecond.toStringAsFixed(1)} char/s',
+            openHandCharsPerSecondLabel(
+              context,
+              charactersPerSecond,
+              fractionDigits: 1,
+            ),
             false,
           ),
         if (!compact && outputCharacters != null)
