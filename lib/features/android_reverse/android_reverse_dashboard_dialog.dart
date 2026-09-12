@@ -8492,57 +8492,62 @@ fi
         borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: cs.outlineVariant),
       ),
-      child: OpenHandSafeScrollbar(
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          itemCount: _kFridaSnippetPresets.length,
-          separatorBuilder: (_, _) =>
-              Divider(height: 1, color: cs.outlineVariant),
-          itemBuilder: (context, index) {
-            final preset = _kFridaSnippetPresets[index];
-            final selected = _selectedFridaSnippetAsset == preset.assetPath;
-            return ListTile(
-              selected: selected,
-              selectedTileColor: cs.primaryContainer.withValues(alpha: 0.28),
-              leading: Icon(
-                selected ? Icons.check_circle_rounded : Icons.code_rounded,
-                size: 17,
-                color: selected ? cs.primary : cs.onSurfaceVariant,
-              ),
-              title: Text(
-                preset.label(context),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
+        clipBehavior: Clip.antiAlias,
+        child: OpenHandSafeScrollbar(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            itemCount: _kFridaSnippetPresets.length,
+            separatorBuilder: (_, _) =>
+                Divider(height: 1, color: cs.outlineVariant),
+            itemBuilder: (context, index) {
+              final preset = _kFridaSnippetPresets[index];
+              final selected = _selectedFridaSnippetAsset == preset.assetPath;
+              return ListTile(
+                selected: selected,
+                selectedTileColor: cs.primaryContainer.withValues(alpha: 0.28),
+                leading: Icon(
+                  selected ? Icons.check_circle_rounded : Icons.code_rounded,
+                  size: 17,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
                 ),
-              ),
-              subtitle: Text(
-                preset.desc(context),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
+                title: Text(
+                  preset.label(context),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.download_rounded, size: 15),
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '加载',
-                  zhHant: '載入',
-                  en: 'Load',
-                  fr: 'Charger',
-                  de: 'Laden',
-                  ja: '読み込み',
+                subtitle: Text(
+                  preset.desc(context),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
-                onPressed: () => _loadFridaSnippet(preset),
-                visualDensity: VisualDensity.compact,
-              ),
-              dense: true,
-              onTap: () => _loadFridaSnippet(preset),
-            );
-          },
+                trailing: IconButton(
+                  icon: const Icon(Icons.download_rounded, size: 15),
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '加载',
+                    zhHant: '載入',
+                    en: 'Load',
+                    fr: 'Charger',
+                    de: 'Laden',
+                    ja: '読み込み',
+                  ),
+                  onPressed: () => _loadFridaSnippet(preset),
+                  visualDensity: VisualDensity.compact,
+                ),
+                dense: true,
+                onTap: () => _loadFridaSnippet(preset),
+              );
+            },
+          ),
         ),
       ),
     );

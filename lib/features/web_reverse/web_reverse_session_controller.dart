@@ -1175,7 +1175,9 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<List<(String, double)>> performanceMetrics() async {
     final cdp = _browserCdp;
     final sessionId = _pageSessionId;
-    if (cdp == null || sessionId == null) return const [];
+    if (cdp == null || sessionId == null || !cdp.canSendCommands) {
+      return const [];
+    }
     try {
       if (!_performanceEnabled) {
         await cdp.send(
@@ -1193,6 +1195,9 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       if (_pageSessionId != sessionId) return const [];
       return normalizeWebReversePerformanceMetrics(r['metrics']);
+    } on TimeoutException {
+      _performanceEnabled = false;
+      return const [];
     } catch (error, stack) {
       _performanceEnabled = false;
       silentLog('web_reverse_session_controller', '读取性能指标', error, stack);
@@ -3497,16 +3502,16 @@ class WebReverseSessionController extends ChangeNotifier {
             return;
           }
           _aliveWatchdogFailureCount = 0;
-        } catch (error, stack) {
+        } catch (error) {
           if (!identical(_aliveWatchdog, timer) ||
               !identical(_browserCdp, cdp)) {
             return;
           }
           _aliveWatchdogFailureCount += 1;
-          silentLog('web_reverse_session_controller', '浏览器存活探测', error, stack);
           if (_aliveWatchdogFailureCount < _aliveWatchdogFailureThreshold) {
             return;
           }
+          silentLog('web_reverse_session_controller', '浏览器存活探测', error);
           _stopAliveWatchdog();
           try {
             await cdp.close();
@@ -4965,7 +4970,7 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<bool> installFpsCounter() async {
     final cdp = _browserCdp;
     final sessionId = _pageSessionId;
-    if (cdp == null || sessionId == null) return false;
+    if (cdp == null || sessionId == null || !cdp.canSendCommands) return false;
     if (_fpsCounterInstalled) return true;
     const js = '''
 (() => {
@@ -4993,6 +4998,8 @@ class WebReverseSessionController extends ChangeNotifier {
       if (_pageSessionId != sessionId) return false;
       _fpsCounterInstalled = true;
       return true;
+    } on TimeoutException {
+      return false;
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '安装帧率计数器', error, stack);
       return false;
@@ -5007,7 +5014,7 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<bool> installLongTaskObserver() async {
     final cdp = _browserCdp;
     final sessionId = _pageSessionId;
-    if (cdp == null || sessionId == null) return false;
+    if (cdp == null || sessionId == null || !cdp.canSendCommands) return false;
     if (_longTaskObserverInstalled) return true;
     const js = '''
 (() => {
@@ -5046,6 +5053,8 @@ class WebReverseSessionController extends ChangeNotifier {
       if (_pageSessionId != sessionId) return false;
       _longTaskObserverInstalled = true;
       return true;
+    } on TimeoutException {
+      return false;
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '安装长任务观察器', error, stack);
       return false;
@@ -5056,7 +5065,9 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<List<Map<String, Object?>>> readLongTasks() async {
     final cdp = _browserCdp;
     final sessionId = _pageSessionId;
-    if (cdp == null || sessionId == null) return const [];
+    if (cdp == null || sessionId == null || !cdp.canSendCommands) {
+      return const [];
+    }
     try {
       final r = await cdp.send(
         'Runtime.evaluate',
@@ -5074,6 +5085,8 @@ class WebReverseSessionController extends ChangeNotifier {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
       return compactWebReverseLongTasks(decoded);
+    } on TimeoutException {
+      return const [];
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '读取长任务', error, stack);
       return const [];
@@ -5339,7 +5352,7 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<double?> readFps() async {
     final cdp = _browserCdp;
     final sessionId = _pageSessionId;
-    if (cdp == null || sessionId == null) return null;
+    if (cdp == null || sessionId == null || !cdp.canSendCommands) return null;
     try {
       final r = await cdp.send(
         'Runtime.evaluate',
@@ -5353,6 +5366,8 @@ class WebReverseSessionController extends ChangeNotifier {
       if (_pageSessionId != sessionId) return null;
       final v = cdpResultValue(r);
       return v is num ? v.toDouble() : null;
+    } on TimeoutException {
+      return null;
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '读取帧率', error, stack);
       return null;
@@ -7002,7 +7017,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (cached != null) return cached;
     final cdp = _browserCdp;
     final sessionId = _pageSessionId;
-    if (cdp == null || sessionId == null) return null;
+    if (cdp == null || sessionId == null || !cdp.canSendCommands) return null;
     try {
       final r = await cdp.send(
         'Debugger.getScriptSource',
@@ -8540,7 +8555,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     final cdp = _browserCdp;
     final sessionId = _pageSessionId;
-    if (cdp == null || sessionId == null) return null;
+    if (cdp == null || sessionId == null || !cdp.canSendCommands) return null;
     try {
       final result = await cdp.send(
         'Network.getResponseBody',
@@ -8569,6 +8584,8 @@ class WebReverseSessionController extends ChangeNotifier {
       entry.cachedBody = body;
       entry.cachedBodyBase64 = base64;
       return (body, base64);
+    } on TimeoutException {
+      return null;
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',

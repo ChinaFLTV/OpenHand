@@ -145,6 +145,11 @@ class WebReverseCdpClient {
 
   Stream<CdpEvent> get events => _eventCtrl.stream;
   bool get isClosed => _closed;
+  bool get canSendCommands =>
+      !_closed &&
+      _connected &&
+      _reconnectGeneration == null &&
+      _transport != null;
   bool get _isReconnecting => _reconnectGeneration != null;
 
   int _nextId = 1;
@@ -466,9 +471,11 @@ class WebReverseCdpClient {
             ),
           );
           return;
-        } catch (error, stack) {
+        } catch (error) {
           if (!_ownsReconnect(generation)) return;
-          silentLog('web_reverse_cdp_client', '第 $attempt 次重连', error, stack);
+          if (attempt == reconnectMaxAttempts) {
+            silentLog('web_reverse_cdp_client', 'CDP 重连失败', error);
+          }
         }
       }
 
@@ -611,6 +618,8 @@ class WebReverseCdpClient {
   ) async {
     try {
       await transport.sink.close().timeout(_connectionCleanupTimeout);
+    } on TimeoutException {
+      return;
     } catch (error, stack) {
       silentLog('web_reverse_cdp_client', where, error, stack);
     }

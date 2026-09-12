@@ -284,9 +284,11 @@ class _MachineTerminalFileManagerDialogState
         _loading = false;
       });
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    } on MachineTerminalUploadCancelled {
+      return;
     } catch (error, stack) {
-      silentLog('machine_terminal_file', '加载终端目录', error, stack);
       if (!mounted || generation != _loadGeneration) return;
+      silentLog('machine_terminal_file', '加载终端目录', error, stack);
       if (restorePathOnFailure && _snapshot != null) {
         _setPathText(_snapshot!.path);
         setState(() {
@@ -2477,19 +2479,24 @@ class _MachineTerminalDirectoryPickerDialogState
                           ),
                           itemBuilder: (context, index) {
                             final directory = directories[index];
-                            return ListTile(
-                              dense: true,
-                              leading: Icon(
-                                Icons.folder_rounded,
-                                color: cs.primary,
+                            return Material(
+                              type: MaterialType.transparency,
+                              child: ListTile(
+                                dense: true,
+                                leading: Icon(
+                                  Icons.folder_rounded,
+                                  color: cs.primary,
+                                ),
+                                title: Text(
+                                  directory.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: const Icon(
+                                  Icons.chevron_right_rounded,
+                                ),
+                                onTap: () => _load(directory.path),
                               ),
-                              title: Text(
-                                directory.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () => _load(directory.path),
                             );
                           },
                         ),

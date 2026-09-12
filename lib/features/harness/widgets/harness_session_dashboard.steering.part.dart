@@ -19,6 +19,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
   late List<String> _pathSegments;
   List<_HeSteeringEntry> _entries = const [];
   bool _loading = true;
+  bool _directoryMissing = false;
   int _scanGeneration = 0;
 
   @override
@@ -45,6 +46,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
     final directoryPath = _currentAbsolutePath;
     final dir = Directory(directoryPath);
     final entries = <_HeSteeringEntry>[];
+    var directoryMissing = false;
     final stopwatch = Stopwatch()..start();
     try {
       final listing = await listDirectoryBounded(
@@ -82,6 +84,8 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
           ),
         );
       }
+    } on PathNotFoundException {
+      directoryMissing = true;
     } on FileSystemException catch (error, stack) {
       silentLog('harness_steering', '扫描目录', error, stack);
     } finally {
@@ -96,6 +100,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
     if (!mounted || generation != _scanGeneration) return;
     setState(() {
       _entries = entries;
+      _directoryMissing = directoryMissing;
       _loading = false;
     });
   }
@@ -244,15 +249,25 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                       )
                     : _entries.isEmpty
                     ? OpenHandInlineEmptyState(
-                        key: const ValueKey<String>('empty'),
+                        key: ValueKey<String>(
+                          _directoryMissing ? 'missing' : 'empty',
+                        ),
                         message: openHandLocalizedText(
                           context,
-                          zh: '此目录为空',
-                          zhHant: '此目錄為空',
-                          en: 'This directory is empty',
-                          fr: 'Ce dossier est vide',
-                          de: 'Dieser Ordner ist leer',
-                          ja: 'このディレクトリは空です',
+                          zh: _directoryMissing ? '资产目录尚未生成' : '此目录为空',
+                          zhHant: _directoryMissing ? '資產目錄尚未產生' : '此目錄為空',
+                          en: _directoryMissing
+                              ? 'The assets folder has not been generated yet'
+                              : 'This directory is empty',
+                          fr: _directoryMissing
+                              ? "Le dossier de ressources n'a pas encore été généré"
+                              : 'Ce dossier est vide',
+                          de: _directoryMissing
+                              ? 'Der Ressourcenordner wurde noch nicht erstellt'
+                              : 'Dieser Ordner ist leer',
+                          ja: _directoryMissing
+                              ? 'アセットフォルダーはまだ生成されていません'
+                              : 'このディレクトリは空です',
                         ),
                       )
                     : ListView.separated(
