@@ -12,7 +12,6 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../app/model/dialog_animation_settings.dart';
-import '../../../app/model/editor_code_theme.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
@@ -1656,10 +1655,6 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                           fileName: Platform.isWindows
                               ? 'command.ps1'
                               : 'command.sh',
-                          codeTheme: context
-                              .select<SettingsController, EditorCodeTheme>(
-                                (controller) => controller.editorCodeTheme,
-                              ),
                           icon: Icons.terminal_rounded,
                           height: 180,
                           borderRadius: kOpenHandBorderRadius16,
@@ -1693,10 +1688,6 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                   value: _argsController.text,
                   language: Platform.isWindows ? 'powershell' : 'bash',
                   fileName: Platform.isWindows ? 'args.ps1' : 'args.sh',
-                  codeTheme: context
-                      .select<SettingsController, EditorCodeTheme>(
-                        (controller) => controller.editorCodeTheme,
-                      ),
                   icon: Icons.list_alt_rounded,
                   height: 280,
                   borderRadius: kOpenHandBorderRadius16,

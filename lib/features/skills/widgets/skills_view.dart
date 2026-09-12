@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
-import '../../../app/model/editor_code_theme.dart';
-import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -848,10 +846,6 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
                       value: _contentController.text,
                       language: 'markdown',
                       fileName: 'SKILL.md',
-                      codeTheme: context
-                          .select<SettingsController, EditorCodeTheme>(
-                            (controller) => controller.editorCodeTheme,
-                          ),
                       icon: Icons.article_outlined,
                       height: 280,
                       borderRadius: kOpenHandBorderRadius16,

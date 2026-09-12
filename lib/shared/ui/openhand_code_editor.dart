@@ -267,8 +267,8 @@ class OpenHandCodeEditor extends StatefulWidget {
     required this.value,
     required this.language,
     required this.fileName,
-    required this.codeTheme,
     required this.onChanged,
+    this.codeTheme,
     this.icon = Icons.code_rounded,
     this.height = 360,
     this.borderRadius = BorderRadius.zero,
@@ -278,7 +278,7 @@ class OpenHandCodeEditor extends StatefulWidget {
   final String value;
   final String language;
   final String fileName;
-  final EditorCodeTheme codeTheme;
+  final EditorCodeTheme? codeTheme;
   final ValueChanged<String> onChanged;
   final IconData icon;
   final double height;
@@ -440,13 +440,18 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     final wordWrap = context.select<SettingsController, bool>(
       (controller) => controller.editorWordWrap,
     );
+    final codeTheme =
+        widget.codeTheme ??
+        context.select<SettingsController, EditorCodeTheme>(
+          (controller) => controller.editorCodeTheme,
+        );
     final editorStyle = openHandEditorBaseStyle(
       _fontSize,
     ).copyWith(color: openHandEditorSurfaceTextColor(darkSurface: darkSurface));
     _controller.highlighter = OpenHandCodeSyntaxHighlighter(
       baseStyle: editorStyle,
       darkSurface: darkSurface,
-      codeTheme: widget.codeTheme,
+      codeTheme: codeTheme,
     );
     final lineCount = math.min(
       _lineCount(_controller.text),

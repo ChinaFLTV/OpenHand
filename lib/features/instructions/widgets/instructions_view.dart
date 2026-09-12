@@ -5,8 +5,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../app/model/editor_code_theme.dart';
-import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -698,10 +696,6 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                             value: _body.text,
                             language: 'markdown',
                             fileName: 'instruction.md',
-                            codeTheme: context
-                                .select<SettingsController, EditorCodeTheme>(
-                                  (controller) => controller.editorCodeTheme,
-                                ),
                             icon: Icons.article_outlined,
                             height: 280,
                             borderRadius: kOpenHandBorderRadius16,

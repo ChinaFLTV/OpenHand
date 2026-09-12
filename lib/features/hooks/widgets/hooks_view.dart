@@ -5,9 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../app/model/editor_code_theme.dart';
 import '../../../app/model/hook_config.dart';
-import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -825,10 +823,6 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                             fileName: Platform.isWindows
                                 ? 'hook.ps1'
                                 : 'hook.sh',
-                            codeTheme: context
-                                .select<SettingsController, EditorCodeTheme>(
-                                  (controller) => controller.editorCodeTheme,
-                                ),
                             icon: Icons.terminal_rounded,
                             height: 280,
                             borderRadius: kOpenHandBorderRadius16,

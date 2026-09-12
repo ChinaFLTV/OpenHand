@@ -1,13 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/model/app_settings_snapshot.dart'
     show RecentModelSelection;
-import '../../../app/model/editor_code_theme.dart';
-import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/net/http_methods.dart';
 import '../../../shared/ui/animated_menu.dart';
@@ -3818,9 +3815,6 @@ class _WorkflowCodeEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final codeTheme = context.select<SettingsController, EditorCodeTheme>(
-      (controller) => controller.editorCodeTheme,
-    );
     return OpenHandCodeEditor(
       value: value,
       language: switch (language) {
@@ -3830,7 +3824,6 @@ class _WorkflowCodeEditor extends StatelessWidget {
         WorkflowCodeLanguage.windowsPowerShell => 'powershell',
       },
       fileName: 'main.${language.fileExtension}',
-      codeTheme: codeTheme,
       borderRadius: kOpenHandBorderRadius14,
       icon: switch (language) {
         WorkflowCodeLanguage.python3 => Icons.data_object_rounded,

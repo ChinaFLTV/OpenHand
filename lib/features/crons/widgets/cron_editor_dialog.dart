@@ -6,8 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/model/cron_config.dart';
-import '../../../app/model/editor_code_theme.dart';
-import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_notification_service.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
@@ -371,10 +369,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                         value: _scriptContentController.text,
                         language: Platform.isWindows ? 'powershell' : 'bash',
                         fileName: Platform.isWindows ? 'cron.ps1' : 'cron.sh',
-                        codeTheme: context
-                            .select<SettingsController, EditorCodeTheme>(
-                              (controller) => controller.editorCodeTheme,
-                            ),
                         icon: Icons.terminal_rounded,
                         height: 280,
                         borderRadius: kOpenHandBorderRadius16,
