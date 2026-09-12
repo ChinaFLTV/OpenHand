@@ -564,6 +564,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       children: [
                         for (final item in runtimeStatus.toolNames)
                           _RuntimeToolChip(
+                            key: ValueKey<String>(item),
                             name: item,
                             known: liveRuntimeToolPreview?.detailFor(item),
                           ),
@@ -1591,7 +1592,7 @@ class _MetadataChip extends StatelessWidget {
 }
 
 class _RuntimeToolChip extends StatelessWidget {
-  const _RuntimeToolChip({required this.name, this.known});
+  const _RuntimeToolChip({super.key, required this.name, this.known});
 
   final String name;
   final AiRuntimeToolPreviewDetail? known;
@@ -1602,7 +1603,6 @@ class _RuntimeToolChip extends StatelessWidget {
     final detail = known ?? _runtimeToolHoverFallback(name);
     final tone = _runtimeToolSourceColor(theme.colorScheme, detail.source);
     return OpenHandHoverOverlay(
-      motionScope: OpenHandMotionSettingsScope.dialog,
       builder: (overlayContext, constraints) {
         final resolved =
             known ??

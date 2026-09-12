@@ -19,8 +19,11 @@ const Duration kOpenHandTooltipWait = Duration(milliseconds: 400);
 /// 都要等待，因此单独给一档更短的延迟。
 const Duration kOpenHandDenseTooltipWait = Duration(milliseconds: 250);
 
-/// 悬停浮层从锚点移入卡片时的关闭宽限，避免光标穿越间隙时被立刻收起。
-const Duration kOpenHandHoverOverlayHideDelay = Duration(milliseconds: 160);
+/// 锚定悬停浮层的出现等待：滤掉横扫误触，仍接近即时。
+const Duration kOpenHandHoverOverlayShowDelay = Duration(milliseconds: 40);
+
+/// 锚定悬停浮层的关闭宽限：只吸收胶囊边缘抖动，不再为移入卡片留长间隔。
+const Duration kOpenHandHoverOverlayHideDelay = Duration(milliseconds: 40);
 
 /// 关闭输入焦点后，等 IME / 焦点链落稳再做校验或发请求。
 const Duration kOpenHandFocusSettleDelay = Duration(milliseconds: 80);

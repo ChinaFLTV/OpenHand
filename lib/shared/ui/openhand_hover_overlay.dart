@@ -14,15 +14,17 @@ typedef OpenHandHoverOverlayBuilder =
     Widget Function(BuildContext context, BoxConstraints constraints);
 
 /// 锚定到子组件的悬停浮层：进出场走全局动画设置，滚动时跟随锚点。
+///
+/// 浮层默认不参与命中测试，避免盖住相邻胶囊后悬停状态卡住；移出锚点即收起。
 class OpenHandHoverOverlay extends StatefulWidget {
   const OpenHandHoverOverlay({
     super.key,
     required this.child,
     required this.builder,
     this.enabled = true,
-    this.showDelay = kOpenHandDenseTooltipWait,
+    this.showDelay = kOpenHandHoverOverlayShowDelay,
     this.hideDelay = kOpenHandHoverOverlayHideDelay,
-    this.motionScope = OpenHandMotionSettingsScope.menu,
+    this.motionScope = OpenHandMotionSettingsScope.chip,
     this.maxWidth = kOpenHandHoverOverlayDefaultWidth,
     this.maxHeight = kOpenHandHoverOverlayDefaultMaxHeight,
   });
@@ -47,7 +49,6 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
   late final OpenHandDebouncer _showDebouncer;
   late final OpenHandDebouncer _hideDebouncer;
   bool _anchorHovered = false;
-  bool _overlayHovered = false;
   bool _showAbove = false;
 
   @override
@@ -64,7 +65,10 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
       _hideImmediately();
       return;
     }
-    if (_overlay.hasEntry) {
+    if (_overlay.hasEntry &&
+        (oldWidget.maxWidth != widget.maxWidth ||
+            oldWidget.maxHeight != widget.maxHeight ||
+            oldWidget.motionScope != widget.motionScope)) {
       _overlay.markNeedsBuild();
     }
   }
@@ -83,13 +87,29 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
     super.dispose();
   }
 
-  bool get _keepVisible => _anchorHovered || _overlayHovered;
+  Duration get _showDelay {
+    final delay = widget.showDelay;
+    return delay < Duration.zero ? kOpenHandHoverOverlayShowDelay : delay;
+  }
+
+  Duration get _hideDelay {
+    final delay = widget.hideDelay;
+    return delay < Duration.zero ? kOpenHandHoverOverlayHideDelay : delay;
+  }
 
   void _onAnchorEnter() {
     if (!widget.enabled) return;
     _anchorHovered = true;
     _hideDebouncer.cancel();
-    _showDebouncer.schedule(_showNow, delay: widget.showDelay);
+    if (_overlay.hasEntry) {
+      _overlay.reopen();
+      return;
+    }
+    if (_showDelay <= Duration.zero) {
+      _showNow();
+      return;
+    }
+    _showDebouncer.schedule(_showNow, delay: _showDelay);
   }
 
   void _onAnchorExit() {
@@ -98,27 +118,20 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
     _scheduleHide();
   }
 
-  void _onOverlayEnter() {
-    _overlayHovered = true;
-    _hideDebouncer.cancel();
-  }
-
-  void _onOverlayExit() {
-    _overlayHovered = false;
-    _scheduleHide();
-  }
-
   void _scheduleHide() {
-    if (_keepVisible) return;
-    _hideDebouncer.schedule(() {
-      if (!mounted || _keepVisible) return;
+    if (_anchorHovered) return;
+    if (_hideDelay <= Duration.zero) {
       _overlay.close();
-    }, delay: widget.hideDelay);
+      return;
+    }
+    _hideDebouncer.schedule(() {
+      if (!mounted || _anchorHovered) return;
+      _overlay.close();
+    }, delay: _hideDelay);
   }
 
   void _hideImmediately() {
     _anchorHovered = false;
-    _overlayHovered = false;
     _showDebouncer.cancel();
     _hideDebouncer.cancel();
     _overlay.close(immediately: true);
@@ -172,28 +185,25 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
     final overlayAlignment = _showAbove
         ? Alignment.bottomCenter
         : Alignment.topCenter;
-    return CompositedTransformFollower(
-      link: _link,
-      showWhenUnlinked: false,
-      targetAnchor: _showAbove ? Alignment.topCenter : Alignment.bottomCenter,
-      followerAnchor: overlayAlignment,
-      offset: Offset(
-        0,
-        _showAbove ? -kOpenHandHoverOverlayGap : kOpenHandHoverOverlayGap,
-      ),
-      child: AnimatedOverlayContent(
-        customSettings: settings,
-        visibility: visibility,
-        onExitCompleted: onExitCompleted,
-        alignment: overlayAlignment,
-        child: UnconstrainedBox(
-          // Overlay / Follower 会下发全屏紧约束；松开 min 后卡片才能按内容收缩。
+    return IgnorePointer(
+      child: CompositedTransformFollower(
+        link: _link,
+        showWhenUnlinked: false,
+        targetAnchor: _showAbove ? Alignment.topCenter : Alignment.bottomCenter,
+        followerAnchor: overlayAlignment,
+        offset: Offset(
+          0,
+          _showAbove ? -kOpenHandHoverOverlayGap : kOpenHandHoverOverlayGap,
+        ),
+        child: AnimatedOverlayContent(
+          customSettings: settings,
+          visibility: visibility,
+          onExitCompleted: onExitCompleted,
           alignment: overlayAlignment,
-          child: ConstrainedBox(
-            constraints: constraints,
-            child: MouseRegion(
-              onEnter: (_) => _onOverlayEnter(),
-              onExit: (_) => _onOverlayExit(),
+          child: UnconstrainedBox(
+            alignment: overlayAlignment,
+            child: ConstrainedBox(
+              constraints: constraints,
               child: widget.builder(overlayContext, constraints),
             ),
           ),
