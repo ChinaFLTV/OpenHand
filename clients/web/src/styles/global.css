@@ -1922,6 +1922,101 @@ button.oh-message-context-capsule {
   color: inherit;
 }
 
+.oh-message-content-preview-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 24%, var(--m3-outline-variant));
+  border-radius: 15px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--m3-primary-container) 62%, var(--m3-surface)) 0%,
+      color-mix(in srgb, var(--m3-tertiary-container) 38%, var(--m3-surface)) 100%
+    );
+  color: var(--m3-on-surface);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 36%, transparent),
+    0 12px 30px -28px color-mix(in srgb, var(--m3-primary) 70%, transparent);
+}
+
+.oh-message-content-preview-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--m3-primary) 14%, var(--m3-surface));
+  color: var(--m3-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m3-primary) 18%, transparent);
+}
+
+.oh-message-content-preview-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.oh-message-content-preview-copy strong {
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.35;
+}
+
+.oh-message-content-preview-copy small {
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.oh-message-content-preview-action {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-primary) 12%, var(--m3-surface));
+  color: var(--m3-primary);
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    transform var(--oh-motion-duration-fast) var(--oh-motion-spring),
+    background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized),
+    border-color var(--oh-motion-duration-base) var(--oh-motion-emphasized),
+    box-shadow var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+
+.oh-message-content-preview-action:hover:not(:disabled) {
+  transform: translate3d(0, -1px, 0);
+  border-color: color-mix(in srgb, var(--m3-primary) 48%, transparent);
+  background: color-mix(in srgb, var(--m3-primary) 18%, var(--m3-surface));
+  box-shadow: 0 8px 18px -14px color-mix(in srgb, var(--m3-primary) 66%, transparent);
+}
+
+.oh-message-content-preview-action:disabled {
+  cursor: wait;
+  opacity: 0.66;
+}
+
+@media (max-width: 520px) {
+  .oh-message-content-preview-notice {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .oh-message-content-preview-action {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
 .oh-message-selected-panel-slot {
   display: block;
   opacity: 0;

@@ -335,6 +335,7 @@ class WebMessagePlatformService {
   static const int _maxMessageWindowLimit = 200;
   static const int _sseMessageWindowSize = 20;
   static const int _sessionSummaryMessageWindowSize = 6;
+  static const int _webMessageContentPreviewCharacters = 4 * kBytesPerKiB;
   static const int _inMemoryMessageWindowDirectLimit = 240;
   static const int _sessionSummaryModelKeyScanLimit = 32;
   static const int _storedMessageWindowScanMultiplier = 1;
@@ -4576,7 +4577,14 @@ class WebMessagePlatformService {
         lastMessageOverride: lastMessage,
         lastModelKeyCandidates: window.messages,
       ),
-      'items': window.messages.map(_messageJson).toList(growable: false),
+      'items': window.messages
+          .map(
+            (message) => _messageJson(
+              message,
+              contentPreviewCharacters: _webMessageContentPreviewCharacters,
+            ),
+          )
+          .toList(growable: false),
       'offset': window.offset,
       'limit': window.limit,
       'total': window.total,
@@ -4593,18 +4601,21 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _getMessage(
-    shelf.Request _,
+    shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
     String messageId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) return _sessionMissingResponse();
+    final includeTelemetry =
+        request.requestedUri.queryParameters['include_telemetry'] != '0';
     AiSessionMessage? message;
     try {
       message = await _sessionController.store.loadMessage(
         session.id,
         messageId,
+        deferTelemetryMetadata: !includeTelemetry,
       );
     } on ArgumentError {
       return _errorJson(HttpStatus.badRequest, 'invalid_message_id');
@@ -4613,7 +4624,10 @@ class WebMessagePlatformService {
       return _errorJson(HttpStatus.notFound, 'message_not_found');
     }
     return _json(HttpStatus.ok, <String, Object?>{
-      'message': _messageJson(message, includeTelemetryMetadata: true),
+      'message': _messageJson(
+        message,
+        includeTelemetryMetadata: includeTelemetry,
+      ),
     });
   }
 
@@ -6009,15 +6023,7 @@ class WebMessagePlatformService {
 
     Future<Map<String, Object?>> buildSnapshot(AiSession live) async {
       final _WebSessionMessageWindow messageWindow;
-      final liveMessageCount = live.messages.length;
-      final liveKnownTotal = math.max(
-        live.messageTotalCount,
-        live.statistics.totalMessageCount,
-      );
-      final liveLooksComplete =
-          liveMessageCount > 0 && liveMessageCount >= liveKnownTotal;
-      if (liveLooksComplete &&
-          liveMessageCount <= _inMemoryMessageWindowDirectLimit) {
+      if (live.hasCompleteMessages) {
         messageWindow = _messageWindowFromDisplayMessages(
           live.displayMessages,
           limit: _sseMessageWindowSize,
@@ -6052,7 +6058,12 @@ class WebMessagePlatformService {
           lastModelKeyCandidates: messageWindow.messages,
         ),
         'messages': messageWindow.messages
-            .map(_messageJson)
+            .map(
+              (message) => _messageJson(
+                message,
+                contentPreviewCharacters: _webMessageContentPreviewCharacters,
+              ),
+            )
             .toList(growable: false),
         'message_window': <String, Object?>{
           'offset': messageWindow.offset,
@@ -7831,6 +7842,7 @@ class WebMessagePlatformService {
           limit: scanLimit,
           offset: rawOffset,
           deferTelemetryMetadata: true,
+          contentPreviewChars: _webMessageContentPreviewCharacters,
         );
         return _boundedStoredMessageWindow(
           session: session,
@@ -7895,8 +7907,7 @@ class WebMessagePlatformService {
     required ({String messageId, int offset}) anchor,
     required int limit,
   }) async {
-    if (session.hasCompleteMessages &&
-        session.messages.length <= _inMemoryMessageWindowDirectLimit) {
+    if (session.hasCompleteMessages) {
       final displayOffset = session.displayMessages.indexWhere(
         (message) => message.id == anchor.messageId,
       );
@@ -8281,18 +8292,38 @@ class WebMessagePlatformService {
   Map<String, Object?> _messageJson(
     AiSessionMessage message, {
     bool includeTelemetryMetadata = false,
+    int? contentPreviewCharacters,
   }) {
     final usage = message.usage;
-    final metadata = includeTelemetryMetadata
+    var metadata = includeTelemetryMetadata
         ? aiSessionMessageMetadataWithoutDeferredTelemetryMarker(
             message.metadata,
           )
         : aiSessionMessageTranscriptMetadata(message.metadata);
+    var content = message.content;
+    final previewLimit = contentPreviewCharacters ?? 0;
+    final activelyStreaming =
+        _boolishWebValue(
+          message.metadata[aiSessionMessageMetadataStreamingKey],
+        ) ||
+        _boolishWebValue(message.metadata['tool_arguments_streaming']);
+    if (!activelyStreaming &&
+        previewLimit > 0 &&
+        content.length > previewLimit) {
+      content = content.substring(
+        0,
+        safeUtf16PrefixCodeUnits(content, previewLimit),
+      );
+      metadata = <String, Object?>{
+        ...metadata,
+        aiSessionMessageContentPreviewMetadataKey: true,
+      };
+    }
     return <String, Object?>{
       'id': message.id,
       'kind': message.kind.storageValue,
       'role': message.role.storageValue,
-      'content': message.content,
+      'content': content,
       'created_at': message.createdAt.toUtc().toIso8601String(),
       'character_count': message.characterCount,
       'model_id': message.modelId,

@@ -255,6 +255,14 @@ type SessionMessageConversationSide =
 export type SessionMessageFeedback = 'liked' | 'needs_improvement';
 export const DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY =
   '_openhand_deferred_telemetry';
+export const DEFERRED_MESSAGE_CONTENT_METADATA_KEY =
+  '_openhand_content_preview';
+
+export function messageHasDeferredContent(
+  message: SessionMessage,
+): boolean {
+  return message.metadata?.[DEFERRED_MESSAGE_CONTENT_METADATA_KEY] === true;
+}
 
 export interface SessionMessage {
   id: string;
@@ -556,13 +564,18 @@ export function listMessages(
   );
 }
 
+interface GetSessionMessageOptions extends ApiRequestSignalOptions {
+  includeTelemetry?: boolean;
+}
+
 export function getSessionMessage(
   sessionId: string,
   messageId: string,
-  options: ApiRequestSignalOptions = {},
+  options: GetSessionMessageOptions = {},
 ): Promise<{ message: SessionMessage }> {
+  const query = options.includeTelemetry === false ? '?include_telemetry=0' : '';
   return apiRequest<{ message: SessionMessage }>(
-    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}${query}`,
     { signal: options.signal, timeoutMs: options.timeoutMs },
   );
 }

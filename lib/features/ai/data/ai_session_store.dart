@@ -1219,12 +1219,14 @@ class AiSessionStore {
   /// 分页加载会话消息，按 [sort_order] 升序返回。
   ///
   /// [offset] 从零开始；[limit] 始终限制在 1 至 [_kMessageBatchSize]，
-  /// 防止异常参数退化为全量历史加载。
+  /// 防止异常参数退化为全量历史加载。[contentPreviewChars] 可在 SQL 投影阶段
+  /// 截断超长正文，并通过消息元数据标记其仍需按需加载完整内容。
   Future<AiSessionMessagePage> loadMessages(
     String sessionId, {
     int limit = 50,
     int offset = 0,
     bool deferTelemetryMetadata = false,
+    int? contentPreviewChars,
   }) async {
     final totalCount = await _countMessages(sessionId);
     final safeOffset = math.min(math.max(0, offset), totalCount);
@@ -1234,12 +1236,14 @@ class AiSessionStore {
       limit: safeLimit,
       offset: safeOffset,
       deferTelemetryMetadata: deferTelemetryMetadata,
+      contentPreviewChars: contentPreviewChars,
     );
     final expanded = await _prependTranscriptToolCallContext(
       sessionId,
       messages: messages,
       offset: safeOffset,
       deferTelemetryMetadata: deferTelemetryMetadata,
+      contentPreviewChars: contentPreviewChars,
     );
     final hasMore = expanded.offset + expanded.messages.length < totalCount;
 
@@ -1287,6 +1291,7 @@ class AiSessionStore {
     required int offset,
     bool deferTelemetryMetadata = false,
     int? characterBudget,
+    int? contentPreviewChars,
   }) async {
     var resolvedOffset = math.max(0, offset);
     var remainingContext = _kTranscriptToolPairContextMaxMessages;
@@ -1320,7 +1325,7 @@ class AiSessionStore {
         deferTelemetryMetadata: deferTelemetryMetadata,
         contentPreviewChars: remainingBudget > 0
             ? math.min(remainingBudget, _kTailMessageContentPreviewChars)
-            : null,
+            : contentPreviewChars,
       );
       if (previousMessages.isEmpty) break;
       final boundedBatch = remainingBudget > 0
@@ -1371,11 +1376,12 @@ class AiSessionStore {
     );
   }
 
-  /// 加载单条消息，不加载完整会话。
+  /// 加载单条消息，不加载完整会话；仅读取正文时可延迟解析大体积遥测元数据。
   Future<AiSessionMessage?> loadMessage(
     String sessionId,
-    String messageId,
-  ) async {
+    String messageId, {
+    bool deferTelemetryMetadata = false,
+  }) async {
     final normalizedSessionId = requireSafeStorageIdentifier(
       sessionId,
       label: '会话标识符',
@@ -1384,11 +1390,13 @@ class AiSessionStore {
       messageId,
       label: '消息标识符',
     );
-    final rows = await _db.query(
-      'messages',
+    final rows = await _queryMessageRows(
+      columnsWithoutMetadata: _kFullMessageRowColumnsWithoutMetadata,
       where: 'id = ? AND session_id = ?',
       whereArgs: <Object?>[normalizedMessageId, normalizedSessionId],
+      orderBy: 'sort_order ASC',
       limit: 1,
+      deferTelemetryMetadata: deferTelemetryMetadata,
     );
     if (rows.isEmpty) {
       return null;
@@ -2092,7 +2100,7 @@ class AiSessionStore {
     final firstSortOrder = messageRows.first['sort_order'];
     if (firstSortOrder is! int || firstSortOrder <= 0) return null;
     final rows = await _queryMessageRows(
-      columnsWithoutMetadata: const <String>['kind', 'content'],
+      columnsWithoutMetadata: const <String>['kind'],
       where:
           'session_id = ? AND sort_order < ? AND '
           '(kind = ? OR (kind = ? AND TRIM(content) <> \'\'))',

@@ -550,6 +550,7 @@ class AiSessionController extends ChangeNotifier {
   static const int _initialMessageHydrationWindowSize = 8;
   static const int _initialMessageHydrationCharacterBudget = 14000;
   static const int _olderMessageHydrationBatchSize = 12;
+  static const int _olderMessageHydrationContentPreviewChars = 4096;
   static const Duration _initialMessageHydrationTimeout = Duration(seconds: 10);
   static const Duration _sessionHydrationQueueTimeout = Duration(seconds: 8);
   static const int _maxConcurrentSessionHydrations = 4;
@@ -2183,7 +2184,11 @@ class AiSessionController extends ChangeNotifier {
   }) async {
     try {
       final loaded = await _runSessionHydrationRead(
-        () => _store.loadMessage(sessionId, messageId),
+        () => _store.loadMessage(
+          sessionId,
+          messageId,
+          deferTelemetryMetadata: true,
+        ),
       );
       if (loaded == null ||
           _isDisposed ||
@@ -2371,6 +2376,7 @@ class AiSessionController extends ChangeNotifier {
           limit: limit,
           offset: offset,
           deferTelemetryMetadata: true,
+          contentPreviewChars: _olderMessageHydrationContentPreviewChars,
         ),
       );
       if (_isDisposed || _deletedSessionIds.contains(sessionId)) {

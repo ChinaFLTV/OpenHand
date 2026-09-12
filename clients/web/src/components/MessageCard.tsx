@@ -1,4 +1,9 @@
-import { KNOWLEDGE_BASE_MESSAGE_METADATA_KEY, type SessionMessage, type SessionMessageFeedback } from '../api/sessions';
+import {
+  KNOWLEDGE_BASE_MESSAGE_METADATA_KEY,
+  messageHasDeferredContent,
+  type SessionMessage,
+  type SessionMessageFeedback,
+} from '../api/sessions';
 import {
   KNOWLEDGE_VECTOR_DEFAULT_MAX_POINTS,
   fetchKnowledgeHitDetail,
@@ -2317,6 +2322,10 @@ interface MessageCardProps {
   sessionId?: string;
   /// 复制本条消息正文（必传时显示「复制」按钮）。
   onCopy?: (m: SessionMessage) => void;
+  /// 超长历史消息仅传轻量预览时，按需加载单条完整正文。
+  onLoadFullContent?: (m: SessionMessage) => void;
+  fullContentLoading?: boolean;
+  contentHydrated?: boolean;
   /// 删除本条消息（必传时显示「删除」按钮）。
   onDelete?: (m: SessionMessage) => void;
   /// 删除本条及之后所有消息（必传时显示「删除此条及后续」按钮）。
@@ -2354,6 +2363,9 @@ function MessageCardImpl({
   turnActive = false,
   sessionId,
   onCopy,
+  onLoadFullContent,
+  fullContentLoading = false,
+  contentHydrated = false,
   onDelete,
   onDeleteAfter,
   onEdit,
@@ -2381,24 +2393,34 @@ function MessageCardImpl({
   const { format: contentFormat, htmlFallback: contentHtmlFallback } = useMessageContentFormat();
   const [showRawContent, setShowRawContent] = useState(false);
   const style = styleForKind(message.kind, message.role);
-  const content = message.content ?? '';
-  const isUserBubble = message.role === 'user';
-  const goalMessageView = goalMessageViewModel(message);
-  const machineExpertRequestView = machineExpertRequestViewModel(message);
-  const webReverseRequestView = webReverseRequestViewModel(message);
-  const androidReverseRequestView = androidReverseRequestViewModel(message);
-  const useStructuredToolBody =
-    message.kind === 'tool' ||
-    message.kind === 'tool_call' ||
-    message.kind === 'mcp';
-  const useToolBody = useStructuredToolBody || message.kind === 'file_mutation_summary';
   const metadata = message.metadata ?? {};
+  const content = message.content ?? '';
+  const isContentPreview = messageHasDeferredContent(message);
+  const isUserBubble = message.role === 'user';
+  const goalMessageView = isContentPreview ? null : goalMessageViewModel(message);
+  const machineExpertRequestView = isContentPreview
+    ? null
+    : machineExpertRequestViewModel(message);
+  const webReverseRequestView = isContentPreview
+    ? null
+    : webReverseRequestViewModel(message);
+  const androidReverseRequestView = isContentPreview
+    ? null
+    : androidReverseRequestViewModel(message);
+  const useStructuredToolBody =
+    !isContentPreview &&
+    (message.kind === 'tool' ||
+      message.kind === 'tool_call' ||
+      message.kind === 'mcp');
+  const useToolBody = !isContentPreview &&
+    (useStructuredToolBody || message.kind === 'file_mutation_summary');
   const [knowledgeBaseDialogOpen, setKnowledgeBaseDialogOpen] = useState(false);
   const kbMetadata = knowledgeBaseMetadata(message);
   const kbResults = knowledgeBaseResultRecords(kbMetadata);
   const kbTokenEstimate = knowledgeBaseTokenEstimate(kbMetadata);
   const recentlyUpdatedContent = useRecentMessageActivity(
     content,
+    !contentHydrated &&
     !isUserBubble &&
       (isAssistantResponseMessage(message) || message.kind === 'reasoning'),
     12000,
@@ -2429,10 +2451,12 @@ function MessageCardImpl({
   const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
   // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
   // 优先级：metadata.content_format > global contentFormat。
-  const effectiveFormat = resolveMessageContentFormat(
-    message.metadata?.['content_format'],
-    contentFormat,
-  );
+  const effectiveFormat = isContentPreview
+    ? 'plain_text'
+    : resolveMessageContentFormat(
+        message.metadata?.['content_format'],
+        contentFormat,
+      );
   const isAssistantResponseBadgeMessage =
     isAssistantResponseMessage(message) && !isCollapsibleByBadge;
   const contentExceedsCollapseThreshold = hasCollapsibleContent && (
@@ -2613,23 +2637,25 @@ function MessageCardImpl({
   const isFormalAssistantResponse = isFormalAssistantResponseMessage(message);
   const directKbReferenceMetadata = useMemo(
     () =>
+      !isContentPreview &&
       !isUserBubble &&
       isFormalAssistantResponse &&
       !activelyStreaming &&
       knowledgeBaseMetadataHasReferences(kbMetadata)
         ? knowledgeBaseMetadataUsedByAnswer(kbMetadata, content)
         : null,
-    [isUserBubble, isFormalAssistantResponse, activelyStreaming, kbMetadata, content],
+    [isContentPreview, isUserBubble, isFormalAssistantResponse, activelyStreaming, kbMetadata, content],
   );
   const associatedKbFallbackMetadata = useMemo(
     () =>
+      !isContentPreview &&
       !isUserBubble &&
       isFormalAssistantResponse &&
       !activelyStreaming &&
       knowledgeBaseMetadataHasReferences(associatedKnowledgeBaseMetadata)
         ? knowledgeBaseMetadataUsedByAnswer(associatedKnowledgeBaseMetadata, content)
         : null,
-    [isUserBubble, isFormalAssistantResponse, activelyStreaming, associatedKnowledgeBaseMetadata, content],
+    [isContentPreview, isUserBubble, isFormalAssistantResponse, activelyStreaming, associatedKnowledgeBaseMetadata, content],
   );
   const associatedKbReferenceMetadata =
     directKbReferenceMetadata ?? associatedKbFallbackMetadata;
@@ -2640,6 +2666,7 @@ function MessageCardImpl({
     !goalMessageView &&
     (isUserBubble || message.kind === 'reasoning' || isFormalAssistantResponse);
   const textMessageActionSupported =
+    !isContentPreview &&
     textActionKindSupported &&
     !activelyStreaming &&
     !hasMultimediaContent &&
@@ -2668,6 +2695,7 @@ function MessageCardImpl({
     !activelyStreaming;
   const hasAnyAction = Boolean(
     onCopy ||
+    onLoadFullContent ||
     canReadMessage ||
     canTranslateMessage ||
     canFeedbackMessage ||
@@ -3017,7 +3045,7 @@ function MessageCardImpl({
         }
         fadeBackground={style.background}
       >
-        {message.kind === 'file_mutation_summary' ? (
+        {!isContentPreview && message.kind === 'file_mutation_summary' ? (
           <FileMutationSummaryCard message={message} />
         ) : useStructuredToolBody ? (
           <ToolExecutionCard message={message} autoFollow={streamingContent || stableTurnActive} />
@@ -3035,12 +3063,13 @@ function MessageCardImpl({
           // 思考卡在流式阶段强制使用纯文本，避免 Markdown/代码块逐 token
           // 成型时反复重排，把下方 pending tool-call 卡片顶上顶下。流式结束
           // 后再切回 Markdown 渲染；若内容超出 5-6 行，外层保持 142px 预览态。
+          isContentPreview ||
           isActivelyStreamingReasoning ||
           responseCollapsedWhileStreaming ||
           (activelyStreaming && effectiveFormat === 'plain_text') ? (
             <StreamingPlainTextReveal
               content={renderedBodyContent}
-              streaming={!reasoningPreviewCollapsed}
+              streaming={!isContentPreview && !reasoningPreviewCollapsed}
               reduceMotion={reduceMotion}
               mono={style.mono === true}
             />
@@ -3075,6 +3104,43 @@ function MessageCardImpl({
           <TypewriterCaret />
         ) : null}
       </ReasoningCollapsibleBody>
+      {isContentPreview ? (
+        <div class="oh-message-content-preview-notice" role="note">
+          <span class="oh-message-content-preview-icon" aria-hidden>
+            <MessageIcon name="skill" size={16} />
+          </span>
+          <span class="oh-message-content-preview-copy">
+            <strong>{t('message.contentPreview.title', '超长内容已轻量加载')}</strong>
+            <small>
+              {t(
+                'message.contentPreview.body',
+                '当前展示前段预览，完整正文共 {count} 个字符。',
+              ).replace(
+                '{count}',
+                Math.max(message.character_count ?? 0, content.length).toLocaleString(),
+              )}
+            </small>
+          </span>
+          {onLoadFullContent ? (
+            <button
+              type="button"
+              class="oh-message-content-preview-action oh-tap-press"
+              disabled={fullContentLoading}
+              onClick={(event) => {
+                event.stopPropagation();
+                onLoadFullContent(message);
+              }}
+            >
+              <span class={fullContentLoading ? 'oh-spin' : undefined} aria-hidden>
+                <MessageIcon name={fullContentLoading ? 'refresh' : 'chevronDown'} size={13} />
+              </span>
+              {fullContentLoading
+                ? t('message.contentPreview.loading', '正在展开…')
+                : t('message.contentPreview.load', '展开完整内容')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {associatedKbReferenceMetadata ? (
         <KnowledgeBaseCitationRail
           metadata={associatedKbReferenceMetadata}

@@ -11,6 +11,7 @@ import {
   controlMachineTerminal,
   clearSessionThrottle,
   compactSession,
+  DEFERRED_MESSAGE_CONTENT_METADATA_KEY,
   DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY,
   deleteMessage,
   deleteMessageCascade,
@@ -24,6 +25,7 @@ import {
   getSession,
   getSessionMessage,
   isGoalModeAllowedForTemplate,
+  messageHasDeferredContent,
   listMessages,
   listSessions,
   listSessionTitleSourceMessages,
@@ -273,6 +275,8 @@ const DEFAULT_ATTACHMENT_MAX_TOTAL_BYTES = 16 * 1024 * 1024;
 const DEFAULT_ATTACHMENT_MAX_COUNT = 20;
 const COMPOSER_QUEUE_MAX_MESSAGES = 32;
 const COMPOSER_QUEUE_MAX_ATTACHMENT_BYTES = 64 * 1024 * 1024;
+const FULL_MESSAGE_CONTENT_CACHE_LIMIT = 24;
+const FULL_MESSAGE_CONTENT_CACHE_MAX_CHARACTERS = 2 * 1024 * 1024;
 /// 输入文本状态的去抖同步窗口，避免每次键入都触发整页重渲染。
 const COMPOSER_TEXT_STATE_SYNC_MS = 150;
 const ATTACHMENT_READ_TIMEOUT_MS = 30_000;
@@ -645,6 +649,7 @@ const MESSAGE_RENDER_METADATA_KEYS = [
   'conversation_mode',
   'user_skill_selection',
   'selected_skill',
+  DEFERRED_MESSAGE_CONTENT_METADATA_KEY,
   'knowledge_base',
   'message_feedback',
   'response_variants',
@@ -3833,6 +3838,11 @@ export function SessionDetailPage() {
   const messagesContentRef = useRef<HTMLDivElement | null>(null);
   const composerSectionRef = useRef<HTMLElement | null>(null);
   const messagesRef = useRef<SessionMessage[]>([]);
+  const fullMessageContentCacheRef = useRef(new Map<string, SessionMessage>());
+  const fullMessageContentRequestsRef = useRef(
+    new Map<string, Promise<SessionMessage | null>>(),
+  );
+  const fullMessageContentAbortRef = useRef(new Map<string, AbortController>());
   const associatedKnowledgeBaseCacheRef = useRef(new Map<string, AssociatedKnowledgeBaseCacheEntry>());
   const associatedKnowledgeBaseBuildCacheRef = useRef<AssociatedKnowledgeBaseBuildCache | null>(null);
   const windowOffsetRef = useRef(0);
@@ -4157,6 +4167,7 @@ export function SessionDetailPage() {
   const shownTtsFailureIdRef = useRef<string | null>(null);
   const [feedbackBusyMessageIds, setFeedbackBusyMessageIds] = useState<Set<string>>(() => new Set());
   const [regeneratingMessageIds, setRegeneratingMessageIds] = useState<Set<string>>(() => new Set());
+  const [fullContentLoadingMessageIds, setFullContentLoadingMessageIds] = useState<Set<string>>(() => new Set());
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
   const [sessionDeleteBusy, setSessionDeleteBusy] = useState(false);
 
@@ -4327,6 +4338,13 @@ export function SessionDetailPage() {
     setMessageTranslations({});
     setFeedbackBusyMessageIds(new Set());
     setRegeneratingMessageIds(new Set());
+    for (const controller of fullMessageContentAbortRef.current.values()) {
+      controller.abort();
+    }
+    fullMessageContentAbortRef.current.clear();
+    fullMessageContentRequestsRef.current.clear();
+    fullMessageContentCacheRef.current.clear();
+    setFullContentLoadingMessageIds(new Set());
     setPendingSessionDelete(false);
     setSessionDeleteBusy(false);
     setTranscriptReadySessionId(null);
@@ -4760,11 +4778,121 @@ export function SessionDetailPage() {
     });
   }
 
+  function setFullContentLoading(messageId: string, loading: boolean): void {
+    setFullContentLoadingMessageIds((current) => {
+      if (loading === current.has(messageId)) return current;
+      const next = new Set(current);
+      if (loading) next.add(messageId);
+      else next.delete(messageId);
+      return next;
+    });
+  }
+
+  function rememberFullMessageContent(message: SessionMessage): void {
+    const cache = fullMessageContentCacheRef.current;
+    if (cache.has(message.id)) cache.delete(message.id);
+    cache.set(message.id, message);
+    let retainedCharacters = 0;
+    for (const cached of cache.values()) {
+      retainedCharacters += cached.content?.length ?? 0;
+    }
+    while (
+      cache.size > 1 &&
+      (cache.size > FULL_MESSAGE_CONTENT_CACHE_LIMIT ||
+        retainedCharacters > FULL_MESSAGE_CONTENT_CACHE_MAX_CHARACTERS)
+    ) {
+      const oldestId = cache.keys().next().value;
+      if (oldestId == null) break;
+      retainedCharacters -= cache.get(oldestId)?.content?.length ?? 0;
+      cache.delete(oldestId);
+    }
+  }
+
+  function messageWithHydratedContent(
+    preview: SessionMessage,
+    full: SessionMessage,
+  ): SessionMessage {
+    const metadata = { ...(preview.metadata ?? {}) };
+    delete metadata[DEFERRED_MESSAGE_CONTENT_METADATA_KEY];
+    return {
+      ...preview,
+      content: full.content,
+      character_count: Math.max(
+        preview.character_count ?? 0,
+        full.character_count ?? 0,
+        full.content.length,
+      ),
+      metadata,
+    };
+  }
+
+  const loadFullMessageContent = useEventCallback(
+    async (message: SessionMessage): Promise<SessionMessage | null> => {
+      if (!messageHasDeferredContent(message)) return message;
+      const cached = fullMessageContentCacheRef.current.get(message.id);
+      if (cached) {
+        updateMessageInLocalWindow(message.id, () => cached);
+        return cached;
+      }
+      const existing = fullMessageContentRequestsRef.current.get(message.id);
+      if (existing) return existing;
+
+      const requestSessionId = sessionId;
+      const controller = new AbortController();
+      fullMessageContentAbortRef.current.set(message.id, controller);
+      setFullContentLoading(message.id, true);
+      let request: Promise<SessionMessage | null>;
+      request = getSessionMessage(requestSessionId, message.id, {
+        signal: controller.signal,
+        includeTelemetry: false,
+      })
+        .then((result) => {
+          if (controller.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) {
+            return null;
+          }
+          const hydrated = messageWithHydratedContent(message, result.message);
+          rememberFullMessageContent(hydrated);
+          updateMessageInLocalWindow(hydrated.id, () => hydrated);
+          return hydrated;
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) {
+            return null;
+          }
+          if (handleAuthError(error) || handleSessionGoneError(error)) return null;
+          const detail = error instanceof Error ? error.message : String(error);
+          showSnackbar(
+            `${t('message.contentPreview.failed', '完整内容加载失败')}：${detail}`,
+            { tone: 'error' },
+          );
+          return null;
+        })
+        .finally(() => {
+          if (fullMessageContentRequestsRef.current.get(message.id) === request) {
+            fullMessageContentRequestsRef.current.delete(message.id);
+          }
+          if (fullMessageContentAbortRef.current.get(message.id) === controller) {
+            fullMessageContentAbortRef.current.delete(message.id);
+          }
+          if (ownsSessionAsyncResult(requestSessionId)) {
+            setFullContentLoading(message.id, false);
+          }
+        });
+      fullMessageContentRequestsRef.current.set(message.id, request);
+      return request;
+    },
+  );
+
   // 传给 MessageCard 的回调必须保持恒定标识：这些 handler 的依赖（翻译表、
   // 反馈中集合、sendPhase）在一个回合内高频变化，进依赖数组会让窗口内每张
   // 卡片的 memo 浅比较全部失效，等于整屏重渲染 + 重解析。
   const handleToggleMessageTranslation = useEventCallback(async (m: SessionMessage) => {
     if (!sessionId) return;
+    if (messageHasDeferredContent(m)) {
+      const full = await loadFullMessageContent(m);
+      if (!full) return;
+      m = full;
+    }
     const source = m.content ?? '';
     const settingsFingerprint =
       auth.meta?.message_content_settings?.translation_settings_fingerprint ?? '';
@@ -4924,13 +5052,17 @@ export function SessionDetailPage() {
     }
   });
 
-  const handleCopyMessage = useCallback(async (m: SessionMessage) => {
-    const text = m.content ?? '';
+  const handleCopyMessage = useEventCallback(async (m: SessionMessage) => {
+    const resolved = messageHasDeferredContent(m)
+      ? await loadFullMessageContent(m)
+      : m;
+    if (!resolved) return;
+    const text = resolved.content ?? '';
     const ok = await copyTextToClipboard(text);
     showSnackbar(ok ? t('detail.copy.ok', '已复制消息内容') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
       tone: ok ? 'success' : 'error',
     });
-  }, []);
+  });
   const handleDeleteMessage = useCallback((m: SessionMessage) => {
     setPendingDeleteAction({ message: m, cascade: false });
   }, []);
@@ -5095,8 +5227,13 @@ export function SessionDetailPage() {
       if (ownsSessionAsyncResult(requestSessionId)) setWriteApprovalBusy(false);
     }
   };
-  const handleEditMessage = useEventCallback((m: SessionMessage) => {
+  const handleEditMessage = useEventCallback(async (m: SessionMessage) => {
     if (m.role !== 'user') return;
+    if (messageHasDeferredContent(m)) {
+      const full = await loadFullMessageContent(m);
+      if (!full) return;
+      m = full;
+    }
     editingDraftMessageRef.current = m;
     setEditingDraftMessage(m);
     setComposerText(m.content ?? '');
@@ -5116,19 +5253,27 @@ export function SessionDetailPage() {
     );
     scheduleAutoFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   });
-  const handleAuditMessage = useCallback((m: SessionMessage) => {
+  const handleAuditMessage = useEventCallback((m: SessionMessage) => {
     setAuditMessage(m);
-    if (m.metadata?.[DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY] !== true) {
+    if (
+      m.metadata?.[DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY] !== true &&
+      !messageHasDeferredContent(m)
+    ) {
       return;
     }
     const auditSessionId = sessionId;
     void getSessionMessage(auditSessionId, m.id)
       .then(({ message }) => {
         if (!ownsSessionAsyncResult(auditSessionId)) return;
+        if (messageHasDeferredContent(m)) {
+          const hydrated = messageWithHydratedContent(m, message);
+          rememberFullMessageContent(hydrated);
+          updateMessageInLocalWindow(hydrated.id, () => hydrated);
+        }
         setAuditMessage((current) => current?.id === m.id ? message : current);
       })
       .catch(ignoreError);
-  }, [sessionId]);
+  });
   const handleMessageActiveChange = useCallback((message: SessionMessage, active: boolean) => {
     setActiveMessageId(active ? message.id : null);
   }, []);
@@ -5576,7 +5721,23 @@ export function SessionDetailPage() {
   }
 
   function replaceBoundedMessageWindow(items: SessionMessage[], offset: number): void {
-    const bounded = boundLiveMessageWindow(items, offset);
+    const restoredItems = items.map((message) => {
+      if (!messageHasDeferredContent(message)) return message;
+      const full = fullMessageContentCacheRef.current.get(message.id);
+      if (!full) return message;
+      const metadata = { ...(full.metadata ?? {}), ...(message.metadata ?? {}) };
+      delete metadata[DEFERRED_MESSAGE_CONTENT_METADATA_KEY];
+      return {
+        ...message,
+        content: full.content,
+        character_count: Math.max(
+          message.character_count ?? 0,
+          full.character_count ?? 0,
+        ),
+        metadata,
+      };
+    });
+    const bounded = boundLiveMessageWindow(restoredItems, offset);
     replaceMessageWindow(bounded.items, bounded.offset);
   }
 
@@ -7976,8 +8137,11 @@ export function SessionDetailPage() {
         associatedKnowledgeBaseMetadata={associatedKnowledgeBaseMetadata}
         feedbackBusy={feedbackBusyMessageIds.has(m.id)}
         regenerating={regeneratingMessageIds.has(m.id)}
+        fullContentLoading={fullContentLoadingMessageIds.has(m.id)}
+        contentHydrated={fullMessageContentCacheRef.current.has(m.id)}
         onActiveChange={handleMessageActiveChange}
         onCopy={handleCopyMessage}
+        onLoadFullContent={loadFullMessageContent}
         onDelete={handleDeleteMessage}
         onDeleteAfter={handleDeleteMessageCascade}
         onEdit={m.role === 'user' ? handleEditMessage : undefined}
