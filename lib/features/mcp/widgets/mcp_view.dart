@@ -442,12 +442,14 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           icon: Icons.folder_open_rounded,
           onPressed: () => _openDirectory(context),
         ),
-        FeaturePageToolbarIconButton(
-          tooltip: _localizedText(context, zh: '导出快照', en: 'Export snapshot'),
-          icon: Icons.ios_share_rounded,
-          onPressed: mcpSnapshot.errorMessage == null
-              ? () => _showSnapshotExportMenu(context)
-              : null,
+        Builder(
+          builder: (buttonContext) => FeaturePageToolbarIconButton(
+            tooltip: _localizedText(context, zh: '导出快照', en: 'Export snapshot'),
+            icon: Icons.ios_share_rounded,
+            onPressed: mcpSnapshot.errorMessage == null
+                ? () => _showSnapshotExportMenu(buttonContext)
+                : null,
+          ),
         ),
         FeaturePageToolbarIconButton(
           tooltip: l10n.mcpBuildKeywordIndex,
@@ -953,46 +955,33 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   }
 
   Future<void> _showSnapshotExportMenu(BuildContext context) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    final box = context.findRenderObject() as RenderBox?;
-    if (overlay == null || box == null) {
-      await _exportAllSnapshots(context, _McpHistoryExportFormat.json);
-      return;
-    }
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        box.localToGlobal(Offset.zero, ancestor: overlay),
-        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
-      ),
-      Offset.zero & overlay.size,
-    );
-    final selected = await showAnimatedMenu<_McpHistoryExportFormat>(
-      context: context,
-      position: position,
-      items: [
-        PopupMenuItem(
-          value: _McpHistoryExportFormat.json,
-          child: Text(
-            _localizedText(
-              context,
-              zh: '导出快照 (JSON)',
-              en: 'Export snapshot (JSON)',
+    final selected =
+        await showAnimatedAnchoredPopupMenu<_McpHistoryExportFormat>(
+          context: context,
+          position: PopupMenuPosition.under,
+          items: [
+            PopupMenuItem(
+              value: _McpHistoryExportFormat.json,
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '导出快照 (JSON)',
+                  en: 'Export snapshot (JSON)',
+                ),
+              ),
             ),
-          ),
-        ),
-        PopupMenuItem(
-          value: _McpHistoryExportFormat.csv,
-          child: Text(
-            _localizedText(
-              context,
-              zh: '导出快照 (CSV)',
-              en: 'Export snapshot (CSV)',
+            PopupMenuItem(
+              value: _McpHistoryExportFormat.csv,
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '导出快照 (CSV)',
+                  en: 'Export snapshot (CSV)',
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
-    );
+          ],
+        );
     if (selected == null || !context.mounted) {
       return;
     }
