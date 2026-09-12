@@ -2892,6 +2892,11 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   }
 }
 
+const double _kConnectivityPlaceholderMinHeight = 180;
+const double _kConnectivityTargetAccentWidth = 5;
+const double _kConnectivityMetaChipMaxLabelWidth = 360;
+const Offset _kConnectivityCardEnterOffset = Offset(0, 8);
+
 class _WebGatewayConnectivityDialog extends StatefulWidget {
   const _WebGatewayConnectivityDialog({required this.controller});
 
@@ -2970,8 +2975,6 @@ class _WebGatewayConnectivityDialogState
       ),
       icon: Icons.network_check_rounded,
       iconColor: statusColor,
-      busy: _running,
-      scrollBody: false,
       maxWidth: kOpenHandDialogWidthExtraWide,
       headerActions: [
         IconButton(
@@ -3008,14 +3011,29 @@ class _WebGatewayConnectivityDialogState
       ],
       actions: const <Widget>[],
       body: AnimatedSwitcher(
-        duration: openHandMotionDurationMs(context, 260),
-        switchInCurve: kOpenHandEntranceCurve,
+        duration: openHandMotionDuration(context, kOpenHandMotion260),
+        switchInCurve: kOpenHandSwitchInCurve,
         switchOutCurve: kOpenHandSwitchOutCurve,
+        layoutBuilder: (currentChild, previousChildren) {
+          return buildCollisionSafeAnimatedSwitcherLayout(
+            currentChild,
+            previousChildren,
+            alignment: Alignment.topCenter,
+          );
+        },
         child: error != null
-            ? _ConnectivityErrorView(error: error)
+            ? _ConnectivityErrorView(
+                key: const ValueKey<String>('connectivity-error'),
+                error: error,
+              )
             : result == null
-            ? const _ConnectivityLoadingView()
-            : _ConnectivityResultView(result: result),
+            ? const _ConnectivityLoadingView(
+                key: ValueKey<String>('connectivity-loading'),
+              )
+            : _ConnectivityResultView(
+                key: const ValueKey<String>('connectivity-result'),
+                result: result,
+              ),
       ),
     );
   }
@@ -3041,59 +3059,59 @@ class _WebGatewayConnectivityDialogState
 }
 
 class _ConnectivityLoadingView extends StatelessWidget {
-  const _ConnectivityLoadingView();
+  const _ConnectivityLoadingView({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: OpenHandTintedPanel(
-          accent: colorScheme.primary,
-          icon: Icons.radar_rounded,
-          title: openHandLocalizedText(
-            context,
-            zh: '正在检测全部可访问入口',
-            zhHant: '正在檢測全部可存取入口',
-            en: 'Checking all accessible entries',
-            fr: 'Vérification de toutes les entrées accessibles',
-            de: 'Alle erreichbaren Einträge werden geprüft',
-            ja: 'すべてのアクセス可能な入口を確認中',
-          ),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ClipRRect(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: _kConnectivityPlaceholderMinHeight,
+      ),
+      child: OpenHandTintedPanel(
+        accent: colorScheme.primary,
+        icon: Icons.radar_rounded,
+        title: openHandLocalizedText(
+          context,
+          zh: '正在检测全部可访问入口',
+          zhHant: '正在檢測全部可存取入口',
+          en: 'Checking all accessible entries',
+          fr: 'Vérification de toutes les entrées accessibles',
+          de: 'Alle erreichbaren Einträge werden geprüft',
+          ja: 'すべてのアクセス可能な入口を確認中',
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ClipRRect(
+              borderRadius: kOpenHandBorderRadius8,
+              child: LinearProgressIndicator(
+                minHeight: 6,
                 borderRadius: kOpenHandBorderRadius8,
-                child: LinearProgressIndicator(
-                  minHeight: 6,
-                  borderRadius: kOpenHandBorderRadius8,
-                  color: colorScheme.primary,
-                  backgroundColor: colorScheme.primary.withValues(alpha: 0.16),
-                ),
+                color: colorScheme.primary,
+                backgroundColor: colorScheme.primary.withValues(alpha: 0.16),
               ),
-              kOpenHandGap12,
-              Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '会按当前运行时地址顺序逐个探测并汇总结果',
-                  zhHant: '會依目前執行時位址順序逐個探測並彙總結果',
-                  en: 'Entries are probed in runtime address order and summarized',
-                  fr: 'Les entrées sont sondées dans l’ordre des adresses d’exécution puis résumées',
-                  de: 'Einträge werden in Laufzeitadress-Reihenfolge geprüft und zusammengefasst',
-                  ja: '実行時アドレスの順序で順番に検査して結果を集計します',
-                ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
+            ),
+            kOpenHandGap12,
+            Text(
+              openHandLocalizedText(
+                context,
+                zh: '会按当前运行时地址顺序逐个探测并汇总结果',
+                zhHant: '會依目前執行時位址順序逐個探測並彙總結果',
+                en: 'Entries are probed in runtime address order and summarized',
+                fr: 'Les entrées sont sondées dans l’ordre des adresses d’exécution puis résumées',
+                de: 'Einträge werden in Laufzeitadress-Reihenfolge geprüft und zusammengefasst',
+                ja: '実行時アドレスの順序で順番に検査して結果を集計します',
               ),
-            ],
-          ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -3101,34 +3119,36 @@ class _ConnectivityLoadingView extends StatelessWidget {
 }
 
 class _ConnectivityErrorView extends StatelessWidget {
-  const _ConnectivityErrorView({required this.error});
+  const _ConnectivityErrorView({super.key, required this.error});
 
   final String error;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: OpenHandTintedPanel(
-          accent: Theme.of(context).colorScheme.error,
-          icon: Icons.error_outline_rounded,
-          title: openHandLocalizedText(
-            context,
-            zh: '探测失败',
-            zhHant: '探測失敗',
-            en: 'Probe failed',
-            fr: 'Sonde échouée',
-            de: 'Prüfung fehlgeschlagen',
-            ja: '検査に失敗',
-          ),
-          child: Text(
-            error,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.error,
-              height: 1.4,
-              fontWeight: FontWeight.w600,
-            ),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: _kConnectivityPlaceholderMinHeight,
+      ),
+      child: OpenHandTintedPanel(
+        accent: colorScheme.error,
+        icon: Icons.error_outline_rounded,
+        title: openHandLocalizedText(
+          context,
+          zh: '探测失败',
+          zhHant: '探測失敗',
+          en: 'Probe failed',
+          fr: 'Sonde échouée',
+          de: 'Prüfung fehlgeschlagen',
+          ja: '検査に失敗',
+        ),
+        child: Text(
+          error,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.error,
+            height: 1.4,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -3137,7 +3157,7 @@ class _ConnectivityErrorView extends StatelessWidget {
 }
 
 class _ConnectivityResultView extends StatelessWidget {
-  const _ConnectivityResultView({required this.result});
+  const _ConnectivityResultView({super.key, required this.result});
 
   final WebGatewayConnectivityTestResult result;
 
@@ -3153,201 +3173,193 @@ class _ConnectivityResultView extends StatelessWidget {
       failureCount: result.failureCount,
       allOk: result.ok,
     );
-    return SingleChildScrollView(
-      primary: false,
-      physics: kOpenHandClampingPhysics,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OpenHandTintedPanel(
-            accent: tone,
-            icon: result.ok
-                ? Icons.verified_rounded
-                : Icons.report_gmailerrorred_rounded,
-            title: summary,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OpenHandStatusPill(
-                  icon: Icons.schedule_rounded,
-                  label: formatYearMonthDayHmsLocal(result.startedAt),
-                  color: tone,
-                ),
-                OpenHandStatusPill(
-                  icon: Icons.timer_outlined,
-                  label: openHandMillisecondsLabel(context, result.durationMs),
-                  color: colorScheme.tertiary,
-                ),
-              ],
-            ),
-          ),
-          kOpenHandGap14,
-          OpenHandMetadataSummaryGrid(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OpenHandTintedPanel(
+          accent: tone,
+          icon: result.ok
+              ? Icons.verified_rounded
+              : Icons.report_gmailerrorred_rounded,
+          title: summary,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              OpenHandMetadataSummaryTile(
-                icon: Icons.hub_rounded,
-                label: text(
-                  zh: '入口总数',
-                  zhHant: '入口總數',
-                  en: 'Entries',
-                  fr: 'Entrées',
-                  de: 'Einträge',
-                  ja: '入口数',
-                ),
-                value: '${result.targets.length}',
-                accent: OpenHandStatusColors.info,
+              _ConnectivityMetaChip(
+                icon: Icons.schedule_rounded,
+                label: formatYearMonthDayHmsLocal(result.startedAt),
+                color: tone,
               ),
-              OpenHandMetadataSummaryTile(
-                icon: Icons.check_circle_rounded,
-                label: text(
-                  zh: '连通',
-                  zhHant: '連通',
-                  en: 'Reachable',
-                  fr: 'Joignables',
-                  de: 'Erreichbar',
-                  ja: '接続可',
-                ),
-                value: '${result.successCount}',
-                accent: OpenHandStatusColors.success,
-              ),
-              OpenHandMetadataSummaryTile(
-                icon: Icons.cancel_rounded,
-                label: text(
-                  zh: '失败',
-                  zhHant: '失敗',
-                  en: 'Failed',
-                  fr: 'Échecs',
-                  de: 'Fehlgeschlagen',
-                  ja: '失敗',
-                ),
-                value: '${result.failureCount}',
-                accent: colorScheme.error,
-              ),
-              OpenHandMetadataSummaryTile(
-                icon: Icons.speed_rounded,
-                label: openHandTotalTimeLabel(context),
-                value: openHandMillisecondsLabel(context, result.durationMs),
-                accent: colorScheme.tertiary,
+              _ConnectivityMetaChip(
+                icon: Icons.timer_outlined,
+                label: openHandMillisecondsLabel(context, result.durationMs),
+                color: colorScheme.tertiary,
               ),
             ],
           ),
-          kOpenHandGap18,
-          OpenHandDialogSectionCard(
-            icon: Icons.monitor_heart_outlined,
-            title: text(
-              zh: '入口探测结果',
-              zhHant: '入口探測結果',
-              en: 'Entry probe results',
-              fr: 'Résultats des sondes',
-              de: 'Ergebnisse der Eintragsprüfung',
-              ja: '入口検査結果',
-            ),
-            subtitle: result.targets.isEmpty
-                ? null
-                : text(
-                    zh: '每个入口一张状态卡，含探测地址、状态码与响应摘要',
-                    zhHant: '每個入口一張狀態卡，含探測位址、狀態碼與回應摘要',
-                    en: 'One status card per entry, with probe URL, status code and response summary',
-                    fr: 'Une carte d’état par entrée, avec URL, code et résumé de réponse',
-                    de: 'Eine Statuskarte je Eintrag mit Prüf-URL, Statuscode und Antwort',
-                    ja: '入口ごとに状態カード、検査URL・ステータス・応答概要を表示',
-                  ),
-            accent: OpenHandStatusColors.info,
-            child: result.targets.isEmpty
-                ? OpenHandInlineEmptyState.compact(
-                    icon: Icons.wifi_off_rounded,
-                    message: text(
-                      zh: '当前服务没有可测试入口。请先启动 Web 通用消息平台服务。',
-                      zhHant: '目前服務沒有可測試入口。請先啟動 Web 通用訊息平台服務。',
-                      en: 'The current service has no testable entries. Start the web message platform service first.',
-                      fr: 'Le service actuel n’a aucune entrée testable. Démarrez d’abord la passerelle web.',
-                      de: 'Der aktuelle Dienst hat keine testbaren Einträge. Starten Sie zuerst den Webnachrichtendienst.',
-                      ja: '現在のサービスにはテスト可能な入口がありません。先にWebメッセージプラットフォームサービスを起動してください。',
-                    ),
-                  )
-                : Column(
-                    children: [
-                      for (
-                        var index = 0;
-                        index < result.targets.length;
-                        index++
-                      )
-                        _ConnectivityTargetCard(
-                          target: result.targets[index],
-                          index: index,
-                        ),
-                    ],
-                  ),
-          ),
-          kOpenHandGap14,
-          OpenHandDialogSectionCard(
-            icon: Icons.receipt_long_rounded,
-            title: text(
-              zh: '测试流程日志',
-              zhHant: '測試流程日誌',
-              en: 'Test flow logs',
-              fr: 'Journaux du test',
-              de: 'Testablauf-Protokolle',
-              ja: 'テストフローログ',
-            ),
-            accent: colorScheme.tertiary,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: _webGatewayDarkSurface,
-                borderRadius: kOpenHandBorderRadius16,
-                border: Border.all(
-                  color: colorScheme.tertiary.withValues(alpha: 0.28),
-                ),
+        ),
+        kOpenHandGap14,
+        OpenHandMetadataSummaryGrid(
+          children: [
+            OpenHandMetadataSummaryTile(
+              icon: Icons.hub_rounded,
+              label: text(
+                zh: '入口总数',
+                zhHant: '入口總數',
+                en: 'Entries',
+                fr: 'Entrées',
+                de: 'Einträge',
+                ja: '入口数',
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: result.logs.isEmpty
-                    ? Text(
-                        text(
-                          zh: '暂无流程日志',
-                          zhHant: '暫無流程日誌',
-                          en: 'No flow logs yet',
-                          fr: 'Aucun journal de test',
-                          de: 'Noch keine Ablaufprotokolle',
-                          ja: 'フローログはまだありません',
-                        ),
-                        style: const TextStyle(
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                          fontSize: 12,
-                          height: 1.45,
-                          color: _webGatewayLightGray,
-                        ),
-                      )
-                    : SelectableText.rich(
-                        TextSpan(
-                          children: [
-                            for (
-                              var index = 0;
-                              index < result.logs.length;
-                              index++
-                            )
-                              TextSpan(
-                                text: index == 0
-                                    ? result.logs[index]
-                                    : '\n${result.logs[index]}',
-                                style: TextStyle(
-                                  fontFamily: kOpenHandMonospaceFontFamily,
-                                  fontSize: 12,
-                                  height: 1.45,
-                                  color: _connectivityLogLineColor(
-                                    result.logs[index],
-                                  ),
+              value: '${result.targets.length}',
+              accent: OpenHandStatusColors.info,
+            ),
+            OpenHandMetadataSummaryTile(
+              icon: Icons.check_circle_rounded,
+              label: text(
+                zh: '连通',
+                zhHant: '連通',
+                en: 'Reachable',
+                fr: 'Joignables',
+                de: 'Erreichbar',
+                ja: '接続可',
+              ),
+              value: '${result.successCount}',
+              accent: OpenHandStatusColors.success,
+            ),
+            OpenHandMetadataSummaryTile(
+              icon: Icons.cancel_rounded,
+              label: text(
+                zh: '失败',
+                zhHant: '失敗',
+                en: 'Failed',
+                fr: 'Échecs',
+                de: 'Fehlgeschlagen',
+                ja: '失敗',
+              ),
+              value: '${result.failureCount}',
+              accent: colorScheme.error,
+            ),
+            OpenHandMetadataSummaryTile(
+              icon: Icons.speed_rounded,
+              label: openHandTotalTimeLabel(context),
+              value: openHandMillisecondsLabel(context, result.durationMs),
+              accent: colorScheme.tertiary,
+            ),
+          ],
+        ),
+        kOpenHandGap18,
+        OpenHandDialogSectionCard(
+          icon: Icons.monitor_heart_outlined,
+          title: text(
+            zh: '入口探测结果',
+            zhHant: '入口探測結果',
+            en: 'Entry probe results',
+            fr: 'Résultats des sondes',
+            de: 'Ergebnisse der Eintragsprüfung',
+            ja: '入口検査結果',
+          ),
+          subtitle: result.targets.isEmpty
+              ? null
+              : text(
+                  zh: '每个入口一张状态卡，含探测地址、状态码与响应摘要',
+                  zhHant: '每個入口一張狀態卡，含探測位址、狀態碼與回應摘要',
+                  en: 'One status card per entry, with probe URL, status code and response summary',
+                  fr: 'Une carte d’état par entrée, avec URL, code et résumé de réponse',
+                  de: 'Eine Statuskarte je Eintrag mit Prüf-URL, Statuscode und Antwort',
+                  ja: '入口ごとに状態カード、検査URL・ステータス・応答概要を表示',
+                ),
+          accent: OpenHandStatusColors.info,
+          child: result.targets.isEmpty
+              ? OpenHandInlineEmptyState.compact(
+                  icon: Icons.wifi_off_rounded,
+                  message: text(
+                    zh: '当前服务没有可测试入口。请先启动 Web 通用消息平台服务。',
+                    zhHant: '目前服務沒有可測試入口。請先啟動 Web 通用訊息平台服務。',
+                    en: 'The current service has no testable entries. Start the web message platform service first.',
+                    fr: 'Le service actuel n’a aucune entrée testable. Démarrez d’abord la passerelle web.',
+                    de: 'Der aktuelle Dienst hat keine testbaren Einträge. Starten Sie zuerst den Webnachrichtendienst.',
+                    ja: '現在のサービスにはテスト可能な入口がありません。先にWebメッセージプラットフォームサービスを起動してください。',
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (var index = 0; index < result.targets.length; index++)
+                      _ConnectivityTargetCard(
+                        target: result.targets[index],
+                        index: index,
+                      ),
+                  ],
+                ),
+        ),
+        kOpenHandGap14,
+        OpenHandDialogSectionCard(
+          icon: Icons.receipt_long_rounded,
+          title: text(
+            zh: '测试流程日志',
+            zhHant: '測試流程日誌',
+            en: 'Test flow logs',
+            fr: 'Journaux du test',
+            de: 'Testablauf-Protokolle',
+            ja: 'テストフローログ',
+          ),
+          accent: colorScheme.tertiary,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: _webGatewayDarkSurface,
+              borderRadius: kOpenHandBorderRadius16,
+              border: Border.all(
+                color: colorScheme.tertiary.withValues(alpha: 0.28),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: result.logs.isEmpty
+                  ? Text(
+                      text(
+                        zh: '暂无流程日志',
+                        zhHant: '暫無流程日誌',
+                        en: 'No flow logs yet',
+                        fr: 'Aucun journal de test',
+                        de: 'Noch keine Ablaufprotokolle',
+                        ja: 'フローログはまだありません',
+                      ),
+                      style: const TextStyle(
+                        fontFamily: kOpenHandMonospaceFontFamily,
+                        fontSize: 12,
+                        height: 1.45,
+                        color: _webGatewayLightGray,
+                      ),
+                    )
+                  : SelectableText.rich(
+                      TextSpan(
+                        children: [
+                          for (
+                            var index = 0;
+                            index < result.logs.length;
+                            index++
+                          )
+                            TextSpan(
+                              text: index == 0
+                                  ? result.logs[index]
+                                  : '\n${result.logs[index]}',
+                              style: TextStyle(
+                                fontFamily: kOpenHandMonospaceFontFamily,
+                                fontSize: 12,
+                                height: 1.45,
+                                color: _connectivityLogLineColor(
+                                  result.logs[index],
                                 ),
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
-              ),
+                    ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -3400,131 +3412,179 @@ class _ConnectivityTargetCard extends StatelessWidget {
         : colorScheme.error;
     final content = Container(
       margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           stateColor.withValues(alpha: 0.10),
           colorScheme.surfaceContainerLow,
         ),
         borderRadius: kOpenHandBorderRadius20,
-        border: Border.all(color: stateColor.withValues(alpha: 0.28)),
+        border: Border(
+          left: BorderSide(
+            color: stateColor,
+            width: _kConnectivityTargetAccentWidth,
+          ),
+          top: BorderSide(color: stateColor.withValues(alpha: 0.28)),
+          right: BorderSide(color: stateColor.withValues(alpha: 0.28)),
+          bottom: BorderSide(color: stateColor.withValues(alpha: 0.28)),
+        ),
       ),
-      child: ClipRRect(
-        borderRadius: kOpenHandBorderRadius20,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              ColoredBox(color: stateColor, child: const SizedBox(width: 5)),
+              Icon(
+                target.ok ? Icons.check_circle_rounded : Icons.error_rounded,
+                size: 20,
+                color: stateColor,
+              ),
+              kOpenHandHGap8,
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            target.ok
-                                ? Icons.check_circle_rounded
-                                : Icons.error_rounded,
-                            size: 20,
-                            color: stateColor,
-                          ),
-                          kOpenHandHGap8,
-                          Expanded(
-                            child: Text(
-                              target.hostPort,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            openHandMillisecondsLabel(
-                              context,
-                              target.durationMs,
-                            ),
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: stateColor,
-                              fontWeight: FontWeight.w800,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      kOpenHandGap8,
-                      SelectableText(
-                        target.endpointUrl,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.35,
-                        ),
-                      ),
-                      kOpenHandGap10,
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (target.statusCode > 0)
-                            OpenHandStatusPill(
-                              icon: Icons.verified_outlined,
-                              label: openHandHttpStatusCodeLabel(
-                                context,
-                                target.statusCode,
-                              ),
-                              color: target.ok
-                                  ? OpenHandStatusColors.success
-                                  : colorScheme.error,
-                            ),
-                          OpenHandStatusPill(
-                            icon: Icons.timer_outlined,
-                            label: openHandMillisecondsLabel(
-                              context,
-                              target.durationMs,
-                            ),
-                            color: colorScheme.tertiary,
-                          ),
-                          OpenHandStatusPill(
-                            icon: Icons.dns_outlined,
-                            label: target.baseUrl,
-                            color: OpenHandStatusColors.info,
-                          ),
-                        ],
-                      ),
-                      if (target.errorMessage.isNotEmpty) ...[
-                        kOpenHandGap10,
-                        Text(
-                          target.errorMessage,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.error,
-                            fontWeight: FontWeight.w700,
-                            height: 1.35,
-                          ),
-                        ),
-                      ],
-                      if (target.bodyPreview.isNotEmpty) ...[
-                        kOpenHandGap12,
-                        Text(
-                          text(
-                            zh: '响应摘要',
-                            zhHant: '回應摘要',
-                            en: 'Response summary',
-                            fr: 'Résumé de la réponse',
-                            de: 'Antwortübersicht',
-                            ja: '応答概要',
-                          ),
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        kOpenHandGap8,
-                        _StructuredResponsePreview(raw: target.bodyPreview),
-                      ],
-                    ],
+                child: Text(
+                  target.hostPort,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                openHandMillisecondsLabel(context, target.durationMs),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: stateColor,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          kOpenHandGap8,
+          SelectableText(
+            target.endpointUrl,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+          kOpenHandGap10,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (target.statusCode > 0)
+                _ConnectivityMetaChip(
+                  icon: Icons.verified_outlined,
+                  label: openHandHttpStatusCodeLabel(
+                    context,
+                    target.statusCode,
+                  ),
+                  color: target.ok
+                      ? OpenHandStatusColors.success
+                      : colorScheme.error,
+                ),
+              _ConnectivityMetaChip(
+                icon: Icons.timer_outlined,
+                label: openHandMillisecondsLabel(context, target.durationMs),
+                color: colorScheme.tertiary,
+              ),
+              _ConnectivityMetaChip(
+                icon: Icons.dns_outlined,
+                label: target.baseUrl,
+                color: OpenHandStatusColors.info,
+              ),
+            ],
+          ),
+          if (target.errorMessage.isNotEmpty) ...[
+            kOpenHandGap10,
+            Text(
+              target.errorMessage,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.error,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ],
+          if (target.bodyPreview.isNotEmpty) ...[
+            kOpenHandGap12,
+            Text(
+              text(
+                zh: '响应摘要',
+                zhHant: '回應摘要',
+                en: 'Response summary',
+                fr: 'Résumé de la réponse',
+                de: 'Antwortübersicht',
+                ja: '応答概要',
+              ),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            kOpenHandGap8,
+            _StructuredResponsePreview(raw: target.bodyPreview),
+          ],
+        ],
+      ),
+    );
+    if (!openHandTickerMotionEnabled(context)) return content;
+    final stagger = Duration(milliseconds: math.min(index, 6) * 30);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: openHandMotionDuration(context, kOpenHandMotion220) + stagger,
+      curve: kOpenHandEntranceCurve,
+      builder: (context, value, child) {
+        final t = clampUnitInterval(value);
+        return Transform.translate(
+          offset: _kConnectivityCardEnterOffset * (1 - t),
+          child: child,
+        );
+      },
+      child: content,
+    );
+  }
+}
+
+class _ConnectivityMetaChip extends StatelessWidget {
+  const _ConnectivityMetaChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxWidth: _kConnectivityMetaChipMaxLabelWidth,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: kOpenHandPillBorderRadius,
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 17, color: color),
+              kOpenHandHGap7,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -3532,22 +3592,6 @@ class _ConnectivityTargetCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-    if (!openHandTickerMotionEnabled(context)) return content;
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: Duration(milliseconds: 220 + math.min(index, 6) * 30),
-      curve: kOpenHandEntranceCurve,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: clampUnitInterval(value),
-          child: Transform.translate(
-            offset: Offset(0, (1 - value) * 10),
-            child: child,
-          ),
-        );
-      },
-      child: content,
     );
   }
 }

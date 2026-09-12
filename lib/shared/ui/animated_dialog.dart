@@ -2001,10 +2001,11 @@ class _RenderDialogInitialHitTestGate extends RenderProxyBox {
     if (!hasSize || !size.contains(position)) {
       return false;
     }
-    // 动态列表在尺寸动画或首帧布局期间可能暂时存在 geometry 为空的
-    // sliver。此时继续向 RenderViewport 传递命中测试会触发 framework
-    // 内部的 geometry! 断言，因此短暂吸收指针，待下一帧布局稳定后再放行。
-    if (!_absorbing && !_containsUnlaidOutViewport(child)) {
+    // 进场、尺寸动画或 AnimatedSwitcher 交接的那几帧里，子树可能暂时
+    // 带着尚未 layout 的 RenderBox（size 为空）或 geometry 为空的 sliver。
+    // 继续向下命中测试会触发 framework 的 hasSize / geometry! 断言，
+    // 因此这一帧由门闸吸收指针，下一帧布局稳定后再放行。
+    if (!_absorbing && !_containsUnlaidOutRenderObject(child)) {
       return super.hitTest(result, position: position);
     }
     result.add(BoxHitTestEntry(this, position));
@@ -2012,11 +2013,15 @@ class _RenderDialogInitialHitTestGate extends RenderProxyBox {
   }
 }
 
-bool _containsUnlaidOutViewport(RenderObject? root) {
+bool _containsUnlaidOutRenderObject(RenderObject? root) {
   if (root == null) return false;
   var unstable = false;
   void visit(RenderObject descendant) {
     if (unstable) return;
+    if (descendant is RenderBox && !descendant.hasSize) {
+      unstable = true;
+      return;
+    }
     if (descendant is RenderSliver && descendant.geometry == null) {
       unstable = true;
       return;
