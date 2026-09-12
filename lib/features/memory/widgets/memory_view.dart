@@ -14,6 +14,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -22,6 +23,7 @@ import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart'
     show
         AiResourceUsageKind,
@@ -406,21 +408,59 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
               icon: Icons.notes_rounded,
               accent: colorScheme.secondary,
               title: l10n.memorySectionContent,
-              child: TextFormField(
-                controller: _contentController,
-                minLines: 7,
-                maxLines: 12,
-                maxLength: UserMemoryEntry.maxContentCharacters,
-                enabled: !_isSaving,
-                decoration: InputDecoration(
-                  labelText: l10n.memoryContentField,
-                  alignLabelWithHint: true,
-                ),
-                validator: (value) {
-                  if (UserMemoryEntry.normalizeContent(value ?? '').isEmpty) {
+              child: FormField<String>(
+                validator: (_) {
+                  if (UserMemoryEntry.normalizeContent(
+                    _contentController.text,
+                  ).isEmpty) {
                     return l10n.memoryContentRequired;
                   }
                   return null;
+                },
+                builder: (state) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      OpenHandCodeEditor(
+                        value: _contentController.text,
+                        language: 'markdown',
+                        fileName: 'memory.md',
+                        icon: Icons.notes_rounded,
+                        height: 280,
+                        borderRadius: kOpenHandBorderRadius16,
+                        readOnly: _isSaving,
+                        onChanged: (value) {
+                          final clipped = clipTextByCodeUnits(
+                            value,
+                            UserMemoryEntry.maxContentCharacters,
+                            suffix: '',
+                          );
+                          _contentController.text = clipped;
+                          state.didChange(clipped);
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, right: 4),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${_contentController.text.length}/${UserMemoryEntry.maxContentCharacters}',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ),
+                      if (state.hasError)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, left: 4),
+                          child: Text(
+                            state.errorText!,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.error),
+                          ),
+                        ),
+                    ],
+                  );
                 },
               ),
             ),
