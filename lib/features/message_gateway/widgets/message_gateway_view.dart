@@ -50,6 +50,7 @@ import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_live_value.dart';
@@ -1420,352 +1421,152 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthExtraWide,
-      minAvailableHeight: 420,
-      backgroundColor: colorScheme.surfaceContainerHigh,
-      surfaceTintColor: colorScheme.surfaceTint,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
+    final colorScheme = Theme.of(context).colorScheme;
+    return OpenHandEditorDialogScaffold(
+      title: webMessagePlatformBuiltinName,
+      subtitle: openHandLocalizedText(
+        context,
+        zh: '配置 Web 端可见能力、访问边界与运行保护策略',
+        zhHant: '設定 Web 端可見能力、存取邊界與執行保護策略',
+        en: 'Configure web-visible capabilities, access boundaries, and runtime safeguards',
+        fr: 'Configurez les capacités web visibles, les limites d’accès et les protections',
+        de: 'Websichtbare Funktionen, Zugriffsgrenzen und Schutzregeln konfigurieren',
+        ja: 'Web側の表示機能、アクセス境界、実行保護を設定',
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(22, 18, 14, 16),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh,
-              border: Border(
-                bottom: BorderSide(color: colorScheme.outlineVariant),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: kOpenHandBorderRadius18,
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: .14),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.language_rounded,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
+      icon: Icons.language_rounded,
+      iconColor: colorScheme.primary,
+      busy: _saving,
+      closeEnabled: !_saving,
+      canPop: !_saving,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightFull,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final twoColumns = constraints.maxWidth >= 760;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OpenHandDialogSectionCard(
+                icon: Icons.power_settings_new_rounded,
+                accent: colorScheme.primary,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '运行控制',
+                  zhHant: '執行控制',
+                  en: 'Runtime',
+                  fr: 'Exécution',
+                  de: 'Laufzeit',
+                  ja: '実行制御',
                 ),
-                kOpenHandHGap14,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        webMessagePlatformBuiltinName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      kOpenHandGap4,
-                      Text(
-                        openHandLocalizedText(
+                subtitle: openHandLocalizedText(
+                  context,
+                  zh: '决定服务是否启用，以及配置如何在启动和保存后生效。',
+                  zhHant: '決定服務是否啟用，以及設定如何在啟動與儲存後生效。',
+                  en: 'Control whether the service runs and how config changes take effect.',
+                  fr: 'Décidez si le service s’exécute et comment les changements s’appliquent.',
+                  de: 'Steuert, ob der Dienst läuft und wie Änderungen wirksam werden.',
+                  ja: 'サービスの有効化と、設定の反映タイミングを決めます。',
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ..._pairedRows(twoColumns, [
+                      OpenHandAnimatedSwitchTile(
+                        icon: Icons.power_settings_new_rounded,
+                        title: openHandLocalizedText(
                           context,
-                          zh: '配置 Web 端可见能力、访问边界与运行保护策略',
-                          zhHant: '設定 Web 端可見能力、存取邊界與執行保護策略',
-                          en: 'Configure web-visible capabilities, access boundaries, and runtime safeguards',
-                          fr: 'Configurez les capacités web visibles, les limites d’accès et les protections',
-                          de: 'Websichtbare Funktionen, Zugriffsgrenzen und Schutzregeln konfigurieren',
-                          ja: 'Web側の表示機能、アクセス境界、実行保護を設定',
+                          zh: '是否启用',
+                          zhHant: '是否啟用',
+                          en: 'Enabled',
+                          fr: 'Activé',
+                          de: 'Aktiviert',
+                          ja: '有効',
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                        description: openHandLocalizedText(
+                          context,
+                          zh: '关闭后保留配置，但不会在运行时启用。',
+                          zhHant: '關閉後會保留設定，但不會在執行時啟用。',
+                          en: 'Keeps the config, but the service stays off at runtime.',
+                          fr: 'Conserve la config, mais le service reste arrêté.',
+                          de: 'Behält die Konfiguration, startet den Dienst aber nicht.',
+                          ja: '設定は残しますが、実行時には有効化しません。',
                         ),
+                        value: _enabled,
+                        enabled: !_saving,
+                        onChanged: (value) => setState(() => _enabled = value),
                       ),
-                    ],
-                  ),
-                ),
-                kOpenHandHGap10,
-                IconButton.filledTonal(
-                  tooltip: openHandCloseLabel(context),
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              primary: false,
-              physics: kOpenHandClampingPhysics,
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final twoColumns = constraints.maxWidth >= 760;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SwitchGrid(
-                        twoColumns: twoColumns,
-                        children: [
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否启用',
-                              zhHant: '是否啟用',
-                              en: 'Enabled',
-                              fr: 'Activé',
-                              de: 'Aktiviert',
-                              ja: '有効',
-                            ),
-                            value: _enabled,
-                            onChanged: (v) => setState(() => _enabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '冷启动自动启动',
-                              zhHant: '冷啟動自動啟動',
-                              en: 'Auto-start on launch',
-                              fr: 'Démarrage auto au lancement',
-                              de: 'Autostart beim Start',
-                              ja: '起動時に自動開始',
-                            ),
-                            value: _autoStartOnLaunch,
-                            onChanged: (value) =>
-                                setState(() => _autoStartOnLaunch = value),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '配置变更自动重载',
-                              zhHant: '設定變更自動重載',
-                              en: 'Auto-reload config changes',
-                              fr: 'Recharger automatiquement les changements',
-                              de: 'Konfigurationsänderungen automatisch laden',
-                              ja: '設定変更を自動再読み込み',
-                            ),
-                            value: _autoReloadOnChange,
-                            onChanged: (value) =>
-                                setState(() => _autoReloadOnChange = value),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否开启鉴权',
-                              zhHant: '是否開啟鑑權',
-                              en: 'Authentication',
-                              fr: 'Authentification',
-                              de: 'Authentifizierung',
-                              ja: '認証',
-                            ),
-                            value: _authEnabled,
-                            onChanged: (v) => setState(() => _authEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否启用遥测',
-                              zhHant: '是否啟用遙測',
-                              en: 'Telemetry',
-                              fr: 'Télémétrie',
-                              de: 'Telemetrie',
-                              ja: 'テレメトリ',
-                            ),
-                            value: _telemetryEnabled,
-                            onChanged: (v) =>
-                                setState(() => _telemetryEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否记录日志',
-                              zhHant: '是否記錄日誌',
-                              en: 'Logging',
-                              fr: 'Journaux',
-                              de: 'Protokollierung',
-                              ja: 'ログ記録',
-                            ),
-                            value: _loggingEnabled,
-                            onChanged: (v) =>
-                                setState(() => _loggingEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否支持运维',
-                              zhHant: '是否支援維運',
-                              en: 'Operations panel',
-                              fr: 'Panneau opérations',
-                              de: 'Betriebsbereich',
-                              ja: '運用パネル',
-                            ),
-                            value: _opsEnabled,
-                            onChanged: (v) => setState(() => _opsEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否开启健康检查',
-                              zhHant: '是否開啟健康檢查',
-                              en: 'Health checks',
-                              fr: 'Contrôles de santé',
-                              de: 'Integritätsprüfungen',
-                              ja: 'ヘルスチェック',
-                            ),
-                            value: _healthEnabled,
-                            onChanged: (v) =>
-                                setState(() => _healthEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否支持计划模式',
-                              zhHant: '是否支援計劃模式',
-                              en: 'Plan mode',
-                              fr: 'Mode plan',
-                              de: 'Planmodus',
-                              ja: 'プランモード',
-                            ),
-                            value: _planModeEnabled,
-                            onChanged: (v) =>
-                                setState(() => _planModeEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否开启知识库',
-                              zhHant: '是否開啟知識庫',
-                              en: 'Knowledge base',
-                              fr: 'Base de connaissances',
-                              de: 'Wissensdatenbank',
-                              ja: 'ナレッジベース',
-                            ),
-                            value: _knowledgeBaseEnabled,
-                            onChanged: _setKnowledgeBaseEnabled,
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否启用朗读功能',
-                              zhHant: '是否啟用朗讀功能',
-                              en: 'Read aloud',
-                              fr: 'Lecture vocale',
-                              de: 'Vorlesen',
-                              ja: '読み上げ',
-                            ),
-                            value: _readAloudEnabled,
-                            onChanged: (v) =>
-                                setState(() => _readAloudEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否启用翻译功能',
-                              zhHant: '是否啟用翻譯功能',
-                              en: 'Translation',
-                              fr: 'Traduction',
-                              de: 'Übersetzung',
-                              ja: '翻訳',
-                            ),
-                            value: _translationEnabled,
-                            onChanged: (v) =>
-                                setState(() => _translationEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否启用点赞功能',
-                              zhHant: '是否啟用按讚功能',
-                              en: 'Feedback buttons',
-                              fr: 'Boutons de retour',
-                              de: 'Feedback-Schaltflächen',
-                              ja: 'フィードバックボタン',
-                            ),
-                            value: _feedbackEnabled,
-                            onChanged: (v) =>
-                                setState(() => _feedbackEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否启用重新生成功能',
-                              zhHant: '是否啟用重新生成功能',
-                              en: 'Regenerate',
-                              fr: 'Régénération',
-                              de: 'Neu generieren',
-                              ja: '再生成',
-                            ),
-                            value: _regenerationEnabled,
-                            onChanged: (v) =>
-                                setState(() => _regenerationEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否允许 Web 会话管理',
-                              zhHant: '是否允許 Web 會話管理',
-                              en: 'Web session management',
-                              fr: 'Gestion des sessions web',
-                              de: 'Web-Sitzungsverwaltung',
-                              ja: 'Webセッション管理',
-                            ),
-                            value: _sessionManagementEnabled,
-                            onChanged: (v) =>
-                                setState(() => _sessionManagementEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '是否支持操作文件',
-                              zhHant: '是否支援操作檔案',
-                              en: 'File write access',
-                              fr: 'Accès en écriture aux fichiers',
-                              de: 'Dateischreibzugriff',
-                              ja: 'ファイル書き込み',
-                            ),
-                            value: _workspaceFileWriteEnabled,
-                            onChanged: (v) =>
-                                setState(() => _workspaceFileWriteEnabled = v),
-                          ),
-                        ],
+                      OpenHandAnimatedSwitchTile(
+                        icon: Icons.rocket_launch_outlined,
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '冷启动自动启动',
+                          zhHant: '冷啟動自動啟動',
+                          en: 'Auto-start on launch',
+                          fr: 'Démarrage auto au lancement',
+                          de: 'Autostart beim Start',
+                          ja: '起動時に自動開始',
+                        ),
+                        description: openHandLocalizedText(
+                          context,
+                          zh: '应用启动时自动拉起该 Web 服务。',
+                          zhHant: '應用啟動時自動拉起此 Web 服務。',
+                          en: 'Start this web service automatically with the app.',
+                          fr: 'Démarre ce service web avec l’application.',
+                          de: 'Startet den Webdienst automatisch mit der App.',
+                          ja: 'アプリ起動時にこのWebサービスを自動起動します。',
+                        ),
+                        value: _autoStartOnLaunch,
+                        enabled: !_saving,
+                        onChanged: (value) =>
+                            setState(() => _autoStartOnLaunch = value),
                       ),
-                      AnimatedSwitcher(
-                        duration: openHandMotionDurationMs(context, 220),
-                        switchInCurve: kOpenHandSwitchInCurve,
-                        switchOutCurve: kOpenHandSwitchOutCurve,
-                        transitionBuilder: _switcherSizeFadeTransition,
-                        child: _autoReloadOnChange
-                            ? const SizedBox.shrink(
-                                key: ValueKey('auto-reload-on'),
-                              )
-                            : Padding(
-                                key: const ValueKey('auto-reload-off'),
-                                padding: const EdgeInsets.only(top: 10),
-                                child: _EditorNotice(
-                                  icon: Icons.restart_alt_rounded,
-                                  title: openHandLocalizedText(
-                                    context,
-                                    zh: '配置将等待重启生效',
-                                    zhHant: '設定將等待重啟生效',
-                                    en: 'Configuration will apply after restart',
-                                    fr: 'La configuration s’appliquera après redémarrage',
-                                    de: 'Konfiguration wird nach Neustart wirksam',
-                                    ja: '設定は再起動後に反映されます',
-                                  ),
-                                  body: openHandLocalizedText(
+                      OpenHandAnimatedSwitchTile(
+                        icon: Icons.sync_rounded,
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '配置变更自动重载',
+                          zhHant: '設定變更自動重載',
+                          en: 'Auto-reload config changes',
+                          fr: 'Recharger automatiquement les changements',
+                          de: 'Konfigurationsänderungen automatisch laden',
+                          ja: '設定変更を自動再読み込み',
+                        ),
+                        description: openHandLocalizedText(
+                          context,
+                          zh: '保存后立即应用到正在运行的服务。',
+                          zhHant: '儲存後立即套用到執行中的服務。',
+                          en: 'Apply saved changes to the running service immediately.',
+                          fr: 'Applique immédiatement les changements au service en cours.',
+                          de: 'Übernimmt gespeicherte Änderungen sofort im laufenden Dienst.',
+                          ja: '保存後すぐに実行中のサービスへ反映します。',
+                        ),
+                        value: _autoReloadOnChange,
+                        enabled: !_saving,
+                        onChanged: (value) =>
+                            setState(() => _autoReloadOnChange = value),
+                      ),
+                    ]),
+                    OpenHandVerticalRevealSwitcher(
+                      presentKey: const ValueKey<String>('auto-reload-off'),
+                      slideBeginOffsetY: 0.04,
+                      child: _autoReloadOnChange
+                          ? null
+                          : Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: OpenHandTintedPanel(
+                                accent: OpenHandStatusColors.warning,
+                                icon: Icons.restart_alt_rounded,
+                                title: openHandLocalizedText(
+                                  context,
+                                  zh: '配置将等待重启生效',
+                                  zhHant: '設定將等待重啟生效',
+                                  en: 'Configuration will apply after restart',
+                                  fr: 'La configuration s’appliquera après redémarrage',
+                                  de: 'Konfiguration wird nach Neustart wirksam',
+                                  ja: '設定は再起動後に反映されます',
+                                ),
+                                child: Text(
+                                  openHandLocalizedText(
                                     context,
                                     zh: '自动重载关闭后，本次保存只写入配置文件；运行中的 Web 服务会继续使用旧配置，直到手动重启服务或应用冷启动。',
                                     zhHant:
@@ -1775,23 +1576,50 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                     de: 'Bei deaktiviertem Auto-Reload wird nur die Datei gespeichert. Der laufende Webdienst nutzt die alte Konfiguration bis zum Neustart.',
                                     ja: '自動再読み込みがオフの場合、保存は設定ファイルだけを書き込みます。実行中のWebサービスは再起動まで旧設定を使います。',
                                   ),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                        height: 1.45,
+                                      ),
                                 ),
                               ),
-                      ),
-                      _SectionTitle(
-                        openHandLocalizedText(
-                          context,
-                          zh: '基础信息',
-                          zhHant: '基礎資訊',
-                          en: 'Basic Info',
-                          fr: 'Informations de base',
-                          de: 'Basisinformationen',
-                          ja: '基本情報',
-                        ),
-                        icon: Icons.info_outline_rounded,
-                      ),
-                      _TextArea(
-                        label: openHandLocalizedText(
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.info_outline_rounded,
+                accent: colorScheme.tertiary,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '基础信息',
+                  zhHant: '基礎資訊',
+                  en: 'Basic Info',
+                  fr: 'Informations de base',
+                  de: 'Basisinformationen',
+                  ja: '基本情報',
+                ),
+                subtitle: openHandLocalizedText(
+                  context,
+                  zh: '服务介绍、监听地址与会话容量。',
+                  zhHant: '服務介紹、監聽位址與會話容量。',
+                  en: 'Service intro, listen address, and session capacity.',
+                  fr: 'Présentation, adresse d’écoute et capacité de session.',
+                  de: 'Dienstbeschreibung, Lauschadresse und Sitzungskapazität.',
+                  ja: '紹介、リッスンアドレス、セッション容量。',
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _descriptionController,
+                      enabled: !_saving,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        labelText: openHandLocalizedText(
                           context,
                           zh: '介绍',
                           zhHant: '介紹',
@@ -1800,635 +1628,1061 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           de: 'Beschreibung',
                           ja: '説明',
                         ),
-                        controller: _descriptionController,
                       ),
-                      _ResponsiveFields(
-                        twoColumns: twoColumns,
-                        children: [
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '监听 IP 地址',
-                              zhHant: '監聽 IP 位址',
-                              en: 'Listen IP address',
-                              fr: 'Adresse IP d’écoute',
-                              de: 'Lausch-IP-Adresse',
-                              ja: 'リッスンIPアドレス',
-                            ),
-                            controller: _hostController,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '监听端口',
-                              zhHant: '監聽連接埠',
-                              en: 'Listen port',
-                              fr: 'Port d’écoute',
-                              de: 'Lausch-Port',
-                              ja: 'リッスンポート',
-                            ),
-                            controller: _portController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '可接受并发数',
-                              zhHant: '可接受並發數',
-                              en: 'Max concurrency',
-                              fr: 'Concurrence maximale',
-                              de: 'Maximale Parallelität',
-                              ja: '最大同時実行数',
-                            ),
-                            controller: _maxConcurrentController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '单消息大小(tokens)',
-                              zhHant: '單訊息大小(tokens)',
-                              en: 'Single message size (tokens)',
-                              fr: 'Taille d’un message (tokens)',
-                              de: 'Nachrichtengröße (Tokens)',
-                              ja: '1メッセージサイズ(tokens)',
-                            ),
-                            controller: _singleMessageController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '单会话最大消息数',
-                              zhHant: '單會話最大訊息數',
-                              en: 'Max messages per session',
-                              fr: 'Messages max par session',
-                              de: 'Max. Nachrichten pro Sitzung',
-                              ja: 'セッション最大メッセージ数',
-                            ),
-                            controller: _maxMessagesController,
-                            keyboardType: TextInputType.number,
-                          ),
-                        ],
-                      ),
-                      if (_authEnabled) ...[
-                        kOpenHandGap18,
-                        _SectionTitle(
-                          openHandLocalizedText(
+                    ),
+                    kOpenHandGap12,
+                    _ResponsiveFields(
+                      twoColumns: twoColumns,
+                      children: [
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
                             context,
-                            zh: '鉴权',
-                            zhHant: '鑑權',
-                            en: 'Authentication',
-                            fr: 'Authentification',
-                            de: 'Authentifizierung',
-                            ja: '認証',
+                            zh: '监听 IP 地址',
+                            zhHant: '監聽 IP 位址',
+                            en: 'Listen IP address',
+                            fr: 'Adresse IP d’écoute',
+                            de: 'Lausch-IP-Adresse',
+                            ja: 'リッスンIPアドレス',
                           ),
-                          icon: Icons.lock_outline_rounded,
+                          controller: _hostController,
                         ),
-                        _ResponsiveFields(
-                          twoColumns: twoColumns,
-                          children: [
-                            _TextFieldSpec(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '用户名',
-                                zhHant: '使用者名稱',
-                                en: 'Username',
-                                fr: 'Nom d’utilisateur',
-                                de: 'Benutzername',
-                                ja: 'ユーザー名',
-                              ),
-                              controller: _usernameController,
-                            ),
-                            _TextFieldSpec(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '密码',
-                                zhHant: '密碼',
-                                en: 'Password',
-                                fr: 'Mot de passe',
-                                de: 'Passwort',
-                                ja: 'パスワード',
-                              ),
-                              controller: _passwordController,
-                              obscureText: true,
-                            ),
-                          ],
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '监听端口',
+                            zhHant: '監聽連接埠',
+                            en: 'Listen port',
+                            fr: 'Port d’écoute',
+                            de: 'Lausch-Port',
+                            ja: 'リッスンポート',
+                          ),
+                          controller: _portController,
+                          keyboardType: TextInputType.number,
+                        ),
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '可接受并发数',
+                            zhHant: '可接受並發數',
+                            en: 'Max concurrency',
+                            fr: 'Concurrence maximale',
+                            de: 'Maximale Parallelität',
+                            ja: '最大同時実行数',
+                          ),
+                          controller: _maxConcurrentController,
+                          keyboardType: TextInputType.number,
+                        ),
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '单消息大小(tokens)',
+                            zhHant: '單訊息大小(tokens)',
+                            en: 'Single message size (tokens)',
+                            fr: 'Taille d’un message (tokens)',
+                            de: 'Nachrichtengröße (Tokens)',
+                            ja: '1メッセージサイズ(tokens)',
+                          ),
+                          controller: _singleMessageController,
+                          keyboardType: TextInputType.number,
+                        ),
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '单会话最大消息数',
+                            zhHant: '單會話最大訊息數',
+                            en: 'Max messages per session',
+                            fr: 'Messages max par session',
+                            de: 'Max. Nachrichten pro Sitzung',
+                            ja: 'セッション最大メッセージ数',
+                          ),
+                          controller: _maxMessagesController,
+                          keyboardType: TextInputType.number,
                         ),
                       ],
-                      kOpenHandGap18,
-                      _SectionTitle(
-                        openHandLocalizedText(
-                          context,
-                          zh: '安全控制',
-                          zhHant: '安全控制',
-                          en: 'Security Controls',
-                          fr: 'Contrôles de sécurité',
-                          de: 'Sicherheitssteuerung',
-                          ja: 'セキュリティ制御',
-                        ),
-                        icon: Icons.shield_outlined,
-                      ),
-                      _MultiSelectDropdown<String>(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可新建的线程模板类型',
-                          zhHant: '可新建的執行緒模板類型',
-                          en: 'Allowed thread templates',
-                          fr: 'Modèles de fil autorisés',
-                          de: 'Erlaubte Thread-Vorlagen',
-                          ja: '作成可能なスレッドテンプレート',
-                        ),
-                        emptyMeansAll: true,
-                        noneValue: webGatewayDenyAllSelectionMarker,
-                        options: [
-                          for (final t in widget.controller.templates)
-                            _SelectOption(value: t.id, label: t.name),
-                        ],
-                        selected: _templates,
-                        onChanged: (next) => setState(() => _templates = next),
-                      ),
-                      _MultiSelectDropdown<String>(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可用的技能',
-                          zhHant: '可用的技能',
-                          en: 'Allowed skills',
-                          fr: 'Compétences autorisées',
-                          de: 'Erlaubte Skills',
-                          ja: '利用可能なスキル',
-                        ),
-                        emptyMeansAll: true,
-                        noneValue: webGatewayDenyAllSelectionMarker,
-                        options: [
-                          for (final name in widget.controller.skillNames)
-                            _SelectOption(value: name, label: name),
-                        ],
-                        selected: _skills,
-                        onChanged: (next) => setState(() => _skills = next),
-                      ),
-                      _MultiSelectDropdown<String>(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可用的 MCP',
-                          zhHant: '可用的 MCP',
-                          en: 'Allowed MCP servers',
-                          fr: 'Serveurs MCP autorisés',
-                          de: 'Erlaubte MCP-Server',
-                          ja: '利用可能なMCP',
-                        ),
-                        emptyMeansAll: true,
-                        noneValue: webGatewayDenyAllSelectionMarker,
-                        options: [
-                          for (final name in widget.controller.mcpServerNames)
-                            _SelectOption(value: name, label: name),
-                        ],
-                        selected: _mcpServers,
-                        onChanged: (next) => setState(() => _mcpServers = next),
-                      ),
-                      _MultiSelectDropdown<String>(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可用的记忆',
-                          zhHant: '可用的記憶',
-                          en: 'Allowed memories',
-                          fr: 'Mémoires autorisées',
-                          de: 'Erlaubte Erinnerungen',
-                          ja: '利用可能なメモリ',
-                        ),
-                        emptyMeansAll: true,
-                        noneValue: webGatewayDenyAllSelectionMarker,
-                        options: [
-                          for (final id in widget.controller.memoryIds)
-                            _SelectOption(value: id, label: id),
-                        ],
-                        selected: _memories,
-                        onChanged: (next) => setState(() => _memories = next),
-                      ),
-                      _MultiSelectDropdown<String>(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可用的内建工具',
-                          zhHant: '可用的內建工具',
-                          en: 'Allowed built-in tools',
-                          fr: 'Outils intégrés autorisés',
-                          de: 'Erlaubte integrierte Tools',
-                          ja: '利用可能な内蔵ツール',
-                        ),
-                        emptyMeansAll: true,
-                        noneValue: webGatewayDenyAllSelectionMarker,
-                        options: [
-                          for (final name in _visibleBuiltinToolNames)
-                            _SelectOption(value: name, label: name),
-                        ],
-                        selected: _tools,
-                        onChanged: (next) => setState(() => _tools = next),
-                      ),
-                      _MultiSelectDropdown<String>(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可用的用户指令',
-                          zhHant: '可用的使用者指令',
-                          en: 'Allowed user instructions',
-                          fr: 'Instructions utilisateur autorisées',
-                          de: 'Erlaubte Benutzeranweisungen',
-                          ja: '利用可能なユーザー指示',
-                        ),
-                        emptyMeansAll: true,
-                        noneValue: webGatewayDenyAllSelectionMarker,
-                        options: [
-                          for (final option
-                              in widget.controller.instructionOptions)
-                            _SelectOption(
-                              value: option.id,
-                              label: option.enabled
-                                  ? option.label
-                                  : '${option.label}（${openHandLocalizedText(context, zh: '已禁用', zhHant: '已停用', en: 'disabled', fr: 'désactivé', de: 'deaktiviert', ja: '無効')}）',
-                            ),
-                        ],
-                        selected: _instructions,
-                        onChanged: (next) =>
-                            setState(() => _instructions = next),
-                      ),
-                      _EnumMultiSelectDropdown<WebGatewayMessageType>(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可发送的消息类型',
-                          zhHant: '可傳送的訊息類型',
-                          en: 'Allowed message types',
-                          fr: 'Types de message autorisés',
-                          de: 'Erlaubte Nachrichtentypen',
-                          ja: '送信可能なメッセージタイプ',
-                        ),
-                        values: WebGatewayMessageType.values,
-                        selected: _messageTypes,
-                        labelFor: (value) => _messageTypeLabel(context, value),
-                        onChanged: (next) =>
-                            setState(() => _messageTypes = next),
-                      ),
-                      _EnumMultiSelectDropdown<WebGatewayConversationMode>(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可使用的对话模式',
-                          zhHant: '可使用的對話模式',
-                          en: 'Allowed conversation modes',
-                          fr: 'Modes de conversation autorisés',
-                          de: 'Erlaubte Gesprächsmodi',
-                          ja: '利用可能な会話モード',
-                        ),
-                        values: WebGatewayConversationMode.values,
-                        selected: _modes,
-                        labelFor: (mode) => _modeLabel(context, mode),
-                        onChanged: (next) => setState(() => _modes = next),
-                      ),
-                      _ModelMultiSelectField(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可使用的模型',
-                          zhHant: '可使用的模型',
-                          en: 'Allowed models',
-                          fr: 'Modèles autorisés',
-                          de: 'Erlaubte Modelle',
-                          ja: '利用可能なモデル',
-                        ),
-                        emptyMeansAll: true,
-                        options: widget.controller.modelOptions,
-                        selected: _models,
-                        onChanged: (next) => setState(() => _models = next),
-                      ),
-                      kOpenHandGap18,
-                      _SectionTitle(
-                        openHandLocalizedText(
-                          context,
-                          zh: '项目文件',
-                          zhHant: '專案檔案',
-                          en: 'Project Files',
-                          fr: 'Fichiers du projet',
-                          de: 'Projektdateien',
-                          ja: 'プロジェクトファイル',
-                        ),
-                        icon: Icons.folder_open_rounded,
-                      ),
-                      _ResponsiveFields(
-                        twoColumns: twoColumns,
-                        children: [
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '单文件最大(MB)',
-                              zhHant: '單檔最大(MB)',
-                              en: 'Max file size (MB)',
-                              fr: 'Taille max du fichier (Mo)',
-                              de: 'Max. Dateigröße (MB)',
-                              ja: '最大ファイルサイズ(MB)',
-                            ),
-                            controller: _workspaceFileMaxMbController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '允许扩展名(空=全部文本)',
-                              zhHant: '允許副檔名(空=全部文字)',
-                              en: 'Allowed extensions (empty = all text)',
-                              fr: 'Extensions autorisées (vide = tout texte)',
-                              de: 'Erlaubte Endungen (leer = alle Texte)',
-                              ja: '許可拡張子(空欄=すべてのテキスト)',
-                            ),
-                            controller: _workspaceFileExtensionsController,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '上传缓存保留天数',
-                              zhHant: '上傳快取保留天數',
-                              en: 'Upload cache retention days',
-                              fr: 'Jours de rétention du cache',
-                              de: 'Aufbewahrungstage für Upload-Cache',
-                              ja: 'アップロードキャッシュ保持日数',
-                            ),
-                            controller: _uploadCacheRetentionDaysController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '上传缓存上限(MB)',
-                              zhHant: '上傳快取上限(MB)',
-                              en: 'Upload cache limit (MB)',
-                              fr: 'Limite du cache d’envoi (Mo)',
-                              de: 'Limit für Upload-Cache (MB)',
-                              ja: 'アップロードキャッシュ上限(MB)',
-                            ),
-                            controller: _uploadCacheMaxMbController,
-                            keyboardType: TextInputType.number,
-                          ),
-                        ],
-                      ),
-                      kOpenHandGap18,
-                      _SectionTitle(
-                        openHandLocalizedText(
-                          context,
-                          zh: '健康检查',
-                          zhHant: '健康檢查',
-                          en: 'Health Check',
-                          fr: 'Contrôle de santé',
-                          de: 'Integritätsprüfung',
-                          ja: 'ヘルスチェック',
-                        ),
-                        icon: Icons.monitor_heart_outlined,
-                      ),
-                      _SwitchTile(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '是否跟随重定向',
-                          zhHant: '是否跟隨重新導向',
-                          en: 'Follow redirects',
-                          fr: 'Suivre les redirections',
-                          de: 'Weiterleitungen folgen',
-                          ja: 'リダイレクトを追跡',
-                        ),
-                        value: _healthFollowRedirects,
-                        onChanged: (v) =>
-                            setState(() => _healthFollowRedirects = v),
-                      ),
-                      kOpenHandGap12,
-                      _ResponsiveFields(
-                        twoColumns: twoColumns,
-                        children: [
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '请求 URL',
-                              zhHant: '請求 URL',
-                              en: 'Request URL',
-                              fr: 'URL de requête',
-                              de: 'Anfrage-URL',
-                              ja: 'リクエストURL',
-                            ),
-                            controller: _healthPathController,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '请求方式',
-                              zhHant: '請求方式',
-                              en: 'Request method',
-                              fr: 'Méthode de requête',
-                              de: 'Anfragemethode',
-                              ja: 'リクエスト方式',
-                            ),
-                            controller: _healthMethodController,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '超时时间(ms)',
-                              zhHant: '逾時時間(ms)',
-                              en: 'Timeout (ms)',
-                              fr: 'Délai d’attente (ms)',
-                              de: 'Timeout (ms)',
-                              ja: 'タイムアウト(ms)',
-                            ),
-                            controller: _healthTimeoutController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '期望状态码',
-                              zhHant: '期望狀態碼',
-                              en: 'Expected status code',
-                              fr: 'Code d’état attendu',
-                              de: 'Erwarteter Statuscode',
-                              ja: '期待ステータスコード',
-                            ),
-                            controller: _healthStatusController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '响应断言包含',
-                              zhHant: '回應斷言包含',
-                              en: 'Response must contain',
-                              fr: 'La réponse doit contenir',
-                              de: 'Antwort muss enthalten',
-                              ja: 'レスポンスに含む文字列',
-                            ),
-                            controller: _healthContainsController,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '查询参数(k=v&k2=v2)',
-                              zhHant: '查詢參數(k=v&k2=v2)',
-                              en: 'Query parameters (k=v&k2=v2)',
-                              fr: 'Paramètres de requête (k=v&k2=v2)',
-                              de: 'Abfrageparameter (k=v&k2=v2)',
-                              ja: 'クエリパラメータ(k=v&k2=v2)',
-                            ),
-                            controller: _healthQueryController,
-                          ),
-                        ],
-                      ),
-                      kOpenHandGap18,
-                      _SectionTitle(
-                        openHandLocalizedText(
-                          context,
-                          zh: '日志轮转',
-                          zhHant: '日誌輪轉',
-                          en: 'Log Rotation',
-                          fr: 'Rotation des journaux',
-                          de: 'Protokollrotation',
-                          ja: 'ログローテーション',
-                        ),
-                        icon: Icons.article_outlined,
-                      ),
-                      _ResponsiveFields(
-                        twoColumns: twoColumns,
-                        children: [
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '单日志最大(MB)',
-                              zhHant: '單日誌最大(MB)',
-                              en: 'Max log size (MB)',
-                              fr: 'Taille max d’un journal (Mo)',
-                              de: 'Max. Protokollgröße (MB)',
-                              ja: '最大ログサイズ(MB)',
-                            ),
-                            controller: _logMaxMbController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '轮转天数',
-                              zhHant: '輪轉天數',
-                              en: 'Rotation days',
-                              fr: 'Jours de rotation',
-                              de: 'Rotationstage',
-                              ja: 'ローテーション日数',
-                            ),
-                            controller: _logRotationDaysController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _TextFieldSpec(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '最多日志文件数',
-                              zhHant: '最多日誌檔案數',
-                              en: 'Max log files',
-                              fr: 'Nombre max de fichiers journaux',
-                              de: 'Max. Protokolldateien',
-                              ja: '最大ログファイル数',
-                            ),
-                            controller: _logMaxFilesController,
-                            keyboardType: TextInputType.number,
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainer,
-              border: Border(
-                top: BorderSide(color: colorScheme.outlineVariant),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AnimatedSwitcher(
-                  duration: openHandMotionDurationMs(context, 220),
-                  switchInCurve: kOpenHandSwitchInCurve,
-                  switchOutCurve: kOpenHandSwitchOutCurve,
-                  child: _saveError == null
-                      ? const SizedBox.shrink(key: ValueKey('save-ok'))
-                      : Padding(
-                          key: const ValueKey('save-error'),
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _EditorNotice(
-                            icon: Icons.error_outline_rounded,
-                            title: openHandSaveFailedLabel(context),
-                            body: _saveError!,
-                            error: true,
-                          ),
-                        ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      label: openHandCancelLabel(context),
-                      onPressed: _saving
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                    ),
-                    kOpenHandHGap12,
-                    OpenHandDialogActionButton.primary(
-                      label: _saving
-                          ? openHandLocalizedText(
-                              context,
-                              zh: '保存中',
-                              zhHant: '儲存中',
-                              en: 'Saving',
-                              fr: 'Enregistrement',
-                              de: 'Speichern',
-                              ja: '保存中',
-                            )
-                          : openHandLocalizedText(
-                              context,
-                              zh: '保存配置',
-                              zhHant: '儲存設定',
-                              en: 'Save configuration',
-                              fr: 'Enregistrer la configuration',
-                              de: 'Konfiguration speichern',
-                              ja: '設定を保存',
-                            ),
-                      onPressed: _saving ? null : _save,
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.lock_outline_rounded,
+                accent: colorScheme.secondary,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '访问鉴权',
+                  zhHant: '存取鑑權',
+                  en: 'Authentication',
+                  fr: 'Authentification',
+                  de: 'Authentifizierung',
+                  ja: '認証',
+                ),
+                subtitle: openHandLocalizedText(
+                  context,
+                  zh: '保护 Web 端入口；开启后必须设置登录密码。',
+                  zhHant: '保護 Web 端入口；開啟後必須設定登入密碼。',
+                  en: 'Protect the web entrypoint. A password is required when enabled.',
+                  fr: 'Protège l’entrée web. Un mot de passe est requis une fois activé.',
+                  de: 'Schützt den Webzugang. Bei Aktivierung ist ein Passwort nötig.',
+                  ja: 'Web入口を保護します。有効時はパスワード必須です。',
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.lock_outline_rounded,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否开启鉴权',
+                        zhHant: '是否開啟鑑權',
+                        en: 'Authentication',
+                        fr: 'Authentification',
+                        de: 'Authentifizierung',
+                        ja: '認証',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '访问 Web 端需要用户名和密码。',
+                        zhHant: '存取 Web 端需要使用者名稱與密碼。',
+                        en: 'Web access requires a username and password.',
+                        fr: 'L’accès web exige un identifiant et un mot de passe.',
+                        de: 'Webzugriff braucht Benutzername und Passwort.',
+                        ja: 'Webアクセスにユーザー名とパスワードが必要です。',
+                      ),
+                      value: _authEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _authEnabled = value),
+                    ),
+                    OpenHandVerticalRevealSwitcher(
+                      presentKey: const ValueKey<String>('auth-fields'),
+                      slideBeginOffsetY: 0.04,
+                      child: _authEnabled
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: _ResponsiveFields(
+                                twoColumns: twoColumns,
+                                children: [
+                                  _TextFieldSpec(
+                                    label: openHandLocalizedText(
+                                      context,
+                                      zh: '用户名',
+                                      zhHant: '使用者名稱',
+                                      en: 'Username',
+                                      fr: 'Nom d’utilisateur',
+                                      de: 'Benutzername',
+                                      ja: 'ユーザー名',
+                                    ),
+                                    controller: _usernameController,
+                                  ),
+                                  _TextFieldSpec(
+                                    label: openHandLocalizedText(
+                                      context,
+                                      zh: '密码',
+                                      zhHant: '密碼',
+                                      en: 'Password',
+                                      fr: 'Mot de passe',
+                                      de: 'Passwort',
+                                      ja: 'パスワード',
+                                    ),
+                                    controller: _passwordController,
+                                    obscureText: true,
+                                  ),
+                                ],
+                              ),
+                            )
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.monitor_heart_outlined,
+                accent: OpenHandStatusColors.info,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '观测与运维',
+                  zhHant: '觀測與維運',
+                  en: 'Observability',
+                  fr: 'Observabilité',
+                  de: 'Beobachtbarkeit',
+                  ja: '観測と運用',
+                ),
+                subtitle: openHandLocalizedText(
+                  context,
+                  zh: '遥测、日志、运维面板与健康检查总开关。',
+                  zhHant: '遙測、日誌、維運面板與健康檢查總開關。',
+                  en: 'Telemetry, logs, ops panel, and health-check master switches.',
+                  fr: 'Télémétrie, journaux, panneau ops et contrôle de santé.',
+                  de: 'Telemetrie, Protokolle, Betriebsbereich und Integritätsprüfung.',
+                  ja: 'テレメトリ、ログ、運用パネル、ヘルスチェック。',
+                ),
+                child: Column(
+                  children: _pairedRows(twoColumns, [
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.insights_rounded,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否启用遥测',
+                        zhHant: '是否啟用遙測',
+                        en: 'Telemetry',
+                        fr: 'Télémétrie',
+                        de: 'Telemetrie',
+                        ja: 'テレメトリ',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '向 Web 端暴露用量与运行指标。',
+                        zhHant: '向 Web 端暴露用量與執行指標。',
+                        en: 'Expose usage and runtime metrics to the web client.',
+                        fr: 'Expose l’usage et les métriques au client web.',
+                        de: 'Stellt Nutzungs- und Laufzeitmetriken im Web bereit.',
+                        ja: 'Web側に利用量と実行指標を公開します。',
+                      ),
+                      value: _telemetryEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _telemetryEnabled = value),
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.article_outlined,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否记录日志',
+                        zhHant: '是否記錄日誌',
+                        en: 'Logging',
+                        fr: 'Journaux',
+                        de: 'Protokollierung',
+                        ja: 'ログ記録',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '将访问与错误写入服务日志。',
+                        zhHant: '將存取與錯誤寫入服務日誌。',
+                        en: 'Write access and errors to the service log.',
+                        fr: 'Écrit les accès et erreurs dans le journal.',
+                        de: 'Schreibt Zugriffe und Fehler ins Dienstprotokoll.',
+                        ja: 'アクセスとエラーをサービスログへ記録します。',
+                      ),
+                      value: _loggingEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _loggingEnabled = value),
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.dashboard_customize_outlined,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否支持运维',
+                        zhHant: '是否支援維運',
+                        en: 'Operations panel',
+                        fr: 'Panneau opérations',
+                        de: 'Betriebsbereich',
+                        ja: '運用パネル',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '在 Web 端展示运维面板。',
+                        zhHant: '在 Web 端展示維運面板。',
+                        en: 'Show the operations panel on the web client.',
+                        fr: 'Affiche le panneau opérations sur le client web.',
+                        de: 'Zeigt den Betriebsbereich im Webclient.',
+                        ja: 'Web側に運用パネルを表示します。',
+                      ),
+                      value: _opsEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) => setState(() => _opsEnabled = value),
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.monitor_heart_outlined,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否开启健康检查',
+                        zhHant: '是否開啟健康檢查',
+                        en: 'Health checks',
+                        fr: 'Contrôles de santé',
+                        de: 'Integritätsprüfungen',
+                        ja: 'ヘルスチェック',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '按下方探测规则巡检服务存活。',
+                        zhHant: '依下方探測規則巡檢服務存活。',
+                        en: 'Probe service liveness with the rules below.',
+                        fr: 'Vérifie la disponibilité avec les règles ci-dessous.',
+                        de: 'Prüft die Dienstverfügbarkeit mit den Regeln unten.',
+                        ja: '下の探測ルールでサービスの生存を確認します。',
+                      ),
+                      value: _healthEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _healthEnabled = value),
+                    ),
+                  ]),
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.auto_awesome_outlined,
+                accent: OpenHandStatusColors.success,
+                title: openHandLocalizedText(
+                  context,
+                  zh: 'Web 能力',
+                  zhHant: 'Web 能力',
+                  en: 'Web capabilities',
+                  fr: 'Capacités web',
+                  de: 'Web-Funktionen',
+                  ja: 'Web機能',
+                ),
+                subtitle: openHandLocalizedText(
+                  context,
+                  zh: '控制聊天页可见的会话能力与交互。',
+                  zhHant: '控制聊天頁可見的會話能力與互動。',
+                  en: 'Control which chat capabilities are visible on the web page.',
+                  fr: 'Contrôle les capacités de chat visibles sur la page web.',
+                  de: 'Steuert, welche Chat-Funktionen auf der Webseite sichtbar sind.',
+                  ja: 'Webチャットで使える会話機能を制御します。',
+                ),
+                child: Column(
+                  children: _pairedRows(twoColumns, [
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.account_tree_outlined,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否支持计划模式',
+                        zhHant: '是否支援計劃模式',
+                        en: 'Plan mode',
+                        fr: 'Mode plan',
+                        de: 'Planmodus',
+                        ja: 'プランモード',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '允许 Web 会话进入计划模式。',
+                        zhHant: '允許 Web 會話進入計劃模式。',
+                        en: 'Allow web sessions to enter plan mode.',
+                        fr: 'Autorise les sessions web à entrer en mode plan.',
+                        de: 'Erlaubt Web-Sitzungen den Planmodus.',
+                        ja: 'Webセッションでプランモードを使えます。',
+                      ),
+                      value: _planModeEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _planModeEnabled = value),
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.menu_book_outlined,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否开启知识库',
+                        zhHant: '是否開啟知識庫',
+                        en: 'Knowledge base',
+                        fr: 'Base de connaissances',
+                        de: 'Wissensdatenbank',
+                        ja: 'ナレッジベース',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '允许 Web 会话检索知识库。',
+                        zhHant: '允許 Web 會話檢索知識庫。',
+                        en: 'Allow web sessions to search the knowledge base.',
+                        fr: 'Autorise les sessions web à interroger la base.',
+                        de: 'Erlaubt Web-Sitzungen die Wissensdatenbank.',
+                        ja: 'Webセッションでナレッジベースを検索できます。',
+                      ),
+                      value: _knowledgeBaseEnabled,
+                      enabled: !_saving,
+                      onChanged: _setKnowledgeBaseEnabled,
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.record_voice_over_outlined,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否启用朗读功能',
+                        zhHant: '是否啟用朗讀功能',
+                        en: 'Read aloud',
+                        fr: 'Lecture vocale',
+                        de: 'Vorlesen',
+                        ja: '読み上げ',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '允许将回复朗读出来。',
+                        zhHant: '允許將回覆朗讀出來。',
+                        en: 'Allow reading replies aloud.',
+                        fr: 'Autorise la lecture vocale des réponses.',
+                        de: 'Erlaubt das Vorlesen von Antworten.',
+                        ja: '返信の読み上げを許可します。',
+                      ),
+                      value: _readAloudEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _readAloudEnabled = value),
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.translate_rounded,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否启用翻译功能',
+                        zhHant: '是否啟用翻譯功能',
+                        en: 'Translation',
+                        fr: 'Traduction',
+                        de: 'Übersetzung',
+                        ja: '翻訳',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '允许翻译会话内容。',
+                        zhHant: '允許翻譯會話內容。',
+                        en: 'Allow translating conversation content.',
+                        fr: 'Autorise la traduction du contenu.',
+                        de: 'Erlaubt das Übersetzen von Gesprächsinhalten.',
+                        ja: '会話内容の翻訳を許可します。',
+                      ),
+                      value: _translationEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _translationEnabled = value),
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.thumb_up_alt_outlined,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否启用点赞功能',
+                        zhHant: '是否啟用按讚功能',
+                        en: 'Feedback buttons',
+                        fr: 'Boutons de retour',
+                        de: 'Feedback-Schaltflächen',
+                        ja: 'フィードバックボタン',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '在 Web 端显示反馈按钮。',
+                        zhHant: '在 Web 端顯示回饋按鈕。',
+                        en: 'Show feedback buttons on the web client.',
+                        fr: 'Affiche les boutons de retour sur le client web.',
+                        de: 'Zeigt Feedback-Schaltflächen im Webclient.',
+                        ja: 'Web側にフィードバックボタンを表示します。',
+                      ),
+                      value: _feedbackEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _feedbackEnabled = value),
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.refresh_rounded,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否启用重新生成功能',
+                        zhHant: '是否啟用重新生成功能',
+                        en: 'Regenerate',
+                        fr: 'Régénération',
+                        de: 'Neu generieren',
+                        ja: '再生成',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '允许重新生成回复。',
+                        zhHant: '允許重新生成回覆。',
+                        en: 'Allow regenerating replies.',
+                        fr: 'Autorise la régénération des réponses.',
+                        de: 'Erlaubt das erneute Generieren von Antworten.',
+                        ja: '返信の再生成を許可します。',
+                      ),
+                      value: _regenerationEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _regenerationEnabled = value),
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.forum_outlined,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否允许 Web 会话管理',
+                        zhHant: '是否允許 Web 會話管理',
+                        en: 'Web session management',
+                        fr: 'Gestion des sessions web',
+                        de: 'Web-Sitzungsverwaltung',
+                        ja: 'Webセッション管理',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '允许在 Web 端管理会话。',
+                        zhHant: '允許在 Web 端管理會話。',
+                        en: 'Allow managing sessions from the web client.',
+                        fr: 'Autorise la gestion des sessions depuis le web.',
+                        de: 'Erlaubt Sitzungsverwaltung im Webclient.',
+                        ja: 'Web側でのセッション管理を許可します。',
+                      ),
+                      value: _sessionManagementEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _sessionManagementEnabled = value),
+                    ),
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.folder_open_rounded,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否支持操作文件',
+                        zhHant: '是否支援操作檔案',
+                        en: 'File write access',
+                        fr: 'Accès en écriture aux fichiers',
+                        de: 'Dateischreibzugriff',
+                        ja: 'ファイル書き込み',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '允许写入项目工作区文件。',
+                        zhHant: '允許寫入專案工作區檔案。',
+                        en: 'Allow writing files in the project workspace.',
+                        fr: 'Autorise l’écriture des fichiers du projet.',
+                        de: 'Erlaubt das Schreiben von Projektdateien.',
+                        ja: 'プロジェクト作業領域への書き込みを許可します。',
+                      ),
+                      value: _workspaceFileWriteEnabled,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _workspaceFileWriteEnabled = value),
+                    ),
+                  ]),
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.shield_outlined,
+                accent: OpenHandStatusColors.warning,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '安全边界',
+                  zhHant: '安全邊界',
+                  en: 'Security boundary',
+                  fr: 'Périmètre de sécurité',
+                  de: 'Sicherheitsgrenze',
+                  ja: 'セキュリティ境界',
+                ),
+                subtitle: openHandLocalizedText(
+                  context,
+                  zh: '限制 Web 端可新建的模板、可调用的技能、工具与模型。',
+                  zhHant: '限制 Web 端可新建的範本、可呼叫的技能、工具與模型。',
+                  en: 'Limit templates, skills, tools, and models available on the web.',
+                  fr: 'Limite les modèles, compétences, outils et modèles web.',
+                  de: 'Begrenzt Vorlagen, Skills, Tools und Modelle im Web.',
+                  ja: 'Web側で使えるテンプレート、スキル、ツール、モデルを制限します。',
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _MultiSelectDropdown<String>(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可新建的线程模板类型',
+                        zhHant: '可新建的執行緒模板類型',
+                        en: 'Allowed thread templates',
+                        fr: 'Modèles de fil autorisés',
+                        de: 'Erlaubte Thread-Vorlagen',
+                        ja: '作成可能なスレッドテンプレート',
+                      ),
+                      emptyMeansAll: true,
+                      noneValue: webGatewayDenyAllSelectionMarker,
+                      options: [
+                        for (final t in widget.controller.templates)
+                          _SelectOption(value: t.id, label: t.name),
+                      ],
+                      selected: _templates,
+                      onChanged: (next) => setState(() => _templates = next),
+                    ),
+                    _MultiSelectDropdown<String>(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可用的技能',
+                        zhHant: '可用的技能',
+                        en: 'Allowed skills',
+                        fr: 'Compétences autorisées',
+                        de: 'Erlaubte Skills',
+                        ja: '利用可能なスキル',
+                      ),
+                      emptyMeansAll: true,
+                      noneValue: webGatewayDenyAllSelectionMarker,
+                      options: [
+                        for (final name in widget.controller.skillNames)
+                          _SelectOption(value: name, label: name),
+                      ],
+                      selected: _skills,
+                      onChanged: (next) => setState(() => _skills = next),
+                    ),
+                    _MultiSelectDropdown<String>(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可用的 MCP',
+                        zhHant: '可用的 MCP',
+                        en: 'Allowed MCP servers',
+                        fr: 'Serveurs MCP autorisés',
+                        de: 'Erlaubte MCP-Server',
+                        ja: '利用可能なMCP',
+                      ),
+                      emptyMeansAll: true,
+                      noneValue: webGatewayDenyAllSelectionMarker,
+                      options: [
+                        for (final name in widget.controller.mcpServerNames)
+                          _SelectOption(value: name, label: name),
+                      ],
+                      selected: _mcpServers,
+                      onChanged: (next) => setState(() => _mcpServers = next),
+                    ),
+                    _MultiSelectDropdown<String>(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可用的记忆',
+                        zhHant: '可用的記憶',
+                        en: 'Allowed memories',
+                        fr: 'Mémoires autorisées',
+                        de: 'Erlaubte Erinnerungen',
+                        ja: '利用可能なメモリ',
+                      ),
+                      emptyMeansAll: true,
+                      noneValue: webGatewayDenyAllSelectionMarker,
+                      options: [
+                        for (final id in widget.controller.memoryIds)
+                          _SelectOption(value: id, label: id),
+                      ],
+                      selected: _memories,
+                      onChanged: (next) => setState(() => _memories = next),
+                    ),
+                    _MultiSelectDropdown<String>(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可用的内建工具',
+                        zhHant: '可用的內建工具',
+                        en: 'Allowed built-in tools',
+                        fr: 'Outils intégrés autorisés',
+                        de: 'Erlaubte integrierte Tools',
+                        ja: '利用可能な内蔵ツール',
+                      ),
+                      emptyMeansAll: true,
+                      noneValue: webGatewayDenyAllSelectionMarker,
+                      options: [
+                        for (final name in _visibleBuiltinToolNames)
+                          _SelectOption(value: name, label: name),
+                      ],
+                      selected: _tools,
+                      onChanged: (next) => setState(() => _tools = next),
+                    ),
+                    _MultiSelectDropdown<String>(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可用的用户指令',
+                        zhHant: '可用的使用者指令',
+                        en: 'Allowed user instructions',
+                        fr: 'Instructions utilisateur autorisées',
+                        de: 'Erlaubte Benutzeranweisungen',
+                        ja: '利用可能なユーザー指示',
+                      ),
+                      emptyMeansAll: true,
+                      noneValue: webGatewayDenyAllSelectionMarker,
+                      options: [
+                        for (final option
+                            in widget.controller.instructionOptions)
+                          _SelectOption(
+                            value: option.id,
+                            label: option.enabled
+                                ? option.label
+                                : '${option.label}（${openHandLocalizedText(context, zh: '已禁用', zhHant: '已停用', en: 'disabled', fr: 'désactivé', de: 'deaktiviert', ja: '無効')}）',
+                          ),
+                      ],
+                      selected: _instructions,
+                      onChanged: (next) => setState(() => _instructions = next),
+                    ),
+                    _EnumMultiSelectDropdown<WebGatewayMessageType>(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可发送的消息类型',
+                        zhHant: '可傳送的訊息類型',
+                        en: 'Allowed message types',
+                        fr: 'Types de message autorisés',
+                        de: 'Erlaubte Nachrichtentypen',
+                        ja: '送信可能なメッセージタイプ',
+                      ),
+                      values: WebGatewayMessageType.values,
+                      selected: _messageTypes,
+                      labelFor: (value) => _messageTypeLabel(context, value),
+                      onChanged: (next) => setState(() => _messageTypes = next),
+                    ),
+                    _EnumMultiSelectDropdown<WebGatewayConversationMode>(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可使用的对话模式',
+                        zhHant: '可使用的對話模式',
+                        en: 'Allowed conversation modes',
+                        fr: 'Modes de conversation autorisés',
+                        de: 'Erlaubte Gesprächsmodi',
+                        ja: '利用可能な会話モード',
+                      ),
+                      values: WebGatewayConversationMode.values,
+                      selected: _modes,
+                      labelFor: (mode) => _modeLabel(context, mode),
+                      onChanged: (next) => setState(() => _modes = next),
+                    ),
+                    _ModelMultiSelectField(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可使用的模型',
+                        zhHant: '可使用的模型',
+                        en: 'Allowed models',
+                        fr: 'Modèles autorisés',
+                        de: 'Erlaubte Modelle',
+                        ja: '利用可能なモデル',
+                      ),
+                      emptyMeansAll: true,
+                      options: widget.controller.modelOptions,
+                      selected: _models,
+                      onChanged: (next) => setState(() => _models = next),
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.folder_open_rounded,
+                accent: colorScheme.primary,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '项目文件',
+                  zhHant: '專案檔案',
+                  en: 'Project Files',
+                  fr: 'Fichiers du projet',
+                  de: 'Projektdateien',
+                  ja: 'プロジェクトファイル',
+                ),
+                subtitle: openHandLocalizedText(
+                  context,
+                  zh: '限制 Web 端可读写的工作区文件大小、扩展名与上传缓存。',
+                  zhHant: '限制 Web 端可讀寫的工作區檔案大小、副檔名與上傳快取。',
+                  en: 'Limit workspace file size, extensions, and upload cache.',
+                  fr: 'Limite la taille, les extensions et le cache d’envoi.',
+                  de: 'Begrenzt Dateigröße, Endungen und Upload-Cache.',
+                  ja: '作業領域のファイルサイズ、拡張子、アップロードキャッシュを制限します。',
+                ),
+                child: _ResponsiveFields(
+                  twoColumns: twoColumns,
+                  children: [
+                    _TextFieldSpec(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '单文件最大(MB)',
+                        zhHant: '單檔最大(MB)',
+                        en: 'Max file size (MB)',
+                        fr: 'Taille max du fichier (Mo)',
+                        de: 'Max. Dateigröße (MB)',
+                        ja: '最大ファイルサイズ(MB)',
+                      ),
+                      controller: _workspaceFileMaxMbController,
+                      keyboardType: TextInputType.number,
+                    ),
+                    _TextFieldSpec(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '允许扩展名(空=全部文本)',
+                        zhHant: '允許副檔名(空=全部文字)',
+                        en: 'Allowed extensions (empty = all text)',
+                        fr: 'Extensions autorisées (vide = tout texte)',
+                        de: 'Erlaubte Endungen (leer = alle Texte)',
+                        ja: '許可拡張子(空欄=すべてのテキスト)',
+                      ),
+                      controller: _workspaceFileExtensionsController,
+                    ),
+                    _TextFieldSpec(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '上传缓存保留天数',
+                        zhHant: '上傳快取保留天數',
+                        en: 'Upload cache retention days',
+                        fr: 'Jours de rétention du cache',
+                        de: 'Aufbewahrungstage für Upload-Cache',
+                        ja: 'アップロードキャッシュ保持日数',
+                      ),
+                      controller: _uploadCacheRetentionDaysController,
+                      keyboardType: TextInputType.number,
+                    ),
+                    _TextFieldSpec(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '上传缓存上限(MB)',
+                        zhHant: '上傳快取上限(MB)',
+                        en: 'Upload cache limit (MB)',
+                        fr: 'Limite du cache d’envoi (Mo)',
+                        de: 'Limit für Upload-Cache (MB)',
+                        ja: 'アップロードキャッシュ上限(MB)',
+                      ),
+                      controller: _uploadCacheMaxMbController,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.monitor_heart_outlined,
+                accent: OpenHandStatusColors.info,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '健康检查',
+                  zhHant: '健康檢查',
+                  en: 'Health Check',
+                  fr: 'Contrôle de santé',
+                  de: 'Integritätsprüfung',
+                  ja: 'ヘルスチェック',
+                ),
+                subtitle: openHandLocalizedText(
+                  context,
+                  zh: '探测路径、超时与期望响应；总开关关闭后不会执行探测。',
+                  zhHant: '探測路徑、逾時與期望回應；總開關關閉後不會執行探測。',
+                  en: 'Probe path, timeout, and expected response. Disabled when the master switch is off.',
+                  fr: 'Chemin, délai et réponse attendue. Inactif si le commutateur maître est off.',
+                  de: 'Pfad, Timeout und erwartete Antwort. Inaktiv bei ausgeschaltetem Hauptschalter.',
+                  ja: 'パス、タイムアウト、期待応答。マスタースイッチがオフなら実行しません。',
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.alt_route_rounded,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '是否跟随重定向',
+                        zhHant: '是否跟隨重新導向',
+                        en: 'Follow redirects',
+                        fr: 'Suivre les redirections',
+                        de: 'Weiterleitungen folgen',
+                        ja: 'リダイレクトを追跡',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '健康检查请求跟随 HTTP 重定向。',
+                        zhHant: '健康檢查請求跟隨 HTTP 重新導向。',
+                        en: 'Health-check requests follow HTTP redirects.',
+                        fr: 'Les contrôles de santé suivent les redirections HTTP.',
+                        de: 'Integritätsprüfungen folgen HTTP-Weiterleitungen.',
+                        ja: 'ヘルスチェックはHTTPリダイレクトをたどります。',
+                      ),
+                      value: _healthFollowRedirects,
+                      enabled: !_saving,
+                      onChanged: (value) =>
+                          setState(() => _healthFollowRedirects = value),
+                    ),
+                    kOpenHandGap12,
+                    _ResponsiveFields(
+                      twoColumns: twoColumns,
+                      children: [
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '请求 URL',
+                            zhHant: '請求 URL',
+                            en: 'Request URL',
+                            fr: 'URL de requête',
+                            de: 'Anfrage-URL',
+                            ja: 'リクエストURL',
+                          ),
+                          controller: _healthPathController,
+                        ),
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '请求方式',
+                            zhHant: '請求方式',
+                            en: 'Request method',
+                            fr: 'Méthode de requête',
+                            de: 'Anfragemethode',
+                            ja: 'リクエスト方式',
+                          ),
+                          controller: _healthMethodController,
+                        ),
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '超时时间(ms)',
+                            zhHant: '逾時時間(ms)',
+                            en: 'Timeout (ms)',
+                            fr: 'Délai d’attente (ms)',
+                            de: 'Timeout (ms)',
+                            ja: 'タイムアウト(ms)',
+                          ),
+                          controller: _healthTimeoutController,
+                          keyboardType: TextInputType.number,
+                        ),
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '期望状态码',
+                            zhHant: '期望狀態碼',
+                            en: 'Expected status code',
+                            fr: 'Code d’état attendu',
+                            de: 'Erwarteter Statuscode',
+                            ja: '期待ステータスコード',
+                          ),
+                          controller: _healthStatusController,
+                          keyboardType: TextInputType.number,
+                        ),
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '响应断言包含',
+                            zhHant: '回應斷言包含',
+                            en: 'Response must contain',
+                            fr: 'La réponse doit contenir',
+                            de: 'Antwort muss enthalten',
+                            ja: 'レスポンスに含む文字列',
+                          ),
+                          controller: _healthContainsController,
+                        ),
+                        _TextFieldSpec(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '查询参数(k=v&k2=v2)',
+                            zhHant: '查詢參數(k=v&k2=v2)',
+                            en: 'Query parameters (k=v&k2=v2)',
+                            fr: 'Paramètres de requête (k=v&k2=v2)',
+                            de: 'Abfrageparameter (k=v&k2=v2)',
+                            ja: 'クエリパラメータ(k=v&k2=v2)',
+                          ),
+                          controller: _healthQueryController,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.article_outlined,
+                accent: colorScheme.secondary,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '日志轮转',
+                  zhHant: '日誌輪轉',
+                  en: 'Log Rotation',
+                  fr: 'Rotation des journaux',
+                  de: 'Protokollrotation',
+                  ja: 'ログローテーション',
+                ),
+                subtitle: openHandLocalizedText(
+                  context,
+                  zh: '限制单文件大小、保留天数与文件个数。',
+                  zhHant: '限制單檔大小、保留天數與檔案個數。',
+                  en: 'Limit file size, retention days, and file count.',
+                  fr: 'Limite la taille, la rétention et le nombre de fichiers.',
+                  de: 'Begrenzt Dateigröße, Aufbewahrung und Dateianzahl.',
+                  ja: 'ファイルサイズ、保持日数、ファイル数を制限します。',
+                ),
+                child: _ResponsiveFields(
+                  twoColumns: twoColumns,
+                  children: [
+                    _TextFieldSpec(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '单日志最大(MB)',
+                        zhHant: '單日誌最大(MB)',
+                        en: 'Max log size (MB)',
+                        fr: 'Taille max d’un journal (Mo)',
+                        de: 'Max. Protokollgröße (MB)',
+                        ja: '最大ログサイズ(MB)',
+                      ),
+                      controller: _logMaxMbController,
+                      keyboardType: TextInputType.number,
+                    ),
+                    _TextFieldSpec(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '轮转天数',
+                        zhHant: '輪轉天數',
+                        en: 'Rotation days',
+                        fr: 'Jours de rotation',
+                        de: 'Rotationstage',
+                        ja: 'ローテーション日数',
+                      ),
+                      controller: _logRotationDaysController,
+                      keyboardType: TextInputType.number,
+                    ),
+                    _TextFieldSpec(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '最多日志文件数',
+                        zhHant: '最多日誌檔案數',
+                        en: 'Max log files',
+                        fr: 'Nombre max de fichiers journaux',
+                        de: 'Max. Protokolldateien',
+                        ja: '最大ログファイル数',
+                      ),
+                      controller: _logMaxFilesController,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ),
+              ),
+              OpenHandDialogErrorText(message: _saveError, topGap: 16),
+            ],
+          );
+        },
       ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          label: openHandCancelLabel(context),
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+        ),
+        OpenHandDialogActionButton.primary(
+          label: _saving
+              ? openHandLocalizedText(
+                  context,
+                  zh: '保存中',
+                  zhHant: '儲存中',
+                  en: 'Saving',
+                  fr: 'Enregistrement',
+                  de: 'Speichern',
+                  ja: '保存中',
+                )
+              : openHandLocalizedText(
+                  context,
+                  zh: '保存配置',
+                  zhHant: '儲存設定',
+                  en: 'Save configuration',
+                  fr: 'Enregistrer la configuration',
+                  de: 'Konfiguration speichern',
+                  ja: '設定を保存',
+                ),
+          onPressed: _saving ? null : _save,
+        ),
+      ],
     );
   }
 
-  Widget _switcherSizeFadeTransition(
-    Widget child,
-    Animation<double> animation,
-  ) {
-    if (!openHandTickerMotionEnabled(context)) return child;
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: kOpenHandEntranceCurve,
-      reverseCurve: kOpenHandSwitchOutCurve,
-    );
-    return SizeTransition(
-      sizeFactor: animation,
-      alignment: AlignmentDirectional.topStart,
-      child: FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, .04),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
+  List<Widget> _pairedRows(bool twoColumns, List<Widget> tiles) {
+    if (tiles.isEmpty) return const <Widget>[];
+    final rows = <Widget>[];
+    for (var i = 0; i < tiles.length; i += 2) {
+      if (rows.isNotEmpty) {
+        rows.add(kOpenHandGap10);
+      }
+      final right = i + 1 < tiles.length ? tiles[i + 1] : null;
+      if (!twoColumns || right == null) {
+        rows.add(tiles[i]);
+        if (right != null) {
+          rows.add(kOpenHandGap10);
+          rows.add(right);
+        }
+        continue;
+      }
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: tiles[i]),
+            kOpenHandHGap10,
+            Expanded(child: right),
+          ],
         ),
-      ),
-    );
+      );
+    }
+    return rows;
   }
 
   Future<void> _save() async {
@@ -2649,57 +2903,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         .where((name) => !_isKnowledgeBaseBuiltinToolName(name))
         .toSet();
     return next.isEmpty ? <String>{webGatewayDenyAllSelectionMarker} : next;
-  }
-}
-
-class _EditorNotice extends StatelessWidget {
-  const _EditorNotice({
-    required this.icon,
-    required this.title,
-    required this.body,
-    this.error = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-  final bool error;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final color = error ? colorScheme.error : colorScheme.primary;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .10),
-        borderRadius: kOpenHandBorderRadius12,
-        border: Border.all(color: color.withValues(alpha: .28)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 20),
-          kOpenHandHGap10,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: theme.textTheme.labelLarge),
-                kOpenHandGap3,
-                Text(
-                  body,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -9410,85 +9613,6 @@ BoxDecoration _opsCardDecoration(ThemeData theme) => BoxDecoration(
   ],
 );
 
-class _SwitchGrid extends StatelessWidget {
-  const _SwitchGrid({required this.twoColumns, required this.children});
-  final bool twoColumns;
-  final List<Widget> children;
-  @override
-  Widget build(BuildContext context) => GridView.count(
-    crossAxisCount: twoColumns ? 2 : 1,
-    childAspectRatio: twoColumns ? 5.0 : 5.8,
-    crossAxisSpacing: 12,
-    mainAxisSpacing: 12,
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    children: children,
-  );
-}
-
-class _SwitchTile extends StatelessWidget {
-  const _SwitchTile({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return AnimatedContainer(
-      duration: openHandMotionDurationMs(context, 180),
-      curve: kOpenHandSwitchInCurve,
-      decoration: BoxDecoration(
-        color: value
-            ? colorScheme.primaryContainer.withValues(alpha: .34)
-            : colorScheme.surfaceContainerHighest.withValues(alpha: .42),
-        borderRadius: kOpenHandBorderRadius16,
-        border: Border.all(
-          color: value
-              ? colorScheme.primary.withValues(alpha: .32)
-              : colorScheme.outlineVariant.withValues(alpha: .78),
-        ),
-      ),
-      child: SwitchListTile(
-        value: value,
-        onChanged: onChanged,
-        title: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: value ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-        contentPadding: const EdgeInsetsDirectional.fromSTEB(14, 0, 10, 0),
-        shape: const RoundedRectangleBorder(
-          borderRadius: kOpenHandBorderRadius16,
-        ),
-      ),
-    );
-  }
-}
-
-class _TextArea extends StatelessWidget {
-  const _TextArea({required this.label, required this.controller});
-  final String label;
-  final TextEditingController controller;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: TextField(
-      controller: controller,
-      minLines: 3,
-      maxLines: 5,
-      decoration: _gatewayInputDecoration(context, label),
-    ),
-  );
-}
-
 class _TextFieldSpec {
   const _TextFieldSpec({
     required this.label,
@@ -9506,47 +9630,58 @@ class _ResponsiveFields extends StatelessWidget {
   const _ResponsiveFields({required this.twoColumns, required this.children});
   final bool twoColumns;
   final List<_TextFieldSpec> children;
+
+  Widget _field(_TextFieldSpec spec) {
+    return TextField(
+      controller: spec.controller,
+      keyboardType: spec.keyboardType,
+      obscureText: spec.obscureText,
+      decoration: _gatewayInputDecoration(spec.label),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => GridView.count(
-    crossAxisCount: twoColumns ? 2 : 1,
-    childAspectRatio: twoColumns ? 5.0 : 6.0,
-    crossAxisSpacing: 12,
-    mainAxisSpacing: 12,
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    children: children
-        .map(
-          (spec) => TextField(
-            controller: spec.controller,
-            keyboardType: spec.keyboardType,
-            obscureText: spec.obscureText,
-            decoration: _gatewayInputDecoration(context, spec.label),
-          ),
-        )
-        .toList(growable: false),
-  );
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    if (!twoColumns) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) kOpenHandGap12,
+            _field(children[i]),
+          ],
+        ],
+      );
+    }
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i += 2) {
+      if (rows.isNotEmpty) {
+        rows.add(kOpenHandGap12);
+      }
+      final right = i + 1 < children.length ? children[i + 1] : null;
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _field(children[i])),
+            kOpenHandHGap12,
+            Expanded(
+              child: right == null ? const SizedBox.shrink() : _field(right),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
+    );
+  }
 }
 
-InputDecoration _gatewayInputDecoration(BuildContext context, String label) {
-  final colorScheme = Theme.of(context).colorScheme;
-  const radius = kOpenHandBorderRadius16;
-  final border = OutlineInputBorder(
-    borderRadius: radius,
-    borderSide: BorderSide(
-      color: colorScheme.outlineVariant.withValues(alpha: .78),
-    ),
-  );
-  return InputDecoration(
-    labelText: label,
-    filled: true,
-    fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: .44),
-    border: border,
-    enabledBorder: border,
-    focusedBorder: OutlineInputBorder(
-      borderRadius: radius,
-      borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
-    ),
-  );
+InputDecoration _gatewayInputDecoration(String label) {
+  return InputDecoration(labelText: label);
 }
 
 class _SelectOption<T> {
@@ -9613,7 +9748,6 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
         child: InputDecorator(
           decoration:
               _gatewayInputDecoration(
-                context,
                 widget.emptyMeansAll
                     ? _gatewayEmptyMeansAllLabel(context, widget.label)
                     : widget.label,
@@ -10219,7 +10353,6 @@ class _ModelMultiSelectField extends StatelessWidget {
         },
         child: InputDecorator(
           decoration: _gatewayInputDecoration(
-            context,
             emptyMeansAll ? _gatewayEmptyMeansAllLabel(context, label) : label,
           ).copyWith(suffixIcon: const Icon(Icons.manage_search_rounded)),
           child: Text(
