@@ -255,6 +255,48 @@ Widget? buildOpenHandDialogConstrainedContent({
   );
 }
 
+/// 弹窗宽高随内容变化时走全局弹窗动效，避免生硬跳变。
+///
+/// 固定高度的铺满弹窗不要包这层：外层已经定死尺寸，再套 [AnimatedSize]
+/// 没有可见收益。关闭动效或时长为 0 时直接返回子树，不挂 Ticker。
+class OpenHandAnimatedDialogSize extends StatelessWidget {
+  const OpenHandAnimatedDialogSize({
+    super.key,
+    required this.child,
+    this.alignment = Alignment.topCenter,
+  });
+
+  final Widget child;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    final duration = openHandMotionDuration(context, settings.entranceDuration);
+    if (duration <= Duration.zero) return child;
+    return AnimatedSize(
+      duration: duration,
+      reverseDuration: openHandMotionDuration(context, settings.exitDuration),
+      curve: _openHandDialogSizeCurve(settings),
+      alignment: alignment,
+      child: child,
+    );
+  }
+}
+
+Curve _openHandDialogSizeCurve(DialogAnimationSettings settings) {
+  return switch (settings.entranceStyle) {
+    DialogAnimationStyle.none => Curves.linear,
+    DialogAnimationStyle.elastic => Curves.elasticOut,
+    DialogAnimationStyle.springScale ||
+    DialogAnimationStyle.expand => kOpenHandEntranceCurve,
+    _ => settings.curve.curve,
+  };
+}
+
 AlertDialog buildOpenHandAlertDialog({
   Widget? icon,
   Widget? title,
@@ -305,6 +347,15 @@ Dialog buildOpenHandDialog({
   double? minHeight,
   double? maxHeight,
 }) {
+  final content = buildOpenHandDialogConstrainedContent(
+    child: buildOpenHandDialogScrollConfiguration(child: child),
+    width: width,
+    height: height,
+    minWidth: minWidth,
+    maxWidth: maxWidth,
+    minHeight: minHeight,
+    maxHeight: maxHeight,
+  )!;
   return Dialog(
     backgroundColor: backgroundColor,
     surfaceTintColor: surfaceTintColor,
@@ -315,15 +366,9 @@ Dialog buildOpenHandDialog({
       insetPadding ?? kOpenHandDialogDefaultInsetPadding,
     ),
     alignment: alignment,
-    child: buildOpenHandDialogConstrainedContent(
-      child: buildOpenHandDialogScrollConfiguration(child: child),
-      width: width,
-      height: height,
-      minWidth: minWidth,
-      maxWidth: maxWidth,
-      minHeight: minHeight,
-      maxHeight: maxHeight,
-    ),
+    child: _validDialogDimension(height) == null
+        ? OpenHandAnimatedDialogSize(child: content)
+        : content,
   );
 }
 

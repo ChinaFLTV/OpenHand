@@ -983,8 +983,9 @@ class OpenHandTintedPanel extends StatelessWidget {
 /// 编辑弹窗公共骨架：工具头 + 正文 + 固定页脚。
 ///
 /// 进退场走 [showAnimatedDialog] 的全局弹窗动画；页脚钉住避免长表单挡住保存。
-/// [scrollBody] 为 true 时高度按内容收缩，超过 [maxHeight] 后正文滚动；
-/// 为 false 时撑满最大高度，供 Tab 等需要 [Expanded] 的布局使用。
+/// [scrollBody] 为 true 时高度按内容收缩，超过 [maxHeight] 后正文滚动，
+/// 宽高变化走 [OpenHandAnimatedDialogSize]；为 false 时撑满最大高度，
+/// 供 Tab 等需要 [Expanded] 的布局使用。
 class OpenHandEditorDialogScaffold extends StatelessWidget {
   const OpenHandEditorDialogScaffold({
     super.key,
