@@ -2893,6 +2893,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
 }
 
 const double _kConnectivityPlaceholderMinHeight = 180;
+const double _kConnectivityProbeResultsMaxHeight = 360;
 const double _kConnectivityTargetAccentWidth = 5;
 const double _kConnectivityMetaChipMaxLabelWidth = 360;
 const Offset _kConnectivityCardEnterOffset = Offset(0, 8);
@@ -3019,6 +3020,7 @@ class _WebGatewayConnectivityDialogState
             currentChild,
             previousChildren,
             alignment: Alignment.topCenter,
+            sizeToCurrentChild: true,
           );
         },
         child: error != null
@@ -3174,6 +3176,7 @@ class _ConnectivityResultView extends StatelessWidget {
       allOk: result.ok,
     );
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         OpenHandTintedPanel(
@@ -3283,14 +3286,28 @@ class _ConnectivityResultView extends StatelessWidget {
                     ja: '現在のサービスにはテスト可能な入口がありません。先にWebメッセージプラットフォームサービスを起動してください。',
                   ),
                 )
-              : Column(
-                  children: [
-                    for (var index = 0; index < result.targets.length; index++)
-                      _ConnectivityTargetCard(
-                        target: result.targets[index],
-                        index: index,
+              : Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: 1,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxHeight: _kConnectivityProbeResultsMaxHeight,
+                    ),
+                    child: OpenHandSafeScrollbar(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        primary: false,
+                        padding: EdgeInsets.zero,
+                        itemCount: result.targets.length,
+                        itemBuilder: (context, index) {
+                          return _ConnectivityTargetCard(
+                            target: result.targets[index],
+                            index: index,
+                          );
+                        },
                       ),
-                  ],
+                    ),
+                  ),
                 ),
         ),
         kOpenHandGap14,
@@ -3430,6 +3447,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(

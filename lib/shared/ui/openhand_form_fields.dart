@@ -462,6 +462,7 @@ class OpenHandDialogSectionCard extends StatelessWidget {
       child: Padding(
         padding: padding,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (onHeaderTap == null)
