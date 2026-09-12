@@ -674,7 +674,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
         ),
         OpenHandFeatureIconButton(
           tooltip: openHandDetailsLabel(context),
-          icon: Icons.edit_outlined,
+          icon: Icons.info_outline_rounded,
           onPressed: () => showKnowledgeSourceDetailDialog(context, source.id),
         ),
         AnimatedPopupMenuButton<_KnowledgeCardAction>(
