@@ -5427,12 +5427,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get auditNoData => 'Keine Daten';
 
   @override
-  String get auditCopyJson => 'JSON kopieren';
-
-  @override
-  String get auditCopiedToClipboard => 'In die Zwischenablage kopiert';
-
-  @override
   String get auditMessageAudit => 'Nachrichten-Audit';
 
   @override
@@ -5584,24 +5578,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get auditSessionMetadataSaved => 'Sitzungsmetadaten gespeichert';
 
   @override
-  String get auditSessionAudit => 'Sitzungsaudit';
-
-  @override
-  String get auditTemplate => 'Vorlage';
-
-  @override
-  String get auditCreatedAt => 'Erstellt am';
-
-  @override
-  String get auditUpdatedAt => 'Aktualisiert am';
-
-  @override
-  String get auditMessages => 'Nachrichten';
-
-  @override
-  String get auditLastModel => 'Letztes Modell';
-
-  @override
   String get auditTitleEditable => 'Titel (bearbeitbar)';
 
   @override
@@ -5620,30 +5596,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get auditSaveMetadata => 'Metadaten speichern';
-
-  @override
-  String get auditRuntimePromptMetadataReadOnly =>
-      'Laufzeit-Prompt-Metadaten (schreibgeschützt)';
-
-  @override
-  String get auditUsefulForPromptConstructionTroubleshooti =>
-      'Nützlich für die Fehlerbehebung der Prompt-Konstruktion; wird zur Laufzeit automatisch aktualisiert.';
-
-  @override
-  String get auditLastPromptMetadata => 'last_prompt_metadata';
-
-  @override
-  String get auditNoRuntimePromptMetadataYet =>
-      'Noch keine Laufzeit-Prompt-Metadaten';
-
-  @override
-  String get auditEnvironment => 'Umgebung';
-
-  @override
-  String get auditErrorList => 'Fehlerliste';
-
-  @override
-  String get auditNoErrorsRecorded => 'Keine Fehler aufgezeichnet';
 
   @override
   String get auditTapARowToInspectA =>
@@ -6767,13 +6719,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String auditSaveFailedError(Object error) {
     return 'Speichern fehlgeschlagen: $error';
-  }
-
-  @override
-  String auditRecentErrorsSessionRecenterrorsLength(
-    Object session_recentErrors_length,
-  ) {
-    return 'Kürzliche Fehler ($session_recentErrors_length)';
   }
 
   @override

@@ -5176,12 +5176,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get auditNoData => '无数据';
 
   @override
-  String get auditCopyJson => '复制 JSON';
-
-  @override
-  String get auditCopiedToClipboard => '已复制到剪贴板';
-
-  @override
   String get auditMessageAudit => '消息审计';
 
   @override
@@ -5332,24 +5326,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get auditSessionMetadataSaved => '会话元数据已更新';
 
   @override
-  String get auditSessionAudit => '会话审计';
-
-  @override
-  String get auditTemplate => '模板';
-
-  @override
-  String get auditCreatedAt => '创建时间';
-
-  @override
-  String get auditUpdatedAt => '更新时间';
-
-  @override
-  String get auditMessages => '消息数';
-
-  @override
-  String get auditLastModel => '最近模型';
-
-  @override
   String get auditTitleEditable => '标题编辑';
 
   @override
@@ -5367,28 +5343,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get auditSaveMetadata => '保存元数据';
-
-  @override
-  String get auditRuntimePromptMetadataReadOnly => '运行时 Prompt 元数据 (只读)';
-
-  @override
-  String get auditUsefulForPromptConstructionTroubleshooti =>
-      '用于排查本轮消息拼装上下文；自动由系统写入。';
-
-  @override
-  String get auditLastPromptMetadata => 'last_prompt_metadata';
-
-  @override
-  String get auditNoRuntimePromptMetadataYet => '暂无运行时 Prompt 元数据';
-
-  @override
-  String get auditEnvironment => '会话环境';
-
-  @override
-  String get auditErrorList => '错误列表';
-
-  @override
-  String get auditNoErrorsRecorded => '暂无错误';
 
   @override
   String get auditTapARowToInspectA => '点击单条可打开消息审计弹窗；支持删除单条消息。';
@@ -6428,13 +6382,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String auditSaveFailedError(Object error) {
     return '保存失败：$error';
-  }
-
-  @override
-  String auditRecentErrorsSessionRecenterrorsLength(
-    Object session_recentErrors_length,
-  ) {
-    return '最近错误 ($session_recentErrors_length)';
   }
 
   @override
@@ -15591,12 +15538,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get auditNoData => '无数据';
 
   @override
-  String get auditCopyJson => '复制 JSON';
-
-  @override
-  String get auditCopiedToClipboard => '已复制到剪贴板';
-
-  @override
   String get auditMessageAudit => '消息审计';
 
   @override
@@ -15747,24 +15688,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get auditSessionMetadataSaved => '会话元数据已更新';
 
   @override
-  String get auditSessionAudit => '会话审计';
-
-  @override
-  String get auditTemplate => '模板';
-
-  @override
-  String get auditCreatedAt => '创建时间';
-
-  @override
-  String get auditUpdatedAt => '更新时间';
-
-  @override
-  String get auditMessages => '消息数';
-
-  @override
-  String get auditLastModel => '最近模型';
-
-  @override
   String get auditTitleEditable => '标题编辑';
 
   @override
@@ -15782,28 +15705,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get auditSaveMetadata => '保存元数据';
-
-  @override
-  String get auditRuntimePromptMetadataReadOnly => '运行时 Prompt 元数据 (只读)';
-
-  @override
-  String get auditUsefulForPromptConstructionTroubleshooti =>
-      '用于排查本轮消息拼装上下文；自动由系统写入。';
-
-  @override
-  String get auditLastPromptMetadata => 'last_prompt_metadata';
-
-  @override
-  String get auditNoRuntimePromptMetadataYet => '暂无运行时 Prompt 元数据';
-
-  @override
-  String get auditEnvironment => '会话环境';
-
-  @override
-  String get auditErrorList => '错误列表';
-
-  @override
-  String get auditNoErrorsRecorded => '暂无错误';
 
   @override
   String get auditTapARowToInspectA => '点击单条可打开消息审计弹窗；支持删除单条消息。';
@@ -16840,13 +16741,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String auditSaveFailedError(Object error) {
     return '保存失败：$error';
-  }
-
-  @override
-  String auditRecentErrorsSessionRecenterrorsLength(
-    Object session_recentErrors_length,
-  ) {
-    return '最近错误 ($session_recentErrors_length)';
   }
 
   @override

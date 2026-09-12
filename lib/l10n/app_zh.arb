@@ -2743,8 +2743,6 @@
   "sessMetaTitleGenerationError": "标题生成失败",
   "sessMetaSessionError": "会话异常",
   "auditNoData": "无数据",
-  "auditCopyJson": "复制 JSON",
-  "auditCopiedToClipboard": "已复制到剪贴板",
   "auditMessageAudit": "消息审计",
   "auditClose": "关闭",
   "auditOverview": "基本信息",
@@ -2794,25 +2792,12 @@
   "auditAuditSnapshotCopied": "审计快照已复制",
   "auditCopyAuditSnapshot": "复制审计快照",
   "auditSessionMetadataSaved": "会话元数据已更新",
-  "auditSessionAudit": "会话审计",
-  "auditTemplate": "模板",
-  "auditCreatedAt": "创建时间",
-  "auditUpdatedAt": "更新时间",
-  "auditMessages": "消息数",
-  "auditLastModel": "最近模型",
   "auditTitleEditable": "标题编辑",
   "auditSessionTitle": "会话标题",
   "auditSaveTitle": "保存标题",
   "auditSessionMetadataEditableJson": "会话元数据 (可编辑 JSON)",
   "auditSaveWritesBackThroughTheSession": "修改后点击保存将通过会话控制器写回数据库并实时刷新 UI。删除的 key 会被清除。",
   "auditSaveMetadata": "保存元数据",
-  "auditRuntimePromptMetadataReadOnly": "运行时 Prompt 元数据 (只读)",
-  "auditUsefulForPromptConstructionTroubleshooti": "用于排查本轮消息拼装上下文；自动由系统写入。",
-  "auditLastPromptMetadata": "last_prompt_metadata",
-  "auditNoRuntimePromptMetadataYet": "暂无运行时 Prompt 元数据",
-  "auditEnvironment": "会话环境",
-  "auditErrorList": "错误列表",
-  "auditNoErrorsRecorded": "暂无错误",
   "auditTapARowToInspectA": "点击单条可打开消息审计弹窗；支持删除单条消息。",
   "auditNoMessages": "暂无消息",
   "auditAudit": "审计",
@@ -3231,14 +3216,6 @@
   "@auditSaveFailedError": {
     "placeholders": {
       "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "auditRecentErrorsSessionRecenterrorsLength": "最近错误 ({session_recentErrors_length})",
-  "@auditRecentErrorsSessionRecenterrorsLength": {
-    "placeholders": {
-      "session_recentErrors_length": {
         "type": "Object"
       }
     }

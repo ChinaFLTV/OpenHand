@@ -2681,8 +2681,6 @@
   "sessMetaTitleGenerationError": "Erreur de génération de titre",
   "sessMetaSessionError": "Erreur de session",
   "auditNoData": "Aucune donnée",
-  "auditCopyJson": "Copier le JSON",
-  "auditCopiedToClipboard": "Copié dans le presse-papiers",
   "auditMessageAudit": "Audit du message",
   "auditClose": "Fermer",
   "auditOverview": "Aperçu",
@@ -2732,25 +2730,12 @@
   "auditAuditSnapshotCopied": "Instantané d’audit copié",
   "auditCopyAuditSnapshot": "Copier l’instantané d’audit",
   "auditSessionMetadataSaved": "Métadonnées de session enregistrées",
-  "auditSessionAudit": "Audit de session",
-  "auditTemplate": "Modèle",
-  "auditCreatedAt": "Créé le",
-  "auditUpdatedAt": "Mis à jour le",
-  "auditMessages": "Messages",
-  "auditLastModel": "Dernier modèle",
   "auditTitleEditable": "Titre (modifiable)",
   "auditSessionTitle": "Titre de session",
   "auditSaveTitle": "Enregistrer le titre",
   "auditSessionMetadataEditableJson": "Métadonnées de session (JSON modifiable)",
   "auditSaveWritesBackThroughTheSession": "L’enregistrement réécrit via le contrôleur de session avec un diff d’interface en direct ; les clés supprimées sont effacées.",
   "auditSaveMetadata": "Enregistrer les métadonnées",
-  "auditRuntimePromptMetadataReadOnly": "Métadonnées d’invite d’exécution (lecture seule)",
-  "auditUsefulForPromptConstructionTroubleshooti": "Utile pour le dépannage de la construction d’invite ; mis à jour automatiquement par l’exécution.",
-  "auditLastPromptMetadata": "last_prompt_metadata",
-  "auditNoRuntimePromptMetadataYet": "Aucune métadonnée d’invite d’exécution pour l’instant",
-  "auditEnvironment": "Environnement",
-  "auditErrorList": "Liste des erreurs",
-  "auditNoErrorsRecorded": "Aucune erreur enregistrée",
   "auditTapARowToInspectA": "Appuyez sur une ligne pour inspecter un message ; la suppression la retire du stockage.",
   "auditNoMessages": "Aucun message",
   "auditAudit": "Audit",
@@ -3159,14 +3144,6 @@
   "@auditSaveFailedError": {
     "placeholders": {
       "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "auditRecentErrorsSessionRecenterrorsLength": "Erreurs récentes ({session_recentErrors_length})",
-  "@auditRecentErrorsSessionRecenterrorsLength": {
-    "placeholders": {
-      "session_recentErrors_length": {
         "type": "Object"
       }
     }

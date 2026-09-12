@@ -5443,12 +5443,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get auditNoData => 'Aucune donnée';
 
   @override
-  String get auditCopyJson => 'Copier le JSON';
-
-  @override
-  String get auditCopiedToClipboard => 'Copié dans le presse-papiers';
-
-  @override
   String get auditMessageAudit => 'Audit du message';
 
   @override
@@ -5600,24 +5594,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get auditSessionMetadataSaved => 'Métadonnées de session enregistrées';
 
   @override
-  String get auditSessionAudit => 'Audit de session';
-
-  @override
-  String get auditTemplate => 'Modèle';
-
-  @override
-  String get auditCreatedAt => 'Créé le';
-
-  @override
-  String get auditUpdatedAt => 'Mis à jour le';
-
-  @override
-  String get auditMessages => 'Messages';
-
-  @override
-  String get auditLastModel => 'Dernier modèle';
-
-  @override
   String get auditTitleEditable => 'Titre (modifiable)';
 
   @override
@@ -5636,30 +5612,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get auditSaveMetadata => 'Enregistrer les métadonnées';
-
-  @override
-  String get auditRuntimePromptMetadataReadOnly =>
-      'Métadonnées d’invite d’exécution (lecture seule)';
-
-  @override
-  String get auditUsefulForPromptConstructionTroubleshooti =>
-      'Utile pour le dépannage de la construction d’invite ; mis à jour automatiquement par l’exécution.';
-
-  @override
-  String get auditLastPromptMetadata => 'last_prompt_metadata';
-
-  @override
-  String get auditNoRuntimePromptMetadataYet =>
-      'Aucune métadonnée d’invite d’exécution pour l’instant';
-
-  @override
-  String get auditEnvironment => 'Environnement';
-
-  @override
-  String get auditErrorList => 'Liste des erreurs';
-
-  @override
-  String get auditNoErrorsRecorded => 'Aucune erreur enregistrée';
 
   @override
   String get auditTapARowToInspectA =>
@@ -6791,13 +6743,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String auditSaveFailedError(Object error) {
     return 'Échec de l’enregistrement : $error';
-  }
-
-  @override
-  String auditRecentErrorsSessionRecenterrorsLength(
-    Object session_recentErrors_length,
-  ) {
-    return 'Erreurs récentes ($session_recentErrors_length)';
   }
 
   @override

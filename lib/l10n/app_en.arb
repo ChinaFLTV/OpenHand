@@ -2686,8 +2686,6 @@
   "sessMetaTitleGenerationError": "Title Generation Error",
   "sessMetaSessionError": "Session Error",
   "auditNoData": "No data",
-  "auditCopyJson": "Copy JSON",
-  "auditCopiedToClipboard": "Copied to clipboard",
   "auditMessageAudit": "Message Audit",
   "auditClose": "Close",
   "auditOverview": "Overview",
@@ -2737,25 +2735,12 @@
   "auditAuditSnapshotCopied": "Audit snapshot copied",
   "auditCopyAuditSnapshot": "Copy Audit Snapshot",
   "auditSessionMetadataSaved": "Session metadata saved",
-  "auditSessionAudit": "Session Audit",
-  "auditTemplate": "Template",
-  "auditCreatedAt": "Created At",
-  "auditUpdatedAt": "Updated At",
-  "auditMessages": "Messages",
-  "auditLastModel": "Last Model",
   "auditTitleEditable": "Title (Editable)",
   "auditSessionTitle": "Session title",
   "auditSaveTitle": "Save Title",
   "auditSessionMetadataEditableJson": "Session Metadata (Editable JSON)",
   "auditSaveWritesBackThroughTheSession": "Save writes back through the session controller with live UI diff; removed keys are cleared.",
   "auditSaveMetadata": "Save Metadata",
-  "auditRuntimePromptMetadataReadOnly": "Runtime Prompt Metadata (Read-only)",
-  "auditUsefulForPromptConstructionTroubleshooti": "Useful for prompt-construction troubleshooting; auto-updated by runtime.",
-  "auditLastPromptMetadata": "last_prompt_metadata",
-  "auditNoRuntimePromptMetadataYet": "No runtime prompt metadata yet",
-  "auditEnvironment": "Environment",
-  "auditErrorList": "Error list",
-  "auditNoErrorsRecorded": "No errors recorded",
   "auditTapARowToInspectA": "Tap a row to inspect a message; delete removes it from storage.",
   "auditNoMessages": "No messages",
   "auditAudit": "Audit",
@@ -3164,14 +3149,6 @@
   "@auditSaveFailedError": {
     "placeholders": {
       "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "auditRecentErrorsSessionRecenterrorsLength": "Recent Errors ({session_recentErrors_length})",
-  "@auditRecentErrorsSessionRecenterrorsLength": {
-    "placeholders": {
-      "session_recentErrors_length": {
         "type": "Object"
       }
     }

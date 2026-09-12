@@ -5375,12 +5375,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditNoData => 'No data';
 
   @override
-  String get auditCopyJson => 'Copy JSON';
-
-  @override
-  String get auditCopiedToClipboard => 'Copied to clipboard';
-
-  @override
   String get auditMessageAudit => 'Message Audit';
 
   @override
@@ -5532,24 +5526,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditSessionMetadataSaved => 'Session metadata saved';
 
   @override
-  String get auditSessionAudit => 'Session Audit';
-
-  @override
-  String get auditTemplate => 'Template';
-
-  @override
-  String get auditCreatedAt => 'Created At';
-
-  @override
-  String get auditUpdatedAt => 'Updated At';
-
-  @override
-  String get auditMessages => 'Messages';
-
-  @override
-  String get auditLastModel => 'Last Model';
-
-  @override
   String get auditTitleEditable => 'Title (Editable)';
 
   @override
@@ -5568,30 +5544,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditSaveMetadata => 'Save Metadata';
-
-  @override
-  String get auditRuntimePromptMetadataReadOnly =>
-      'Runtime Prompt Metadata (Read-only)';
-
-  @override
-  String get auditUsefulForPromptConstructionTroubleshooti =>
-      'Useful for prompt-construction troubleshooting; auto-updated by runtime.';
-
-  @override
-  String get auditLastPromptMetadata => 'last_prompt_metadata';
-
-  @override
-  String get auditNoRuntimePromptMetadataYet =>
-      'No runtime prompt metadata yet';
-
-  @override
-  String get auditEnvironment => 'Environment';
-
-  @override
-  String get auditErrorList => 'Error list';
-
-  @override
-  String get auditNoErrorsRecorded => 'No errors recorded';
 
   @override
   String get auditTapARowToInspectA =>
@@ -6706,13 +6658,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String auditSaveFailedError(Object error) {
     return 'Save failed: $error';
-  }
-
-  @override
-  String auditRecentErrorsSessionRecenterrorsLength(
-    Object session_recentErrors_length,
-  ) {
-    return 'Recent Errors ($session_recentErrors_length)';
   }
 
   @override

@@ -2681,8 +2681,6 @@
   "sessMetaTitleGenerationError": "Fehler bei der Titelerzeugung",
   "sessMetaSessionError": "Sitzungsfehler",
   "auditNoData": "Keine Daten",
-  "auditCopyJson": "JSON kopieren",
-  "auditCopiedToClipboard": "In die Zwischenablage kopiert",
   "auditMessageAudit": "Nachrichten-Audit",
   "auditClose": "Schließen",
   "auditOverview": "Übersicht",
@@ -2732,25 +2730,12 @@
   "auditAuditSnapshotCopied": "Audit-Snapshot kopiert",
   "auditCopyAuditSnapshot": "Audit-Snapshot kopieren",
   "auditSessionMetadataSaved": "Sitzungsmetadaten gespeichert",
-  "auditSessionAudit": "Sitzungsaudit",
-  "auditTemplate": "Vorlage",
-  "auditCreatedAt": "Erstellt am",
-  "auditUpdatedAt": "Aktualisiert am",
-  "auditMessages": "Nachrichten",
-  "auditLastModel": "Letztes Modell",
   "auditTitleEditable": "Titel (bearbeitbar)",
   "auditSessionTitle": "Sitzungstitel",
   "auditSaveTitle": "Titel speichern",
   "auditSessionMetadataEditableJson": "Sitzungsmetadaten (bearbeitbares JSON)",
   "auditSaveWritesBackThroughTheSession": "Speichern schreibt über den Sitzungscontroller mit Live-UI-Diff zurück; entfernte Schlüssel werden gelöscht.",
   "auditSaveMetadata": "Metadaten speichern",
-  "auditRuntimePromptMetadataReadOnly": "Laufzeit-Prompt-Metadaten (schreibgeschützt)",
-  "auditUsefulForPromptConstructionTroubleshooti": "Nützlich für die Fehlerbehebung der Prompt-Konstruktion; wird zur Laufzeit automatisch aktualisiert.",
-  "auditLastPromptMetadata": "last_prompt_metadata",
-  "auditNoRuntimePromptMetadataYet": "Noch keine Laufzeit-Prompt-Metadaten",
-  "auditEnvironment": "Umgebung",
-  "auditErrorList": "Fehlerliste",
-  "auditNoErrorsRecorded": "Keine Fehler aufgezeichnet",
   "auditTapARowToInspectA": "Tippen Sie auf eine Zeile, um eine Nachricht zu prüfen; Löschen entfernt sie aus dem Speicher.",
   "auditNoMessages": "Keine Nachrichten",
   "auditAudit": "Prüfung",
@@ -3159,14 +3144,6 @@
   "@auditSaveFailedError": {
     "placeholders": {
       "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "auditRecentErrorsSessionRecenterrorsLength": "Kürzliche Fehler ({session_recentErrors_length})",
-  "@auditRecentErrorsSessionRecenterrorsLength": {
-    "placeholders": {
-      "session_recentErrors_length": {
         "type": "Object"
       }
     }

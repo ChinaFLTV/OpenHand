@@ -5235,12 +5235,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get auditNoData => 'データなし';
 
   @override
-  String get auditCopyJson => 'JSON をコピー';
-
-  @override
-  String get auditCopiedToClipboard => 'クリップボードにコピーしました';
-
-  @override
   String get auditMessageAudit => 'メッセージ監査';
 
   @override
@@ -5392,24 +5386,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get auditSessionMetadataSaved => 'セッションメタデータを保存しました';
 
   @override
-  String get auditSessionAudit => 'セッション監査';
-
-  @override
-  String get auditTemplate => 'テンプレート';
-
-  @override
-  String get auditCreatedAt => '作成日時';
-
-  @override
-  String get auditUpdatedAt => '更新日時';
-
-  @override
-  String get auditMessages => 'メッセージ';
-
-  @override
-  String get auditLastModel => '最後のモデル';
-
-  @override
   String get auditTitleEditable => 'タイトル（編集可）';
 
   @override
@@ -5427,28 +5403,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get auditSaveMetadata => 'メタデータを保存';
-
-  @override
-  String get auditRuntimePromptMetadataReadOnly => 'ランタイムプロンプトメタデータ（読み取り専用）';
-
-  @override
-  String get auditUsefulForPromptConstructionTroubleshooti =>
-      'プロンプト構築のトラブルシューティングに有用です。ランタイムにより自動更新されます。';
-
-  @override
-  String get auditLastPromptMetadata => 'last_prompt_metadata';
-
-  @override
-  String get auditNoRuntimePromptMetadataYet => 'ランタイムプロンプトメタデータはまだありません';
-
-  @override
-  String get auditEnvironment => '環境';
-
-  @override
-  String get auditErrorList => 'エラー一覧';
-
-  @override
-  String get auditNoErrorsRecorded => '記録されたエラーはありません';
 
   @override
   String get auditTapARowToInspectA => '行をタップしてメッセージを確認します。削除でストレージから削除されます。';
@@ -6524,13 +6478,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String auditSaveFailedError(Object error) {
     return '保存に失敗しました：$error';
-  }
-
-  @override
-  String auditRecentErrorsSessionRecenterrorsLength(
-    Object session_recentErrors_length,
-  ) {
-    return '最近のエラー ($session_recentErrors_length)';
   }
 
   @override

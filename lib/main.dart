@@ -724,8 +724,7 @@ bool _containsHighlightFormattingNoise(String value) {
 bool _shouldSilenceHighlightFormattingError(Object error, StackTrace? stack) {
   if (!_containsHighlightFormattingNoise(error.toString())) return false;
   final trace = stack?.toString() ?? '';
-  return trace.contains('package:highlight/') ||
-      trace.contains('package:flutter_highlight/');
+  return trace.contains('package:highlight/');
 }
 
 /// 过滤 highlight 格式化异常和 media_kit 初始化跟踪输出，避免刷屏和首屏卡顿。

@@ -9606,18 +9606,6 @@ abstract class AppLocalizations {
   /// **'无数据'**
   String get auditNoData;
 
-  /// No description provided for @auditCopyJson.
-  ///
-  /// In zh, this message translates to:
-  /// **'复制 JSON'**
-  String get auditCopyJson;
-
-  /// No description provided for @auditCopiedToClipboard.
-  ///
-  /// In zh, this message translates to:
-  /// **'已复制到剪贴板'**
-  String get auditCopiedToClipboard;
-
   /// No description provided for @auditMessageAudit.
   ///
   /// In zh, this message translates to:
@@ -9912,42 +9900,6 @@ abstract class AppLocalizations {
   /// **'会话元数据已更新'**
   String get auditSessionMetadataSaved;
 
-  /// No description provided for @auditSessionAudit.
-  ///
-  /// In zh, this message translates to:
-  /// **'会话审计'**
-  String get auditSessionAudit;
-
-  /// No description provided for @auditTemplate.
-  ///
-  /// In zh, this message translates to:
-  /// **'模板'**
-  String get auditTemplate;
-
-  /// No description provided for @auditCreatedAt.
-  ///
-  /// In zh, this message translates to:
-  /// **'创建时间'**
-  String get auditCreatedAt;
-
-  /// No description provided for @auditUpdatedAt.
-  ///
-  /// In zh, this message translates to:
-  /// **'更新时间'**
-  String get auditUpdatedAt;
-
-  /// No description provided for @auditMessages.
-  ///
-  /// In zh, this message translates to:
-  /// **'消息数'**
-  String get auditMessages;
-
-  /// No description provided for @auditLastModel.
-  ///
-  /// In zh, this message translates to:
-  /// **'最近模型'**
-  String get auditLastModel;
-
   /// No description provided for @auditTitleEditable.
   ///
   /// In zh, this message translates to:
@@ -9983,48 +9935,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'保存元数据'**
   String get auditSaveMetadata;
-
-  /// No description provided for @auditRuntimePromptMetadataReadOnly.
-  ///
-  /// In zh, this message translates to:
-  /// **'运行时 Prompt 元数据 (只读)'**
-  String get auditRuntimePromptMetadataReadOnly;
-
-  /// No description provided for @auditUsefulForPromptConstructionTroubleshooti.
-  ///
-  /// In zh, this message translates to:
-  /// **'用于排查本轮消息拼装上下文；自动由系统写入。'**
-  String get auditUsefulForPromptConstructionTroubleshooti;
-
-  /// No description provided for @auditLastPromptMetadata.
-  ///
-  /// In zh, this message translates to:
-  /// **'last_prompt_metadata'**
-  String get auditLastPromptMetadata;
-
-  /// No description provided for @auditNoRuntimePromptMetadataYet.
-  ///
-  /// In zh, this message translates to:
-  /// **'暂无运行时 Prompt 元数据'**
-  String get auditNoRuntimePromptMetadataYet;
-
-  /// No description provided for @auditEnvironment.
-  ///
-  /// In zh, this message translates to:
-  /// **'会话环境'**
-  String get auditEnvironment;
-
-  /// No description provided for @auditErrorList.
-  ///
-  /// In zh, this message translates to:
-  /// **'错误列表'**
-  String get auditErrorList;
-
-  /// No description provided for @auditNoErrorsRecorded.
-  ///
-  /// In zh, this message translates to:
-  /// **'暂无错误'**
-  String get auditNoErrorsRecorded;
 
   /// No description provided for @auditTapARowToInspectA.
   ///
@@ -11915,14 +11825,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'保存失败：{error}'**
   String auditSaveFailedError(Object error);
-
-  /// No description provided for @auditRecentErrorsSessionRecenterrorsLength.
-  ///
-  /// In zh, this message translates to:
-  /// **'最近错误 ({session_recentErrors_length})'**
-  String auditRecentErrorsSessionRecenterrorsLength(
-    Object session_recentErrors_length,
-  );
 
   /// No description provided for @auditMessagesSessionMessagesLength.
   ///

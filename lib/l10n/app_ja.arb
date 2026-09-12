@@ -2681,8 +2681,6 @@
   "sessMetaTitleGenerationError": "タイトル生成エラー",
   "sessMetaSessionError": "セッションエラー",
   "auditNoData": "データなし",
-  "auditCopyJson": "JSON をコピー",
-  "auditCopiedToClipboard": "クリップボードにコピーしました",
   "auditMessageAudit": "メッセージ監査",
   "auditClose": "閉じる",
   "auditOverview": "概要",
@@ -2732,25 +2730,12 @@
   "auditAuditSnapshotCopied": "監査スナップショットをコピーしました",
   "auditCopyAuditSnapshot": "監査スナップショットをコピー",
   "auditSessionMetadataSaved": "セッションメタデータを保存しました",
-  "auditSessionAudit": "セッション監査",
-  "auditTemplate": "テンプレート",
-  "auditCreatedAt": "作成日時",
-  "auditUpdatedAt": "更新日時",
-  "auditMessages": "メッセージ",
-  "auditLastModel": "最後のモデル",
   "auditTitleEditable": "タイトル（編集可）",
   "auditSessionTitle": "セッションタイトル",
   "auditSaveTitle": "タイトルを保存",
   "auditSessionMetadataEditableJson": "セッションメタデータ（編集可能 JSON）",
   "auditSaveWritesBackThroughTheSession": "保存はセッションコントローラ経由でライブ UI 差分とともに書き戻されます。削除されたキーはクリアされます。",
   "auditSaveMetadata": "メタデータを保存",
-  "auditRuntimePromptMetadataReadOnly": "ランタイムプロンプトメタデータ（読み取り専用）",
-  "auditUsefulForPromptConstructionTroubleshooti": "プロンプト構築のトラブルシューティングに有用です。ランタイムにより自動更新されます。",
-  "auditLastPromptMetadata": "last_prompt_metadata",
-  "auditNoRuntimePromptMetadataYet": "ランタイムプロンプトメタデータはまだありません",
-  "auditEnvironment": "環境",
-  "auditErrorList": "エラー一覧",
-  "auditNoErrorsRecorded": "記録されたエラーはありません",
   "auditTapARowToInspectA": "行をタップしてメッセージを確認します。削除でストレージから削除されます。",
   "auditNoMessages": "メッセージなし",
   "auditAudit": "監査",
@@ -3159,14 +3144,6 @@
   "@auditSaveFailedError": {
     "placeholders": {
       "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "auditRecentErrorsSessionRecenterrorsLength": "最近のエラー ({session_recentErrors_length})",
-  "@auditRecentErrorsSessionRecenterrorsLength": {
-    "placeholders": {
-      "session_recentErrors_length": {
         "type": "Object"
       }
     }
