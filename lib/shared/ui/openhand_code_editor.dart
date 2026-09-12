@@ -286,10 +286,10 @@ class OpenHandCodeEditor extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<OpenHandCodeEditor> createState() => _OpenHandCodeEditorState();
+  OpenHandCodeEditorState createState() => OpenHandCodeEditorState();
 }
 
-class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
+class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   static const int _maxImportedCodeBytes = 512 * 1024;
   static const int _formatterIndentWidth = 4;
   static const int _compactFormatterIndentWidth = 2;
@@ -397,6 +397,23 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncLineNumberScroll();
     });
+  }
+
+  TextEditingValue get editingValue => _controller.value;
+
+  void applyEditingValue(TextEditingValue value) {
+    final text = value.text;
+    final max = text.length;
+    final next = TextEditingValue(
+      text: text,
+      selection: TextSelection(
+        baseOffset: value.selection.baseOffset.clamp(0, max),
+        extentOffset: value.selection.extentOffset.clamp(0, max),
+      ),
+    );
+    if (_controller.value == next) return;
+    _controller.value = next;
+    widget.onChanged(next.text);
   }
 
   @override

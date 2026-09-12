@@ -8,11 +8,16 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_editor_chrome.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -41,9 +46,9 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
   final TextEditingController _title = TextEditingController();
   final TextEditingController _content = TextEditingController();
   final TextEditingController _tagInput = TextEditingController();
+  final GlobalKey<OpenHandCodeEditorState> _editorKey =
+      GlobalKey<OpenHandCodeEditorState>();
   final List<String> _tags = <String>[];
-  final List<TextEditingValue> _undoStack = <TextEditingValue>[];
-  final List<TextEditingValue> _redoStack = <TextEditingValue>[];
   bool _preview = false;
   bool _saving = false;
 
@@ -86,29 +91,21 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
     setState(() => _tags.remove(value));
   }
 
-  void _replaceContent(TextEditingValue value) {
-    _undoStack.add(_content.value);
-    if (_undoStack.length > 80) {
-      _undoStack.removeAt(0);
+  TextEditingValue get _editingValue {
+    return _editorKey.currentState?.editingValue ?? _content.value;
+  }
+
+  void _applyEditingValue(TextEditingValue value) {
+    if (_saving) return;
+    final editor = _editorKey.currentState;
+    if (editor != null) {
+      editor.applyEditingValue(value);
     }
-    _redoStack.clear();
     _content.value = value;
   }
 
-  void _undo() {
-    if (_undoStack.isEmpty) return;
-    _redoStack.add(_content.value);
-    _content.value = _undoStack.removeLast();
-  }
-
-  void _redo() {
-    if (_redoStack.isEmpty) return;
-    _undoStack.add(_content.value);
-    _content.value = _redoStack.removeLast();
-  }
-
   TextSelection _safeSelection(String text) {
-    final selection = _content.selection;
+    final selection = _editingValue.selection;
     return selection.isValid
         ? selection
         : TextSelection.collapsed(offset: text.length);
@@ -120,7 +117,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
     String placeholder = '',
     int? cursorOffset,
   }) {
-    final text = _content.text;
+    final text = _editingValue.text;
     final safeSelection = _safeSelection(text);
     final start = safeSelection.start.clamp(0, text.length);
     final end = safeSelection.end.clamp(0, text.length);
@@ -129,7 +126,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
     final cursor =
         start +
         (cursorOffset ?? prefix.length + selected.length + suffix.length);
-    _replaceContent(
+    _applyEditingValue(
       TextEditingValue(
         text: next,
         selection: TextSelection.collapsed(offset: cursor),
@@ -138,7 +135,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
   }
 
   void _prefixSelectedLines(String prefix) {
-    final text = _content.text;
+    final text = _editingValue.text;
     final selection = _safeSelection(text);
     final start = selection.start.clamp(0, text.length);
     final end = selection.end.clamp(0, text.length);
@@ -148,7 +145,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
     final block = text.substring(lineStart, effectiveEnd);
     final lines = block.split('\n');
     final replacement = lines.map((line) => '$prefix$line').join('\n');
-    _replaceContent(
+    _applyEditingValue(
       TextEditingValue(
         text: text.replaceRange(lineStart, effectiveEnd, replacement),
         selection: TextSelection(
@@ -160,7 +157,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
   }
 
   void _insertBlock(String block) {
-    final text = _content.text;
+    final text = _editingValue.text;
     final selection = _safeSelection(text);
     final start = selection.start.clamp(0, text.length);
     final end = selection.end.clamp(0, text.length);
@@ -170,7 +167,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
         end < text.length && !text.substring(end).startsWith('\n');
     final insert =
         '${needsLeadingBreak ? '\n' : ''}$block${needsTrailingBreak ? '\n' : ''}';
-    _replaceContent(
+    _applyEditingValue(
       TextEditingValue(
         text: text.replaceRange(start, end, insert),
         selection: TextSelection.collapsed(offset: start + insert.length),
@@ -354,68 +351,72 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       de: 'Bildbeschreibung',
       ja: '画像の説明',
     );
-    final dialogHeight = math.min(
-      MediaQuery.sizeOf(context).height * 0.82,
-      700.0,
-    );
-    return buildOpenHandAlertDialog(
-      title: Text(
-        t(
-          zh: '新建知识库笔记',
-          zhHant: '新增知識庫筆記',
-          en: 'New Knowledge Note',
-          fr: 'Nouvelle note de connaissance',
-          de: 'Neue Wissensnotiz',
-          ja: '新規ナレッジノート',
-        ),
+    return OpenHandEditorDialogScaffold(
+      title: t(
+        zh: '新建知识库笔记',
+        zhHant: '新增知識庫筆記',
+        en: 'New Knowledge Note',
+        fr: 'Nouvelle note de connaissance',
+        de: 'Neue Wissensnotiz',
+        ja: '新規ナレッジノート',
       ),
-      content: buildOpenHandDialogConstrainedContent(
-        width: 760,
-        height: dialogHeight,
-        child: _KnowledgeNoteEditor(
-          title: _title,
-          content: _content,
-          tagInput: _tagInput,
-          tags: _tags,
-          preview: _preview,
-          onTogglePreview: (value) => setState(() => _preview = value),
-          onAddTag: _addTag,
-          onRemoveTag: _removeTag,
-          onUndo: _undo,
-          onRedo: _redo,
-          onBold: () =>
-              _insertSnippet('**', '**', placeholder: boldPlaceholder),
-          onItalic: () =>
-              _insertSnippet('*', '*', placeholder: italicPlaceholder),
-          onStrike: () =>
-              _insertSnippet('~~', '~~', placeholder: strikePlaceholder),
-          onCode: () => _insertSnippet('`', '`', placeholder: 'code'),
-          onCodeBlock: () => _insertBlock('```dart\n$codeComment\n```'),
-          onLink: () => _insertSnippet(
-            '[',
-            '](https://)',
-            placeholder: linkText,
-            cursorOffset: linkText.length + 3,
-          ),
-          onImage: () => _insertSnippet(
-            '![',
-            '](https://)',
-            placeholder: imageAlt,
-            cursorOffset: imageAlt.length + 4,
-          ),
-          onHeading1: () => _prefixSelectedLines('# '),
-          onHeading2: () => _prefixSelectedLines('## '),
-          onHeading3: () => _prefixSelectedLines('### '),
-          onBulletList: () => _prefixSelectedLines('- '),
-          onOrderedList: () => _prefixSelectedLines('1. '),
-          onTaskList: () => _prefixSelectedLines('- [ ] '),
-          onQuote: () => _prefixSelectedLines('> '),
-          onDivider: () => _insertBlock('---'),
-          onTable: () => _insertBlock(
-            '| ${t(zh: '字段', zhHant: '欄位', en: 'Field', fr: 'Champ', de: 'Feld', ja: '項目')} | ${t(zh: '说明', zhHant: '說明', en: 'Description', fr: 'Description', de: 'Beschreibung', ja: '説明')} |\n'
-            '| --- | --- |\n'
-            '|  |  |',
-          ),
+      subtitle: t(
+        zh: '用 Markdown 写下笔记，保存后会写入知识库并建立索引。',
+        zhHant: '用 Markdown 寫下筆記，儲存後會寫入知識庫並建立索引。',
+        en: 'Write a Markdown note. Saving indexes it into the knowledge base.',
+        fr: 'Rédigez une note Markdown. L’enregistrement l’indexe dans la base.',
+        de: 'Schreiben Sie eine Markdown-Notiz. Speichern indexiert sie.',
+        ja: 'Markdownでノートを書き、保存すると知識ベースに索引されます。',
+      ),
+      icon: Icons.note_add_rounded,
+      iconColor: OpenHandStatusColors.success,
+      busy: _saving,
+      closeEnabled: !_saving,
+      canPop: !_saving,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightFull,
+      body: _KnowledgeNoteEditor(
+        title: _title,
+        content: _content,
+        tagInput: _tagInput,
+        tags: _tags,
+        preview: _preview,
+        saving: _saving,
+        editorKey: _editorKey,
+        onTogglePreview: (value) => setState(() => _preview = value),
+        onAddTag: _addTag,
+        onRemoveTag: _removeTag,
+        onBold: () => _insertSnippet('**', '**', placeholder: boldPlaceholder),
+        onItalic: () =>
+            _insertSnippet('*', '*', placeholder: italicPlaceholder),
+        onStrike: () =>
+            _insertSnippet('~~', '~~', placeholder: strikePlaceholder),
+        onCode: () => _insertSnippet('`', '`', placeholder: 'code'),
+        onCodeBlock: () => _insertBlock('```dart\n$codeComment\n```'),
+        onLink: () => _insertSnippet(
+          '[',
+          '](https://)',
+          placeholder: linkText,
+          cursorOffset: linkText.length + 3,
+        ),
+        onImage: () => _insertSnippet(
+          '![',
+          '](https://)',
+          placeholder: imageAlt,
+          cursorOffset: imageAlt.length + 4,
+        ),
+        onHeading1: () => _prefixSelectedLines('# '),
+        onHeading2: () => _prefixSelectedLines('## '),
+        onHeading3: () => _prefixSelectedLines('### '),
+        onBulletList: () => _prefixSelectedLines('- '),
+        onOrderedList: () => _prefixSelectedLines('1. '),
+        onTaskList: () => _prefixSelectedLines('- [ ] '),
+        onQuote: () => _prefixSelectedLines('> '),
+        onDivider: () => _insertBlock('---'),
+        onTable: () => _insertBlock(
+          '| ${t(zh: '字段', zhHant: '欄位', en: 'Field', fr: 'Champ', de: 'Feld', ja: '項目')} | ${t(zh: '说明', zhHant: '說明', en: 'Description', fr: 'Description', de: 'Beschreibung', ja: '説明')} |\n'
+          '| --- | --- |\n'
+          '|  |  |',
         ),
       ),
       actions: [
@@ -448,11 +449,11 @@ class _KnowledgeNoteEditor extends StatelessWidget {
     required this.tagInput,
     required this.tags,
     required this.preview,
+    required this.saving,
+    required this.editorKey,
     required this.onTogglePreview,
     required this.onAddTag,
     required this.onRemoveTag,
-    required this.onUndo,
-    required this.onRedo,
     required this.onBold,
     required this.onItalic,
     required this.onStrike,
@@ -476,11 +477,11 @@ class _KnowledgeNoteEditor extends StatelessWidget {
   final TextEditingController tagInput;
   final List<String> tags;
   final bool preview;
+  final bool saving;
+  final GlobalKey<OpenHandCodeEditorState> editorKey;
   final ValueChanged<bool> onTogglePreview;
   final VoidCallback onAddTag;
   final ValueChanged<String> onRemoveTag;
-  final VoidCallback onUndo;
-  final VoidCallback onRedo;
   final VoidCallback onBold;
   final VoidCallback onItalic;
   final VoidCallback onStrike;
@@ -502,214 +503,247 @@ class _KnowledgeNoteEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer.withValues(alpha: 0.86),
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.84),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OpenHandDialogSectionCard(
+          icon: Icons.title_rounded,
+          accent: colorScheme.primary,
+          title: openHandLocalizedText(
+            context,
+            zh: '基础信息',
+            zhHant: '基礎資訊',
+            en: 'Basics',
+            fr: 'Informations',
+            de: 'Grundlagen',
+            ja: '基本情報',
+          ),
+          child: TextField(
+            controller: title,
+            enabled: !saving,
+            decoration: InputDecoration(
+              labelText: knowledgeTitleLabel(context),
+            ),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+        kOpenHandGap14,
+        OpenHandDialogSectionCard(
+          icon: Icons.sell_outlined,
+          accent: colorScheme.tertiary,
+          title: openHandLocalizedText(
+            context,
+            zh: '标签',
+            zhHant: '標籤',
+            en: 'Tags',
+            fr: 'Étiquettes',
+            de: 'Tags',
+            ja: 'タグ',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '可选。最多 $kKnowledgeTagMaxCount 个。',
+            zhHant: '可選。最多 $kKnowledgeTagMaxCount 個。',
+            en: 'Optional. Up to $kKnowledgeTagMaxCount tags.',
+            fr: 'Facultatif. Jusqu’à $kKnowledgeTagMaxCount étiquettes.',
+            de: 'Optional. Höchstens $kKnowledgeTagMaxCount Tags.',
+            ja: '任意。最大 $kKnowledgeTagMaxCount 個。',
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.78,
+              TextField(
+                controller: tagInput,
+                enabled: !saving,
+                inputFormatters: <TextInputFormatter>[
+                  LengthLimitingTextInputFormatter(kKnowledgeTagMaxCharacters),
+                ],
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => onAddTag(),
+                decoration: InputDecoration(
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: '标签',
+                    zhHant: '標籤',
+                    en: 'Tag',
+                    fr: 'Étiquette',
+                    de: 'Tag',
+                    ja: 'タグ',
                   ),
-                  borderRadius: BorderRadius.circular(kOpenHandRadius9),
-                ),
-                child: Icon(
-                  Icons.note_add_outlined,
-                  size: 17,
-                  color: colorScheme.primary,
+                  suffixIconConstraints: const BoxConstraints(
+                    minWidth: 56,
+                    minHeight: 40,
+                  ),
+                  suffixIcon: Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 10),
+                    child: IconButton(
+                      onPressed: saving ? null : onAddTag,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: colorScheme.onSurfaceVariant,
+                        disabledForegroundColor: colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.38),
+                        minimumSize: const Size(36, 36),
+                        maximumSize: const Size(36, 36),
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 22),
+                    ),
+                  ),
                 ),
               ),
-              kOpenHandHGap10,
-              Expanded(
-                child: Text(
+              if (tags.isNotEmpty) ...[
+                kOpenHandGap12,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final tag in tags)
+                      InputChip(
+                        label: Text(tag),
+                        avatar: const Icon(Icons.sell_outlined, size: 15),
+                        onDeleted: saving ? null : () => onRemoveTag(tag),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        kOpenHandGap14,
+        OpenHandDialogSectionCard(
+          icon: Icons.notes_rounded,
+          accent: OpenHandStatusColors.success,
+          title: openHandLocalizedText(
+            context,
+            zh: '笔记正文',
+            zhHant: '筆記正文',
+            en: 'Note body',
+            fr: 'Corps de la note',
+            de: 'Notiztext',
+            ja: 'ノート本文',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: 'Markdown 源码编辑，可随时切换预览。',
+            zhHant: 'Markdown 源碼編輯，可隨時切換預覽。',
+            en: 'Edit Markdown source, then switch to preview anytime.',
+            fr: 'Éditez le Markdown, puis basculez vers l’aperçu.',
+            de: 'Markdown-Quelle bearbeiten und jederzeit Vorschau anzeigen.',
+            ja: 'Markdownを編集し、いつでもプレビューに切り替えられます。',
+          ),
+          trailing: SegmentedButton<bool>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment<bool>(
+                value: false,
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: Text(
                   openHandLocalizedText(
                     context,
-                    zh: '笔记内容',
-                    zhHant: '筆記內容',
-                    en: 'Note Content',
-                    fr: 'Contenu de la note',
-                    de: 'Notizinhalt',
-                    ja: 'ノート内容',
-                  ),
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
+                    zh: '编辑',
+                    zhHant: '編輯',
+                    en: 'Edit',
+                    fr: 'Éditer',
+                    de: 'Bearbeiten',
+                    ja: '編集',
                   ),
                 ),
               ),
-              SegmentedButton<bool>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment<bool>(
-                    value: false,
-                    icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '编辑',
-                        zhHant: '編輯',
-                        en: 'Edit',
-                        fr: 'Éditer',
-                        de: 'Bearbeiten',
-                        ja: '編集',
-                      ),
-                    ),
-                  ),
-                  ButtonSegment<bool>(
-                    value: true,
-                    icon: const Icon(Icons.visibility_outlined, size: 16),
-                    label: Text(knowledgePreviewLabel(context)),
-                  ),
-                ],
-                selected: {preview},
-                onSelectionChanged: (values) => onTogglePreview(values.first),
-                style: ButtonStyle(
-                  visualDensity: const VisualDensity(
-                    horizontal: -2,
-                    vertical: -2,
-                  ),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: WidgetStatePropertyAll(
-                    theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+              ButtonSegment<bool>(
+                value: true,
+                icon: const Icon(Icons.visibility_outlined, size: 16),
+                label: Text(knowledgePreviewLabel(context)),
               ),
             ],
-          ),
-          kOpenHandGap12,
-          TextField(
-            controller: title,
-            decoration: knowledgeDialogInputDecoration(
-              context,
-              knowledgeTitleLabel(context),
+            selected: {preview},
+            onSelectionChanged: saving
+                ? null
+                : (values) => onTogglePreview(values.first),
+            style: ButtonStyle(
+              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              textStyle: WidgetStatePropertyAll(
+                theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ),
-          kOpenHandGap10,
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: TextField(
-                  controller: tagInput,
-                  inputFormatters: <TextInputFormatter>[
-                    LengthLimitingTextInputFormatter(
-                      kKnowledgeTagMaxCharacters,
-                    ),
-                  ],
-                  onSubmitted: (_) => onAddTag(),
-                  decoration: knowledgeDialogInputDecoration(
-                    context,
-                    openHandLocalizedText(
-                      context,
-                      zh: '标签',
-                      zhHant: '標籤',
-                      en: 'Tag',
-                      fr: 'Étiquette',
-                      de: 'Tag',
-                      ja: 'タグ',
-                    ),
-                  ),
-                ),
-              ),
-              kOpenHandHGap10,
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 116),
-                child: SizedBox(
-                  height: 48,
-                  child: FilledButton.tonalIcon(
-                    onPressed: onAddTag,
-                    icon: const Icon(Icons.add_rounded),
-                    label: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        openHandAddLabel(context),
-                        maxLines: 1,
-                        softWrap: false,
+              OpenHandVerticalRevealSwitcher(
+                presentKey: const ValueKey<String>('markdown-toolbar'),
+                slideBeginOffsetY: 0.04,
+                child: preview
+                    ? null
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _MarkdownToolbar(
+                          onBold: onBold,
+                          onItalic: onItalic,
+                          onStrike: onStrike,
+                          onCode: onCode,
+                          onCodeBlock: onCodeBlock,
+                          onLink: onLink,
+                          onImage: onImage,
+                          onHeading1: onHeading1,
+                          onHeading2: onHeading2,
+                          onHeading3: onHeading3,
+                          onBulletList: onBulletList,
+                          onOrderedList: onOrderedList,
+                          onTaskList: onTaskList,
+                          onQuote: onQuote,
+                          onDivider: onDivider,
+                          onTable: onTable,
+                        ),
                       ),
-                    ),
-                  ),
-                ),
+              ),
+              AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
+                child: preview
+                    ? _MarkdownPreview(
+                        key: const ValueKey<String>('preview'),
+                        controller: content,
+                      )
+                    : OpenHandCodeEditor(
+                        key: editorKey,
+                        value: content.text,
+                        language: 'markdown',
+                        fileName: 'note.md',
+                        icon: Icons.notes_rounded,
+                        height: 320,
+                        borderRadius: kOpenHandBorderRadius16,
+                        readOnly: saving,
+                        onChanged: (value) {
+                          if (content.text == value) return;
+                          content.value = TextEditingValue(
+                            text: value,
+                            selection:
+                                editorKey
+                                    .currentState
+                                    ?.editingValue
+                                    .selection ??
+                                TextSelection.collapsed(offset: value.length),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
-          if (tags.isNotEmpty) ...[
-            kOpenHandGap8,
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final tag in tags)
-                  InputChip(
-                    label: Text(tag),
-                    avatar: const Icon(Icons.sell_outlined, size: 15),
-                    onDeleted: () => onRemoveTag(tag),
-                    visualDensity: VisualDensity.compact,
-                  ),
-              ],
-            ),
-          ],
-          kOpenHandGap10,
-          _MarkdownToolbar(
-            onUndo: onUndo,
-            onRedo: onRedo,
-            onBold: onBold,
-            onItalic: onItalic,
-            onStrike: onStrike,
-            onCode: onCode,
-            onCodeBlock: onCodeBlock,
-            onLink: onLink,
-            onImage: onImage,
-            onHeading1: onHeading1,
-            onHeading2: onHeading2,
-            onHeading3: onHeading3,
-            onBulletList: onBulletList,
-            onOrderedList: onOrderedList,
-            onTaskList: onTaskList,
-            onQuote: onQuote,
-            onDivider: onDivider,
-            onTable: onTable,
-          ),
-          kOpenHandGap10,
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion180),
-              switchInCurve: kOpenHandSwitchInCurve,
-              switchOutCurve: kOpenHandSwitchOutCurve,
-              child: preview
-                  ? _MarkdownPreview(
-                      key: const ValueKey<String>('preview'),
-                      controller: content,
-                    )
-                  : _MarkdownTextEditor(
-                      key: const ValueKey<String>('editor'),
-                      controller: content,
-                    ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
 class _MarkdownToolbar extends StatelessWidget {
   const _MarkdownToolbar({
-    required this.onUndo,
-    required this.onRedo,
     required this.onBold,
     required this.onItalic,
     required this.onStrike,
@@ -728,8 +762,6 @@ class _MarkdownToolbar extends StatelessWidget {
     required this.onTable,
   });
 
-  final VoidCallback onUndo;
-  final VoidCallback onRedo;
   final VoidCallback onBold;
   final VoidCallback onItalic;
   final VoidCallback onStrike;
@@ -750,30 +782,14 @@ class _MarkdownToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: kOpenHandBorderRadius12,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-        ),
-      ),
+    return OpenHandTintedPanel(
+      accent: colorScheme.primary,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
+        spacing: 4,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          _ToolbarButton(
-            tooltip: knowledgeUndoLabel(context),
-            icon: Icons.undo_rounded,
-            onPressed: onUndo,
-          ),
-          _ToolbarButton(
-            tooltip: knowledgeRedoLabel(context),
-            icon: Icons.redo_rounded,
-            onPressed: onRedo,
-          ),
-          _ToolbarDivider(),
           _ToolbarButton(
             tooltip: openHandHeading1Label(context),
             label: 'H1',
@@ -966,22 +982,34 @@ class _ToolbarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (icon != null) {
+      return OpenHandEditorFindBarButton(
+        icon: icon!,
+        tooltip: tooltip,
+        colorScheme: colorScheme,
+        onPressed: onPressed,
+      );
+    }
     return Tooltip(
       message: tooltip,
-      child: IconButton.filledTonal(
-        onPressed: onPressed,
-        icon: icon == null
-            ? Text(
-                label ?? '',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
-              )
-            : Icon(icon),
-        iconSize: 18,
-        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-        padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(kOpenHandRadius4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(kOpenHandRadius4),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Text(
+              label ?? '',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1004,35 +1032,6 @@ class _ToolbarDivider extends StatelessWidget {
   }
 }
 
-class _MarkdownTextEditor extends StatelessWidget {
-  const _MarkdownTextEditor({super.key, required this.controller});
-
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      expands: true,
-      maxLines: null,
-      textAlignVertical: TextAlignVertical.top,
-      decoration: knowledgeDialogInputDecoration(
-        context,
-        openHandLocalizedText(
-          context,
-          zh: 'Markdown 内容',
-          zhHant: 'Markdown 內容',
-          en: 'Markdown content',
-          fr: 'Contenu Markdown',
-          de: 'Markdown-Inhalt',
-          ja: 'Markdown 内容',
-        ),
-        alignLabelWithHint: true,
-      ),
-    );
-  }
-}
-
 class _MarkdownPreview extends StatelessWidget {
   const _MarkdownPreview({super.key, required this.controller});
 
@@ -1040,42 +1039,38 @@ class _MarkdownPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: kOpenHandBorderRadius12,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.84),
-        ),
-      ),
-      child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: controller,
-        builder: (context, value, _) {
-          final data = value.text.trim();
-          if (data.isEmpty) {
-            return OpenHandInlineEmptyState(
-              message: openHandLocalizedText(
-                context,
-                zh: '暂无内容可预览。',
-                zhHant: '暫無內容可預覽。',
-                en: 'Nothing to preview yet.',
-                fr: 'Aucun contenu à prévisualiser.',
-                de: 'Noch kein Inhalt für die Vorschau.',
-                ja: 'プレビューできる内容はまだありません。',
-              ),
+    return OpenHandTintedPanel(
+      accent: OpenHandStatusColors.success,
+      padding: EdgeInsets.zero,
+      child: SizedBox(
+        height: 320,
+        child: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, _) {
+            final data = value.text.trim();
+            if (data.isEmpty) {
+              return OpenHandInlineEmptyState(
+                message: openHandLocalizedText(
+                  context,
+                  zh: '暂无内容可预览。',
+                  zhHant: '暫無內容可預覽。',
+                  en: 'Nothing to preview yet.',
+                  fr: 'Aucun contenu à prévisualiser.',
+                  de: 'Noch kein Inhalt für die Vorschau.',
+                  ja: 'プレビューできる内容はまだありません。',
+                ),
+              );
+            }
+            return Markdown(
+              data: data,
+              selectable: true,
+              softLineBreak: true,
+              extensionSet: md.ExtensionSet.gitHubFlavored,
+              styleSheet: knowledgeMarkdownStyleSheet(context),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             );
-          }
-          return Markdown(
-            data: data,
-            selectable: true,
-            softLineBreak: true,
-            extensionSet: md.ExtensionSet.gitHubFlavored,
-            styleSheet: knowledgeMarkdownStyleSheet(context),
-            padding: const EdgeInsets.all(12),
-          );
-        },
+          },
+        ),
       ),
     );
   }
