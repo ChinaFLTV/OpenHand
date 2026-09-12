@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../../app/model/editor_code_theme.dart';
+import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -17,6 +19,7 @@ import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_message_markdown_theme.dart';
@@ -830,21 +833,45 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
             icon: Icons.article_outlined,
             accent: colorScheme.secondary,
             title: l10n.skillsSectionManifest,
-            child: TextFormField(
-              controller: _contentController,
-              enabled: !_isSaving,
-              minLines: 14,
-              maxLines: 20,
-              textAlignVertical: TextAlignVertical.top,
-              decoration: InputDecoration(
-                labelText: l10n.skillsEditorLabel,
-                alignLabelWithHint: true,
-              ),
-              validator: (value) {
-                if ((value?.trim() ?? '').isEmpty) {
+            child: FormField<String>(
+              validator: (_) {
+                if (_contentController.text.trim().isEmpty) {
                   return l10n.skillsCreateContentRequired;
                 }
                 return null;
+              },
+              builder: (state) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OpenHandCodeEditor(
+                      value: _contentController.text,
+                      language: 'markdown',
+                      fileName: 'SKILL.md',
+                      codeTheme: context
+                          .select<SettingsController, EditorCodeTheme>(
+                            (controller) => controller.editorCodeTheme,
+                          ),
+                      icon: Icons.article_outlined,
+                      height: 280,
+                      borderRadius: kOpenHandBorderRadius16,
+                      readOnly: _isSaving,
+                      onChanged: (value) {
+                        _contentController.text = value;
+                        state.didChange(value);
+                      },
+                    ),
+                    if (state.hasError)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, left: 4),
+                        child: Text(
+                          state.errorText!,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.error),
+                        ),
+                      ),
+                  ],
+                );
               },
             ),
           ),
