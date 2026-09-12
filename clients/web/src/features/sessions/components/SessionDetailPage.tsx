@@ -170,7 +170,7 @@ import {
   DialogSummaryTile,
   DialogTintedPanel,
 } from '../../../components/DialogChrome';
-import { StructuredJsonView } from '../../../components/StructuredJsonView';
+import { DialogStructuredJsonPanel } from '../../../components/StructuredJsonView';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { AndroidReverseDashboardDialog } from '../../../components/AndroidReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
@@ -9798,9 +9798,7 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
           accent={DIALOG_ACCENT.success}
           icon={<DialogGlyph name="hash" />}
         >
-          <div class="oh-dialog-json-scroll">
-            <StructuredJsonView text={json} />
-          </div>
+          <DialogStructuredJsonPanel text={json} />
         </DialogSectionCard>
       </div>
     </DialogFrame>
@@ -10816,9 +10814,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     </DialogSectionCard>
   );
   const JsonPanel = ({ content }: { content: unknown }) => (
-    <div class="oh-dialog-json-scroll">
-      <StructuredJsonView text={stringifyJsonSafely(content ?? {}, 2) ?? ''} />
-    </div>
+    <DialogStructuredJsonPanel text={stringifyJsonSafely(content ?? {}, 2) ?? ''} />
   );
   const machineMetadataFieldTitle = (key: string): string => {
     const labels: Record<string, string> = {
@@ -11614,9 +11610,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                 />
               ))}
             </div>
-            <div class="oh-dialog-json-scroll">
-              <StructuredJsonView text={auditSnapshotJson} />
-            </div>
+            <DialogStructuredJsonPanel text={auditSnapshotJson} />
           </Section>
         </div>
       </div>

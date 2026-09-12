@@ -16,6 +16,7 @@ const JSON_TREE_MAX_NODES = 4096;
 const JSON_TREE_MAX_DEPTH = 32;
 const JSON_TREE_FULL_VIEW_MIN_CHARACTERS = 360;
 const COPY_FEEDBACK_MS = 2000;
+const DIALOG_JSON_SCROLL_CLASS = 'oh-dialog-json-scroll';
 
 interface JsonDocument {
   value: Record<string, unknown> | unknown[];
@@ -145,6 +146,24 @@ export function StructuredJsonView({
         <pre class="oh-json-tree-text">{text}</pre>
       )}
     </section>
+  );
+}
+
+export function DialogStructuredJsonPanel({
+  text,
+  empty,
+  error = false,
+  label,
+}: {
+  text: string;
+  empty?: string;
+  error?: boolean;
+  label?: string;
+}) {
+  return (
+    <div class={DIALOG_JSON_SCROLL_CLASS}>
+      <StructuredJsonView text={text} empty={empty} error={error} label={label} />
+    </div>
   );
 }
 

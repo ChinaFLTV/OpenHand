@@ -8761,9 +8761,25 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-dialog-json-scroll {
-  max-height: min(48vh, 420px);
+  --oh-dialog-json-max-height: min(48vh, 420px);
+  max-height: var(--oh-dialog-json-max-height);
+  min-height: 0;
+}
+
+.oh-dialog-json-scroll.oh-dialog-tinted-panel {
   overflow: auto;
-  border-radius: 14px;
+  overscroll-behavior: contain;
+}
+
+.oh-dialog-json-scroll:not(.oh-dialog-tinted-panel) {
+  display: flex;
+  flex-direction: column;
+}
+
+.oh-dialog-json-scroll > .oh-json-tree {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
 }
 
 @media (max-width: 560px) {
@@ -10937,14 +10953,20 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-json-tree {
+  --oh-json-tree-radius: 14px;
+  --oh-json-tree-border-width: 1px;
+  --oh-json-tree-inner-radius: calc(var(--oh-json-tree-radius) - var(--oh-json-tree-border-width));
   position: relative;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 78%, transparent);
-  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: clip;
+  overflow-clip-margin: var(--oh-json-tree-border-width);
+  border: var(--oh-json-tree-border-width) solid color-mix(in srgb, var(--m3-outline-variant) 78%, transparent);
+  border-radius: var(--oh-json-tree-radius);
   background: color-mix(in srgb, var(--m3-surface-container) 78%, transparent);
-}
-.oh-json-tree.has-label {
-  border-radius: 12px;
+  background-clip: padding-box;
 }
 .oh-json-tree.is-error {
   border-color: color-mix(in srgb, var(--m3-error) 38%, var(--m3-outline-variant));
@@ -10962,11 +10984,14 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-json-tree > header {
   display: flex;
   min-height: 38px;
+  flex: none;
   align-items: center;
   gap: 7px;
   padding: 0 4px 0 9px;
+  border-radius: var(--oh-json-tree-inner-radius) var(--oh-json-tree-inner-radius) 0 0;
   border-bottom: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
   background: color-mix(in srgb, var(--m3-primary-container) 38%, var(--m3-surface-container-high));
+  background-clip: padding-box;
 }
 .oh-json-tree.has-label > header {
   background: color-mix(in srgb, var(--m3-primary-container) 52%, var(--m3-surface-container-high));
@@ -11043,19 +11068,31 @@ button.oh-composer-pill:not(:disabled):hover {
   white-space: pre-wrap;
   font: 10.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+.oh-json-tree-body,
+.oh-json-tree-text {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: 0 0 var(--oh-json-tree-inner-radius) var(--oh-json-tree-inner-radius);
+}
 .oh-json-tree.is-preview > .oh-json-tree-body,
 .oh-json-tree.is-preview > .oh-json-tree-text {
   max-height: 260px;
-  overflow: auto;
+}
+.oh-dialog-json-scroll > .oh-json-tree.is-preview > .oh-json-tree-body,
+.oh-dialog-json-scroll > .oh-json-tree.is-preview > .oh-json-tree-text {
+  max-height: none;
 }
 .oh-json-tree.is-preview::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: var(--oh-json-tree-border-width);
+  right: var(--oh-json-tree-border-width);
+  bottom: var(--oh-json-tree-border-width);
   height: 36px;
   pointer-events: none;
+  border-radius: 0 0 var(--oh-json-tree-inner-radius) var(--oh-json-tree-inner-radius);
   background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--m3-surface-container) 94%, transparent));
 }
 .oh-json-full-dialog {
