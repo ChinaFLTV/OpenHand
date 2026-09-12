@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../app/model/dialog_animation_settings.dart';
+import '../../../app/model/editor_code_theme.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
@@ -35,6 +36,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_bottom_pinned_scroll_controller.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
@@ -1637,35 +1639,71 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                 icon: Icons.terminal_rounded,
                 accent: OpenHandStatusColors.warning,
                 title: l10n.mcpCommandField,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextFormField(
-                      controller: _commandController,
-                      enabled: !_isSaving,
-                      decoration: InputDecoration(
-                        labelText: l10n.mcpCommandField,
+                child: FormField<String>(
+                  validator: (_) {
+                    if (_commandController.text.trim().isEmpty) {
+                      return l10n.mcpCommandRequired;
+                    }
+                    return null;
+                  },
+                  builder: (state) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        OpenHandCodeEditor(
+                          value: _commandController.text,
+                          language: Platform.isWindows ? 'powershell' : 'bash',
+                          fileName: Platform.isWindows
+                              ? 'command.ps1'
+                              : 'command.sh',
+                          codeTheme: context
+                              .select<SettingsController, EditorCodeTheme>(
+                                (controller) => controller.editorCodeTheme,
+                              ),
+                          icon: Icons.terminal_rounded,
+                          height: 180,
+                          borderRadius: kOpenHandBorderRadius16,
+                          readOnly: _isSaving,
+                          onChanged: (value) {
+                            _commandController.text = value;
+                            state.didChange(value);
+                          },
+                        ),
+                        if (state.hasError)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8, left: 4),
+                            child: Text(
+                              state.errorText!,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: colorScheme.error),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.list_alt_rounded,
+                accent: colorScheme.secondary,
+                title: l10n.mcpArgsField,
+                subtitle: l10n.mcpArgsHint,
+                child: OpenHandCodeEditor(
+                  value: _argsController.text,
+                  language: Platform.isWindows ? 'powershell' : 'bash',
+                  fileName: Platform.isWindows ? 'args.ps1' : 'args.sh',
+                  codeTheme: context
+                      .select<SettingsController, EditorCodeTheme>(
+                        (controller) => controller.editorCodeTheme,
                       ),
-                      validator: (value) {
-                        if ((value?.trim() ?? '').isEmpty) {
-                          return l10n.mcpCommandRequired;
-                        }
-                        return null;
-                      },
-                    ),
-                    kOpenHandGap16,
-                    TextField(
-                      controller: _argsController,
-                      enabled: !_isSaving,
-                      minLines: 4,
-                      maxLines: 8,
-                      decoration: InputDecoration(
-                        labelText: l10n.mcpArgsField,
-                        hintText: l10n.mcpArgsHint,
-                        alignLabelWithHint: true,
-                      ),
-                    ),
-                  ],
+                  icon: Icons.list_alt_rounded,
+                  height: 280,
+                  borderRadius: kOpenHandBorderRadius16,
+                  readOnly: _isSaving,
+                  onChanged: (value) {
+                    _argsController.text = value;
+                  },
                 ),
               ),
             ],
