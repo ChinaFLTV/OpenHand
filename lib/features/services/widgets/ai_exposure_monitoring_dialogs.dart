@@ -19,6 +19,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_ops_press_scale.dart';
@@ -92,9 +93,6 @@ Future<void> showAiExposureOperationsDialog(BuildContext context) =>
 Future<void> showAiExposureLogMonitorDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthPanel,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(child: _LogMonitorDialog()),
-      ),
+      builder: (_) =>
+          const ServiceDialogInteractionTheme(child: _LogMonitorDialog()),
     );

@@ -28,10 +28,29 @@ import '../services_controller.dart';
 import '../services_errors.dart';
 import 'service_dialog_controls.dart';
 
-const EdgeInsets _kDialogPadding = EdgeInsets.all(22);
 const double _kSectionGap = 18;
 const double _kItemGap = 12;
 const double _kMetricBreakpoint = 720;
+
+enum _NoticeTone { info, warning, success, error }
+
+const List<Color> _kVendorChipAccents = <Color>[
+  Color(0xff2563eb),
+  Color(0xffd97706),
+  Color(0xff0ea5e9),
+  Color(0xff7c3aed),
+  Color(0xff0d9488),
+  Color(0xffdb2777),
+  Color(0xffea580c),
+  Color(0xff4f46e5),
+  Color(0xff16a34a),
+  Color(0xff0891b2),
+  Color(0xffc026d3),
+  Color(0xffca8a04),
+  Color(0xffe11d48),
+  Color(0xff6366f1),
+  Color(0xff14b8a6),
+];
 
 /// 依赖状态语义色板。与 [OpenHandStatusColors] 保持区分：
 /// 托管依赖面板需要更沉稳的色调以区别于全局状态指示。
@@ -70,11 +89,8 @@ enum _ScanWorkspaceView { live, results, history }
 Future<void> showAiExposureNewHuntDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthPanel,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(child: _NewHuntDialog()),
-      ),
+      builder: (_) =>
+          const ServiceDialogInteractionTheme(child: _NewHuntDialog()),
     );
 
 Future<void> showAiExposureScanWorkspaceDialog(
@@ -82,15 +98,11 @@ Future<void> showAiExposureScanWorkspaceDialog(
   bool showResults = false,
 }) => showAnimatedDialog<void>(
   context: context,
-  builder: (_) => buildOpenHandDialog(
-    maxWidth: kOpenHandDialogWidthExtraWide,
-    maxHeight: kOpenHandDialogHeightTall,
-    child: ServiceDialogInteractionTheme(
-      child: _ScanWorkspaceDialog(
-        initialView: showResults
-            ? _ScanWorkspaceView.results
-            : _ScanWorkspaceView.live,
-      ),
+  builder: (_) => ServiceDialogInteractionTheme(
+    child: _ScanWorkspaceDialog(
+      initialView: showResults
+          ? _ScanWorkspaceView.results
+          : _ScanWorkspaceView.live,
     ),
   ),
 );
@@ -98,21 +110,15 @@ Future<void> showAiExposureScanWorkspaceDialog(
 Future<void> showAiExposureRulesDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthPanel,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(child: _RulesDialog()),
-      ),
+      builder: (_) =>
+          const ServiceDialogInteractionTheme(child: _RulesDialog()),
     );
 
 Future<void> showAiExposureSettingsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(child: _SettingsDialog()),
-      ),
+      builder: (_) =>
+          const ServiceDialogInteractionTheme(child: _SettingsDialog()),
     );
 
 /// 顶层卡片与运维弹窗统一的"启动/配置"分流：内嵌引擎模式直接启动进程；
@@ -179,24 +185,32 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
         .select<ServicesController, AiExposureDependencyStatus?>(
           (controller) => controller.dependencyStatus,
         );
+    final forumReady = _forumFetchMode == AiExposureForumFetchMode.cdp
+        ? dependencyStatus?.googleChrome.connected == true
+        : dependencyStatus?.playwright.connected == true;
     return _DialogFrame(
-      icon: Icons.add_rounded,
+      icon: Icons.travel_explore_rounded,
       title: text(zh: '新建狩猎', en: 'New hunt'),
-      footer: _DialogActions(
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: _submitting
-                ? null
-                : () => Navigator.of(context).maybePop(),
-            label: openHandCancelLabel(context),
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: isRunning && !_submitting ? _submit : null,
-            busy: _submitting,
-            label: text(zh: '开始扫描', en: 'Start scan'),
-          ),
-        ],
+      subtitle: text(
+        zh: '选择数据源、厂商协议与授权范围后启动扫描。',
+        en: 'Pick sources, providers, and authorization, then start the scan.',
       ),
+      maxWidth: kOpenHandDialogWidthPanel,
+      busy: _submitting,
+      canPop: !_submitting,
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: _submitting
+              ? null
+              : () => Navigator.of(context).maybePop(),
+          label: openHandCancelLabel(context),
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: isRunning && !_submitting ? _submit : null,
+          busy: _submitting,
+          label: text(zh: '开始扫描', en: 'Start scan'),
+        ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -207,6 +221,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                 : Padding(
                     padding: const EdgeInsets.only(bottom: _kSectionGap),
                     child: _InlineNotice(
+                      tone: _NoticeTone.warning,
                       icon: Icons.power_settings_new_rounded,
                       text: text(
                         zh: '扫描服务尚未启动。请先返回服务卡启动服务。',
@@ -215,76 +230,87 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                     ),
                   ),
           ),
-          TextField(
-            controller: _name,
-            maxLength: 120,
-            buildCounter: openHandHiddenTextFieldCounter,
-            decoration: InputDecoration(
-              labelText: text(zh: '任务名称', en: 'Job name'),
-              border: const OutlineInputBorder(),
+          _SectionCard(
+            icon: Icons.badge_outlined,
+            title: text(zh: '任务', en: 'Job'),
+            subtitle: text(
+              zh: '名称仅用于工作台与历史归档识别。',
+              en: 'The name is used in the workspace and history archive.',
+            ),
+            child: TextField(
+              controller: _name,
+              maxLength: 120,
+              buildCounter: openHandHiddenTextFieldCounter,
+              decoration: InputDecoration(
+                labelText: text(zh: '任务名称', en: 'Job name'),
+                prefixIcon: const Icon(Icons.drive_file_rename_outline_rounded),
+              ),
             ),
           ),
-          const SizedBox(height: _kSectionGap),
-          _SectionTitle(
+          _SectionCard(
             icon: Icons.travel_explore_rounded,
             title: text(zh: '数据源', en: 'Sources'),
-          ),
-          const SizedBox(height: _kItemGap),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: AiExposureSource.values
-                .where((source) => source != AiExposureSource.manual)
-                .map((source) {
-                  return ServiceFilterChip(
-                    selected: _sources.contains(source),
-                    icon: Icon(aiExposureSourceIcon(source), size: 17),
-                    label: Text(_sourceLabel(context, source)),
-                    onSelected: (selected) => setState(() {
-                      if (selected) {
-                        _sources.add(source);
-                      } else {
-                        _sources.remove(source);
-                      }
-                    }),
-                  );
-                })
-                .toList(growable: false),
+            subtitle: text(
+              zh: '至少选择一个公开或授权数据源。',
+              en: 'Select at least one public or authorized source.',
+            ),
+            accent: OpenHandStatusColors.info,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: AiExposureSource.values
+                  .where((source) => source != AiExposureSource.manual)
+                  .map((source) {
+                    final accent = _sourceAccent(source);
+                    return ServiceFilterChip(
+                      selected: _sources.contains(source),
+                      accentColor: accent,
+                      icon: Icon(
+                        aiExposureSourceIcon(source),
+                        size: 17,
+                        color: accent,
+                      ),
+                      label: Text(_sourceLabel(context, source)),
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _sources.add(source);
+                        } else {
+                          _sources.remove(source);
+                        }
+                      }),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
           ),
           OpenHandVerticalRevealSwitcher(
             presentKey: const ValueKey<String>('forum-fetch-mode'),
             slideBeginOffsetY: -.03,
             child: !_sources.any(_kForumSources.contains)
                 ? null
-                : Padding(
-                    padding: const EdgeInsets.only(top: _kSectionGap),
+                : _SectionCard(
+                    icon: Icons.alt_route_rounded,
+                    title: text(zh: '论坛读取通道', en: 'Forum reader route'),
+                    accent: Theme.of(context).colorScheme.tertiary,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _SectionTitle(
-                          icon: Icons.alt_route_rounded,
-                          title: text(zh: '论坛读取通道', en: 'Forum reader route'),
-                        ),
-                        const SizedBox(height: _kItemGap),
                         _ForumFetchModeSelector(
                           value: _forumFetchMode,
                           onChanged: (value) =>
                               setState(() => _forumFetchMode = value),
                         ),
-                        kOpenHandGap8,
+                        kOpenHandGap10,
                         _InlineNotice(
-                          icon:
-                              (_forumFetchMode == AiExposureForumFetchMode.cdp
-                                      ? dependencyStatus?.googleChrome.connected
-                                      : dependencyStatus
-                                            ?.playwright
-                                            .connected) ==
-                                  true
+                          tone: forumReady
+                              ? _NoticeTone.success
+                              : _NoticeTone.warning,
+                          icon: forumReady
                               ? Icons.check_circle_outline_rounded
                               : Icons.info_outline_rounded,
                           text: _forumFetchMode == AiExposureForumFetchMode.cdp
-                              ? dependencyStatus?.googleChrome.connected == true
+                              ? forumReady
                                     ? text(
                                         zh: 'Chrome CDP 将使用隔离配置访问页面，并采集受限的请求、响应与正文；任务结束后自动关闭浏览器。',
                                         en: 'Chrome CDP uses an isolated profile and bounded page, request, response, and body capture, then closes after the hunt.',
@@ -293,7 +319,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                                         zh: '未检测到 Google Chrome，CDP 任务会失败。请安装正式版 Chrome 后刷新插件状态。',
                                         en: 'Google Chrome was not detected. CDP hunts will fail until Chrome is installed and plugin status is refreshed.',
                                       )
-                              : dependencyStatus?.playwright.connected == true
+                              : forumReady
                               ? text(
                                   zh: 'Jina 请求与浏览器读取都会复用当前网络代理和代理池。Jina 失败时将记录原因并自动切换浏览器。',
                                   en: 'Jina and browser requests reuse the configured proxy pool. Jina failures are logged before browser fallback.',
@@ -307,124 +333,177 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                     ),
                   ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: _kSectionGap),
-            child: _InlineNotice(
-              icon: Icons.public_rounded,
-              text: text(
-                zh: '将扫描所选数据源返回的全部候选目标，请确认你已获得相应授权。',
-                en: 'Every candidate returned by the selected sources will be scanned. Confirm that you are authorized to assess them.',
-              ),
-            ),
-          ),
-          const SizedBox(height: _kSectionGap),
-          _SectionTitle(
+          _SectionCard(
             icon: Icons.hub_outlined,
             title: text(zh: 'AI 厂商协议', en: 'AI providers'),
-          ),
-          const SizedBox(height: _kItemGap),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: _kVendors
-                .map((vendor) {
-                  return ServiceFilterChip(
-                    selected: _vendors.contains(vendor),
-                    label: Text(vendor),
+            subtitle: text(
+              zh: '按协议族着色，便于核对本次狩猎覆盖面。',
+              en: 'Color-coded by protocol family so coverage is easy to scan.',
+            ),
+            accent: Theme.of(context).colorScheme.tertiary,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                for (var index = 0; index < _kVendors.length; index++)
+                  ServiceFilterChip(
+                    selected: _vendors.contains(_kVendors[index]),
+                    accentColor: _vendorAccent(_kVendors[index]),
+                    label: Text(_kVendors[index]),
                     onSelected: (selected) => setState(() {
                       if (selected) {
-                        _vendors.add(vendor);
+                        _vendors.add(_kVendors[index]);
                       } else {
-                        _vendors.remove(vendor);
+                        _vendors.remove(_kVendors[index]);
                       }
                     }),
-                  );
-                })
-                .toList(growable: false),
-          ),
-          const SizedBox(height: _kSectionGap),
-          OpenHandAnimatedSwitchTile(
-            icon: Icons.verified_user_outlined,
-            disabledIcon: Icons.visibility_outlined,
-            title: text(zh: '授权主动验证', en: 'Authorized active validation'),
-            description: text(
-              zh: _validationMode == AiExposureValidationMode.authorizedActive
-                  ? '查询同一授权主机的模型列表以确认凭证状态。'
-                  : '仅做被动识别，不发送发现的原始凭证。',
-              en: _validationMode == AiExposureValidationMode.authorizedActive
-                  ? 'Query the model list on the same authorized host.'
-                  : 'Passive detection only; discovered credentials are not sent.',
-            ),
-            value: _validationMode == AiExposureValidationMode.authorizedActive,
-            onChanged: (enabled) => setState(() {
-              _validationMode = enabled
-                  ? AiExposureValidationMode.authorizedActive
-                  : AiExposureValidationMode.passive;
-            }),
-          ),
-          const SizedBox(height: _kItemGap),
-          OpenHandAnimatedSwitchTile(
-            icon: Icons.auto_awesome_rounded,
-            disabledIcon: Icons.auto_awesome_outlined,
-            title: text(zh: 'GPT 辅助提取', en: 'GPT-assisted extraction'),
-            description: selectedModelLabel == null
-                ? text(
-                    zh: '需先在全局设置中选择 OpenAI Compatible 模型。',
-                    en: 'Select an OpenAI-compatible model in global settings first.',
-                  )
-                : text(
-                    zh: '启用后 $selectedModelLabel 将与规则引擎协同提取，提升检出率。',
-                    en: 'When enabled, $selectedModelLabel works alongside rule engine to improve detection.',
                   ),
-            value: _gptAssisted,
-            onChanged: (enabled) {
-              if (enabled && selectedModelLabel == null) {
-                showOpenHandErrorSnack(
-                  context,
-                  text(
-                    zh: '当前没有可用于辅助提取的 OpenAI Compatible 模型。',
-                    en: 'No OpenAI-compatible model is available for assisted extraction.',
+              ],
+            ),
+          ),
+          _SectionCard(
+            icon: Icons.tune_rounded,
+            title: text(zh: '扫描策略', en: 'Scan policy'),
+            accent: OpenHandStatusColors.success,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OpenHandAnimatedSwitchTile(
+                  icon: Icons.verified_user_outlined,
+                  disabledIcon: Icons.visibility_outlined,
+                  title: text(zh: '授权主动验证', en: 'Authorized active validation'),
+                  description: text(
+                    zh:
+                        _validationMode ==
+                            AiExposureValidationMode.authorizedActive
+                        ? '查询同一授权主机的模型列表以确认凭证状态。'
+                        : '仅做被动识别，不发送发现的原始凭证。',
+                    en:
+                        _validationMode ==
+                            AiExposureValidationMode.authorizedActive
+                        ? 'Query the model list on the same authorized host.'
+                        : 'Passive detection only; discovered credentials are not sent.',
                   ),
-                );
-                return;
-              }
-              setState(() => _gptAssisted = enabled);
-            },
-          ),
-          const SizedBox(height: _kSectionGap),
-          Row(
-            children: [
-              Expanded(
-                child: OpenHandFormLabel(text(zh: '并发数', en: 'Concurrency')),
-              ),
-              Text('${_concurrency.round()}'),
-            ],
-          ),
-          Slider(
-            value: _concurrency,
-            min: 1,
-            max: kAiExposureMaxScanConcurrency.toDouble(),
-            divisions: kAiExposureMaxScanConcurrency - 1,
-            label: '${_concurrency.round()}',
-            onChanged: (value) => setState(() => _concurrency = value),
-          ),
-          CheckboxListTile(
-            key: const ValueKey<String>('hunt-authorization-confirmation'),
-            contentPadding: EdgeInsets.zero,
-            hoverColor: Colors.transparent,
-            overlayColor: const WidgetStatePropertyAll<Color>(
-              Colors.transparent,
+                  value:
+                      _validationMode ==
+                      AiExposureValidationMode.authorizedActive,
+                  onChanged: (enabled) => setState(() {
+                    _validationMode = enabled
+                        ? AiExposureValidationMode.authorizedActive
+                        : AiExposureValidationMode.passive;
+                  }),
+                ),
+                const SizedBox(height: _kItemGap),
+                OpenHandAnimatedSwitchTile(
+                  icon: Icons.auto_awesome_rounded,
+                  disabledIcon: Icons.auto_awesome_outlined,
+                  title: text(zh: 'GPT 辅助提取', en: 'GPT-assisted extraction'),
+                  description: selectedModelLabel == null
+                      ? text(
+                          zh: '需先在全局设置中选择 OpenAI Compatible 模型。',
+                          en: 'Select an OpenAI-compatible model in global settings first.',
+                        )
+                      : text(
+                          zh: '启用后 $selectedModelLabel 将与规则引擎协同提取，提升检出率。',
+                          en: 'When enabled, $selectedModelLabel works alongside rule engine to improve detection.',
+                        ),
+                  value: _gptAssisted,
+                  onChanged: (enabled) {
+                    if (enabled && selectedModelLabel == null) {
+                      showOpenHandErrorSnack(
+                        context,
+                        text(
+                          zh: '当前没有可用于辅助提取的 OpenAI Compatible 模型。',
+                          en: 'No OpenAI-compatible model is available for assisted extraction.',
+                        ),
+                      );
+                      return;
+                    }
+                    setState(() => _gptAssisted = enabled);
+                  },
+                ),
+                const SizedBox(height: _kSectionGap),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OpenHandFormLabel(
+                        text(zh: '并发数', en: 'Concurrency'),
+                      ),
+                    ),
+                    Text('${_concurrency.round()}'),
+                  ],
+                ),
+                Slider(
+                  value: _concurrency,
+                  min: 1,
+                  max: kAiExposureMaxScanConcurrency.toDouble(),
+                  divisions: kAiExposureMaxScanConcurrency - 1,
+                  label: '${_concurrency.round()}',
+                  onChanged: (value) => setState(() => _concurrency = value),
+                ),
+              ],
             ),
-            value: _confirmed,
-            onChanged: (value) => setState(() => _confirmed = value == true),
-            title: Text(
-              text(
-                zh: '我确认已获得所选数据源候选目标的安全评估授权',
-                en: 'I confirm authorization to assess candidates returned by the selected sources',
-              ),
+          ),
+          _SectionCard(
+            icon: Icons.gavel_rounded,
+            title: text(zh: '授权确认', en: 'Authorization'),
+            accent: OpenHandStatusColors.warning,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _InlineNotice(
+                  tone: _NoticeTone.warning,
+                  icon: Icons.public_rounded,
+                  text: text(
+                    zh: '将扫描所选数据源返回的全部候选目标，请确认你已获得相应授权。',
+                    en: 'Every candidate returned by the selected sources will be scanned. Confirm that you are authorized to assess them.',
+                  ),
+                ),
+                kOpenHandGap10,
+                AnimatedContainer(
+                  duration: openHandMotionDuration(context, kOpenHandMotion220),
+                  curve: kOpenHandSwitchInCurve,
+                  decoration: BoxDecoration(
+                    color: Color.alphaBlend(
+                      (_confirmed
+                              ? OpenHandStatusColors.success
+                              : OpenHandStatusColors.warning)
+                          .withValues(alpha: 0.10),
+                      Theme.of(context).colorScheme.surfaceContainerLow,
+                    ),
+                    borderRadius: kOpenHandBorderRadius16,
+                    border: Border.all(
+                      color:
+                          (_confirmed
+                                  ? OpenHandStatusColors.success
+                                  : OpenHandStatusColors.warning)
+                              .withValues(alpha: 0.34),
+                    ),
+                  ),
+                  child: CheckboxListTile(
+                    key: const ValueKey<String>(
+                      'hunt-authorization-confirmation',
+                    ),
+                    contentPadding: const EdgeInsets.fromLTRB(8, 2, 12, 2),
+                    hoverColor: Colors.transparent,
+                    overlayColor: const WidgetStatePropertyAll<Color>(
+                      Colors.transparent,
+                    ),
+                    value: _confirmed,
+                    onChanged: (value) =>
+                        setState(() => _confirmed = value == true),
+                    title: Text(
+                      text(
+                        zh: '我确认已获得所选数据源候选目标的安全评估授权',
+                        en: 'I confirm authorization to assess candidates returned by the selected sources',
+                      ),
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                ),
+              ],
             ),
-            controlAffinity: ListTileControlAffinity.leading,
           ),
         ],
       ),
@@ -576,54 +655,54 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
             en: 'Track live scans, results, and history in one workspace',
           ),
           scrollable: false,
-          footer: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion220),
-            switchInCurve: kOpenHandSwitchInCurve,
-            switchOutCurve: kOpenHandSwitchOutCurve,
-            child: KeyedSubtree(
-              key: ValueKey<_ScanWorkspaceView>(_view),
-              child: _DialogActions(actions: actions),
-            ),
-          ),
+          maxWidth: kOpenHandDialogWidthExtraWide,
+          actions: actions,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _ScanWorkspaceTab(
-                    value: _ScanWorkspaceView.live,
-                    selected: _view == _ScanWorkspaceView.live,
-                    icon: Icons.radar_rounded,
-                    label: progress?.isRunning == true
-                        ? text(zh: '实时扫描 · 运行中', en: 'Live · Running')
-                        : text(zh: '实时扫描', en: 'Live scan'),
-                    onSelected: _selectView,
-                  ),
-                  _ScanWorkspaceTab(
-                    value: _ScanWorkspaceView.results,
-                    selected: _view == _ScanWorkspaceView.results,
-                    icon: Icons.fact_check_outlined,
-                    label: text(
-                      zh: '结果 ${controller.results.length}',
-                      en: 'Results ${controller.results.length}',
+              _SectionCard(
+                icon: Icons.layers_rounded,
+                title: text(zh: '工作台视图', en: 'Workspace views'),
+                accent: OpenHandStatusColors.info,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _ScanWorkspaceTab(
+                      value: _ScanWorkspaceView.live,
+                      selected: _view == _ScanWorkspaceView.live,
+                      icon: Icons.radar_rounded,
+                      accent: OpenHandStatusColors.info,
+                      label: progress?.isRunning == true
+                          ? text(zh: '实时扫描 · 运行中', en: 'Live · Running')
+                          : text(zh: '实时扫描', en: 'Live scan'),
+                      onSelected: _selectView,
                     ),
-                    onSelected: _selectView,
-                  ),
-                  _ScanWorkspaceTab(
-                    value: _ScanWorkspaceView.history,
-                    selected: _view == _ScanWorkspaceView.history,
-                    icon: Icons.history_rounded,
-                    label: text(
-                      zh: '历史 ${controller.history.length}',
-                      en: 'History ${controller.history.length}',
+                    _ScanWorkspaceTab(
+                      value: _ScanWorkspaceView.results,
+                      selected: _view == _ScanWorkspaceView.results,
+                      icon: Icons.fact_check_outlined,
+                      accent: OpenHandStatusColors.success,
+                      label: text(
+                        zh: '结果 ${controller.results.length}',
+                        en: 'Results ${controller.results.length}',
+                      ),
+                      onSelected: _selectView,
                     ),
-                    onSelected: _selectView,
-                  ),
-                ],
+                    _ScanWorkspaceTab(
+                      value: _ScanWorkspaceView.history,
+                      selected: _view == _ScanWorkspaceView.history,
+                      icon: Icons.history_rounded,
+                      accent: Theme.of(context).colorScheme.tertiary,
+                      label: text(
+                        zh: '历史 ${controller.history.length}',
+                        en: 'History ${controller.history.length}',
+                      ),
+                      onSelected: _selectView,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: _kSectionGap),
               Expanded(
                 child: AnimatedSwitcher(
                   duration: openHandMotionDuration(context, kOpenHandMotion240),
@@ -721,65 +800,68 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
     final text = openHandTextResolver(context);
     final progress = controller.progress;
     if (progress == null) {
-      return Center(
-        child: _EmptyState(
-          icon: Icons.radar_outlined,
-          title: text(zh: '暂无实时任务', en: 'No active scan'),
-          body: text(
-            zh: '创建狩猎任务后，这里会显示阶段、计数和 SSE 日志。',
-            en: 'Create a hunt to view stages, counters, and SSE logs.',
-          ),
+      return _EmptyState(
+        icon: Icons.radar_outlined,
+        accent: OpenHandStatusColors.info,
+        title: text(zh: '暂无实时任务', en: 'No active scan'),
+        body: text(
+          zh: '创建狩猎任务后，这里会显示阶段、计数和 SSE 日志。',
+          en: 'Create a hunt to view stages, counters, and SSE logs.',
         ),
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _MetricGrid(
-          items: [
-            _MetricData(
-              icon: Icons.route_outlined,
-              label: text(zh: '阶段', en: 'Stage'),
-              value: _stageLabel(context, progress.stage),
-            ),
-            _MetricData(
-              icon: Icons.ads_click_rounded,
-              label: text(zh: '命中数', en: 'Discovered'),
-              value: '${progress.discovered}',
-            ),
-            _MetricData(
-              icon: Icons.filter_alt_outlined,
-              label: text(zh: '候选数', en: 'Candidates'),
-              value: '${progress.candidates}',
-            ),
-            _MetricData(
-              icon: Icons.verified_outlined,
-              label: text(zh: '有效数', en: 'Valid'),
-              value: '${progress.valid}',
-            ),
-            _MetricData(
-              icon: Icons.workspace_premium_outlined,
-              label: text(zh: '高价值数', en: 'High value'),
-              value: '${progress.highValue}',
-            ),
-          ],
-        ),
-        const SizedBox(height: _kSectionGap),
-        Text(progress.message),
-        kOpenHandGap8,
-        ClipRRect(
-          borderRadius: kOpenHandPillBorderRadius,
-          child: ServiceAnimatedProgressBar(
-            value: progress.displayFraction,
-            minHeight: 8,
+        _SectionCard(
+          icon: Icons.insights_rounded,
+          title: text(zh: '实时进度', en: 'Live progress'),
+          accent: OpenHandStatusColors.info,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _MetricGrid(
+                items: [
+                  _MetricData(
+                    icon: Icons.route_outlined,
+                    label: text(zh: '阶段', en: 'Stage'),
+                    value: _stageLabel(context, progress.stage),
+                  ),
+                  _MetricData(
+                    icon: Icons.ads_click_rounded,
+                    label: text(zh: '命中数', en: 'Discovered'),
+                    value: '${progress.discovered}',
+                  ),
+                  _MetricData(
+                    icon: Icons.filter_alt_outlined,
+                    label: text(zh: '候选数', en: 'Candidates'),
+                    value: '${progress.candidates}',
+                  ),
+                  _MetricData(
+                    icon: Icons.verified_outlined,
+                    label: text(zh: '有效数', en: 'Valid'),
+                    value: '${progress.valid}',
+                  ),
+                  _MetricData(
+                    icon: Icons.workspace_premium_outlined,
+                    label: text(zh: '高价值数', en: 'High value'),
+                    value: '${progress.highValue}',
+                  ),
+                ],
+              ),
+              const SizedBox(height: _kItemGap),
+              Text(progress.message),
+              kOpenHandGap8,
+              ClipRRect(
+                borderRadius: kOpenHandPillBorderRadius,
+                child: ServiceAnimatedProgressBar(
+                  value: progress.displayFraction,
+                  minHeight: 8,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: _kSectionGap),
-        _SectionTitle(
-          icon: Icons.terminal_rounded,
-          title: text(zh: 'SSE 日志', en: 'SSE logs'),
-        ),
-        const SizedBox(height: _kItemGap),
         Expanded(child: _LogList(logs: controller.logs)),
       ],
     );
@@ -791,11 +873,13 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
     List<AiExposureResult> results,
   ) {
     final text = openHandTextResolver(context);
+    final scheme = Theme.of(context).colorScheme;
     final filters = <Widget>[
       _CategoryChip(
         label: text(zh: '全部', en: 'All'),
         count: controller.results.length,
         selected: _category == null,
+        accent: scheme.primary,
         onSelected: () => setState(() => _category = null),
       ),
       for (final category in AiExposureResultCategory.values)
@@ -805,29 +889,35 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
               .where((result) => result.category == category)
               .length,
           selected: _category == category,
+          accent: _categoryColor(scheme, category),
           onSelected: () => setState(() => _category = category),
         ),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: openHandDialogAwareScrollPhysics(context),
-          child: Row(
-            children: [
-              for (var index = 0; index < filters.length; index++) ...[
-                if (index > 0) kOpenHandHGap8,
-                filters[index],
+        _SectionCard(
+          icon: Icons.filter_alt_outlined,
+          title: text(zh: '结果分类', en: 'Result categories'),
+          accent: OpenHandStatusColors.success,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: openHandDialogAwareScrollPhysics(context),
+            child: Row(
+              children: [
+                for (var index = 0; index < filters.length; index++) ...[
+                  if (index > 0) kOpenHandHGap8,
+                  filters[index],
+                ],
               ],
-            ],
+            ),
           ),
         ),
-        const SizedBox(height: _kSectionGap),
         Expanded(
           child: results.isEmpty
               ? _EmptyState(
                   icon: Icons.search_off_rounded,
+                  accent: OpenHandStatusColors.caution,
                   title: text(zh: '暂无结果', en: 'No results'),
                   body: text(
                     zh: '当前分类还没有扫描结果。',
@@ -854,6 +944,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
     if (controller.history.isEmpty) {
       return _EmptyState(
         icon: Icons.history_toggle_off_rounded,
+        accent: Theme.of(context).colorScheme.tertiary,
         title: text(zh: '暂无历史', en: 'No history'),
         body: text(
           zh: '完成或中断的扫描任务会保存在这里。',
@@ -892,6 +983,7 @@ class _ScanWorkspaceTab extends StatelessWidget {
     required this.value,
     required this.selected,
     required this.icon,
+    required this.accent,
     required this.label,
     required this.onSelected,
   });
@@ -899,13 +991,15 @@ class _ScanWorkspaceTab extends StatelessWidget {
   final _ScanWorkspaceView value;
   final bool selected;
   final IconData icon;
+  final Color accent;
   final String label;
   final ValueChanged<_ScanWorkspaceView> onSelected;
 
   @override
   Widget build(BuildContext context) => ServiceFilterChip(
     selected: selected,
-    icon: Icon(icon, size: 17),
+    accentColor: accent,
+    icon: Icon(icon, size: 17, color: accent),
     label: Text(label),
     onSelected: (_) => onSelected(value),
   );
@@ -937,22 +1031,29 @@ class _RulesDialogState extends State<_RulesDialog> {
     return _DialogFrame(
       icon: Icons.rule_rounded,
       title: text(zh: '扫描规则管理', en: 'Scan rules'),
-      scrollable: false,
-      footer: _DialogActions(
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => _editRule(null),
-            label: text(zh: '新增规则', en: 'Add rule'),
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: isRunning && !_saving ? _save : null,
-            label: openHandSaveLabel(context),
-          ),
-        ],
+      subtitle: text(
+        zh: '维护凭证正则、上下文词与探测路径。',
+        en: 'Maintain credential regex, context terms, and probe paths.',
       ),
+      scrollable: false,
+      maxWidth: kOpenHandDialogWidthPanel,
+      busy: _saving,
+      canPop: !_saving,
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => _editRule(null),
+          label: text(zh: '新增规则', en: 'Add rule'),
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: isRunning && !_saving ? _save : null,
+          busy: _saving,
+          label: openHandSaveLabel(context),
+        ),
+      ],
       child: _rules.isEmpty
           ? _EmptyState(
               icon: Icons.rule_folder_outlined,
+              accent: OpenHandStatusColors.caution,
               title: text(zh: '暂无规则', en: 'No rules'),
               body: text(
                 zh: '新增凭证正则和上下文规则后再开始扫描。',
@@ -1121,232 +1222,276 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final redisPlugin = context.select<PluginServiceController, PluginInfo?>(
       (value) => value.pluginById(PluginCatalogIds.redis),
     );
+    final colorScheme = Theme.of(context).colorScheme;
     return _DialogFrame(
       icon: Icons.settings_outlined,
       title: text(zh: '服务设置', en: 'Service settings'),
-      footer: _DialogActions(
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: isRunning && !_applying && !_refreshingStatus
-                ? _refreshStatus
-                : null,
-            busy: _refreshingStatus,
-            label: text(zh: '刷新依赖状态', en: 'Refresh dependencies'),
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: controllerBusy || _applying || _loadingToolSettings
-                ? null
-                : _apply,
-            label: text(zh: '应用设置', en: 'Apply settings'),
-          ),
-        ],
+      subtitle: text(
+        zh: '运行模式、工具凭证、论坛通道与可选依赖。',
+        en: 'Runtime mode, tool credentials, forum routes, and optional deps.',
       ),
+      busy: _applying || _refreshingStatus,
+      canPop: !_applying,
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: isRunning && !_applying && !_refreshingStatus
+              ? _refreshStatus
+              : null,
+          busy: _refreshingStatus,
+          label: text(zh: '刷新依赖状态', en: 'Refresh dependencies'),
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: controllerBusy || _applying || _loadingToolSettings
+              ? null
+              : _apply,
+          busy: _applying,
+          label: text(zh: '应用设置', en: 'Apply settings'),
+        ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SegmentedButton<bool>(
-            segments: [
-              ButtonSegment(
-                value: true,
-                icon: const Icon(Icons.inventory_2_outlined),
-                label: Text(text(zh: '内嵌引擎', en: 'Bundled engine')),
-              ),
-              ButtonSegment(
-                value: false,
-                icon: const Icon(Icons.dns_outlined),
-                label: Text(text(zh: '外部服务', en: 'External service')),
-              ),
-            ],
-            selected: <bool>{_bundled},
-            onSelectionChanged: (selection) =>
-                setState(() => _bundled = selection.first),
-          ),
-          OpenHandVerticalRevealSwitcher(
-            presentKey: const ValueKey<String>('external-service-fields'),
-            slideBeginOffsetY: -.03,
-            child: _bundled
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(top: _kSectionGap),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _address,
-                          decoration: InputDecoration(
-                            labelText: text(zh: '服务地址', en: 'Service address'),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                        kOpenHandGap10,
-                        TextField(
-                          controller: _token,
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            labelText: text(zh: '访问令牌', en: 'Access token'),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                      ],
+          _SectionCard(
+            icon: Icons.dns_outlined,
+            title: text(zh: '运行模式', en: 'Runtime mode'),
+            accent: OpenHandStatusColors.info,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SegmentedButton<bool>(
+                  segments: [
+                    ButtonSegment(
+                      value: true,
+                      icon: const Icon(Icons.inventory_2_outlined),
+                      label: Text(text(zh: '内嵌引擎', en: 'Bundled engine')),
                     ),
-                  ),
+                    ButtonSegment(
+                      value: false,
+                      icon: const Icon(Icons.dns_outlined),
+                      label: Text(text(zh: '外部服务', en: 'External service')),
+                    ),
+                  ],
+                  selected: <bool>{_bundled},
+                  onSelectionChanged: (selection) =>
+                      setState(() => _bundled = selection.first),
+                ),
+                OpenHandVerticalRevealSwitcher(
+                  presentKey: const ValueKey<String>('external-service-fields'),
+                  slideBeginOffsetY: -.03,
+                  child: _bundled
+                      ? null
+                      : Padding(
+                          padding: const EdgeInsets.only(top: _kItemGap),
+                          child: Column(
+                            children: [
+                              TextField(
+                                controller: _address,
+                                decoration: InputDecoration(
+                                  labelText: text(
+                                    zh: '服务地址',
+                                    en: 'Service address',
+                                  ),
+                                  prefixIcon: const Icon(Icons.link_rounded),
+                                ),
+                              ),
+                              kOpenHandGap10,
+                              TextField(
+                                controller: _token,
+                                obscureText: true,
+                                decoration: InputDecoration(
+                                  labelText: text(
+                                    zh: '访问令牌',
+                                    en: 'Access token',
+                                  ),
+                                  prefixIcon: const Icon(Icons.key_rounded),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: _kSectionGap),
-          _SectionTitle(
+          _SectionCard(
             icon: Icons.construction_rounded,
             title: text(zh: '工具设置', en: 'Tool settings'),
-          ),
-          const SizedBox(height: _kItemGap),
-          if (_loadingToolSettings)
-            const LinearProgressIndicator(minHeight: 3)
-          else
-            _ToolSettingsPanel(
-              settings: _toolSettings,
-              enabledSources: _enabledSources,
-              onConfigurationChanged: (configuration) {
-                _toolSettings = _toolSettings.replace(configuration);
-              },
-              onSourcesChanged: (sources) =>
-                  setState(() => _enabledSources = sources),
+            subtitle: text(
+              zh: '默认扫描源与各平台检索凭证。',
+              en: 'Default scan sources and per-platform search credentials.',
             ),
-          const SizedBox(height: _kSectionGap),
-          _SectionTitle(
+            accent: colorScheme.secondary,
+            child: _loadingToolSettings
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: LinearProgressIndicator(minHeight: 3),
+                  )
+                : _ToolSettingsPanel(
+                    settings: _toolSettings,
+                    enabledSources: _enabledSources,
+                    onConfigurationChanged: (configuration) {
+                      _toolSettings = _toolSettings.replace(configuration);
+                    },
+                    onSourcesChanged: (sources) =>
+                        setState(() => _enabledSources = sources),
+                  ),
+          ),
+          _SectionCard(
             icon: Icons.language_rounded,
             title: text(zh: '论坛读取通道', en: 'Forum reader route'),
-          ),
-          const SizedBox(height: _kItemGap),
-          _ForumFetchModeSelector(
-            value: _forumFetchMode,
-            onChanged: (value) => setState(() => _forumFetchMode = value),
-          ),
-          const SizedBox(height: _kItemGap),
-          OpenHandVerticalRevealSwitcher(
-            slideBeginOffsetY: -.02,
-            child: _forumFetchMode == AiExposureForumFetchMode.cdp
-                ? _ChromeDependencyTile(
-                    key: const ValueKey<String>('chrome-cdp-dependency'),
-                    plugin: chromePlugin,
-                    runtimeStatus: dependencyStatus?.googleChrome,
-                    operating:
-                        _dependencyOperationId == PluginCatalogIds.googleChrome,
-                    onRefresh: _refreshGoogleChrome,
-                  )
-                : _PlaywrightDependencyTile(
-                    key: const ValueKey<String>('playwright-dependency'),
-                    plugin: playwrightPlugin,
-                    runtimeStatus: dependencyStatus?.playwright,
-                    operating:
-                        _dependencyOperationId == PluginCatalogIds.playwright,
-                    onAction: _runPlaywrightAction,
+            accent: colorScheme.tertiary,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ForumFetchModeSelector(
+                  value: _forumFetchMode,
+                  onChanged: (value) => setState(() => _forumFetchMode = value),
+                ),
+                const SizedBox(height: _kItemGap),
+                OpenHandVerticalRevealSwitcher(
+                  slideBeginOffsetY: -.02,
+                  child: _forumFetchMode == AiExposureForumFetchMode.cdp
+                      ? _ChromeDependencyTile(
+                          key: const ValueKey<String>('chrome-cdp-dependency'),
+                          plugin: chromePlugin,
+                          runtimeStatus: dependencyStatus?.googleChrome,
+                          operating:
+                              _dependencyOperationId ==
+                              PluginCatalogIds.googleChrome,
+                          onRefresh: _refreshGoogleChrome,
+                        )
+                      : _PlaywrightDependencyTile(
+                          key: const ValueKey<String>('playwright-dependency'),
+                          plugin: playwrightPlugin,
+                          runtimeStatus: dependencyStatus?.playwright,
+                          operating:
+                              _dependencyOperationId ==
+                              PluginCatalogIds.playwright,
+                          onAction: _runPlaywrightAction,
+                        ),
+                ),
+                kOpenHandGap10,
+                _InlineNotice(
+                  icon: Icons.lan_outlined,
+                  text: text(
+                    zh: '三种读取通道均遵循网络代理和代理池配置；CDP 不会在失败后静默切换通道，浏览器并发、等待与采集总量均有硬上限。',
+                    en: 'All routes follow proxy settings. CDP never silently changes routes, and browser concurrency, waits, and capture size are strictly bounded.',
                   ),
-          ),
-          kOpenHandGap8,
-          _InlineNotice(
-            icon: Icons.lan_outlined,
-            text: text(
-              zh: '三种读取通道均遵循网络代理和代理池配置；CDP 不会在失败后静默切换通道，浏览器并发、等待与采集总量均有硬上限。',
-              en: 'All routes follow proxy settings. CDP never silently changes routes, and browser concurrency, waits, and capture size are strictly bounded.',
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: _kSectionGap),
-          _SectionTitle(
+          _SectionCard(
             icon: Icons.extension_outlined,
             title: text(zh: '可选运行依赖', en: 'Optional dependencies'),
-          ),
-          const SizedBox(height: _kItemGap),
-          _ManagedDependencyTile(
-            plugin: postgresqlPlugin,
-            icon: Icons.storage_rounded,
-            title: 'PostgreSQL',
-            purpose: text(
-              zh: '持久化任务、结果、日志和增量目标。',
-              en: 'Persist jobs, results, logs, and incremental targets.',
+            accent: const Color(0xff0f766e),
+            child: Column(
+              children: [
+                _ManagedDependencyTile(
+                  plugin: postgresqlPlugin,
+                  icon: Icons.storage_rounded,
+                  title: 'PostgreSQL',
+                  purpose: text(
+                    zh: '持久化任务、结果、日志和增量目标。',
+                    en: 'Persist jobs, results, logs, and incremental targets.',
+                  ),
+                  selected: _postgresqlEnabled,
+                  operating:
+                      _dependencyOperationId == PluginCatalogIds.postgresql,
+                  onSelected: (value) =>
+                      setState(() => _postgresqlEnabled = value),
+                  onAction: (action) =>
+                      _runDependencyAction(PluginCatalogIds.postgresql, action),
+                ),
+                const SizedBox(height: _kItemGap),
+                _ManagedDependencyTile(
+                  plugin: redisPlugin,
+                  icon: Icons.hub_rounded,
+                  title: 'Redis',
+                  purpose: text(
+                    zh: '协调多实例目标租约并减少重复扫描。',
+                    en: 'Coordinate target leases across scanner instances.',
+                  ),
+                  selected: _redisEnabled,
+                  operating: _dependencyOperationId == PluginCatalogIds.redis,
+                  onSelected: (value) => setState(() => _redisEnabled = value),
+                  onAction: (action) =>
+                      _runDependencyAction(PluginCatalogIds.redis, action),
+                ),
+              ],
             ),
-            selected: _postgresqlEnabled,
-            operating: _dependencyOperationId == PluginCatalogIds.postgresql,
-            onSelected: (value) => setState(() => _postgresqlEnabled = value),
-            onAction: (action) =>
-                _runDependencyAction(PluginCatalogIds.postgresql, action),
           ),
-          const SizedBox(height: _kItemGap),
-          _ManagedDependencyTile(
-            plugin: redisPlugin,
-            icon: Icons.hub_rounded,
-            title: 'Redis',
-            purpose: text(
-              zh: '协调多实例目标租约并减少重复扫描。',
-              en: 'Coordinate target leases across scanner instances.',
-            ),
-            selected: _redisEnabled,
-            operating: _dependencyOperationId == PluginCatalogIds.redis,
-            onSelected: (value) => setState(() => _redisEnabled = value),
-            onAction: (action) =>
-                _runDependencyAction(PluginCatalogIds.redis, action),
-          ),
-          const SizedBox(height: _kSectionGap),
-          _SectionTitle(
+          _SectionCard(
             icon: Icons.speed_rounded,
             title: text(zh: '并发与安全策略', en: 'Concurrency and safety'),
-          ),
-          const SizedBox(height: _kItemGap),
-          Row(
-            children: [
-              Expanded(
-                child: Text(text(zh: '默认并发数', en: 'Default concurrency')),
-              ),
-              Text('${_concurrency.round()}'),
-            ],
-          ),
-          Slider(
-            value: _concurrency,
-            min: 1,
-            max: kAiExposureMaxScanConcurrency.toDouble(),
-            divisions: kAiExposureMaxScanConcurrency - 1,
-            onChanged: (value) => setState(() => _concurrency = value),
-          ),
-          OpenHandAnimatedSwitchTile(
-            icon: Icons.verified_user_outlined,
-            disabledIcon: Icons.visibility_outlined,
-            title: text(
-              zh: '默认启用授权主动验证',
-              en: 'Default to authorized validation',
-            ),
-            description: text(
-              zh: '关闭时仅做被动探测；每次新建任务仍可单独调整。',
-              en: 'Off uses passive probing; each hunt can override this setting.',
-            ),
-            value: _activeValidation,
-            onChanged: (value) => setState(() => _activeValidation = value),
-          ),
-          const SizedBox(height: _kItemGap),
-          OpenHandAnimatedSwitchTile(
-            icon: Icons.auto_awesome_rounded,
-            disabledIcon: Icons.auto_awesome_outlined,
-            title: text(
-              zh: '默认启用 GPT 辅助提取',
-              en: 'Default to GPT-assisted extraction',
-            ),
-            description:
-                selectedModelLabel ??
-                text(
-                  zh: '全局设置中尚未选择 OpenAI Compatible 模型。',
-                  en: 'No OpenAI-compatible model is selected globally.',
+            accent: OpenHandStatusColors.success,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: OpenHandFormLabel(
+                        text(zh: '默认并发数', en: 'Default concurrency'),
+                      ),
+                    ),
+                    Text('${_concurrency.round()}'),
+                  ],
                 ),
-            value: _gptAssisted,
-            onChanged: (value) {
-              if (value && selectedModelLabel == null) {
-                showOpenHandErrorSnack(
-                  context,
-                  text(
-                    zh: '请先配置 OpenAI Compatible 模型。',
-                    en: 'Configure an OpenAI-compatible model first.',
+                Slider(
+                  value: _concurrency,
+                  min: 1,
+                  max: kAiExposureMaxScanConcurrency.toDouble(),
+                  divisions: kAiExposureMaxScanConcurrency - 1,
+                  onChanged: (value) => setState(() => _concurrency = value),
+                ),
+                OpenHandAnimatedSwitchTile(
+                  icon: Icons.verified_user_outlined,
+                  disabledIcon: Icons.visibility_outlined,
+                  title: text(
+                    zh: '默认启用授权主动验证',
+                    en: 'Default to authorized validation',
                   ),
-                );
-                return;
-              }
-              setState(() => _gptAssisted = value);
-            },
+                  description: text(
+                    zh: '关闭时仅做被动探测；每次新建任务仍可单独调整。',
+                    en: 'Off uses passive probing; each hunt can override this setting.',
+                  ),
+                  value: _activeValidation,
+                  onChanged: (value) =>
+                      setState(() => _activeValidation = value),
+                ),
+                const SizedBox(height: _kItemGap),
+                OpenHandAnimatedSwitchTile(
+                  icon: Icons.auto_awesome_rounded,
+                  disabledIcon: Icons.auto_awesome_outlined,
+                  title: text(
+                    zh: '默认启用 GPT 辅助提取',
+                    en: 'Default to GPT-assisted extraction',
+                  ),
+                  description:
+                      selectedModelLabel ??
+                      text(
+                        zh: '全局设置中尚未选择 OpenAI Compatible 模型。',
+                        en: 'No OpenAI-compatible model is selected globally.',
+                      ),
+                  value: _gptAssisted,
+                  onChanged: (value) {
+                    if (value && selectedModelLabel == null) {
+                      showOpenHandErrorSnack(
+                        context,
+                        text(
+                          zh: '请先配置 OpenAI Compatible 模型。',
+                          en: 'Configure an OpenAI-compatible model first.',
+                        ),
+                      );
+                      return;
+                    }
+                    setState(() => _gptAssisted = value);
+                  },
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: _kSectionGap),
           _InlineNotice(
             icon: Icons.lock_outline_rounded,
             text: text(
@@ -1764,30 +1909,33 @@ class _ToolSettingsPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          text(zh: '默认扫描源', en: 'Default scan sources'),
-          style: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        kOpenHandGap8,
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final source in AiExposureSource.values)
-              ServiceFilterChip(
-                selected: enabledSources.contains(source),
-                icon: Icon(_sourceIcon(source), size: 17),
-                label: Text(_sourceLabel(context, source)),
-                onSelected: (selected) {
-                  final next = Set<AiExposureSource>.of(enabledSources);
-                  selected ? next.add(source) : next.remove(source);
-                  if (next.isEmpty) next.add(AiExposureSource.manual);
-                  onSourcesChanged(next);
-                },
-              ),
-          ],
+        OpenHandTintedPanel(
+          accent: OpenHandStatusColors.info,
+          icon: Icons.travel_explore_rounded,
+          title: text(zh: '默认扫描源', en: 'Default scan sources'),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final source in AiExposureSource.values)
+                ServiceFilterChip(
+                  selected: enabledSources.contains(source),
+                  accentColor: _sourceAccent(source),
+                  icon: Icon(
+                    _sourceIcon(source),
+                    size: 17,
+                    color: _sourceAccent(source),
+                  ),
+                  label: Text(_sourceLabel(context, source)),
+                  onSelected: (selected) {
+                    final next = Set<AiExposureSource>.of(enabledSources);
+                    selected ? next.add(source) : next.remove(source);
+                    if (next.isEmpty) next.add(AiExposureSource.manual);
+                    onSourcesChanged(next);
+                  },
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: _kSectionGap),
         for (final tool in AiExposureTool.values) ...[
@@ -1959,6 +2107,7 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                         kOpenHandGap10,
                         if (configuration.profiles.isEmpty)
                           _InlineNotice(
+                            tone: _NoticeTone.warning,
                             icon: Icons.key_off_rounded,
                             text: text(
                               zh: '尚未添加配置。',
@@ -3118,6 +3267,25 @@ IconData _sourceIcon(AiExposureSource source) => switch (source) {
   AiExposureSource.v2ex => Icons.forum_outlined,
 };
 
+Color _sourceAccent(AiExposureSource source) => switch (source) {
+  AiExposureSource.manual => const Color(0xff64748b),
+  AiExposureSource.github ||
+  AiExposureSource.githubArtifact => const Color(0xff475569),
+  AiExposureSource.gitee => const Color(0xffdc2626),
+  AiExposureSource.gitcode => const Color(0xff2563eb),
+  AiExposureSource.fofa => const Color(0xff0f766e),
+  AiExposureSource.shodan => const Color(0xffb45309),
+  AiExposureSource.nodeseek => const Color(0xff7c3aed),
+  AiExposureSource.linuxDo => const Color(0xff16a34a),
+  AiExposureSource.v2ex => const Color(0xff0ea5e9),
+};
+
+Color _vendorAccent(String vendor) {
+  final index = _kVendors.indexOf(vendor);
+  if (index < 0) return _kVendorChipAccents.first;
+  return _kVendorChipAccents[index % _kVendorChipAccents.length];
+}
+
 enum _ManagedDependencyAction { install, start, stop, update, uninstall }
 
 extension on _ManagedDependencyAction {
@@ -3536,108 +3704,71 @@ class _DialogFrame extends StatelessWidget {
     required this.title,
     required this.child,
     this.subtitle,
-    this.footer,
+    this.actions = const <Widget>[],
     this.scrollable = true,
+    this.busy = false,
+    this.canPop = true,
+    this.maxWidth = kOpenHandDialogWidthWide,
+    this.maxHeight = kOpenHandDialogHeightTall,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
   final Widget child;
-  final Widget? footer;
+  final List<Widget> actions;
   final bool scrollable;
+  final bool busy;
+  final bool canPop;
+  final double maxWidth;
+  final double maxHeight;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Padding(
-      padding: _kDialogPadding,
-      child: Column(
-        mainAxisSize: scrollable ? MainAxisSize.min : MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer,
-                  borderRadius: kServiceInteractiveBorderRadius,
-                  border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
-                ),
-                child: Icon(icon, color: cs.onPrimaryContainer),
-              ),
-              kOpenHandHGap12,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    if (subtitle?.trim().isNotEmpty == true) ...[
-                      kOpenHandGap2,
-                      Text(
-                        subtitle!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              ServiceDialogHeaderIconButton(
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          kOpenHandGap12,
-          Container(
-            height: 1,
-            color: cs.outlineVariant.withValues(alpha: 0.75),
-          ),
-          const SizedBox(height: _kSectionGap),
-          Flexible(
-            child: scrollable
-                ? SingleChildScrollView(
-                    physics: openHandDialogAwareScrollPhysics(context),
-                    child: child,
-                  )
-                : child,
-          ),
-          if (footer != null) ...[
-            const SizedBox(height: _kSectionGap),
-            footer!,
-          ],
-        ],
-      ),
+    return OpenHandEditorDialogScaffold(
+      title: title,
+      subtitle: subtitle,
+      icon: icon,
+      body: child,
+      actions: actions,
+      scrollBody: scrollable,
+      busy: busy,
+      closeEnabled: canPop,
+      canPop: canPop,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
     );
   }
 }
 
-class _DialogActions extends StatelessWidget {
-  const _DialogActions({required this.actions});
-  final List<Widget> actions;
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.accent,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget child;
+  final Color? accent;
 
   @override
-  Widget build(BuildContext context) => Wrap(
-    alignment: WrapAlignment.center,
-    spacing: kOpenHandDialogActionSpacing,
-    runSpacing: kOpenHandDialogActionSpacing,
-    children: actions,
-  );
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _kSectionGap),
+      child: OpenHandDialogSectionCard(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        accent: accent,
+        child: child,
+      ),
+    );
+  }
 }
 
 class _MetricData {
@@ -3742,43 +3873,6 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.icon, required this.title});
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Row(
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.11),
-            borderRadius: kServiceInteractiveBorderRadius,
-            border: Border.all(color: cs.primary.withValues(alpha: 0.24)),
-          ),
-          child: Icon(icon, size: 18, color: cs.primary),
-        ),
-        kOpenHandHGap9,
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 Color _serviceMetricTone(IconData icon, ColorScheme colors) {
   if (icon == Icons.cloud_done_outlined ||
       icon == Icons.check_circle_outline_rounded ||
@@ -3809,167 +3903,188 @@ class _LogList extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final text = openHandTextResolver(context);
-    if (logs.isEmpty) {
-      return _EmptyLine(
-        text: openHandLocalizedText(
-          context,
-          zh: '等待扫描事件。',
-          en: 'Waiting for scan events.',
-        ),
-      );
-    }
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.32),
-        borderRadius: kServiceInteractiveBorderRadius,
-        border: Border.all(color: cs.outlineVariant),
+        color: Color.alphaBlend(
+          OpenHandStatusColors.info.withValues(alpha: 0.05),
+          cs.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius20,
+        border: Border.all(
+          color: OpenHandStatusColors.info.withValues(alpha: 0.18),
+        ),
       ),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: logs.length,
-        itemBuilder: (context, index) {
-          final log = logs[index];
-          final isError = log.level == 'error';
-          final isWarning = log.level == 'warning';
-          final tone = isError
-              ? cs.error
-              : isWarning
-              ? OpenHandStatusColors.warning
-              : cs.primary;
-          final levelLabel = isError
-              ? text(zh: '错误', en: 'Error')
-              : isWarning
-              ? text(zh: '警告', en: 'Warning')
-              : log.level == 'runtime'
-              ? text(zh: '运行时', en: 'Runtime')
-              : text(zh: '信息', en: 'Info');
-          return ServiceInteractiveSurface(
-            margin: const EdgeInsets.only(bottom: 3),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            showDetailsIcon: false,
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '查看日志详情',
-              en: 'View log details',
-            ),
-            onTap: () => showServiceDetailsDialog(
-              context,
+      child: logs.isEmpty
+          ? _EmptyState(
+              icon: Icons.terminal_rounded,
+              accent: OpenHandStatusColors.info,
               title: openHandLocalizedText(
                 context,
-                zh: '扫描日志详情',
-                en: 'Scan log details',
+                zh: '等待扫描事件',
+                en: 'Waiting for events',
               ),
-              icon: Icons.terminal_rounded,
-              accentColor: tone,
-              presentation: ServiceDetailPresentation.log,
-              fields: [
-                ServiceDetailField(label: '时间', value: _dateTime(log.at)),
-                ServiceDetailField(label: '级别', value: levelLabel),
-                ServiceDetailField(
-                  label: '任务 ID',
-                  value: log.jobId.isEmpty ? '--' : log.jobId,
-                ),
-                if (log.id?.isNotEmpty == true)
-                  ServiceDetailField(label: '日志 ID', value: log.id!),
-                if (log.module?.isNotEmpty == true)
-                  ServiceDetailField(label: '模块', value: log.module!),
-                if (log.eventCode?.isNotEmpty == true)
-                  ServiceDetailField(label: '事件码', value: log.eventCode!),
-                if (log.traceId?.isNotEmpty == true)
-                  ServiceDetailField(label: '追踪 ID', value: log.traceId!),
-                if (log.exceptionType?.isNotEmpty == true)
-                  ServiceDetailField(label: '异常类型', value: log.exceptionType!),
-                ServiceDetailField(label: '完整消息', value: log.message),
-                if (log.stackSummary?.isNotEmpty == true)
-                  ServiceDetailField(label: '异常摘要', value: log.stackSummary!),
-                if (log.metadata.isNotEmpty)
-                  ServiceDetailField(
-                    label: '元数据',
-                    value: formatServiceDetailValue(log.metadata),
+              body: openHandLocalizedText(
+                context,
+                zh: 'SSE 日志会在任务推进时出现在这里。',
+                en: 'SSE logs appear here as the hunt advances.',
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: logs.length,
+              itemBuilder: (context, index) {
+                final log = logs[index];
+                final isError = log.level == 'error';
+                final isWarning = log.level == 'warning';
+                final tone = isError
+                    ? cs.error
+                    : isWarning
+                    ? OpenHandStatusColors.warning
+                    : cs.primary;
+                final levelLabel = isError
+                    ? text(zh: '错误', en: 'Error')
+                    : isWarning
+                    ? text(zh: '警告', en: 'Warning')
+                    : log.level == 'runtime'
+                    ? text(zh: '运行时', en: 'Runtime')
+                    : text(zh: '信息', en: 'Info');
+                return ServiceInteractiveSurface(
+                  margin: const EdgeInsets.only(bottom: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
                   ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: tone.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(kOpenHandRadius7),
+                  showDetailsIcon: false,
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '查看日志详情',
+                    en: 'View log details',
                   ),
-                  child: Icon(
-                    isError
-                        ? Icons.error_outline_rounded
-                        : isWarning
-                        ? Icons.warning_amber_rounded
-                        : Icons.terminal_rounded,
-                    size: 16,
-                    color: tone,
+                  onTap: () => showServiceDetailsDialog(
+                    context,
+                    title: openHandLocalizedText(
+                      context,
+                      zh: '扫描日志详情',
+                      en: 'Scan log details',
+                    ),
+                    icon: Icons.terminal_rounded,
+                    accentColor: tone,
+                    presentation: ServiceDetailPresentation.log,
+                    fields: [
+                      ServiceDetailField(label: '时间', value: _dateTime(log.at)),
+                      ServiceDetailField(label: '级别', value: levelLabel),
+                      ServiceDetailField(
+                        label: '任务 ID',
+                        value: log.jobId.isEmpty ? '--' : log.jobId,
+                      ),
+                      if (log.id?.isNotEmpty == true)
+                        ServiceDetailField(label: '日志 ID', value: log.id!),
+                      if (log.module?.isNotEmpty == true)
+                        ServiceDetailField(label: '模块', value: log.module!),
+                      if (log.eventCode?.isNotEmpty == true)
+                        ServiceDetailField(label: '事件码', value: log.eventCode!),
+                      if (log.traceId?.isNotEmpty == true)
+                        ServiceDetailField(label: '追踪 ID', value: log.traceId!),
+                      if (log.exceptionType?.isNotEmpty == true)
+                        ServiceDetailField(
+                          label: '异常类型',
+                          value: log.exceptionType!,
+                        ),
+                      ServiceDetailField(label: '完整消息', value: log.message),
+                      if (log.stackSummary?.isNotEmpty == true)
+                        ServiceDetailField(
+                          label: '异常摘要',
+                          value: log.stackSummary!,
+                        ),
+                      if (log.metadata.isNotEmpty)
+                        ServiceDetailField(
+                          label: '元数据',
+                          value: formatServiceDetailValue(log.metadata),
+                        ),
+                    ],
                   ),
-                ),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            formatHourMinuteSecond(log.at),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontFamily: 'monospace',
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                          kOpenHandHGap8,
-                          Text(
-                            levelLabel,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: tone,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (log.module?.isNotEmpty == true) ...[
-                            kOpenHandHGap8,
-                            Flexible(
-                              child: Text(
-                                log.module!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: tone.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(kOpenHandRadius7),
+                        ),
+                        child: Icon(
+                          isError
+                              ? Icons.error_outline_rounded
+                              : isWarning
+                              ? Icons.warning_amber_rounded
+                              : Icons.terminal_rounded,
+                          size: 16,
+                          color: tone,
+                        ),
+                      ),
+                      kOpenHandHGap10,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  formatHourMinuteSecond(log.at),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    color: cs.onSurfaceVariant,
+                                  ),
                                 ),
+                                kOpenHandHGap8,
+                                Text(
+                                  levelLabel,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: tone,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (log.module?.isNotEmpty == true) ...[
+                                  kOpenHandHGap8,
+                                  Flexible(
+                                    child: Text(
+                                      log.module!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            kOpenHandGap4,
+                            Text(
+                              log.message,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isError ? cs.error : cs.onSurface,
+                                height: 1.4,
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                      kOpenHandGap4,
-                      Text(
-                        log.message,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: isError ? cs.error : cs.onSurface,
-                          height: 1.4,
                         ),
+                      ),
+                      kOpenHandHGap6,
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: cs.onSurfaceVariant,
                       ),
                     ],
                   ),
-                ),
-                kOpenHandHGap6,
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: cs.onSurfaceVariant,
-                ),
-              ],
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }
@@ -3980,15 +4095,18 @@ class _CategoryChip extends StatelessWidget {
     required this.count,
     required this.selected,
     required this.onSelected,
+    this.accent,
   });
   final String label;
   final int count;
   final bool selected;
   final VoidCallback onSelected;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) => ServiceFilterChip(
     selected: selected,
+    accentColor: accent,
     label: Text('$label $count'),
     onSelected: (_) => onSelected(),
   );
@@ -4057,8 +4175,11 @@ class _ResultTile extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.all(12),
-      color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-      borderColor: cs.outlineVariant,
+      color: Color.alphaBlend(
+        color.withValues(alpha: 0.08),
+        cs.surfaceContainerLow,
+      ),
+      borderColor: color.withValues(alpha: 0.28),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -4233,16 +4354,36 @@ class _HistoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final tone = entry.errorMessage?.trim().isNotEmpty == true
+        ? OpenHandStatusColors.error
+        : entry.isCompleted
+        ? OpenHandStatusColors.success
+        : OpenHandStatusColors.info;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: kServiceInteractiveBorderRadius,
-        border: Border.all(color: cs.outlineVariant),
+        color: Color.alphaBlend(
+          tone.withValues(alpha: 0.08),
+          cs.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: tone.withValues(alpha: 0.24)),
       ),
       child: Row(
         children: [
-          Icon(Icons.history_rounded, color: cs.primary),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: 0.16),
+              borderRadius: kOpenHandBorderRadius12,
+            ),
+            child: SizedBox(
+              width: 38,
+              height: 38,
+              child: Center(
+                child: Icon(Icons.history_rounded, color: tone, size: 20),
+              ),
+            ),
+          ),
           kOpenHandHGap12,
           Expanded(
             child: ServiceInteractiveSurface(
@@ -4343,13 +4484,8 @@ Future<void> _showHistoryLogs(
   AiExposureHistoryEntry entry,
 ) => showAnimatedDialog<void>(
   context: context,
-  builder: (_) => buildOpenHandDialog(
-    maxWidth: kOpenHandDialogWidthWide,
-    maxHeight: kOpenHandDialogHeightStandard,
-    child: ServiceDialogInteractionTheme(
-      child: _HistoryLogDialog(entry: entry),
-    ),
-  ),
+  builder: (_) =>
+      ServiceDialogInteractionTheme(child: _HistoryLogDialog(entry: entry)),
 );
 
 class _HistoryLogDialog extends StatefulWidget {
@@ -4369,15 +4505,28 @@ class _HistoryLogDialogState extends State<_HistoryLogDialog> {
   Widget build(BuildContext context) => _DialogFrame(
     icon: Icons.terminal_rounded,
     title: widget.entry.name,
+    subtitle: openHandLocalizedText(
+      context,
+      zh: '该历史任务的扫描事件流。',
+      en: 'Scan event stream for this archived job.',
+    ),
     scrollable: false,
+    maxHeight: kOpenHandDialogHeightStandard,
     child: FutureBuilder<List<AiExposureLogEntry>>(
       future: _logs,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const OpenHandTintedPanel(
+            accent: OpenHandStatusColors.info,
+            child: SizedBox(
+              height: 180,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
         }
         if (snapshot.hasError) {
           return _InlineNotice(
+            tone: _NoticeTone.error,
             icon: Icons.error_outline_rounded,
             text: snapshot.error.toString(),
           );
@@ -4430,12 +4579,20 @@ class _RuleTile extends StatelessWidget {
         ServiceDetailField(label: '余额路径', value: rule.balancePaths.join('\n')),
       ],
     );
-    return Container(
+    final tone = rule.enabled
+        ? OpenHandStatusColors.success
+        : cs.onSurfaceVariant;
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: kServiceInteractiveBorderRadius,
-        border: Border.all(color: cs.outlineVariant),
+        color: Color.alphaBlend(
+          tone.withValues(alpha: rule.enabled ? 0.10 : 0.04),
+          cs.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
       child: Row(
         children: [
@@ -4494,28 +4651,42 @@ class _RuleTile extends StatelessWidget {
 }
 
 class _InlineNotice extends StatelessWidget {
-  const _InlineNotice({required this.icon, required this.text});
+  const _InlineNotice({
+    required this.icon,
+    required this.text,
+    this.tone = _NoticeTone.info,
+  });
   final IconData icon;
   final String text;
+  final _NoticeTone tone;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: cs.onSurfaceVariant),
-        kOpenHandHGap9,
-        Expanded(
-          child: Text(
-            text,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-              height: 1.4,
+    final accent = switch (tone) {
+      _NoticeTone.info => OpenHandStatusColors.info,
+      _NoticeTone.warning => OpenHandStatusColors.warning,
+      _NoticeTone.success => OpenHandStatusColors.success,
+      _NoticeTone.error => OpenHandStatusColors.error,
+    };
+    return OpenHandTintedPanel(
+      accent: accent,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: accent),
+          kOpenHandHGap9,
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -4525,50 +4696,59 @@ class _EmptyState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    this.accent,
   });
   final IconData icon;
   final String title;
   final String body;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final tone = accent ?? theme.colorScheme.primary;
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 42, color: cs.outline),
-            kOpenHandGap12,
-            Text(title, style: theme.textTheme.titleMedium),
-            kOpenHandGap6,
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: cs.onSurfaceVariant,
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: OpenHandTintedPanel(
+          accent: tone,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: 0.16),
+                  borderRadius: kOpenHandBorderRadius16,
+                ),
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Icon(icon, size: 28, color: tone),
+                ),
               ),
-            ),
-          ],
+              kOpenHandGap14,
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              kOpenHandGap6,
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
-}
-
-class _EmptyLine extends StatelessWidget {
-  const _EmptyLine({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    ),
-  );
 }
 
 Future<AiExposureScanRule?> _showRuleEditor(
@@ -4576,11 +4756,8 @@ Future<AiExposureScanRule?> _showRuleEditor(
   AiExposureScanRule? initial,
 }) => showAnimatedDialog<AiExposureScanRule>(
   context: context,
-  builder: (_) => buildOpenHandDialog(
-    maxWidth: kOpenHandDialogWidthStandard,
-    maxHeight: kOpenHandDialogHeightStandard,
-    child: ServiceDialogInteractionTheme(child: _RuleEditor(initial: initial)),
-  ),
+  builder: (_) =>
+      ServiceDialogInteractionTheme(child: _RuleEditor(initial: initial)),
 );
 
 class _RuleEditor extends StatefulWidget {
@@ -4633,109 +4810,139 @@ class _RuleEditorState extends State<_RuleEditor> {
       title: widget.initial == null
           ? text(zh: '新增规则', en: 'Add rule')
           : text(zh: '编辑规则', en: 'Edit rule'),
-      footer: _DialogActions(
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: openHandCancelLabel(context),
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: _submit,
-            label: openHandSaveLabel(context),
-          ),
-        ],
+      subtitle: text(
+        zh: '凭证正则必填；编码与探测路径可按协议补齐。',
+        en: 'Credential regex is required; encodings and probe paths are optional.',
       ),
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: openHandCancelLabel(context),
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: _submit,
+          label: openHandSaveLabel(context),
+        ),
+      ],
       child: Column(
         children: [
-          TextField(
-            controller: _vendor,
-            decoration: InputDecoration(
-              labelText: text(zh: '厂商', en: 'Provider'),
-              border: const OutlineInputBorder(),
+          _SectionCard(
+            icon: Icons.storefront_outlined,
+            title: text(zh: '规则身份', en: 'Identity'),
+            accent: OpenHandStatusColors.info,
+            child: Column(
+              children: [
+                TextField(
+                  controller: _vendor,
+                  decoration: InputDecoration(
+                    labelText: text(zh: '厂商', en: 'Provider'),
+                    prefixIcon: const Icon(Icons.hub_outlined),
+                  ),
+                ),
+                kOpenHandGap10,
+                TextField(
+                  controller: _protocol,
+                  decoration: InputDecoration(
+                    labelText: text(zh: '协议', en: 'Protocol'),
+                    prefixIcon: const Icon(Icons.lan_outlined),
+                  ),
+                ),
+              ],
             ),
           ),
-          kOpenHandGap10,
-          TextField(
-            controller: _protocol,
-            decoration: InputDecoration(
-              labelText: text(zh: '协议', en: 'Protocol'),
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          kOpenHandGap10,
-          TextField(
-            controller: _patterns,
-            minLines: 3,
-            maxLines: 6,
-            decoration: InputDecoration(
-              labelText: text(
-                zh: '凭证正则（每行一条）',
-                en: 'Credential regex (one per line)',
-              ),
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          kOpenHandGap10,
-          TextField(
-            controller: _contexts,
-            minLines: 2,
-            maxLines: 4,
-            decoration: InputDecoration(
-              labelText: text(
-                zh: '上下文词（每行一条）',
-                en: 'Context terms (one per line)',
-              ),
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          kOpenHandGap10,
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: AiExposureContentEncoding.values
-                  .map(
-                    (encoding) => ServiceFilterChip(
-                      selected: _encodings.contains(encoding),
-                      icon: const Icon(Icons.data_object_rounded, size: 17),
-                      label: Text(_encodingLabel(encoding)),
-                      onSelected: (selected) => setState(() {
-                        if (selected) {
-                          _encodings.add(encoding);
-                        } else {
-                          _encodings.remove(encoding);
-                        }
-                      }),
+          _SectionCard(
+            icon: Icons.rule_rounded,
+            title: text(zh: '匹配规则', en: 'Matchers'),
+            accent: OpenHandStatusColors.warning,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _patterns,
+                  minLines: 3,
+                  maxLines: 6,
+                  decoration: InputDecoration(
+                    labelText: text(
+                      zh: '凭证正则（每行一条）',
+                      en: 'Credential regex (one per line)',
                     ),
-                  )
-                  .toList(growable: false),
+                    prefixIcon: const Icon(Icons.code_rounded),
+                  ),
+                ),
+                kOpenHandGap10,
+                TextField(
+                  controller: _contexts,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: text(
+                      zh: '上下文词（每行一条）',
+                      en: 'Context terms (one per line)',
+                    ),
+                    prefixIcon: const Icon(Icons.short_text_rounded),
+                  ),
+                ),
+                kOpenHandGap10,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: AiExposureContentEncoding.values
+                      .map(
+                        (encoding) => ServiceFilterChip(
+                          selected: _encodings.contains(encoding),
+                          accentColor: Theme.of(context).colorScheme.tertiary,
+                          icon: const Icon(Icons.data_object_rounded, size: 17),
+                          label: Text(_encodingLabel(encoding)),
+                          onSelected: (selected) => setState(() {
+                            if (selected) {
+                              _encodings.add(encoding);
+                            } else {
+                              _encodings.remove(encoding);
+                            }
+                          }),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
             ),
           ),
-          kOpenHandGap10,
-          TextField(
-            controller: _modelPaths,
-            minLines: 2,
-            maxLines: 4,
-            decoration: InputDecoration(
-              labelText: text(
-                zh: '模型列表路径（每行一条）',
-                en: 'Model paths (one per line)',
-              ),
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          kOpenHandGap10,
-          TextField(
-            controller: _balancePaths,
-            minLines: 1,
-            maxLines: 3,
-            decoration: InputDecoration(
-              labelText: text(
-                zh: '余额查询路径（每行一条，可选）',
-                en: 'Balance paths (one per line, optional)',
-              ),
-              border: const OutlineInputBorder(),
+          _SectionCard(
+            icon: Icons.route_outlined,
+            title: text(zh: '探测路径', en: 'Probe paths'),
+            accent: OpenHandStatusColors.success,
+            child: Column(
+              children: [
+                TextField(
+                  controller: _modelPaths,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: text(
+                      zh: '模型列表路径（每行一条）',
+                      en: 'Model paths (one per line)',
+                    ),
+                    prefixIcon: const Icon(Icons.account_tree_outlined),
+                  ),
+                ),
+                kOpenHandGap10,
+                TextField(
+                  controller: _balancePaths,
+                  minLines: 1,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: text(
+                      zh: '余额查询路径（每行一条，可选）',
+                      en: 'Balance paths (one per line, optional)',
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.account_balance_wallet_outlined,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -4826,12 +5033,8 @@ Future<void> _exportResults(
   }
   final format = await showAnimatedDialog<_ExposureExportFormat>(
     context: context,
-    builder: (_) => buildOpenHandDialog(
-      maxWidth: kOpenHandDialogWidthCompact,
-      maxHeight: kOpenHandDialogHeightCompact,
-      child: ServiceDialogInteractionTheme(
-        child: _ExportFormatDialog(count: results.length),
-      ),
+    builder: (_) => ServiceDialogInteractionTheme(
+      child: _ExportFormatDialog(count: results.length),
     ),
   );
   if (format == null || !context.mounted) return;
@@ -4887,31 +5090,50 @@ class _ExportFormatDialog extends StatelessWidget {
   final int count;
 
   @override
-  Widget build(BuildContext context) => _DialogFrame(
-    icon: Icons.download_rounded,
-    title: openHandLocalizedText(
-      context,
-      zh: '导出 $count 条结果',
-      en: 'Export $count results',
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        OpenHandDialogActionButton.primary(
-          icon: Icons.data_object_rounded,
-          onPressed: () =>
-              Navigator.of(context).pop(_ExposureExportFormat.json),
-          label: 'JSON',
-        ),
-        kOpenHandGap10,
+  Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
+    return _DialogFrame(
+      icon: Icons.download_rounded,
+      title: text(zh: '导出 $count 条结果', en: 'Export $count results'),
+      subtitle: text(
+        zh: '导出内容已打码，可选择结构化 JSON 或表格 CSV。',
+        en: 'Masked results as structured JSON or tabular CSV.',
+      ),
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightCompact,
+      actions: [
         OpenHandDialogActionButton.secondary(
-          icon: Icons.table_rows_outlined,
-          onPressed: () => Navigator.of(context).pop(_ExposureExportFormat.csv),
-          label: 'CSV',
+          onPressed: () => Navigator.of(context).pop(),
+          label: openHandCancelLabel(context),
         ),
       ],
-    ),
-  );
+      child: _SectionCard(
+        icon: Icons.file_present_rounded,
+        title: text(zh: '导出格式', en: 'Export format'),
+        accent: OpenHandStatusColors.info,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OpenHandCompactActionChip(
+              icon: Icons.data_object_rounded,
+              label: 'JSON',
+              accent: OpenHandStatusColors.info,
+              onPressed: () =>
+                  Navigator.of(context).pop(_ExposureExportFormat.json),
+            ),
+            kOpenHandGap10,
+            OpenHandCompactActionChip(
+              icon: Icons.table_rows_outlined,
+              label: 'CSV',
+              accent: OpenHandStatusColors.success,
+              onPressed: () =>
+                  Navigator.of(context).pop(_ExposureExportFormat.csv),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 String _resultsCsv(List<AiExposureResult> results) {

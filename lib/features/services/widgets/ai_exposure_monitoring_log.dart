@@ -60,203 +60,259 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
   Widget build(BuildContext context) {
     final controller = context.watch<ServicesController>();
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final text = openHandTextResolver(context);
     final logs = _filtered(controller);
     if (_autoFollow && controller.logs.length != _lastLogCount) {
       _lastLogCount = controller.logs.length;
       _scrollToLatest();
     }
-    return Padding(
-      padding: const EdgeInsets.all(22),
-      child: Column(
+    var infoCount = 0;
+    var warningCount = 0;
+    var errorCount = 0;
+    var runtimeCount = 0;
+    for (final item in logs) {
+      switch (item.level) {
+        case 'info':
+          infoCount++;
+        case 'warning':
+          warningCount++;
+        case 'error':
+          errorCount++;
+        case 'runtime':
+          runtimeCount++;
+      }
+    }
+    return OpenHandEditorDialogScaffold(
+      title: text(zh: '服务日志监控', en: 'Service log monitor'),
+      subtitle: text(
+        zh: '历史 ${controller.history.length} 个任务 · 当前保留 ${controller.logs.length} 条',
+        en: '${controller.history.length} jobs · ${controller.logs.length} retained',
+      ),
+      icon: Icons.manage_search_rounded,
+      iconColor: OpenHandStatusColors.info,
+      scrollBody: false,
+      busy: _refreshing,
+      maxWidth: kOpenHandDialogWidthPanel,
+      headerActions: [
+        ServiceDialogHeaderIconButton(
+          tooltip: _autoFollow
+              ? text(zh: '关闭自动跟随', en: 'Disable auto follow')
+              : text(zh: '开启自动跟随', en: 'Enable auto follow'),
+          onPressed: () {
+            setState(() => _autoFollow = !_autoFollow);
+            if (_autoFollow) _scrollToLatest();
+          },
+          icon: const Icon(Icons.vertical_align_bottom_rounded),
+          tone: _autoFollow
+              ? ServiceDialogHeaderActionTone.primary
+              : ServiceDialogHeaderActionTone.neutral,
+        ),
+        ServiceDialogHeaderIconButton(
+          tooltip: text(zh: '刷新历史日志', en: 'Refresh history'),
+          onPressed: _refreshing || !controller.isRunning ? null : _refresh,
+          icon: _refreshing
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_rounded),
+        ),
+        ServiceDialogHeaderIconButton(
+          tooltip: text(zh: '保存日志', en: 'Save logs'),
+          onPressed: logs.isEmpty ? null : () => _saveLogs(logs),
+          icon: const Icon(Icons.save_alt_rounded),
+        ),
+        ServiceDialogHeaderIconButton(
+          tooltip: text(zh: '清屏', en: 'Clear'),
+          onPressed: controller.logs.isEmpty ? null : controller.clearLogs,
+          icon: const Icon(Icons.cleaning_services_outlined),
+        ),
+      ],
+      actions: const <Widget>[],
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          OpenHandResponsiveHeaderLayout(
-            compactBreakpoint: 740,
-            identity: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer,
-                    borderRadius: kOpenHandBorderRadius8,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: OpenHandDialogSectionCard(
+              icon: Icons.filter_alt_outlined,
+              title: text(zh: '筛选', en: 'Filters'),
+              subtitle: text(
+                zh: '按任务范围、级别和关键字收窄日志。',
+                en: 'Narrow logs by job scope, level, and keyword.',
+              ),
+              accent: OpenHandStatusColors.info,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: _search,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      labelText: text(zh: '搜索日志', en: 'Search logs'),
+                    ),
                   ),
-                  child: Icon(
-                    Icons.manage_search_rounded,
-                    color: cs.onPrimaryContainer,
+                  kOpenHandGap10,
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: _AnimatedLogScopeTabs(
+                      value: _scope,
+                      onChanged: (value) => setState(() => _scope = value),
+                    ),
                   ),
-                ),
-                kOpenHandHGap12,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  kOpenHandGap10,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Text(
-                        text(zh: '服务日志监控', en: 'Service log monitor'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
+                      for (final level in _kLogLevels)
+                        ServiceFilterChip(
+                          selected: _levels.contains(level),
+                          icon: Icon(
+                            _logIcon(level),
+                            size: 16,
+                            color: _logColor(level),
+                          ),
+                          label: Text(_logLevelName(context, level)),
+                          accentColor: _logColor(level),
+                          onSelected: (selected) => setState(() {
+                            if (selected) {
+                              _levels.add(level);
+                            } else {
+                              _levels.remove(level);
+                            }
+                          }),
                         ),
-                      ),
-                      Text(
-                        text(
-                          zh: '历史 ${controller.history.length} 个任务 · 当前保留 ${controller.logs.length} 条',
-                          en: '${controller.history.length} jobs · ${controller.logs.length} retained',
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            actions: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ServiceDialogHeaderIconButton(
-                  tooltip: _autoFollow
-                      ? text(zh: '关闭自动跟随', en: 'Disable auto follow')
-                      : text(zh: '开启自动跟随', en: 'Enable auto follow'),
-                  onPressed: () {
-                    setState(() => _autoFollow = !_autoFollow);
-                    if (_autoFollow) _scrollToLatest();
-                  },
-                  icon: const Icon(Icons.vertical_align_bottom_rounded),
-                  tone: _autoFollow
-                      ? ServiceDialogHeaderActionTone.primary
-                      : ServiceDialogHeaderActionTone.neutral,
-                ),
-                ServiceDialogHeaderIconButton(
-                  tooltip: text(zh: '刷新历史日志', en: 'Refresh history'),
-                  onPressed: _refreshing || !controller.isRunning
-                      ? null
-                      : _refresh,
-                  icon: _refreshing
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded),
-                ),
-                ServiceDialogHeaderIconButton(
-                  tooltip: text(zh: '保存日志', en: 'Save logs'),
-                  onPressed: logs.isEmpty ? null : () => _saveLogs(logs),
-                  icon: const Icon(Icons.save_alt_rounded),
-                ),
-                ServiceDialogHeaderIconButton(
-                  tooltip: text(zh: '清屏', en: 'Clear'),
-                  onPressed: controller.logs.isEmpty
-                      ? null
-                      : controller.clearLogs,
-                  icon: const Icon(Icons.cleaning_services_outlined),
-                ),
-                ServiceDialogHeaderIconButton(
-                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          kOpenHandGap14,
-          TextField(
-            controller: _search,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search_rounded),
-              labelText: text(zh: '搜索日志', en: 'Search logs'),
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          kOpenHandGap10,
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: _AnimatedLogScopeTabs(
-              value: _scope,
-              onChanged: (value) => setState(() => _scope = value),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: _kAiExposureDarkSurface,
+                borderRadius: kOpenHandBorderRadius20,
+                border: Border.all(
+                  color: OpenHandStatusColors.info.withValues(alpha: 0.28),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.terminal_rounded,
+                          size: 18,
+                          color: _kAiExposureConsoleSuccess,
+                        ),
+                        kOpenHandHGap8,
+                        Expanded(
+                          child: Text(
+                            text(zh: '控制台', en: 'Console'),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: _kAiExposureDarkOnSurface,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          text(
+                            zh: '${logs.length} 条',
+                            en: '${logs.length} lines',
+                          ),
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: _kAiExposureDarkMutedText,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                  Expanded(
+                    child: logs.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.manage_search_rounded,
+                                  size: 36,
+                                  color: _kAiExposureDarkMutedText.withValues(
+                                    alpha: 0.85,
+                                  ),
+                                ),
+                                kOpenHandGap10,
+                                Text(
+                                  text(zh: '没有符合条件的日志', en: 'No matching logs'),
+                                  style: const TextStyle(
+                                    color: _kAiExposureDarkOnSurface,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                kOpenHandGap6,
+                                Text(
+                                  text(
+                                    zh: '调整范围、级别或关键字后再试。',
+                                    en: 'Adjust scope, level, or keyword and try again.',
+                                  ),
+                                  style: const TextStyle(
+                                    color: _kAiExposureDarkMutedText,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scroll,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: logs.length,
+                            itemBuilder: (context, index) =>
+                                _LogRow(entry: logs[index]),
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
           kOpenHandGap10,
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _kLogLevels
-                .map((level) {
-                  final color = _logColor(level);
-                  return ServiceFilterChip(
-                    selected: _levels.contains(level),
-                    icon: Icon(_logIcon(level), size: 16, color: color),
-                    label: Text(_logLevelName(context, level)),
-                    accentColor: color,
-                    onSelected: (selected) => setState(() {
-                      if (selected) {
-                        _levels.add(level);
-                      } else {
-                        _levels.remove(level);
-                      }
-                    }),
-                  );
-                })
-                .toList(growable: false),
-          ),
-          kOpenHandGap10,
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: _kAiExposureDarkSurface,
-                borderRadius: kOpenHandBorderRadius8,
-                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            children: [
+              OhPill(
+                icon: Icons.info_outline_rounded,
+                label: text(zh: '信息 $infoCount', en: 'INFO $infoCount'),
+                foregroundColor: OpenHandStatusColors.info,
               ),
-              child: logs.isEmpty
-                  ? const Center(
-                      child: Text(
-                        '没有符合条件的日志。',
-                        style: TextStyle(color: _kAiExposureDarkMutedText),
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: logs.length,
-                      itemBuilder: (context, index) =>
-                          _LogRow(entry: logs[index]),
-                    ),
-            ),
-          ),
-          kOpenHandGap8,
-          Builder(
-            builder: (context) {
-              var infoCount = 0;
-              var warningCount = 0;
-              var errorCount = 0;
-              for (final item in logs) {
-                switch (item.level) {
-                  case 'info':
-                    infoCount++;
-                  case 'warning':
-                    warningCount++;
-                  case 'error':
-                    errorCount++;
-                }
-              }
-              return Text(
-                text(
-                  zh: '显示 ${logs.length} 条 · 信息 $infoCount · 警告 $warningCount · 错误 $errorCount',
-                  en: 'Showing ${logs.length} · INFO $infoCount · WARN $warningCount · ERROR $errorCount',
+              OhPill(
+                icon: Icons.warning_amber_rounded,
+                label: text(zh: '警告 $warningCount', en: 'WARN $warningCount'),
+                foregroundColor: OpenHandStatusColors.warning,
+              ),
+              OhPill(
+                icon: Icons.error_outline_rounded,
+                label: text(zh: '错误 $errorCount', en: 'ERROR $errorCount'),
+                foregroundColor: OpenHandStatusColors.error,
+              ),
+              OhPill(
+                icon: Icons.memory_rounded,
+                label: text(
+                  zh: '运行时 $runtimeCount',
+                  en: 'RUNTIME $runtimeCount',
                 ),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              );
-            },
+                foregroundColor: _kAiExposureLogRuntime,
+              ),
+            ],
           ),
         ],
       ),

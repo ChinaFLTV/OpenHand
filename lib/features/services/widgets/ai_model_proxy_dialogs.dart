@@ -19,6 +19,8 @@ import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_metric_cells.dart';
@@ -64,11 +66,7 @@ Future<void> showAiModelProxyModelsDialog(BuildContext context) =>
 Future<void> showAiModelProxySettingsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const _ProxySettingsDialog(),
-      ),
+      builder: (_) => const _ProxySettingsDialog(),
     );
 
 Future<void> showAiModelProxyUsageDialog(BuildContext context) =>
@@ -2121,127 +2119,201 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
+    final colorScheme = Theme.of(context).colorScheme;
     return ServiceDialogInteractionTheme(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-        child: Column(
+      child: OpenHandEditorDialogScaffold(
+        title: text(zh: '服务设置', en: 'Service settings'),
+        subtitle: text(
+          zh: '配置对外协议、鉴权、限流与故障接力策略。',
+          en: 'Configure protocol, authentication, limits and failover.',
+        ),
+        icon: Icons.tune_rounded,
+        iconColor: colorScheme.tertiary,
+        busy: _saving,
+        closeEnabled: !_saving,
+        canPop: !_saving,
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            label: text(zh: '取消', en: 'Cancel'),
+            onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          ),
+          OpenHandDialogActionButton.primary(
+            onPressed: _save,
+            icon: Icons.save_outlined,
+            label: text(zh: '保存设置', en: 'Save settings'),
+            busy: _saving,
+          ),
+        ],
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _ProxyDialogHeader(
-              title: text(zh: '服务设置', en: 'Service settings'),
-              subtitle: text(
-                zh: '配置对外协议、鉴权、限流与故障接力策略。',
-                en: 'Configure protocol, authentication, limits and failover.',
-              ),
-              icon: Icons.tune_rounded,
-              onClose: () => Navigator.of(context).pop(),
-            ),
-            kOpenHandGap16,
-            Expanded(
-              child: ListView(
-                children: [
-                  TextField(
-                    controller: _listenHost,
-                    textInputAction: TextInputAction.next,
-                    keyboardType: TextInputType.text,
-                    decoration: InputDecoration(
-                      labelText: text(zh: '监听地址', en: 'Listen address'),
-                      prefixIcon: const Icon(Icons.lan_outlined),
-                      helperText: text(
-                        zh: '默认 $aiModelProxyDefaultListenHost；非回环地址必须启用鉴权。',
-                        en: 'Default $aiModelProxyDefaultListenHost; remote listeners require authentication.',
-                      ),
-                    ),
-                  ),
-                  kOpenHandGap12,
-                  _NumberStepper(
-                    label: text(zh: '监听端口', en: 'Listen port'),
-                    value: _listenPort,
-                    min: aiModelProxyMinListenPort,
-                    max: aiModelProxyMaxListenPort,
-                    onChanged: (value) => setState(() => _listenPort = value),
-                  ),
-                  kOpenHandGap14,
-                  _ProxyToggleRow(
-                    value: _auth,
-                    onChanged: (value) => setState(() {
-                      _auth = value;
-                      if (!value) _showApiKey = false;
-                    }),
-                    title: text(zh: 'API 鉴权', en: 'API authentication'),
-                    subtitle: text(
-                      zh: '启用后请求必须携带与 API 风格一致的 Key。',
-                      en: 'Require a matching API key on incoming requests.',
-                    ),
-                  ),
-                  if (_auth) ...[
-                    kOpenHandGap8,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: OpenHandDialogSectionCard(
+                icon: Icons.lan_outlined,
+                title: text(zh: '监听', en: 'Listener'),
+                subtitle: text(
+                  zh: '对外绑定地址与端口。非回环地址必须开启鉴权。',
+                  en: 'Bind address and port. Non-loopback hosts require auth.',
+                ),
+                accent: OpenHandStatusColors.info,
+                child: Column(
+                  children: [
                     TextField(
-                      controller: _key,
-                      obscureText: !_showApiKey,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      keyboardType: TextInputType.visiblePassword,
-                      textInputAction: TextInputAction.done,
+                      controller: _listenHost,
+                      textInputAction: TextInputAction.next,
+                      keyboardType: TextInputType.text,
                       decoration: InputDecoration(
-                        labelText: text(zh: 'API Key', en: 'API key'),
-                        suffixIcon: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: ServiceDialogCompactIconButton(
-                            size: 32,
-                            tooltip: _showApiKey
-                                ? text(zh: '隐藏 API Key', en: 'Hide API key')
-                                : text(zh: '显示 API Key', en: 'Show API key'),
-                            onPressed: () =>
-                                setState(() => _showApiKey = !_showApiKey),
-                            icon: Icon(
-                              _showApiKey
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                        suffixIconConstraints: const BoxConstraints.tightFor(
-                          width: 48,
-                          height: 40,
+                        labelText: text(zh: '监听地址', en: 'Listen address'),
+                        prefixIcon: const Icon(Icons.lan_outlined),
+                        helperText: text(
+                          zh: '默认 $aiModelProxyDefaultListenHost；非回环地址必须启用鉴权。',
+                          en: 'Default $aiModelProxyDefaultListenHost; remote listeners require authentication.',
                         ),
                       ),
+                    ),
+                    kOpenHandGap12,
+                    _NumberStepper(
+                      label: text(zh: '监听端口', en: 'Listen port'),
+                      value: _listenPort,
+                      min: aiModelProxyMinListenPort,
+                      max: aiModelProxyMaxListenPort,
+                      onChanged: (value) => setState(() => _listenPort = value),
                     ),
                   ],
-                  kOpenHandGap14,
-                  _DropdownField<AiModelProxyApiStyle>(
-                    label: text(zh: 'API 风格', en: 'API style'),
-                    value: _style,
-                    values: AiModelProxyApiStyle.values,
-                    labelOf: (item) => item.label,
-                    onChanged: (value) => setState(() => _style = value),
-                  ),
-                  kOpenHandGap12,
-                  _DropdownField<AiModelProxyLimitScope>(
-                    label: text(zh: '限流范围', en: 'Rate limit scope'),
-                    value: _limitScope,
-                    values: AiModelProxyLimitScope.values,
-                    labelOf: (item) => aiModelProxyLimitScopeLabel(item, text),
-                    onChanged: (value) => setState(() => _limitScope = value),
-                  ),
-                  kOpenHandGap12,
-                  _DropdownField<AiModelProxyLimitMode>(
-                    label: text(zh: '限流方式', en: 'Rate limit mode'),
-                    value: _limitMode,
-                    values: AiModelProxyLimitMode.values,
-                    labelOf: (item) => item.label,
-                    onChanged: (value) => setState(() => _limitMode = value),
-                  ),
-                  kOpenHandGap12,
-                  _NumberStepper(
-                    label:
-                        '${_limitMode.label} ${text(zh: '阈值', en: 'threshold')}',
-                    value: _threshold,
-                    min: 1,
-                    max: 1000000,
-                    onChanged: (value) => setState(() => _threshold = value),
-                  ),
-                  kOpenHandGap12,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: OpenHandDialogSectionCard(
+                icon: Icons.verified_user_outlined,
+                title: text(zh: '鉴权与协议', en: 'Auth and protocol'),
+                accent: OpenHandStatusColors.success,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.lock_outline_rounded,
+                      disabledIcon: Icons.lock_open_rounded,
+                      title: text(zh: 'API 鉴权', en: 'API authentication'),
+                      description: text(
+                        zh: '启用后请求必须携带与 API 风格一致的 Key。',
+                        en: 'Require a matching API key on incoming requests.',
+                      ),
+                      value: _auth,
+                      onChanged: (value) => setState(() {
+                        _auth = value;
+                        if (!value) _showApiKey = false;
+                      }),
+                    ),
+                    OpenHandVerticalRevealSwitcher(
+                      presentKey: const ValueKey<String>('proxy-api-key'),
+                      slideBeginOffsetY: -.03,
+                      child: !_auth
+                          ? null
+                          : Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: TextField(
+                                controller: _key,
+                                obscureText: !_showApiKey,
+                                autocorrect: false,
+                                enableSuggestions: false,
+                                keyboardType: TextInputType.visiblePassword,
+                                textInputAction: TextInputAction.done,
+                                decoration: InputDecoration(
+                                  labelText: text(zh: 'API Key', en: 'API key'),
+                                  prefixIcon: const Icon(Icons.key_rounded),
+                                  suffixIcon: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    child: ServiceDialogCompactIconButton(
+                                      size: 32,
+                                      tooltip: _showApiKey
+                                          ? text(
+                                              zh: '隐藏 API Key',
+                                              en: 'Hide API key',
+                                            )
+                                          : text(
+                                              zh: '显示 API Key',
+                                              en: 'Show API key',
+                                            ),
+                                      onPressed: () => setState(
+                                        () => _showApiKey = !_showApiKey,
+                                      ),
+                                      icon: Icon(
+                                        _showApiKey
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  suffixIconConstraints:
+                                      const BoxConstraints.tightFor(
+                                        width: 48,
+                                        height: 40,
+                                      ),
+                                ),
+                              ),
+                            ),
+                    ),
+                    kOpenHandGap12,
+                    _DropdownField<AiModelProxyApiStyle>(
+                      label: text(zh: 'API 风格', en: 'API style'),
+                      value: _style,
+                      values: AiModelProxyApiStyle.values,
+                      labelOf: (item) => item.label,
+                      onChanged: (value) => setState(() => _style = value),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: OpenHandDialogSectionCard(
+                icon: Icons.speed_rounded,
+                title: text(zh: '限流', en: 'Rate limits'),
+                accent: OpenHandStatusColors.warning,
+                child: Column(
+                  children: [
+                    _DropdownField<AiModelProxyLimitScope>(
+                      label: text(zh: '限流范围', en: 'Rate limit scope'),
+                      value: _limitScope,
+                      values: AiModelProxyLimitScope.values,
+                      labelOf: (item) =>
+                          aiModelProxyLimitScopeLabel(item, text),
+                      onChanged: (value) => setState(() => _limitScope = value),
+                    ),
+                    kOpenHandGap12,
+                    _DropdownField<AiModelProxyLimitMode>(
+                      label: text(zh: '限流方式', en: 'Rate limit mode'),
+                      value: _limitMode,
+                      values: AiModelProxyLimitMode.values,
+                      labelOf: (item) => item.label,
+                      onChanged: (value) => setState(() => _limitMode = value),
+                    ),
+                    kOpenHandGap12,
+                    _NumberStepper(
+                      label:
+                          '${_limitMode.label} ${text(zh: '阈值', en: 'threshold')}',
+                      value: _threshold,
+                      min: 1,
+                      max: 1000000,
+                      onChanged: (value) => setState(() => _threshold = value),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            OpenHandDialogSectionCard(
+              icon: Icons.replay_rounded,
+              title: text(zh: '重试与调度', en: 'Retry and scheduling'),
+              accent: colorScheme.tertiary,
+              child: Column(
+                children: [
                   _DropdownField<AiModelProxyRetryPolicy>(
                     label: text(zh: '重试策略', en: 'Retry policy'),
                     value: _retry,
@@ -2249,46 +2321,47 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                     labelOf: (item) => aiModelProxyRetryPolicyLabel(item, text),
                     onChanged: (value) => setState(() => _retry = value),
                   ),
-                  if (_retry != AiModelProxyRetryPolicy.failFast) ...[
-                    kOpenHandGap12,
-                    _NumberStepper(
-                      label: text(zh: '重试次数', en: 'Retry count'),
-                      value: _retryCount,
-                      min: 1,
-                      max: 10,
-                      onChanged: (value) => setState(() => _retryCount = value),
-                    ),
-                  ],
-                  if (_retry == AiModelProxyRetryPolicy.retryAndFailover) ...[
-                    kOpenHandGap12,
-                    _DropdownField<AiModelProxySchedulingStrategy>(
-                      label: text(zh: '服务商调度策略', en: 'Provider scheduling'),
-                      value: _scheduling,
-                      values: AiModelProxySchedulingStrategy.values,
-                      labelOf: (item) =>
-                          aiModelProxySchedulingLabel(item, text),
-                      onChanged: (value) => setState(() => _scheduling = value),
-                    ),
-                  ],
+                  OpenHandVerticalRevealSwitcher(
+                    presentKey: const ValueKey<String>('proxy-retry-count'),
+                    slideBeginOffsetY: -.03,
+                    child: _retry == AiModelProxyRetryPolicy.failFast
+                        ? null
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: _NumberStepper(
+                              label: text(zh: '重试次数', en: 'Retry count'),
+                              value: _retryCount,
+                              min: 1,
+                              max: 10,
+                              onChanged: (value) =>
+                                  setState(() => _retryCount = value),
+                            ),
+                          ),
+                  ),
+                  OpenHandVerticalRevealSwitcher(
+                    presentKey: const ValueKey<String>('proxy-scheduling'),
+                    slideBeginOffsetY: -.03,
+                    child: _retry == AiModelProxyRetryPolicy.retryAndFailover
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child:
+                                _DropdownField<AiModelProxySchedulingStrategy>(
+                                  label: text(
+                                    zh: '服务商调度策略',
+                                    en: 'Provider scheduling',
+                                  ),
+                                  value: _scheduling,
+                                  values: AiModelProxySchedulingStrategy.values,
+                                  labelOf: (item) =>
+                                      aiModelProxySchedulingLabel(item, text),
+                                  onChanged: (value) =>
+                                      setState(() => _scheduling = value),
+                                ),
+                          )
+                        : null,
+                  ),
                 ],
               ),
-            ),
-            kOpenHandGap14,
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: text(zh: '取消', en: 'Cancel'),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                kOpenHandHGap10,
-                OpenHandDialogActionButton.primary(
-                  onPressed: _save,
-                  icon: Icons.save_outlined,
-                  label: text(zh: '保存设置', en: 'Save settings'),
-                  busy: _saving,
-                ),
-              ],
             ),
           ],
         ),
@@ -2494,69 +2567,6 @@ class _NumberStepperState extends State<_NumberStepper> {
                 disabledBackgroundColor: colors.surfaceContainerHighest,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProxyToggleRow extends StatelessWidget {
-  const _ProxyToggleRow({
-    required this.value,
-    required this.onChanged,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 10, 14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(kOpenHandRadius16),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: theme.textTheme.titleMedium),
-                kOpenHandGap4,
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-              if (states.contains(WidgetState.selected)) {
-                return const Icon(Icons.check_rounded, size: 16);
-              }
-              return const Icon(Icons.close_rounded, size: 16);
-            }),
-            trackColor: WidgetStateProperty.resolveWith((states) {
-              return states.contains(WidgetState.selected)
-                  ? colors.primary
-                  : colors.surfaceContainerHighest;
-            }),
-            trackOutlineColor: WidgetStatePropertyAll(colors.outlineVariant),
           ),
         ],
       ),
