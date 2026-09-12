@@ -8753,11 +8753,11 @@ button.oh-composer-pill:not(:disabled):hover {
 
 .oh-dialog-json-scroll {
   --oh-dialog-json-max-height: min(48vh, 420px);
-  max-height: var(--oh-dialog-json-max-height);
   min-height: 0;
 }
 
 .oh-dialog-json-scroll.oh-dialog-tinted-panel {
+  max-height: var(--oh-dialog-json-max-height);
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -8770,7 +8770,7 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-dialog-json-scroll > .oh-json-tree {
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 100%;
+  max-height: var(--oh-dialog-json-max-height);
 }
 
 @media (max-width: 560px) {
@@ -10941,13 +10941,14 @@ button.oh-composer-pill:not(:disabled):hover {
   --oh-json-tree-radius: 14px;
   --oh-json-tree-border-width: 1px;
   --oh-json-tree-inner-radius: calc(var(--oh-json-tree-radius) - var(--oh-json-tree-border-width));
+  --oh-json-tree-header-extent: 38px;
+  --oh-json-tree-preview-max-height: 260px;
   position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  overflow: clip;
-  overflow-clip-margin: var(--oh-json-tree-border-width);
+  overflow: hidden;
   border: var(--oh-json-tree-border-width) solid color-mix(in srgb, var(--m3-outline-variant) 78%, transparent);
   border-radius: var(--oh-json-tree-radius);
   background: color-mix(in srgb, var(--m3-surface-container) 78%, transparent);
@@ -10968,7 +10969,7 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-json-tree > header {
   display: flex;
-  min-height: 38px;
+  min-height: var(--oh-json-tree-header-extent);
   flex: none;
   align-items: center;
   gap: 7px;
@@ -11057,28 +11058,37 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-json-tree-text {
   min-height: 0;
   flex: 1 1 auto;
+  border-radius: 0 0 var(--oh-json-tree-inner-radius) var(--oh-json-tree-inner-radius);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--m3-on-surface-variant) 42%, transparent) transparent;
+}
+.oh-json-tree.is-preview > .oh-json-tree-body,
+.oh-json-tree.is-preview > .oh-json-tree-text,
+.oh-dialog-json-scroll > .oh-json-tree > .oh-json-tree-body,
+.oh-dialog-json-scroll > .oh-json-tree > .oh-json-tree-text {
   overflow: auto;
   overscroll-behavior: contain;
-  border-radius: 0 0 var(--oh-json-tree-inner-radius) var(--oh-json-tree-inner-radius);
+  touch-action: pan-y;
 }
 .oh-json-tree.is-preview > .oh-json-tree-body,
 .oh-json-tree.is-preview > .oh-json-tree-text {
-  max-height: 260px;
+  max-height: var(--oh-json-tree-preview-max-height);
 }
+.oh-dialog-json-scroll > .oh-json-tree > .oh-json-tree-body,
+.oh-dialog-json-scroll > .oh-json-tree > .oh-json-tree-text,
 .oh-dialog-json-scroll > .oh-json-tree.is-preview > .oh-json-tree-body,
 .oh-dialog-json-scroll > .oh-json-tree.is-preview > .oh-json-tree-text {
-  max-height: none;
+  max-height: max(0px, calc(var(--oh-dialog-json-max-height) - var(--oh-json-tree-header-extent)));
 }
-.oh-json-tree.is-preview::after {
-  content: '';
-  position: absolute;
-  left: var(--oh-json-tree-border-width);
-  right: var(--oh-json-tree-border-width);
-  bottom: var(--oh-json-tree-border-width);
-  height: 36px;
-  pointer-events: none;
-  border-radius: 0 0 var(--oh-json-tree-inner-radius) var(--oh-json-tree-inner-radius);
-  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--m3-surface-container) 94%, transparent));
+.oh-json-tree-body::-webkit-scrollbar,
+.oh-json-tree-text::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.oh-json-tree-body::-webkit-scrollbar-thumb,
+.oh-json-tree-text::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--m3-on-surface-variant) 38%, transparent);
+  border-radius: 999px;
 }
 .oh-json-full-dialog {
   display: flex;
@@ -11172,10 +11182,14 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-json-full-body .oh-json-tree {
   min-height: 0;
+  max-height: none;
+  overflow: visible;
 }
 .oh-json-full-body .oh-json-tree-body,
 .oh-json-full-body .oh-json-tree-text {
   max-height: none;
+  overflow: visible;
+  overscroll-behavior: auto;
 }
 .oh-json-tree-body {
   padding: 8px 7px;
