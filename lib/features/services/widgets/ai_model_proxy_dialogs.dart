@@ -2879,6 +2879,11 @@ class _Metric extends StatelessWidget {
   }
 }
 
+const double _kProxyRecordTileCompactBreakpoint = 760;
+const double _kProxyRecordSourceMinWidth = 140;
+const double _kProxyRecordSourceMaxWidth = 280;
+const double _kProxyRecordTimeMaxWidth = 148;
+
 class _ProxyRecordTile extends StatelessWidget {
   const _ProxyRecordTile({required this.record});
 
@@ -2894,52 +2899,62 @@ class _ProxyRecordTile extends StatelessWidget {
     final statusLabel = record.success
         ? text(zh: '成功', en: 'OK')
         : text(zh: '失败', en: 'Fail');
+    final tone = record.success
+        ? OpenHandStatusColors.success
+        : OpenHandStatusColors.error;
+    final identity = OpenHandTableStackedCell(
+      primary: [
+        if (!isAiModelProxyStatusRecord(record) && provider.isNotEmpty)
+          provider,
+        model,
+      ].where((value) => value.isNotEmpty).join(' / '),
+      secondary: [
+        aiModelProxyRequestProtocolLabel(record, text),
+        aiModelProxyRequestDispatchLabel(record, text),
+        if (record.clientProcessId.trim().isNotEmpty)
+          'PID ${record.clientProcessId.trim()}',
+        if (record.clientServiceName.trim().isNotEmpty)
+          record.clientServiceName.trim(),
+        if (record.clientMacAddress.trim().isNotEmpty)
+          record.clientMacAddress.trim(),
+        if (record.error != null && record.error!.trim().isNotEmpty)
+          record.error!.trim(),
+      ].join(' · '),
+    );
     return HoverLift(
       child: Container(
         width: double.infinity,
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: colors.surfaceContainerLowest,
+          color: Color.alphaBlend(
+            tone.withValues(alpha: 0.06),
+            colors.surfaceContainerLow,
+          ),
           borderRadius: BorderRadius.circular(kOpenHandRadius16),
-          border: Border.all(color: colors.outlineVariant),
+          border: Border.all(color: tone.withValues(alpha: 0.22)),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: OpenHandTableStackedCell(
-                primary: [
-                  if (!isAiModelProxyStatusRecord(record) &&
-                      provider.isNotEmpty)
-                    provider,
-                  model,
-                ].where((value) => value.isNotEmpty).join(' / '),
-                secondary: [
-                  aiModelProxyRequestProtocolLabel(record, text),
-                  aiModelProxyRequestDispatchLabel(record, text),
-                  if (record.clientEndpoint.isNotEmpty) record.clientEndpoint,
-                  if (record.clientProcessId.trim().isNotEmpty)
-                    'PID ${record.clientProcessId.trim()}',
-                  if (record.clientServiceName.trim().isNotEmpty)
-                    record.clientServiceName.trim(),
-                  if (record.clientMacAddress.trim().isNotEmpty)
-                    record.clientMacAddress.trim(),
-                  if (record.error != null && record.error!.trim().isNotEmpty)
-                    record.error!.trim(),
-                ].join(' · '),
-              ),
-            ),
-            kOpenHandHGap12,
-            Wrap(
-              spacing: 16,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bounded =
+                constraints.hasBoundedWidth &&
+                constraints.maxWidth.isFinite &&
+                constraints.maxWidth > 0;
+            final maxWidth = bounded
+                ? constraints.maxWidth
+                : _kProxyRecordTileCompactBreakpoint;
+            final compact =
+                !bounded || maxWidth < _kProxyRecordTileCompactBreakpoint;
+            final sourceMaxWidth = (maxWidth * 0.36).clamp(
+              _kProxyRecordSourceMinWidth,
+              _kProxyRecordSourceMaxWidth,
+            );
+            final metrics = Wrap(
+              spacing: 12,
               runSpacing: 8,
+              alignment: compact ? WrapAlignment.start : WrapAlignment.end,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                OpenHandTokenMetricCell(
-                  total: record.tokens,
-                  promptTokens: record.promptTokens,
-                  completionTokens: record.completionTokens,
-                ),
                 OpenHandTableStackedCell(
                   primary: record.clientEndpoint.isEmpty
                       ? text(zh: '未知来源', en: 'Unknown source')
@@ -2947,33 +2962,59 @@ class _ProxyRecordTile extends StatelessWidget {
                   secondary: record.clientUserAgent.trim().isEmpty
                       ? text(zh: 'UA 未知', en: 'UA unknown')
                       : record.clientUserAgent.trim(),
-                  alignEnd: true,
+                  alignEnd: !compact,
+                  maxWidth: sourceMaxWidth,
+                ),
+                OpenHandTokenMetricCell(
+                  total: record.tokens,
+                  promptTokens: record.promptTokens,
+                  completionTokens: record.completionTokens,
+                  alignEnd: !compact,
                 ),
                 OpenHandDurationMetricCell(
                   durationMs: record.durationMs <= 0 ? null : record.durationMs,
+                  alignEnd: !compact,
                 ),
                 OpenHandTableStatusBadge(
                   label: statusLabel,
-                  color: record.success
-                      ? OpenHandStatusColors.success
-                      : OpenHandStatusColors.error,
+                  color: tone,
                   tooltip: [
                     statusLabel,
                     if (record.statusCode > 0) '${record.statusCode}',
                   ].join(' · '),
                 ),
-                Text(
-                  formatListDateTime(record.startedAt),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: _kProxyRecordTimeMaxWidth,
+                  ),
+                  child: Text(
+                    formatListDateTime(record.startedAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: compact ? TextAlign.start : TextAlign.end,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               ],
-            ),
-          ],
+            );
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [identity, kOpenHandGap10, metrics],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 5, child: identity),
+                kOpenHandHGap12,
+                Expanded(flex: 6, child: metrics),
+              ],
+            );
+          },
         ),
       ),
     );

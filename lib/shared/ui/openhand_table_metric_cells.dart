@@ -359,11 +359,13 @@ class OpenHandTableStackedCell extends StatelessWidget {
     required this.primary,
     this.secondary = '',
     this.alignEnd = false,
+    this.maxWidth,
   });
 
   final String primary;
   final String secondary;
   final bool alignEnd;
+  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +374,7 @@ class OpenHandTableStackedCell extends StatelessWidget {
         ? kOpenHandTableMetricEmpty
         : primary.trim();
     final displaySecondary = secondary.trim();
-    return Column(
+    final column = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: alignEnd
           ? CrossAxisAlignment.end
@@ -400,6 +402,12 @@ class OpenHandTableStackedCell extends StatelessWidget {
           ),
         ],
       ],
+    );
+    final cap = maxWidth;
+    if (cap == null || !cap.isFinite || cap <= 0) return column;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: cap),
+      child: column,
     );
   }
 }
