@@ -8547,6 +8547,167 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-dialog-action-button > svg {
   flex: none;
 }
+
+.oh-dialog-icon-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.oh-dialog-tinted-panel {
+  min-width: 0;
+  border-radius: 16px;
+  padding: 12px 14px;
+  transition:
+    transform var(--oh-motion-duration-base) var(--oh-motion-spring),
+    border-color var(--oh-dialog-duration) var(--oh-dialog-curve),
+    box-shadow var(--oh-motion-duration-base) var(--oh-dialog-curve);
+}
+
+.oh-dialog-tinted-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px -24px color-mix(in srgb, var(--m3-shadow, #000) 48%, transparent);
+}
+
+.oh-dialog-section-card {
+  min-width: 0;
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.oh-dialog-section-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.oh-dialog-section-card-title {
+  margin: 0;
+  color: var(--m3-on-surface);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.oh-dialog-section-card-subtitle {
+  margin: 3px 0 0;
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.oh-dialog-section-card-body {
+  margin-top: 14px;
+}
+
+.oh-dialog-summary-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.oh-dialog-summary-tile {
+  min-width: 0;
+  padding: 12px;
+}
+
+.oh-dialog-summary-tile-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.oh-dialog-summary-tile-label {
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.oh-dialog-summary-tile-value {
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.oh-dialog-fact-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.oh-dialog-entry-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.oh-dialog-entry-row + .oh-dialog-entry-row {
+  margin-top: 10px;
+}
+
+.oh-dialog-entry-label {
+  flex: none;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.oh-dialog-entry-value {
+  min-width: 0;
+  flex: 1;
+  color: var(--m3-on-surface);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.oh-dialog-range {
+  accent-color: var(--oh-dialog-range-accent, var(--m3-primary));
+  height: 8px;
+}
+
+.oh-dialog-json-scroll {
+  max-height: min(48vh, 420px);
+  overflow: auto;
+  border-radius: 14px;
+}
+
+@media (max-width: 560px) {
+  .oh-dialog-entry-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .oh-dialog-entry-label {
+    width: auto !important;
+  }
+}
+
+[data-motion='reduced'] .oh-dialog-tinted-panel,
+[data-motion='reduced'] .oh-dialog-tinted-panel:hover {
+  transform: none;
+  box-shadow: none;
+  transition: none;
+}
 .oh-goal-start-form {
   display: flex;
   flex-direction: column;

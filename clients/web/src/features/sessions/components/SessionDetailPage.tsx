@@ -154,8 +154,22 @@ import {
   DIALOG_OVERLAY_LOW_Z_INDEX,
   DialogActionButton,
   DialogFrame,
+  DialogHeader,
   createStandardDialogFrameAppearance,
 } from '../../../components/DialogFrame';
+import {
+  DIALOG_ACCENT,
+  DIALOG_ACCENT_CYCLE,
+  DialogEntryRow,
+  DialogFactChip,
+  DialogGlyph,
+  DialogIconBadge,
+  DialogSectionCard,
+  DialogSummaryGrid,
+  DialogSummaryTile,
+  DialogTintedPanel,
+} from '../../../components/DialogChrome';
+import { StructuredJsonView } from '../../../components/StructuredJsonView';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { AndroidReverseDashboardDialog } from '../../../components/AndroidReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
@@ -9646,42 +9660,148 @@ function GoalKv({ label, value }: { label: string; value: ComponentChildren }) {
   );
 }
 
-/// 消息审计弹窗：展示原始 JSON（id / kind / role / metadata / created_at / character_count），
-/// 用于排查 tool_call 元数据 / 文件变动等问题。复用全局对话框样式。
+/// 消息审计弹窗：摘要磁贴 + 结构化 JSON，用于排查 tool_call 元数据 / 文件变动。
 function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onClose: () => void }) {
   const json = stringifyJsonSafely(message, 2) ?? '';
   const { closing, requestClose } = useDialogExitMotion(onClose);
+  const metadata = recordFromUnknown(message.metadata);
+  const usage = message.usage;
+  const promptTokens = usage?.prompt_tokens ?? 0;
+  const completionTokens = usage?.completion_tokens ?? 0;
+  const reportedTotal = usage?.total_tokens;
+  const totalTokens =
+    typeof reportedTotal === 'number' && Number.isFinite(reportedTotal) && reportedTotal > 0
+      ? Math.round(reportedTotal)
+      : Math.max(0, Math.round(promptTokens + completionTokens));
+  const durationMs = integerFromUnknown(metadata['duration_ms']);
+  const streaming =
+    booleanFromUnknown(metadata['streaming']) ||
+    booleanFromUnknown(metadata['telemetry_in_flight']);
+  const hasError =
+    message.kind === 'error' || Boolean(stringFromUnknown(metadata['error']));
+  const statusLabel = streaming ? '进行中' : hasError ? '异常' : '已完成';
+  const statusAccent = streaming
+    ? DIALOG_ACCENT.warning
+    : hasError
+      ? DIALOG_ACCENT.error
+      : DIALOG_ACCENT.success;
+  const kindAccent =
+    message.kind === 'user'
+      ? DIALOG_ACCENT.success
+      : message.kind === 'assistant'
+        ? DIALOG_ACCENT.info
+        : message.kind === 'tool' || message.kind === 'tool_call'
+          ? DIALOG_ACCENT.warning
+          : message.kind === 'mcp'
+            ? DIALOG_ACCENT.caution
+            : message.kind === 'skill'
+              ? DIALOG_ACCENT.secondary
+              : message.kind === 'error'
+                ? DIALOG_ACCENT.error
+                : DIALOG_ACCENT.primary;
+  const content = message.content.trim();
   return (
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
         overlayTone: 'strong',
-        panelClassName: 'rounded-m3-md p-4 max-w-2xl w-full flex flex-col',
-        panelBorder: 'outline',
+        panelClassName: 'rounded-m3-lg w-full flex flex-col overflow-hidden',
         panelSurface: {
-          maxHeight: '80vh',
+          maxWidth: '760px',
+          maxHeight: '84vh',
         },
       })}
       ariaLabel={`${t('common.audit', '审计')} ${message.id}`}
     >
-      <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h2 class="text-base font-semibold min-w-0 truncate">
-          {t('common.audit', '审计')} · {message.id}
-        </h2>
-        <JsonDialogActions json={json} requestClose={requestClose} />
-      </header>
-      <pre
-        class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap flex-1 min-h-0"
-        style={{
-          background: 'var(--m3-surface)',
-          border: '1px solid var(--m3-outline)',
-          maxHeight: 'calc(80vh - 96px)',
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-        }}
+      <DialogHeader
+        title={t('common.audit', '审计')}
+        subtitle={message.id}
+        icon={
+          <DialogIconBadge accent={kindAccent}>
+            <DialogGlyph name="layers" />
+          </DialogIconBadge>
+        }
+        actions={<JsonDialogActions json={json} requestClose={requestClose} />}
+      />
+      <div
+        class="min-h-0 flex-1 space-y-4 overflow-auto px-5 py-4"
+        style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
       >
-        {json}
-      </pre>
+        <DialogSummaryGrid>
+          <DialogSummaryTile
+            label={t('audit.kind', '类型')}
+            value={message.kind || '—'}
+            accent={kindAccent}
+            icon={<DialogGlyph name="layers" />}
+          />
+          <DialogSummaryTile
+            label={t('audit.tokens', 'Token')}
+            value={totalTokens > 0 ? totalTokens.toLocaleString() : '—'}
+            accent={DIALOG_ACCENT.tertiary}
+            icon={<DialogGlyph name="bolt" />}
+          />
+          <DialogSummaryTile
+            label={t('audit.characters', '字符 / 耗时')}
+            value={durationMs > 0 ? `${message.character_count} · ${durationMs} ms` : `${message.character_count}`}
+            accent={DIALOG_ACCENT.warning}
+            icon={<DialogGlyph name="clock" />}
+          />
+          <DialogSummaryTile
+            label={t('audit.status', '状态')}
+            value={statusLabel}
+            accent={statusAccent}
+            icon={<DialogGlyph name={hasError ? 'alert' : streaming ? 'spark' : 'check'} />}
+          />
+        </DialogSummaryGrid>
+        <DialogSectionCard
+          title={t('audit.overview', '消息概览')}
+          subtitle={message.model_label || message.model_id || message.role}
+          accent={DIALOG_ACCENT.info}
+          icon={<DialogGlyph name="chat" />}
+        >
+          <DialogEntryRow label={t('audit.role', '角色')} value={message.role || '—'} />
+          <DialogEntryRow label={t('audit.createdAt', '创建时间')} value={formatLocalDateTimeSecond(message.created_at)} />
+          {message.sender_origin ? (
+            <DialogEntryRow label={t('audit.origin', '来源')} value={message.sender_origin} />
+          ) : null}
+          {usage ? (
+            <>
+              <DialogEntryRow label={t('tokenPopup.prompt', '提示词')} value={`${promptTokens.toLocaleString()}`} />
+              <DialogEntryRow label={t('tokenPopup.completion', '回复')} value={`${completionTokens.toLocaleString()}`} />
+              {usage.reasoning_tokens ? (
+                <DialogEntryRow
+                  label={t('tokenPopup.reasoning', '推理')}
+                  value={`${usage.reasoning_tokens.toLocaleString()}`}
+                />
+              ) : null}
+            </>
+          ) : null}
+        </DialogSectionCard>
+        {content ? (
+          <DialogSectionCard
+            title={t('audit.content', '内容')}
+            accent={DIALOG_ACCENT.secondary}
+            icon={<DialogGlyph name="file" />}
+          >
+            <DialogTintedPanel accent={DIALOG_ACCENT.secondary} className="oh-dialog-json-scroll">
+              <div class="text-sm leading-relaxed whitespace-pre-wrap break-words select-text">
+                {content}
+              </div>
+            </DialogTintedPanel>
+          </DialogSectionCard>
+        ) : null}
+        <DialogSectionCard
+          title={t('audit.payload', '原始记录')}
+          subtitle={t('audit.payloadHint', '结构化 JSON')}
+          accent={DIALOG_ACCENT.success}
+          icon={<DialogGlyph name="hash" />}
+        >
+          <div class="oh-dialog-json-scroll">
+            <StructuredJsonView text={json} />
+          </div>
+        </DialogSectionCard>
+      </div>
     </DialogFrame>
   );
 }
@@ -9916,35 +10036,28 @@ function ContextUsageOverview({
     ? 'var(--oh-dialog-enter-duration)'
     : 'var(--oh-dialog-exit-duration)';
   return (
-    <section
-      class="rounded-m3-md p-3"
-      style={{
-        background: 'var(--m3-surface-container-low)',
-        border: '1px solid var(--m3-outline-variant)',
-      }}
-    >
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h3 class="text-xs font-extrabold oh-text-body">
-            {t('tokenPopup.context.title', '上下文数据概览')}
-          </h3>
-          {usage ? (
-            <p class="mt-0.5 text-[11px] oh-text-muted">
-              {usage.measured
-                ? t('tokenPopup.context.measured', '总量实测 · 分类折算')
-                : t('tokenPopup.context.estimated', '按请求内容估算')}
-            </p>
-          ) : null}
-        </div>
-        {usage ? (
+    <DialogSectionCard
+      title={t('tokenPopup.context.title', '上下文数据概览')}
+      subtitle={
+        usage
+          ? usage.measured
+            ? t('tokenPopup.context.measured', '总量实测 · 分类折算')
+            : t('tokenPopup.context.estimated', '按请求内容估算')
+          : undefined
+      }
+      accent={contextColor}
+      icon={<DialogGlyph name="layers" />}
+      trailing={
+        usage ? (
           <div class="shrink-0 text-right">
-            <strong class="block text-sm tabular-nums oh-text-primary">
+            <strong class="block text-sm tabular-nums" style={{ color: contextColor }}>
               {usage.totalTokens.toLocaleString()}
             </strong>
             <span class="text-[10px] font-semibold oh-text-muted">Token</span>
           </div>
-        ) : null}
-      </div>
+        ) : undefined
+      }
+    >
       {hasWindowData ? (
         <div
           class="mt-3 rounded-m3-sm px-2.5 py-2.5"
@@ -10067,7 +10180,7 @@ function ContextUsageOverview({
           <span>{t('tokenPopup.context.empty', '发送下一条消息后生成概览')}</span>
         </div>
       )}
-    </section>
+    </DialogSectionCard>
   );
 }
 
@@ -10113,35 +10226,70 @@ function SessionTokenStatsContent({
     trendData,
     claudeStyle,
   } = cacheHit;
+  const windowPercent = contextWindowUsage.windowTokens > 0
+    ? `${contextWindowUsage.percent}%`
+    : '—';
+  const windowAccent = contextWindowUsage.ratio >= 0.9
+    ? DIALOG_ACCENT.error
+    : contextWindowUsage.ratio >= 0.7
+      ? DIALOG_ACCENT.warning
+      : DIALOG_ACCENT.info;
   return (
     <>
-      <TokenStatsSection title={t('tokenPopup.input', '输入')}>
-        <TokenStatsRow label={t('tokenPopup.prompt', '提示词')} value={promptTokens} />
-        {audioInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.audioInput', '音频输入')} value={audioInputTokens} /> : null}
-        {imageInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.imageInput', '图片输入')} value={imageInputTokens} /> : null}
-        {videoInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.videoInput', '视频输入')} value={videoInputTokens} /> : null}
+      <DialogSummaryGrid>
+        <DialogSummaryTile
+          label={t('tokenPopup.input', '输入')}
+          value={promptTokens.toLocaleString()}
+          accent={DIALOG_ACCENT.info}
+          icon={<DialogGlyph name="file" />}
+        />
+        <DialogSummaryTile
+          label={t('tokenPopup.output', '输出')}
+          value={completionTokens.toLocaleString()}
+          accent={DIALOG_ACCENT.secondary}
+          icon={<DialogGlyph name="spark" />}
+        />
+        <DialogSummaryTile
+          label={t('tokenPopup.total', '总计')}
+          value={totalTokens.toLocaleString()}
+          accent={DIALOG_ACCENT.success}
+          icon={<DialogGlyph name="bolt" />}
+        />
+        <DialogSummaryTile
+          label={t('tokenPopup.context.window', '上下文窗口')}
+          value={windowPercent}
+          accent={windowAccent}
+          icon={<DialogGlyph name="chart" />}
+        />
+      </DialogSummaryGrid>
+      <TokenStatsSection title={t('tokenPopup.input', '输入')} accent={DIALOG_ACCENT.info} icon={<DialogGlyph name="file" />}>
+        <TokenStatsRow label={t('tokenPopup.prompt', '提示词')} value={promptTokens} accent={DIALOG_ACCENT.info} />
+        {audioInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.audioInput', '音频输入')} value={audioInputTokens} accent={DIALOG_ACCENT.tertiary} /> : null}
+        {imageInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.imageInput', '图片输入')} value={imageInputTokens} accent={DIALOG_ACCENT.secondary} /> : null}
+        {videoInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.videoInput', '视频输入')} value={videoInputTokens} accent={DIALOG_ACCENT.caution} /> : null}
         {cacheHit.hasCacheUsageTelemetry ? (
           <>
-            <TokenStatsRow label={t('tokenPopup.cacheRead', '缓存命中')} value={cacheReadTokens} tone="accent" />
-            <TokenStatsRow label={t('tokenPopup.cacheWrite', '缓存写入')} value={cacheWriteTokens} tone="accent" />
+            <TokenStatsRow label={t('tokenPopup.cacheRead', '缓存命中')} value={cacheReadTokens} accent={DIALOG_ACCENT.success} />
+            <TokenStatsRow label={t('tokenPopup.cacheWrite', '缓存写入')} value={cacheWriteTokens} accent={DIALOG_ACCENT.warning} />
           </>
         ) : null}
       </TokenStatsSection>
-      <TokenStatsSection title={t('tokenPopup.output', '输出')}>
-        <TokenStatsRow label={t('tokenPopup.completion', '回复')} value={completionTokens} />
-        {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', '推理')} value={reasoningTokens} /> : null}
+      <TokenStatsSection title={t('tokenPopup.output', '输出')} accent={DIALOG_ACCENT.secondary} icon={<DialogGlyph name="spark" />}>
+        <TokenStatsRow label={t('tokenPopup.completion', '回复')} value={completionTokens} accent={DIALOG_ACCENT.secondary} />
+        {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', '推理')} value={reasoningTokens} accent={DIALOG_ACCENT.tertiary} /> : null}
       </TokenStatsSection>
       {webSearchToolUsage > 0 || webSearchPageUsage > 0 ? (
-        <TokenStatsSection title={t('tokenPopup.webSearch', '联网搜索')}>
-          {webSearchToolUsage > 0 ? <TokenStatsRow label={t('tokenPopup.webSearchCalls', '调用次数')} value={webSearchToolUsage} tone="accent" /> : null}
-          {webSearchPageUsage > 0 ? <TokenStatsRow label={t('tokenPopup.webSearchPages', '返回页面')} value={webSearchPageUsage} tone="accent" /> : null}
+        <TokenStatsSection title={t('tokenPopup.webSearch', '联网搜索')} accent={DIALOG_ACCENT.caution} icon={<DialogGlyph name="hash" />}>
+          {webSearchToolUsage > 0 ? <TokenStatsRow label={t('tokenPopup.webSearchCalls', '调用次数')} value={webSearchToolUsage} accent={DIALOG_ACCENT.caution} /> : null}
+          {webSearchPageUsage > 0 ? <TokenStatsRow label={t('tokenPopup.webSearchPages', '返回页面')} value={webSearchPageUsage} accent={DIALOG_ACCENT.info} /> : null}
         </TokenStatsSection>
       ) : null}
       <TokenStatsSection
         title={t('tokenPopup.total', '总计')}
-        emphasized
+        accent={DIALOG_ACCENT.success}
+        icon={<DialogGlyph name="bolt" />}
         trailing={(
-          <span class="text-lg font-black tabular-nums oh-text-primary">
+          <span class="text-lg font-black tabular-nums" style={{ color: DIALOG_ACCENT.success }}>
             <RollingText text={totalTokens.toLocaleString()} />
           </span>
         )}
@@ -10170,10 +10318,10 @@ function SessionTokenStatsContent({
           t={t}
         />
       ) : null}
-      <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
-        <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} />
-        <TokenStatsRow label={t('tokenPopup.promptBuilds', '提示词构建')} value={promptBuildCount} />
-        <TokenStatsRow label={t('tokenPopup.promptChars', '提示词字符')} value={totalPromptCharacters} />
+      <TokenStatsSection title={t('tokenPopup.session', '会话累计')} accent={DIALOG_ACCENT.tertiary} icon={<DialogGlyph name="chat" />}>
+        <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} accent={DIALOG_ACCENT.info} />
+        <TokenStatsRow label={t('tokenPopup.promptBuilds', '提示词构建')} value={promptBuildCount} accent={DIALOG_ACCENT.secondary} />
+        <TokenStatsRow label={t('tokenPopup.promptChars', '提示词字符')} value={totalPromptCharacters} accent={DIALOG_ACCENT.tertiary} />
       </TokenStatsSection>
     </>
   );
@@ -10228,25 +10376,25 @@ function SessionTokenStatsDialog({
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
         overlayTone: 'soft',
-        panelClassName: 'w-full max-w-md min-h-0 rounded-m3-xl p-5 flex flex-col overflow-hidden',
+        panelClassName: 'w-full max-w-lg min-h-0 rounded-m3-xl flex flex-col overflow-hidden',
         panelSurface: {
           maxHeight: TOKEN_STATS_DIALOG_MAX_HEIGHT,
         },
       })}
       ariaLabel={t('topbar.tokens', 'Token 统计')}
     >
-      <header class="mb-4 flex shrink-0 items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h2 class="text-base font-semibold">{t('topbar.tokens', 'Token 统计')}</h2>
-          <p class="mt-0.5 truncate text-xs oh-text-muted">
-            {session.title || t('sessions.untitled', '未命名会话')}
-          </p>
-        </div>
-        <DialogActionButton onClick={requestClose} tone="ghost">
-          {t('common.close', '关闭')}
-        </DialogActionButton>
-      </header>
-      <div class="min-h-0 flex-1 space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
+      <DialogHeader
+        title={t('topbar.tokens', 'Token 统计')}
+        subtitle={session.title || t('sessions.untitled', '未命名会话')}
+        icon={
+          <DialogIconBadge accent={DIALOG_ACCENT.info}>
+            <DialogGlyph name="chart" />
+          </DialogIconBadge>
+        }
+        onClose={requestClose}
+        closeLabel={t('common.close', '关闭')}
+      />
+      <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
         <SessionTokenStatsContent
           stats={tokenStats}
           trendDisplayMode={trendDisplayMode}
@@ -10293,56 +10441,42 @@ function TokenStatsSection({
   title,
   children,
   trailing,
-  emphasized = false,
+  accent = DIALOG_ACCENT.primary,
+  icon,
 }: {
   title: string;
   children?: ComponentChildren;
   trailing?: ComponentChildren;
-  emphasized?: boolean;
+  accent?: string;
+  icon?: ComponentChildren;
 }) {
   return (
-    <section
-      class="rounded-m3-md p-3"
-      style={{
-        background: emphasized
-          ? 'color-mix(in srgb, var(--m3-primary-container) 64%, var(--m3-surface-container-low))'
-          : 'var(--m3-surface-container-low)',
-        border: emphasized
-          ? '1px solid color-mix(in srgb, var(--m3-primary) 30%, transparent)'
-          : '1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent)',
-      }}
-    >
-      <div class="flex items-center justify-between gap-3">
-        <h3 class="text-xs font-extrabold oh-text-body">
-          {title}
-        </h3>
-        {trailing}
-      </div>
-      {children ? <div class="mt-2 space-y-1.5">{children}</div> : null}
-    </section>
+    <DialogSectionCard title={title} accent={accent} icon={icon} trailing={trailing}>
+      {children ? <div class="space-y-1.5">{children}</div> : null}
+    </DialogSectionCard>
   );
 }
 
-function TokenStatsRow({ label, value, tone = 'neutral' }: { label: string; value: number; tone?: 'neutral' | 'accent' }) {
-  const accent = tone === 'accent';
+function TokenStatsRow({
+  label,
+  value,
+  accent = DIALOG_ACCENT.primary,
+}: {
+  label: string;
+  value: number;
+  accent?: string;
+}) {
   return (
-    <div
-      class="flex items-center justify-between gap-3 rounded-m3-sm px-2.5 py-2 text-sm hover:-translate-y-px"
-      style={{
-        background: accent
-          ? 'color-mix(in srgb, var(--m3-primary) 7%, transparent)'
-          : 'color-mix(in srgb, var(--m3-surface) 58%, transparent)',
-        border: accent
-          ? '1px solid color-mix(in srgb, var(--m3-primary) 18%, transparent)'
-          : '1px solid color-mix(in srgb, var(--m3-outline-variant) 42%, transparent)',
-        transition: 'transform var(--oh-dialog-duration) var(--oh-dialog-curve), border-color var(--oh-dialog-duration) var(--oh-dialog-curve)',
-      }}
+    <DialogTintedPanel
+      accent={accent}
+      className="flex items-center justify-between gap-3"
+      style={{ padding: '8px 10px' }}
     >
       <span class="text-xs font-medium oh-text-muted">{label}</span>
-      <span class="font-bold tabular-nums" style={{ color: accent ? 'var(--m3-primary)' : 'var(--m3-on-surface)' }}>
+      <span class="font-bold tabular-nums" style={{ color: accent }}>
         <RollingText text={value.toLocaleString()} />
       </span>
-    </div>
+    </DialogTintedPanel>
   );
 }
 
@@ -10657,54 +10791,33 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const todos = session.todo_items ?? [];
   const recentErrors = session.recent_errors ?? [];
 
-  const sectionStyle = {
-    background: 'var(--m3-surface-container-low)',
-    borderRadius: '20px',
-  };
-
-  const SummaryTile = ({ label, value }: { label: string; value: string }) => (
-    <div class="p-3.5" style={{ ...sectionStyle, width: '188px' }}>
-      <div class="text-sm font-semibold oh-text-muted">
-        {label}
-      </div>
-      <div class="mt-1.5 text-xl font-extrabold tabular-nums">{value}</div>
-    </div>
-  );
-  const Chip = ({ label }: { label: string }) => (
-    <span
-      class="inline-flex rounded-full px-2.5 py-1.5 text-xs font-bold"
-      style={{
-        background: 'var(--m3-surface-container-highest)',
-        color: 'var(--m3-on-surface)',
-      }}
-    >
-      {label}
-    </span>
+  const Chip = ({ label, accent = DIALOG_ACCENT.info }: { label: string; accent?: string }) => (
+    <DialogFactChip label={label} accent={accent} />
   );
   const EntryRow = ({ label, value }: { label: string; value: ComponentChildren }) => (
-    <div class="mb-2.5 min-w-0">
-      <div class="text-xs font-bold oh-text-muted">
-        {label}
-      </div>
-      <div class="mt-1 text-sm leading-relaxed break-words whitespace-pre-wrap select-text">{value}</div>
-    </div>
+    <DialogEntryRow label={label} value={value} />
   );
-  const Section = ({ title, children }: { title: string; children: ComponentChildren }) => (
-    <section class="p-4" style={sectionStyle}>
-      <h3 class="text-base font-extrabold mb-3.5">{title}</h3>
+  const Section = ({
+    title,
+    children,
+    accent = DIALOG_ACCENT.info,
+    subtitle,
+    icon,
+  }: {
+    title: string;
+    children: ComponentChildren;
+    accent?: string;
+    subtitle?: string;
+    icon?: ComponentChildren;
+  }) => (
+    <DialogSectionCard title={title} accent={accent} subtitle={subtitle} icon={icon}>
       {children}
-    </section>
+    </DialogSectionCard>
   );
   const JsonPanel = ({ content }: { content: unknown }) => (
-    <pre
-      class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap max-h-72"
-      style={{
-        background: 'var(--m3-surface)',
-        border: '1px solid var(--m3-outline-variant)',
-      }}
-    >
-      {stringifyJsonSafely(content ?? {}, 2) ?? ''}
-    </pre>
+    <div class="oh-dialog-json-scroll">
+      <StructuredJsonView text={stringifyJsonSafely(content ?? {}, 2) ?? ''} />
+    </div>
   );
   const machineMetadataFieldTitle = (key: string): string => {
     const labels: Record<string, string> = {
@@ -10831,27 +10944,12 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     </div>
   );
   const InfoTile = ({ icon, label, value, color }: { icon: ComposerIconName; label: string; value: string; color: string }) => (
-    <div
-      class="flex items-center gap-2.5 rounded-m3-sm p-3"
-      style={{
-        width: '188px',
-        background: `color-mix(in srgb, ${color} 10%, transparent)`,
-        border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
-      }}
-    >
-      <div
-        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-m3-sm"
-        style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}
-      >
-        <ComposerIcon name={icon} size={16} />
-      </div>
-      <div class="min-w-0">
-        <div class="truncate text-xs font-bold oh-text-muted">
-          {label}
-        </div>
-        <div class="mt-1 truncate text-sm font-extrabold tabular-nums">{value}</div>
-      </div>
-    </div>
+    <DialogSummaryTile
+      label={label}
+      value={value}
+      accent={color}
+      icon={<ComposerIcon name={icon} size={16} />}
+    />
   );
   const CapabilityChip = ({ label, enabled }: { label: string; enabled: boolean }) => {
     const color = enabled ? 'var(--m3-primary)' : 'var(--m3-outline)';
@@ -10877,13 +10975,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       }
       if (depth >= 3) return <JsonPanel content={value} />;
       return (
-        <div
-          class="rounded-m3-sm p-3 pb-1"
-          style={{
-            background: 'var(--m3-surface)',
-            border: '1px solid var(--m3-outline-variant)',
-          }}
-        >
+        <DialogTintedPanel accent={DIALOG_ACCENT.info} style={{ paddingBottom: 4 }}>
           {entries.map(([key, item]) => {
             const isNested = item != null && typeof item === 'object';
             return isNested ? (
@@ -10895,7 +10987,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
               <EntryRow key={key} label={machineMetadataFieldTitle(key)} value={metadataValue(item)} />
             );
           })}
-        </div>
+        </DialogTintedPanel>
       );
     }
     if (Array.isArray(value)) {
@@ -10914,14 +11006,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       return (
         <div class="flex flex-col gap-2.5">
           {visibleItems.map((item, index) => (
-            <div
-              key={index}
-              class="rounded-m3-sm p-3"
-              style={{
-                background: 'var(--m3-surface)',
-                border: '1px solid var(--m3-outline-variant)',
-              }}
-            >
+            <DialogTintedPanel key={index} accent={DIALOG_ACCENT.secondary}>
               <div class="mb-2 text-xs font-extrabold oh-text-muted">
                 #{index + 1}
               </div>
@@ -10930,7 +11015,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
               ) : (
                 renderStructuredMetadataNode(item, depth + 1)
               )}
-            </div>
+            </DialogTintedPanel>
           ))}
           {value.length > visibleItems.length ? (
             <div class="text-xs oh-text-muted">
@@ -10958,13 +11043,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     const size = terminalSizeText(terminal);
     const outputCharacters = integerFromUnknown(terminal['output_characters']);
     return (
-      <div
-        class="rounded-m3-sm p-3"
-        style={{
-          background: 'var(--m3-surface)',
-          border: '1px solid var(--m3-outline-variant)',
-        }}
-      >
+      <DialogTintedPanel accent={color}>
         <div class="flex flex-wrap items-center gap-2">
           <div class="text-sm font-extrabold">终端 #{index}</div>
           <span
@@ -10989,7 +11068,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           {Object.prototype.hasOwnProperty.call(terminal, 'exit_code') ? <EntryRow label={machineMetadataFieldTitle('exit_code')} value={metadataValue(terminal['exit_code'])} /> : null}
           {machineMetadataCleanString(terminal['error_message']) ? <EntryRow label={machineMetadataFieldTitle('error_message')} value={metadataValue(terminal['error_message'])} /> : null}
         </div>
-      </div>
+      </DialogTintedPanel>
     );
   };
   const renderMachineTerminalMetadata = () => {
@@ -11004,12 +11083,14 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     const activeTerminalId = machineMetadataCleanString(runtime['active_terminal_id']) ?? machineMetadataCleanString(machineTerminalMetadata['active_terminal_id']);
     const terminalCount = Math.max(integerFromUnknown(runtime['terminal_count']), terminals.length);
     return (
-      <Section title="机器终端元数据">
-        <div class="mb-3 flex flex-wrap gap-2.5">
-          <InfoTile icon="mode" label="运行状态" value={machineTerminalStatusLabel(status)} color={machineTerminalStatusColor(status)} />
-          <InfoTile icon="plus" label="终端数量" value={`${terminalCount}`} color="var(--m3-primary)" />
-          <InfoTile icon="permission" label="当前终端" value={activeTerminalId ?? '—'} color="var(--m3-tertiary)" />
-          <InfoTile icon="refresh" label="终端尺寸" value={terminalSizeText(activeTerminal)} color="var(--m3-secondary)" />
+      <Section title="机器终端元数据" accent={DIALOG_ACCENT.primary} icon={<DialogGlyph name="cpu" />}>
+        <div class="mb-3">
+          <DialogSummaryGrid>
+            <InfoTile icon="mode" label="运行状态" value={machineTerminalStatusLabel(status)} color={machineTerminalStatusColor(status)} />
+            <InfoTile icon="plus" label="终端数量" value={`${terminalCount}`} color={DIALOG_ACCENT.info} />
+            <InfoTile icon="permission" label="当前终端" value={activeTerminalId ?? '—'} color={DIALOG_ACCENT.tertiary} />
+            <InfoTile icon="refresh" label="终端尺寸" value={terminalSizeText(activeTerminal)} color={DIALOG_ACCENT.secondary} />
+          </DialogSummaryGrid>
         </div>
         <EntryRow label="工作流" value={metadataValue(machineTerminalMetadata['workflow'])} />
         <EntryRow label="渲染面板" value={metadataValue(machineTerminalMetadata['surface'])} />
@@ -11077,7 +11158,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const renderProgrammingConfig = () => {
     const config = recordFromUnknown(metadata['programming_expert_config']);
     return (
-      <Section title="编程专家配置">
+      <Section title="编程专家配置" accent={DIALOG_ACCENT.secondary} icon={<DialogGlyph name="file" />}>
         {Object.keys(config).length === 0 ? (
           <p class="text-sm oh-text-muted">
             配置数据尚未写入会话元数据。
@@ -11098,7 +11179,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     const config = recordFromUnknown(metadata['harness_config']);
     const roleKeys = ['profiler', 'reader', 'planner', 'implementer', 'reviewer'];
     return (
-      <Section title="Harness Engineering 配置">
+      <Section title="Harness Engineering 配置" accent={DIALOG_ACCENT.tertiary} icon={<DialogGlyph name="layers" />}>
         {Object.keys(config).length === 0 ? (
           <p class="text-sm oh-text-muted">
             配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。
@@ -11134,7 +11215,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           ? '均衡分析'
           : metadataValue(analysisMode);
     return (
-      <Section title="Android 逆向配置">
+      <Section title="Android 逆向配置" accent={DIALOG_ACCENT.warning} icon={<DialogGlyph name="cpu" />}>
         {Object.keys(config).length === 0 ? (
           <p class="text-sm oh-text-muted">
             配置数据尚未写入会话元数据。
@@ -11201,37 +11282,69 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       })}
       ariaLabel={t('metadata.currentTitle', '当前会话元数据')}
     >
-      <header
-        class="flex shrink-0 flex-wrap items-start justify-between gap-3 px-5 py-4"
-        style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}
-      >
-        <div class="min-w-0 flex-1">
-          <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
-          <p class="text-sm mt-2 truncate oh-text-muted">
-            {session.title}
-          </p>
-        </div>
-        <JsonDialogActions
-          json={metadataSnapshotJson}
-          requestClose={requestClose}
-          surfaceStyle={metadataActionButtonSurface}
-          closeTone="secondary"
-        />
-      </header>
+      <DialogHeader
+        title={t('metadata.currentTitle', '当前会话元数据')}
+        subtitle={session.title || t('sessions.untitled', '未命名会话')}
+        icon={
+          <DialogIconBadge accent={DIALOG_ACCENT.info}>
+            <DialogGlyph name="layers" />
+          </DialogIconBadge>
+        }
+        actions={
+          <JsonDialogActions
+            json={metadataSnapshotJson}
+            requestClose={requestClose}
+            surfaceStyle={metadataActionButtonSurface}
+            closeTone="secondary"
+          />
+        }
+      />
       <div
         class="min-h-0 flex-1 overflow-auto px-5 py-4 pr-4"
         style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
       >
-        <div class="flex flex-wrap gap-3 mb-4">
-          <SummaryTile label="消息总数" value={`${stats.total_message_count ?? session.message_count ?? 0}`} />
-          <SummaryTile label="Prompt 构建" value={`${stats.prompt_build_count ?? 0}`} />
-          <SummaryTile label="压缩次数" value={`${stats.compression_run_count ?? 0}`} />
-          <SummaryTile label="总 Token" value={`${stats.total_tokens ?? session.total_tokens ?? 0}`} />
-          <SummaryTile label="当前模式" value={runtimeModeLabel} />
-          <SummaryTile label="运行工具" value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`} />
+        <div class="mb-4">
+          <DialogSummaryGrid>
+            <DialogSummaryTile
+              label="消息总数"
+              value={`${stats.total_message_count ?? session.message_count ?? 0}`}
+              accent={DIALOG_ACCENT.info}
+              icon={<ComposerIcon name="chat" size={16} />}
+            />
+            <DialogSummaryTile
+              label="Prompt 构建"
+              value={`${stats.prompt_build_count ?? 0}`}
+              accent={DIALOG_ACCENT.secondary}
+              icon={<ComposerIcon name="spark" size={16} />}
+            />
+            <DialogSummaryTile
+              label="压缩次数"
+              value={`${stats.compression_run_count ?? 0}`}
+              accent={DIALOG_ACCENT.warning}
+              icon={<ComposerIcon name="history" size={16} />}
+            />
+            <DialogSummaryTile
+              label="总 Token"
+              value={`${stats.total_tokens ?? session.total_tokens ?? 0}`}
+              accent={DIALOG_ACCENT.tertiary}
+              icon={<ComposerIcon name="model" size={16} />}
+            />
+            <DialogSummaryTile
+              label="当前模式"
+              value={runtimeModeLabel}
+              accent={DIALOG_ACCENT.success}
+              icon={<ComposerIcon name="mode" size={16} />}
+            />
+            <DialogSummaryTile
+              label="运行工具"
+              value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`}
+              accent={!hasPromptMetadata || runtimeStale ? DIALOG_ACCENT.caution : DIALOG_ACCENT.primary}
+              icon={<ComposerIcon name="permission" size={16} />}
+            />
+          </DialogSummaryGrid>
         </div>
         <div class="flex flex-col gap-4">
-          <Section title="会话概览">
+          <Section title="会话概览" accent={DIALOG_ACCENT.info} icon={<DialogGlyph name="chat" />}>
             <EntryRow label={metadataFieldLabel('session_id')} value={session.id} />
             <EntryRow label={metadataFieldLabel('template')} value={`${session.template_name || session.template_id} · v${session.template_internal_version ?? '—'}`} />
             <EntryRow label={metadataFieldLabel('created_at')} value={formatLocalDateTimeSecond(session.created_at)} />
@@ -11247,20 +11360,20 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           {session.template_id === 'android_reverse_expert' ? renderAndroidReverseConfig() : null}
           {Object.keys(machineTerminalMetadata).length > 0 ? renderMachineTerminalMetadata() : null}
           {visibleMetadataEntries.length > 0 ? (
-            <Section title="扩展元数据">
+            <Section title="扩展元数据" accent={DIALOG_ACCENT.caution} icon={<DialogGlyph name="hash" />}>
               {visibleMetadataEntries.map(([key, value]) => (
                 <StructuredValue key={key} label={key} value={value} />
               ))}
             </Section>
           ) : null}
-          <Section title="统计信息">
+          <Section title="统计信息" accent={DIALOG_ACCENT.success} icon={<DialogGlyph name="chart" />}>
             <div class="flex flex-wrap gap-2 mb-3">
-              <Chip label={`用户 ${stats.user_message_count ?? 0}`} />
-              <Chip label={`助手 ${stats.assistant_message_count ?? 0}`} />
-              <Chip label={`工具 ${stats.tool_message_count ?? 0}`} />
-              <Chip label={`MCP ${stats.mcp_message_count ?? 0}`} />
-              <Chip label={`技能 ${stats.skill_message_count ?? 0}`} />
-              <Chip label={`压缩 ${stats.compression_point_count ?? 0}`} />
+              <Chip label={`用户 ${stats.user_message_count ?? 0}`} accent={DIALOG_ACCENT.info} />
+              <Chip label={`助手 ${stats.assistant_message_count ?? 0}`} accent={DIALOG_ACCENT.success} />
+              <Chip label={`工具 ${stats.tool_message_count ?? 0}`} accent={DIALOG_ACCENT.warning} />
+              <Chip label={`MCP ${stats.mcp_message_count ?? 0}`} accent={DIALOG_ACCENT.tertiary} />
+              <Chip label={`技能 ${stats.skill_message_count ?? 0}`} accent={DIALOG_ACCENT.secondary} />
+              <Chip label={`压缩 ${stats.compression_point_count ?? 0}`} accent={DIALOG_ACCENT.caution} />
             </div>
             <EntryRow label={metadataFieldLabel('total_input_characters')} value={`${stats.total_input_characters ?? 0}`} />
             <EntryRow label={metadataFieldLabel('total_output_characters')} value={`${stats.total_output_characters ?? 0}`} />
@@ -11269,7 +11382,11 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label={metadataFieldLabel('last_prompt_history_message_count')} value={`${stats.last_prompt_history_message_count ?? 0}`} />
           </Section>
           {promptBudgetTokens > 0 || cacheHitPanel ? (
-            <Section title="上下文预算">
+            <Section
+              title="上下文预算"
+              accent={contextStatus === 'critical' ? DIALOG_ACCENT.error : contextStatus === 'warning' || contextStatus === 'auto_compact' ? DIALOG_ACCENT.warning : DIALOG_ACCENT.info}
+              icon={<DialogGlyph name="chart" />}
+            >
               {promptBudgetTokens > 0 ? (
                 <>
                   <div class="flex items-center gap-3 mb-3">
@@ -11282,7 +11399,10 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                         }}
                       />
                     </div>
-                    <Chip label={contextStatusLabel} />
+                    <Chip
+                      label={contextStatusLabel}
+                      accent={contextStatus === 'critical' ? DIALOG_ACCENT.error : contextStatus === 'ok' ? DIALOG_ACCENT.success : DIALOG_ACCENT.warning}
+                    />
                   </div>
                   <EntryRow label={metadataFieldLabel('context_budget_estimated_prompt_tokens')} value={`${promptBudgetTokens}`} />
                   <EntryRow label={metadataFieldLabel('context_budget_model_max_tokens')} value={metadataValue(lastPromptMetadata['context_budget_model_max_tokens'])} />
@@ -11297,7 +11417,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             </Section>
           ) : null}
           {Object.keys(rehydration).length > 0 ? (
-            <Section title="压缩后上下文恢复">
+            <Section title="压缩后上下文恢复" accent={DIALOG_ACCENT.tertiary} icon={<DialogGlyph name="spark" />}>
               <EntryRow label={metadataFieldLabel('post_compact_active')} value={rehydration['active'] === true ? '启用' : '未启用'} />
               <EntryRow label={metadataFieldLabel('checkpoint_message_id')} value={metadataValue(rehydration['checkpoint_message_id'])} />
               <EntryRow label={metadataFieldLabel('checkpoint_created_at')} value={metadataValue(rehydration['checkpoint_created_at'])} />
@@ -11316,7 +11436,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             </Section>
           ) : null}
           {hasCompressionPoint || Object.keys(rehydration).length > 0 ? (
-            <Section title="压缩记忆 Sidecar">
+            <Section title="压缩记忆 Sidecar" accent={DIALOG_ACCENT.secondary} icon={<DialogGlyph name="file" />}>
               <EntryRow label={metadataFieldLabel('compact_memory_sidecar_status')} value={sidecarStatus} />
               <EntryRow label={metadataFieldLabel('compact_memory_checkpoint_id')} value={metadataValue(latestCompressionPoint['id'])} />
               <EntryRow label={metadataFieldLabel('compact_memory_checkpoint_characters')} value={metadataValue(latestCompressionPoint['character_count'])} />
@@ -11324,7 +11444,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
               <EntryRow label={metadataFieldLabel('compact_memory_sidecar_path')} value={sidecarPath || '—'} />
             </Section>
           ) : null}
-          <Section title="环境">
+          <Section title="环境" accent={DIALOG_ACCENT.info} icon={<DialogGlyph name="cpu" />}>
             <EntryRow label={metadataFieldLabel('locale_tag')} value={metadataValue(environment['locale_tag'])} />
             <EntryRow label={metadataFieldLabel('platform')} value={metadataValue(environment['platform'])} />
             <EntryRow label={metadataFieldLabel('app_version')} value={`${environment['app_version'] ?? '—'} (${environment['app_build_number'] ?? '—'})`} />
@@ -11339,7 +11459,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label={metadataFieldLabel('user_memory_file')} value={metadataValue(environment['user_memory_file_path'])} />
             <EntryRow label={metadataFieldLabel('sessions_directory')} value={metadataValue(environment['sessions_directory_path'])} />
           </Section>
-          <Section title="命令策略">
+          <Section title="命令策略" accent={DIALOG_ACCENT.warning} icon={<DialogGlyph name="hash" />}>
             {!hasPromptMetadata ? (
               <p class="text-sm oh-text-muted">
                 Prompt 元数据尚不可用。
@@ -11365,7 +11485,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
               </>
             )}
           </Section>
-          <Section title="运行编排">
+          <Section title="运行编排" accent={DIALOG_ACCENT.primary} icon={<DialogGlyph name="bolt" />}>
             <EntryRow label="状态来源" value={hasPromptMetadata ? '最近持久化运行时快照' : '暂无快照'} />
             <EntryRow label="模式" value={runtimeModeLabel} />
             <EntryRow label="工具目录状态" value={toolCatalogState} />
@@ -11403,7 +11523,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
               </>
             ) : null}
           </Section>
-          <Section title="任务跟踪">
+          <Section title="任务跟踪" accent={DIALOG_ACCENT.success} icon={<DialogGlyph name="check" />}>
             <EntryRow label="当前 Todos" value={`${todos.length}`} />
             <EntryRow label="计划记录" value={`${planHistory.length}`} />
             <EntryRow label="TodoWrite 提醒" value={hasPromptMetadata ? (lastPromptMetadata['todo_write_recommended'] === true ? '已触发' : '未触发') : '不可用'} />
@@ -11418,13 +11538,9 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             {planHistory.length > 0 ? (
               <div class="mt-4 flex flex-col gap-2">
                 {planHistory.map((plan, index) => (
-                  <div
+                  <DialogTintedPanel
                     key={plan.id || index}
-                    class="rounded-m3-sm p-3"
-                    style={{
-                      background: 'var(--m3-surface)',
-                      border: '1px solid var(--m3-outline-variant)',
-                    }}
+                    accent={plan.status === 'completed' || plan.status === 'done' ? DIALOG_ACCENT.success : DIALOG_ACCENT.info}
                   >
                     <div class="text-sm font-bold">
                       计划 #{planHistory.length - index} · {plan.status || '—'}
@@ -11440,45 +11556,38 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                         ))}
                       </div>
                     ) : null}
-                  </div>
+                  </DialogTintedPanel>
                 ))}
               </div>
             ) : null}
           </Section>
-          <Section title="最近错误">
+          <Section title="最近错误" accent={DIALOG_ACCENT.error} icon={<DialogGlyph name="alert" />}>
             {recentErrors.length === 0 ? (
               <p class="text-sm oh-text-muted">
                 暂无会话错误。
               </p>
             ) : (
               recentErrors.map((error) => (
-                <div
-                  key={error.id}
-                  class="rounded-m3-sm p-3 mb-2"
-                  style={{
-                    background: 'var(--m3-surface)',
-                    border: '1px solid var(--m3-outline-variant)',
-                  }}
-                >
-                  <div class="text-sm font-bold oh-text-error">
+                <DialogTintedPanel key={error.id} accent={DIALOG_ACCENT.error} className="mb-2">
+                  <div class="text-sm font-bold" style={{ color: DIALOG_ACCENT.error }}>
                     {error.stage || 'error'} · {formatLocalDateTimeSecond(error.created_at)}
                   </div>
                   <div class="mt-2 text-sm whitespace-pre-wrap">{error.message}</div>
                   {error.detail ? <pre class="mt-2 text-xs whitespace-pre-wrap overflow-auto">{error.detail}</pre> : null}
-                </div>
+                </DialogTintedPanel>
               ))
             )}
           </Section>
-          <Section title="最近加载消息">
+          <Section title="最近加载消息" accent={DIALOG_ACCENT.tertiary} icon={<DialogGlyph name="chat" />}>
             <EntryRow label="已加载" value={`${messages.length}`} />
             <EntryRow label="最新角色" value={messages[messages.length - 1]?.role || '—'} />
             <EntryRow label="最新类型" value={messages[messages.length - 1]?.kind || '—'} />
             <EntryRow label="最新 ID" value={messages[messages.length - 1]?.id || '—'} />
           </Section>
-          <Section title="Last Prompt Metadata">
+          <Section title="Last Prompt Metadata" accent={DIALOG_ACCENT.secondary} icon={<DialogGlyph name="file" />}>
             <JsonPanel content={lastPromptMetadata} />
           </Section>
-          <Section title={t('topbar.audit', '会话审计')}>
+          <Section title={t('topbar.audit', '会话审计')} accent={DIALOG_ACCENT.info} icon={<DialogGlyph name="layers" />}>
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div class="min-w-0">
                 <div class="text-xs font-bold oh-text-muted">
@@ -11496,31 +11605,17 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
               </DialogActionButton>
             </div>
             <div class="mb-4 flex flex-wrap gap-2">
-              {auditSummary.map((item) => (
-                <span
+              {auditSummary.map((item, index) => (
+                <Chip
                   key={item}
-                  class="rounded-full px-2.5 py-1.5 text-xs font-semibold"
-                  style={{
-                    color: 'var(--m3-on-surface-variant)',
-                    background: 'var(--m3-surface)',
-                    border: '1px solid var(--m3-outline-variant)',
-                  }}
-                >
-                  {item}
-                </span>
+                  label={item}
+                  accent={DIALOG_ACCENT_CYCLE[index % DIALOG_ACCENT_CYCLE.length] ?? DIALOG_ACCENT.info}
+                />
               ))}
             </div>
-            <pre
-              class="overflow-auto rounded-m3-sm p-3 text-xs whitespace-pre-wrap select-text"
-              style={{
-                maxHeight: '48vh',
-                background: 'var(--m3-surface)',
-                border: '1px solid var(--m3-outline-variant)',
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              }}
-            >
-              {auditSnapshotJson}
-            </pre>
+            <div class="oh-dialog-json-scroll">
+              <StructuredJsonView text={auditSnapshotJson} />
+            </div>
           </Section>
         </div>
       </div>
