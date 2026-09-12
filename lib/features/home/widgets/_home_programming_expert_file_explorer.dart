@@ -11071,6 +11071,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     _EditorBreadcrumb(
                       filePath: widget.activeFilePath,
                       onNavigateToFile: widget.onTabSelected,
+                      trailing: const OpenHandEditorWrapToggleButton(),
                     ),
                     Divider(
                       height: 0.5,
@@ -11887,10 +11888,15 @@ class _SignatureParameterChip extends StatelessWidget {
 
 // 可点击的面包屑路径栏。
 class _EditorBreadcrumb extends StatelessWidget {
-  const _EditorBreadcrumb({required this.filePath, this.onNavigateToFile});
+  const _EditorBreadcrumb({
+    required this.filePath,
+    this.onNavigateToFile,
+    this.trailing,
+  });
 
   final String filePath;
   final ValueChanged<String>? onNavigateToFile;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -11973,6 +11979,7 @@ class _EditorBreadcrumb extends StatelessWidget {
               ),
             ),
           ),
+          if (trailing != null) trailing!,
         ],
       ),
     );

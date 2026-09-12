@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../app/state/settings_controller.dart';
+import '../util/localized_text.dart';
 import 'oh_pill.dart';
 import 'openhand_spacing.dart';
 import 'openhand_typography.dart';
@@ -259,6 +263,34 @@ class OpenHandEditorHeaderActionButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 代码编辑器右上角的自动换行开关，读写全局 [SettingsController.editorWordWrap]。
+class OpenHandEditorWrapToggleButton extends StatelessWidget {
+  const OpenHandEditorWrapToggleButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final wordWrap = context.select<SettingsController, bool>(
+      (controller) => controller.editorWordWrap,
+    );
+    return OpenHandEditorHeaderActionButton(
+      tooltip: wordWrap
+          ? openHandLocalizedText(
+              context,
+              zh: '关闭自动换行',
+              en: 'Disable word wrap',
+            )
+          : openHandLocalizedText(context, zh: '自动换行', en: 'Word wrap'),
+      icon: Icons.wrap_text_rounded,
+      color: wordWrap ? colorScheme.primary : colorScheme.onSurfaceVariant,
+      onPressed: () {
+        final settings = context.read<SettingsController>();
+        unawaited(settings.updateEditorWordWrap(!settings.editorWordWrap));
+      },
     );
   }
 }

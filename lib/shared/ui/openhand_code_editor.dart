@@ -567,6 +567,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                           );
                         },
                       ),
+                      const OpenHandEditorWrapToggleButton(),
                     ],
                   ),
                 ),
