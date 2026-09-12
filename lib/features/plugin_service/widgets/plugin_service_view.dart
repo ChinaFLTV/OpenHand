@@ -16,8 +16,10 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -50,6 +52,63 @@ const String _pluginIconAssetDirectory = 'assets/icons/plugins';
 const String _pluginFallbackIconAsset =
     '$_pluginIconAssetDirectory/blutter.svg';
 const double _kPluginIconSize = 21;
+const double _kPluginDetailMetricMinWidth = 168;
+const double _kPluginDetailMetricGap = 10;
+const Color _kPluginAccentPlaywright = Color(0xff2ead33);
+const Color _kPluginAccentNodejs = Color(0xff3c873a);
+const Color _kPluginAccentPython = Color(0xff3776ab);
+const Color _kPluginAccentJava = Color(0xffe76f00);
+const Color _kPluginAccentDocker = Color(0xff2496ed);
+const Color _kPluginAccentQdrant = Color(0xffdc244c);
+const Color _kPluginAccentPostgresql = Color(0xff336791);
+const Color _kPluginAccentRedis = Color(0xffc6302b);
+const Color _kPluginAccentChrome = Color(0xff4285f4);
+const Color _kPluginAccentFrida = Color(0xffef4444);
+const Color _kPluginAccentMitmproxy = Color(0xffff7100);
+const Color _kPluginAccentJadx = Color(0xff7c3aed);
+const Color _kPluginAccentDingTalk = Color(0xff1677ff);
+const Color _kPluginAccentMcp = Color(0xff7c3aed);
+
+Color _pluginStatusColor(PluginInfo plugin, ColorScheme scheme) {
+  return switch (plugin.status) {
+    PluginStatus.installed => OpenHandStatusColors.success,
+    PluginStatus.error => scheme.error,
+    PluginStatus.installing ||
+    PluginStatus.updating ||
+    PluginStatus.uninstalling => OpenHandStatusColors.warning,
+    PluginStatus.notInstalled => scheme.onSurfaceVariant,
+  };
+}
+
+IconData _pluginStatusIcon(PluginStatus status) {
+  return switch (status) {
+    PluginStatus.installed => Icons.check_circle_rounded,
+    PluginStatus.error => Icons.error_outline_rounded,
+    PluginStatus.installing ||
+    PluginStatus.updating ||
+    PluginStatus.uninstalling => Icons.sync_rounded,
+    PluginStatus.notInstalled => Icons.inventory_2_outlined,
+  };
+}
+
+Color _pluginBrandAccent(String pluginId, ColorScheme scheme) {
+  return switch (pluginId) {
+    PluginCatalogIds.nodejs => _kPluginAccentNodejs,
+    PluginCatalogIds.playwright => _kPluginAccentPlaywright,
+    PluginCatalogIds.python || PluginCatalogIds.pip => _kPluginAccentPython,
+    PluginCatalogIds.java => _kPluginAccentJava,
+    PluginCatalogIds.docker => _kPluginAccentDocker,
+    PluginCatalogIds.qdrant => _kPluginAccentQdrant,
+    PluginCatalogIds.postgresql => _kPluginAccentPostgresql,
+    PluginCatalogIds.redis => _kPluginAccentRedis,
+    PluginCatalogIds.googleChrome => _kPluginAccentChrome,
+    PluginCatalogIds.frida => _kPluginAccentFrida,
+    PluginCatalogIds.mitmproxy => _kPluginAccentMitmproxy,
+    PluginCatalogIds.jadx => _kPluginAccentJadx,
+    PluginCatalogIds.dingtalkWorkspaceCli => _kPluginAccentDingTalk,
+    _ => scheme.primary,
+  };
+}
 
 String _pluginIconAssetPath(String pluginId) {
   return switch (pluginId) {
@@ -210,6 +269,9 @@ String _localizedDetailLabel(AppLocalizations l10n, String key) {
     'update_policy' => l10n.pluginServiceDetailUpdatePolicy,
     'uninstall_policy' => l10n.pluginServiceDetailUninstallPolicy,
     'official_site' => l10n.pluginServiceDetailOfficialSite,
+    'OS' => l10n.pluginServiceRuntimeOs,
+    'Dart' => 'Dart',
+    'PID' => l10n.pluginServiceRuntimePid,
     _ => key,
   };
 }
@@ -397,14 +459,7 @@ class _PluginCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final stateColor = switch (plugin.status) {
-      PluginStatus.installed => OpenHandStatusColors.success,
-      PluginStatus.error => theme.colorScheme.error,
-      PluginStatus.installing ||
-      PluginStatus.updating ||
-      PluginStatus.uninstalling => OpenHandStatusColors.warning,
-      PluginStatus.notInstalled => theme.colorScheme.onSurfaceVariant,
-    };
+    final stateColor = _pluginStatusColor(plugin, theme.colorScheme);
     final statusLabel = plugin.status.label(l10n);
     final pluginIconAsset = _pluginIconAssetPath(plugin.id);
 
@@ -1474,218 +1529,414 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final plugin = widget.plugin;
+    final brand = _pluginBrandAccent(plugin.id, colorScheme);
+    final statusColor = _pluginStatusColor(plugin, colorScheme);
+    final statusLabel = plugin.status.label(l10n);
+    final updateSummary = _pluginUpdateCheckSummary(context, plugin);
+    final updateError = '${plugin.metadata['update_check_error'] ?? ''}'
+        .trim()
+        .isNotEmpty;
+    final updateAccent = updateError
+        ? OpenHandStatusColors.error
+        : plugin.hasUpdate
+        ? OpenHandStatusColors.warning
+        : OpenHandStatusColors.success;
+    final description = _localizedPluginDescription(l10n, plugin);
+    final installedVersion = plugin.installedVersion;
+    final latestVersion = plugin.latestVersion;
 
-    return buildOpenHandToolDialogShell(
-      context: context,
+    final envMetrics =
+        <({IconData icon, String label, String value, Color accent})>[];
+    final envRows = <Widget>[];
+    for (final entry in _envInfo.entries) {
+      final label = _localizedDetailLabel(l10n, entry.key);
+      final value = _localizedDetailValue(l10n, entry.value);
+      switch (entry.key) {
+        case 'OS':
+          envMetrics.add((
+            icon: Icons.computer_rounded,
+            label: label,
+            value: value,
+            accent: OpenHandStatusColors.info,
+          ));
+        case 'architecture':
+          envMetrics.add((
+            icon: Icons.memory_rounded,
+            label: label,
+            value: value,
+            accent: colorScheme.tertiary,
+          ));
+        case 'Dart':
+          envMetrics.add((
+            icon: Icons.code_rounded,
+            label: label,
+            value: value,
+            accent: const Color(0xff0175c2),
+          ));
+        case 'PID':
+          envMetrics.add((
+            icon: Icons.tag_rounded,
+            label: label,
+            value: value,
+            accent: OpenHandStatusColors.caution,
+          ));
+        case 'processors':
+          envMetrics.add((
+            icon: Icons.speed_rounded,
+            label: label,
+            value: value,
+            accent: OpenHandStatusColors.success,
+          ));
+        default:
+          envRows.add(_DetailRow(label: label, value: value));
+      }
+    }
+
+    return OpenHandEditorDialogScaffold(
+      title: l10n.pluginServiceDetailTitle(plugin.name),
+      subtitle: installedVersion == null
+          ? statusLabel
+          : '$statusLabel · v$installedVersion',
+      icon: Icons.extension_rounded,
+      iconColor: brand,
       maxWidth: plugin.id == PluginCatalogIds.googleChrome
           ? kOpenHandDialogWidthWide
           : kOpenHandDialogWidthStandard,
       maxHeight: kOpenHandDialogHeightStandard,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          buildOpenHandToolDialogHeader(
-            context: context,
-            icon: Icons.info_outline_rounded,
-            title: l10n.pluginServiceDetailTitle(plugin.name),
-            subtitle: plugin.installedVersion == null
-                ? plugin.status.label(l10n)
-                : '${plugin.status.label(l10n)} · v${plugin.installedVersion}',
-          ),
-          Divider(height: 1, color: theme.colorScheme.outlineVariant),
-          // 内容
-          Flexible(
-            child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion220),
-              switchInCurve: kOpenHandSwitchInCurve,
-              switchOutCurve: kOpenHandSwitchOutCurve,
-              child: _loading
-                  ? const Center(
-                      key: ValueKey('plugin_detail_loading'),
-                      child: CircularProgressIndicator(),
-                    )
-                  : SelectionArea(
-                      key: const ValueKey('plugin_detail_content'),
-                      child: ListView(
-                        padding: const EdgeInsets.all(24),
+      actions: const <Widget>[],
+      body: AnimatedSwitcher(
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
+        switchInCurve: kOpenHandSwitchInCurve,
+        switchOutCurve: kOpenHandSwitchOutCurve,
+        child: _loading
+            ? OpenHandTintedPanel(
+                key: const ValueKey('plugin_detail_loading'),
+                accent: brand,
+                child: SizedBox(
+                  height: 180,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.8,
+                            color: brand,
+                          ),
+                        ),
+                        kOpenHandGap14,
+                        Text(
+                          l10n.pluginServiceScanning,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            : SelectionArea(
+                key: const ValueKey('plugin_detail_content'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (plugin.hasUpdate || updateError)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: OpenHandTintedPanel(
+                          accent: updateAccent,
+                          icon: updateError
+                              ? Icons.error_outline_rounded
+                              : Icons.system_update_alt_rounded,
+                          title: l10n.pluginServiceCheckUpdates,
+                          child: Text(
+                            updateSummary,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              height: 1.4,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    _DetailSection(
+                      title: l10n.pluginServiceDetailBasicInfo,
+                      icon: Icons.extension_rounded,
+                      accent: brand,
+                      trailing: OhPill(
+                        icon: _pluginStatusIcon(plugin.status),
+                        label: statusLabel,
+                        foregroundColor: statusColor,
+                      ),
+                      children: [
+                        OpenHandTintedPanel(
+                          accent: brand,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _PluginDetailMark(
+                                plugin: plugin,
+                                accent: brand,
+                                statusColor: statusColor,
+                              ),
+                              kOpenHandHGap12,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      plugin.name,
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                    kOpenHandGap4,
+                                    Text(
+                                      description,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            height: 1.4,
+                                            color: colorScheme.onSurface,
+                                          ),
+                                    ),
+                                    kOpenHandGap10,
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        OhPill(
+                                          icon: Icons.fingerprint_rounded,
+                                          label: plugin.id,
+                                          foregroundColor: brand,
+                                        ),
+                                        if (installedVersion != null)
+                                          OhPill(
+                                            icon: Icons.verified_rounded,
+                                            label: 'v$installedVersion',
+                                            foregroundColor:
+                                                OpenHandStatusColors.success,
+                                          ),
+                                        if (latestVersion != null)
+                                          OhPill(
+                                            icon: plugin.hasUpdate
+                                                ? Icons.north_east_rounded
+                                                : Icons.new_releases_outlined,
+                                            label: 'v$latestVersion',
+                                            foregroundColor: plugin.hasUpdate
+                                                ? OpenHandStatusColors.warning
+                                                : OpenHandStatusColors.info,
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _DetailRow(
+                          label: l10n.pluginServiceDetailName,
+                          value: plugin.name,
+                        ),
+                        _DetailRow(label: 'ID', value: plugin.id),
+                        _DetailRow(
+                          label: l10n.pluginServiceDetailStatus,
+                          valueChild: OhPill(
+                            icon: _pluginStatusIcon(plugin.status),
+                            label: statusLabel,
+                            foregroundColor: statusColor,
+                          ),
+                        ),
+                        if (installedVersion != null)
+                          _DetailRow(
+                            label: l10n.pluginServiceDetailCurrentVersion,
+                            value: installedVersion,
+                            accent: OpenHandStatusColors.success,
+                          ),
+                        if (latestVersion != null)
+                          _DetailRow(
+                            label: l10n.pluginServiceDetailLatestVersion,
+                            value: latestVersion,
+                            accent: plugin.hasUpdate
+                                ? OpenHandStatusColors.warning
+                                : OpenHandStatusColors.info,
+                          ),
+                        _DetailRow(
+                          label: l10n.pluginServiceCheckUpdates,
+                          value: updateSummary,
+                          accent: updateAccent,
+                        ),
+                        _DetailRow(
+                          label: l10n.pluginServiceActionUninstall,
+                          valueChild: OhPill(
+                            icon: plugin.supportsUninstall
+                                ? Icons.delete_outline_rounded
+                                : Icons.block_rounded,
+                            label: plugin.supportsUninstall
+                                ? l10n.qdrantValueYes
+                                : l10n.qdrantValueNo,
+                            foregroundColor: plugin.supportsUninstall
+                                ? OpenHandStatusColors.warning
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_capabilityInfo.isNotEmpty)
+                      _DetailSection(
+                        title: l10n.pluginServiceDetailRuntimeCapabilities,
+                        icon: Icons.developer_mode_rounded,
+                        accent: OpenHandStatusColors.info,
                         children: [
-                          // 基本信息
-                          _DetailSection(
-                            title: l10n.pluginServiceDetailBasicInfo,
-                            icon: Icons.extension_rounded,
-                            children: [
-                              _DetailRow(
-                                label: l10n.pluginServiceDetailName,
-                                value: plugin.name,
-                              ),
-                              _DetailRow(label: 'ID', value: plugin.id),
-                              _DetailRow(
-                                label: l10n.pluginServiceDetailDescription,
-                                value: _localizedPluginDescription(
-                                  l10n,
-                                  plugin,
-                                ),
-                              ),
-                              _DetailRow(
-                                label: l10n.pluginServiceDetailStatus,
-                                value: plugin.status.label(l10n),
-                              ),
-                              if (plugin.installedVersion != null)
-                                _DetailRow(
-                                  label: l10n.pluginServiceDetailCurrentVersion,
-                                  value: plugin.installedVersion!,
-                                ),
-                              if (plugin.latestVersion != null)
-                                _DetailRow(
-                                  label: l10n.pluginServiceDetailLatestVersion,
-                                  value: plugin.latestVersion!,
-                                ),
-                              _DetailRow(
-                                label: l10n.pluginServiceCheckUpdates,
-                                value: _pluginUpdateCheckSummary(
-                                  context,
-                                  plugin,
-                                ),
-                              ),
-                              _DetailRow(
-                                label: l10n.pluginServiceActionUninstall,
-                                value: plugin.supportsUninstall
-                                    ? l10n.qdrantValueYes
-                                    : l10n.qdrantValueNo,
-                              ),
-                            ],
-                          ),
-                          if (_capabilityInfo.isNotEmpty) ...[
-                            kOpenHandGap18,
-                            _DetailSection(
-                              title:
-                                  l10n.pluginServiceDetailRuntimeCapabilities,
-                              icon: Icons.developer_mode_rounded,
-                              children: [
-                                for (final entry in _capabilityInfo.entries)
-                                  _DetailRow(
-                                    label: _localizedDetailLabel(
-                                      l10n,
-                                      entry.key,
-                                    ),
-                                    value: _localizedDetailValue(
-                                      l10n,
-                                      entry.value,
-                                    ),
-                                  ),
-                              ],
+                          for (final entry in _capabilityInfo.entries)
+                            _DetailRow(
+                              label: _localizedDetailLabel(l10n, entry.key),
+                              value: _localizedDetailValue(l10n, entry.value),
                             ),
-                          ],
-                          kOpenHandGap18,
-                          // 环境信息
-                          _DetailSection(
-                            title: l10n.pluginServiceDetailEnvironment,
-                            icon: Icons.computer_rounded,
-                            children: [
-                              for (final entry in _envInfo.entries)
-                                _DetailRow(
-                                  label: _localizedDetailLabel(l10n, entry.key),
-                                  value: _localizedDetailValue(
-                                    l10n,
-                                    entry.value,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          if (_fileSystemInfo.isNotEmpty) ...[
-                            kOpenHandGap18,
-                            _DetailSection(
-                              title: l10n.pluginServiceDetailFileSystem,
-                              icon: Icons.folder_open_rounded,
-                              children: [
-                                for (final entry in _fileSystemInfo.entries)
-                                  _DetailRow(
-                                    label: _localizedDetailLabel(
-                                      l10n,
-                                      entry.key,
-                                    ),
-                                    value: _localizedDetailValue(
-                                      l10n,
-                                      entry.value,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                          kOpenHandGap18,
-                          // 依赖关系
-                          _DetailSection(
-                            title: l10n.pluginServiceDetailDependencies,
-                            icon: Icons.account_tree_rounded,
-                            children: [
-                              _DetailRow(
-                                label: l10n.pluginServiceDependsOn,
-                                value: plugin.dependencies.isEmpty
-                                    ? l10n.pluginServiceNone
-                                    : plugin.dependencies.join(', '),
-                              ),
-                              _DetailRow(
-                                label: l10n.pluginServiceRequiredBy,
-                                value: plugin.dependents.isEmpty
-                                    ? l10n.pluginServiceNone
-                                    : plugin.dependents.join(', '),
-                              ),
-                            ],
-                          ),
-                          if (TemplateRuntimeDependencyRegistry.specsForPlugin(
-                            plugin.id,
-                          ).isNotEmpty) ...[
-                            kOpenHandGap18,
-                            _DetailSection(
-                              title: l10n.pluginServiceThreadTemplates,
-                              icon: Icons.dashboard_customize_rounded,
-                              children: [
-                                _DetailRow(
-                                  label: l10n.pluginServiceTemplates,
-                                  value:
-                                      TemplateRuntimeDependencyRegistry.specsForPlugin(
-                                            plugin.id,
-                                          )
-                                          .map(
-                                            (spec) =>
-                                                _localizedTemplateDependencyLabel(
-                                                  l10n,
-                                                  spec,
-                                                ),
-                                          )
-                                          .join(', '),
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (plugin.id == PluginCatalogIds.playwright) ...[
-                            kOpenHandGap18,
-                            _DetailSection(
-                              title: 'MCP',
-                              icon: Icons.hub_rounded,
-                              children: [
-                                _DetailRow(
-                                  label: l10n.pluginServiceMcpPackage,
-                                  value: _playwrightMcpPackage,
-                                ),
-                                _DetailRow(
-                                  label: l10n.pluginServiceDetailDescription,
-                                  value:
-                                      l10n.pluginServiceMcpBrowserDescription,
-                                ),
-                              ],
-                            ),
-                          ],
                         ],
                       ),
+                    _DetailSection(
+                      title: l10n.pluginServiceDetailEnvironment,
+                      icon: Icons.computer_rounded,
+                      accent: colorScheme.tertiary,
+                      children: [
+                        if (envMetrics.isNotEmpty)
+                          _DetailMetricStrip(items: envMetrics),
+                        ...envRows,
+                      ],
                     ),
+                    if (_fileSystemInfo.isNotEmpty)
+                      _DetailSection(
+                        title: l10n.pluginServiceDetailFileSystem,
+                        icon: Icons.folder_open_rounded,
+                        accent: OpenHandStatusColors.warning,
+                        children: [
+                          for (final entry in _fileSystemInfo.entries)
+                            _DetailRow(
+                              label: _localizedDetailLabel(l10n, entry.key),
+                              value: _localizedDetailValue(l10n, entry.value),
+                            ),
+                        ],
+                      ),
+                    _DetailSection(
+                      title: l10n.pluginServiceDetailDependencies,
+                      icon: Icons.account_tree_rounded,
+                      accent: colorScheme.secondary,
+                      children: [
+                        _DetailRow(
+                          label: l10n.pluginServiceDependsOn,
+                          value: plugin.dependencies.isEmpty
+                              ? l10n.pluginServiceNone
+                              : plugin.dependencies.join(', '),
+                        ),
+                        _DetailRow(
+                          label: l10n.pluginServiceRequiredBy,
+                          value: plugin.dependents.isEmpty
+                              ? l10n.pluginServiceNone
+                              : plugin.dependents.join(', '),
+                        ),
+                      ],
+                    ),
+                    if (TemplateRuntimeDependencyRegistry.specsForPlugin(
+                      plugin.id,
+                    ).isNotEmpty)
+                      _DetailSection(
+                        title: l10n.pluginServiceThreadTemplates,
+                        icon: Icons.dashboard_customize_rounded,
+                        accent: OpenHandStatusColors.caution,
+                        children: [
+                          _DetailRow(
+                            label: l10n.pluginServiceTemplates,
+                            value:
+                                TemplateRuntimeDependencyRegistry.specsForPlugin(
+                                      plugin.id,
+                                    )
+                                    .map(
+                                      (spec) =>
+                                          _localizedTemplateDependencyLabel(
+                                            l10n,
+                                            spec,
+                                          ),
+                                    )
+                                    .join(', '),
+                          ),
+                        ],
+                      ),
+                    if (plugin.id == PluginCatalogIds.playwright)
+                      _DetailSection(
+                        title: 'MCP',
+                        icon: Icons.hub_rounded,
+                        accent: _kPluginAccentMcp,
+                        children: [
+                          _DetailRow(
+                            label: l10n.pluginServiceMcpPackage,
+                            value: _playwrightMcpPackage,
+                            accent: _kPluginAccentMcp,
+                          ),
+                          _DetailRow(
+                            label: l10n.pluginServiceDetailDescription,
+                            value: l10n.pluginServiceMcpBrowserDescription,
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _PluginDetailMark extends StatelessWidget {
+  const _PluginDetailMark({
+    required this.plugin,
+    required this.accent,
+    required this.statusColor,
+  });
+
+  final PluginInfo plugin;
+  final Color accent;
+  final Color statusColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.16),
+            borderRadius: kOpenHandBorderRadius16,
+          ),
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: Center(
+              child: SizedBox(
+                width: 26,
+                height: 26,
+                child: SvgPicture.asset(
+                  _pluginIconAssetPath(plugin.id),
+                  colorFilter: ColorFilter.mode(accent, BlendMode.srcIn),
+                  semanticsLabel: plugin.name,
+                ),
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+        Positioned(
+          right: -2,
+          bottom: -2,
+          child: _StatusDot(color: statusColor),
+        ),
+      ],
     );
   }
 }
@@ -1695,102 +1946,165 @@ class _DetailSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.children,
+    this.accent,
+    this.trailing,
   });
 
   final String title;
   final IconData icon;
   final List<Widget> children;
+  final Color? accent;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.26),
-        borderRadius: BorderRadius.circular(kOpenHandRadius16),
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.7)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(kOpenHandRadius11),
-                ),
-                child: Icon(icon, size: 18, color: colors.onPrimaryContainer),
-              ),
-              kOpenHandHGap10,
-              Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colors.onSurface,
-                ),
-              ),
+    final outline = Theme.of(context).colorScheme.outlineVariant;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: OpenHandDialogSectionCard(
+        icon: icon,
+        title: title,
+        accent: accent,
+        trailing: trailing,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var index = 0; index < children.length; index++) ...[
+              if (index > 0)
+                Divider(height: 18, color: outline.withValues(alpha: 0.48)),
+              children[index],
             ],
-          ),
-          kOpenHandGap12,
-          Divider(
-            height: 1,
-            color: colors.outlineVariant.withValues(alpha: 0.7),
-          ),
-          kOpenHandGap9,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+class _DetailMetricStrip extends StatelessWidget {
+  const _DetailMetricStrip({required this.items});
 
-  final String label;
-  final String value;
+  final List<({IconData icon, String label, String value, Color accent})> items;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final labelStyle = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-      fontWeight: FontWeight.w600,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : _kPluginDetailMetricMinWidth * 2 + _kPluginDetailMetricGap;
+        final columns =
+            maxWidth >=
+                _kPluginDetailMetricMinWidth * 3 + _kPluginDetailMetricGap * 2
+            ? 3
+            : maxWidth >=
+                  _kPluginDetailMetricMinWidth * 2 + _kPluginDetailMetricGap
+            ? 2
+            : 1;
+        final width = columns == 1
+            ? maxWidth
+            : (maxWidth - _kPluginDetailMetricGap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: _kPluginDetailMetricGap,
+          runSpacing: _kPluginDetailMetricGap,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: width,
+                child: OpenHandTintedPanel(
+                  accent: item.accent,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Row(
+                    children: [
+                      Icon(item.icon, size: 18, color: item.accent),
+                      kOpenHandHGap8,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: item.accent,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            kOpenHandGap2,
+                            Text(
+                              item.value,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                height: 1.25,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.label,
+    this.value,
+    this.valueChild,
+    this.accent,
+  }) : assert(value != null || valueChild != null);
+
+  final String label;
+  final String? value;
+  final Widget? valueChild;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+      height: 1.28,
     );
     final valueStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: theme.colorScheme.onSurface,
+      color: accent ?? colorScheme.onSurface,
       height: 1.4,
+      fontWeight: accent == null ? FontWeight.w500 : FontWeight.w700,
     );
+    final resolvedValue =
+        valueChild ?? SelectableText(value ?? '', style: valueStyle);
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 420;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: compact
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label, style: labelStyle),
-                    kOpenHandGap3,
-                    Text(value, style: valueStyle),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(width: 132, child: Text(label, style: labelStyle)),
-                    kOpenHandHGap12,
-                    Expanded(child: Text(value, style: valueStyle)),
-                  ],
-                ),
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: labelStyle),
+              kOpenHandGap4,
+              resolvedValue,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 132, child: Text(label, style: labelStyle)),
+            kOpenHandHGap12,
+            Expanded(child: resolvedValue),
+          ],
         );
       },
     );
