@@ -347,7 +347,7 @@ class _AuditKvRow extends StatelessWidget {
   }
 }
 
-/// 支持复制并可平滑折叠的 JSON 区块。
+/// 支持复制并可平滑折叠的 JSON 区块，展开后走结构化 JSON 树。
 class _AuditJsonBlock extends StatefulWidget {
   const _AuditJsonBlock({
     required this.label,
@@ -468,15 +468,11 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                 child: _expanded
                     ? KeyedSubtree(
                         key: const ValueKey<String>('audit-json-expanded'),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                          child: SelectableText(
-                            rendered,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: kOpenHandMonospaceFontFamily,
-                              color: colorScheme.onSurface,
-                            ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                          child: OpenHandJsonTreeView.fromValue(
+                            value: widget.json,
+                            logTag: 'session_audit',
                           ),
                         ),
                       )

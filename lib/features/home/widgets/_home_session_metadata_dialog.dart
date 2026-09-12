@@ -163,7 +163,7 @@ class _SessionMetadataDialog extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
+          OpenHandMetadataSummaryGrid(children: summaryBlocks),
           ..._buildSessionCostSection(context, theme, colorScheme),
           kOpenHandGap16,
           OpenHandMetadataSection(
@@ -655,8 +655,10 @@ class _SessionMetadataDialog extends StatelessWidget {
             accent: colorScheme.tertiary,
             title: AppLocalizations.of(context)!.sessMetaLastPromptMetadata,
             children: [
-              _MetadataJsonPanel(
-                content: prettyPrintJson(session.lastPromptMetadata),
+              OpenHandJsonTreeView.fromValue(
+                value: session.lastPromptMetadata,
+                emptyText: '-',
+                logTag: 'session_metadata',
               ),
             ],
           ),
@@ -1204,9 +1206,7 @@ Widget _buildMachineTerminalMetadataSection(
       en: 'Machine Terminal Metadata',
     ),
     children: [
-      Wrap(
-        spacing: 10,
-        runSpacing: 10,
+      OpenHandMetadataSummaryGrid(
         children: [
           OpenHandMetadataSummaryTile(
             icon: Icons.terminal_rounded,
@@ -1506,154 +1506,39 @@ bool _metadataIsShortScalar(Object? value) {
   return false;
 }
 
-Widget _buildMetadataStructuredNode(
-  BuildContext context,
-  Object? value, {
-  int depth = 0,
-}) {
+Widget _buildMetadataStructuredNode(BuildContext context, Object? value) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final map = value is Map ? _metadataObjectMap(value) : null;
-  if (map != null) {
-    if (map.isEmpty) {
-      return Text(
-        '-',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      );
-    }
-    if (depth >= 3) {
-      return _MetadataJsonPanel(content: _metadataJsonEncode(map));
-    }
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.52),
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.42),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: map.entries
-            .map((entry) {
-              final childMap = entry.value is Map
-                  ? _metadataObjectMap(entry.value)
-                  : null;
-              final childList = entry.value is List
-                  ? entry.value as List
-                  : null;
-              if (childMap == null && childList == null) {
-                return OpenHandMetadataEntryRow(
-                  label: _metadataFieldTitle(entry.key),
-                  value: _metadataDisplayValue(entry.value),
-                );
-              }
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _MetadataGroupLabel(label: _metadataFieldTitle(entry.key)),
-                    kOpenHandGap8,
-                    _buildMetadataStructuredNode(
-                      context,
-                      entry.value,
-                      depth: depth + 1,
-                    ),
-                  ],
-                ),
-              );
-            })
-            .toList(growable: false),
+  if (value == null ||
+      (value is Map && value.isEmpty) ||
+      (value is List && value.isEmpty)) {
+    return Text(
+      '-',
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: colorScheme.onSurfaceVariant,
       ),
     );
   }
-
-  if (value is List) {
-    if (value.isEmpty) {
-      return Text(
-        '-',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      );
-    }
-    if (value.every(_metadataIsShortScalar) && value.length <= 24) {
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: value
-            .map((item) => _MetadataChip(label: _metadataDisplayValue(item)))
-            .toList(growable: false),
-      );
-    }
-    if (depth >= 3) {
-      return _MetadataJsonPanel(content: _metadataJsonEncode(value));
-    }
-    final visibleItems = value.take(40).toList(growable: false);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ...visibleItems.asMap().entries.map((entry) {
-          final item = entry.value;
-          final scalar = _metadataIsShortScalar(item) || item is String;
-          return Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.52),
-              borderRadius: kOpenHandBorderRadius14,
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.42),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '#${entry.key + 1}',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                kOpenHandGap8,
-                scalar
-                    ? SelectableText(
-                        _metadataDisplayValue(item),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          height: 1.4,
-                        ),
-                      )
-                    : _buildMetadataStructuredNode(
-                        context,
-                        item,
-                        depth: depth + 1,
-                      ),
-              ],
-            ),
-          );
-        }),
-        if (value.length > visibleItems.length)
-          Text(
-            openHandLocalizedText(
-              context,
-              zh: '还有 ${value.length - visibleItems.length} 项未展示，请复制完整元数据查看。',
-              en: '${value.length - visibleItems.length} more items are hidden. Copy full metadata to inspect them.',
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-      ],
+  if (value is List &&
+      value.every(_metadataIsShortScalar) &&
+      value.length <= 24) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: value
+          .map((item) => _MetadataChip(label: _metadataDisplayValue(item)))
+          .toList(growable: false),
     );
   }
-
+  if (value is Map ||
+      value is List ||
+      (value is String && tryPrettyOpenHandJsonText(value) != null)) {
+    return OpenHandJsonTreeView.fromValue(
+      value: value,
+      emptyText: '-',
+      logTag: 'session_metadata',
+    );
+  }
   return SelectableText(
     _metadataDisplayValue(value),
     style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
@@ -2200,36 +2085,6 @@ String _sessionErrorStageLabel(BuildContext context, String stage) {
     )!.sessMetaTitleGenerationError,
     _ => AppLocalizations.of(context)!.sessMetaSessionError,
   };
-}
-
-class _MetadataJsonPanel extends StatelessWidget {
-  const _MetadataJsonPanel({required this.content});
-
-  final String content;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xFF17181C),
-        borderRadius: kOpenHandBorderRadius18,
-      ),
-      padding: const EdgeInsets.all(14),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SelectableText(
-          content,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: Colors.white,
-            fontFamily: kOpenHandMonospaceFontFamily,
-            height: 1.45,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _CacheHitSparklinePainter extends CustomPainter {

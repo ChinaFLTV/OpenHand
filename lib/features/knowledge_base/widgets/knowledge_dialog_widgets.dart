@@ -14,7 +14,6 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
-import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 
 // 知识库对话框统一圆角档位。
@@ -401,8 +400,8 @@ class KnowledgeDialogJsonBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OpenHandJsonTreeView(
-      text: prettyPrintJson(value),
+    return OpenHandJsonTreeView.fromValue(
+      value: value,
       label: label,
       logTag: 'knowledge_base',
       bodyMaxHeight: maxHeight ?? kKnowledgeDialogJsonDefaultMaxHeight,

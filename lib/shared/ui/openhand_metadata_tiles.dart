@@ -8,9 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_form_fields.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
-/// 摘要磁贴的固定宽度：多个磁贴在 Wrap 中并排时保持列对齐。
-const double kOpenHandMetadataSummaryTileWidth = 188;
 const double kOpenHandMetadataEntryLabelWidth = 132;
+const double kOpenHandMetadataSummaryGridWideMinWidth = 720;
+const double kOpenHandMetadataSummaryGridMediumMinWidth = 480;
+const int kOpenHandMetadataSummaryGridMaxColumns = 4;
 
 /// 元数据分组卡片：着色分区头 + 纵向排列的条目。
 class OpenHandMetadataSection extends StatelessWidget {
@@ -47,7 +48,79 @@ class OpenHandMetadataSection extends StatelessWidget {
   }
 }
 
-/// 顶部摘要磁贴：图标徽章 + 小标题 + 强调色数值。
+/// 摘要磁贴网格：按可用宽度均分列，每一行都铺满父布局。
+class OpenHandMetadataSummaryGrid extends StatelessWidget {
+  const OpenHandMetadataSummaryGrid({
+    super.key,
+    required this.children,
+    this.maxColumns = kOpenHandMetadataSummaryGridMaxColumns,
+  });
+
+  final List<Widget> children;
+  final int maxColumns;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemCount = children.length;
+        final maxWidth = constraints.maxWidth;
+        final columns = _columnsFor(maxWidth, itemCount);
+        if (columns <= 1) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < itemCount; index += 1) ...[
+                if (index > 0) kOpenHandGap12,
+                children[index],
+              ],
+            ],
+          );
+        }
+        final rows = <Widget>[];
+        for (var start = 0; start < itemCount; start += columns) {
+          final end = start + columns > itemCount ? itemCount : start + columns;
+          final rowItems = children.sublist(start, end);
+          if (rows.isNotEmpty) {
+            rows.add(kOpenHandGap12);
+          }
+          rows.add(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var index = 0; index < rowItems.length; index += 1) ...[
+                  if (index > 0) kOpenHandHGap12,
+                  Expanded(child: rowItems[index]),
+                ],
+              ],
+            ),
+          );
+        }
+        return SizedBox(
+          width: maxWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: rows,
+          ),
+        );
+      },
+    );
+  }
+
+  int _columnsFor(double maxWidth, int itemCount) {
+    if (itemCount <= 1) return 1;
+    if (!maxWidth.isFinite) return 1;
+    final wanted = maxWidth >= kOpenHandMetadataSummaryGridWideMinWidth
+        ? maxColumns
+        : maxWidth >= kOpenHandMetadataSummaryGridMediumMinWidth
+        ? 2
+        : 1;
+    return wanted > itemCount ? itemCount : wanted;
+  }
+}
+
+/// 顶部摘要磁贴：图标徽章 + 小标题 + 强调色数值，铺满所在网格格。
 class OpenHandMetadataSummaryTile extends StatelessWidget {
   const OpenHandMetadataSummaryTile({
     super.key,
@@ -69,7 +142,7 @@ class OpenHandMetadataSummaryTile extends StatelessWidget {
     final tone = accent ?? colorScheme.primary;
     final display = value.trim().isEmpty ? '-' : value.trim();
     return SizedBox(
-      width: kOpenHandMetadataSummaryTileWidth,
+      width: double.infinity,
       child: OpenHandTintedPanel(
         accent: tone,
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),

@@ -720,7 +720,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
+          OpenHandMetadataSummaryGrid(children: summaryBlocks),
           kOpenHandGap16,
           OpenHandMetadataSection(
             icon: Icons.badge_rounded,

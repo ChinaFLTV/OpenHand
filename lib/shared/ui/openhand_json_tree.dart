@@ -195,6 +195,30 @@ OpenHandJsonTreeDocument? tryParseOpenHandJsonTreeDocument(String text) {
   );
 }
 
+/// 将任意值整理为 JSON 树可解析的文本：对象/数组美化，JSON 字符串解码后再美化。
+String openHandJsonTreeTextFromValue(Object? value) {
+  if (value == null) return '';
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '';
+    return tryPrettyOpenHandJsonText(trimmed) ?? value;
+  }
+  try {
+    return prettyPrintJson(value);
+  } catch (_) {
+    try {
+      return prettyPrintJson(
+        convertToJsonSafeValue(
+          value,
+          config: _openHandJsonTreeConversionConfig,
+        ),
+      );
+    } catch (_) {
+      return '$value';
+    }
+  }
+}
+
 /// 结构化 JSON 树：语法高亮、按节点展开、复制，超限或非法 JSON 回退为文本。
 class OpenHandJsonTreeView extends StatefulWidget {
   const OpenHandJsonTreeView({
@@ -208,6 +232,19 @@ class OpenHandJsonTreeView extends StatefulWidget {
     this.logTag = 'json_tree',
     this.loadFullText,
   }) : assert(bodyMaxHeight == null || bodyMaxHeight > 0);
+
+  OpenHandJsonTreeView.fromValue({
+    super.key,
+    required Object? value,
+    this.emptyText = '',
+    this.label,
+    this.error = false,
+    this.enableFullView = true,
+    this.bodyMaxHeight,
+    this.logTag = 'json_tree',
+    this.loadFullText,
+  }) : text = openHandJsonTreeTextFromValue(value),
+       assert(bodyMaxHeight == null || bodyMaxHeight > 0);
 
   final String text;
   final String emptyText;
