@@ -39,6 +39,14 @@ final class QdrantHttpException extends HttpException {
 
   bool get isRetryable => isHttpTransientRetryableStatus(statusCode);
 
+  /// 给用户看的短句：瞬时 5xx/限流只报状态，不把空正文堆到界面上。
+  String get userFacingMessage {
+    if (isRetryable) {
+      return 'Qdrant 暂时不可用（HTTP $statusCode）。';
+    }
+    return message;
+  }
+
   static String _failureMessage(int statusCode, String responseBody) {
     final preview = clipTextWithEllipsis(
       responseBody.trim(),

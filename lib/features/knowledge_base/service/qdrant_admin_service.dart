@@ -165,6 +165,7 @@ class QdrantAdminService {
       '/collections/$collection/points/delete',
       body: <String, Object?>{'points': ids},
       action: 'delete_points',
+      retrySafe: false,
     );
   }
 
@@ -177,6 +178,7 @@ class QdrantAdminService {
       'DELETE',
       '/collections/$collection',
       action: 'delete_collection',
+      retrySafe: false,
     );
   }
 
@@ -186,6 +188,7 @@ class QdrantAdminService {
     String path, {
     Map<String, Object?>? body,
     String? action,
+    bool retrySafe = true,
   }) async {
     final response = await sendQdrantJsonRequest(
       method: method,
@@ -196,6 +199,8 @@ class QdrantAdminService {
       responseIdleTimeout: _qdrantAdminResponseIdleTimeout,
       maxResponseBytes: _qdrantAdminMaxResponseBytes,
       body: body,
+      retryCount: retrySafe ? settings.retryCount : 0,
+      retryBackoff: Duration(milliseconds: settings.retryBackoffMs),
     );
     if (action != null) {
       final retention = KnowledgeBaseSettingRanges.qdrantLogRetainLines

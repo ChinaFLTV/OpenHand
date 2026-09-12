@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -58,6 +57,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   final List<_QdrantMetricSample> _samples = <_QdrantMetricSample>[];
   Map<String, Object?>? _operationResult;
   String? _error;
+  String? _lastRefreshErrorKey;
   int _tabIndex = 0;
   bool _refreshPending = false;
   Future<void>? _refreshTask;
@@ -135,42 +135,85 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       try {
         final controller = context.read<KnowledgeBaseController>();
         QdrantMonitoringSnapshot? snapshot;
-        List<Map<String, Object?>>? collections;
+        var collections = const <Map<String, Object?>>[];
+        Object? collectionsError;
+        Object? snapshotError;
         await Future.wait<void>(<Future<void>>[
-          controller.loadMonitoringSnapshot().then((value) => snapshot = value),
-          controller.listQdrantCollections().then(
-            (value) => collections = value,
-          ),
+          () async {
+            try {
+              snapshot = await controller.loadMonitoringSnapshot();
+            } catch (error) {
+              snapshotError = error;
+            }
+          }(),
+          () async {
+            try {
+              collections = await controller.listQdrantCollections();
+            } catch (error) {
+              collectionsError = error;
+            }
+          }(),
         ]).timeout(_qdrantRefreshTimeout);
         if (!mounted) return;
         if (_refreshPending) continue;
         final loadedSnapshot = snapshot;
-        final loadedCollections = collections;
-        if (loadedSnapshot == null || loadedCollections == null) {
-          setState(() => _error = _l10n.qdrantStatusRefreshIncomplete);
+        if (loadedSnapshot == null) {
+          _applyRefreshFailure(
+            snapshotError ??
+                collectionsError ??
+                StateError(_l10n.qdrantStatusRefreshIncomplete),
+          );
           continue;
         }
+        final collectionFailure = collectionsError;
         setState(() {
           _snapshot = loadedSnapshot;
-          _collections = loadedCollections;
-          _samples.add(_QdrantMetricSample.fromSnapshot(loadedSnapshot));
-          if (_samples.length > _qdrantTrendSampleCap) {
-            _samples.removeRange(0, _samples.length - _qdrantTrendSampleCap);
+          _collections = collections;
+          if (collectionFailure == null) {
+            _samples.add(_QdrantMetricSample.fromSnapshot(loadedSnapshot));
+            if (_samples.length > _qdrantTrendSampleCap) {
+              _samples.removeRange(0, _samples.length - _qdrantTrendSampleCap);
+            }
+            _error = null;
+            _lastRefreshErrorKey = null;
+          } else {
+            _error = knowledgeBaseFailureMessage(
+              collectionFailure,
+              fallback: '刷新 Qdrant 状态失败，请稍后重试。',
+            );
           }
-          _error = null;
         });
+        if (collectionFailure != null) {
+          _noteRefreshFailure(collectionFailure);
+        }
       } catch (error, stack) {
         if (!mounted) return;
         if (_refreshPending) continue;
-        silentLog('qdrant_status_dialog', '刷新 Qdrant 状态', error, stack);
-        setState(
-          () => _error = knowledgeBaseFailureMessage(
-            error,
-            fallback: '刷新 Qdrant 状态失败，请稍后重试。',
-          ),
-        );
+        _applyRefreshFailure(error, stack);
       }
     }
+  }
+
+  void _noteRefreshFailure(Object error, [StackTrace? stack]) {
+    final key = '$error';
+    if (key == _lastRefreshErrorKey) return;
+    _lastRefreshErrorKey = key;
+    logKnowledgeDialogFailure(
+      'qdrant_status_dialog',
+      '刷新 Qdrant 状态',
+      error,
+      stack,
+    );
+  }
+
+  void _applyRefreshFailure(Object error, [StackTrace? stack]) {
+    _noteRefreshFailure(error, stack);
+    final message = knowledgeBaseFailureMessage(
+      error,
+      fallback: '刷新 Qdrant 状态失败，请稍后重试。',
+    );
+    if (_error == message) return;
+    setState(() => _error = message);
   }
 
   List<String> _parseIds() {
@@ -250,7 +293,12 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       setState(() => _operationResult = result);
       return true;
     } catch (error, stack) {
-      silentLog('qdrant_status_dialog', operationName, error, stack);
+      logKnowledgeDialogFailure(
+        'qdrant_status_dialog',
+        operationName,
+        error,
+        stack,
+      );
       if (mounted) {
         setState(
           () => _error = knowledgeBaseFailureMessage(
@@ -343,7 +391,12 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       showOpenHandSuccessSnack(context, l10n.qdrantStatusPointsDeleted);
       await _refresh(silent: true);
     } catch (error, stack) {
-      silentLog('qdrant_status_dialog', '删除 Qdrant Points', error, stack);
+      logKnowledgeDialogFailure(
+        'qdrant_status_dialog',
+        '删除 Qdrant Points',
+        error,
+        stack,
+      );
       if (mounted) {
         setState(
           () => _error = knowledgeBaseFailureMessage(
@@ -389,7 +442,12 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       showOpenHandSuccessSnack(context, l10n.qdrantStatusCollectionDeleted);
       await _refresh(silent: true);
     } catch (error, stack) {
-      silentLog('qdrant_status_dialog', '删除 Qdrant Collection', error, stack);
+      logKnowledgeDialogFailure(
+        'qdrant_status_dialog',
+        '删除 Qdrant Collection',
+        error,
+        stack,
+      );
       if (mounted) {
         setState(
           () => _error = knowledgeBaseFailureMessage(
