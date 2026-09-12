@@ -27,6 +27,7 @@ import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/directory_cleanup.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/json_schema_fields.dart';
 import '../../shared/util/path_safety.dart';
 import '../../shared/util/sensitive_data.dart';
 import '../../shared/util/serial_task_queue.dart';
@@ -4390,6 +4391,7 @@ class AiSessionController extends ChangeNotifier {
       planRecoveryInspectionRequired: recoveryInspectionRequired,
       planExecutionApproved: executionApprovedForSend,
       toolNames: toolNames,
+      toolDetails: _runtimeToolPreviewDetails(effectiveCatalog, toolNames),
       notices: _stableRuntimeToolNotices(effectiveCatalog.notices),
       gateReason: AiPlanModeToolGate.gateReason(
         isPlanMode: session.mode == AiSessionMode.plan,
@@ -10296,6 +10298,63 @@ class AiSessionController extends ChangeNotifier {
     ).toSet().toList(growable: false);
     names.sort(_compareRuntimeMetadataText);
     return List<String>.unmodifiable(names);
+  }
+
+  Map<String, AiRuntimeToolPreviewDetail> _runtimeToolPreviewDetails(
+    AiResolvedToolCatalog catalog,
+    List<String> toolNames,
+  ) {
+    if (toolNames.isEmpty) {
+      return const <String, AiRuntimeToolPreviewDetail>{};
+    }
+    final details = <String, AiRuntimeToolPreviewDetail>{};
+    for (final name in toolNames) {
+      final tool = catalog.toolsByName[name] ?? catalog.findDeferredTool(name);
+      if (tool == null) continue;
+      details[name] = _runtimeToolPreviewDetail(tool);
+    }
+    return Map<String, AiRuntimeToolPreviewDetail>.unmodifiable(details);
+  }
+
+  static const int _runtimeToolPreviewDescriptionMaxChars = 480;
+
+  AiRuntimeToolPreviewDetail _runtimeToolPreviewDetail(AiResolvedTool tool) {
+    final mcpTool = tool.mcpTool;
+    final displayName = switch (tool.source) {
+      AiRuntimeToolSource.mcp => (mcpTool?.name ?? '').trim(),
+      AiRuntimeToolSource.skill => (tool.skill?.name ?? '').trim(),
+      AiRuntimeToolSource.builtin => '',
+    };
+    var rawDescription = tool.definition.description.trim();
+    if (tool.source == AiRuntimeToolSource.mcp) {
+      final fromCatalog = (mcpTool?.description ?? '').trim();
+      if (fromCatalog.isNotEmpty) rawDescription = fromCatalog;
+    } else if (tool.source == AiRuntimeToolSource.skill) {
+      final fromSkill = (tool.skill?.description ?? '').trim();
+      if (fromSkill.isNotEmpty) rawDescription = fromSkill;
+    }
+    final schema = tool.definition.parameters;
+    final fields = openHandJsonSchemaFields(schema);
+    return AiRuntimeToolPreviewDetail(
+      name: tool.name,
+      source: tool.source,
+      displayName: displayName == tool.name ? '' : displayName,
+      description: clipTextByCodeUnitsWithEllipsis(
+        rawDescription,
+        _runtimeToolPreviewDescriptionMaxChars,
+      ),
+      serverName: (tool.mcpServer?.name ?? '').trim(),
+      parameters: [
+        for (final field in fields)
+          AiRuntimeToolParameterPreview(
+            name: field.name,
+            typeLabel: field.typeLabel,
+            required: field.required,
+            description: field.description,
+          ),
+      ],
+      parameterTotalCount: openHandJsonSchemaPropertyCount(schema),
+    );
   }
 
   List<String> _stableRuntimeToolNotices(List<String> notices) {

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'stable_hash.dart';
 
 const int kOpenHandDefaultToolNameMaxLength = 64;
+const String kOpenHandMcpRuntimeToolNamePrefix = 'mcp__';
 
 final RegExp _unsafeToolNameCharsPattern = RegExp('[^A-Za-z0-9_-]+');
 final RegExp _edgeUnderscoresPattern = RegExp(r'^_+|_+$');
@@ -19,6 +20,22 @@ String _sanitizeToolNameToken(String value) {
       .trim()
       .replaceAll(_unsafeToolNameCharsPattern, '_')
       .replaceAll(_edgeUnderscoresPattern, '');
+}
+
+/// 从运行时工具名 `mcp__{server}__{toolId}` 拆出服务名与工具 ID。
+({String server, String toolId})? splitMcpRuntimeToolName(String name) {
+  final trimmed = name.trim();
+  if (!trimmed.startsWith(kOpenHandMcpRuntimeToolNamePrefix) ||
+      trimmed.length <= kOpenHandMcpRuntimeToolNamePrefix.length) {
+    return null;
+  }
+  final rest = trimmed.substring(kOpenHandMcpRuntimeToolNamePrefix.length);
+  final index = rest.indexOf('__');
+  if (index <= 0 || index + 2 >= rest.length) return null;
+  final server = rest.substring(0, index).trim();
+  final toolId = rest.substring(index + 2).trim();
+  if (server.isEmpty || toolId.isEmpty) return null;
+  return (server: server, toolId: toolId);
 }
 
 String compactToolName({

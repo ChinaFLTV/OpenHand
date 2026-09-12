@@ -1,6 +1,8 @@
 part of '../openhand_home_page.dart';
 
 const Duration _kCacheHitTrendRevealDuration = kOpenHandMotion520;
+const double _kRuntimeToolChipWrapMaxHeight = 240;
+const int _kRuntimeToolHoverDescriptionMaxChars = 480;
 
 class _LiveSessionMetadataDialog extends StatelessWidget {
   const _LiveSessionMetadataDialog({
@@ -549,12 +551,25 @@ class _SessionMetadataDialog extends StatelessWidget {
                   ),
                 ),
                 kOpenHandGap10,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: runtimeStatus.toolNames
-                      .map((item) => _MetadataChip(label: item))
-                      .toList(growable: false),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxHeight: _kRuntimeToolChipWrapMaxHeight,
+                  ),
+                  child: SingleChildScrollView(
+                    primary: false,
+                    physics: openHandDialogAwareScrollPhysics(context),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final item in runtimeStatus.toolNames)
+                          _RuntimeToolChip(
+                            name: item,
+                            known: liveRuntimeToolPreview?.detailFor(item),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -1573,6 +1588,542 @@ class _MetadataChip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RuntimeToolChip extends StatelessWidget {
+  const _RuntimeToolChip({required this.name, this.known});
+
+  final String name;
+  final AiRuntimeToolPreviewDetail? known;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final detail = known ?? _runtimeToolHoverFallback(name);
+    final tone = _runtimeToolSourceColor(theme.colorScheme, detail.source);
+    return OpenHandHoverOverlay(
+      motionScope: OpenHandMotionSettingsScope.dialog,
+      builder: (overlayContext, constraints) {
+        final resolved =
+            known ??
+            _runtimeToolHoverDetail(context: overlayContext, name: name);
+        return _RuntimeToolHoverCard(
+          detail: resolved,
+          constraints: constraints,
+        );
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tone.withValues(alpha: 0.12),
+          borderRadius: kOpenHandPillBorderRadius,
+          border: Border.all(color: tone.withValues(alpha: 0.28)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Text(
+            name,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: tone,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RuntimeToolHoverCard extends StatelessWidget {
+  const _RuntimeToolHoverCard({
+    required this.detail,
+    required this.constraints,
+  });
+
+  final AiRuntimeToolPreviewDetail detail;
+  final BoxConstraints constraints;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tone = _runtimeToolSourceColor(colorScheme, detail.source);
+    final description = detail.description.trim();
+    final overflowCount = math.max(
+      0,
+      detail.parameterTotalCount - detail.parameters.length,
+    );
+    return Material(
+      elevation: 10,
+      color: Colors.transparent,
+      shadowColor: tone.withValues(alpha: 0.28),
+      borderRadius: kOpenHandBorderRadius20,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            tone.withValues(alpha: 0.10),
+            colorScheme.surfaceContainerHigh,
+          ),
+          borderRadius: kOpenHandBorderRadius20,
+          border: Border(
+            left: BorderSide(color: tone, width: 5),
+            top: BorderSide(color: tone.withValues(alpha: 0.28)),
+            right: BorderSide(color: tone.withValues(alpha: 0.28)),
+            bottom: BorderSide(color: tone.withValues(alpha: 0.28)),
+          ),
+        ),
+        child: ConstrainedBox(
+          constraints: constraints,
+          child: SingleChildScrollView(
+            primary: false,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            physics: openHandDialogAwareScrollPhysics(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: tone.withValues(alpha: 0.18),
+                        borderRadius: kOpenHandBorderRadius12,
+                      ),
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: Icon(
+                          _runtimeToolSourceIcon(detail.source),
+                          size: 18,
+                          color: tone,
+                        ),
+                      ),
+                    ),
+                    kOpenHandHGap10,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            detail.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          if (detail.title != detail.name) ...[
+                            kOpenHandGap2,
+                            Text(
+                              detail.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontFamily: kOpenHandMonospaceFontFamily,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                kOpenHandGap10,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _RuntimeToolMetaChip(
+                      icon: Icons.category_rounded,
+                      label: _runtimeToolSourceLabel(context, detail.source),
+                      color: tone,
+                    ),
+                    if (detail.serverName.isNotEmpty)
+                      _RuntimeToolMetaChip(
+                        icon: Icons.dns_rounded,
+                        label: detail.serverName,
+                        color: OpenHandStatusColors.info,
+                      ),
+                    _RuntimeToolMetaChip(
+                      icon: Icons.input_rounded,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '入参 ${detail.parameterTotalCount}',
+                        zhHant: '入參 ${detail.parameterTotalCount}',
+                        en: '${detail.parameterTotalCount} inputs',
+                        fr: '${detail.parameterTotalCount} entrées',
+                        de: '${detail.parameterTotalCount} Eingaben',
+                        ja: '入力 ${detail.parameterTotalCount}',
+                      ),
+                      color: colorScheme.tertiary,
+                    ),
+                  ],
+                ),
+                kOpenHandGap12,
+                Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '介绍',
+                    zhHant: '介紹',
+                    en: 'Description',
+                    fr: 'Description',
+                    de: 'Beschreibung',
+                    ja: '説明',
+                  ),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: tone,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                kOpenHandGap8,
+                OpenHandTintedPanel(
+                  accent: tone,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Text(
+                    description.isEmpty
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '当前目录没有提供介绍。',
+                            zhHant: '目前目錄沒有提供介紹。',
+                            en: 'No description is available in the catalog.',
+                            fr: 'Aucune description n’est disponible.',
+                            de: 'Keine Beschreibung im Katalog vorhanden.',
+                            ja: 'カタログに説明がありません。',
+                          )
+                        : description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                      color: description.isEmpty
+                          ? colorScheme.onSurfaceVariant
+                          : colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                kOpenHandGap12,
+                Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '入参',
+                    zhHant: '入參',
+                    en: 'Input parameters',
+                    fr: 'Paramètres d’entrée',
+                    de: 'Eingabeparameter',
+                    ja: '入力パラメータ',
+                  ),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: tone,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                kOpenHandGap8,
+                if (detail.parameters.isEmpty)
+                  Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '没有声明入参。',
+                      zhHant: '沒有聲明入參。',
+                      en: 'No input parameters declared.',
+                      fr: 'Aucun paramètre d’entrée déclaré.',
+                      de: 'Keine Eingabeparameter angegeben.',
+                      ja: '入力パラメータの宣言はありません。',
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                else
+                  for (final parameter in detail.parameters) ...[
+                    _RuntimeToolParameterTile(
+                      parameter: parameter,
+                      accent: tone,
+                    ),
+                    kOpenHandGap8,
+                  ],
+                if (overflowCount > 0)
+                  Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '另有 $overflowCount 项入参未展开',
+                      zhHant: '另有 $overflowCount 項入參未展開',
+                      en: '$overflowCount more parameters not shown',
+                      fr: '$overflowCount autres paramètres masqués',
+                      de: '$overflowCount weitere Parameter nicht angezeigt',
+                      ja: '他 $overflowCount 件のパラメータは省略',
+                    ),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RuntimeToolParameterTile extends StatelessWidget {
+  const _RuntimeToolParameterTile({
+    required this.parameter,
+    required this.accent,
+  });
+
+  final AiRuntimeToolParameterPreview parameter;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final requiredColor = parameter.required
+        ? OpenHandStatusColors.error
+        : colorScheme.outline;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: kOpenHandBorderRadius14,
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    parameter.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      fontFamily: kOpenHandMonospaceFontFamily,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            kOpenHandGap8,
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if (parameter.typeLabel.isNotEmpty)
+                  _RuntimeToolMetaChip(
+                    icon: Icons.data_object_rounded,
+                    label: parameter.typeLabel,
+                    color: OpenHandStatusColors.info,
+                  ),
+                _RuntimeToolMetaChip(
+                  icon: parameter.required
+                      ? Icons.priority_high_rounded
+                      : Icons.more_horiz_rounded,
+                  label: parameter.required
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '必填',
+                          zhHant: '必填',
+                          en: 'Required',
+                          fr: 'Obligatoire',
+                          de: 'Erforderlich',
+                          ja: '必須',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: '可选',
+                          zhHant: '可選',
+                          en: 'Optional',
+                          fr: 'Facultatif',
+                          de: 'Optional',
+                          ja: '任意',
+                        ),
+                  color: requiredColor,
+                ),
+              ],
+            ),
+            if (parameter.description.isNotEmpty) ...[
+              kOpenHandGap6,
+              Text(
+                parameter.description,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RuntimeToolMetaChip extends StatelessWidget {
+  const _RuntimeToolMetaChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 220),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: kOpenHandPillBorderRadius,
+          border: Border.all(color: color.withValues(alpha: 0.32)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: color),
+              kOpenHandHGap6,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color _runtimeToolSourceColor(
+  ColorScheme colorScheme,
+  AiRuntimeToolSource source,
+) {
+  return switch (source) {
+    AiRuntimeToolSource.mcp => OpenHandStatusColors.info,
+    AiRuntimeToolSource.skill => colorScheme.tertiary,
+    AiRuntimeToolSource.builtin => OpenHandStatusColors.success,
+  };
+}
+
+IconData _runtimeToolSourceIcon(AiRuntimeToolSource source) {
+  return switch (source) {
+    AiRuntimeToolSource.mcp => Icons.hub_rounded,
+    AiRuntimeToolSource.skill => Icons.auto_awesome_rounded,
+    AiRuntimeToolSource.builtin => Icons.build_circle_rounded,
+  };
+}
+
+String _runtimeToolSourceLabel(
+  BuildContext context,
+  AiRuntimeToolSource source,
+) {
+  return switch (source) {
+    AiRuntimeToolSource.mcp => openHandLocalizedText(
+      context,
+      zh: 'MCP 工具',
+      zhHant: 'MCP 工具',
+      en: 'MCP tool',
+      fr: 'Outil MCP',
+      de: 'MCP-Tool',
+      ja: 'MCPツール',
+    ),
+    AiRuntimeToolSource.skill => openHandLocalizedText(
+      context,
+      zh: '技能',
+      zhHant: '技能',
+      en: 'Skill',
+      fr: 'Compétence',
+      de: 'Skill',
+      ja: 'スキル',
+    ),
+    AiRuntimeToolSource.builtin => openHandLocalizedText(
+      context,
+      zh: '内置工具',
+      zhHant: '內建工具',
+      en: 'Built-in tool',
+      fr: 'Outil intégré',
+      de: 'Integriertes Tool',
+      ja: '内蔵ツール',
+    ),
+  };
+}
+
+AiRuntimeToolPreviewDetail _runtimeToolHoverFallback(String name) {
+  final parsed = splitMcpRuntimeToolName(name);
+  if (parsed != null) {
+    return AiRuntimeToolPreviewDetail(
+      name: name,
+      source: AiRuntimeToolSource.mcp,
+      serverName: parsed.server,
+    );
+  }
+  if (name.startsWith('skill__') || name.startsWith('skill_')) {
+    return AiRuntimeToolPreviewDetail(
+      name: name,
+      source: AiRuntimeToolSource.skill,
+    );
+  }
+  return AiRuntimeToolPreviewDetail(
+    name: name,
+    source: AiRuntimeToolSource.builtin,
+  );
+}
+
+AiRuntimeToolPreviewDetail _runtimeToolHoverDetail({
+  required BuildContext context,
+  required String name,
+}) {
+  final parsed = splitMcpRuntimeToolName(name);
+  if (parsed == null) return _runtimeToolHoverFallback(name);
+  late final McpController mcp;
+  try {
+    mcp = context.read<McpController>();
+  } on ProviderNotFoundException {
+    return _runtimeToolHoverFallback(name);
+  }
+  final catalog = mcp.toolCatalogFor(parsed.server);
+  for (final tool in catalog.tools) {
+    if (tool.id != parsed.toolId && tool.name != parsed.toolId) continue;
+    final fields = openHandJsonSchemaFields(tool.inputSchema);
+    return AiRuntimeToolPreviewDetail(
+      name: name,
+      source: AiRuntimeToolSource.mcp,
+      displayName: tool.name.trim() == name ? '' : tool.name.trim(),
+      description: clipTextByCodeUnitsWithEllipsis(
+        tool.description.trim(),
+        _kRuntimeToolHoverDescriptionMaxChars,
+      ),
+      serverName: parsed.server,
+      parameters: [
+        for (final field in fields)
+          AiRuntimeToolParameterPreview(
+            name: field.name,
+            typeLabel: field.typeLabel,
+            required: field.required,
+            description: field.description,
+          ),
+      ],
+      parameterTotalCount: openHandJsonSchemaPropertyCount(tool.inputSchema),
+    );
+  }
+  return _runtimeToolHoverFallback(name);
 }
 
 class _MetadataGroupLabel extends StatelessWidget {

@@ -19,6 +19,7 @@ class AiRuntimeToolPreview {
     required this.notices,
     required this.gateReason,
     this.supportsToolCalls = true,
+    this.toolDetails = const <String, AiRuntimeToolPreviewDetail>{},
   });
 
   final AiSessionMode sessionMode;
@@ -30,8 +31,52 @@ class AiRuntimeToolPreview {
   final List<String> notices;
   final String gateReason;
   final bool supportsToolCalls;
+  final Map<String, AiRuntimeToolPreviewDetail> toolDetails;
 
   int get toolCount => toolNames.length;
+
+  AiRuntimeToolPreviewDetail? detailFor(String name) => toolDetails[name];
+}
+
+class AiRuntimeToolPreviewDetail {
+  const AiRuntimeToolPreviewDetail({
+    required this.name,
+    required this.source,
+    this.displayName = '',
+    this.description = '',
+    this.serverName = '',
+    this.parameters = const <AiRuntimeToolParameterPreview>[],
+    this.parameterTotalCount = 0,
+  });
+
+  final String name;
+  final AiRuntimeToolSource source;
+  final String displayName;
+  final String description;
+  final String serverName;
+  final List<AiRuntimeToolParameterPreview> parameters;
+  final int parameterTotalCount;
+
+  String get title {
+    final labeled = displayName.trim();
+    return labeled.isEmpty ? name : labeled;
+  }
+
+  bool get hasMoreParameters => parameterTotalCount > parameters.length;
+}
+
+class AiRuntimeToolParameterPreview {
+  const AiRuntimeToolParameterPreview({
+    required this.name,
+    required this.typeLabel,
+    required this.required,
+    this.description = '',
+  });
+
+  final String name;
+  final String typeLabel;
+  final bool required;
+  final String description;
 }
 
 class AiSessionDeletionNotice {
