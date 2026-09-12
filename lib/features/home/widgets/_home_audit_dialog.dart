@@ -300,8 +300,9 @@ class _AuditJsonBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final Widget content;
     if (_isEmpty) {
-      return OpenHandTintedPanel(
+      content = OpenHandTintedPanel(
         accent: colorScheme.outline,
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Text(
@@ -313,13 +314,15 @@ class _AuditJsonBlock extends StatelessWidget {
           ),
         ),
       );
+    } else {
+      content = OpenHandJsonTreeView.fromValue(
+        value: json,
+        label: label,
+        logTag: 'session_audit',
+        enableFullView: !initiallyExpanded,
+      );
     }
-    return OpenHandJsonTreeView.fromValue(
-      value: json,
-      label: label,
-      logTag: 'session_audit',
-      enableFullView: !initiallyExpanded,
-    );
+    return Padding(padding: const EdgeInsets.only(bottom: 12), child: content);
   }
 }
 
@@ -1095,6 +1098,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                   label: AppLocalizations.of(context)!.auditMethod,
                   value: _auditFormatOrDash(requestMethod),
                 ),
+                kOpenHandGap8,
                 if (requestFallbacks != null && requestFallbacks.isNotEmpty)
                   _AuditJsonBlock(
                     label: openHandLocalizedText(
