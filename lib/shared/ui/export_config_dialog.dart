@@ -188,117 +188,6 @@ class _ExportOptionChip extends StatelessWidget {
   }
 }
 
-class _ExportRangeEndpointCard extends StatelessWidget {
-  const _ExportRangeEndpointCard({
-    required this.label,
-    required this.badge,
-    required this.index,
-    required this.kindLabel,
-    required this.preview,
-    required this.accent,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final String badge;
-  final int index;
-  final String kindLabel;
-  final String preview;
-  final Color accent;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: kOpenHandBorderRadius16,
-        child: AnimatedContainer(
-          duration: openHandMotionDuration(context, kOpenHandMotion180),
-          curve: kOpenHandEntranceCurve,
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-          decoration: BoxDecoration(
-            color: Color.alphaBlend(
-              accent.withValues(alpha: selected ? 0.16 : 0.08),
-              colorScheme.surfaceContainerLow,
-            ),
-            borderRadius: kOpenHandBorderRadius16,
-            border: Border.all(
-              color: accent.withValues(alpha: selected ? 0.46 : 0.18),
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.16),
-                      borderRadius: kOpenHandPillBorderRadius,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      child: Text(
-                        badge,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: accent,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                  kOpenHandHGap8,
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              kOpenHandGap6,
-              Text(
-                '#$index · $kindLabel',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: accent,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              kOpenHandGap4,
-              Text(
-                preview.isEmpty ? kindLabel : preview,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ExportRangeMessageTile extends StatelessWidget {
   const _ExportRangeMessageTile({
     required this.index,
@@ -823,56 +712,48 @@ class _AiSessionExportConfigDialogState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _ExportRangeEndpointCard(
-                label: l10n.exportRangeStart,
-                badge: openHandLocalizedText(
-                  context,
-                  zh: '起',
-                  zhHant: '起',
-                  en: 'From',
-                  fr: 'Début',
-                  de: 'Von',
-                  ja: '開始',
-                ),
-                index: _startIndex,
-                kindLabel: _kindLabel(startMessage.kind, l10n),
-                preview: _messagePreview(startMessage),
-                accent: colorScheme.primary,
-                selected: _activeEndpoint == _ExportRangeEndpoint.start,
-                onTap: () {
-                  setState(() => _activeEndpoint = _ExportRangeEndpoint.start);
-                  _scrollRangeListTo(_startIndex);
-                },
-              ),
+        OpenHandRangeEndpointPair(
+          start: OpenHandRangeEndpointCard(
+            label: l10n.exportRangeStart,
+            badge: openHandLocalizedText(
+              context,
+              zh: '起',
+              zhHant: '起',
+              en: 'From',
+              fr: 'Début',
+              de: 'Von',
+              ja: '開始',
             ),
-            kOpenHandHGap12,
-            Expanded(
-              child: _ExportRangeEndpointCard(
-                label: l10n.exportRangeEnd,
-                badge: openHandLocalizedText(
-                  context,
-                  zh: '止',
-                  zhHant: '止',
-                  en: 'To',
-                  fr: 'Fin',
-                  de: 'Bis',
-                  ja: '終了',
-                ),
-                index: _endIndex,
-                kindLabel: _kindLabel(endMessage.kind, l10n),
-                preview: _messagePreview(endMessage),
-                accent: OpenHandStatusColors.success,
-                selected: _activeEndpoint == _ExportRangeEndpoint.end,
-                onTap: () {
-                  setState(() => _activeEndpoint = _ExportRangeEndpoint.end);
-                  _scrollRangeListTo(_endIndex);
-                },
-              ),
+            indexLabel:
+                '#$_startIndex · ${_kindLabel(startMessage.kind, l10n)}',
+            preview: _messagePreview(startMessage),
+            accent: colorScheme.primary,
+            selected: _activeEndpoint == _ExportRangeEndpoint.start,
+            onTap: () {
+              setState(() => _activeEndpoint = _ExportRangeEndpoint.start);
+              _scrollRangeListTo(_startIndex);
+            },
+          ),
+          end: OpenHandRangeEndpointCard(
+            label: l10n.exportRangeEnd,
+            badge: openHandLocalizedText(
+              context,
+              zh: '止',
+              zhHant: '止',
+              en: 'To',
+              fr: 'Fin',
+              de: 'Bis',
+              ja: '終了',
             ),
-          ],
+            indexLabel: '#$_endIndex · ${_kindLabel(endMessage.kind, l10n)}',
+            preview: _messagePreview(endMessage),
+            accent: OpenHandStatusColors.success,
+            selected: _activeEndpoint == _ExportRangeEndpoint.end,
+            onTap: () {
+              setState(() => _activeEndpoint = _ExportRangeEndpoint.end);
+              _scrollRangeListTo(_endIndex);
+            },
+          ),
         ),
         if (count > 1) ...[
           kOpenHandGap8,

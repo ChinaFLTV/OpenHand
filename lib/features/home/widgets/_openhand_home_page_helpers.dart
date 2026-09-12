@@ -491,42 +491,37 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _TitleSummaryRangeEndpoint(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '起始',
-                          zhHant: '起始',
-                          en: 'From',
-                          fr: 'Début',
-                          de: 'Von',
-                          ja: '開始',
-                        ),
-                        index: _startIdx,
-                        preview: previewLabel(_startIdx),
-                        accent: colorScheme.primary,
-                      ),
+                OpenHandRangeEndpointPair(
+                  start: OpenHandRangeEndpointCard(
+                    icon: Icons.tag_rounded,
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '起始',
+                      zhHant: '起始',
+                      en: 'From',
+                      fr: 'Début',
+                      de: 'Von',
+                      ja: '開始',
                     ),
-                    kOpenHandHGap12,
-                    Expanded(
-                      child: _TitleSummaryRangeEndpoint(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '结束',
-                          zhHant: '結束',
-                          en: 'To',
-                          fr: 'Fin',
-                          de: 'Bis',
-                          ja: '終了',
-                        ),
-                        index: _endIdx,
-                        preview: previewLabel(_endIdx),
-                        accent: OpenHandStatusColors.success,
-                      ),
+                    indexLabel: '#${_startIdx + 1}',
+                    preview: previewLabel(_startIdx),
+                    accent: colorScheme.primary,
+                  ),
+                  end: OpenHandRangeEndpointCard(
+                    icon: Icons.tag_rounded,
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '结束',
+                      zhHant: '結束',
+                      en: 'To',
+                      fr: 'Fin',
+                      de: 'Bis',
+                      ja: '終了',
                     ),
-                  ],
+                    indexLabel: '#${_endIdx + 1}',
+                    preview: previewLabel(_endIdx),
+                    accent: OpenHandStatusColors.success,
+                  ),
                 ),
                 if (total > 1) ...[
                   kOpenHandGap8,
@@ -577,52 +572,6 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _TitleSummaryRangeEndpoint extends StatelessWidget {
-  const _TitleSummaryRangeEndpoint({
-    required this.label,
-    required this.index,
-    required this.preview,
-    required this.accent,
-  });
-
-  final String label;
-  final int index;
-  final String preview;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return OpenHandTintedPanel(
-      accent: accent,
-      icon: Icons.tag_rounded,
-      title: label,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '#${index + 1}',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: accent,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          kOpenHandGap4,
-          Text(
-            preview,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

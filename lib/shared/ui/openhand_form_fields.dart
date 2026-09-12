@@ -6,6 +6,7 @@ import 'hover_lift.dart';
 import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
+import 'oh_pill.dart';
 import 'openhand_dialog_action_button.dart';
 
 /// 隐藏 TextField 的 `maxLength` 计数器。
@@ -976,6 +977,165 @@ class OpenHandTintedPanel extends StatelessWidget {
         border: Border.all(color: accent.withValues(alpha: 0.22)),
       ),
       child: Padding(padding: padding, child: body),
+    );
+  }
+}
+
+const int kOpenHandRangeEndpointPreviewMaxLines = 2;
+const double kOpenHandRangeEndpointPreviewLineHeight = 1.35;
+
+/// 起始/结束成对卡片：预览固定两行，并在同一行内拉齐高度。
+class OpenHandRangeEndpointPair extends StatelessWidget {
+  const OpenHandRangeEndpointPair({
+    super.key,
+    required this.start,
+    required this.end,
+  });
+
+  final Widget start;
+  final Widget end;
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: start),
+          kOpenHandHGap12,
+          Expanded(child: end),
+        ],
+      ),
+    );
+  }
+}
+
+class OpenHandRangeEndpointCard extends StatelessWidget {
+  const OpenHandRangeEndpointCard({
+    super.key,
+    required this.label,
+    required this.indexLabel,
+    required this.preview,
+    required this.accent,
+    this.icon,
+    this.badge,
+    this.selected = false,
+    this.onTap,
+  });
+
+  final String label;
+  final String indexLabel;
+  final String preview;
+  final Color accent;
+  final IconData? icon;
+  final String? badge;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final previewStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      height: kOpenHandRangeEndpointPreviewLineHeight,
+    );
+    final fontSize = previewStyle?.fontSize ?? 12;
+    final lineHeight =
+        (previewStyle?.height ?? kOpenHandRangeEndpointPreviewLineHeight) *
+        fontSize;
+    final badgeText = badge?.trim() ?? '';
+    final previewText = preview.trim();
+    final card = AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: kOpenHandSwitchInCurve,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accent.withValues(alpha: selected ? 0.16 : 0.10),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(
+          color: accent.withValues(alpha: selected ? 0.46 : 0.22),
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (badgeText.isNotEmpty) ...[
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.16),
+                    borderRadius: kOpenHandPillBorderRadius,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    child: Text(
+                      badgeText,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                kOpenHandHGap8,
+              ] else if (icon != null) ...[
+                Icon(icon, size: 16, color: accent),
+                kOpenHandHGap8,
+              ],
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          kOpenHandGap6,
+          Text(
+            indexLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: accent,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          kOpenHandGap4,
+          SizedBox(
+            height: lineHeight * kOpenHandRangeEndpointPreviewMaxLines,
+            width: double.infinity,
+            child: Text(
+              previewText.isEmpty ? ' ' : previewText,
+              maxLines: kOpenHandRangeEndpointPreviewMaxLines,
+              overflow: TextOverflow.ellipsis,
+              style: previewStyle,
+            ),
+          ),
+        ],
+      ),
+    );
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: kOpenHandBorderRadius16,
+        child: card,
+      ),
     );
   }
 }
