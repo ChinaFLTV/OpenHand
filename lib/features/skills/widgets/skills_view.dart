@@ -15,13 +15,10 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/local_file_media.dart';
-import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
-import '../../../shared/ui/openhand_message_markdown_theme.dart';
-import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -30,9 +27,9 @@ import '../../ai/index.dart'
         AiResourceUsageKind,
         resourceUsageStatisticsLabel,
         showResourceUsageStatisticsDialog;
-import '../../home/index.dart' show OpenHandHighlightedCodeBlockBuilder;
 import '../model/local_skill.dart';
 import '../skills_controller.dart';
+import 'skill_markdown_preview.dart';
 import 'skill_market_dialog.dart';
 
 enum _SkillCardAction { openDirectory, edit, delete }
@@ -436,18 +433,12 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      final markdownContent = stripOpenHandMarkdownFrontMatter(content);
       await showAnimatedDialog<void>(
         context: context,
         builder: (dialogContext) {
           final theme = Theme.of(dialogContext);
           final colorScheme = theme.colorScheme;
           final markdownBackground = colorScheme.surfaceContainerLow;
-          final markdownTheme = OpenHandMessageMarkdownThemeData.resolve(
-            theme: theme,
-            backgroundColor: markdownBackground,
-            textColor: colorScheme.onSurface,
-          );
           return buildOpenHandToolDialogShell(
             context: dialogContext,
             maxHeight: kOpenHandDialogHeightTall,
@@ -514,17 +505,9 @@ class _SkillsViewState extends State<SkillsView> {
                         child: SizedBox.expand(
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.all(20),
-                            child: OpenHandSafeMarkdownBody(
-                              data: markdownContent,
-                              selectable: true,
-                              styleSheet: markdownTheme.styleSheet,
-                              builders: {
-                                'code': markdownTheme.inlineCodeBuilder,
-                                'pre': OpenHandHighlightedCodeBlockBuilder(
-                                  theme: theme,
-                                  baseColor: colorScheme.onSurface,
-                                ),
-                              },
+                            child: OpenHandSkillMarkdownPreview(
+                              data: content,
+                              backgroundColor: markdownBackground,
                             ),
                           ),
                         ),

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/openhand_paths.dart';
@@ -14,6 +13,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
@@ -31,6 +31,7 @@ import '../../../shared/util/user_failure_message.dart';
 import '../data/skill_market_client.dart';
 import '../model/skill_market.dart';
 import '../skills_controller.dart';
+import 'skill_markdown_preview.dart';
 
 Future<void> showSkillMarketDialog(BuildContext context) {
   return showAnimatedDialog<void>(
@@ -1106,9 +1107,12 @@ class _SkillMarketDetailView extends StatelessWidget {
             zh: summary.descriptionZh,
             en: summary.description,
           );
-    final markdown = bundle.skillMarkdown == null
+    final strippedMarkdown = bundle.skillMarkdown == null
+        ? ''
+        : stripOpenHandMarkdownFrontMatter(bundle.skillMarkdown!).trim();
+    final markdown = strippedMarkdown.isEmpty
         ? null
-        : _truncateMarkdown(bundle.skillMarkdown!, maxMarkdownChars, context);
+        : _truncateMarkdown(strippedMarkdown, maxMarkdownChars, context);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(kOpenHandRadius22),
@@ -1372,30 +1376,33 @@ class _SkillMarketDetailView extends StatelessWidget {
             kOpenHandGap20,
             _SectionTitle(text: openHandDetailsLabel(context)),
             kOpenHandGap10,
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(kOpenHandRadius18),
-                border: Border.all(color: colorScheme.outlineVariant),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(kOpenHandRadius24),
+              child: ColoredBox(
+                color: colorScheme.surfaceContainerLow,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: markdown == null || markdown.trim().isEmpty
+                      ? Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '未找到 SKILL.md 内容。',
+                            zhHant: '未找到 SKILL.md 內容。',
+                            en: 'No SKILL.md content was found.',
+                            fr: 'Aucun contenu SKILL.md trouvé.',
+                            de: 'Kein SKILL.md-Inhalt gefunden.',
+                            ja: 'SKILL.md の内容が見つかりません。',
+                          ),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      : OpenHandSkillMarkdownPreview(
+                          data: markdown,
+                          backgroundColor: colorScheme.surfaceContainerLow,
+                        ),
+                ),
               ),
-              child: markdown == null || markdown.trim().isEmpty
-                  ? Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '未找到 SKILL.md 内容。',
-                        zhHant: '未找到 SKILL.md 內容。',
-                        en: 'No SKILL.md content was found.',
-                        fr: 'Aucun contenu SKILL.md trouvé.',
-                        de: 'Kein SKILL.md-Inhalt gefunden.',
-                        ja: 'SKILL.md の内容が見つかりません。',
-                      ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    )
-                  : MarkdownBody(data: markdown, selectable: true),
             ),
           ],
         ),
