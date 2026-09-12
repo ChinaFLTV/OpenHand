@@ -1227,8 +1227,10 @@ class AiSessionStore {
     int offset = 0,
     bool deferTelemetryMetadata = false,
     int? contentPreviewChars,
+    int? knownTotalCount,
   }) async {
-    final totalCount = await _countMessages(sessionId);
+    // 网关已查询过总数时直接复用，避免一次消息窗口请求重复执行 COUNT。
+    final totalCount = knownTotalCount ?? await _countMessages(sessionId);
     final safeOffset = math.min(math.max(0, offset), totalCount);
     final safeLimit = limit.clamp(1, _kMessageBatchSize);
     final messages = await _loadMessageBatch(

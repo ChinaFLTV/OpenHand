@@ -115,6 +115,7 @@ const INLINE_DIFF_HUNK_HEADER_RE = /^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+
 
 /// Markdown 解析调度器：每帧仅升级一个延迟挂载组件。
 const MARKDOWN_FRAME_BUDGET_PER_FRAME = 1;
+const MARKDOWN_FRAME_MAX_CANCELLED_PER_DRAIN = 64;
 const MARKDOWN_PARSE_READY_CACHE_LIMIT = 768;
 const HTML_SANITIZE_CACHE_LIMIT = 256;
 const HTML_RENDER_READY_CACHE_LIMIT = 512;
@@ -154,6 +155,7 @@ const htmlLikeDetectCache = new Map<string, boolean>();
 
 class MarkdownFrameScheduler {
   private pending: Array<{ task: () => void; cancelled: boolean }> = [];
+  private pendingHead = 0;
   private draining = false;
 
   schedule(task: () => void): () => void {
@@ -174,10 +176,23 @@ class MarkdownFrameScheduler {
     // timeout 防止持续繁忙时彻底拖延 markdown 升级。Safari 不支持 rIC，
     // 自动退化到 rAF；rAF 也没有时退到 setTimeout。
     const cb = () => {
+      if (isTranscriptScrollActive()) {
+        scheduleAfterTranscriptScrollSettles(() => this.scheduleDrain());
+        return;
+      }
       let completed = 0;
-      while (completed < MARKDOWN_FRAME_BUDGET_PER_FRAME && this.pending.length > 0) {
-        const entry = this.pending.shift();
-        if (entry == null || entry.cancelled) continue;
+      let cancelled = 0;
+      while (
+        completed < MARKDOWN_FRAME_BUDGET_PER_FRAME &&
+        cancelled < MARKDOWN_FRAME_MAX_CANCELLED_PER_DRAIN &&
+        this.pendingHead < this.pending.length
+      ) {
+        const entry = this.pending[this.pendingHead];
+        this.pendingHead += 1;
+        if (entry == null || entry.cancelled) {
+          cancelled += 1;
+          continue;
+        }
         try {
           entry.task();
         } catch (_e) {
@@ -185,9 +200,15 @@ class MarkdownFrameScheduler {
         }
         completed += 1;
       }
-      if (this.pending.length > 0) {
+      if (this.pendingHead < this.pending.length) {
+        if (this.pendingHead >= 256 && this.pendingHead * 2 >= this.pending.length) {
+          this.pending = this.pending.slice(this.pendingHead);
+          this.pendingHead = 0;
+        }
         this.scheduleDrain();
       } else {
+        this.pending = [];
+        this.pendingHead = 0;
         this.draining = false;
       }
     };

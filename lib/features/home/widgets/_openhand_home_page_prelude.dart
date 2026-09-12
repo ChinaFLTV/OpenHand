@@ -179,6 +179,8 @@ class _FrameTaskScheduler {
     : maxPerFrame = maxPerFrame.clamp(1, 64),
       maxPending = maxPending.clamp(1, 8192);
 
+  static const int _maxInvalidTasksPerFrame = 64;
+
   final int maxPerFrame;
   final int maxPending;
   final Queue<_FrameTask> _priorityPending = Queue<_FrameTask>();
@@ -196,12 +198,20 @@ class _FrameTaskScheduler {
     if (_priorityPending.length + _pending.length >= maxPending) {
       if (_pending.isNotEmpty) {
         _pending.removeFirst().onDropped?.call();
+      } else if (priority && _priorityPending.isNotEmpty) {
+        _priorityPending.removeLast().onDropped?.call();
       } else {
         onDropped?.call();
         return false;
       }
     }
-    (priority ? _priorityPending : _pending).addLast(entry);
+    // 可见卡片的新任务插到优先队首。快速切换会话时，仍在退场动画中的旧卡片
+    // 不会挡住新会话首屏；队列满载时也由最新可见任务替换最旧优先任务。
+    if (priority) {
+      _priorityPending.addFirst(entry);
+    } else {
+      _pending.addLast(entry);
+    }
     if (_draining) {
       return true;
     }
@@ -242,18 +252,21 @@ class _FrameTaskScheduler {
       return;
     }
     var processed = 0;
+    var invalid = 0;
     final batchSize = maxPerFrame;
     try {
       while (processed < batchSize &&
+          invalid < _maxInvalidTasksPerFrame &&
           (_priorityPending.isNotEmpty || _pending.isNotEmpty)) {
         final entry = _priorityPending.isNotEmpty
             ? _priorityPending.removeFirst()
             : _pending.removeFirst();
-        processed += 1;
         if (!(entry.isValid?.call() ?? true)) {
+          invalid += 1;
           entry.onDropped?.call();
           continue;
         }
+        processed += 1;
         entry.task();
       }
     } finally {

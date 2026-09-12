@@ -7996,6 +7996,7 @@ class WebMessagePlatformService {
           offset: rawOffset,
           deferTelemetryMetadata: true,
           contentPreviewChars: _webMessageContentPreviewCharacters,
+          knownTotalCount: rawTotal,
         );
         return _boundedStoredMessageWindow(
           session: session,
