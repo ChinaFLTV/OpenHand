@@ -1162,14 +1162,10 @@
   "@cronsDeleteCronJobMessage": {"placeholders":{"name":{"type":"String"}}},
   "cronsEmptyTitle": "Noch keine Cron-Jobs konfiguriert",
   "cronsEmptyBody": "Klicken Sie oben auf \"Neuer Cron-Job\", um zu beginnen.",
-  "cronsCronExpressionTooltip": "Cron-Ausdruck",
   "cronsTimeoutTooltip": "Timeout",
-  "cronsRetryCountTooltip": "Wiederholungen",
   "cronsMcpKeywordIndexLockedTooltip": "Gesteuert durch Einstellungen -> MCP -> Aktualisierungsmodus des Keyword-Index",
   "cronsRunOnceNow": "Jetzt einmal ausfuehren",
   "cronsHistory": "Historie",
-  "cronsLastRunAt": "Letzte: {time}",
-  "@cronsLastRunAt": {"placeholders":{"time":{"type":"String"}}},
   "cronsFieldName": "Name",
   "cronsFieldNameHint": "z. B. Taegliches Backup",
   "cronsFieldDescription": "Beschreibung",
@@ -1177,9 +1173,6 @@
   "cronsFieldScriptFilePath": "Skriptpfad",
   "cronsFieldScriptFilePathHint": "Eine .sh / .ps1 / .bat Datei waehlen",
   "cronsBrowse": "Durchsuchen",
-  "cronsFieldCommand": "Befehl",
-  "cronsFieldCommandHintWindows": "PowerShell- / BAT-Befehl eingeben",
-  "cronsFieldCommandHintShell": "Shell-Befehl eingeben",
   "cronsCronSchedule": "Cron-Zeitplan",
   "cronsCronScheduleHelper": "Das Sekundenfeld bleibt 0. Kleinste Einheit: Minute. Format: Min Stunde Tag Monat Wochentag",
   "cronsEditorCreateSubtitle": "Identitaet, Zeitplan, Ausfuehrungsrichtlinie und Benachrichtigungen konfigurieren.",
@@ -1191,9 +1184,6 @@
   "cronsSectionRuntime": "Laufzeit",
   "cronsScriptTypeCommandHint": "Befehl direkt ausfuehren",
   "cronsScriptTypeScriptHint": "Ausgewaehltes Skript ausfuehren",
-  "cronsNextRunAt": "Naechste: {time}",
-  "@cronsNextRunAt": {"placeholders":{"time":{"type":"String"}}},
-  "cronsNextRunUnknown": "Naechste Ausfuehrung nicht schaetzbar",
   "cronsExpressionPreview": "Ausdruck",
   "cronsTimeoutSeconds": "Timeout (s)",
   "cronsRetries": "Wiederholungen",
@@ -1281,7 +1271,6 @@
   "cronsDeleteThisRecord": "Diesen Eintrag loeschen",
   "cronsRetryAttempt": "Wiederholungsversuch",
   "cronsRunAs": "Ausfuehren als",
-  "cronsWorkingDir": "Arbeitsverz.",
   "cronsScriptEnvironmentOverrides": "Skript-Umgebungsueberschreibungen:",
   "cronsEnvironmentSnapshot": "Umgebungs-Snapshot:",
   "cronsErrorReason": "Fehler:",
@@ -1497,11 +1486,9 @@
   "skillsEdit": "Skill bearbeiten",
   "skillsDelete": "Skill löschen",
   "skillsPreviewClose": "Schließen",
-  "skillsEditorLabel": "SKILL.md-Inhalt",
   "skillsCreateDialogTitle": "Skill erstellen",
   "skillsCreateNameLabel": "Skill-Name",
   "skillsCreateNameRequired": "Skill-Namen eingeben.",
-  "skillsCreateIconLabel": "Skill-Symbol",
   "skillsCreateIconHint": "Emoji oder lokales Bild auswählen.",
   "skillsCreateIconRequired": "Symbol auswählen.",
   "skillsCreateIconChoose": "Emoji wählen",
@@ -1599,7 +1586,6 @@
   "instructionTaskTypesField": "Auslösende Aufgabentypen (durch Kommas getrennt)",
   "instructionKeywordsField": "Auslösende Schlüsselwörter (durch Kommas getrennt)",
   "instructionNotesField": "Notizen (eine pro Zeile)",
-  "instructionBodyField": "Anweisungstext * (Markdown)",
   "instructionBodyRequired": "Gib den Anweisungstext ein.",
   "instructionCreateAction": "Erstellen",
   "instructionSaveFailed": "Speichern fehlgeschlagen. Prüfe, ob Pflichtfelder leer sind.",
@@ -1614,8 +1600,6 @@
   "listCardMetricSize": "Größe",
   "listCardMetricUpdated": "Aktualisiert",
   "listCardMetricContent": "Inhalt",
-  "instructionSummaryEnabled": "Aktiviert",
-  "instructionSummaryDisabled": "Deaktiviert",
   "instructionSummaryVersion": "v{version}",
   "@instructionSummaryVersion": {"placeholders":{"version":{"type":"String"}}},
   "memoryPageTitle": "Speicher",
@@ -1636,14 +1620,11 @@
   "memorySectionBasics": "Grundlagen",
   "memorySectionContent": "Erinnerungstext",
   "memorySectionTags": "Tags",
-  "memorySummaryTagCount": "{count} Tags",
-  "@memorySummaryTagCount": {"placeholders":{"count":{"type":"int"}}},
   "memoryAutoLearnedTag": "Selbstgelernt",
   "memoryAutoLearnedLockedHint": "„{tag}“ kennzeichnet eine selbstgelernte Erinnerung und kann nicht entfernt werden.",
   "@memoryAutoLearnedLockedHint": {"placeholders":{"tag":{"type":"String"}}},
   "memoryAutoLearnedRestrictedHint": "„{tag}“ ist für selbstgelernte Erinnerungen reserviert und kann nicht manuell hinzugefügt werden.",
   "@memoryAutoLearnedRestrictedHint": {"placeholders":{"tag":{"type":"String"}}},
-  "memoryContentField": "Erinnerungsinhalt",
   "memoryContentRequired": "Erinnerungsinhalt eingeben.",
   "memoryTagsField": "Tags",
   "memoryTagsHint": "Tag eingeben und mit Enter hinzufügen",
@@ -6004,7 +5985,6 @@
       }
     }
   },
-  "webReverseCdpSendFailed": "Senden fehlgeschlagen",
   "webReverseCdpCopied": "Kopiert",
   "webReverseCdpTitle": "CDP Raw Konsole",
   "webReverseCdpMethodLabel": "method (Domain.command)",
@@ -7689,13 +7669,6 @@
   "@hooksTimeoutTooltip": {
     "description": "OpenHand localized UI text."
   },
-  "hooksInlineScriptDescription": "Inline: {firstLine}",
-  "@hooksInlineScriptDescription": {
-    "description": "OpenHand localized UI text.",
-    "placeholders": {
-      "firstLine": {}
-    }
-  },
   "hooksNoScriptConfigured": "Kein Skript konfiguriert",
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
@@ -7742,14 +7715,6 @@
   },
   "hooksScriptContextFileHelp": "Der Kontext-JSON wird auf zwei sichere Arten übergeben (beide funktionieren mit jq):\n① Temporäre Datei: jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\"\n② Rohes stdin: jq -r .session_id\nFelder: session_id, session_file_path, environment usw.",
   "@hooksScriptContextFileHelp": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineWindowsHint": "PowerShell- / BAT-Skript eingeben",
-  "@hooksInlineWindowsHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineShellHint": "Shell-Skript eingeben (#!/bin/bash nicht erforderlich)",
-  "@hooksInlineShellHint": {
     "description": "OpenHand localized UI text."
   },
   "hooksScriptContextInlineHelp": "Der Kontext-JSON wird auf zwei sichere Arten übergeben (beide funktionieren mit jq):\n① Temporäre Datei: SID=$(jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\")\n② Rohes stdin: SID=$(jq -r .session_id)\nFelder: session_id, session_file_path, environment, statistics usw.",

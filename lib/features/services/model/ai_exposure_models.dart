@@ -115,7 +115,7 @@ class AiExposureToolProfile {
   });
 
   factory AiExposureToolProfile.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     final rawValues = json['values'];
     return AiExposureToolProfile(
       id: _stringValue(json['id']),
@@ -169,7 +169,7 @@ class AiExposureToolConfiguration {
   });
 
   factory AiExposureToolConfiguration.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     return AiExposureToolConfiguration(
       tool: AiExposureTool.fromId(json['tool']),
       enabled: _boolValue(json['enabled'], fallback: true),
@@ -234,7 +234,7 @@ class AiExposureToolSettings {
   );
 
   factory AiExposureToolSettings.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     final decoded = objectListFromValue(
       json['tools'],
     ).map(AiExposureToolConfiguration.fromJson).toList(growable: false);
@@ -529,7 +529,7 @@ class AiExposureStageTiming {
   });
 
   factory AiExposureStageTiming.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     return AiExposureStageTiming(
       stage: _stringValue(json['stage']),
       startedAt: _optionalDateTime(json['startedAt']),
@@ -627,14 +627,14 @@ class AiExposureScanRule {
         vendor: _stringValue(json['vendor']),
         protocol: _stringValue(json['protocol']),
         enabled: _boolValue(json['enabled'], fallback: true),
-        credentialPatterns: _stringList(json['credentialPatterns']),
-        contextTerms: _stringList(json['contextTerms']),
-        contentEncodings: _stringList(json['contentEncodings'])
+        credentialPatterns: stringListFromListValue(json['credentialPatterns']),
+        contextTerms: stringListFromListValue(json['contextTerms']),
+        contentEncodings: stringListFromListValue(json['contentEncodings'])
             .map(AiExposureContentEncoding.tryFromId)
             .whereType<AiExposureContentEncoding>()
             .toList(growable: false),
-        modelPaths: _stringList(json['modelPaths']),
-        balancePaths: _stringList(json['balancePaths']),
+        modelPaths: stringListFromListValue(json['modelPaths']),
+        balancePaths: stringListFromListValue(json['balancePaths']),
         version: _optionalString(json['version']),
         contentHash: _optionalString(json['contentHash']),
         createdAt: _optionalDateTime(json['createdAt']),
@@ -744,7 +744,7 @@ class AiExposureProxyProbeStepResult {
   });
 
   factory AiExposureProxyProbeStepResult.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     return AiExposureProxyProbeStepResult(
       step: _stringValue(json['step']),
       succeeded: _boolValue(json['succeeded']),
@@ -793,7 +793,7 @@ class AiExposureProxyProbeSample {
   });
 
   factory AiExposureProxyProbeSample.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     final latencyMs = _optionalNonNegativeInt(
       json['latencyMs'],
       max: _kAiExposureMaxTelemetryDurationMs,
@@ -806,7 +806,7 @@ class AiExposureProxyProbeSample {
       latencyMs: latencyMs,
       statusCode: statusCode,
       gatewayReachable:
-          _optionalBool(json['gatewayReachable']) ??
+          optionalBoolFromValue(json['gatewayReachable']) ??
           latencyMs != null || statusCode != null,
       failure: AiExposureProxyProbeFailure.tryFromId(
         _optionalString(json['failure']),
@@ -879,7 +879,7 @@ class AiExposureProxyRequestSample {
   });
 
   factory AiExposureProxyRequestSample.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     final milliseconds = _nonNegativeInt(
       json['atMs'],
       max: _kAiExposureMaxEpochMs,
@@ -1064,7 +1064,7 @@ class AiExposureProxyUsageStatistics {
   });
 
   factory AiExposureProxyUsageStatistics.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     final recent = objectListFromValue(
       json['recentRequests'],
     ).map(AiExposureProxyRequestSample.fromJson).toList(growable: false);
@@ -1223,7 +1223,7 @@ class AiExposureProxyIdentity {
   });
 
   factory AiExposureProxyIdentity.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     final observedAt = _optionalDateTime(json['observedAt']);
     return AiExposureProxyIdentity(
       exitIp: _stringValue(json['exitIp']),
@@ -1246,8 +1246,8 @@ class AiExposureProxyIdentity {
       mobile: _boolValue(json['mobile']),
       proxy: _boolValue(json['proxy']),
       hosting: _boolValue(json['hosting']),
-      latitude: _optionalFiniteDouble(json['latitude']),
-      longitude: _optionalFiniteDouble(json['longitude']),
+      latitude: optionalDoubleFromValue(json['latitude']),
+      longitude: optionalDoubleFromValue(json['longitude']),
       observedAt: observedAt ?? DateTime.now(),
       observedAtReported: observedAt != null,
     );
@@ -1367,7 +1367,7 @@ class AiExposureProxyEndpoint {
 
   factory AiExposureProxyEndpoint.fromJson(Object? raw) {
     if (raw is String) return AiExposureProxyEndpoint.parse(raw);
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     final endpoint = AiExposureProxyEndpoint.parse(_stringValue(json['url']));
     final samples = objectListFromValue(
       json['samples'],
@@ -1471,7 +1471,7 @@ class AiExposureProxyConfiguration {
       );
 
   factory AiExposureProxyConfiguration.fromJson(Object? raw) {
-    final json = _jsonMap(raw);
+    final json = aiExposureJsonMap(raw);
     final endpoints = <AiExposureProxyEndpoint>[];
     final seen = <String>{};
     for (final value in objectListFromValue(json['endpoints'])) {
@@ -1659,7 +1659,10 @@ class AiExposureProxyStatus {
     ),
     systemProxyEnabled: _boolValue(json['systemProxyEnabled']),
     endpoints: objectListFromValue(json['endpoints'])
-        .map((item) => AiExposureProxyEndpointStatus.fromJson(_jsonMap(item)))
+        .map(
+          (item) =>
+              AiExposureProxyEndpointStatus.fromJson(aiExposureJsonMap(item)),
+        )
         .toList(growable: false),
   );
 
@@ -1709,12 +1712,14 @@ class AiExposureHistoryEntry {
       id: _stringValue(json['id']),
       name: _stringValue(json['name']),
       stage: _stringValue(json['stage'], fallback: 'queued'),
-      sources: _stringList(
+      sources: stringListFromListValue(
         json['sources'],
       ).map(AiExposureSource.fromId).toList(growable: false),
       mode: AiExposureScanMode.fromId(json['mode']),
-      authorizedScope: _stringList(json['authorizedScope']),
-      progress: AiExposureProgress.fromJson(_jsonMap(json['progress'])),
+      authorizedScope: stringListFromListValue(json['authorizedScope']),
+      progress: AiExposureProgress.fromJson(
+        aiExposureJsonMap(json['progress']),
+      ),
       createdAt: createdAt ?? DateTime.now(),
       createdAtReported: createdAt != null,
       finishedAt: _optionalDateTime(json['finishedAt']),
@@ -1735,7 +1740,7 @@ class AiExposureHistoryEntry {
       forumFetchMode: AiExposureForumFetchMode.tryFromId(
         json['forumFetchMode'],
       ),
-      gptAssisted: _optionalBool(json['gptAssisted']),
+      gptAssisted: optionalBoolFromValue(json['gptAssisted']),
       stageTimings: objectListFromValue(
         json['stageTimings'],
       ).map(AiExposureStageTiming.fromJson).toList(growable: false),
@@ -1827,7 +1832,7 @@ class AiExposureResult {
       duplicateKeyHosts: _nonNegativeInt(json['duplicateKeyHosts']),
       modelCount: _nonNegativeInt(json['modelCount']),
       balanceSummary: _optionalString(json['balanceSummary']),
-      evidence: _stringList(json['evidence']),
+      evidence: stringListFromListValue(json['evidence']),
       createdAt: createdAt ?? DateTime.now(),
       createdAtReported: createdAt != null,
     );
@@ -1937,7 +1942,9 @@ class AiExposureLogEntry {
       traceId: _optionalString(json['traceId']),
       exceptionType: _optionalString(json['exceptionType']),
       stackSummary: _optionalString(json['stackSummary']),
-      metadata: Map<String, Object?>.unmodifiable(_jsonMap(json['metadata'])),
+      metadata: Map<String, Object?>.unmodifiable(
+        aiExposureJsonMap(json['metadata']),
+      ),
     );
   }
 
@@ -1995,7 +2002,9 @@ class AiExposureDependencyComponentStatus {
     version: _optionalString(json['version']),
     endpointMasked: _optionalString(json['endpointMasked']),
     errorCode: _optionalString(json['errorCode']),
-    telemetry: Map<String, Object?>.unmodifiable(_jsonMap(json['telemetry'])),
+    telemetry: Map<String, Object?>.unmodifiable(
+      aiExposureJsonMap(json['telemetry']),
+    ),
   );
 
   final bool configured;
@@ -2020,16 +2029,16 @@ class AiExposureDependencyStatus {
   factory AiExposureDependencyStatus.fromJson(Map<String, Object?> json) =>
       AiExposureDependencyStatus(
         postgresql: AiExposureDependencyComponentStatus.fromJson(
-          _jsonMap(json['postgresql']),
+          aiExposureJsonMap(json['postgresql']),
         ),
         redis: AiExposureDependencyComponentStatus.fromJson(
-          _jsonMap(json['redis']),
+          aiExposureJsonMap(json['redis']),
         ),
         playwright: AiExposureDependencyComponentStatus.fromJson(
-          _jsonMap(json['playwright']),
+          aiExposureJsonMap(json['playwright']),
         ),
         googleChrome: AiExposureDependencyComponentStatus.fromJson(
-          _jsonMap(json['googleChrome']),
+          aiExposureJsonMap(json['googleChrome']),
         ),
       );
 
@@ -2076,7 +2085,7 @@ class AiExposurePreferences {
   );
 
   factory AiExposurePreferences.fromJson(Map<String, Object?> json) {
-    final sources = _stringList(
+    final sources = stringListFromListValue(
       json['enabledSources'],
     ).map(AiExposureSource.fromId).toSet();
     return AiExposurePreferences(
@@ -2139,7 +2148,8 @@ class AiExposurePreferences {
   };
 }
 
-Map<String, Object?> aiExposureJsonMap(Object? value) => _jsonMap(value);
+Map<String, Object?> aiExposureJsonMap(Object? value) =>
+    growableStringKeyedMapFromValue(value);
 
 /// 生成不含凭据的代理 authority；IPv6 主机自动加方括号。
 String aiExposureProxyAuthority(Uri proxy) {
@@ -2174,21 +2184,11 @@ String maskAiExposureProxyUrl(String value, {String fallback = '--'}) {
   return '${uri.scheme}://$username:******@$host$port';
 }
 
-Map<String, Object?> _jsonMap(Object? value) => value is Map
-    ? value.map((key, item) => MapEntry('$key', item))
-    : <String, Object?>{};
-
-List<String> _stringList(Object? value) => value is List
-    ? value.whereType<Object>().map((item) => '$item').toList(growable: false)
-    : const <String>[];
-
 String _stringValue(Object? value, {String fallback = ''}) =>
     value is String ? value : fallback;
 
-bool? _optionalBool(Object? value) => optionalBoolFromValue(value);
-
 bool _boolValue(Object? value, {bool fallback = false}) =>
-    _optionalBool(value) ?? fallback;
+    optionalBoolFromValue(value) ?? fallback;
 
 String? _optionalString(Object? value) {
   final text = value is String ? value.trim() : '';
@@ -2197,10 +2197,6 @@ String? _optionalString(Object? value) {
 
 DateTime? _optionalDateTime(Object? value) =>
     value is String ? DateTime.tryParse(value) : null;
-
-double? _optionalFiniteDouble(Object? value) {
-  return optionalDoubleFromValue(value);
-}
 
 int? _optionalNonNegativeInt(Object? value, {int max = 0x1fffffffffffff}) {
   final parsed = optionalIntFromValue(value);

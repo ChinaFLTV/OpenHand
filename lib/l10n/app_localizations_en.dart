@@ -1920,13 +1920,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cronsEmptyBody => 'Click \"New Cron Job\" above to get started.';
 
   @override
-  String get cronsCronExpressionTooltip => 'Cron expression';
-
-  @override
   String get cronsTimeoutTooltip => 'Timeout';
-
-  @override
-  String get cronsRetryCountTooltip => 'Retry count';
 
   @override
   String get cronsMcpKeywordIndexLockedTooltip =>
@@ -1937,11 +1931,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cronsHistory => 'History';
-
-  @override
-  String cronsLastRunAt(String time) {
-    return 'Last: $time';
-  }
 
   @override
   String get cronsFieldName => 'Name';
@@ -1963,15 +1952,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cronsBrowse => 'Browse';
-
-  @override
-  String get cronsFieldCommand => 'Command';
-
-  @override
-  String get cronsFieldCommandHintWindows => 'Enter PowerShell / BAT command';
-
-  @override
-  String get cronsFieldCommandHintShell => 'Enter shell command';
 
   @override
   String get cronsCronSchedule => 'Cron Schedule';
@@ -2008,14 +1988,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cronsScriptTypeScriptHint => 'Run the selected script file';
-
-  @override
-  String cronsNextRunAt(String time) {
-    return 'Next: $time';
-  }
-
-  @override
-  String get cronsNextRunUnknown => 'Next run cannot be estimated';
 
   @override
   String get cronsExpressionPreview => 'Expression';
@@ -2295,9 +2267,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cronsRunAs => 'Run As';
-
-  @override
-  String get cronsWorkingDir => 'Working Dir';
 
   @override
   String get cronsScriptEnvironmentOverrides => 'Script Environment Overrides:';
@@ -2686,9 +2655,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get skillsPreviewClose => 'Close';
 
   @override
-  String get skillsEditorLabel => 'SKILL.md Content';
-
-  @override
   String get skillsCreateDialogTitle => 'Create Skill';
 
   @override
@@ -2696,9 +2662,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get skillsCreateNameRequired => 'Enter the skill name.';
-
-  @override
-  String get skillsCreateIconLabel => 'Skill Icon';
 
   @override
   String get skillsCreateIconHint => 'Choose an emoji or a local image.';
@@ -3009,9 +2972,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get instructionNotesField => 'Notes (one per line)';
 
   @override
-  String get instructionBodyField => 'Instruction body * (Markdown)';
-
-  @override
   String get instructionBodyRequired => 'Enter the instruction body.';
 
   @override
@@ -3055,12 +3015,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get listCardMetricContent => 'Body';
-
-  @override
-  String get instructionSummaryEnabled => 'Enabled';
-
-  @override
-  String get instructionSummaryDisabled => 'Disabled';
 
   @override
   String instructionSummaryVersion(String version) {
@@ -3129,11 +3083,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memorySectionTags => 'Tags';
 
   @override
-  String memorySummaryTagCount(int count) {
-    return '$count tags';
-  }
-
-  @override
   String get memoryAutoLearnedTag => 'Self-learned';
 
   @override
@@ -3145,9 +3094,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String memoryAutoLearnedRestrictedHint(String tag) {
     return '“$tag” is reserved for self-learned memories and cannot be added manually.';
   }
-
-  @override
-  String get memoryContentField => 'Memory Content';
 
   @override
   String get memoryContentRequired => 'Enter the memory content.';
@@ -8944,9 +8890,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get webReverseCdpSendFailed => 'Send failed';
-
-  @override
   String get webReverseCdpCopied => 'Copied';
 
   @override
@@ -10234,11 +10177,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hooksTimeoutTooltip => 'Timeout';
 
   @override
-  String hooksInlineScriptDescription(Object firstLine) {
-    return 'Inline: $firstLine';
-  }
-
-  @override
   String get hooksNoScriptConfigured => 'No script configured';
 
   @override
@@ -10274,13 +10212,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get hooksScriptContextFileHelp =>
       'Context JSON is passed in two safe ways (both work with jq):\n① Temp file: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② Raw stdin: jq -r .session_id\nFields: session_id, session_file_path, environment, etc.';
-
-  @override
-  String get hooksInlineWindowsHint => 'Enter PowerShell / BAT script';
-
-  @override
-  String get hooksInlineShellHint =>
-      'Enter shell script (#!/bin/bash not required)';
 
   @override
   String get hooksScriptContextInlineHelp =>

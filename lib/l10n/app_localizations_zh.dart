@@ -1871,13 +1871,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cronsEmptyBody => '点击右上角「新增定时任务」按钮开始配置。';
 
   @override
-  String get cronsCronExpressionTooltip => 'Cron 表达式';
-
-  @override
   String get cronsTimeoutTooltip => '超时时间';
-
-  @override
-  String get cronsRetryCountTooltip => '重试次数';
 
   @override
   String get cronsMcpKeywordIndexLockedTooltip =>
@@ -1888,11 +1882,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cronsHistory => '执行历史';
-
-  @override
-  String cronsLastRunAt(String time) {
-    return '上次: $time';
-  }
 
   @override
   String get cronsFieldName => '任务名称';
@@ -1914,15 +1903,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cronsBrowse => '浏览';
-
-  @override
-  String get cronsFieldCommand => '命令内容';
-
-  @override
-  String get cronsFieldCommandHintWindows => '输入 PowerShell / BAT 命令';
-
-  @override
-  String get cronsFieldCommandHintShell => '输入 Shell 命令';
 
   @override
   String get cronsCronSchedule => 'Cron 时间表达式';
@@ -1956,14 +1936,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cronsScriptTypeScriptHint => '运行选定的脚本文件';
-
-  @override
-  String cronsNextRunAt(String time) {
-    return '下次: $time';
-  }
-
-  @override
-  String get cronsNextRunUnknown => '无法预估下次执行时间';
 
   @override
   String get cronsExpressionPreview => '表达式';
@@ -2224,9 +2196,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cronsRunAs => '执行用户';
-
-  @override
-  String get cronsWorkingDir => '工作目录';
 
   @override
   String get cronsScriptEnvironmentOverrides => '脚本环境覆盖:';
@@ -2607,9 +2576,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get skillsPreviewClose => '关闭';
 
   @override
-  String get skillsEditorLabel => 'SKILL.md 内容';
-
-  @override
   String get skillsCreateDialogTitle => '新增技能';
 
   @override
@@ -2617,9 +2583,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get skillsCreateNameRequired => '请输入技能名称';
-
-  @override
-  String get skillsCreateIconLabel => '技能图标';
 
   @override
   String get skillsCreateIconHint => '请选择表情或本地图片';
@@ -2916,9 +2879,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get instructionNotesField => '备注（每行一条）';
 
   @override
-  String get instructionBodyField => '指令正文 *（Markdown）';
-
-  @override
   String get instructionBodyRequired => '请输入指令正文。';
 
   @override
@@ -2959,12 +2919,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get listCardMetricContent => '正文';
-
-  @override
-  String get instructionSummaryEnabled => '已启用';
-
-  @override
-  String get instructionSummaryDisabled => '已停用';
 
   @override
   String instructionSummaryVersion(String version) {
@@ -3026,11 +2980,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memorySectionTags => '标签';
 
   @override
-  String memorySummaryTagCount(int count) {
-    return '$count 个标签';
-  }
-
-  @override
   String get memoryAutoLearnedTag => '自主学习';
 
   @override
@@ -3042,9 +2991,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String memoryAutoLearnedRestrictedHint(String tag) {
     return '“$tag”是自主学习专用标签，普通记忆无法手动添加。';
   }
-
-  @override
-  String get memoryContentField => '记忆内容';
 
   @override
   String get memoryContentRequired => '请输入记忆内容';
@@ -8639,9 +8585,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get webReverseCdpSendFailed => '调用失败（未连接？）';
-
-  @override
   String get webReverseCdpCopied => '已复制';
 
   @override
@@ -9906,11 +9849,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hooksTimeoutTooltip => '超时时间';
 
   @override
-  String hooksInlineScriptDescription(Object firstLine) {
-    return '内联脚本: $firstLine';
-  }
-
-  @override
   String get hooksNoScriptConfigured => '未配置脚本';
 
   @override
@@ -9946,12 +9884,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get hooksScriptContextFileHelp =>
       '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin 原始字节: jq -r .session_id\n包含 session_id、session_file_path、environment 等字段。';
-
-  @override
-  String get hooksInlineWindowsHint => '输入 PowerShell / BAT 脚本';
-
-  @override
-  String get hooksInlineShellHint => '输入 Shell 脚本（无需 #!/bin/bash）';
 
   @override
   String get hooksScriptContextInlineHelp =>
@@ -12359,13 +12291,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get cronsEmptyBody => '點擊右上角「新增定時任務」按鈕開始設定。';
 
   @override
-  String get cronsCronExpressionTooltip => 'Cron 表达式';
-
-  @override
   String get cronsTimeoutTooltip => '逾時時間';
-
-  @override
-  String get cronsRetryCountTooltip => '重試次數';
 
   @override
   String get cronsMcpKeywordIndexLockedTooltip =>
@@ -12376,11 +12302,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get cronsHistory => '執行歷史';
-
-  @override
-  String cronsLastRunAt(String time) {
-    return '上次: $time';
-  }
 
   @override
   String get cronsFieldName => '任務名稱';
@@ -12402,15 +12323,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get cronsBrowse => '浏览';
-
-  @override
-  String get cronsFieldCommand => '命令內容';
-
-  @override
-  String get cronsFieldCommandHintWindows => '輸入 PowerShell / BAT 命令';
-
-  @override
-  String get cronsFieldCommandHintShell => '輸入 Shell 命令';
 
   @override
   String get cronsCronSchedule => 'Cron 時間表示式';
@@ -12444,14 +12356,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get cronsScriptTypeScriptHint => '執行選定的指令碼檔案';
-
-  @override
-  String cronsNextRunAt(String time) {
-    return '下次: $time';
-  }
-
-  @override
-  String get cronsNextRunUnknown => '無法預估下次執行時間';
 
   @override
   String get cronsExpressionPreview => '表達式';
@@ -12712,9 +12616,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get cronsRunAs => '執行使用者';
-
-  @override
-  String get cronsWorkingDir => '工作目錄';
 
   @override
   String get cronsScriptEnvironmentOverrides => '指令碼環境覆寫:';
@@ -13095,9 +12996,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get skillsPreviewClose => '關閉';
 
   @override
-  String get skillsEditorLabel => 'SKILL.md 內容';
-
-  @override
   String get skillsCreateDialogTitle => '新增技能';
 
   @override
@@ -13105,9 +13003,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get skillsCreateNameRequired => '請輸入技能名稱';
-
-  @override
-  String get skillsCreateIconLabel => '技能圖示';
 
   @override
   String get skillsCreateIconHint => '請選擇表情或本機圖片';
@@ -13404,9 +13299,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get instructionNotesField => '備註（每行一條）';
 
   @override
-  String get instructionBodyField => '指令正文 *（Markdown）';
-
-  @override
   String get instructionBodyRequired => '請輸入指令正文。';
 
   @override
@@ -13447,12 +13339,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get listCardMetricContent => '正文';
-
-  @override
-  String get instructionSummaryEnabled => '已啟用';
-
-  @override
-  String get instructionSummaryDisabled => '已停用';
 
   @override
   String instructionSummaryVersion(String version) {
@@ -13514,11 +13400,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get memorySectionTags => '標籤';
 
   @override
-  String memorySummaryTagCount(int count) {
-    return '$count 個標籤';
-  }
-
-  @override
   String get memoryAutoLearnedTag => '自主學習';
 
   @override
@@ -13530,9 +13411,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String memoryAutoLearnedRestrictedHint(String tag) {
     return '「$tag」是自主學習專用標籤，普通記憶無法手動新增。';
   }
-
-  @override
-  String get memoryContentField => '記憶內容';
 
   @override
   String get memoryContentRequired => '請輸入記憶內容';
@@ -19124,9 +19002,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get webReverseCdpSendFailed => '调用失败（未连接？）';
-
-  @override
   String get webReverseCdpCopied => '已复制';
 
   @override
@@ -20390,11 +20265,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get hooksTimeoutTooltip => '逾時時間';
 
   @override
-  String hooksInlineScriptDescription(Object firstLine) {
-    return '內嵌腳本: $firstLine';
-  }
-
-  @override
   String get hooksNoScriptConfigured => '未配置腳本';
 
   @override
@@ -20430,12 +20300,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get hooksScriptContextFileHelp =>
       '上下文 JSON 會透過兩種方式傳入（均可安全用於 jq）：\n① 臨時檔案: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin 原始位元組: jq -r .session_id\n包含 session_id、session_file_path、environment 等欄位。';
-
-  @override
-  String get hooksInlineWindowsHint => '輸入 PowerShell / BAT 腳本';
-
-  @override
-  String get hooksInlineShellHint => '輸入 Shell 腳本（無需 #!/bin/bash）';
 
   @override
   String get hooksScriptContextInlineHelp =>

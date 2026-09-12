@@ -1162,14 +1162,10 @@
   "@cronsDeleteCronJobMessage": {"placeholders":{"name":{"type":"String"}}},
   "cronsEmptyTitle": "Aucune tache Cron configuree",
   "cronsEmptyBody": "Cliquez sur \"Nouvelle tache Cron\" ci-dessus pour commencer.",
-  "cronsCronExpressionTooltip": "Expression Cron",
   "cronsTimeoutTooltip": "Delai",
-  "cronsRetryCountTooltip": "Nombre de tentatives",
   "cronsMcpKeywordIndexLockedTooltip": "Controle par Parametres -> MCP -> Mode de mise a jour de l index de mots-cles",
   "cronsRunOnceNow": "Executer maintenant",
   "cronsHistory": "Historique",
-  "cronsLastRunAt": "Derniere: {time}",
-  "@cronsLastRunAt": {"placeholders":{"time":{"type":"String"}}},
   "cronsFieldName": "Nom",
   "cronsFieldNameHint": "ex. Sauvegarde quotidienne",
   "cronsFieldDescription": "Description",
@@ -1177,9 +1173,6 @@
   "cronsFieldScriptFilePath": "Chemin du script",
   "cronsFieldScriptFilePathHint": "Selectionnez un fichier .sh / .ps1 / .bat",
   "cronsBrowse": "Parcourir",
-  "cronsFieldCommand": "Commande",
-  "cronsFieldCommandHintWindows": "Entrez une commande PowerShell / BAT",
-  "cronsFieldCommandHintShell": "Entrez une commande shell",
   "cronsCronSchedule": "Planification Cron",
   "cronsCronScheduleHelper": "Le champ secondes reste a 0. Granularite minimale: minute. Format: min heure jour mois semaine",
   "cronsEditorCreateSubtitle": "Configurer l identite, le planning, la politique d execution et les notifications.",
@@ -1191,9 +1184,6 @@
   "cronsSectionRuntime": "Environnement",
   "cronsScriptTypeCommandHint": "Executer une commande",
   "cronsScriptTypeScriptHint": "Executer le script selectionne",
-  "cronsNextRunAt": "Prochaine: {time}",
-  "@cronsNextRunAt": {"placeholders":{"time":{"type":"String"}}},
-  "cronsNextRunUnknown": "Impossible d estimer la prochaine execution",
   "cronsExpressionPreview": "Expression",
   "cronsTimeoutSeconds": "Delai (s)",
   "cronsRetries": "Tentatives",
@@ -1281,7 +1271,6 @@
   "cronsDeleteThisRecord": "Supprimer cet enregistrement",
   "cronsRetryAttempt": "Tentative",
   "cronsRunAs": "Executer comme",
-  "cronsWorkingDir": "Dossier travail",
   "cronsScriptEnvironmentOverrides": "Surcharges d environnement du script:",
   "cronsEnvironmentSnapshot": "Instantane d environnement:",
   "cronsErrorReason": "Erreur:",
@@ -1497,11 +1486,9 @@
   "skillsEdit": "Modifier la compétence",
   "skillsDelete": "Supprimer la compétence",
   "skillsPreviewClose": "Fermer",
-  "skillsEditorLabel": "Contenu de SKILL.md",
   "skillsCreateDialogTitle": "Créer une compétence",
   "skillsCreateNameLabel": "Nom de la compétence",
   "skillsCreateNameRequired": "Saisissez le nom de la compétence.",
-  "skillsCreateIconLabel": "Icône de la compétence",
   "skillsCreateIconHint": "Choisissez un emoji ou une image locale.",
   "skillsCreateIconRequired": "Choisissez une icône.",
   "skillsCreateIconChoose": "Choisir un emoji",
@@ -1599,7 +1586,6 @@
   "instructionTaskTypesField": "Types de tâches déclencheurs (séparés par des virgules)",
   "instructionKeywordsField": "Mots-clés déclencheurs (séparés par des virgules)",
   "instructionNotesField": "Notes (une par ligne)",
-  "instructionBodyField": "Corps de l'instruction * (Markdown)",
   "instructionBodyRequired": "Saisissez le corps de l'instruction.",
   "instructionCreateAction": "Créer",
   "instructionSaveFailed": "Échec de l'enregistrement. Vérifiez que les champs obligatoires ne sont pas vides.",
@@ -1614,8 +1600,6 @@
   "listCardMetricSize": "Taille",
   "listCardMetricUpdated": "Mise à jour",
   "listCardMetricContent": "Contenu",
-  "instructionSummaryEnabled": "Activée",
-  "instructionSummaryDisabled": "Désactivée",
   "instructionSummaryVersion": "v{version}",
   "@instructionSummaryVersion": {"placeholders":{"version":{"type":"String"}}},
   "memoryPageTitle": "Mémoire",
@@ -1636,14 +1620,11 @@
   "memorySectionBasics": "Informations de base",
   "memorySectionContent": "Corps de la mémoire",
   "memorySectionTags": "Étiquettes",
-  "memorySummaryTagCount": "{count} étiquettes",
-  "@memorySummaryTagCount": {"placeholders":{"count":{"type":"int"}}},
   "memoryAutoLearnedTag": "Auto-appris",
   "memoryAutoLearnedLockedHint": "« {tag} » identifie une mémoire auto-apprise et ne peut pas être retiré.",
   "@memoryAutoLearnedLockedHint": {"placeholders":{"tag":{"type":"String"}}},
   "memoryAutoLearnedRestrictedHint": "« {tag} » est réservé aux mémoires auto-apprises et ne peut pas être ajouté manuellement.",
   "@memoryAutoLearnedRestrictedHint": {"placeholders":{"tag":{"type":"String"}}},
-  "memoryContentField": "Contenu de la mémoire",
   "memoryContentRequired": "Saisissez le contenu de la mémoire.",
   "memoryTagsField": "Étiquettes",
   "memoryTagsHint": "Saisissez une étiquette et appuyez sur Entrée pour l’ajouter",
@@ -6004,7 +5985,6 @@
       }
     }
   },
-  "webReverseCdpSendFailed": "Échec de l'envoi",
   "webReverseCdpCopied": "Copié",
   "webReverseCdpTitle": "Console CDP brute",
   "webReverseCdpMethodLabel": "method (Domain.command)",
@@ -7689,13 +7669,6 @@
   "@hooksTimeoutTooltip": {
     "description": "OpenHand localized UI text."
   },
-  "hooksInlineScriptDescription": "Inline : {firstLine}",
-  "@hooksInlineScriptDescription": {
-    "description": "OpenHand localized UI text.",
-    "placeholders": {
-      "firstLine": {}
-    }
-  },
   "hooksNoScriptConfigured": "Aucun script configuré",
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
@@ -7742,14 +7715,6 @@
   },
   "hooksScriptContextFileHelp": "Le JSON de contexte est transmis de deux façons sûres (toutes deux compatibles avec jq) :\n① Fichier temporaire : jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\"\n② Octets bruts stdin : jq -r .session_id\nChamps : session_id, session_file_path, environment, etc.",
   "@hooksScriptContextFileHelp": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineWindowsHint": "Saisissez un script PowerShell / BAT",
-  "@hooksInlineWindowsHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineShellHint": "Saisissez un script shell (#!/bin/bash non requis)",
-  "@hooksInlineShellHint": {
     "description": "OpenHand localized UI text."
   },
   "hooksScriptContextInlineHelp": "Le JSON de contexte est transmis de deux façons sûres (toutes deux compatibles avec jq) :\n① Fichier temporaire : SID=$(jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\")\n② Octets bruts stdin : SID=$(jq -r .session_id)\nChamps : session_id, session_file_path, environment, statistics, etc.",

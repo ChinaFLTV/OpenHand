@@ -1891,13 +1891,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cronsEmptyBody => '上の「新規 Cron ジョブ」から設定を開始します。';
 
   @override
-  String get cronsCronExpressionTooltip => 'Cron 式';
-
-  @override
   String get cronsTimeoutTooltip => 'タイムアウト';
-
-  @override
-  String get cronsRetryCountTooltip => '再試行回数';
 
   @override
   String get cronsMcpKeywordIndexLockedTooltip =>
@@ -1908,11 +1902,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cronsHistory => '履歴';
-
-  @override
-  String cronsLastRunAt(String time) {
-    return '前回: $time';
-  }
 
   @override
   String get cronsFieldName => '名前';
@@ -1934,15 +1923,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cronsBrowse => '参照';
-
-  @override
-  String get cronsFieldCommand => 'コマンド';
-
-  @override
-  String get cronsFieldCommandHintWindows => 'PowerShell / BAT コマンドを入力';
-
-  @override
-  String get cronsFieldCommandHintShell => 'Shell コマンドを入力';
 
   @override
   String get cronsCronSchedule => 'Cron スケジュール';
@@ -1977,14 +1957,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cronsScriptTypeScriptHint => '選択したスクリプトを実行';
-
-  @override
-  String cronsNextRunAt(String time) {
-    return '次回: $time';
-  }
-
-  @override
-  String get cronsNextRunUnknown => '次回実行時刻を推定できません';
 
   @override
   String get cronsExpressionPreview => '式';
@@ -2254,9 +2226,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cronsRunAs => '実行ユーザー';
-
-  @override
-  String get cronsWorkingDir => '作業ディレクトリ';
 
   @override
   String get cronsScriptEnvironmentOverrides => 'スクリプト環境の上書き:';
@@ -2640,9 +2609,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get skillsPreviewClose => '閉じる';
 
   @override
-  String get skillsEditorLabel => 'SKILL.md の内容';
-
-  @override
   String get skillsCreateDialogTitle => 'スキルを作成';
 
   @override
@@ -2650,9 +2616,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get skillsCreateNameRequired => 'スキル名を入力してください。';
-
-  @override
-  String get skillsCreateIconLabel => 'スキルのアイコン';
 
   @override
   String get skillsCreateIconHint => '絵文字またはローカル画像を選択してください。';
@@ -2951,9 +2914,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get instructionNotesField => 'メモ（1行に1件）';
 
   @override
-  String get instructionBodyField => '指示本文 *（Markdown）';
-
-  @override
   String get instructionBodyRequired => '指示本文を入力してください。';
 
   @override
@@ -2994,12 +2954,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get listCardMetricContent => '本文';
-
-  @override
-  String get instructionSummaryEnabled => '有効';
-
-  @override
-  String get instructionSummaryDisabled => '無効';
 
   @override
   String instructionSummaryVersion(String version) {
@@ -3063,11 +3017,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get memorySectionTags => 'タグ';
 
   @override
-  String memorySummaryTagCount(int count) {
-    return '$count 件のタグ';
-  }
-
-  @override
   String get memoryAutoLearnedTag => '自己学習';
 
   @override
@@ -3079,9 +3028,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String memoryAutoLearnedRestrictedHint(String tag) {
     return '「$tag」は自己学習専用タグで、通常メモリには手動追加できません。';
   }
-
-  @override
-  String get memoryContentField => 'メモリ内容';
 
   @override
   String get memoryContentRequired => 'メモリ内容を入力してください。';
@@ -8750,9 +8696,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get webReverseCdpSendFailed => '送信失敗（未接続？）';
-
-  @override
   String get webReverseCdpCopied => 'コピーしました';
 
   @override
@@ -10019,11 +9962,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hooksTimeoutTooltip => 'タイムアウト';
 
   @override
-  String hooksInlineScriptDescription(Object firstLine) {
-    return 'インライン: $firstLine';
-  }
-
-  @override
   String get hooksNoScriptConfigured => 'スクリプト未設定';
 
   @override
@@ -10059,12 +9997,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get hooksScriptContextFileHelp =>
       'コンテキスト JSON は 2 つの安全な方法で渡されます（どちらも jq で使用可能）：\n① 一時ファイル: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin の生バイト: jq -r .session_id\nフィールド: session_id、session_file_path、environment など。';
-
-  @override
-  String get hooksInlineWindowsHint => 'PowerShell / BAT スクリプトを入力';
-
-  @override
-  String get hooksInlineShellHint => 'シェルスクリプトを入力 (#!/bin/bash は不要)';
 
   @override
   String get hooksScriptContextInlineHelp =>

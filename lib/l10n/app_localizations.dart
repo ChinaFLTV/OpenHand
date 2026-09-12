@@ -3385,23 +3385,11 @@ abstract class AppLocalizations {
   /// **'点击右上角「新增定时任务」按钮开始配置。'**
   String get cronsEmptyBody;
 
-  /// No description provided for @cronsCronExpressionTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'Cron 表达式'**
-  String get cronsCronExpressionTooltip;
-
   /// No description provided for @cronsTimeoutTooltip.
   ///
   /// In zh, this message translates to:
   /// **'超时时间'**
   String get cronsTimeoutTooltip;
-
-  /// No description provided for @cronsRetryCountTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'重试次数'**
-  String get cronsRetryCountTooltip;
 
   /// No description provided for @cronsMcpKeywordIndexLockedTooltip.
   ///
@@ -3420,12 +3408,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'执行历史'**
   String get cronsHistory;
-
-  /// No description provided for @cronsLastRunAt.
-  ///
-  /// In zh, this message translates to:
-  /// **'上次: {time}'**
-  String cronsLastRunAt(String time);
 
   /// No description provided for @cronsFieldName.
   ///
@@ -3468,24 +3450,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'浏览'**
   String get cronsBrowse;
-
-  /// No description provided for @cronsFieldCommand.
-  ///
-  /// In zh, this message translates to:
-  /// **'命令内容'**
-  String get cronsFieldCommand;
-
-  /// No description provided for @cronsFieldCommandHintWindows.
-  ///
-  /// In zh, this message translates to:
-  /// **'输入 PowerShell / BAT 命令'**
-  String get cronsFieldCommandHintWindows;
-
-  /// No description provided for @cronsFieldCommandHintShell.
-  ///
-  /// In zh, this message translates to:
-  /// **'输入 Shell 命令'**
-  String get cronsFieldCommandHintShell;
 
   /// No description provided for @cronsCronSchedule.
   ///
@@ -3552,18 +3516,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'运行选定的脚本文件'**
   String get cronsScriptTypeScriptHint;
-
-  /// No description provided for @cronsNextRunAt.
-  ///
-  /// In zh, this message translates to:
-  /// **'下次: {time}'**
-  String cronsNextRunAt(String time);
-
-  /// No description provided for @cronsNextRunUnknown.
-  ///
-  /// In zh, this message translates to:
-  /// **'无法预估下次执行时间'**
-  String get cronsNextRunUnknown;
 
   /// No description provided for @cronsExpressionPreview.
   ///
@@ -4068,12 +4020,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'执行用户'**
   String get cronsRunAs;
-
-  /// No description provided for @cronsWorkingDir.
-  ///
-  /// In zh, this message translates to:
-  /// **'工作目录'**
-  String get cronsWorkingDir;
 
   /// No description provided for @cronsScriptEnvironmentOverrides.
   ///
@@ -4782,12 +4728,6 @@ abstract class AppLocalizations {
   /// **'关闭'**
   String get skillsPreviewClose;
 
-  /// No description provided for @skillsEditorLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'SKILL.md 内容'**
-  String get skillsEditorLabel;
-
   /// No description provided for @skillsCreateDialogTitle.
   ///
   /// In zh, this message translates to:
@@ -4805,12 +4745,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'请输入技能名称'**
   String get skillsCreateNameRequired;
-
-  /// No description provided for @skillsCreateIconLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'技能图标'**
-  String get skillsCreateIconLabel;
 
   /// No description provided for @skillsCreateIconHint.
   ///
@@ -5394,12 +5328,6 @@ abstract class AppLocalizations {
   /// **'备注（每行一条）'**
   String get instructionNotesField;
 
-  /// No description provided for @instructionBodyField.
-  ///
-  /// In zh, this message translates to:
-  /// **'指令正文 *（Markdown）'**
-  String get instructionBodyField;
-
   /// No description provided for @instructionBodyRequired.
   ///
   /// In zh, this message translates to:
@@ -5483,18 +5411,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正文'**
   String get listCardMetricContent;
-
-  /// No description provided for @instructionSummaryEnabled.
-  ///
-  /// In zh, this message translates to:
-  /// **'已启用'**
-  String get instructionSummaryEnabled;
-
-  /// No description provided for @instructionSummaryDisabled.
-  ///
-  /// In zh, this message translates to:
-  /// **'已停用'**
-  String get instructionSummaryDisabled;
 
   /// No description provided for @instructionSummaryVersion.
   ///
@@ -5610,12 +5526,6 @@ abstract class AppLocalizations {
   /// **'标签'**
   String get memorySectionTags;
 
-  /// No description provided for @memorySummaryTagCount.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 个标签'**
-  String memorySummaryTagCount(int count);
-
   /// No description provided for @memoryAutoLearnedTag.
   ///
   /// In zh, this message translates to:
@@ -5633,12 +5543,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'“{tag}”是自主学习专用标签，普通记忆无法手动添加。'**
   String memoryAutoLearnedRestrictedHint(String tag);
-
-  /// No description provided for @memoryContentField.
-  ///
-  /// In zh, this message translates to:
-  /// **'记忆内容'**
-  String get memoryContentField;
 
   /// No description provided for @memoryContentRequired.
   ///
@@ -15801,12 +15705,6 @@ abstract class AppLocalizations {
   /// **'{count} 次'**
   String webReverseAiCryptoHits(int count);
 
-  /// No description provided for @webReverseCdpSendFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'调用失败（未连接？）'**
-  String get webReverseCdpSendFailed;
-
   /// No description provided for @webReverseCdpCopied.
   ///
   /// In zh, this message translates to:
@@ -18090,12 +17988,6 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'内联脚本: {firstLine}'**
-  String hooksInlineScriptDescription(Object firstLine);
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
   /// **'未配置脚本'**
   String get hooksNoScriptConfigured;
 
@@ -18164,18 +18056,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin 原始字节: jq -r .session_id\n包含 session_id、session_file_path、environment 等字段。'**
   String get hooksScriptContextFileHelp;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'输入 PowerShell / BAT 脚本'**
-  String get hooksInlineWindowsHint;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'输入 Shell 脚本（无需 #!/bin/bash）'**
-  String get hooksInlineShellHint;
 
   /// OpenHand localized UI text.
   ///

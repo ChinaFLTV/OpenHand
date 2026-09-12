@@ -1162,14 +1162,10 @@
   "@cronsDeleteCronJobMessage": {"placeholders":{"name":{"type":"String"}}},
   "cronsEmptyTitle": "Cron ジョブはまだありません",
   "cronsEmptyBody": "上の「新規 Cron ジョブ」から設定を開始します。",
-  "cronsCronExpressionTooltip": "Cron 式",
   "cronsTimeoutTooltip": "タイムアウト",
-  "cronsRetryCountTooltip": "再試行回数",
   "cronsMcpKeywordIndexLockedTooltip": "設定 -> MCP -> キーワードインデックス更新モードで制御されます",
   "cronsRunOnceNow": "今すぐ 1 回実行",
   "cronsHistory": "履歴",
-  "cronsLastRunAt": "前回: {time}",
-  "@cronsLastRunAt": {"placeholders":{"time":{"type":"String"}}},
   "cronsFieldName": "名前",
   "cronsFieldNameHint": "例: 毎日バックアップ",
   "cronsFieldDescription": "説明",
@@ -1177,9 +1173,6 @@
   "cronsFieldScriptFilePath": "スクリプトファイルパス",
   "cronsFieldScriptFilePathHint": ".sh / .ps1 / .bat ファイルを選択",
   "cronsBrowse": "参照",
-  "cronsFieldCommand": "コマンド",
-  "cronsFieldCommandHintWindows": "PowerShell / BAT コマンドを入力",
-  "cronsFieldCommandHintShell": "Shell コマンドを入力",
   "cronsCronSchedule": "Cron スケジュール",
   "cronsCronScheduleHelper": "秒フィールドは 0 固定です。最小粒度は分です。形式: 分 時 日 月 曜日",
   "cronsEditorCreateSubtitle": "名前、スケジュール、実行方針、通知を設定します。",
@@ -1191,9 +1184,6 @@
   "cronsSectionRuntime": "実行環境",
   "cronsScriptTypeCommandHint": "コマンドを直接実行",
   "cronsScriptTypeScriptHint": "選択したスクリプトを実行",
-  "cronsNextRunAt": "次回: {time}",
-  "@cronsNextRunAt": {"placeholders":{"time":{"type":"String"}}},
-  "cronsNextRunUnknown": "次回実行時刻を推定できません",
   "cronsExpressionPreview": "式",
   "cronsTimeoutSeconds": "タイムアウト（秒）",
   "cronsRetries": "再試行",
@@ -1281,7 +1271,6 @@
   "cronsDeleteThisRecord": "この記録を削除",
   "cronsRetryAttempt": "再試行回数",
   "cronsRunAs": "実行ユーザー",
-  "cronsWorkingDir": "作業ディレクトリ",
   "cronsScriptEnvironmentOverrides": "スクリプト環境の上書き:",
   "cronsEnvironmentSnapshot": "環境スナップショット:",
   "cronsErrorReason": "エラー:",
@@ -1497,11 +1486,9 @@
   "skillsEdit": "スキルを編集",
   "skillsDelete": "スキルを削除",
   "skillsPreviewClose": "閉じる",
-  "skillsEditorLabel": "SKILL.md の内容",
   "skillsCreateDialogTitle": "スキルを作成",
   "skillsCreateNameLabel": "スキル名",
   "skillsCreateNameRequired": "スキル名を入力してください。",
-  "skillsCreateIconLabel": "スキルのアイコン",
   "skillsCreateIconHint": "絵文字またはローカル画像を選択してください。",
   "skillsCreateIconRequired": "アイコンを選択してください。",
   "skillsCreateIconChoose": "絵文字を選択",
@@ -1599,7 +1586,6 @@
   "instructionTaskTypesField": "トリガーするタスク種別（カンマ区切り）",
   "instructionKeywordsField": "トリガーするキーワード（カンマ区切り）",
   "instructionNotesField": "メモ（1行に1件）",
-  "instructionBodyField": "指示本文 *（Markdown）",
   "instructionBodyRequired": "指示本文を入力してください。",
   "instructionCreateAction": "作成",
   "instructionSaveFailed": "保存に失敗しました。必須項目が空でないか確認してください。",
@@ -1614,8 +1600,6 @@
   "listCardMetricSize": "サイズ",
   "listCardMetricUpdated": "更新日時",
   "listCardMetricContent": "本文",
-  "instructionSummaryEnabled": "有効",
-  "instructionSummaryDisabled": "無効",
   "instructionSummaryVersion": "v{version}",
   "@instructionSummaryVersion": {"placeholders":{"version":{"type":"String"}}},
   "memoryPageTitle": "メモリ",
@@ -1636,14 +1620,11 @@
   "memorySectionBasics": "基本情報",
   "memorySectionContent": "メモリ本文",
   "memorySectionTags": "タグ",
-  "memorySummaryTagCount": "{count} 件のタグ",
-  "@memorySummaryTagCount": {"placeholders":{"count":{"type":"int"}}},
   "memoryAutoLearnedTag": "自己学習",
   "memoryAutoLearnedLockedHint": "「{tag}」は自己学習メモリの固定識別子で、削除できません。",
   "@memoryAutoLearnedLockedHint": {"placeholders":{"tag":{"type":"String"}}},
   "memoryAutoLearnedRestrictedHint": "「{tag}」は自己学習専用タグで、通常メモリには手動追加できません。",
   "@memoryAutoLearnedRestrictedHint": {"placeholders":{"tag":{"type":"String"}}},
-  "memoryContentField": "メモリ内容",
   "memoryContentRequired": "メモリ内容を入力してください。",
   "memoryTagsField": "タグ",
   "memoryTagsHint": "タグを入力して Enter キーで追加",
@@ -6004,7 +5985,6 @@
       }
     }
   },
-  "webReverseCdpSendFailed": "送信失敗（未接続？）",
   "webReverseCdpCopied": "コピーしました",
   "webReverseCdpTitle": "CDP Raw コマンドコンソール",
   "webReverseCdpMethodLabel": "method (Domain.command)",
@@ -7689,13 +7669,6 @@
   "@hooksTimeoutTooltip": {
     "description": "OpenHand localized UI text."
   },
-  "hooksInlineScriptDescription": "インライン: {firstLine}",
-  "@hooksInlineScriptDescription": {
-    "description": "OpenHand localized UI text.",
-    "placeholders": {
-      "firstLine": {}
-    }
-  },
   "hooksNoScriptConfigured": "スクリプト未設定",
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
@@ -7742,14 +7715,6 @@
   },
   "hooksScriptContextFileHelp": "コンテキスト JSON は 2 つの安全な方法で渡されます（どちらも jq で使用可能）：\n① 一時ファイル: jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin の生バイト: jq -r .session_id\nフィールド: session_id、session_file_path、environment など。",
   "@hooksScriptContextFileHelp": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineWindowsHint": "PowerShell / BAT スクリプトを入力",
-  "@hooksInlineWindowsHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineShellHint": "シェルスクリプトを入力 (#!/bin/bash は不要)",
-  "@hooksInlineShellHint": {
     "description": "OpenHand localized UI text."
   },
   "hooksScriptContextInlineHelp": "コンテキスト JSON は 2 つの安全な方法で渡されます（どちらも jq で使用可能）：\n① 一時ファイル: SID=$(jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\")\n② stdin の生バイト: SID=$(jq -r .session_id)\nフィールド: session_id、session_file_path、environment、statistics など。",

@@ -1167,14 +1167,10 @@
   "@cronsDeleteCronJobMessage": {"placeholders":{"name":{"type":"String"}}},
   "cronsEmptyTitle": "暂无定时任务",
   "cronsEmptyBody": "点击右上角「新增定时任务」按钮开始配置。",
-  "cronsCronExpressionTooltip": "Cron 表达式",
   "cronsTimeoutTooltip": "超时时间",
-  "cronsRetryCountTooltip": "重试次数",
   "cronsMcpKeywordIndexLockedTooltip": "由「全局设置 -> MCP -> 更新关键词映射模式」控制，不可手动开关",
   "cronsRunOnceNow": "立即执行一次",
   "cronsHistory": "执行历史",
-  "cronsLastRunAt": "上次: {time}",
-  "@cronsLastRunAt": {"placeholders":{"time":{"type":"String"}}},
   "cronsFieldName": "任务名称",
   "cronsFieldNameHint": "例如: 每日备份",
   "cronsFieldDescription": "简介",
@@ -1182,9 +1178,6 @@
   "cronsFieldScriptFilePath": "脚本文件路径",
   "cronsFieldScriptFilePathHint": "选择 .sh / .ps1 / .bat 文件",
   "cronsBrowse": "浏览",
-  "cronsFieldCommand": "命令内容",
-  "cronsFieldCommandHintWindows": "输入 PowerShell / BAT 命令",
-  "cronsFieldCommandHintShell": "输入 Shell 命令",
   "cronsCronSchedule": "Cron 时间表达式",
   "cronsCronScheduleHelper": "秒字段已冻结为 0，最小粒度为分钟。格式: 分 时 日 月 周",
   "cronsEditorCreateSubtitle": "配置任务身份、调度节奏、执行策略与通知。",
@@ -1196,9 +1189,6 @@
   "cronsSectionRuntime": "运行环境",
   "cronsScriptTypeCommandHint": "直接执行一条命令",
   "cronsScriptTypeScriptHint": "运行选定的脚本文件",
-  "cronsNextRunAt": "下次: {time}",
-  "@cronsNextRunAt": {"placeholders":{"time":{"type":"String"}}},
-  "cronsNextRunUnknown": "无法预估下次执行时间",
   "cronsExpressionPreview": "表达式",
   "cronsTimeoutSeconds": "超时（秒）",
   "cronsRetries": "重试次数",
@@ -1286,7 +1276,6 @@
   "cronsDeleteThisRecord": "删除此条记录",
   "cronsRetryAttempt": "重试次数",
   "cronsRunAs": "执行用户",
-  "cronsWorkingDir": "工作目录",
   "cronsScriptEnvironmentOverrides": "脚本环境覆盖:",
   "cronsEnvironmentSnapshot": "环境快照:",
   "cronsErrorReason": "错误原因:",
@@ -1502,11 +1491,9 @@
   "skillsEdit": "编辑技能",
   "skillsDelete": "删除技能",
   "skillsPreviewClose": "关闭",
-  "skillsEditorLabel": "SKILL.md 内容",
   "skillsCreateDialogTitle": "新增技能",
   "skillsCreateNameLabel": "技能名称",
   "skillsCreateNameRequired": "请输入技能名称",
-  "skillsCreateIconLabel": "技能图标",
   "skillsCreateIconHint": "请选择表情或本地图片",
   "skillsCreateIconRequired": "请选择技能图标",
   "skillsCreateIconChoose": "选择表情",
@@ -1604,7 +1591,6 @@
   "instructionTaskTypesField": "触发任务类型（逗号分隔）",
   "instructionKeywordsField": "触发关键词（逗号分隔）",
   "instructionNotesField": "备注（每行一条）",
-  "instructionBodyField": "指令正文 *（Markdown）",
   "instructionBodyRequired": "请输入指令正文。",
   "instructionCreateAction": "创建",
   "instructionSaveFailed": "保存失败，请检查必填项是否为空。",
@@ -1619,8 +1605,6 @@
   "listCardMetricSize": "大小",
   "listCardMetricUpdated": "更新时间",
   "listCardMetricContent": "正文",
-  "instructionSummaryEnabled": "已启用",
-  "instructionSummaryDisabled": "已停用",
   "instructionSummaryVersion": "v{version}",
   "@instructionSummaryVersion": {"placeholders":{"version":{"type":"String"}}},
   "memoryPageTitle": "记忆",
@@ -1641,14 +1625,11 @@
   "memorySectionBasics": "基础信息",
   "memorySectionContent": "记忆正文",
   "memorySectionTags": "标签",
-  "memorySummaryTagCount": "{count} 个标签",
-  "@memorySummaryTagCount": {"placeholders":{"count":{"type":"int"}}},
   "memoryAutoLearnedTag": "自主学习",
   "memoryAutoLearnedLockedHint": "“{tag}”是自主学习记忆的固定标识，不可移除。",
   "@memoryAutoLearnedLockedHint": {"placeholders":{"tag":{"type":"String"}}},
   "memoryAutoLearnedRestrictedHint": "“{tag}”是自主学习专用标签，普通记忆无法手动添加。",
   "@memoryAutoLearnedRestrictedHint": {"placeholders":{"tag":{"type":"String"}}},
-  "memoryContentField": "记忆内容",
   "memoryContentRequired": "请输入记忆内容",
   "memoryTagsField": "标签",
   "memoryTagsHint": "输入一个标签后按回车添加",
@@ -6076,7 +6057,6 @@
       }
     }
   },
-  "webReverseCdpSendFailed": "调用失败（未连接？）",
   "webReverseCdpCopied": "已复制",
   "webReverseCdpTitle": "CDP Raw 命令控制台",
   "webReverseCdpMethodLabel": "method (Domain.command)",
@@ -7761,13 +7741,6 @@
   "@hooksTimeoutTooltip": {
     "description": "OpenHand localized UI text."
   },
-  "hooksInlineScriptDescription": "内联脚本: {firstLine}",
-  "@hooksInlineScriptDescription": {
-    "description": "OpenHand localized UI text.",
-    "placeholders": {
-      "firstLine": {}
-    }
-  },
   "hooksNoScriptConfigured": "未配置脚本",
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
@@ -7814,14 +7787,6 @@
   },
   "hooksScriptContextFileHelp": "上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin 原始字节: jq -r .session_id\n包含 session_id、session_file_path、environment 等字段。",
   "@hooksScriptContextFileHelp": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineWindowsHint": "输入 PowerShell / BAT 脚本",
-  "@hooksInlineWindowsHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineShellHint": "输入 Shell 脚本（无需 #!/bin/bash）",
-  "@hooksInlineShellHint": {
     "description": "OpenHand localized UI text."
   },
   "hooksScriptContextInlineHelp": "上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: SID=$(jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\")\n② stdin 原始字节: SID=$(jq -r .session_id)\n包含 session_id、session_file_path、environment、statistics 等字段。",

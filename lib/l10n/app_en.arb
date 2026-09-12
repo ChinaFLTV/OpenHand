@@ -1167,14 +1167,10 @@
   "@cronsDeleteCronJobMessage": {"placeholders":{"name":{"type":"String"}}},
   "cronsEmptyTitle": "No cron jobs configured yet",
   "cronsEmptyBody": "Click \"New Cron Job\" above to get started.",
-  "cronsCronExpressionTooltip": "Cron expression",
   "cronsTimeoutTooltip": "Timeout",
-  "cronsRetryCountTooltip": "Retry count",
   "cronsMcpKeywordIndexLockedTooltip": "Controlled by Settings -> MCP -> Keyword index update mode",
   "cronsRunOnceNow": "Run once now",
   "cronsHistory": "History",
-  "cronsLastRunAt": "Last: {time}",
-  "@cronsLastRunAt": {"placeholders":{"time":{"type":"String"}}},
   "cronsFieldName": "Name",
   "cronsFieldNameHint": "e.g. Daily Backup",
   "cronsFieldDescription": "Description",
@@ -1182,9 +1178,6 @@
   "cronsFieldScriptFilePath": "Script File Path",
   "cronsFieldScriptFilePathHint": "Select a .sh / .ps1 / .bat file",
   "cronsBrowse": "Browse",
-  "cronsFieldCommand": "Command",
-  "cronsFieldCommandHintWindows": "Enter PowerShell / BAT command",
-  "cronsFieldCommandHintShell": "Enter shell command",
   "cronsCronSchedule": "Cron Schedule",
   "cronsCronScheduleHelper": "Seconds field frozen at 0. Minimum granularity: minute. Format: min hour dom mon dow",
   "cronsEditorCreateSubtitle": "Configure identity, schedule, execution policy, and notifications.",
@@ -1196,9 +1189,6 @@
   "cronsSectionRuntime": "Runtime",
   "cronsScriptTypeCommandHint": "Run a command directly",
   "cronsScriptTypeScriptHint": "Run the selected script file",
-  "cronsNextRunAt": "Next: {time}",
-  "@cronsNextRunAt": {"placeholders":{"time":{"type":"String"}}},
-  "cronsNextRunUnknown": "Next run cannot be estimated",
   "cronsExpressionPreview": "Expression",
   "cronsTimeoutSeconds": "Timeout (s)",
   "cronsRetries": "Retries",
@@ -1286,7 +1276,6 @@
   "cronsDeleteThisRecord": "Delete this record",
   "cronsRetryAttempt": "Retry Attempt",
   "cronsRunAs": "Run As",
-  "cronsWorkingDir": "Working Dir",
   "cronsScriptEnvironmentOverrides": "Script Environment Overrides:",
   "cronsEnvironmentSnapshot": "Environment Snapshot:",
   "cronsErrorReason": "Error:",
@@ -1502,11 +1491,9 @@
   "skillsEdit": "Edit Skill",
   "skillsDelete": "Delete Skill",
   "skillsPreviewClose": "Close",
-  "skillsEditorLabel": "SKILL.md Content",
   "skillsCreateDialogTitle": "Create Skill",
   "skillsCreateNameLabel": "Skill Name",
   "skillsCreateNameRequired": "Enter the skill name.",
-  "skillsCreateIconLabel": "Skill Icon",
   "skillsCreateIconHint": "Choose an emoji or a local image.",
   "skillsCreateIconRequired": "Choose an icon.",
   "skillsCreateIconChoose": "Choose Emoji",
@@ -1604,7 +1591,6 @@
   "instructionTaskTypesField": "Trigger task types (comma-separated)",
   "instructionKeywordsField": "Trigger keywords (comma-separated)",
   "instructionNotesField": "Notes (one per line)",
-  "instructionBodyField": "Instruction body * (Markdown)",
   "instructionBodyRequired": "Enter the instruction body.",
   "instructionCreateAction": "Create",
   "instructionSaveFailed": "Save failed. Check that required fields are not empty.",
@@ -1619,8 +1605,6 @@
   "listCardMetricSize": "Size",
   "listCardMetricUpdated": "Updated",
   "listCardMetricContent": "Body",
-  "instructionSummaryEnabled": "Enabled",
-  "instructionSummaryDisabled": "Disabled",
   "instructionSummaryVersion": "v{version}",
   "@instructionSummaryVersion": {"placeholders":{"version":{"type":"String"}}},
   "memoryPageTitle": "Memory",
@@ -1641,14 +1625,11 @@
   "memorySectionBasics": "Basics",
   "memorySectionContent": "Memory Body",
   "memorySectionTags": "Tags",
-  "memorySummaryTagCount": "{count} tags",
-  "@memorySummaryTagCount": {"placeholders":{"count":{"type":"int"}}},
   "memoryAutoLearnedTag": "Self-learned",
   "memoryAutoLearnedLockedHint": "“{tag}” marks a self-learned memory and cannot be removed.",
   "@memoryAutoLearnedLockedHint": {"placeholders":{"tag":{"type":"String"}}},
   "memoryAutoLearnedRestrictedHint": "“{tag}” is reserved for self-learned memories and cannot be added manually.",
   "@memoryAutoLearnedRestrictedHint": {"placeholders":{"tag":{"type":"String"}}},
-  "memoryContentField": "Memory Content",
   "memoryContentRequired": "Enter the memory content.",
   "memoryTagsField": "Tags",
   "memoryTagsHint": "Type a tag and press Enter to add it",
@@ -6009,7 +5990,6 @@
       }
     }
   },
-  "webReverseCdpSendFailed": "Send failed",
   "webReverseCdpCopied": "Copied",
   "webReverseCdpTitle": "CDP Raw Console",
   "webReverseCdpMethodLabel": "method",
@@ -7694,13 +7674,6 @@
   "@hooksTimeoutTooltip": {
     "description": "OpenHand localized UI text."
   },
-  "hooksInlineScriptDescription": "Inline: {firstLine}",
-  "@hooksInlineScriptDescription": {
-    "description": "OpenHand localized UI text.",
-    "placeholders": {
-      "firstLine": {}
-    }
-  },
   "hooksNoScriptConfigured": "No script configured",
   "@hooksNoScriptConfigured": {
     "description": "OpenHand localized UI text."
@@ -7747,14 +7720,6 @@
   },
   "hooksScriptContextFileHelp": "Context JSON is passed in two safe ways (both work with jq):\n① Temp file: jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\"\n② Raw stdin: jq -r .session_id\nFields: session_id, session_file_path, environment, etc.",
   "@hooksScriptContextFileHelp": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineWindowsHint": "Enter PowerShell / BAT script",
-  "@hooksInlineWindowsHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "hooksInlineShellHint": "Enter shell script (#!/bin/bash not required)",
-  "@hooksInlineShellHint": {
     "description": "OpenHand localized UI text."
   },
   "hooksScriptContextInlineHelp": "Context JSON is passed in two safe ways (both work with jq):\n① Temp file: SID=$(jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\")\n② Raw stdin: SID=$(jq -r .session_id)\nFields: session_id, session_file_path, environment, statistics, etc.",

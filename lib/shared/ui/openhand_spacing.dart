@@ -86,14 +86,7 @@ const double kOpenHandRadius26 = 26;
 const double kOpenHandRadius30 = 30;
 const double kOpenHandRadius32 = 32;
 
-/// 全局 [BorderRadius] token —— 与上面的标量一一对应。
-///
-/// 此前各功能模块各自声明 `BorderRadius.all(Radius.circular(kOpenHandRadiusN))`，
-/// 且尺寸命名互相矛盾（同一个 12 在一处叫 Medium、另一处叫 XLarge），改一次
-/// 圆角要跨七八个文件对照。统一按数值命名后，一个值只有一个名字。
-const BorderRadius kOpenHandBorderRadius2 = BorderRadius.all(
-  Radius.circular(kOpenHandRadius2),
-);
+/// 全局常用 [BorderRadius] token，按数值命名并复用高频圆角。
 const BorderRadius kOpenHandBorderRadius3 = BorderRadius.all(
   Radius.circular(kOpenHandRadius3),
 );
