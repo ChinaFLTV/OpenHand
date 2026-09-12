@@ -328,6 +328,7 @@ class _ThreadSessionManagementDialogState
     final config = await showAiSessionExportConfigDialog(
       context: context,
       totalMessages: session.messages.length,
+      messages: session.messages,
     );
     if (config == null || !mounted) return;
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);

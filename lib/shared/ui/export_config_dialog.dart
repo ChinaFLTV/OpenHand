@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
@@ -7,17 +9,26 @@ import '../../features/ai/model/ai_session_message.dart';
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/input_value_parsing.dart';
+import '../util/localized_text.dart';
+import '../util/text_clip.dart';
+import '../util/text_normalization.dart';
 import 'animated_dialog.dart';
+import 'motion_durations.dart';
+import 'motion_preference.dart';
+import 'oh_pill.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_form_fields.dart';
+import 'openhand_reveal_switcher.dart';
 
 /// 显示 AI 会话导出配置弹窗；确认后返回 [AiSessionExportConfig]，取消时返回
 /// `null`。
 ///
-/// [totalMessages] 用于校验并限制用户输入的消息范围。
+/// [totalMessages] 用于校验并限制区间；传入 [messages] 后按消息内容点选
+/// 起点和终点，不再要求用户手填轮次序号。
 Future<AiSessionExportConfig?> showAiSessionExportConfigDialog({
   required BuildContext context,
   required int totalMessages,
+  List<AiSessionMessage> messages = const <AiSessionMessage>[],
   AiSessionExportConfig initial = AiSessionExportConfig.defaults,
   bool allowRange = true,
 }) {
@@ -25,6 +36,7 @@ Future<AiSessionExportConfig?> showAiSessionExportConfigDialog({
     context: context,
     builder: (dialogContext) => _AiSessionExportConfigDialog(
       totalMessages: totalMessages,
+      messages: messages,
       initial: initial,
       allowRange: allowRange,
     ),
@@ -54,6 +66,11 @@ class _ExportIndexRange {
 }
 
 const double _kExportRangeFieldSpacing = 12;
+const int _kExportRangePreviewChars = 72;
+const double _kExportRangeListMaxHeight = 280;
+const double _kExportRangeTileHeight = 64;
+
+enum _ExportRangeEndpoint { start, end }
 
 _ExportIndexRange? _tryParseExportIndexRange({
   required String startText,
@@ -171,14 +188,282 @@ class _ExportOptionChip extends StatelessWidget {
   }
 }
 
+class _ExportRangeEndpointCard extends StatelessWidget {
+  const _ExportRangeEndpointCard({
+    required this.label,
+    required this.badge,
+    required this.index,
+    required this.kindLabel,
+    required this.preview,
+    required this.accent,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String badge;
+  final int index;
+  final String kindLabel;
+  final String preview;
+  final Color accent;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: kOpenHandBorderRadius16,
+        child: AnimatedContainer(
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
+          curve: kOpenHandEntranceCurve,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              accent.withValues(alpha: selected ? 0.16 : 0.08),
+              colorScheme.surfaceContainerLow,
+            ),
+            borderRadius: kOpenHandBorderRadius16,
+            border: Border.all(
+              color: accent.withValues(alpha: selected ? 0.46 : 0.18),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.16),
+                      borderRadius: kOpenHandPillBorderRadius,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        badge,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  kOpenHandHGap8,
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              kOpenHandGap6,
+              Text(
+                '#$index · $kindLabel',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              kOpenHandGap4,
+              Text(
+                preview.isEmpty ? kindLabel : preview,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExportRangeMessageTile extends StatelessWidget {
+  const _ExportRangeMessageTile({
+    required this.index,
+    required this.kindLabel,
+    required this.preview,
+    required this.icon,
+    required this.accent,
+    required this.inRange,
+    required this.isStart,
+    required this.isEnd,
+    required this.deleted,
+    required this.onTap,
+  });
+
+  final int index;
+  final String kindLabel;
+  final String preview;
+  final IconData icon;
+  final Color accent;
+  final bool inRange;
+  final bool isStart;
+  final bool isEnd;
+  final bool deleted;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final endpoint = isStart || isEnd;
+    final tone = isStart
+        ? colorScheme.primary
+        : isEnd
+        ? OpenHandStatusColors.success
+        : accent;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
+          curve: kOpenHandSwitchInCurve,
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+            color: inRange
+                ? Color.alphaBlend(
+                    tone.withValues(alpha: endpoint ? 0.16 : 0.07),
+                    colorScheme.surfaceContainerLow,
+                  )
+                : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: 0.16),
+                  borderRadius: kOpenHandBorderRadius10,
+                ),
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: Center(child: Icon(icon, size: 16, color: tone)),
+                ),
+              ),
+              kOpenHandHGap10,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '#$index · $kindLabel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: tone,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    kOpenHandGap2,
+                    Text(
+                      preview.isEmpty ? kindLabel : preview,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: deleted
+                            ? colorScheme.outline
+                            : colorScheme.onSurfaceVariant,
+                        decoration: deleted
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (endpoint)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: tone.withValues(alpha: 0.16),
+                      borderRadius: kOpenHandPillBorderRadius,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      child: Text(
+                        isStart && isEnd
+                            ? openHandLocalizedText(
+                                context,
+                                zh: '起止',
+                                zhHant: '起止',
+                                en: 'Only',
+                                fr: 'Seul',
+                                de: 'Nur',
+                                ja: 'のみ',
+                              )
+                            : isStart
+                            ? openHandLocalizedText(
+                                context,
+                                zh: '起',
+                                zhHant: '起',
+                                en: 'From',
+                                fr: 'Début',
+                                de: 'Von',
+                                ja: '開始',
+                              )
+                            : openHandLocalizedText(
+                                context,
+                                zh: '止',
+                                zhHant: '止',
+                                en: 'To',
+                                fr: 'Fin',
+                                de: 'Bis',
+                                ja: '終了',
+                              ),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: tone,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AiSessionExportConfigDialog extends StatefulWidget {
   const _AiSessionExportConfigDialog({
     required this.totalMessages,
+    required this.messages,
     required this.initial,
     required this.allowRange,
   });
 
   final int totalMessages;
+  final List<AiSessionMessage> messages;
   final AiSessionExportConfig initial;
   final bool allowRange;
 
@@ -193,9 +478,20 @@ class _AiSessionExportConfigDialogState
   late Set<AiSessionMessageKind> _kinds;
   late bool _includeDeleted;
   late bool _useRange;
-  late TextEditingController _startController;
-  late TextEditingController _endController;
+  late int _startIndex;
+  late int _endIndex;
+  late _ExportRangeEndpoint _activeEndpoint;
+  TextEditingController? _startController;
+  TextEditingController? _endController;
+  ScrollController? _rangeScrollController;
   String? _rangeError;
+
+  bool get _hasMessagePicker => widget.allowRange && widget.messages.isNotEmpty;
+
+  int get _rangeCount {
+    if (widget.messages.isNotEmpty) return widget.messages.length;
+    return widget.totalMessages < 0 ? 0 : widget.totalMessages;
+  }
 
   @override
   void initState() {
@@ -210,20 +506,30 @@ class _AiSessionExportConfigDialogState
     _useRange =
         widget.allowRange &&
         (widget.initial.startIndex != null || widget.initial.endIndex != null);
-    _startController = TextEditingController(
-      text: widget.initial.startIndex?.toString() ?? '1',
-    );
-    _endController = TextEditingController(
-      text:
-          widget.initial.endIndex?.toString() ??
-          widget.totalMessages.toString(),
-    );
+    final count = math.max(_rangeCount, 1);
+    final initialStart = widget.initial.startIndex ?? 1;
+    final initialEnd = widget.initial.endIndex ?? count;
+    _startIndex = initialStart.clamp(1, count);
+    _endIndex = initialEnd.clamp(_startIndex, count);
+    _activeEndpoint = _ExportRangeEndpoint.start;
+    if (_hasMessagePicker) {
+      _rangeScrollController = ScrollController();
+      if (_useRange) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollRangeListTo(_startIndex);
+        });
+      }
+    } else {
+      _startController = TextEditingController(text: '$_startIndex');
+      _endController = TextEditingController(text: '$_endIndex');
+    }
   }
 
   @override
   void dispose() {
-    _startController.dispose();
-    _endController.dispose();
+    _rangeScrollController?.dispose();
+    _startController?.dispose();
+    _endController?.dispose();
     super.dispose();
   }
 
@@ -389,24 +695,85 @@ class _AiSessionExportConfigDialogState
     });
   }
 
+  void _scrollRangeListTo(int oneBased) {
+    final controller = _rangeScrollController;
+    if (controller == null || !controller.hasClients) return;
+    final maxExtent = controller.position.maxScrollExtent;
+    if (maxExtent <= 0) return;
+    final target = ((oneBased - 1) * _kExportRangeTileHeight).clamp(
+      0.0,
+      maxExtent,
+    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion280);
+    if (duration <= Duration.zero) {
+      controller.jumpTo(target);
+      return;
+    }
+    controller.animateTo(
+      target,
+      duration: duration,
+      curve: kOpenHandEntranceCurve,
+    );
+  }
+
+  void _assignRangeIndex(int oneBased) {
+    final count = _rangeCount;
+    if (count < 1) return;
+    final index = oneBased.clamp(1, count);
+    setState(() {
+      if (_activeEndpoint == _ExportRangeEndpoint.start) {
+        _startIndex = index;
+        if (_startIndex > _endIndex) _endIndex = _startIndex;
+        _activeEndpoint = _ExportRangeEndpoint.end;
+      } else {
+        _endIndex = index;
+        if (_endIndex < _startIndex) _startIndex = _endIndex;
+      }
+      _rangeError = null;
+    });
+  }
+
+  void _setRangeValues(int start, int end) {
+    final count = _rangeCount;
+    if (count < 1) return;
+    final nextStart = start.clamp(1, count);
+    final nextEnd = end.clamp(nextStart, count);
+    setState(() {
+      _startIndex = nextStart;
+      _endIndex = nextEnd;
+      _rangeError = null;
+    });
+  }
+
   AiSessionExportConfig? _buildConfig() {
     final l10n = AppLocalizations.of(context)!;
     int? start;
     int? end;
     if (widget.allowRange && _useRange) {
-      final range = _tryParseExportIndexRange(
-        startText: _startController.text,
-        endText: _endController.text,
-        totalCount: widget.totalMessages,
-      );
-      if (range == null) {
-        setState(() {
-          _rangeError = _exportRangeErrorText(l10n);
-        });
-        return null;
+      if (_hasMessagePicker) {
+        if (_startIndex < 1 ||
+            _endIndex < _startIndex ||
+            _startIndex > _rangeCount) {
+          setState(() => _rangeError = _exportRangeErrorText(l10n));
+          return null;
+        }
+        start = _startIndex;
+        end = _endIndex;
+      } else {
+        final range = _tryParseExportIndexRange(
+          startText: _startController?.text ?? '',
+          endText: _endController?.text ?? '',
+          totalCount: _rangeCount,
+        );
+        if (range == null) {
+          setState(() {
+            _rangeError = _exportRangeErrorText(l10n);
+          });
+          return null;
+        }
+        start = range.startIndex;
+        end = range.endIndex;
       }
-      start = range.startIndex;
-      end = range.endIndex;
     }
     if (_roles.isEmpty) {
       setState(() {
@@ -434,6 +801,146 @@ class _AiSessionExportConfigDialogState
     );
   }
 
+  String _messagePreview(AiSessionMessage message) {
+    final text = collapseInlineWhitespace(message.content);
+    final clipped = clipTextWithEllipsis(text, _kExportRangePreviewChars);
+    return clipped.trim();
+  }
+
+  Widget _buildMessageRangePicker(
+    BuildContext context,
+    AppLocalizations l10n,
+    ColorScheme colorScheme,
+  ) {
+    final messages = widget.messages;
+    final count = messages.length;
+    final startMessage = messages[_startIndex - 1];
+    final endMessage = messages[_endIndex - 1];
+    final listHeight = math.min(
+      _kExportRangeListMaxHeight,
+      count * _kExportRangeTileHeight,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _ExportRangeEndpointCard(
+                label: l10n.exportRangeStart,
+                badge: openHandLocalizedText(
+                  context,
+                  zh: '起',
+                  zhHant: '起',
+                  en: 'From',
+                  fr: 'Début',
+                  de: 'Von',
+                  ja: '開始',
+                ),
+                index: _startIndex,
+                kindLabel: _kindLabel(startMessage.kind, l10n),
+                preview: _messagePreview(startMessage),
+                accent: colorScheme.primary,
+                selected: _activeEndpoint == _ExportRangeEndpoint.start,
+                onTap: () {
+                  setState(() => _activeEndpoint = _ExportRangeEndpoint.start);
+                  _scrollRangeListTo(_startIndex);
+                },
+              ),
+            ),
+            kOpenHandHGap12,
+            Expanded(
+              child: _ExportRangeEndpointCard(
+                label: l10n.exportRangeEnd,
+                badge: openHandLocalizedText(
+                  context,
+                  zh: '止',
+                  zhHant: '止',
+                  en: 'To',
+                  fr: 'Fin',
+                  de: 'Bis',
+                  ja: '終了',
+                ),
+                index: _endIndex,
+                kindLabel: _kindLabel(endMessage.kind, l10n),
+                preview: _messagePreview(endMessage),
+                accent: OpenHandStatusColors.success,
+                selected: _activeEndpoint == _ExportRangeEndpoint.end,
+                onTap: () {
+                  setState(() => _activeEndpoint = _ExportRangeEndpoint.end);
+                  _scrollRangeListTo(_endIndex);
+                },
+              ),
+            ),
+          ],
+        ),
+        if (count > 1) ...[
+          kOpenHandGap8,
+          RangeSlider(
+            values: RangeValues(_startIndex.toDouble(), _endIndex.toDouble()),
+            min: 1,
+            max: count.toDouble(),
+            divisions: count - 1,
+            labels: RangeLabels('#$_startIndex', '#$_endIndex'),
+            onChanged: (values) {
+              _setRangeValues(values.start.round(), values.end.round());
+            },
+            onChangeEnd: (values) {
+              _scrollRangeListTo(
+                _activeEndpoint == _ExportRangeEndpoint.start
+                    ? values.start.round()
+                    : values.end.round(),
+              );
+            },
+          ),
+        ],
+        kOpenHandGap8,
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: listHeight),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                OpenHandStatusColors.info.withValues(alpha: 0.06),
+                colorScheme.surfaceContainerLow,
+              ),
+              borderRadius: kOpenHandBorderRadius16,
+              border: Border.all(
+                color: OpenHandStatusColors.info.withValues(alpha: 0.16),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: kOpenHandBorderRadius16,
+              child: ListView.builder(
+                controller: _rangeScrollController,
+                primary: false,
+                itemExtent: _kExportRangeTileHeight,
+                itemCount: count,
+                physics: openHandDialogAwareScrollPhysics(context),
+                itemBuilder: (context, offset) {
+                  final message = messages[offset];
+                  final index = offset + 1;
+                  final inRange = index >= _startIndex && index <= _endIndex;
+                  return _ExportRangeMessageTile(
+                    index: index,
+                    kindLabel: _kindLabel(message.kind, l10n),
+                    preview: _messagePreview(message),
+                    icon: _kindIcon(message.kind),
+                    accent: _kindColor(message.kind, colorScheme),
+                    inRange: inRange,
+                    isStart: index == _startIndex,
+                    isEnd: index == _endIndex,
+                    deleted: message.isDeleted,
+                    onTap: () => _assignRangeIndex(index),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -447,8 +954,7 @@ class _AiSessionExportConfigDialogState
       subtitle: l10n.exportTotalMessages(widget.totalMessages),
       icon: Icons.ios_share_rounded,
       iconColor: colorScheme.primary,
-      maxWidth: kOpenHandDialogWidthCompact,
-      maxHeight: kOpenHandDialogHeightStandard,
+      maxWidth: kOpenHandDialogWidthStandard,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -513,24 +1019,73 @@ class _AiSessionExportConfigDialogState
               icon: Icons.linear_scale_rounded,
               accent: OpenHandStatusColors.info,
               title: l10n.exportMessageRangeSection,
+              subtitle: _useRange
+                  ? openHandLocalizedText(
+                      context,
+                      zh: '第 $_startIndex–$_endIndex 条 · 共 ${_endIndex - _startIndex + 1} 条',
+                      zhHant:
+                          '第 $_startIndex–$_endIndex 則 · 共 ${_endIndex - _startIndex + 1} 則',
+                      en: '#$_startIndex–$_endIndex · ${_endIndex - _startIndex + 1} messages',
+                      fr: 'n° $_startIndex–$_endIndex · ${_endIndex - _startIndex + 1} messages',
+                      de: 'Nr. $_startIndex–$_endIndex · ${_endIndex - _startIndex + 1} Nachrichten',
+                      ja: '$_startIndex–$_endIndex 番 · ${_endIndex - _startIndex + 1} 件',
+                    )
+                  : null,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   OpenHandAnimatedSwitchTile(
                     icon: Icons.filter_alt_outlined,
-                    title: l10n.exportOnlyRange,
-                    description: '',
-                    value: _useRange,
-                    onChanged: (value) => setState(() => _useRange = value),
-                  ),
-                  if (_useRange) ...[
-                    kOpenHandGap12,
-                    _buildExportIndexRangeFields(
-                      l10n: l10n,
-                      startController: _startController,
-                      endController: _endController,
+                    title: openHandLocalizedText(
+                      context,
+                      zh: '只导出选中的消息区间',
+                      zhHant: '只匯出選中的訊息區間',
+                      en: 'Export only the selected range',
+                      fr: 'Exporter uniquement la plage sélectionnée',
+                      de: 'Nur den gewählten Bereich exportieren',
+                      ja: '選択した範囲だけエクスポート',
                     ),
-                  ],
+                    description: _hasMessagePicker
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '先点起点卡片或列表中的消息，再点终点。',
+                            zhHant: '先點起點卡片或清單中的訊息，再點終點。',
+                            en: 'Tap a start message, then an end message.',
+                            fr: 'Touchez un message de début, puis de fin.',
+                            de: 'Tippen Sie zuerst die Start-, dann die Endnachricht.',
+                            ja: '開始メッセージを選び、次に終了メッセージを選びます。',
+                          )
+                        : '',
+                    value: _useRange,
+                    onChanged: (value) {
+                      setState(() => _useRange = value);
+                      if (value && _hasMessagePicker) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _scrollRangeListTo(_startIndex);
+                        });
+                      }
+                    },
+                  ),
+                  OpenHandVerticalRevealSwitcher(
+                    presentKey: const ValueKey<String>('export-range-body'),
+                    slideBeginOffsetY: 0.04,
+                    child: !_useRange
+                        ? null
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: _hasMessagePicker
+                                ? _buildMessageRangePicker(
+                                    context,
+                                    l10n,
+                                    colorScheme,
+                                  )
+                                : _buildExportIndexRangeFields(
+                                    l10n: l10n,
+                                    startController: _startController!,
+                                    endController: _endController!,
+                                  ),
+                          ),
+                  ),
                 ],
               ),
             ),

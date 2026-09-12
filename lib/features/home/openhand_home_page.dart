@@ -9360,6 +9360,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final config = await showAiSessionExportConfigDialog(
       context: context,
       totalMessages: loadedSession.messages.length,
+      messages: loadedSession.messages,
     );
     if (config == null || !mounted) return;
 
