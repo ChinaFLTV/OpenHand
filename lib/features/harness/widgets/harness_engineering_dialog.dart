@@ -805,7 +805,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             context,
                           ),
                           onBrowse: () => _pickDirectory(_workingDirController),
-                          crossAxisAlignment: CrossAxisAlignment.center,
                         ),
                         kOpenHandGap14,
 
@@ -834,7 +833,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                           ),
                           onBrowse: () =>
                               _pickDirectory(_persistenceDirController),
-                          crossAxisAlignment: CrossAxisAlignment.center,
                         ),
                         kOpenHandGap28,
 

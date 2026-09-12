@@ -73,6 +73,8 @@ class OpenHandFormLabel extends StatelessWidget {
   }
 }
 
+const double _kDirectoryBrowseButtonWidth = 44;
+
 class OpenHandDirectoryField extends StatelessWidget {
   const OpenHandDirectoryField({
     super.key,
@@ -82,7 +84,6 @@ class OpenHandDirectoryField extends StatelessWidget {
     required this.browseTooltip,
     required this.onBrowse,
     this.helperText,
-    this.crossAxisAlignment = CrossAxisAlignment.start,
   });
 
   final TextEditingController controller;
@@ -91,47 +92,76 @@ class OpenHandDirectoryField extends StatelessWidget {
   final String browseTooltip;
   final VoidCallback onBrowse;
   final String? helperText;
-  final CrossAxisAlignment crossAxisAlignment;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: crossAxisAlignment,
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final decorationTheme = InputDecorationTheme.of(context);
+    final helper = helperText?.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: hintText,
-              helperText: helperText,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-        ),
-        kOpenHandHGap8,
-        Tooltip(
-          message: browseTooltip,
-          child: SizedBox(
-            width: 44,
-            height: 52,
-            child: OutlinedButton(
-              onPressed: onBrowse,
-              style: OutlinedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                side: BorderSide(
-                  color: colorScheme.outline.withValues(alpha: 0.6),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    hintText: hintText,
+                    border: const OutlineInputBorder(),
+                  ),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(kOpenHandRadius6),
-                ),
-                foregroundColor: colorScheme.onSurfaceVariant,
               ),
-              child: const Icon(Icons.folder_open_rounded, size: 18),
-            ),
+              kOpenHandHGap8,
+              Tooltip(
+                message: browseTooltip,
+                child: SizedBox(
+                  width: _kDirectoryBrowseButtonWidth,
+                  child: OutlinedButton(
+                    onPressed: onBrowse,
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      side: BorderSide(
+                        color: colorScheme.outline.withValues(alpha: 0.6),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(kOpenHandRadius6),
+                      ),
+                      foregroundColor: colorScheme.onSurfaceVariant,
+                    ),
+                    child: const Icon(Icons.folder_open_rounded, size: 18),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
+        if (helper != null && helper.isNotEmpty)
+          Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Text(
+                    helper,
+                    style:
+                        decorationTheme.helperStyle ??
+                        theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+              ),
+              kOpenHandHGap8,
+              const SizedBox(width: _kDirectoryBrowseButtonWidth),
+            ],
+          ),
       ],
     );
   }
