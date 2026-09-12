@@ -1155,7 +1155,7 @@ function DetailsPanel({
           )
           : record.preview}</strong>
         {loading ? <span class="oh-trajectory-spinner" /> : null}
-        <button type="button" class="oh-trajectory-icon-button" onClick={onClose} title={t('trajectory.closeDetails', '关闭详情')}>
+        <button type="button" class="oh-trajectory-icon-button oh-trajectory-details-close" onClick={onClose} title={t('trajectory.closeDetails', '关闭详情')}>
           <CloseIcon />
         </button>
       </header>
@@ -1172,7 +1172,9 @@ function DetailsPanel({
         ))}
       </nav>
       <div class="oh-trajectory-detail-body">
-        <DetailBody record={record} metadata={metadata} tab={effectiveTab} />
+        <div key={`${record.id}:${effectiveTab}`} class="oh-trajectory-detail-pane oh-tab-pane-enter">
+          <DetailBody record={record} metadata={metadata} tab={effectiveTab} />
+        </div>
       </div>
     </aside>
   );

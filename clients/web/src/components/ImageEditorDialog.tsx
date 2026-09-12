@@ -369,18 +369,24 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
                   onPointerUp={() => { dragRef.current = null; }}
                   onPointerCancel={() => { dragRef.current = null; }}
                 />
+                <button
+                  type="button"
+                  class="oh-image-editor-compare oh-tap-press"
+                  data-active={showOriginal ? 'true' : 'false'}
+                  aria-pressed={showOriginal}
+                  onPointerDown={(event) => {
+                    if (busy) return;
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    setShowOriginal(true);
+                  }}
+                  onPointerUp={() => setShowOriginal(false)}
+                  onPointerCancel={() => setShowOriginal(false)}
+                  disabled={busy}
+                >
+                  <ImageEditorIcon name="compare" />
+                  {showOriginal ? t('imageEditor.release', '松开') : t('imageEditor.compare', '按住对比')}
+                </button>
               </div>
-              <button
-                type="button"
-                class="oh-image-editor-compare oh-tap-press"
-                onPointerDown={() => setShowOriginal(true)}
-                onPointerUp={() => setShowOriginal(false)}
-                onPointerLeave={() => setShowOriginal(false)}
-                disabled={busy}
-              >
-                <ImageEditorIcon name="compare" />
-                {showOriginal ? t('imageEditor.release', '松开') : t('imageEditor.compare', '按住对比')}
-              </button>
             </section>
 
             <div class="oh-image-editor-aspects">

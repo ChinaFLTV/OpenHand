@@ -8439,7 +8439,7 @@ export function SessionDetailPage() {
 
                 <span class="oh-composer-model-menu" title={modelSelectionLocked ? modelSelectionLockReason : selectedModelUnavailable ? t('composer.modelUnavailable', '线程固定模型配置已不可用，请重新选择模型') : undefined}>
                   <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || modelSelectionLocked || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={modelSelectionLocked ? undefined : selectedModelUnavailable ? t('composer.modelUnavailable', '线程固定模型配置已不可用，请重新选择模型') : selectedModelName || t('composer.model', '模型')}>
-                    <span class="truncate">
+                    <span>
                       {selectedModelName || t('composer.modelEmpty', '主控制台未配置模型')}
                     </span>
                   </button>
