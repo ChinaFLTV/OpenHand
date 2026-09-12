@@ -140,9 +140,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
         paramsJson: paramsJson,
         useSession: _useSession,
       );
-      if (r == null) {
-        entry.error = loc?.webReverseCdpSendFailed ?? 'Send failed';
-      } else if (r['error'] != null) {
+      if (r['error'] != null) {
         entry.error = _capCdpConsoleHistoryText(
           '${r['error']}',
           _kCdpConsoleHistoryErrorChars,

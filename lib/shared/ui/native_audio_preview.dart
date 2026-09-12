@@ -394,14 +394,12 @@ class _MediaKitPlaybackEngine implements _NativeAudioPlaybackEngine {
 
   @override
   Future<void> dispose() async {
-    await Future.wait<bool>(
-      _subscriptions.map(
-        (subscription) => cancelStreamSubscriptionBounded<dynamic>(
-          subscription,
-          onError: (error, stack) =>
-              silentLog('native_audio_preview', '取消播放引擎订阅', error, stack),
-        ),
-      ),
+    final subscriptions = List<StreamSubscription<dynamic>>.of(_subscriptions);
+    _subscriptions.clear();
+    await cancelStreamSubscriptionsBounded(
+      subscriptions,
+      onError: (error, stack) =>
+          silentLog('native_audio_preview', '取消播放引擎订阅', error, stack),
     );
     await runAsyncCleanupBounded(
       _stateController.close,
@@ -568,15 +566,15 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     _seekCommandQueue.discardPending();
     _progressPollTimer?.cancel();
     if (widget.controller?._state == this) widget.controller?._state = null;
-    for (final subscription in _subscriptions) {
-      unawaited(
-        cancelStreamSubscriptionBounded<dynamic>(
-          subscription,
-          onError: (error, stack) =>
-              silentLog('native_audio_preview', '取消预览订阅', error, stack),
-        ),
-      );
-    }
+    final subscriptions = List<StreamSubscription<dynamic>>.of(_subscriptions);
+    _subscriptions.clear();
+    unawaited(
+      cancelStreamSubscriptionsBounded(
+        subscriptions,
+        onError: (error, stack) =>
+            silentLog('native_audio_preview', '取消预览订阅', error, stack),
+      ),
+    );
     unawaited(_disposePlayerAndTemp());
     super.dispose();
   }

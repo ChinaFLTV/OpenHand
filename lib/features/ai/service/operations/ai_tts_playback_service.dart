@@ -1792,20 +1792,11 @@ class AiTtsPlaybackService {
       throw TimeoutException('TTS 进程执行超时。', timeout);
     } finally {
       operation.unregisterProcess(process);
-      await Future.wait<void>(<Future<void>>[
-        _cancelTtsSubscription(stderrSubscription),
-        _cancelTtsSubscription(stdoutSubscription),
-      ]);
+      await cancelStreamSubscriptionsBounded(<StreamSubscription<dynamic>>[
+        stderrSubscription,
+        stdoutSubscription,
+      ], timeout: _speechProcessPipeDrainTimeout);
     }
-  }
-
-  static Future<void> _cancelTtsSubscription<T>(
-    StreamSubscription<T> subscription,
-  ) async {
-    await cancelStreamSubscriptionBounded<T>(
-      subscription,
-      timeout: _speechProcessPipeDrainTimeout,
-    );
   }
 
   Uri _xfyunAuthorizedUri(Uri endpoint, AiTtsProviderSettings settings) {

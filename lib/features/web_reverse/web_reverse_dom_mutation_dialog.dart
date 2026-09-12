@@ -268,11 +268,11 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         method: 'Page.addScriptToEvaluateOnNewDocument',
         paramsJson: jsonEncode({'source': _kInstallScript}),
       );
-      final rawScriptIdentifier = reg?['identifier'];
+      final rawScriptIdentifier = reg['identifier'];
       if (rawScriptIdentifier is! String ||
           rawScriptIdentifier.isEmpty ||
           rawScriptIdentifier.length > kWebReverseMaxRemoteObjectIdChars) {
-        throw StateError('${reg?['error'] ?? '浏览器未返回有效的 DOM 变更脚本标识。'}');
+        throw StateError('${reg['error'] ?? '浏览器未返回有效的 DOM 变更脚本标识。'}');
       }
       _scriptIdentifier = rawScriptIdentifier;
       if (!mounted) {
@@ -284,8 +284,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         _kInstallScript,
         returnByValue: false,
       );
-      if (evaluation == null ||
-          evaluation['error'] != null ||
+      if (evaluation['error'] != null ||
           evaluation['exceptionDetails'] is Map) {
         throw StateError('页面 DOM 变更脚本注入失败。');
       }

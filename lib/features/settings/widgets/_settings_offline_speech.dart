@@ -2756,14 +2756,15 @@ class _OfflineSpeechTestDialogState extends State<_OfflineSpeechTestDialog> {
   }
 
   Future<void> _disposeResources() async {
-    for (final subscription in _subscriptions) {
-      try {
-        await subscription.cancel().timeout(_offlineSpeechTestOperationTimeout);
-      } catch (error, stack) {
-        silentLog('settings_offline_speech', '取消语音测试订阅', error, stack);
-      }
-    }
+    final subscriptions = List<StreamSubscription<dynamic>>.of(_subscriptions);
     _subscriptions.clear();
+    await cancelStreamSubscriptionsBounded(
+      subscriptions,
+      timeout: _offlineSpeechTestOperationTimeout,
+      onError: (error, stack) {
+        silentLog('settings_offline_speech', '取消语音测试订阅', error, stack);
+      },
+    );
     await _disposeRecorder(cancel: true);
     final player = _player;
     _player = null;

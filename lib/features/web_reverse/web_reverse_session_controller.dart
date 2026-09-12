@@ -4489,15 +4489,18 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// 直接发送原始 CDP 命令，给"CDP 命令面板"用。method 形如
-  /// `Network.getAllCookies`；params JSON 字符串可空。
-  Future<Map<String, Object?>?> sendRawCdp({
+  /// `Network.getAllCookies`；params JSON 字符串可空。传输和协议失败统一通过
+  /// `error` 字段返回，调用方无需处理空响应。
+  Future<Map<String, Object?>> sendRawCdp({
     required String method,
     String? paramsJson,
     bool useSession = true,
     Duration timeout = const Duration(seconds: 30),
   }) async {
     final cdp = _browserCdp;
-    if (cdp == null) return null;
+    if (cdp == null) {
+      return <String, Object?>{'error': 'CDP 尚未连接。'};
+    }
     final trimmedMethod = method.trim();
     if (trimmedMethod.isEmpty ||
         trimmedMethod.length > maxRawCdpMethodChars ||
@@ -4544,7 +4547,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 其余保持 CDP 默认，避免各面板各自拼一份易漂移的 JSON。
   /// [timeout] 是本地传输等待上限；[evaluationTimeout] 是交给 V8 的页内执行
   /// 上限，用于给用户可编辑的表达式兜底，避免死循环把渲染进程挂住。
-  Future<Map<String, Object?>?> evaluateJavaScript(
+  Future<Map<String, Object?>> evaluateJavaScript(
     String expression, {
     bool returnByValue = true,
     bool awaitPromise = false,

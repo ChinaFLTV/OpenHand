@@ -1648,7 +1648,7 @@ Future<void> _showCdpPaletteDialog(
                   useSession: useSession.value,
                 );
                 if (!dialogContext.mounted) return;
-                result.value = r == null ? '(null)' : prettyPrintJson(r);
+                result.value = prettyPrintJson(r);
               } catch (error, stack) {
                 silentLog(
                   'web_reverse_dashboard_dialog',

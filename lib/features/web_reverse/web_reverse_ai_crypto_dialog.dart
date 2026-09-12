@@ -260,7 +260,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       paramsJson: '{}',
     );
     if (!mounted) return const <String, List<_JsHit>>{};
-    if (tree == null || tree['error'] != null) {
+    if (tree['error'] != null) {
       return const <String, List<_JsHit>>{};
     }
     final scripts = collectWebReverseScriptResources(
@@ -287,7 +287,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
               'isRegex': false,
             }),
           );
-          if (r == null || r['error'] != null) continue;
+          if (r['error'] != null) continue;
           final results = r['result'];
           if (results is List) {
             for (final m in results) {

@@ -5,8 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:openhand/shared/net/abortable_http_request.dart';
 import 'package:openhand/shared/net/http_status_utils.dart';
 import 'package:openhand/shared/net/loopback_hosts.dart';
+import 'package:openhand/shared/util/async_concurrency.dart';
 import 'package:openhand/shared/util/bounded_file_io.dart';
 import 'package:openhand/shared/util/bounded_json_conversion.dart';
+import 'package:openhand/shared/util/bounded_text_buffer.dart';
 import 'package:openhand/shared/util/date_time_format.dart';
 import 'package:openhand/shared/util/duration_bounds.dart';
 import 'package:openhand/shared/util/exponential_backoff.dart';
@@ -46,7 +48,9 @@ Future<void> main() async {
   failures += _checkPortableFileNameSanitization();
   failures += _checkPlatformShell();
   failures += _checkTextSearch();
+  failures += _checkBoundedTextBuffer();
   failures += _checkSensitiveTextRedaction();
+  failures += await _checkBatchSubscriptionCancellation();
   failures += await _checkAbortableResponseLifetime();
   failures += await _checkSynchronousBoundedFileRead();
   failures += await _checkTemporaryByteStreamWrite();
@@ -805,6 +809,56 @@ int _checkTextSearch() {
       moveTextMatchIndex(currentIndex: 0, matchCount: 2, forward: false) != 1 ||
       moveTextMatchIndex(currentIndex: 0, matchCount: 0, forward: true) != -1) {
     stderr.writeln('文本查找偏移或循环导航边界错误');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkBoundedTextBuffer() {
+  final buffer = BoundedTextBuffer(maxCharacters: 5);
+  buffer
+    ..append('12')
+    ..append('34')
+    ..append('56');
+  if (buffer.text != '23456' ||
+      buffer.startOffset != 1 ||
+      buffer.endOffset != 6 ||
+      buffer.textFrom(4) != '56') {
+    stderr.writeln('BoundedTextBuffer 未正确保留最新文本或绝对偏移');
+    return 1;
+  }
+
+  buffer
+    ..clear()
+    ..append('1234')
+    ..append('😀');
+  if (buffer.text != '234😀' || buffer.length != 5) {
+    stderr.writeln('BoundedTextBuffer 裁剪时破坏了 UTF-16 代理对');
+    return 1;
+  }
+  return 0;
+}
+
+Future<int> _checkBatchSubscriptionCancellation() async {
+  var firstCancelled = false;
+  var secondCancelled = false;
+  final firstController = StreamController<void>(
+    onCancel: () => firstCancelled = true,
+  );
+  final secondController = StreamController<void>(
+    onCancel: () => secondCancelled = true,
+  );
+  final first = firstController.stream.listen(null);
+  final second = secondController.stream.listen(null);
+  final succeeded = await cancelStreamSubscriptionsBounded(
+    <StreamSubscription<dynamic>>[first, second, first],
+  );
+  await Future.wait<void>(<Future<void>>[
+    firstController.close(),
+    secondController.close(),
+  ]);
+  if (!succeeded || !firstCancelled || !secondCancelled) {
+    stderr.writeln('cancelStreamSubscriptionsBounded 未完整取消订阅');
     return 1;
   }
   return 0;

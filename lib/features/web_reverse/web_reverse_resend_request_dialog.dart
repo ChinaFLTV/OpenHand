@@ -289,7 +289,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       );
       final raw = cdpStringResultValue(result);
       if (raw == null) {
-        throw StateError('${result?['error'] ?? 'Runtime.evaluate 未返回值'}');
+        throw StateError('${result['error'] ?? 'Runtime.evaluate 未返回值'}');
       }
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {

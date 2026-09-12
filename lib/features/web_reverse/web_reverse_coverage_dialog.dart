@@ -72,7 +72,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
           'allowTriggeredUpdates': false,
         }),
       );
-      final err = r?['error'];
+      final err = r['error'];
       if (err != null) {
         _toast(
           false,
@@ -103,7 +103,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       final r = await widget.controller.sendRawCdp(
         method: 'Profiler.takePreciseCoverage',
       );
-      final err = r?['error'];
+      final err = r['error'];
       if (err != null) {
         _toast(
           false,
@@ -112,7 +112,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
         return;
       }
       final rows = <String, _CoverageRow>{};
-      for (final raw in stringKeyedMapListFromValue(r?['result'])) {
+      for (final raw in stringKeyedMapListFromValue(r['result'])) {
         final url = '${raw['url'] ?? ''}';
         if (url.isEmpty) continue;
         final row = rows.putIfAbsent(url, () => _CoverageRow(url));

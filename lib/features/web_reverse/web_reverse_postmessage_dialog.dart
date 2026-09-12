@@ -226,12 +226,12 @@ class _PmDialogState extends State<_PmDialog> {
           method: 'Page.addScriptToEvaluateOnNewDocument',
           paramsJson: jsonEncode({'source': _kHookSource}),
         );
-        final rawHookScriptId = addRes?['identifier'];
+        final rawHookScriptId = addRes['identifier'];
         if (rawHookScriptId is! String ||
             rawHookScriptId.isEmpty ||
             rawHookScriptId.length > kWebReverseMaxRemoteObjectIdChars) {
           throw StateError(
-            '${addRes?['error'] ?? '浏览器未返回有效的 postMessage 脚本标识。'}',
+            '${addRes['error'] ?? '浏览器未返回有效的 postMessage 脚本标识。'}',
           );
         }
         final hookScriptId = rawHookScriptId;
@@ -247,8 +247,7 @@ class _PmDialogState extends State<_PmDialog> {
         final evaluation = await widget.controller.evaluateJavaScript(
           _kHookSource,
         );
-        if (evaluation == null ||
-            evaluation['error'] != null ||
+        if (evaluation['error'] != null ||
             evaluation['exceptionDetails'] is Map) {
           throw StateError('页面 postMessage 监听脚本注入失败。');
         }
@@ -315,7 +314,7 @@ class _PmDialogState extends State<_PmDialog> {
         'window.__OH_PM_drain__ ? window.__OH_PM_drain__() : "[]"',
       );
       if (!mounted || !_hooked || !identical(_pollTimer, timer)) return;
-      if (r == null || r['error'] != null) return;
+      if (r['error'] != null) return;
       final value = cdpStringResultValue(r);
       if (value == null || value.isEmpty) return;
       final parsed = jsonDecode(value);

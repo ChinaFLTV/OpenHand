@@ -96,13 +96,13 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         }),
         timeout: _commandTimeout,
       );
-      if (r == null || r['error'] != null) {
+      if (r['error'] != null) {
         if (!mounted) return;
         setState(() {
           _busy = false;
           _status =
-              loc?.webReverseDomSearchFailed('${r?['error'] ?? 'unknown'}') ??
-              'Failed: ${r?['error'] ?? 'unknown'}';
+              loc?.webReverseDomSearchFailed('${r['error']}') ??
+              'Failed: ${r['error']}';
         });
         return;
       }
@@ -131,12 +131,12 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         }),
         timeout: _commandTimeout,
       );
-      if (batch == null || batch['error'] != null) {
+      if (batch['error'] != null) {
         if (!mounted) return;
         setState(() {
           _busy = false;
           _status =
-              loc?.webReverseDomSearchGetFailed('${batch?['error']}') ??
+              loc?.webReverseDomSearchGetFailed('${batch['error']}') ??
               'getSearchResults failed';
         });
         return;

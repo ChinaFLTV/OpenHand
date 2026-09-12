@@ -95,23 +95,31 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
   }
 
   Future<void> _setPlaybackRate(double rate) async {
+    final previousRate = _playbackRate;
     setState(() {
       _playbackRate = rate;
       _busy = true;
     });
     try {
-      await widget.controller.sendRawCdp(method: 'Animation.enable');
-      final r = await widget.controller.sendRawCdp(
-        method: 'Animation.setPlaybackRate',
-        paramsJson: jsonEncode({'playbackRate': rate}),
+      final enableResponse = await widget.controller.sendRawCdp(
+        method: 'Animation.enable',
       );
+      var failure = webReverseCdpFailureMessage(enableResponse);
+      if (failure == null) {
+        final rateResponse = await widget.controller.sendRawCdp(
+          method: 'Animation.setPlaybackRate',
+          paramsJson: jsonEncode({'playbackRate': rate}),
+        );
+        failure = webReverseCdpFailureMessage(rateResponse);
+      }
       if (!mounted) return;
       final loc = AppLocalizations.of(context);
       setState(() {
         _busy = false;
-        _status = (r != null && r['error'] != null)
-            ? (loc?.webReverseAnimationsSetFailed(r['error'].toString()) ??
-                  'setPlaybackRate failed: ${r['error']}')
+        if (failure != null) _playbackRate = previousRate;
+        _status = failure != null
+            ? (loc?.webReverseAnimationsSetFailed(failure) ??
+                  'setPlaybackRate failed: $failure')
             : (loc?.webReverseAnimationsRateNow(rate.toStringAsFixed(2)) ??
                   'global rate = ${rate.toStringAsFixed(2)}x');
       });
@@ -298,7 +306,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       final expr =
           '(function(){var a=window.__oh_anims||[];var n=0;for(var i=0;i<a.length;i++){try{a[i].$method();n++;}catch(_){}};return n;})()';
       final r = await widget.controller.evaluateJavaScript(expr);
-      final result = stringKeyedMapFromValue(r?['result']);
+      final result = stringKeyedMapFromValue(r['result']);
       final n = nonNegativeIntFromValue(result['value'], fallback: 0);
       if (!mounted) return;
       setState(() {

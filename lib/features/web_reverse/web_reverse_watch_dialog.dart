@@ -149,8 +149,8 @@ class _WatchDialogState extends State<_WatchDialog> {
       );
       String text;
       bool err = false;
-      if (r == null || r['error'] != null) {
-        text = r?['error']?.toString() ?? 'no-response';
+      if (r['error'] != null) {
+        text = r['error'].toString();
         err = true;
       } else {
         final result = r['result'] as Map?;

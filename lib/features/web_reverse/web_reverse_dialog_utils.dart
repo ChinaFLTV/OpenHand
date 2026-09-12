@@ -66,6 +66,19 @@ String webReverseSaveFailedMessage(BuildContext context) {
   return openHandSaveFailedLabel(context);
 }
 
+/// 统一校验弹窗发起的原始 CDP 调用，避免把断线后的空响应误判为成功。
+String? webReverseCdpFailureMessage(
+  Map<String, Object?>? response, {
+  String noResponseMessage = '浏览器未返回 CDP 响应。',
+  String emptyErrorMessage = 'CDP 命令执行失败。',
+}) {
+  if (response == null) return noResponseMessage;
+  final error = response['error'] ?? response['exceptionDetails'];
+  if (error == null) return null;
+  final message = '$error'.trim();
+  return message.isEmpty ? emptyErrorMessage : message;
+}
+
 Future<void> confirmWebReverseDiscardChanges({
   required BuildContext context,
   required FutureOr<void> Function() onConfirmed,
@@ -122,11 +135,15 @@ Future<void> removeWebReverseNewDocumentScriptBestEffort({
   required String identifier,
 }) async {
   try {
-    await controller.sendRawCdp(
+    final response = await controller.sendRawCdp(
       method: 'Page.removeScriptToEvaluateOnNewDocument',
       paramsJson: jsonEncode(<String, Object?>{'identifier': identifier}),
       timeout: const Duration(seconds: 3),
     );
+    final failure = webReverseCdpFailureMessage(response);
+    if (failure != null) {
+      silentLog('web_reverse_dialog', '移除页面预加载脚本', failure);
+    }
   } catch (error, stack) {
     silentLog('web_reverse_dialog', '移除页面预加载脚本', error, stack);
   }

@@ -194,7 +194,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
         method: 'Page.addScriptToEvaluateOnNewDocument',
         paramsJson: jsonEncode(<String, Object?>{'source': _kBootstrap}),
       );
-      final scriptId = addRes?['identifier']?.toString();
+      final scriptId = addRes['identifier']?.toString();
       if (!mounted) {
         if (scriptId != null) {
           await removeWebReverseNewDocumentScriptBestEffort(
@@ -204,16 +204,19 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
         }
         return;
       }
-      if (addRes != null && addRes['error'] != null) {
-        _installError = '${addRes['error']}';
-      } else {
-        _scriptId = scriptId;
+      final addFailure = webReverseCdpFailureMessage(addRes);
+      if (addFailure != null || scriptId == null || scriptId.isEmpty) {
+        _installError = addFailure ?? '浏览器未返回页面预加载脚本标识。';
+        return;
       }
+      _scriptId = scriptId;
       // 立即在当前 document 应用一次。
       final evalRes = await widget.controller.evaluateJavaScript(_kBootstrap);
       if (!mounted) return;
-      if (evalRes != null && evalRes['error'] != null) {
-        _installError = '${evalRes['error']}';
+      final evalFailure = webReverseCdpFailureMessage(evalRes);
+      if (evalFailure != null) {
+        _installError = evalFailure;
+        _removeBootstrapScript();
       } else {
         _installed = true;
       }
@@ -230,7 +233,6 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
     if (!mounted) return;
     try {
       final res = await widget.controller.evaluateJavaScript(_kList);
-      if (res == null) return;
       final value = cdpStringResultValue(res);
       if (value == null) return;
       final decoded = decodeJsonList(value);

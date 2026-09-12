@@ -96,6 +96,26 @@ Future<bool> cancelStreamSubscriptionBounded<T>(
   );
 }
 
+/// 并行取消一组流订阅；单个订阅失败或超时不会阻断其余订阅释放。
+Future<bool> cancelStreamSubscriptionsBounded(
+  Iterable<StreamSubscription<dynamic>> subscriptions, {
+  Duration timeout = kOpenHandDefaultAsyncCleanupTimeout,
+  OpenHandAsyncCleanupErrorHandler? onError,
+}) async {
+  final uniqueSubscriptions = subscriptions.toSet();
+  if (uniqueSubscriptions.isEmpty) return true;
+  final results = await Future.wait<bool>(
+    uniqueSubscriptions.map(
+      (subscription) => cancelStreamSubscriptionBounded<dynamic>(
+        subscription,
+        timeout: timeout,
+        onError: onError,
+      ),
+    ),
+  );
+  return results.every((succeeded) => succeeded);
+}
+
 /// 仅启动一次异步操作；重复调用共享首次操作的结果。
 ///
 /// 操作开始前先登记 Future，确保同步回调重入时不会重复启动。

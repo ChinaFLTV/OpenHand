@@ -74,7 +74,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
         paramsJson: params == null ? null : _encodeParams(params),
       );
       if (!mounted) return res;
-      final err = res?['error'];
+      final err = res['error'];
       if (err != null) {
         setState(() => _status = '$method · $err');
       }

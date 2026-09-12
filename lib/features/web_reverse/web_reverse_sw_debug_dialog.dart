@@ -140,7 +140,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
       useSession: false,
     );
     if (!mounted) return;
-    if (r == null || r['error'] != null) {
+    if (r['error'] != null) {
       _toast(
         loc?.webReverseSwDebugToggleFailed ?? 'Toggle failed',
         error: true,
@@ -181,13 +181,13 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
       useSession: false,
     );
     if (!mounted) return;
-    if (r == null || r['error'] != null) {
+    if (r['error'] != null) {
       _toast(
         loc?.webReverseSwDebugMethodFailed(
               method,
-              '${r?['error'] ?? 'unknown'}',
+              '${r['error'] ?? 'unknown'}',
             ) ??
-            '$method failed: ${r?['error'] ?? 'unknown'}',
+            '$method failed: ${r['error'] ?? 'unknown'}',
         error: true,
       );
       return;

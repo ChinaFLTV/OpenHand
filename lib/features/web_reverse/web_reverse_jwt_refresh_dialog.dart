@@ -202,7 +202,6 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
             .replaceAll('__MAX_KEY_CHARS__', '$_maxJwtKeyChars')
             .replaceAll('__MAX_CLAIM_CHARS__', '$_maxJwtClaimChars');
     final r = await widget.controller.evaluateJavaScript(js, userGesture: true);
-    if (r == null) return const <_JwtSample>[];
     final value = cdpStringResultValue(r);
     if (value == null) return const <_JwtSample>[];
     if (value.length > _maxJwtSnapshotChars) {
@@ -268,10 +267,6 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
         awaitPromise: true,
         userGesture: true,
       );
-      if (r == null) {
-        _addRefreshLog(ok: false, detail: 'no response');
-        return false;
-      }
       if (r['error'] != null) {
         _addRefreshLog(ok: false, detail: '${r['error']}');
         return false;

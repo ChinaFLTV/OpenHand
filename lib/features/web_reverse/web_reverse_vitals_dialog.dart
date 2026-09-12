@@ -156,15 +156,9 @@ class _VitalsDialogState extends State<_VitalsDialog> {
         await _cleanupInjectedObservers();
         return;
       }
-      if (res == null ||
-          res['error'] != null ||
-          res['exceptionDetails'] is Map) {
-        final error = res?['error'] ?? res?['exceptionDetails'];
-        setState(
-          () => _status = error == null
-              ? 'Runtime.evaluate'
-              : 'Runtime.evaluate · $error',
-        );
+      final failure = webReverseCdpFailureMessage(res);
+      if (failure != null) {
+        setState(() => _status = 'Runtime.evaluate · $failure');
       } else {
         _bootstrapped = true;
         setState(() => _status = '');

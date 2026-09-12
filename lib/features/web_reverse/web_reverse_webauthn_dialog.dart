@@ -65,6 +65,9 @@ class _WebAuthnDialog extends StatefulWidget {
 }
 
 class _WebAuthnDialogState extends State<_WebAuthnDialog> {
+  static const int _maxAuthenticators = 32;
+  static const int _maxCredentialsPerAuthenticator = 256;
+
   bool _enabled = false;
   bool _busy = false;
   final List<_VirtualAuth> _auths = <_VirtualAuth>[];
@@ -94,15 +97,17 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
     try {
       if (v) {
         final r = await _cdp('WebAuthn.enable', {'enableUI': false});
-        if (r != null && r['error'] != null) {
-          _lastError = '${r['error']}';
+        final failure = webReverseCdpFailureMessage(r);
+        if (failure != null) {
+          _lastError = failure;
         } else {
           _enabled = true;
         }
       } else {
         final r = await _cdp('WebAuthn.disable', const {});
-        if (r != null && r['error'] != null) {
-          _lastError = '${r['error']}';
+        final failure = webReverseCdpFailureMessage(r);
+        if (failure != null) {
+          _lastError = failure;
         } else {
           _enabled = false;
           _auths.clear();
@@ -117,6 +122,10 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
 
   Future<void> _addAuthenticator() async {
     if (_busy || !_enabled) return;
+    if (_auths.length >= _maxAuthenticators) {
+      setState(() => _lastError = '虚拟认证器数量已达到上限 $_maxAuthenticators。');
+      return;
+    }
     setState(() {
       _busy = true;
       _lastError = null;
@@ -132,11 +141,13 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
           'automaticPresenceSimulation': _newAutoPresence,
         },
       });
-      if (r != null && r['error'] != null) {
-        _lastError = '${r['error']}';
+      final failure = webReverseCdpFailureMessage(r);
+      if (failure != null) {
+        _lastError = failure;
       } else {
         final id = r?['authenticatorId']?.toString() ?? '';
         if (id.isNotEmpty) {
+          _auths.removeWhere((authenticator) => authenticator.id == id);
           _auths.add(
             _VirtualAuth(
               id: id,
@@ -154,6 +165,8 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                   'Added $id',
             );
           }
+        } else {
+          _lastError = '浏览器未返回虚拟认证器标识。';
         }
       }
     } catch (e, st) {
@@ -165,48 +178,75 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
 
   Future<void> _removeAuthenticator(_VirtualAuth a) async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _lastError = null;
+    });
     try {
-      await _cdp('WebAuthn.removeVirtualAuthenticator', {
+      final result = await _cdp('WebAuthn.removeVirtualAuthenticator', {
         'authenticatorId': a.id,
       });
-      _auths.removeWhere((e) => e.id == a.id);
+      final failure = webReverseCdpFailureMessage(result);
+      if (failure == null) {
+        _auths.removeWhere((e) => e.id == a.id);
+      } else {
+        _lastError = failure;
+      }
     } catch (e, st) {
       silentLog('web_reverse_webauthn', '移除 WebAuthn 凭据', e, st);
+      _lastError = '$e';
     }
     if (mounted) setState(() => _busy = false);
   }
 
   Future<void> _refreshCredentials(_VirtualAuth a) async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _lastError = null;
+    });
     try {
       final r = await _cdp('WebAuthn.getCredentials', {
         'authenticatorId': a.id,
       });
-      final list = r?['credentials'];
-      if (list is List) {
-        a.credentials = stringKeyedMapListFromValue(list);
+      final failure = webReverseCdpFailureMessage(r);
+      if (failure != null) {
+        _lastError = failure;
+      } else if (r?['credentials'] case final List<Object?> list) {
+        a.credentials = stringKeyedMapListFromValue(
+          list,
+          limit: _maxCredentialsPerAuthenticator,
+        );
+      } else {
+        _lastError = '浏览器返回的 WebAuthn 凭据格式无效。';
       }
     } catch (e, st) {
       silentLog('web_reverse_webauthn', '获取 WebAuthn 凭据', e, st);
+      _lastError = '$e';
     }
     if (mounted) setState(() => _busy = false);
   }
 
   Future<void> _toggleUserVerified(_VirtualAuth a, bool v) async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _lastError = null;
+    });
     try {
       final r = await _cdp('WebAuthn.setUserVerified', {
         'authenticatorId': a.id,
         'isUserVerified': v,
       });
-      if (r != null && r['error'] == null) {
+      final failure = webReverseCdpFailureMessage(r);
+      if (failure == null) {
         a.isUserVerified = v;
+      } else {
+        _lastError = failure;
       }
     } catch (e, st) {
       silentLog('web_reverse_webauthn', '设置 WebAuthn 用户验证状态', e, st);
+      _lastError = '$e';
     }
     if (mounted) setState(() => _busy = false);
   }

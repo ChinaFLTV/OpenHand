@@ -127,6 +127,11 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
       _lastStatus = null;
     });
     final errors = <String>[];
+    void collectFailure(String operation, Map<String, Object?>? response) {
+      final failure = webReverseCdpFailureMessage(response);
+      if (failure != null) errors.add('$operation: $failure');
+    }
+
     try {
       if (_enableGeo) {
         final lat = optionalDoubleFromValue(_latCtl.text);
@@ -146,7 +151,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
             'longitude': lng,
             'accuracy': acc,
           });
-          if (r != null && r['error'] != null) errors.add('geo: ${r['error']}');
+          collectFailure('geo', r);
         }
       }
       if (_enableTz) {
@@ -157,7 +162,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
           final r = await _callCdp('Emulation.setTimezoneOverride', {
             'timezoneId': tz,
           });
-          if (r != null && r['error'] != null) errors.add('tz: ${r['error']}');
+          collectFailure('tz', r);
         }
       }
       if (_enableLocale) {
@@ -168,9 +173,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
           final r = await _callCdp('Emulation.setLocaleOverride', {
             'locale': loc,
           });
-          if (r != null && r['error'] != null) {
-            errors.add('locale: ${r['error']}');
-          }
+          collectFailure('locale', r);
         }
       }
     } catch (e, st) {
@@ -199,18 +202,35 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
   Future<void> _clear() async {
     if (_busy) return;
     setState(() => _busy = true);
-    Object? failure;
+    final errors = <String>[];
+    Future<void> clearOverride(
+      String operation,
+      String method,
+      Map<String, Object?> params,
+    ) async {
+      final response = await _callCdp(method, params);
+      final failure = webReverseCdpFailureMessage(response);
+      if (failure != null) errors.add('$operation: $failure');
+    }
+
     try {
-      await _callCdp('Emulation.clearGeolocationOverride', const {});
+      await clearOverride(
+        'geo',
+        'Emulation.clearGeolocationOverride',
+        const {},
+      );
       // CDP 没有 clearTimezone/clearLocale 等单独方法，用空字符串重置。
-      await _callCdp('Emulation.setTimezoneOverride', {'timezoneId': ''});
-      await _callCdp('Emulation.setLocaleOverride', const {});
+      await clearOverride('tz', 'Emulation.setTimezoneOverride', {
+        'timezoneId': '',
+      });
+      await clearOverride('locale', 'Emulation.setLocaleOverride', const {});
     } catch (e, st) {
       silentLog('web_reverse_geo_override', '清除地理位置覆盖', e, st);
-      failure = e;
+      errors.add('$e');
     }
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
+    final failure = errors.isEmpty ? null : errors.join('; ');
     setState(() {
       _busy = false;
       _lastStatus = failure == null
@@ -224,7 +244,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
             'Cleared environment overrides',
       );
     } else {
-      showOpenHandErrorSnack(context, '$failure');
+      showOpenHandErrorSnack(context, failure);
     }
   }
 

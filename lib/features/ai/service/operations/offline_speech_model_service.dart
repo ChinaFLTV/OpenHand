@@ -24,6 +24,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/bounded_text_buffer.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/platform_shell.dart';
@@ -258,6 +259,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
   static const Duration _temporaryAudioIoTimeout = Duration(seconds: 10);
   static const int _runtimeNetworkAttempts = 2;
   static const int _runtimeErrorCharacters = 8 * 1024;
+  static const int _runtimeProtocolLineCharacters = 1 * kBytesPerMiB;
   static const int _metadataFileMaxBytes = 16 * 1024;
   static const int _systemMemoryInfoMaxBytes = 64 * 1024;
   static const int _runtimeHostFileMaxBytes = 64 * 1024;
@@ -1340,6 +1342,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       const OfflineSpeechModelState(lifecycle: OfflineSpeechLifecycle.starting),
     );
     Process? process;
+    _OfflineSpeechRuntimeSession? runtimeSession;
     try {
       final runtimeRoot = _runtimeDirectory(model.runtime);
       final python = _runtimePythonExecutable(runtimeRoot);
@@ -1359,38 +1362,41 @@ class OfflineSpeechModelService extends ChangeNotifier {
         workingDirectory: runtimeRoot,
         environment: _runtimeEnvironment(model.runtime, runtimeRoot),
       );
+      runtimeSession = _OfflineSpeechRuntimeSession(process);
       if (await isCancelSignalCompleted(effectiveCancelSignal)) {
         throw const OfflineSpeechTestCancelled();
       }
-      final startedSession = _OfflineSpeechRuntimeSession(process);
+      final startedSession = runtimeSession;
       _processes[model.id] = startedSession;
       unawaited(
-        process.exitCode.then((code) {
-          if (!startedSession.ready.isCompleted) {
-            startedSession.ready.completeError(
-              StateError(
-                startedSession.errors.trim().isEmpty
-                    ? '模型运行时异常退出（$code）。'
-                    : _runtimeStartFailureMessage(
-                        model,
-                        startedSession.errors,
-                        code,
-                      ),
-              ),
-            );
-          }
-          startedSession.failPending(StateError('模型运行时已退出（$code）。'));
-          if (identical(_processes[model.id], startedSession)) {
-            _processes.remove(model.id);
-            _setState(
-              model.id,
-              OfflineSpeechModelState(
-                lifecycle: OfflineSpeechLifecycle.failed,
-                message: '模型运行时已退出（$code）',
-              ),
-            );
-          }
-        }),
+        process.exitCode
+            .then((code) {
+              if (!startedSession.ready.isCompleted) {
+                startedSession.ready.completeError(
+                  StateError(
+                    startedSession.errors.trim().isEmpty
+                        ? '模型运行时异常退出（$code）。'
+                        : _runtimeStartFailureMessage(
+                            model,
+                            startedSession.errors,
+                            code,
+                          ),
+                  ),
+                );
+              }
+              startedSession.failPending(StateError('模型运行时已退出（$code）。'));
+              if (identical(_processes[model.id], startedSession)) {
+                _processes.remove(model.id);
+                _setState(
+                  model.id,
+                  OfflineSpeechModelState(
+                    lifecycle: OfflineSpeechLifecycle.failed,
+                    message: '模型运行时已退出（$code）',
+                  ),
+                );
+              }
+            })
+            .whenComplete(startedSession.closeSubscriptions),
       );
       final ready = await awaitWithCancelSignal<bool>(
         startedSession.ready.future.then((_) => true),
@@ -1410,7 +1416,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
       );
     } catch (error) {
       _processes.remove(model.id);
-      if (process != null) {
+      if (runtimeSession != null) {
+        await _terminateOfflineSpeechRuntimeSession(runtimeSession);
+      } else if (process != null) {
         await terminateTrackedProcessTree(process);
       }
       if (error is! OfflineSpeechTestCancelled &&
@@ -1456,7 +1464,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       const OfflineSpeechModelState(lifecycle: OfflineSpeechLifecycle.stopping),
     );
     session.failPending(StateError('模型已停止。'));
-    await terminateTrackedProcessTree(session.process);
+    await _terminateOfflineSpeechRuntimeSession(session);
     _setState(
       model.id,
       const OfflineSpeechModelState(
@@ -3942,7 +3950,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
     final cleanupTasks = <Future<void>>[
       for (final session in sessions)
-        terminateTrackedProcessTree(session.process),
+        _terminateOfflineSpeechRuntimeSession(session),
       for (final cancellation in downloads) cancellation.done,
       for (final operation in _activeStarts)
         operation.then<void>((_) {}, onError: (_, _) {}),
@@ -4982,18 +4990,32 @@ class _RemoteModelFile {
 
 class _OfflineSpeechRuntimeSession {
   _OfflineSpeechRuntimeSession(this.process) {
-    process.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen(_handleOutput, onError: _handleStreamError);
-    process.stderr.transform(utf8.decoder).listen((chunk) {
-      errors += chunk;
-      if (errors.length > OfflineSpeechModelService._runtimeErrorCharacters) {
-        errors = errors.substring(
-          errors.length - OfflineSpeechModelService._runtimeErrorCharacters,
+    final stdoutDecoder = BoundedProcessLineDecoder(
+      maxCharacters: OfflineSpeechModelService._runtimeProtocolLineCharacters,
+      onLine: _handleOutput,
+      onTruncated: () {
+        silentLog('offline_speech_runtime', '模型运行时协议行超过安全上限', '输出已截断');
+      },
+    );
+    _stdoutSubscription = process.stdout
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .listen(
+          stdoutDecoder.add,
+          onError: (Object error, StackTrace stack) {
+            stdoutDecoder.close();
+            _handleStreamError(error, stack);
+          },
+          onDone: stdoutDecoder.close,
+          cancelOnError: true,
         );
-      }
-    });
+    _stderrSubscription = process.stderr
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .listen(
+          _errors.append,
+          onError: (Object error, StackTrace stack) {
+            silentLog('offline_speech_runtime', '读取模型运行时错误输出', error, stack);
+          },
+        );
   }
 
   static const String _responsePrefix = 'OPENHAND_响应 ';
@@ -5003,6 +5025,11 @@ class _OfflineSpeechRuntimeSession {
   static const int _maxDiscardedResponseHandlers = 32;
 
   final Process process;
+  late final StreamSubscription<String> _stdoutSubscription;
+  late final StreamSubscription<String> _stderrSubscription;
+  final BoundedTextBuffer _errors = BoundedTextBuffer(
+    maxCharacters: OfflineSpeechModelService._runtimeErrorCharacters,
+  );
   final Completer<void> ready = Completer<void>();
   final Map<String, Completer<Map<String, Object?>>> _pending =
       <String, Completer<Map<String, Object?>>>{};
@@ -5010,8 +5037,21 @@ class _OfflineSpeechRuntimeSession {
   _discardedResponseHandlers =
       <String, ({void Function() handler, Timer retentionTimer})>{};
   int _requestSequence = 0;
-  String errors = '';
+  Future<void>? _subscriptionCleanup;
+
+  String get errors => _errors.text;
   Uri? realtimeEndpoint;
+
+  Future<void> closeSubscriptions() {
+    return _subscriptionCleanup ??= () async {
+      await cancelStreamSubscriptionsBounded(
+        <StreamSubscription<dynamic>>[_stdoutSubscription, _stderrSubscription],
+        onError: (error, stack) {
+          silentLog('offline_speech_runtime', '取消模型运行时输出订阅', error, stack);
+        },
+      );
+    }();
+  }
 
   Future<Map<String, Object?>> request(
     Map<String, Object?> request, {
@@ -5164,6 +5204,16 @@ class _OfflineSpeechRuntimeSession {
     } catch (error, stack) {
       silentLog('offline_speech_runtime', '清理已丢弃的模型响应', error, stack);
     }
+  }
+}
+
+Future<void> _terminateOfflineSpeechRuntimeSession(
+  _OfflineSpeechRuntimeSession session,
+) async {
+  try {
+    await terminateTrackedProcessTree(session.process);
+  } finally {
+    await session.closeSubscriptions();
   }
 }
 

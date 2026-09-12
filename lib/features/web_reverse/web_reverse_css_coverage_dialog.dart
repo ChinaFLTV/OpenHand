@@ -67,8 +67,8 @@ class _CssCovDialogState extends State<_CssCovDialog> {
         method: 'CSS.startRuleUsageTracking',
       );
       if (!mounted) return;
-      if (r == null || r['error'] != null) {
-        final err = (r?['error'] ?? 'unknown').toString();
+      if (r['error'] != null) {
+        final err = r['error'].toString();
         setState(() {
           _busy = false;
           _status =
@@ -147,7 +147,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
           method: 'CSS.getStyleSheetText',
           paramsJson: jsonEncode({'styleSheetId': sid}),
         );
-        if (h != null && h['error'] == null) {
+        if (h['error'] == null) {
           // 没有直接 URL 字段；getHeader 通过 CSS.getStyleSheetHeader 不存在，
           // 使用 CSS.styleSheetAdded 事件中的 header.sourceURL 才有；
           // 这里把 styleSheetId 截短作为标签。

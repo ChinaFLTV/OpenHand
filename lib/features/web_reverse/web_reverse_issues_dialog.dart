@@ -57,7 +57,7 @@ Future<void> showWebReverseIssuesDialog(
       final res = await controller
           .sendRawCdp(method: 'Audits.enable')
           .timeout(_issueEnableTimeout);
-      domainEnabled = res?['error'] == null;
+      domainEnabled = webReverseCdpFailureMessage(res) == null;
     } catch (error, stack) {
       silentLog('web_reverse_issues_dialog', '启用 Audits 域', error, stack);
     }

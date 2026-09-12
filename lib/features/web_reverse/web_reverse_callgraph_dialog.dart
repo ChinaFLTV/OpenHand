@@ -82,7 +82,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
         paramsJson: '{}',
       );
       if (!mounted) return;
-      if (tree == null || tree['error'] != null) {
+      if (tree['error'] != null) {
         setState(
           () => _status = loc?.webReverseCallgraphFetchFailed ?? 'Fetch failed',
         );
@@ -120,7 +120,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
             method: 'Page.getResourceContent',
             paramsJson: jsonEncode({'frameId': s.frameId, 'url': s.url}),
           );
-          if (r == null || r['error'] != null) continue;
+          if (r['error'] != null) continue;
           var content = r['content']?.toString() ?? '';
           final base64Encoded = r['base64Encoded'] == true;
           final maxBytes = _maxScriptKb * kBytesPerKiB;
