@@ -23,6 +23,7 @@ import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/error_snackbar.dart';
+import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/markdown_math.dart';
@@ -37,7 +38,7 @@ import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_file_hover_popup.dart';
-import '../../../shared/ui/openhand_inline_empty_state.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_metadata_tiles.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -629,7 +630,6 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
 const _br26 = BorderRadius.all(Radius.circular(26));
 const _br12 = kOpenHandBorderRadius12;
 const _br10 = kOpenHandBorderRadius10;
-const _br8 = kOpenHandBorderRadius8;
 const _br6 = kOpenHandBorderRadius6;
 
 /// 根据卡片实际背景构建 Markdown 配色，保证跨明暗主题的可读性。

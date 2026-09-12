@@ -543,8 +543,18 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         .length;
     final totalLogLines = logs.fold<int>(0, (sum, l) => sum + l.lines.length);
 
+    final statusAccent = switch (orchestrator.status) {
+      HarnessOrchestratorStatus.running => OpenHandStatusColors.info,
+      HarnessOrchestratorStatus.completed => OpenHandStatusColors.success,
+      HarnessOrchestratorStatus.failed => OpenHandStatusColors.error,
+      HarnessOrchestratorStatus.cancelled => OpenHandStatusColors.warning,
+      HarnessOrchestratorStatus.idle => Theme.of(context).colorScheme.outline,
+    };
+    final colorScheme = Theme.of(context).colorScheme;
     final summaryBlocks = <Widget>[
       OpenHandMetadataSummaryTile(
+        icon: Icons.flag_rounded,
+        accent: OpenHandStatusColors.info,
         label: openHandLocalizedText(
           context,
           zh: '阶段总数',
@@ -557,6 +567,8 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: '$totalPhases',
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.check_circle_outline_rounded,
+        accent: OpenHandStatusColors.success,
         label: openHandLocalizedText(
           context,
           zh: '已完成阶段',
@@ -569,6 +581,10 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: '$completedPhases',
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.error_outline_rounded,
+        accent: failedPhases > 0
+            ? OpenHandStatusColors.error
+            : colorScheme.outline,
         label: openHandLocalizedText(
           context,
           zh: '失败阶段',
@@ -581,6 +597,8 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: '$failedPhases',
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.receipt_long_rounded,
+        accent: colorScheme.tertiary,
         label: openHandLocalizedText(
           context,
           zh: '日志总行数',
@@ -593,10 +611,14 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: '$totalLogLines',
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.monitor_heart_outlined,
+        accent: statusAccent,
         label: _harnessSessionStatusLabel(context),
         value: _statusLabel(context, orchestrator.status),
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.play_circle_outline_rounded,
+        accent: colorScheme.secondary,
         label: openHandLocalizedText(
           context,
           zh: '当前阶段',
@@ -675,209 +697,184 @@ class _HeSessionMetadataDialog extends StatelessWidget {
       ),
     ];
 
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthWide,
-      maxHeight: double.infinity,
-      maxHeightFraction: 0.82,
-      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            OpenHandMetadataDialogHeader(
-              title: openHandLocalizedText(
-                context,
-                zh: '当前会话元数据',
-                zhHant: '目前會話中繼資料',
-                en: 'Current Session Metadata',
-                fr: 'Métadonnées de la session',
-                de: 'Aktuelle Sitzungsmetadaten',
-                ja: '現在のセッションメタデータ',
-              ),
-              subtitle: sessionTitle,
-            ),
-            kOpenHandGap18,
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Summary tiles ──
-                    Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
-                    kOpenHandGap18,
-
-                    // ── Session overview ──
-                    OpenHandMetadataSection(
-                      title: openHandLocalizedText(
-                        context,
-                        zh: '会话概览',
-                        zhHant: '會話概覽',
-                        en: 'Session Overview',
-                        fr: 'Aperçu de la session',
-                        de: 'Sitzungsübersicht',
-                        ja: 'セッション概要',
-                      ),
-                      children: [
-                        OpenHandMetadataEntryRow(
-                          label: openHandSessionIdLabel(context),
-                          value: sessionId ?? '--',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: openHandTemplateLabel(context),
-                          value: 'Harness Engineering',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: openHandCreatedAtLabel(context),
-                          value: createdAtLabel ?? '--',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: openHandUpdatedAtLabel(context),
-                          value: updatedAtLabel ?? '--',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _harnessSessionStatusLabel(context),
-                          value: _statusLabel(context, orchestrator.status),
-                        ),
-                        if (orchestrator.errorMessage?.isNotEmpty == true)
-                          OpenHandMetadataEntryRow(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '错误信息',
-                              zhHant: '錯誤資訊',
-                              en: 'Error',
-                              fr: 'Erreur',
-                              de: 'Fehler',
-                              ja: 'エラー',
-                            ),
-                            value: orchestrator.errorMessage!,
-                          ),
-                      ],
-                    ),
-                    kOpenHandGap16,
-
-                    // ── Task config ──
-                    OpenHandMetadataSection(
-                      title: openHandLocalizedText(
-                        context,
-                        zh: '任务配置',
-                        zhHant: '任務設定',
-                        en: 'Task Config',
-                        fr: 'Configuration de tâche',
-                        de: 'Aufgabenkonfiguration',
-                        ja: 'タスク設定',
-                      ),
-                      children: [
-                        OpenHandMetadataEntryRow(
-                          label: openHandTaskLabel(context),
-                          value: config.task.isEmpty ? '-' : config.task,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: openHandWorkingDirectoryLabel(context),
-                          value: config.workingDirectory.isEmpty
-                              ? '-'
-                              : config.workingDirectory,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '持久化目录',
-                            zhHant: '持久化目錄',
-                            en: 'Persistence Directory',
-                            fr: 'Répertoire de persistance',
-                            de: 'Persistenzverzeichnis',
-                            ja: '永続化ディレクトリ',
-                          ),
-                          value: config.persistenceDirectory.isEmpty
-                              ? '-'
-                              : config.persistenceDirectory,
-                        ),
-                      ],
-                    ),
-                    kOpenHandGap16,
-
-                    // ── Role configs ──
-                    OpenHandMetadataSection(
-                      title: openHandLocalizedText(
-                        context,
-                        zh: '角色配置',
-                        zhHant: '角色設定',
-                        en: 'Role Configs',
-                        fr: 'Configurations des rôles',
-                        de: 'Rollenkonfigurationen',
-                        ja: 'ロール設定',
-                      ),
-                      children: [
-                        for (final entry in roleConfigs)
-                          OpenHandMetadataEntryRow(
-                            label: entry.$1,
-                            value: entry.$2.isUrlMode
-                                ? 'URL/API · ${_heDescribeAiModelConfig(context, aiModels, entry.$2.aiModelConfigId, urlModeModelId: entry.$2.urlModeModelId)}'
-                                : entry.$2.isConfigured
-                                ? '${entry.$2.cliName} · ${describeHarnessCliModel(entry.$2.modelId, locale: Localizations.localeOf(context))}'
-                                : openHandNotConfiguredLabel(context),
-                          ),
-                      ],
-                    ),
-                    kOpenHandGap16,
-
-                    // ── Phase status ──
-                    OpenHandMetadataSection(
-                      title: openHandLocalizedText(
-                        context,
-                        zh: '阶段状态',
-                        zhHant: '階段狀態',
-                        en: 'Phase Status',
-                        fr: 'État des phases',
-                        de: 'Phasenstatus',
-                        ja: 'フェーズ状態',
-                      ),
-                      children: [
-                        for (final log in logs)
-                          OpenHandMetadataEntryRow(
-                            label: _heHarnessPhaseLabel(context, log.phase),
-                            value: () {
-                              final parts = <String>[
-                                harnessPhaseStatusLabel(context, log.status),
-                              ];
-                              if (log.exitCode != null) {
-                                parts.add(
-                                  '${openHandLocalizedText(context, zh: '退出码', zhHant: '結束碼', en: 'Exit code', fr: 'Code de sortie', de: 'Exit-Code', ja: '終了コード')}: ${log.exitCode}',
-                                );
-                              }
-                              parts.add(
-                                '${openHandLocalizedText(context, zh: '日志行数', zhHant: '日誌行數', en: 'Log lines', fr: 'Lignes de journal', de: 'Logzeilen', ja: 'ログ行数')}: ${log.lines.length}',
-                              );
-                              if (log.savedLogPath?.isNotEmpty == true) {
-                                parts.add(
-                                  '${openHandLocalizedText(context, zh: '日志文件', zhHant: '日誌檔案', en: 'Log file', fr: 'Fichier journal', de: 'Logdatei', ja: 'ログファイル')}: ${log.savedLogPath}',
-                                );
-                              }
-                              return parts.join(' · ');
-                            }(),
-                          ),
-                      ],
-                    ),
-                    kOpenHandGap4,
-                  ],
-                ),
-              ),
-            ),
-            kOpenHandGap18,
-
-            // ── Close button ──
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  onPressed: () => Navigator.of(context).pop(),
-                  label: openHandCloseLabel(context),
-                ),
-              ],
-            ),
-          ],
+    return OpenHandEditorDialogScaffold(
+      title: openHandLocalizedText(
+        context,
+        zh: '当前会话元数据',
+        zhHant: '目前會話中繼資料',
+        en: 'Current Session Metadata',
+        fr: 'Métadonnées de la session',
+        de: 'Aktuelle Sitzungsmetadaten',
+        ja: '現在のセッションメタデータ',
+      ),
+      subtitle: sessionTitle,
+      icon: Icons.data_object_rounded,
+      iconColor: statusAccent,
+      maxHeight: kOpenHandDialogHeightFull,
+      actions: [
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: openHandCloseLabel(context),
         ),
+      ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.badge_rounded,
+            accent: OpenHandStatusColors.info,
+            title: openHandLocalizedText(
+              context,
+              zh: '会话概览',
+              zhHant: '會話概覽',
+              en: 'Session Overview',
+              fr: 'Aperçu de la session',
+              de: 'Sitzungsübersicht',
+              ja: 'セッション概要',
+            ),
+            children: [
+              OpenHandMetadataEntryRow(
+                label: openHandSessionIdLabel(context),
+                value: sessionId ?? '--',
+              ),
+              OpenHandMetadataEntryRow(
+                label: openHandTemplateLabel(context),
+                value: 'Harness Engineering',
+              ),
+              OpenHandMetadataEntryRow(
+                label: openHandCreatedAtLabel(context),
+                value: createdAtLabel ?? '--',
+              ),
+              OpenHandMetadataEntryRow(
+                label: openHandUpdatedAtLabel(context),
+                value: updatedAtLabel ?? '--',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _harnessSessionStatusLabel(context),
+                value: _statusLabel(context, orchestrator.status),
+              ),
+              if (orchestrator.errorMessage?.isNotEmpty == true)
+                OpenHandMetadataEntryRow(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '错误信息',
+                    zhHant: '錯誤資訊',
+                    en: 'Error',
+                    fr: 'Erreur',
+                    de: 'Fehler',
+                    ja: 'エラー',
+                  ),
+                  value: orchestrator.errorMessage!,
+                ),
+            ],
+          ),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.assignment_rounded,
+            accent: colorScheme.primary,
+            title: openHandLocalizedText(
+              context,
+              zh: '任务配置',
+              zhHant: '任務設定',
+              en: 'Task Config',
+              fr: 'Configuration de tâche',
+              de: 'Aufgabenkonfiguration',
+              ja: 'タスク設定',
+            ),
+            children: [
+              OpenHandMetadataEntryRow(
+                label: openHandTaskLabel(context),
+                value: config.task.isEmpty ? '-' : config.task,
+              ),
+              OpenHandMetadataEntryRow(
+                label: openHandWorkingDirectoryLabel(context),
+                value: config.workingDirectory.isEmpty
+                    ? '-'
+                    : config.workingDirectory,
+              ),
+              OpenHandMetadataEntryRow(
+                label: openHandLocalizedText(
+                  context,
+                  zh: '持久化目录',
+                  zhHant: '持久化目錄',
+                  en: 'Persistence Directory',
+                  fr: 'Répertoire de persistance',
+                  de: 'Persistenzverzeichnis',
+                  ja: '永続化ディレクトリ',
+                ),
+                value: config.persistenceDirectory.isEmpty
+                    ? '-'
+                    : config.persistenceDirectory,
+              ),
+            ],
+          ),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.groups_rounded,
+            accent: colorScheme.tertiary,
+            title: openHandLocalizedText(
+              context,
+              zh: '角色配置',
+              zhHant: '角色設定',
+              en: 'Role Configs',
+              fr: 'Configurations des rôles',
+              de: 'Rollenkonfigurationen',
+              ja: 'ロール設定',
+            ),
+            children: [
+              for (final entry in roleConfigs)
+                OpenHandMetadataEntryRow(
+                  label: entry.$1,
+                  value: entry.$2.isUrlMode
+                      ? 'URL/API · ${_heDescribeAiModelConfig(context, aiModels, entry.$2.aiModelConfigId, urlModeModelId: entry.$2.urlModeModelId)}'
+                      : entry.$2.isConfigured
+                      ? '${entry.$2.cliName} · ${describeHarnessCliModel(entry.$2.modelId, locale: Localizations.localeOf(context))}'
+                      : openHandNotConfiguredLabel(context),
+                ),
+            ],
+          ),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.timeline_rounded,
+            accent: OpenHandStatusColors.success,
+            title: openHandLocalizedText(
+              context,
+              zh: '阶段状态',
+              zhHant: '階段狀態',
+              en: 'Phase Status',
+              fr: 'État des phases',
+              de: 'Phasenstatus',
+              ja: 'フェーズ状態',
+            ),
+            children: [
+              for (final log in logs)
+                OpenHandMetadataEntryRow(
+                  label: _heHarnessPhaseLabel(context, log.phase),
+                  value: () {
+                    final parts = <String>[
+                      harnessPhaseStatusLabel(context, log.status),
+                    ];
+                    if (log.exitCode != null) {
+                      parts.add(
+                        '${openHandLocalizedText(context, zh: '退出码', zhHant: '結束碼', en: 'Exit code', fr: 'Code de sortie', de: 'Exit-Code', ja: '終了コード')}: ${log.exitCode}',
+                      );
+                    }
+                    parts.add(
+                      '${openHandLocalizedText(context, zh: '日志行数', zhHant: '日誌行數', en: 'Log lines', fr: 'Lignes de journal', de: 'Logzeilen', ja: 'ログ行数')}: ${log.lines.length}',
+                    );
+                    if (log.savedLogPath?.isNotEmpty == true) {
+                      parts.add(
+                        '${openHandLocalizedText(context, zh: '日志文件', zhHant: '日誌檔案', en: 'Log file', fr: 'Fichier journal', de: 'Logdatei', ja: 'ログファイル')}: ${log.savedLogPath}',
+                      );
+                    }
+                    return parts.join(' · ');
+                  }(),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -182,117 +182,185 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
     };
   }
 
+  Color _steeringFolderAccent(ColorScheme colorScheme, String name) {
+    return switch (name) {
+      'meta' => OpenHandStatusColors.info,
+      'plan' => colorScheme.primary,
+      'feedback' => OpenHandStatusColors.warning,
+      'handoff' => colorScheme.tertiary,
+      'lesson' => OpenHandStatusColors.success,
+      'log' => colorScheme.secondary,
+      _ => colorScheme.primary,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthWide,
-      maxHeight: double.infinity,
-      maxHeightFraction: 0.80,
-      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Title row ──
-            Row(
-              children: [
-                Icon(
-                  Icons.folder_special_rounded,
-                  color: colorScheme.primary,
-                  size: 26,
-                ),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '资产文件浏览器',
-                      zhHant: '資產檔案瀏覽器',
-                      en: 'Steering Assets Browser',
-                      fr: 'Explorateur des ressources de pilotage',
-                      de: 'Steuerungsdatei-Browser',
-                      ja: 'ステアリング資産ブラウザー',
-                    ),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            kOpenHandGap12,
-
-            // ── Breadcrumb ──
-            _HeBreadcrumb(segments: _pathSegments, onNavigate: _navigateTo),
-            kOpenHandGap8,
-            const Divider(height: 1),
-
-            // ── File list ──
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: openHandMotionDuration(context, kOpenHandMotion220),
-                switchInCurve: kOpenHandSwitchInCurve,
-                switchOutCurve: kOpenHandSwitchOutCurve,
-                child: _loading
-                    ? const Center(
-                        key: ValueKey<String>('loading'),
-                        child: CircularProgressIndicator(),
-                      )
-                    : _entries.isEmpty
-                    ? OpenHandInlineEmptyState(
-                        key: ValueKey<String>(
-                          _directoryMissing ? 'missing' : 'empty',
-                        ),
-                        message: openHandLocalizedText(
-                          context,
-                          zh: _directoryMissing ? '资产目录尚未生成' : '此目录为空',
-                          zhHant: _directoryMissing ? '資產目錄尚未產生' : '此目錄為空',
-                          en: _directoryMissing
-                              ? 'The assets folder has not been generated yet'
-                              : 'This directory is empty',
-                          fr: _directoryMissing
-                              ? "Le dossier de ressources n'a pas encore été généré"
-                              : 'Ce dossier est vide',
-                          de: _directoryMissing
-                              ? 'Der Ressourcenordner wurde noch nicht erstellt'
-                              : 'Dieser Ordner ist leer',
-                          ja: _directoryMissing
-                              ? 'アセットフォルダーはまだ生成されていません'
-                              : 'このディレクトリは空です',
-                        ),
-                      )
-                    : ListView.separated(
-                        key: ValueKey<String>(
-                          'list-${_pathSegments.join('/')}',
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: _entries.length,
-                        separatorBuilder: (_, _) => kOpenHandGap2,
-                        itemBuilder: (ctx, i) {
-                          final entry = _entries[i];
-                          return _HeSteeringEntryTile(
-                            entry: entry,
-                            description:
-                                entry.isDirectory && _pathSegments.isEmpty
-                                ? _directoryDescription(context, entry.name)
-                                : null,
-                            onTap: () => _onEntryTap(entry),
-                          );
-                        },
-                      ),
-              ),
-            ),
-          ],
+    final emptyAccent = _directoryMissing
+        ? OpenHandStatusColors.warning
+        : OpenHandStatusColors.info;
+    return OpenHandEditorDialogScaffold(
+      title: openHandLocalizedText(
+        context,
+        zh: '资产文件浏览器',
+        zhHant: '資產檔案瀏覽器',
+        en: 'Steering Assets Browser',
+        fr: 'Explorateur des ressources de pilotage',
+        de: 'Steuerungsdatei-Browser',
+        ja: 'ステアリング資産ブラウザー',
+      ),
+      subtitle: _currentAbsolutePath,
+      icon: Icons.folder_special_rounded,
+      iconColor: colorScheme.primary,
+      scrollBody: false,
+      actions: [
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: openHandCloseLabel(context),
         ),
+      ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandTintedPanel(
+            accent: colorScheme.primary,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: _HeBreadcrumb(
+              segments: _pathSegments,
+              onNavigate: _navigateTo,
+            ),
+          ),
+          kOpenHandGap12,
+          Expanded(
+            child: OpenHandContentStateSwitcher(
+              animateSize: false,
+              alignment: Alignment.center,
+              stateKey: _loading
+                  ? 'loading'
+                  : _entries.isEmpty
+                  ? (_directoryMissing ? 'missing' : 'empty')
+                  : 'list-${_pathSegments.join('/')}',
+              child: _loading
+                  ? OpenHandTintedPanel(
+                      accent: colorScheme.primary,
+                      child: SizedBox(
+                        height: 180,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.8,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                              kOpenHandGap14,
+                              Text(
+                                openHandLocalizedText(
+                                  context,
+                                  zh: '正在扫描资产目录…',
+                                  zhHant: '正在掃描資產目錄…',
+                                  en: 'Scanning assets…',
+                                  fr: 'Analyse des ressources…',
+                                  de: 'Ressourcen werden gelesen…',
+                                  ja: 'アセットを読み込んでいます…',
+                                ),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : _entries.isEmpty
+                  ? Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        child: OpenHandTintedPanel(
+                          accent: emptyAccent,
+                          icon: _directoryMissing
+                              ? Icons.create_new_folder_outlined
+                              : Icons.folder_off_rounded,
+                          title: openHandLocalizedText(
+                            context,
+                            zh: _directoryMissing ? '尚未生成资产目录' : '此目录为空',
+                            zhHant: _directoryMissing ? '尚未產生資產目錄' : '此目錄為空',
+                            en: _directoryMissing
+                                ? 'Assets folder not generated'
+                                : 'This directory is empty',
+                            fr: _directoryMissing
+                                ? 'Dossier de ressources absent'
+                                : 'Ce dossier est vide',
+                            de: _directoryMissing
+                                ? 'Ressourcenordner fehlt'
+                                : 'Dieser Ordner ist leer',
+                            ja: _directoryMissing
+                                ? 'アセットフォルダー未生成'
+                                : 'このディレクトリは空です',
+                          ),
+                          child: Text(
+                            openHandLocalizedText(
+                              context,
+                              zh: _directoryMissing
+                                  ? '会话开始后会在 steering 目录写入阶段资产。当前路径还不存在。'
+                                  : '当前路径下没有可见文件。点按上方面包屑可返回上级目录。',
+                              zhHant: _directoryMissing
+                                  ? '會話開始後會在 steering 目錄寫入階段資產。目前路徑尚不存在。'
+                                  : '目前路徑下沒有可見檔案。點按上方麵包屑可返回上層目錄。',
+                              en: _directoryMissing
+                                  ? 'Phase assets will be written under steering after the session starts. This path does not exist yet.'
+                                  : 'No visible files in this path. Use the breadcrumb to go up.',
+                              fr: _directoryMissing
+                                  ? 'Les ressources de phase seront écrites dans steering après le démarrage. Ce chemin n’existe pas encore.'
+                                  : 'Aucun fichier visible. Utilisez le fil d’Ariane pour remonter.',
+                              de: _directoryMissing
+                                  ? 'Phasenressourcen werden nach Sitzungsstart unter steering geschrieben. Dieser Pfad existiert noch nicht.'
+                                  : 'Keine sichtbaren Dateien. Über die Pfadleiste eine Ebene höher gehen.',
+                              ja: _directoryMissing
+                                  ? 'セッション開始後に steering 配下へ成果物が書き込まれます。このパスはまだありません。'
+                                  : 'このパスに表示できるファイルはありません。パンくずで上の階層へ戻れます。',
+                            ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              height: 1.45,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      itemCount: _entries.length,
+                      separatorBuilder: (_, _) => kOpenHandGap8,
+                      itemBuilder: (ctx, i) {
+                        final entry = _entries[i];
+                        return _HeSteeringEntryTile(
+                          entry: entry,
+                          description:
+                              entry.isDirectory && _pathSegments.isEmpty
+                              ? _directoryDescription(context, entry.name)
+                              : null,
+                          accent: entry.isDirectory
+                              ? _steeringFolderAccent(colorScheme, entry.name)
+                              : _HeSteeringEntryTile.fileAccent(
+                                  colorScheme,
+                                  entry.name,
+                                ),
+                          onTap: () => _onEntryTap(entry),
+                        );
+                      },
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -371,42 +439,13 @@ class _HeBreadcrumb extends StatelessWidget {
     VoidCallback? onTap,
     bool isLast = false,
   }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Material(
-      color: isLast
-          ? colorScheme.primaryContainer
-          : colorScheme.surfaceContainerHighest,
-      borderRadius: _br8,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: _br8,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isLast
-                    ? colorScheme.onPrimaryContainer
-                    : colorScheme.onSurfaceVariant,
-              ),
-              kOpenHandHGap4,
-              Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: isLast ? FontWeight.w700 : FontWeight.w500,
-                  color: isLast
-                      ? colorScheme.onPrimaryContainer
-                      : colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    final colorScheme = Theme.of(context).colorScheme;
+    final tone = isLast ? colorScheme.primary : colorScheme.secondary;
+    return OhPill(
+      icon: icon,
+      label: label,
+      onTap: onTap,
+      foregroundColor: tone,
     );
   }
 }
@@ -416,11 +455,13 @@ class _HeBreadcrumb extends StatelessWidget {
 class _HeSteeringEntryTile extends StatelessWidget {
   const _HeSteeringEntryTile({
     required this.entry,
+    required this.accent,
     this.description,
     required this.onTap,
   });
 
   final _HeSteeringEntry entry;
+  final Color accent;
   final String? description;
   final VoidCallback onTap;
 
@@ -436,14 +477,14 @@ class _HeSteeringEntryTile extends StatelessWidget {
     };
   }
 
-  Color _iconColor(ColorScheme cs) {
-    if (entry.isDirectory) return cs.primary;
-    final ext = p.extension(entry.name).toLowerCase();
+  static Color fileAccent(ColorScheme cs, String name) {
+    final ext = p.extension(name).toLowerCase();
     return switch (ext) {
-      '.md' => cs.tertiary,
+      '.md' => OpenHandStatusColors.success,
       '.json' => cs.secondary,
-      '.log' => cs.onSurfaceVariant,
-      _ => cs.onSurfaceVariant,
+      '.log' => OpenHandStatusColors.warning,
+      '.yaml' || '.yml' => cs.tertiary,
+      _ => cs.primary,
     };
   }
 
@@ -451,69 +492,79 @@ class _HeSteeringEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: _br10,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Icon(_icon, size: 24, color: _iconColor(colorScheme)),
-              kOpenHandHGap12,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.name,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
+    return HoverLift(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: kOpenHandBorderRadius16,
+          child: OpenHandTintedPanel(
+            accent: accent,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.18),
+                    borderRadius: kOpenHandBorderRadius10,
+                  ),
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Center(child: Icon(_icon, size: 18, color: accent)),
+                  ),
+                ),
+                kOpenHandHGap12,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.name,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (description != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          description!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                      if (description != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            description!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ),
-              if (!entry.isDirectory && entry.size != null) ...[
-                kOpenHandHGap8,
-                Text(
-                  formatByteSize(entry.size!),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                    ],
                   ),
                 ),
-              ],
-              if (entry.modified != null) ...[
-                kOpenHandHGap12,
-                Text(
-                  formatYearMonthDayHm(entry.modified!),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                if (!entry.isDirectory && entry.size != null) ...[
+                  kOpenHandHGap8,
+                  OhPill(
+                    icon: Icons.sd_storage_outlined,
+                    label: formatByteSize(entry.size!),
+                    foregroundColor: accent,
                   ),
+                ],
+                if (entry.modified != null) ...[
+                  kOpenHandHGap8,
+                  OhPill(
+                    icon: Icons.schedule_rounded,
+                    label: formatYearMonthDayHm(entry.modified!),
+                    foregroundColor: colorScheme.onSurfaceVariant,
+                  ),
+                ],
+                kOpenHandHGap4,
+                Icon(
+                  entry.isDirectory
+                      ? Icons.chevron_right_rounded
+                      : Icons.open_in_new_rounded,
+                  size: 18,
+                  color: accent,
                 ),
               ],
-              kOpenHandHGap4,
-              Icon(
-                entry.isDirectory
-                    ? Icons.chevron_right_rounded
-                    : Icons.open_in_new_rounded,
-                size: 18,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -826,7 +877,11 @@ class _HeSteeringFileEditorDialogState
     final fileName = p.basename(widget.filePath);
     final isMarkdown = fileName.endsWith('.md');
 
-    return PopScope(
+    return OpenHandEditorDialogScaffold(
+      title: fileName,
+      subtitle: p.dirname(widget.filePath),
+      icon: Icons.edit_document,
+      iconColor: _dirty ? colorScheme.error : colorScheme.primary,
       canPop: !_dirty,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
@@ -834,220 +889,158 @@ class _HeSteeringFileEditorDialogState
           if (context.mounted) Navigator.of(context).pop();
         }
       },
-      child: buildOpenHandResponsiveDialogShell(
-        context: context,
-        maxWidth: kOpenHandDialogWidthPanel,
-        maxHeight: double.infinity,
-        maxHeightFraction: 0.88,
-        safeAreaMinimum: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 16,
+      scrollBody: false,
+      maxWidth: kOpenHandDialogWidthPanel,
+      maxHeight: kOpenHandDialogHeightFull,
+      busy: _saving,
+      headerActions: [
+        if (!_loading && _error == null)
+          ListenableBuilder(
+            listenable: _controller,
+            builder: (_, _) {
+              final t = _controller.text;
+              final words = countWhitespaceSeparatedWords(t);
+              return OhPill(
+                icon: Icons.text_fields_rounded,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '${t.length} 字符 · $words 词',
+                  zhHant: '${t.length} 字元 · $words 詞',
+                  en: '${t.length} chars · $words words',
+                  fr: '${t.length} car. · $words mots',
+                  de: '${t.length} Zeichen · $words Wörter',
+                  ja: '${t.length} 文字 · $words 語',
+                ),
+                foregroundColor: colorScheme.tertiary,
+              );
+            },
+          ),
+        if (_dirty)
+          OhPill(
+            icon: Icons.edit_rounded,
+            label: openHandLocalizedText(
+              context,
+              zh: '未保存',
+              zhHant: '未儲存',
+              en: 'Unsaved',
+              fr: 'Non enregistré',
+              de: 'Ungespeichert',
+              ja: '未保存',
+            ),
+            foregroundColor: colorScheme.error,
+          ),
+        if (isMarkdown)
+          IconButton(
+            tooltip: _showPreview
+                ? openHandLocalizedText(
+                    context,
+                    zh: '隐藏预览',
+                    zhHant: '隱藏預覽',
+                    en: 'Hide preview',
+                    fr: 'Masquer l’aperçu',
+                    de: 'Vorschau ausblenden',
+                    ja: 'プレビューを非表示',
+                  )
+                : openHandLocalizedText(
+                    context,
+                    zh: '显示预览',
+                    zhHant: '顯示預覽',
+                    en: 'Show preview',
+                    fr: 'Afficher l’aperçu',
+                    de: 'Vorschau anzeigen',
+                    ja: 'プレビューを表示',
+                  ),
+            onPressed: () => setState(() => _showPreview = !_showPreview),
+            icon: Icon(
+              _showPreview
+                  ? Icons.visibility_off_rounded
+                  : Icons.visibility_rounded,
+              size: 20,
+            ),
+          ),
+      ],
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () async {
+            if (await _confirmDiscard()) {
+              if (context.mounted) Navigator.of(context).pop();
+            }
+          },
+          label: openHandCloseLabel(context),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Title row ──
-              Row(
-                children: [
-                  Icon(
-                    Icons.edit_document,
-                    size: 22,
-                    color: colorScheme.primary,
-                  ),
-                  kOpenHandHGap8,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          fileName,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          p.dirname(widget.filePath),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isMarkdown)
-                    IconButton(
-                      tooltip: _showPreview
-                          ? openHandLocalizedText(
-                              context,
-                              zh: '隐藏预览',
-                              zhHant: '隱藏預覽',
-                              en: 'Hide preview',
-                              fr: 'Masquer l’aperçu',
-                              de: 'Vorschau ausblenden',
-                              ja: 'プレビューを非表示',
-                            )
-                          : openHandLocalizedText(
-                              context,
-                              zh: '显示预览',
-                              zhHant: '顯示預覽',
-                              en: 'Show preview',
-                              fr: 'Afficher l’aperçu',
-                              de: 'Vorschau anzeigen',
-                              ja: 'プレビューを表示',
-                            ),
-                      onPressed: () =>
-                          setState(() => _showPreview = !_showPreview),
-                      icon: Icon(
-                        _showPreview
-                            ? Icons.visibility_off_rounded
-                            : Icons.visibility_rounded,
-                        size: 20,
+        OpenHandDialogActionButton.primary(
+          onPressed: _dirty && !_saving ? _save : null,
+          icon: Icons.save_rounded,
+          busy: _saving,
+          label: openHandSaveLabel(context),
+        ),
+      ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Markdown toolbar ──
+          if (isMarkdown && !_loading && _error == null) ...[
+            _buildToolbar(context, theme, colorScheme),
+            kOpenHandGap6,
+          ],
+
+          // ── Body ──
+          Expanded(
+            child: OpenHandContentStateSwitcher(
+              animateSize: false,
+              alignment: Alignment.center,
+              stateKey: _loading
+                  ? 'loading'
+                  : _error != null
+                  ? 'error'
+                  : isMarkdown && _showPreview
+                  ? 'split'
+                  : 'editor',
+              child: _loading
+                  ? OpenHandTintedPanel(
+                      accent: colorScheme.primary,
+                      child: const SizedBox(
+                        height: 180,
+                        child: Center(child: CircularProgressIndicator()),
                       ),
-                    ),
-                  kOpenHandHGap4,
-                  IconButton(
-                    onPressed: () async {
-                      if (await _confirmDiscard()) {
-                        if (context.mounted) Navigator.of(context).pop();
-                      }
-                    },
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              kOpenHandGap10,
-              const Divider(height: 1),
-              kOpenHandGap6,
-
-              // ── Markdown toolbar ──
-              if (isMarkdown && !_loading && _error == null) ...[
-                _buildToolbar(context, theme, colorScheme),
-                kOpenHandGap6,
-              ],
-
-              // ── Body ──
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: openHandMotionDuration(context, kOpenHandMotion220),
-                  switchInCurve: kOpenHandSwitchInCurve,
-                  switchOutCurve: kOpenHandSwitchOutCurve,
-                  child: _loading
-                      ? const Center(
-                          key: ValueKey<String>('loading'),
-                          child: CircularProgressIndicator(),
-                        )
-                      : _error != null
-                      ? Center(
-                          key: const ValueKey<String>('error'),
-                          child: SelectableText(
-                            _error!,
-                            style: TextStyle(color: colorScheme.error),
-                          ),
-                        )
-                      : isMarkdown && _showPreview
-                      ? Row(
-                          key: const ValueKey<String>('split'),
-                          children: [
-                            Expanded(
-                              child: _buildEditorPane(
-                                context,
-                                theme,
-                                colorScheme,
-                              ),
-                            ),
-                            kOpenHandHGap10,
-                            VerticalDivider(
-                              width: 1,
-                              color: colorScheme.outlineVariant,
-                            ),
-                            kOpenHandHGap10,
-                            Expanded(
-                              child: _buildPreviewPane(
-                                context,
-                                theme,
-                                colorScheme,
-                              ),
-                            ),
-                          ],
-                        )
-                      : KeyedSubtree(
-                          key: const ValueKey<String>('editor'),
+                    )
+                  : _error != null
+                  ? OpenHandTintedPanel(
+                      accent: colorScheme.error,
+                      icon: Icons.error_outline_rounded,
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '无法读取文件',
+                        zhHant: '無法讀取檔案',
+                        en: 'Unable to read file',
+                        fr: 'Lecture impossible',
+                        de: 'Datei nicht lesbar',
+                        ja: 'ファイルを読めません',
+                      ),
+                      child: SelectableText(
+                        _error!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          height: 1.4,
+                        ),
+                      ),
+                    )
+                  : isMarkdown && _showPreview
+                  ? Row(
+                      children: [
+                        Expanded(
                           child: _buildEditorPane(context, theme, colorScheme),
                         ),
-                ),
-              ),
-              kOpenHandGap8,
-              const Divider(height: 1),
-              kOpenHandGap10,
-
-              // ── Action row ──
-              Row(
-                children: [
-                  if (!_loading && _error == null)
-                    ListenableBuilder(
-                      listenable: _controller,
-                      builder: (_, _) {
-                        final t = _controller.text;
-                        final words = countWhitespaceSeparatedWords(t);
-                        return Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '${t.length} 字符  $words 词',
-                            zhHant: '${t.length} 字元  $words 詞',
-                            en: '${t.length} chars  $words words',
-                            fr: '${t.length} car.  $words mots',
-                            de: '${t.length} Zeichen  $words Wörter',
-                            ja: '${t.length} 文字  $words 語',
-                          ),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        );
-                      },
-                    ),
-                  const Spacer(),
-                  if (_dirty)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '有未保存的更改',
-                          zhHant: '有未儲存的變更',
-                          en: 'Unsaved changes',
-                          fr: 'Modifications non enregistrées',
-                          de: 'Ungespeicherte Änderungen',
-                          ja: '未保存の変更があります',
+                        kOpenHandHGap10,
+                        Expanded(
+                          child: _buildPreviewPane(context, theme, colorScheme),
                         ),
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: colorScheme.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () async {
-                      if (await _confirmDiscard()) {
-                        if (context.mounted) Navigator.of(context).pop();
-                      }
-                    },
-                    label: openHandCloseLabel(context),
-                  ),
-                  kOpenHandHGap8,
-                  OpenHandDialogActionButton.primary(
-                    onPressed: _dirty && !_saving ? _save : null,
-                    icon: Icons.save_rounded,
-                    busy: _saving,
-                    label: openHandSaveLabel(context),
-                  ),
-                ],
-              ),
-            ],
+                      ],
+                    )
+                  : _buildEditorPane(context, theme, colorScheme),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1064,159 +1057,158 @@ class _HeSteeringFileEditorDialogState
         child: VerticalDivider(width: 1, color: colorScheme.outlineVariant),
       ),
     );
-    return Container(
-      height: 38,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: _br8,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _MdToolbarBtn(
-              label: 'H₁',
-              tooltip: openHandHeading1Label(context),
-              onTap: () => _applyHeading(1),
-            ),
-            _MdToolbarBtn(
-              label: 'H₂',
-              tooltip: openHandHeading2Label(context),
-              onTap: () => _applyHeading(2),
-            ),
-            _MdToolbarBtn(
-              label: 'H₃',
-              tooltip: openHandHeading3Label(context),
-              onTap: () => _applyHeading(3),
-            ),
-            sep,
-            _MdToolbarBtn(
-              icon: Icons.format_bold,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '粗体 **text**',
-                zhHant: '粗體 **text**',
-                en: 'Bold **text**',
-                fr: 'Gras **text**',
-                de: 'Fett **text**',
-                ja: '太字 **text**',
+    return OpenHandTintedPanel(
+      accent: colorScheme.primary,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: SizedBox(
+        height: 38,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _MdToolbarBtn(
+                label: 'H₁',
+                tooltip: openHandHeading1Label(context),
+                onTap: () => _applyHeading(1),
               ),
-              onTap: _applyBold,
-            ),
-            _MdToolbarBtn(
-              icon: Icons.format_italic,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '斜体 *text*',
-                zhHant: '斜體 *text*',
-                en: 'Italic *text*',
-                fr: 'Italique *text*',
-                de: 'Kursiv *text*',
-                ja: '斜体 *text*',
+              _MdToolbarBtn(
+                label: 'H₂',
+                tooltip: openHandHeading2Label(context),
+                onTap: () => _applyHeading(2),
               ),
-              onTap: _applyItalic,
-            ),
-            _MdToolbarBtn(
-              icon: Icons.format_strikethrough,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '删除线 ~~text~~',
-                zhHant: '刪除線 ~~text~~',
-                en: 'Strikethrough ~~text~~',
-                fr: 'Barré ~~text~~',
-                de: 'Durchgestrichen ~~text~~',
-                ja: '取り消し線 ~~text~~',
+              _MdToolbarBtn(
+                label: 'H₃',
+                tooltip: openHandHeading3Label(context),
+                onTap: () => _applyHeading(3),
               ),
-              onTap: _applyStrikethrough,
-            ),
-            _MdToolbarBtn(
-              icon: Icons.code,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '内联代码 `code`',
-                zhHant: '行內程式碼 `code`',
-                en: 'Inline code `code`',
-                fr: 'Code inline `code`',
-                de: 'Inline-Code `code`',
-                ja: 'インラインコード `code`',
+              sep,
+              _MdToolbarBtn(
+                icon: Icons.format_bold,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '粗体 **text**',
+                  zhHant: '粗體 **text**',
+                  en: 'Bold **text**',
+                  fr: 'Gras **text**',
+                  de: 'Fett **text**',
+                  ja: '太字 **text**',
+                ),
+                onTap: _applyBold,
               ),
-              onTap: _applyInlineCode,
-            ),
-            sep,
-            _MdToolbarBtn(
-              icon: Icons.data_object_rounded,
-              tooltip: openHandCodeBlockLabel(context),
-              onTap: _applyCodeBlock,
-            ),
-            _MdToolbarBtn(
-              icon: Icons.format_quote_rounded,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '引用块 > text',
-                zhHant: '引用區塊 > text',
-                en: 'Blockquote > text',
-                fr: 'Citation > text',
-                de: 'Zitatblock > text',
-                ja: '引用ブロック > text',
+              _MdToolbarBtn(
+                icon: Icons.format_italic,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '斜体 *text*',
+                  zhHant: '斜體 *text*',
+                  en: 'Italic *text*',
+                  fr: 'Italique *text*',
+                  de: 'Kursiv *text*',
+                  ja: '斜体 *text*',
+                ),
+                onTap: _applyItalic,
               ),
-              onTap: _applyBlockquote,
-            ),
-            sep,
-            _MdToolbarBtn(
-              icon: Icons.format_list_bulleted,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '无序列表 - item',
-                zhHant: '無序列表 - item',
-                en: 'Bullet list - item',
-                fr: 'Liste à puces - item',
-                de: 'Aufzählung - item',
-                ja: '箇条書き - item',
+              _MdToolbarBtn(
+                icon: Icons.format_strikethrough,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '删除线 ~~text~~',
+                  zhHant: '刪除線 ~~text~~',
+                  en: 'Strikethrough ~~text~~',
+                  fr: 'Barré ~~text~~',
+                  de: 'Durchgestrichen ~~text~~',
+                  ja: '取り消し線 ~~text~~',
+                ),
+                onTap: _applyStrikethrough,
               ),
-              onTap: _applyBulletList,
-            ),
-            _MdToolbarBtn(
-              icon: Icons.format_list_numbered,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '有序列表 1. item',
-                zhHant: '有序列表 1. item',
-                en: 'Ordered list 1. item',
-                fr: 'Liste numérotée 1. item',
-                de: 'Nummerierte Liste 1. item',
-                ja: '番号付きリスト 1. item',
+              _MdToolbarBtn(
+                icon: Icons.code,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '内联代码 `code`',
+                  zhHant: '行內程式碼 `code`',
+                  en: 'Inline code `code`',
+                  fr: 'Code inline `code`',
+                  de: 'Inline-Code `code`',
+                  ja: 'インラインコード `code`',
+                ),
+                onTap: _applyInlineCode,
               ),
-              onTap: _applyOrderedList,
-            ),
-            sep,
-            _MdToolbarBtn(
-              icon: Icons.link_rounded,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '插入链接 [text](url)',
-                zhHant: '插入連結 [text](url)',
-                en: 'Insert link [text](url)',
-                fr: 'Insérer un lien [text](url)',
-                de: 'Link einfügen [text](url)',
-                ja: 'リンクを挿入 [text](url)',
+              sep,
+              _MdToolbarBtn(
+                icon: Icons.data_object_rounded,
+                tooltip: openHandCodeBlockLabel(context),
+                onTap: _applyCodeBlock,
               ),
-              onTap: _insertLink,
-            ),
-            _MdToolbarBtn(
-              icon: Icons.horizontal_rule_rounded,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '分隔线 ---',
-                zhHant: '分隔線 ---',
-                en: 'Horizontal rule ---',
-                fr: 'Séparateur ---',
-                de: 'Trennlinie ---',
-                ja: '水平線 ---',
+              _MdToolbarBtn(
+                icon: Icons.format_quote_rounded,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '引用块 > text',
+                  zhHant: '引用區塊 > text',
+                  en: 'Blockquote > text',
+                  fr: 'Citation > text',
+                  de: 'Zitatblock > text',
+                  ja: '引用ブロック > text',
+                ),
+                onTap: _applyBlockquote,
               ),
-              onTap: _insertHR,
-            ),
-          ],
+              sep,
+              _MdToolbarBtn(
+                icon: Icons.format_list_bulleted,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '无序列表 - item',
+                  zhHant: '無序列表 - item',
+                  en: 'Bullet list - item',
+                  fr: 'Liste à puces - item',
+                  de: 'Aufzählung - item',
+                  ja: '箇条書き - item',
+                ),
+                onTap: _applyBulletList,
+              ),
+              _MdToolbarBtn(
+                icon: Icons.format_list_numbered,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '有序列表 1. item',
+                  zhHant: '有序列表 1. item',
+                  en: 'Ordered list 1. item',
+                  fr: 'Liste numérotée 1. item',
+                  de: 'Nummerierte Liste 1. item',
+                  ja: '番号付きリスト 1. item',
+                ),
+                onTap: _applyOrderedList,
+              ),
+              sep,
+              _MdToolbarBtn(
+                icon: Icons.link_rounded,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '插入链接 [text](url)',
+                  zhHant: '插入連結 [text](url)',
+                  en: 'Insert link [text](url)',
+                  fr: 'Insérer un lien [text](url)',
+                  de: 'Link einfügen [text](url)',
+                  ja: 'リンクを挿入 [text](url)',
+                ),
+                onTap: _insertLink,
+              ),
+              _MdToolbarBtn(
+                icon: Icons.horizontal_rule_rounded,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '分隔线 ---',
+                  zhHant: '分隔線 ---',
+                  en: 'Horizontal rule ---',
+                  fr: 'Séparateur ---',
+                  de: 'Trennlinie ---',
+                  ja: '水平線 ---',
+                ),
+                onTap: _insertHR,
+              ),
+            ],
+          ),
         ),
       ),
     );

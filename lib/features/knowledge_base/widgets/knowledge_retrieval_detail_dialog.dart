@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -46,193 +50,34 @@ class _KnowledgeRetrievalDetailDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final kb =
         KnowledgeMessageMetadata.fromMessageMetadata(metadata) ??
         const <String, Object?>{};
     final results = stringKeyedMapListFromValue(kb['results']);
     final rerank = stringKeyedMapFromValue(kb['rerank']);
+    final embedding = stringKeyedMapFromValue(kb['embedding']);
+    final retrieval = stringKeyedMapFromValue(kb['retrieval']);
+    final promptAppend = stringKeyedMapFromValue(kb['prompt_append']);
     final distribution = KnowledgeMessageMetadata.vectorDistribution(metadata);
-    return buildOpenHandAlertDialog(
-      title: Text(
-        openHandLocalizedText(
-          context,
-          zh: '引用知识库详情',
-          zhHant: '引用知識庫詳情',
-          en: 'Knowledge Base References',
-          fr: 'Références de la base de connaissances',
-          de: 'Wissensdatenbank-Referenzen',
-          ja: 'ナレッジベース参照',
-        ),
+    final statusText = knowledgeDialogValue(kb['status']);
+    final queryText = knowledgeDialogValue(kb['query']);
+    final errorText = knowledgeDialogValue(kb['error']);
+    final statusAccent = _retrievalStatusAccent(statusText, colorScheme);
+    return OpenHandEditorDialogScaffold(
+      title: openHandLocalizedText(
+        context,
+        zh: '引用知识库详情',
+        zhHant: '引用知識庫詳情',
+        en: 'Knowledge Base References',
+        fr: 'Références de la base de connaissances',
+        de: 'Wissensdatenbank-Referenzen',
+        ja: 'ナレッジベース参照',
       ),
-      content: buildOpenHandDialogConstrainedContent(
-        width: 820,
-        maxHeight: MediaQuery.sizeOf(context).height * 0.80,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '总览',
-                  zhHant: '總覽',
-                  en: 'Overview',
-                  fr: 'Vue d’ensemble',
-                  de: 'Übersicht',
-                  ja: '概要',
-                ),
-                icon: Icons.fact_check_outlined,
-                child: KnowledgeDialogKeyValueList(
-                  rows: {
-                    knowledgeStatusLabel(context): kb['status'],
-                    knowledgeQueryLabel(context): kb['query'],
-                    knowledgeErrorLabel(context): kb['error'],
-                  },
-                ),
-              ),
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '嵌入',
-                  zhHant: '嵌入',
-                  en: 'Embedding',
-                  fr: 'Embedding',
-                  de: 'Embedding',
-                  ja: '埋め込み',
-                ),
-                icon: Icons.hub_outlined,
-                child: KnowledgeDialogKeyValueList(
-                  rows: _localizedRows(
-                    context,
-                    stringKeyedMapFromValue(kb['embedding']),
-                  ),
-                ),
-              ),
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '检索参数',
-                  zhHant: '檢索參數',
-                  en: 'Retrieval Parameters',
-                  fr: 'Paramètres de recherche',
-                  de: 'Abrufparameter',
-                  ja: '検索パラメータ',
-                ),
-                icon: Icons.manage_search_rounded,
-                child: KnowledgeDialogKeyValueList(
-                  rows: _localizedRows(
-                    context,
-                    stringKeyedMapFromValue(kb['retrieval']),
-                  ),
-                ),
-              ),
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: 'Prompt 追加',
-                  zhHant: 'Prompt 追加',
-                  en: 'Prompt Append',
-                  fr: 'Ajout au prompt',
-                  de: 'Prompt-Anhang',
-                  ja: 'Prompt 追加',
-                ),
-                icon: Icons.post_add_outlined,
-                child: KnowledgeDialogKeyValueList(
-                  rows: _localizedRows(
-                    context,
-                    stringKeyedMapFromValue(kb['prompt_append']),
-                  ),
-                ),
-              ),
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '重排序',
-                  zhHant: '重排序',
-                  en: 'Rerank',
-                  fr: 'Reclassement',
-                  de: 'Reranking',
-                  ja: '再ランク',
-                ),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: '展示召回后如何打分、排序、保留与舍弃分块。',
-                  zhHant: '展示召回後如何打分、排序、保留與捨棄分塊。',
-                  en: 'Shows how recalled chunks were scored, reordered, kept, or discarded.',
-                  fr: 'Affiche comment les fragments rappelés ont été notés, réordonnés, conservés ou ignorés.',
-                  de: 'Zeigt, wie abgerufene Abschnitte bewertet, neu sortiert, behalten oder verworfen wurden.',
-                  ja: '取得したチャンクのスコア付け、並べ替え、保持、破棄を表示します。',
-                ),
-                icon: Icons.swap_vert_rounded,
-                child: rerank.isEmpty
-                    ? KnowledgeDialogNotice(
-                        icon: Icons.info_outline_rounded,
-                        message: openHandLocalizedText(
-                          context,
-                          zh: '本次消息没有记录重排序细节。',
-                          zhHant: '本次訊息沒有記錄重排序細節。',
-                          en: 'No rerank details were recorded for this message.',
-                          fr: 'Aucun détail de reclassement n’a été enregistré pour ce message.',
-                          de: 'Für diese Nachricht wurden keine Reranking-Details aufgezeichnet.',
-                          ja: 'このメッセージには再ランクの詳細が記録されていません。',
-                        ),
-                      )
-                    : KnowledgeDialogKeyValueList(
-                        rows: _localizedRows(context, rerank),
-                      ),
-              ),
-              if (distribution != null)
-                _KnowledgeRetrievalVectorSpaceSection(
-                  distribution: distribution,
-                ),
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '命中分块 (${results.length})',
-                  zhHant: '命中分塊 (${results.length})',
-                  en: 'Hit chunks (${results.length})',
-                  fr: 'Fragments trouvés (${results.length})',
-                  de: 'Trefferabschnitte (${results.length})',
-                  ja: 'ヒットチャンク (${results.length})',
-                ),
-                icon: Icons.article_outlined,
-                child: results.isEmpty
-                    ? KnowledgeDialogNotice(
-                        icon: Icons.info_outline_rounded,
-                        message: openHandLocalizedText(
-                          context,
-                          zh: '没有命中 chunk。',
-                          zhHant: '沒有命中 chunk。',
-                          en: 'No hit chunks.',
-                          fr: 'Aucun fragment trouvé.',
-                          de: 'Keine Trefferabschnitte.',
-                          ja: 'ヒットしたチャンクはありません。',
-                        ),
-                      )
-                    : Column(
-                        children: [
-                          for (final hit in results) _HitTile(hit: hit),
-                        ],
-                      ),
-              ),
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '实际追加给模型的上下文',
-                  zhHant: '實際追加給模型的上下文',
-                  en: 'Actual appended context',
-                  fr: 'Contexte réellement ajouté',
-                  de: 'Tatsächlich angehängter Kontext',
-                  ja: '実際にモデルへ追加されたコンテキスト',
-                ),
-                icon: Icons.notes_rounded,
-                margin: EdgeInsets.zero,
-                child: _KnowledgePromptAppendContextBox(metadata: kb),
-              ),
-            ],
-          ),
-        ),
-      ),
+      subtitle: queryText == '-' ? null : queryText,
+      icon: Icons.menu_book_rounded,
+      iconColor: statusAccent,
+      maxHeight: kOpenHandDialogHeightFull,
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () async {
@@ -268,17 +113,240 @@ class _KnowledgeRetrievalDetailDialog extends StatelessWidget {
           label: openHandCloseLabel(context),
         ),
       ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: '总览',
+              zhHant: '總覽',
+              en: 'Overview',
+              fr: 'Vue d’ensemble',
+              de: 'Übersicht',
+              ja: '概要',
+            ),
+            icon: Icons.fact_check_outlined,
+            accent: statusAccent,
+            trailing: OpenHandStatusPill(
+              icon: statusAccent == OpenHandStatusColors.error
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_outline_rounded,
+              label: statusText,
+              color: statusAccent,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OpenHandTintedPanel(
+                  accent: OpenHandStatusColors.info,
+                  icon: Icons.search_rounded,
+                  title: knowledgeQueryLabel(context),
+                  child: SelectableText(
+                    queryText,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(height: 1.4),
+                  ),
+                ),
+                if (errorText != '-') ...[
+                  kOpenHandGap10,
+                  KnowledgeDialogNotice(
+                    icon: Icons.error_outline_rounded,
+                    message: errorText,
+                    tone: KnowledgeDialogNoticeTone.error,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: '嵌入',
+              zhHant: '嵌入',
+              en: 'Embedding',
+              fr: 'Embedding',
+              de: 'Embedding',
+              ja: '埋め込み',
+            ),
+            icon: Icons.hub_outlined,
+            accent: colorScheme.tertiary,
+            child: _KnowledgeRetrievalMapBody(
+              rows: embedding,
+              labelOf: (key) => _metadataLabel(context, key),
+              accent: colorScheme.tertiary,
+              metricKeys: const {'dimensions', 'duration_ms', 'model_id'},
+              metricIcons: const {
+                'dimensions': Icons.straighten_rounded,
+                'duration_ms': Icons.timer_outlined,
+                'model_id': Icons.memory_rounded,
+              },
+            ),
+          ),
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: '检索参数',
+              zhHant: '檢索參數',
+              en: 'Retrieval Parameters',
+              fr: 'Paramètres de recherche',
+              de: 'Abrufparameter',
+              ja: '検索パラメータ',
+            ),
+            icon: Icons.manage_search_rounded,
+            accent: OpenHandStatusColors.info,
+            child: _KnowledgeRetrievalMapBody(
+              rows: retrieval,
+              labelOf: (key) => _metadataLabel(context, key),
+              accent: OpenHandStatusColors.info,
+              metricKeys: const {
+                'duration_ms',
+                'top_n',
+                'top_k',
+                'min_similarity',
+              },
+              metricIcons: const {
+                'duration_ms': Icons.timer_outlined,
+                'top_n': Icons.filter_alt_outlined,
+                'top_k': Icons.star_outline_rounded,
+                'min_similarity': Icons.tune_rounded,
+              },
+            ),
+          ),
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: 'Prompt 追加',
+              zhHant: 'Prompt 追加',
+              en: 'Prompt Append',
+              fr: 'Ajout au prompt',
+              de: 'Prompt-Anhang',
+              ja: 'Prompt 追加',
+            ),
+            icon: Icons.post_add_outlined,
+            accent: OpenHandStatusColors.success,
+            child: _KnowledgeRetrievalMapBody(
+              rows: promptAppend,
+              labelOf: (key) => _metadataLabel(context, key),
+              accent: OpenHandStatusColors.success,
+              metricKeys: const {'chunk_count', 'token_estimate'},
+              metricIcons: const {
+                'chunk_count': Icons.article_outlined,
+                'token_estimate': Icons.data_usage_rounded,
+              },
+            ),
+          ),
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: '重排序',
+              zhHant: '重排序',
+              en: 'Rerank',
+              fr: 'Reclassement',
+              de: 'Reranking',
+              ja: '再ランク',
+            ),
+            subtitle: openHandLocalizedText(
+              context,
+              zh: '展示召回后如何打分、排序、保留与舍弃分块。',
+              zhHant: '展示召回後如何打分、排序、保留與捨棄分塊。',
+              en: 'Shows how recalled chunks were scored, reordered, kept, or discarded.',
+              fr: 'Affiche comment les fragments rappelés ont été notés, réordonnés, conservés ou ignorés.',
+              de: 'Zeigt, wie abgerufene Abschnitte bewertet, neu sortiert, behalten oder verworfen wurden.',
+              ja: '取得したチャンクのスコア付け、並べ替え、保持、破棄を表示します。',
+            ),
+            icon: Icons.swap_vert_rounded,
+            accent: OpenHandStatusColors.warning,
+            child: rerank.isEmpty
+                ? KnowledgeDialogNotice(
+                    icon: Icons.info_outline_rounded,
+                    message: openHandLocalizedText(
+                      context,
+                      zh: '本次消息没有记录重排序细节。',
+                      zhHant: '本次訊息沒有記錄重排序細節。',
+                      en: 'No rerank details were recorded for this message.',
+                      fr: 'Aucun détail de reclassement n’a été enregistré pour ce message.',
+                      de: 'Für diese Nachricht wurden keine Reranking-Details aufgezeichnet.',
+                      ja: 'このメッセージには再ランクの詳細が記録されていません。',
+                    ),
+                  )
+                : _KnowledgeRetrievalMapBody(
+                    rows: rerank,
+                    labelOf: (key) => _metadataLabel(context, key),
+                    accent: OpenHandStatusColors.warning,
+                    metricKeys: const {
+                      'candidate_count',
+                      'rerank_input_count',
+                      'rerank_output_count',
+                      'kept_count',
+                      'discarded_count',
+                      'duration_ms',
+                    },
+                    metricIcons: const {
+                      'candidate_count': Icons.layers_rounded,
+                      'rerank_input_count': Icons.login_rounded,
+                      'rerank_output_count': Icons.logout_rounded,
+                      'kept_count': Icons.check_circle_outline_rounded,
+                      'discarded_count': Icons.remove_circle_outline_rounded,
+                      'duration_ms': Icons.timer_outlined,
+                    },
+                  ),
+          ),
+          if (distribution != null)
+            _KnowledgeRetrievalVectorSpaceSection(distribution: distribution),
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: '命中分块 (${results.length})',
+              zhHant: '命中分塊 (${results.length})',
+              en: 'Hit chunks (${results.length})',
+              fr: 'Fragments trouvés (${results.length})',
+              de: 'Trefferabschnitte (${results.length})',
+              ja: 'ヒットチャンク (${results.length})',
+            ),
+            icon: Icons.article_outlined,
+            accent: colorScheme.secondary,
+            trailing: OhPill(
+              icon: Icons.layers_rounded,
+              label: '${results.length}',
+              foregroundColor: colorScheme.secondary,
+            ),
+            child: results.isEmpty
+                ? KnowledgeDialogNotice(
+                    icon: Icons.info_outline_rounded,
+                    message: openHandLocalizedText(
+                      context,
+                      zh: '没有命中 chunk。',
+                      zhHant: '沒有命中 chunk。',
+                      en: 'No hit chunks.',
+                      fr: 'Aucun fragment trouvé.',
+                      de: 'Keine Trefferabschnitte.',
+                      ja: 'ヒットしたチャンクはありません。',
+                    ),
+                  )
+                : Column(
+                    children: [for (final hit in results) _HitTile(hit: hit)],
+                  ),
+          ),
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: '实际追加给模型的上下文',
+              zhHant: '實際追加給模型的上下文',
+              en: 'Actual appended context',
+              fr: 'Contexte réellement ajouté',
+              de: 'Tatsächlich angehängter Kontext',
+              ja: '実際にモデルへ追加されたコンテキスト',
+            ),
+            icon: Icons.notes_rounded,
+            accent: OpenHandStatusColors.caution,
+            margin: EdgeInsets.zero,
+            child: _KnowledgePromptAppendContextBox(metadata: kb),
+          ),
+        ],
+      ),
     );
-  }
-
-  Map<String, Object?> _localizedRows(
-    BuildContext context,
-    Map<String, Object?> rows,
-  ) {
-    return <String, Object?>{
-      for (final entry in rows.entries)
-        _metadataLabel(context, entry.key): entry.value,
-    };
   }
 
   String _metadataLabel(BuildContext context, String key) {
@@ -415,6 +483,75 @@ class _KnowledgeRetrievalDetailDialog extends StatelessWidget {
       ),
       _ => key,
     };
+  }
+}
+
+Color _retrievalStatusAccent(String status, ColorScheme colorScheme) {
+  return switch (status.trim().toLowerCase()) {
+    'success' || 'ok' || 'ready' => OpenHandStatusColors.success,
+    'error' || 'failed' || 'unhealthy' => OpenHandStatusColors.error,
+    'partial' || 'warning' => OpenHandStatusColors.warning,
+    'pending' || 'running' => OpenHandStatusColors.info,
+    _ => colorScheme.primary,
+  };
+}
+
+class _KnowledgeRetrievalMapBody extends StatelessWidget {
+  const _KnowledgeRetrievalMapBody({
+    required this.rows,
+    required this.labelOf,
+    required this.accent,
+    required this.metricKeys,
+    required this.metricIcons,
+  });
+
+  final Map<String, Object?> rows;
+  final String Function(String key) labelOf;
+  final Color accent;
+  final Set<String> metricKeys;
+  final Map<String, IconData> metricIcons;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return KnowledgeDialogNotice(
+        icon: Icons.info_outline_rounded,
+        message: openHandLocalizedText(
+          context,
+          zh: '没有记录该分区的元数据。',
+          zhHant: '沒有記錄該分區的元資料。',
+          en: 'No metadata was recorded for this section.',
+          fr: 'Aucune métadonnée n’a été enregistrée pour cette section.',
+          de: 'Für diesen Abschnitt wurden keine Metadaten aufgezeichnet.',
+          ja: 'この区画のメタデータは記録されていません。',
+        ),
+      );
+    }
+    final metrics = <KnowledgeDialogMetric>[];
+    final rest = <String, Object?>{};
+    for (final entry in rows.entries) {
+      if (metricKeys.contains(entry.key) &&
+          knowledgeDialogValue(entry.value) != '-') {
+        metrics.add(
+          KnowledgeDialogMetric(
+            icon: metricIcons[entry.key] ?? Icons.insights_rounded,
+            label: labelOf(entry.key),
+            value: knowledgeDialogValue(entry.value),
+            accent: accent,
+          ),
+        );
+      } else {
+        rest[labelOf(entry.key)] = entry.value;
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (metrics.isNotEmpty) KnowledgeDialogMetricGrid(items: metrics),
+        if (metrics.isNotEmpty && rest.isNotEmpty) kOpenHandGap12,
+        if (rest.isNotEmpty) KnowledgeDialogKeyValueList(rows: rest),
+      ],
+    );
   }
 }
 
@@ -585,96 +722,92 @@ class _HitTile extends StatelessWidget {
     final path = '${hit['path'] ?? ''}'.trim();
     final preview = '${hit['preview'] ?? ''}'.trim();
     final documentTimeLabel = _formatKnowledgeDateTime(hit['document_time']);
+    const accent = OpenHandStatusColors.success;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.76),
-        borderRadius: kOpenHandBorderRadius12,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => _showKnowledgeRetrievalHitDetailDialog(context, hit),
-          child: Ink(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: kOpenHandBorderRadius12,
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.48),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title.trim().isEmpty
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '知识库命中',
-                          zhHant: '知識庫命中',
-                          en: 'KB hit',
-                          fr: 'Résultat KB',
-                          de: 'KB-Treffer',
-                          ja: 'KB ヒット',
-                        )
-                      : title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    height: 1.25,
-                  ),
-                ),
-                if (path.isNotEmpty) ...[
-                  kOpenHandGap6,
+      child: HoverLift(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _showKnowledgeRetrievalHitDetailDialog(context, hit),
+            borderRadius: kOpenHandBorderRadius16,
+            child: OpenHandTintedPanel(
+              accent: accent,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    path,
-                    maxLines: 1,
+                    title.trim().isEmpty
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '知识库命中',
+                            zhHant: '知識庫命中',
+                            en: 'KB hit',
+                            fr: 'Résultat KB',
+                            de: 'KB-Treffer',
+                            ja: 'KB ヒット',
+                          )
+                        : title,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
                       height: 1.25,
                     ),
                   ),
-                ],
-                kOpenHandGap8,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    KnowledgeDialogChip(
-                      icon: Icons.trending_up_rounded,
-                      label:
-                          '${openHandLocalizedText(context, zh: '分数', zhHant: '分數', en: 'score', fr: 'score', de: 'Score', ja: 'スコア')} ${hit['score'] ?? '-'}',
+                  if (path.isNotEmpty) ...[
+                    kOpenHandGap6,
+                    Text(
+                      path,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.25,
+                      ),
                     ),
-                    if (hit['rerank_score'] != null)
-                      KnowledgeDialogChip(
-                        icon: Icons.filter_alt_rounded,
-                        label:
-                            '${openHandLocalizedText(context, zh: '重排', zhHant: '重排', en: 'rerank', fr: 'rerank', de: 'Rerank', ja: '再ランク')} ${hit['rerank_score']}',
-                      ),
-                    if (hit['token_estimate'] != null)
-                      KnowledgeDialogChip(
-                        icon: Icons.data_usage_rounded,
-                        label:
-                            '${hit['token_estimate']} ${openHandLocalizedText(context, zh: 'token', zhHant: 'token', en: 'tokens', fr: 'tokens', de: 'Tokens', ja: 'トークン')}',
-                      ),
-                    if (documentTimeLabel.isNotEmpty)
-                      KnowledgeDialogChip(
-                        icon: Icons.event_rounded,
-                        label: documentTimeLabel,
-                      ),
                   ],
-                ),
-                if (preview.isNotEmpty) ...[
                   kOpenHandGap8,
-                  Text(
-                    preview,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.36),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      KnowledgeDialogChip(
+                        icon: Icons.trending_up_rounded,
+                        label:
+                            '${openHandLocalizedText(context, zh: '分数', zhHant: '分數', en: 'score', fr: 'score', de: 'Score', ja: 'スコア')} ${hit['score'] ?? '-'}',
+                      ),
+                      if (hit['rerank_score'] != null)
+                        KnowledgeDialogChip(
+                          icon: Icons.filter_alt_rounded,
+                          label:
+                              '${openHandLocalizedText(context, zh: '重排', zhHant: '重排', en: 'rerank', fr: 'rerank', de: 'Rerank', ja: '再ランク')} ${hit['rerank_score']}',
+                        ),
+                      if (hit['token_estimate'] != null)
+                        KnowledgeDialogChip(
+                          icon: Icons.data_usage_rounded,
+                          label:
+                              '${hit['token_estimate']} ${openHandLocalizedText(context, zh: 'token', zhHant: 'token', en: 'tokens', fr: 'tokens', de: 'Tokens', ja: 'トークン')}',
+                        ),
+                      if (documentTimeLabel.isNotEmpty)
+                        KnowledgeDialogChip(
+                          icon: Icons.event_rounded,
+                          label: documentTimeLabel,
+                        ),
+                    ],
                   ),
+                  if (preview.isNotEmpty) ...[
+                    kOpenHandGap8,
+                    Text(
+                      preview,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.36),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -703,22 +836,23 @@ class _KnowledgeRetrievalHitDetailDialogState
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return buildOpenHandAlertDialog(
-            title: Text(_knowledgeRetriHitChunkDetailLabel(context)),
-            content: buildOpenHandDialogConstrainedContent(
-              width: 520,
-              maxHeight: MediaQuery.sizeOf(context).height * 0.64,
-              child: const SizedBox(
-                height: 180,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ),
+          return OpenHandEditorDialogScaffold(
+            title: _knowledgeRetriHitChunkDetailLabel(context),
+            icon: Icons.article_outlined,
+            busy: true,
             actions: [
               OpenHandDialogActionButton.primary(
                 onPressed: () => Navigator.of(context).pop(),
                 label: openHandCloseLabel(context),
               ),
             ],
+            body: OpenHandTintedPanel(
+              accent: Theme.of(context).colorScheme.primary,
+              child: const SizedBox(
+                height: 180,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
           );
         }
         final resolved = snapshot.data ?? const _ResolvedKnowledgeHit();
@@ -811,6 +945,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
               ja: '赤はクエリベクトル、オレンジは現在のヒット結果です。',
             ),
       icon: Icons.scatter_plot_rounded,
+      accent: OpenHandStatusColors.info,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1001,145 +1136,149 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
     final preview = _text(hit['preview']);
     final title = _hasValue(hit['title']) ? hit['title'] : hit['source_title'];
     final tags = stringListFromValue(hit['tags']);
-    return buildOpenHandAlertDialog(
-      title: Text(_knowledgeRetriHitChunkDetailLabel(context)),
-      content: buildOpenHandDialogConstrainedContent(
-        width: 820,
-        maxHeight: MediaQuery.sizeOf(context).height * 0.80,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              KnowledgeDialogNotice(
-                icon: Icons.info_outline_rounded,
-                message: openHandLocalizedText(
-                  context,
-                  zh: '未能从本地知识库恢复完整 chunk，下面展示消息元数据中保留的命中信息。',
-                  zhHant: '未能從本地知識庫恢復完整 chunk，下面展示訊息元資料中保留的命中資訊。',
-                  en: 'The full chunk could not be restored locally. Showing hit metadata saved with this message.',
-                  fr: 'Le chunk complet n’a pas pu être restauré localement. Les métadonnées conservées avec ce message sont affichées.',
-                  de: 'Der vollständige Chunk konnte lokal nicht wiederhergestellt werden. Angezeigt werden die in dieser Nachricht gespeicherten Treffer-Metadaten.',
-                  ja: 'ローカルのナレッジベースから完全なチャンクを復元できませんでした。このメッセージに保存されたヒット情報を表示します。',
-                ),
-                tone: KnowledgeDialogNoticeTone.warning,
-              ),
-              kOpenHandGap12,
-              KnowledgeDialogSection(
-                title: knowledgeOverviewLabel(context),
-                icon: Icons.article_outlined,
-                child: KnowledgeDialogKeyValueList(
-                  labelWidth: knowledgeDetailLabelWidth(isZh),
-                  rows: {
-                    knowledgeChunkIdLabel(context): chunkId,
-                    knowledgeSourceIdLabel(context): hit['source_id'],
-                    knowledgeTitleLabel(context): title,
-                    openHandPathLabel(context): hit['path'],
-                  },
-                ),
-              ),
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '检索数据',
-                  zhHant: '檢索資料',
-                  en: 'Retrieval Data',
-                  fr: 'Données de recherche',
-                  de: 'Abrufdaten',
-                  ja: '検索データ',
-                ),
-                icon: Icons.manage_search_rounded,
-                child: KnowledgeDialogKeyValueList(
-                  labelWidth: knowledgeDetailLabelWidth(isZh),
-                  rows: {
-                    if (_hasValue(hit['score']))
-                      knowledgeRecallScoreLabel(context): hit['score'],
-                    if (_hasValue(hit['rerank_score']))
-                      knowledgeRerankScoreLabel(context): hit['rerank_score'],
-                    if (_hasValue(hit['final_score']))
-                      knowledgeFinalScoreLabel(context): hit['final_score'],
-                    if (_hasValue(hit['token_estimate']))
-                      knowledgeEstimatedTokensLabel(context):
-                          hit['token_estimate'],
-                    if (_hasValue(hit['time_field']))
-                      knowledgeTimeFieldLabel(context): hit['time_field'],
-                    if (_hasValue(hit['document_time']))
-                      knowledgeDocumentTimeLabel(context):
-                          _formatKnowledgeDateTime(hit['document_time']),
-                    if (_hasValue(hit['updated_at']))
-                      knowledgeUpdatedAtLabel(context):
-                          _formatKnowledgeDateTime(hit['updated_at']),
-                  },
-                ),
-              ),
-              KnowledgeDialogSection(
-                title: knowledgeTagsLabel(context),
-                icon: Icons.sell_outlined,
-                child: tags.isEmpty
-                    ? KnowledgeDialogNotice(
-                        icon: Icons.info_outline_rounded,
-                        message: openHandLocalizedText(
-                          context,
-                          zh: '消息元数据中没有标签。',
-                          zhHant: '訊息元資料中沒有標籤。',
-                          en: 'No tags in message metadata.',
-                          fr: 'Aucune étiquette dans les métadonnées.',
-                          de: 'Keine Tags in den Nachrichten-Metadaten.',
-                          ja: 'メッセージのメタデータにタグはありません。',
-                        ),
-                      )
-                    : Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final tag in tags)
-                            KnowledgeDialogChip(
-                              icon: Icons.tag_rounded,
-                              label: tag,
-                            ),
-                        ],
-                      ),
-              ),
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '命中预览',
-                  zhHant: '命中預覽',
-                  en: 'Hit Preview',
-                  fr: 'Aperçu du résultat',
-                  de: 'Treffervorschau',
-                  ja: 'ヒットプレビュー',
-                ),
-                icon: Icons.notes_rounded,
-                child: KnowledgeDialogTextBox(
-                  text: preview,
-                  emptyText: openHandLocalizedText(
-                    context,
-                    zh: '消息元数据中没有命中预览。',
-                    zhHant: '訊息元資料中沒有命中預覽。',
-                    en: 'No hit preview in message metadata.',
-                    fr: 'Aucun aperçu du résultat dans les métadonnées.',
-                    de: 'Keine Treffervorschau in den Nachrichten-Metadaten.',
-                    ja: 'メッセージのメタデータにヒットプレビューはありません。',
-                  ),
-                ),
-              ),
-              KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '原始命中元数据',
-                  zhHant: '原始命中元資料',
-                  en: 'Raw Hit Metadata',
-                  fr: 'Métadonnées brutes du résultat',
-                  de: 'Rohe Treffer-Metadaten',
-                  ja: '生ヒットメタデータ',
-                ),
-                icon: Icons.account_tree_outlined,
-                margin: EdgeInsets.zero,
-                child: KnowledgeDialogJsonBox(value: hit, maxHeight: 260),
-              ),
-            ],
+    final colorScheme = Theme.of(context).colorScheme;
+    return OpenHandEditorDialogScaffold(
+      title: _knowledgeRetriHitChunkDetailLabel(context),
+      icon: Icons.article_outlined,
+      iconColor: OpenHandStatusColors.warning,
+      maxHeight: kOpenHandDialogHeightFull,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          KnowledgeDialogNotice(
+            icon: Icons.info_outline_rounded,
+            message: openHandLocalizedText(
+              context,
+              zh: '未能从本地知识库恢复完整 chunk，下面展示消息元数据中保留的命中信息。',
+              zhHant: '未能從本地知識庫恢復完整 chunk，下面展示訊息元資料中保留的命中資訊。',
+              en: 'The full chunk could not be restored locally. Showing hit metadata saved with this message.',
+              fr: 'Le chunk complet n’a pas pu être restauré localement. Les métadonnées conservées avec ce message sont affichées.',
+              de: 'Der vollständige Chunk konnte lokal nicht wiederhergestellt werden. Angezeigt werden die in dieser Nachricht gespeicherten Treffer-Metadaten.',
+              ja: 'ローカルのナレッジベースから完全なチャンクを復元できませんでした。このメッセージに保存されたヒット情報を表示します。',
+            ),
+            tone: KnowledgeDialogNoticeTone.warning,
           ),
-        ),
+          kOpenHandGap12,
+          KnowledgeDialogSection(
+            title: knowledgeOverviewLabel(context),
+            icon: Icons.article_outlined,
+            accent: OpenHandStatusColors.info,
+            child: KnowledgeDialogKeyValueList(
+              labelWidth: knowledgeDetailLabelWidth(isZh),
+              rows: {
+                knowledgeChunkIdLabel(context): chunkId,
+                knowledgeSourceIdLabel(context): hit['source_id'],
+                knowledgeTitleLabel(context): title,
+                openHandPathLabel(context): hit['path'],
+              },
+            ),
+          ),
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: '检索数据',
+              zhHant: '檢索資料',
+              en: 'Retrieval Data',
+              fr: 'Données de recherche',
+              de: 'Abrufdaten',
+              ja: '検索データ',
+            ),
+            icon: Icons.manage_search_rounded,
+            accent: OpenHandStatusColors.success,
+            child: KnowledgeDialogKeyValueList(
+              labelWidth: knowledgeDetailLabelWidth(isZh),
+              rows: {
+                if (_hasValue(hit['score']))
+                  knowledgeRecallScoreLabel(context): hit['score'],
+                if (_hasValue(hit['rerank_score']))
+                  knowledgeRerankScoreLabel(context): hit['rerank_score'],
+                if (_hasValue(hit['final_score']))
+                  knowledgeFinalScoreLabel(context): hit['final_score'],
+                if (_hasValue(hit['token_estimate']))
+                  knowledgeEstimatedTokensLabel(context): hit['token_estimate'],
+                if (_hasValue(hit['time_field']))
+                  knowledgeTimeFieldLabel(context): hit['time_field'],
+                if (_hasValue(hit['document_time']))
+                  knowledgeDocumentTimeLabel(context): _formatKnowledgeDateTime(
+                    hit['document_time'],
+                  ),
+                if (_hasValue(hit['updated_at']))
+                  knowledgeUpdatedAtLabel(context): _formatKnowledgeDateTime(
+                    hit['updated_at'],
+                  ),
+              },
+            ),
+          ),
+          KnowledgeDialogSection(
+            title: knowledgeTagsLabel(context),
+            icon: Icons.sell_outlined,
+            accent: OpenHandStatusColors.caution,
+            child: tags.isEmpty
+                ? KnowledgeDialogNotice(
+                    icon: Icons.info_outline_rounded,
+                    message: openHandLocalizedText(
+                      context,
+                      zh: '消息元数据中没有标签。',
+                      zhHant: '訊息元資料中沒有標籤。',
+                      en: 'No tags in message metadata.',
+                      fr: 'Aucune étiquette dans les métadonnées.',
+                      de: 'Keine Tags in den Nachrichten-Metadaten.',
+                      ja: 'メッセージのメタデータにタグはありません。',
+                    ),
+                  )
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final tag in tags)
+                        KnowledgeDialogChip(
+                          icon: Icons.tag_rounded,
+                          label: tag,
+                        ),
+                    ],
+                  ),
+          ),
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: '命中预览',
+              zhHant: '命中預覽',
+              en: 'Hit Preview',
+              fr: 'Aperçu du résultat',
+              de: 'Treffervorschau',
+              ja: 'ヒットプレビュー',
+            ),
+            icon: Icons.notes_rounded,
+            accent: colorScheme.tertiary,
+            child: KnowledgeDialogTextBox(
+              text: preview,
+              emptyText: openHandLocalizedText(
+                context,
+                zh: '消息元数据中没有命中预览。',
+                zhHant: '訊息元資料中沒有命中預覽。',
+                en: 'No hit preview in message metadata.',
+                fr: 'Aucun aperçu du résultat dans les métadonnées.',
+                de: 'Keine Treffervorschau in den Nachrichten-Metadaten.',
+                ja: 'メッセージのメタデータにヒットプレビューはありません。',
+              ),
+            ),
+          ),
+          KnowledgeDialogSection(
+            title: openHandLocalizedText(
+              context,
+              zh: '原始命中元数据',
+              zhHant: '原始命中元資料',
+              en: 'Raw Hit Metadata',
+              fr: 'Métadonnées brutes du résultat',
+              de: 'Rohe Treffer-Metadaten',
+              ja: '生ヒットメタデータ',
+            ),
+            icon: Icons.account_tree_outlined,
+            accent: colorScheme.secondary,
+            margin: EdgeInsets.zero,
+            child: KnowledgeDialogJsonBox(value: hit, maxHeight: 260),
+          ),
+        ],
       ),
       actions: [
         if (chunkId.isNotEmpty)

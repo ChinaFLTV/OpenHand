@@ -8,6 +8,7 @@ import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_json_tree.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -298,74 +299,15 @@ class KnowledgeDialogSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final tone = accent ?? colorScheme.primary;
     return Padding(
       padding: margin,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            tone.withValues(alpha: 0.07),
-            colorScheme.surfaceContainerLow,
-          ),
-          borderRadius: kOpenHandBorderRadius20,
-          border: Border.all(color: tone.withValues(alpha: 0.18)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: tone.withValues(alpha: 0.16),
-                      borderRadius: kOpenHandBorderRadius12,
-                    ),
-                    child: SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: Center(child: Icon(icon, size: 18, color: tone)),
-                    ),
-                  ),
-                  kOpenHandHGap10,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (subtitle != null &&
-                            subtitle!.trim().isNotEmpty) ...[
-                          kOpenHandGap2,
-                          Text(
-                            subtitle!.trim(),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (trailing != null) ...[kOpenHandHGap8, trailing!],
-                ],
-              ),
-              if (child != null) ...[kOpenHandGap14, child!],
-            ],
-          ),
-        ),
+      child: OpenHandDialogSectionCard(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        accent: accent,
+        trailing: trailing,
+        child: child ?? const SizedBox.shrink(),
       ),
     );
   }

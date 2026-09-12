@@ -90,37 +90,55 @@ class _SessionMetadataDialog extends StatelessWidget {
     final extendedMetadataEntries = _visibleSessionMetadataEntries(session);
     final summaryBlocks = <Widget>[
       OpenHandMetadataSummaryTile(
+        icon: Icons.chat_bubble_outline_rounded,
+        accent: OpenHandStatusColors.info,
         label: AppLocalizations.of(context)!.sessMetaMessages,
         value: '${statistics.totalMessageCount}',
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.construction_rounded,
+        accent: colorScheme.primary,
         label: AppLocalizations.of(context)!.sessMetaPromptBuilds,
         value: '${statistics.promptBuildCount}',
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.compress_rounded,
+        accent: OpenHandStatusColors.warning,
         label: AppLocalizations.of(context)!.sessMetaCompressions,
         value: '${statistics.compressionRunCount}',
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.token_rounded,
+        accent: colorScheme.tertiary,
         label: AppLocalizations.of(context)!.sessMetaTotalTokens,
         value: '${statistics.totalTokens ?? 0}',
       ),
       if ((statistics.reasoningTokens ?? 0) > 0)
         OpenHandMetadataSummaryTile(
+          icon: Icons.psychology_alt_rounded,
+          accent: OpenHandStatusColors.caution,
           label: AppLocalizations.of(context)!.tokenPopupReasoning,
           value: '${statistics.reasoningTokens}',
         ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.tune_rounded,
+        accent: OpenHandStatusColors.success,
         label: AppLocalizations.of(context)!.sessMetaMode,
         value: _runtimeModeLabel(context, runtimeStatus, compact: true),
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.verified_user_outlined,
+        accent: runtimeStatus.fullAccessPermission
+            ? OpenHandStatusColors.success
+            : colorScheme.outline,
         label: AppLocalizations.of(context)!.permissionLabel,
         value: runtimeStatus.fullAccessPermission
             ? AppLocalizations.of(context)!.mcpServerStatusEnabled
             : AppLocalizations.of(context)!.mcpServerStatusDisabled,
       ),
       OpenHandMetadataSummaryTile(
+        icon: Icons.build_circle_outlined,
+        accent: colorScheme.secondary,
         label: AppLocalizations.of(context)!.sessMetaRuntimeTools,
         value: !runtimeStatus.supportsToolCalls
             ? '-'
@@ -130,613 +148,524 @@ class _SessionMetadataDialog extends StatelessWidget {
       ),
     ];
 
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthWide,
-      maxHeight: MediaQuery.sizeOf(context).height * 0.82,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            OpenHandMetadataDialogHeader(
-              title: AppLocalizations.of(
-                context,
-              )!.sessMetaCurrentSessionMetadata,
-              subtitle: session.title,
-            ),
-            kOpenHandGap18,
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
-                    ..._buildSessionCostSection(context, theme, colorScheme),
-                    kOpenHandGap18,
-                    OpenHandMetadataSection(
-                      title: AppLocalizations.of(
-                        context,
-                      )!.sessMetaSessionOverview,
-                      children: [
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(context, 'session_id'),
-                          value: session.id,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(context, 'template'),
-                          value:
-                              '${session.templateName} · v${session.templateInternalVersion}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(context, 'created_at'),
-                          value: formatYearMonthDayHmLocal(session.createdAt),
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(context, 'updated_at'),
-                          value: formatYearMonthDayHmLocal(session.updatedAt),
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(context, 'last_model'),
-                          value:
-                              session.lastUsedModelLabel ??
-                              session.lastUsedModelId ??
-                              '-',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'auto_title_acquired',
-                          ),
-                          value: session.autoTitleAcquired
-                              ? '✓ ${openHandLocalizedText(context, zh: '已获取', en: 'Acquired')}'
-                              : '✗ ${openHandLocalizedText(context, zh: '未获取', en: 'Not acquired')}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'auto_title_retry_count',
-                          ),
-                          value: '${session.autoTitleRetryCount}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'compression_checkpoint',
-                          ),
-                          value:
-                              session.latestCompressionCheckpointMessageId ??
-                              '-',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'latest_compression_at',
-                          ),
-                          value: session.latestCompressionAt == null
-                              ? '-'
-                              : formatYearMonthDayHmLocal(
-                                  session.latestCompressionAt!,
-                                ),
-                        ),
-                      ],
-                    ),
-                    if (session.templateId == 'harness_engineering') ...[
-                      kOpenHandGap16,
-                      _buildHarnessConfigSection(context, session),
-                    ],
-                    if (session.templateId == 'programming_expert') ...[
-                      kOpenHandGap16,
-                      _buildProgrammingExpertConfigSection(context, session),
-                    ],
-                    if (session.templateId == 'web_reverse_expert') ...[
-                      kOpenHandGap16,
-                      _buildWebReverseConfigSection(context, session),
-                    ],
-                    if (machineTerminalMetadata.isNotEmpty) ...[
-                      kOpenHandGap16,
-                      _buildMachineTerminalMetadataSection(
-                        context,
-                        machineTerminalMetadata,
-                      ),
-                    ],
-                    if (extendedMetadataEntries.isNotEmpty) ...[
-                      kOpenHandGap16,
-                      OpenHandMetadataSection(
-                        title: AppLocalizations.of(
-                          context,
-                        )!.sessMetaExtendedMetadata,
-                        children: extendedMetadataEntries
-                            .map(
-                              (entry) => _MetadataStructuredValue(
-                                label: entry.key,
-                                value: entry.value,
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
-                    ],
-                    kOpenHandGap16,
-                    OpenHandMetadataSection(
-                      title: AppLocalizations.of(context)!.sessMetaStatistics,
-                      children: [
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            _MetadataChip(
-                              label:
-                                  '${AppLocalizations.of(context)!.sessMetaUser} ${statistics.userMessageCount}',
-                            ),
-                            _MetadataChip(
-                              label:
-                                  '${AppLocalizations.of(context)!.sessMetaAssistant} ${statistics.assistantMessageCount}',
-                            ),
-                            _MetadataChip(
-                              label:
-                                  '${AppLocalizations.of(context)!.sessMetaTool} ${statistics.toolMessageCount}',
-                            ),
-                            _MetadataChip(
-                              label: 'MCP ${statistics.mcpMessageCount}',
-                            ),
-                            _MetadataChip(
-                              label:
-                                  '${AppLocalizations.of(context)!.sessMetaSkill} ${statistics.skillMessageCount}',
-                            ),
-                            _MetadataChip(
-                              label:
-                                  '${AppLocalizations.of(context)!.sessMetaCompression} ${statistics.compressionPointCount}',
-                            ),
-                          ],
-                        ),
-                        kOpenHandGap12,
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'total_input_characters',
-                          ),
-                          value: '${statistics.totalInputCharacters}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'total_output_characters',
-                          ),
-                          value: '${statistics.totalOutputCharacters}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'total_prompt_characters',
-                          ),
-                          value: '${statistics.totalPromptCharacters}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'last_prompt_system_message_count',
-                          ),
-                          value: '${statistics.lastPromptSystemMessageCount}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'last_prompt_history_message_count',
-                          ),
-                          value: '${statistics.lastPromptHistoryMessageCount}',
-                        ),
-                      ],
-                    ),
-                    ..._buildContextBudgetSection(
-                      context,
-                      theme,
-                      colorScheme,
-                      lastPromptMetadata,
-                    ),
-                    ..._buildPostCompactRehydrationSection(
-                      context,
-                      lastPromptMetadata,
-                    ),
-                    ..._buildCompactMemorySection(context, lastPromptMetadata),
-                    kOpenHandGap16,
-                    OpenHandMetadataSection(
-                      title: AppLocalizations.of(context)!.sessMetaEnvironment,
-                      children: [
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(context, 'locale_tag'),
-                          value: environment.localeTag,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(context, 'platform'),
-                          value: environment.platform,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'app_version',
-                          ),
-                          value:
-                              '${environment.appVersion} (${environment.appBuildNumber})',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'compression_threshold_chars',
-                          ),
-                          value: '${environment.compressionThresholdChars}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'single_round_tool_call_limit',
-                          ),
-                          value: '${environment.singleRoundToolCallLimit}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'sequential_tool_round_limit',
-                          ),
-                          value: '${environment.sequentialToolRoundLimit}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'application_directory',
-                          ),
-                          value: environment.applicationDirectory,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'home_directory',
-                          ),
-                          value: environment.homeDirectory,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'settings_file',
-                          ),
-                          value: environment.settingsFilePath,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'skills_storage',
-                          ),
-                          value: environment.skillsStoragePath,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'mcp_servers_file',
-                          ),
-                          value: environment.mcpServersFilePath,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'user_memory_file',
-                          ),
-                          value: environment.userMemoryFilePath,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: _localizedMetadataField(
-                            context,
-                            'sessions_directory',
-                          ),
-                          value: environment.sessionsDirectoryPath,
-                        ),
-                      ],
-                    ),
-                    kOpenHandGap16,
-                    OpenHandMetadataSection(
-                      title: AppLocalizations.of(
-                        context,
-                      )!.sessMetaCommandPolicy,
-                      children: !hasPromptMetadata
-                          ? [
-                              Text(
-                                AppLocalizations.of(
-                                  context,
-                                )!.sessMetaPromptMetadataIsNotAvailableYet,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ]
-                          : [
-                              OpenHandMetadataEntryRow(
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.sessMetaWriteConfirmation,
-                                value: writeCommandConfirmationEnabled
-                                    ? AppLocalizations.of(
-                                        context,
-                                      )!.sessMetaRequired
-                                    : AppLocalizations.of(
-                                        context,
-                                      )!.sessMetaNotRequired,
-                              ),
-                              OpenHandMetadataEntryRow(
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.sessMetaAllowRules,
-                                value: '$allowCommandRuleCount',
-                              ),
-                              if (allowCommandRules.isEmpty)
-                                Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.sessMetaThereAreNoSurfacedAllowCommand,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                )
-                              else
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: allowCommandRules
-                                      .map((rule) {
-                                        final pattern =
-                                            '${rule['pattern'] ?? ''}'.trim();
-                                        final matchMode =
-                                            '${rule['match_mode'] ?? ''}'
-                                                .trim();
-                                        if (pattern.isEmpty) {
-                                          return null;
-                                        }
-                                        final prefix = matchMode.isEmpty
-                                            ? ''
-                                            : '$matchMode: ';
-                                        return _MetadataChip(
-                                          label: '$prefix$pattern',
-                                        );
-                                      })
-                                      .whereType<Widget>()
-                                      .toList(growable: false),
-                                ),
-                            ],
-                    ),
-                    kOpenHandGap16,
-                    OpenHandMetadataSection(
-                      title: AppLocalizations.of(
-                        context,
-                      )!.sessMetaRuntimeOrchestration,
-                      children: [
-                        OpenHandMetadataEntryRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.sessMetaStateSource,
-                          value: runtimeStatus.isLivePreview
-                              ? AppLocalizations.of(
-                                  context,
-                                )!.sessMetaGeneratedFromTheCurrentModelMcp
-                              : AppLocalizations.of(
-                                  context,
-                                )!.sessMetaTheLastPersistedRuntimeSnapshot,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: AppLocalizations.of(context)!.sessMetaMode,
-                          value: _runtimeModeLabel(context, runtimeStatus),
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: AppLocalizations.of(context)!.permissionLabel,
-                          value: runtimeStatus.fullAccessPermission
-                              ? AppLocalizations.of(
-                                  context,
-                                )!.mcpServerStatusEnabled
-                              : AppLocalizations.of(
-                                  context,
-                                )!.mcpServerStatusDisabled,
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.sessMetaToolCatalogState,
-                          value: _runtimeToolCatalogStatusLabel(
-                            context,
-                            runtimeStatus,
-                          ),
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.sessMetaGateReason,
-                          value: _runtimeToolGateReasonLabel(
-                            context,
-                            runtimeStatus.gateReason,
-                          ),
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.sessMetaRuntimeToolCount,
-                          value:
-                              runtimeStatus.hasSnapshot && !runtimeStatus.stale
-                              ? '${runtimeStatus.toolCount}'
-                              : AppLocalizations.of(
-                                  context,
-                                )!.sessMetaRefreshesNextRound,
-                        ),
-                        if (runtimeStatus.notices.isNotEmpty) ...[
-                          kOpenHandGap12,
-                          Text(
-                            AppLocalizations.of(
-                              context,
-                            )!.sessMetaRuntimeNotices,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          kOpenHandGap10,
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: runtimeStatus.notices
-                                .map((item) => _MetadataChip(label: item))
-                                .toList(growable: false),
-                          ),
-                        ],
-                        if (runtimeStatus.toolNames.isNotEmpty &&
-                            !runtimeStatus.stale) ...[
-                          kOpenHandGap12,
-                          Text(
-                            AppLocalizations.of(
-                              context,
-                            )!.sessMetaCurrentRuntimeTools,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          kOpenHandGap10,
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: runtimeStatus.toolNames
-                                .map((item) => _MetadataChip(label: item))
-                                .toList(growable: false),
-                          ),
-                        ],
-                      ],
-                    ),
-                    kOpenHandGap16,
-                    OpenHandMetadataSection(
-                      title: AppLocalizations.of(context)!.sessMetaTaskTracking,
-                      children: [
-                        OpenHandMetadataEntryRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.sessMetaCurrentTodos,
-                          value: '${currentTodos.length}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.sessMetaPlanRecords,
-                          value: '${planHistory.length}',
-                        ),
-                        OpenHandMetadataEntryRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.sessMetaTodowriteReminder,
-                          value: hasPromptMetadata
-                              ? (todoWriteRecommended
-                                    ? AppLocalizations.of(
-                                        context,
-                                      )!.sessMetaTriggered
-                                    : AppLocalizations.of(
-                                        context,
-                                      )!.sessMetaNotTriggered)
-                              : AppLocalizations.of(
-                                  context,
-                                )!.sessMetaUnavailable,
-                        ),
-                        if (todoWriteReason.isNotEmpty)
-                          OpenHandMetadataEntryRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.sessMetaReminderReason,
-                            value: todoWriteReason,
-                          ),
-                        if (currentTodos.isNotEmpty)
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: currentTodos
-                                .map((todo) {
-                                  final id = '${todo['id'] ?? ''}'.trim();
-                                  final content = '${todo['content'] ?? ''}'
-                                      .trim();
-                                  final status = '${todo['status'] ?? ''}'
-                                      .trim();
-                                  if (content.isEmpty) {
-                                    return null;
-                                  }
-                                  final prefix = status.isEmpty
-                                      ? ''
-                                      : '[$status] ';
-                                  final idPrefix = id.isEmpty ? '' : '$id: ';
-                                  return _MetadataChip(
-                                    label: '$prefix$idPrefix$content',
-                                  );
-                                })
-                                .whereType<Widget>()
-                                .toList(growable: false),
-                          ),
-                        if (planHistory.isNotEmpty) ...[
-                          kOpenHandGap12,
-                          Text(
-                            AppLocalizations.of(context)!.sessMetaPlanHistory,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          kOpenHandGap10,
-                          ...planHistory.asMap().entries.map(
-                            (entry) => _MetadataPlanRecordCard(
-                              planIndex: planHistory.length - entry.key,
-                              planRecord: entry.value,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    kOpenHandGap16,
-                    OpenHandMetadataSection(
-                      title: AppLocalizations.of(context)!.sessMetaRecentErrors,
-                      children: recentErrors.isEmpty
-                          ? [
-                              Text(
-                                AppLocalizations.of(
-                                  context,
-                                )!.sessMetaThereAreNoSessionErrorsTo,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ]
-                          : recentErrors
-                                .map(
-                                  (error) => _MetadataErrorCard(error: error),
-                                )
-                                .toList(growable: false),
-                    ),
-                    kOpenHandGap16,
-                    OpenHandMetadataSection(
-                      title: AppLocalizations.of(
-                        context,
-                      )!.sessMetaLastPromptMetadata,
-                      children: [
-                        _MetadataJsonPanel(
-                          content: prettyPrintJson(session.lastPromptMetadata),
-                        ),
-                      ],
-                    ),
-                    _SessionAuditContent(
-                      session: session,
-                      controller: controller,
-                      claudeStyle: claudeStyle,
-                    ),
-                    kOpenHandGap4,
-                  ],
-                ),
+    return OpenHandEditorDialogScaffold(
+      title: AppLocalizations.of(context)!.sessMetaCurrentSessionMetadata,
+      subtitle: session.title,
+      icon: Icons.data_object_rounded,
+      iconColor: colorScheme.primary,
+      maxHeight: kOpenHandDialogHeightFull,
+      actions: [
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: AppLocalizations.of(context)!.sessMetaClose,
+        ),
+      ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
+          ..._buildSessionCostSection(context, theme, colorScheme),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.badge_rounded,
+            accent: OpenHandStatusColors.info,
+            title: AppLocalizations.of(context)!.sessMetaSessionOverview,
+            children: [
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'session_id'),
+                value: session.id,
               ),
-            ),
-            kOpenHandGap18,
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  onPressed: () => Navigator.of(context).pop(),
-                  label: AppLocalizations.of(context)!.sessMetaClose,
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'template'),
+                value:
+                    '${session.templateName} · v${session.templateInternalVersion}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'created_at'),
+                value: formatYearMonthDayHmLocal(session.createdAt),
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'updated_at'),
+                value: formatYearMonthDayHmLocal(session.updatedAt),
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'last_model'),
+                value:
+                    session.lastUsedModelLabel ??
+                    session.lastUsedModelId ??
+                    '-',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'auto_title_acquired'),
+                value: session.autoTitleAcquired
+                    ? '✓ ${openHandLocalizedText(context, zh: '已获取', en: 'Acquired')}'
+                    : '✗ ${openHandLocalizedText(context, zh: '未获取', en: 'Not acquired')}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'auto_title_retry_count',
                 ),
-              ],
+                value: '${session.autoTitleRetryCount}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'compression_checkpoint',
+                ),
+                value: session.latestCompressionCheckpointMessageId ?? '-',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'latest_compression_at',
+                ),
+                value: session.latestCompressionAt == null
+                    ? '-'
+                    : formatYearMonthDayHmLocal(session.latestCompressionAt!),
+              ),
+            ],
+          ),
+          if (session.templateId == 'harness_engineering') ...[
+            kOpenHandGap16,
+            _buildHarnessConfigSection(context, session),
+          ],
+          if (session.templateId == 'programming_expert') ...[
+            kOpenHandGap16,
+            _buildProgrammingExpertConfigSection(context, session),
+          ],
+          if (session.templateId == 'web_reverse_expert') ...[
+            kOpenHandGap16,
+            _buildWebReverseConfigSection(context, session),
+          ],
+          if (machineTerminalMetadata.isNotEmpty) ...[
+            kOpenHandGap16,
+            _buildMachineTerminalMetadataSection(
+              context,
+              machineTerminalMetadata,
             ),
           ],
-        ),
+          if (extendedMetadataEntries.isNotEmpty) ...[
+            kOpenHandGap16,
+            OpenHandMetadataSection(
+              icon: Icons.more_horiz_rounded,
+              accent: colorScheme.tertiary,
+              title: AppLocalizations.of(context)!.sessMetaExtendedMetadata,
+              children: extendedMetadataEntries
+                  .map(
+                    (entry) => _MetadataStructuredValue(
+                      label: entry.key,
+                      value: entry.value,
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.analytics_rounded,
+            accent: colorScheme.primary,
+            title: AppLocalizations.of(context)!.sessMetaStatistics,
+            children: [
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _MetadataChip(
+                    label:
+                        '${AppLocalizations.of(context)!.sessMetaUser} ${statistics.userMessageCount}',
+                  ),
+                  _MetadataChip(
+                    label:
+                        '${AppLocalizations.of(context)!.sessMetaAssistant} ${statistics.assistantMessageCount}',
+                  ),
+                  _MetadataChip(
+                    label:
+                        '${AppLocalizations.of(context)!.sessMetaTool} ${statistics.toolMessageCount}',
+                  ),
+                  _MetadataChip(label: 'MCP ${statistics.mcpMessageCount}'),
+                  _MetadataChip(
+                    label:
+                        '${AppLocalizations.of(context)!.sessMetaSkill} ${statistics.skillMessageCount}',
+                  ),
+                  _MetadataChip(
+                    label:
+                        '${AppLocalizations.of(context)!.sessMetaCompression} ${statistics.compressionPointCount}',
+                  ),
+                ],
+              ),
+              kOpenHandGap12,
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'total_input_characters',
+                ),
+                value: '${statistics.totalInputCharacters}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'total_output_characters',
+                ),
+                value: '${statistics.totalOutputCharacters}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'total_prompt_characters',
+                ),
+                value: '${statistics.totalPromptCharacters}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'last_prompt_system_message_count',
+                ),
+                value: '${statistics.lastPromptSystemMessageCount}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'last_prompt_history_message_count',
+                ),
+                value: '${statistics.lastPromptHistoryMessageCount}',
+              ),
+            ],
+          ),
+          ..._buildContextBudgetSection(
+            context,
+            theme,
+            colorScheme,
+            lastPromptMetadata,
+          ),
+          ..._buildPostCompactRehydrationSection(context, lastPromptMetadata),
+          ..._buildCompactMemorySection(context, lastPromptMetadata),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.computer_rounded,
+            accent: colorScheme.secondary,
+            title: AppLocalizations.of(context)!.sessMetaEnvironment,
+            children: [
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'locale_tag'),
+                value: environment.localeTag,
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'platform'),
+                value: environment.platform,
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'app_version'),
+                value:
+                    '${environment.appVersion} (${environment.appBuildNumber})',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'compression_threshold_chars',
+                ),
+                value: '${environment.compressionThresholdChars}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'single_round_tool_call_limit',
+                ),
+                value: '${environment.singleRoundToolCallLimit}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'sequential_tool_round_limit',
+                ),
+                value: '${environment.sequentialToolRoundLimit}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(
+                  context,
+                  'application_directory',
+                ),
+                value: environment.applicationDirectory,
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'home_directory'),
+                value: environment.homeDirectory,
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'settings_file'),
+                value: environment.settingsFilePath,
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'skills_storage'),
+                value: environment.skillsStoragePath,
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'mcp_servers_file'),
+                value: environment.mcpServersFilePath,
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'user_memory_file'),
+                value: environment.userMemoryFilePath,
+              ),
+              OpenHandMetadataEntryRow(
+                label: _localizedMetadataField(context, 'sessions_directory'),
+                value: environment.sessionsDirectoryPath,
+              ),
+            ],
+          ),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.policy_rounded,
+            accent: OpenHandStatusColors.warning,
+            title: AppLocalizations.of(context)!.sessMetaCommandPolicy,
+            children: !hasPromptMetadata
+                ? [
+                    OpenHandTintedPanel(
+                      accent: OpenHandStatusColors.warning,
+                      icon: Icons.info_outline_rounded,
+                      child: Text(
+                        AppLocalizations.of(
+                          context,
+                        )!.sessMetaPromptMetadataIsNotAvailableYet,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ]
+                : [
+                    OpenHandMetadataEntryRow(
+                      label: AppLocalizations.of(
+                        context,
+                      )!.sessMetaWriteConfirmation,
+                      value: writeCommandConfirmationEnabled
+                          ? AppLocalizations.of(context)!.sessMetaRequired
+                          : AppLocalizations.of(context)!.sessMetaNotRequired,
+                    ),
+                    OpenHandMetadataEntryRow(
+                      label: AppLocalizations.of(context)!.sessMetaAllowRules,
+                      value: '$allowCommandRuleCount',
+                    ),
+                    if (allowCommandRules.isEmpty)
+                      Text(
+                        AppLocalizations.of(
+                          context,
+                        )!.sessMetaThereAreNoSurfacedAllowCommand,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: allowCommandRules
+                            .map((rule) {
+                              final pattern = '${rule['pattern'] ?? ''}'.trim();
+                              final matchMode = '${rule['match_mode'] ?? ''}'
+                                  .trim();
+                              if (pattern.isEmpty) {
+                                return null;
+                              }
+                              final prefix = matchMode.isEmpty
+                                  ? ''
+                                  : '$matchMode: ';
+                              return _MetadataChip(label: '$prefix$pattern');
+                            })
+                            .whereType<Widget>()
+                            .toList(growable: false),
+                      ),
+                  ],
+          ),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.hub_rounded,
+            accent: OpenHandStatusColors.success,
+            title: AppLocalizations.of(context)!.sessMetaRuntimeOrchestration,
+            children: [
+              OpenHandMetadataEntryRow(
+                label: AppLocalizations.of(context)!.sessMetaStateSource,
+                value: runtimeStatus.isLivePreview
+                    ? AppLocalizations.of(
+                        context,
+                      )!.sessMetaGeneratedFromTheCurrentModelMcp
+                    : AppLocalizations.of(
+                        context,
+                      )!.sessMetaTheLastPersistedRuntimeSnapshot,
+              ),
+              OpenHandMetadataEntryRow(
+                label: AppLocalizations.of(context)!.sessMetaMode,
+                value: _runtimeModeLabel(context, runtimeStatus),
+              ),
+              OpenHandMetadataEntryRow(
+                label: AppLocalizations.of(context)!.permissionLabel,
+                value: runtimeStatus.fullAccessPermission
+                    ? AppLocalizations.of(context)!.mcpServerStatusEnabled
+                    : AppLocalizations.of(context)!.mcpServerStatusDisabled,
+              ),
+              OpenHandMetadataEntryRow(
+                label: AppLocalizations.of(context)!.sessMetaToolCatalogState,
+                value: _runtimeToolCatalogStatusLabel(context, runtimeStatus),
+              ),
+              OpenHandMetadataEntryRow(
+                label: AppLocalizations.of(context)!.sessMetaGateReason,
+                value: _runtimeToolGateReasonLabel(
+                  context,
+                  runtimeStatus.gateReason,
+                ),
+              ),
+              OpenHandMetadataEntryRow(
+                label: AppLocalizations.of(context)!.sessMetaRuntimeToolCount,
+                value: runtimeStatus.hasSnapshot && !runtimeStatus.stale
+                    ? '${runtimeStatus.toolCount}'
+                    : AppLocalizations.of(context)!.sessMetaRefreshesNextRound,
+              ),
+              if (runtimeStatus.notices.isNotEmpty) ...[
+                kOpenHandGap12,
+                Text(
+                  AppLocalizations.of(context)!.sessMetaRuntimeNotices,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                kOpenHandGap10,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: runtimeStatus.notices
+                      .map((item) => _MetadataChip(label: item))
+                      .toList(growable: false),
+                ),
+              ],
+              if (runtimeStatus.toolNames.isNotEmpty &&
+                  !runtimeStatus.stale) ...[
+                kOpenHandGap12,
+                Text(
+                  AppLocalizations.of(context)!.sessMetaCurrentRuntimeTools,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                kOpenHandGap10,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: runtimeStatus.toolNames
+                      .map((item) => _MetadataChip(label: item))
+                      .toList(growable: false),
+                ),
+              ],
+            ],
+          ),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.checklist_rounded,
+            accent: OpenHandStatusColors.caution,
+            title: AppLocalizations.of(context)!.sessMetaTaskTracking,
+            children: [
+              OpenHandMetadataEntryRow(
+                label: AppLocalizations.of(context)!.sessMetaCurrentTodos,
+                value: '${currentTodos.length}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: AppLocalizations.of(context)!.sessMetaPlanRecords,
+                value: '${planHistory.length}',
+              ),
+              OpenHandMetadataEntryRow(
+                label: AppLocalizations.of(context)!.sessMetaTodowriteReminder,
+                value: hasPromptMetadata
+                    ? (todoWriteRecommended
+                          ? AppLocalizations.of(context)!.sessMetaTriggered
+                          : AppLocalizations.of(context)!.sessMetaNotTriggered)
+                    : AppLocalizations.of(context)!.sessMetaUnavailable,
+              ),
+              if (todoWriteReason.isNotEmpty)
+                OpenHandMetadataEntryRow(
+                  label: AppLocalizations.of(context)!.sessMetaReminderReason,
+                  value: todoWriteReason,
+                ),
+              if (currentTodos.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: currentTodos
+                      .map((todo) {
+                        final id = '${todo['id'] ?? ''}'.trim();
+                        final content = '${todo['content'] ?? ''}'.trim();
+                        final status = '${todo['status'] ?? ''}'.trim();
+                        if (content.isEmpty) {
+                          return null;
+                        }
+                        final prefix = status.isEmpty ? '' : '[$status] ';
+                        final idPrefix = id.isEmpty ? '' : '$id: ';
+                        return _MetadataChip(label: '$prefix$idPrefix$content');
+                      })
+                      .whereType<Widget>()
+                      .toList(growable: false),
+                ),
+              if (planHistory.isNotEmpty) ...[
+                kOpenHandGap12,
+                Text(
+                  AppLocalizations.of(context)!.sessMetaPlanHistory,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                kOpenHandGap10,
+                ...planHistory.asMap().entries.map(
+                  (entry) => _MetadataPlanRecordCard(
+                    planIndex: planHistory.length - entry.key,
+                    planRecord: entry.value,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.error_outline_rounded,
+            accent: colorScheme.error,
+            title: AppLocalizations.of(context)!.sessMetaRecentErrors,
+            children: recentErrors.isEmpty
+                ? [
+                    OpenHandTintedPanel(
+                      accent: OpenHandStatusColors.success,
+                      icon: Icons.check_circle_outline_rounded,
+                      child: Text(
+                        AppLocalizations.of(
+                          context,
+                        )!.sessMetaThereAreNoSessionErrorsTo,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ]
+                : recentErrors
+                      .map((error) => _MetadataErrorCard(error: error))
+                      .toList(growable: false),
+          ),
+          kOpenHandGap16,
+          OpenHandMetadataSection(
+            icon: Icons.data_object_rounded,
+            accent: colorScheme.tertiary,
+            title: AppLocalizations.of(context)!.sessMetaLastPromptMetadata,
+            children: [
+              _MetadataJsonPanel(
+                content: prettyPrintJson(session.lastPromptMetadata),
+              ),
+            ],
+          ),
+          _SessionAuditContent(
+            session: session,
+            controller: controller,
+            claudeStyle: claudeStyle,
+          ),
+        ],
       ),
     );
   }
@@ -795,11 +724,6 @@ class _SessionMetadataDialog extends StatelessWidget {
         budget > 0 &&
         breakdown.totalUsd != null &&
         breakdown.totalUsd! > budget;
-    final headStyle = theme.textTheme.labelSmall?.copyWith(
-      color: colorScheme.onSurfaceVariant,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.6,
-    );
     final keyStyle = theme.textTheme.bodySmall?.copyWith(
       color: colorScheme.onSurfaceVariant,
     );
@@ -831,21 +755,13 @@ class _SessionMetadataDialog extends StatelessWidget {
 
     return <Widget>[
       kOpenHandGap14,
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-          borderRadius: kOpenHandBorderRadius12,
-          border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-          ),
-        ),
+      OpenHandTintedPanel(
+        accent: overBudget ? colorScheme.error : OpenHandStatusColors.success,
+        icon: Icons.payments_rounded,
+        title: l10n.tokenPopupCostHeading,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l10n.tokenPopupCostHeading.toUpperCase(), style: headStyle),
-            kOpenHandGap6,
             if (breakdown.inputUsd != null)
               row(l10n.tokenPopupCostInput, breakdown.inputUsd!),
             if (breakdown.outputUsd != null)
@@ -887,38 +803,19 @@ class _SessionMetadataDialog extends StatelessWidget {
               ),
               if (overBudget) ...[
                 kOpenHandGap6,
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.errorContainer.withValues(alpha: 0.55),
-                    borderRadius: kOpenHandBorderRadius8,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        size: 16,
-                        color: colorScheme.onErrorContainer,
-                      ),
-                      kOpenHandHGap6,
-                      Expanded(
-                        child: Text(
-                          l10n.sessionMetadataOverBudgetNotice(
-                            fmt(breakdown.totalUsd!),
-                            fmt(budget),
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onErrorContainer,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
+                OpenHandTintedPanel(
+                  accent: colorScheme.error,
+                  icon: Icons.warning_amber_rounded,
+                  child: Text(
+                    l10n.sessionMetadataOverBudgetNotice(
+                      fmt(breakdown.totalUsd!),
+                      fmt(budget),
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.error,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -984,6 +881,8 @@ class _SessionMetadataDialog extends StatelessWidget {
     return <Widget>[
       kOpenHandGap16,
       OpenHandMetadataSection(
+        icon: Icons.pie_chart_rounded,
+        accent: statusColor,
         title: openHandLocalizedText(
           context,
           zh: '上下文预算',
@@ -1100,6 +999,8 @@ class _SessionMetadataDialog extends StatelessWidget {
     return <Widget>[
       kOpenHandGap16,
       OpenHandMetadataSection(
+        icon: Icons.memory_rounded,
+        accent: OpenHandStatusColors.info,
         title: openHandLocalizedText(
           context,
           zh: '压缩记忆 Sidecar',
@@ -1186,6 +1087,8 @@ class _SessionMetadataDialog extends StatelessWidget {
     return <Widget>[
       kOpenHandGap16,
       OpenHandMetadataSection(
+        icon: Icons.settings_backup_restore_rounded,
+        accent: OpenHandStatusColors.success,
         title: openHandLocalizedText(
           context,
           zh: '压缩后上下文恢复',
@@ -1292,6 +1195,8 @@ Widget _buildMachineTerminalMetadataSection(
   final colorScheme = Theme.of(context).colorScheme;
 
   return OpenHandMetadataSection(
+    icon: Icons.terminal_rounded,
+    accent: colorScheme.primary,
     title: openHandLocalizedText(
       context,
       zh: '机器终端元数据',
@@ -1303,7 +1208,7 @@ Widget _buildMachineTerminalMetadataSection(
         spacing: 10,
         runSpacing: 10,
         children: [
-          _MetadataInfoTile(
+          OpenHandMetadataSummaryTile(
             icon: Icons.terminal_rounded,
             label: openHandLocalizedText(
               context,
@@ -1315,15 +1220,15 @@ Widget _buildMachineTerminalMetadataSection(
               ja: '状態',
             ),
             value: _machineTerminalStatusLabel(context, status),
-            color: _machineTerminalStatusColor(colorScheme, status),
+            accent: _machineTerminalStatusColor(colorScheme, status),
           ),
-          _MetadataInfoTile(
+          OpenHandMetadataSummaryTile(
             icon: Icons.tab_rounded,
             label: _homeTerminalsLabel(context),
             value: terminalCount > 0 ? '$terminalCount' : '${terminals.length}',
-            color: colorScheme.primary,
+            accent: colorScheme.primary,
           ),
-          _MetadataInfoTile(
+          OpenHandMetadataSummaryTile(
             icon: Icons.developer_board_rounded,
             label: openHandLocalizedText(
               context,
@@ -1331,13 +1236,13 @@ Widget _buildMachineTerminalMetadataSection(
               en: 'Active Terminal',
             ),
             value: activeTerminalId ?? '-',
-            color: colorScheme.tertiary,
+            accent: colorScheme.tertiary,
           ),
-          _MetadataInfoTile(
+          OpenHandMetadataSummaryTile(
             icon: Icons.aspect_ratio_rounded,
             label: openHandLocalizedText(context, zh: '终端尺寸', en: 'Size'),
             value: activeSize,
-            color: colorScheme.secondary,
+            accent: colorScheme.secondary,
           ),
         ],
       ),
@@ -1756,94 +1661,30 @@ Widget _buildMetadataStructuredNode(
 }
 
 class _MetadataChip extends StatelessWidget {
-  const _MetadataChip({required this.label});
+  const _MetadataChip({required this.label, this.accent});
 
   final String label;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    final tone = accent ?? theme.colorScheme.primary;
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
+        color: tone.withValues(alpha: 0.12),
         borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelMedium?.copyWith(
-          fontWeight: FontWeight.w700,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        child: Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: tone,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _MetadataInfoTile extends StatelessWidget {
-  const _MetadataInfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      width: 188,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: kOpenHandBorderRadius16,
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.16),
-              borderRadius: kOpenHandBorderRadius12,
-            ),
-            child: Icon(icon, size: 18, color: color),
-          ),
-          kOpenHandHGap10,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                kOpenHandGap4,
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -2009,68 +1850,55 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
         ),
     ];
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
-        borderRadius: kOpenHandBorderRadius16,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.42),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                '${_homeTerminalLabel(context)} #$index',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.13),
-                  borderRadius: kOpenHandPillBorderRadius,
-                ),
-                child: Text(
-                  _machineTerminalStatusLabel(context, status),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: statusColor,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: OpenHandTintedPanel(
+        accent: statusColor,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '${_homeTerminalLabel(context)} #$index',
+                  style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-            ],
-          ),
-          kOpenHandGap10,
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _MetadataChip(label: 'ID $id'),
-              _MetadataChip(label: identity),
-              _MetadataChip(
-                label: size == '-'
-                    ? openHandLocalizedText(context, zh: '尺寸 -', en: 'Size -')
-                    : size,
-              ),
-              _MetadataChip(
-                label:
-                    '${openHandOutputLabel(context)} $outputCharacters ${openHandLocalizedText(context, zh: '字符', en: 'chars')}',
-              ),
-            ],
-          ),
-          kOpenHandGap12,
-          ...extraRows,
-        ],
+                OpenHandStatusPill(
+                  icon: Icons.terminal_rounded,
+                  label: _machineTerminalStatusLabel(context, status),
+                  color: statusColor,
+                ),
+              ],
+            ),
+            kOpenHandGap10,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _MetadataChip(label: 'ID $id', accent: statusColor),
+                _MetadataChip(label: identity, accent: colorScheme.primary),
+                _MetadataChip(
+                  accent: colorScheme.tertiary,
+                  label: size == '-'
+                      ? openHandLocalizedText(context, zh: '尺寸 -', en: 'Size -')
+                      : size,
+                ),
+                _MetadataChip(
+                  accent: colorScheme.secondary,
+                  label:
+                      '${openHandOutputLabel(context)} $outputCharacters ${openHandLocalizedText(context, zh: '字符', en: 'chars')}',
+                ),
+              ],
+            ),
+            kOpenHandGap12,
+            ...extraRows,
+          ],
+        ),
       ),
     );
   }
@@ -2128,66 +1956,53 @@ class _MetadataPlanRecordCard extends StatelessWidget {
         .whereType<Widget>()
         .toList(growable: false);
     final planSummary = planRecord.plan.trim();
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: kOpenHandBorderRadius16,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                AppLocalizations.of(context)!.sessMetaPlanPlanindex(planIndex),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.14),
-                  borderRadius: kOpenHandPillBorderRadius,
-                ),
-                child: Text(
-                  _sessionPlanStatusLabel(context, planRecord.status),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: statusColor,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: OpenHandTintedPanel(
+        accent: statusColor,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  AppLocalizations.of(
+                    context,
+                  )!.sessMetaPlanPlanindex(planIndex),
+                  style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                OpenHandStatusPill(
+                  icon: Icons.flag_rounded,
+                  label: _sessionPlanStatusLabel(context, planRecord.status),
+                  color: statusColor,
+                ),
+              ],
+            ),
+            kOpenHandGap8,
+            Text(
+              '${AppLocalizations.of(context)!.sessMetaCreated} ${formatYearMonthDayHmLocal(planRecord.createdAt)} · ${AppLocalizations.of(context)!.sessMetaUpdated} ${formatYearMonthDayHmLocal(planRecord.updatedAt)}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (planSummary.isNotEmpty && steps.isEmpty) ...[
+              kOpenHandGap10,
+              SelectableText(
+                planSummary,
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
               ),
             ],
-          ),
-          kOpenHandGap8,
-          Text(
-            '${AppLocalizations.of(context)!.sessMetaCreated} ${formatYearMonthDayHmLocal(planRecord.createdAt)} · ${AppLocalizations.of(context)!.sessMetaUpdated} ${formatYearMonthDayHmLocal(planRecord.updatedAt)}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          if (planSummary.isNotEmpty && steps.isEmpty) ...[
-            kOpenHandGap10,
-            SelectableText(
-              planSummary,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-            ),
+            if (steps.isNotEmpty) ...[
+              kOpenHandGap10,
+              Wrap(spacing: 8, runSpacing: 8, children: steps),
+            ],
           ],
-          if (steps.isNotEmpty) ...[
-            kOpenHandGap10,
-            Wrap(spacing: 8, runSpacing: 8, children: steps),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -2205,58 +2020,55 @@ class _MetadataErrorCard extends StatelessWidget {
     final presentation = _presentSessionError(context, error);
     final detail = (error.detail ?? '').trim();
     final rawMessage = error.message.trim();
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.errorContainer.withValues(alpha: 0.7),
-        borderRadius: kOpenHandBorderRadius16,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            presentation.title,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: colorScheme.onErrorContainer,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          kOpenHandGap6,
-          SelectableText(
-            presentation.message,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onErrorContainer,
-              height: 1.4,
-            ),
-          ),
-          if (detail.isNotEmpty && detail != rawMessage) ...[
-            kOpenHandGap8,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: OpenHandTintedPanel(
+        accent: colorScheme.error,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              AppLocalizations.of(context)!.sessMetaErrorDetail,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colorScheme.onErrorContainer.withValues(alpha: 0.9),
-                fontWeight: FontWeight.w700,
+              presentation.title,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colorScheme.error,
+                fontWeight: FontWeight.w800,
               ),
             ),
-            kOpenHandGap4,
+            kOpenHandGap6,
             SelectableText(
-              detail,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onErrorContainer.withValues(alpha: 0.9),
+              presentation.message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface,
                 height: 1.4,
               ),
             ),
-          ],
-          kOpenHandGap8,
-          Text(
-            '${_sessionErrorStageLabel(context, error.stage)} · ${formatYearMonthDayHmLocal(error.createdAt)} · ${error.hasBeenPresented ? AppLocalizations.of(context)!.sessMetaPresented : AppLocalizations.of(context)!.sessMetaPending}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onErrorContainer.withValues(alpha: 0.84),
+            if (detail.isNotEmpty && detail != rawMessage) ...[
+              kOpenHandGap8,
+              Text(
+                AppLocalizations.of(context)!.sessMetaErrorDetail,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              kOpenHandGap4,
+              SelectableText(
+                detail,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  height: 1.4,
+                ),
+              ),
+            ],
+            kOpenHandGap8,
+            Text(
+              '${_sessionErrorStageLabel(context, error.stage)} · ${formatYearMonthDayHmLocal(error.createdAt)} · ${error.hasBeenPresented ? AppLocalizations.of(context)!.sessMetaPresented : AppLocalizations.of(context)!.sessMetaPending}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

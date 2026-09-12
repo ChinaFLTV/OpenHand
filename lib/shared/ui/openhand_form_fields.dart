@@ -1159,6 +1159,7 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
     this.busy = false,
     this.closeEnabled = true,
     this.canPop = true,
+    this.onPopInvokedWithResult,
     this.scrollBody = true,
     this.maxWidth = kOpenHandDialogWidthWide,
     this.maxHeight = kOpenHandDialogHeightTall,
@@ -1174,6 +1175,7 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
   final bool busy;
   final bool closeEnabled;
   final bool canPop;
+  final PopInvokedWithResultCallback<Object?>? onPopInvokedWithResult;
   final bool scrollBody;
   final double maxWidth;
   final double maxHeight;
@@ -1184,6 +1186,7 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
     final fillHeight = !scrollBody;
     return PopScope(
       canPop: canPop,
+      onPopInvokedWithResult: onPopInvokedWithResult,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
         maxWidth: maxWidth,

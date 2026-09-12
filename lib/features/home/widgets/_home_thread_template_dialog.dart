@@ -213,6 +213,8 @@ Widget _buildProgrammingExpertConfigSection(
     '${configMap['lsp_path'] ?? ''}',
   );
   return OpenHandMetadataSection(
+    icon: Icons.code_rounded,
+    accent: Theme.of(context).colorScheme.tertiary,
     title: sectionTitle,
     children: [
       OpenHandMetadataEntryRow(
@@ -366,6 +368,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
   ];
 
   return OpenHandMetadataSection(
+    accent: Theme.of(context).colorScheme.primary,
     title: sectionTitle,
     children: [
       if (task.isNotEmpty)
@@ -474,30 +477,38 @@ Widget _buildMissingThreadTemplateConfigSection(
 }) {
   final theme = Theme.of(context);
   return OpenHandMetadataSection(
+    icon: Icons.info_outline_rounded,
+    accent: OpenHandStatusColors.warning,
     title: title,
     children: [
-      Text(
-        includeLegacyHint
-            ? openHandLocalizedText(
-                context,
-                zh: '配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。',
-                zhHant: '設定資料尚未寫入會話中繼資料（此會話可能早於此功能）。',
-                en: 'Configuration data has not been stored in session metadata (session may predate this feature).',
-                fr: 'Les données de configuration ne sont pas dans les métadonnées de session (session peut-être antérieure à cette fonction).',
-                de: 'Konfigurationsdaten fehlen in den Sitzungsmetadaten (die Sitzung ist eventuell älter als diese Funktion).',
-                ja: '設定データはセッションメタデータにありません（この機能以前のセッションの可能性があります）。',
-              )
-            : openHandLocalizedText(
-                context,
-                zh: '配置数据尚未写入会话元数据。',
-                zhHant: '設定資料尚未寫入會話中繼資料。',
-                en: 'Configuration data has not been stored in session metadata.',
-                fr: 'Les données de configuration ne sont pas encore dans les métadonnées de session.',
-                de: 'Konfigurationsdaten wurden noch nicht in den Sitzungsmetadaten gespeichert.',
-                ja: '設定データはまだセッションメタデータに保存されていません。',
-              ),
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
+      OpenHandTintedPanel(
+        accent: OpenHandStatusColors.warning,
+        icon: Icons.info_outline_rounded,
+        child: Text(
+          includeLegacyHint
+              ? openHandLocalizedText(
+                  context,
+                  zh: '配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。',
+                  zhHant: '設定資料尚未寫入會話中繼資料（此會話可能早於此功能）。',
+                  en: 'Configuration data has not been stored in session metadata (session may predate this feature).',
+                  fr: 'Les données de configuration ne sont pas dans les métadonnées de session (session peut-être antérieure à cette fonction).',
+                  de: 'Konfigurationsdaten fehlen in den Sitzungsmetadaten (die Sitzung ist eventuell älter als diese Funktion).',
+                  ja: '設定データはセッションメタデータにありません（この機能以前のセッションの可能性があります）。',
+                )
+              : openHandLocalizedText(
+                  context,
+                  zh: '配置数据尚未写入会话元数据。',
+                  zhHant: '設定資料尚未寫入會話中繼資料。',
+                  en: 'Configuration data has not been stored in session metadata.',
+                  fr: 'Les données de configuration ne sont pas encore dans les métadonnées de session.',
+                  de: 'Konfigurationsdaten wurden noch nicht in den Sitzungsmetadaten gespeichert.',
+                  ja: '設定データはまだセッションメタデータに保存されていません。',
+                ),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface,
+            height: 1.4,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     ],
@@ -521,6 +532,8 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
     return _buildMissingThreadTemplateConfigSection(context, sectionTitle);
   }
   return OpenHandMetadataSection(
+    icon: Icons.language_rounded,
+    accent: OpenHandStatusColors.info,
     title: sectionTitle,
     children: [
       OpenHandMetadataEntryRow(
