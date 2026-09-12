@@ -10,12 +10,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
-import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../db/atomic_file_operations.dart';
-import '../util/bounded_file_io.dart';
 import '../util/bounded_xfile_io.dart';
 import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
@@ -51,7 +49,6 @@ const int kImageEditorSourceMaxBytes = 32 * kBytesPerMiB;
 const int _imageEditorMaxOutputLongSide = 2048;
 const int _imageEditorMaxSourceDimension = 32768;
 const int _imageEditorMaxSourcePixels = 64 * kBytesPerMiB;
-const Duration _imageEditorTempWriteTimeout = Duration(seconds: 30);
 
 /// 选择并限制源图片大小，然后通过统一动画弹窗完成编辑。
 Future<PickedImageEditorResult?> pickAndEditImage(
@@ -2098,33 +2095,11 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       return;
     }
     try {
-      final ext = _aspect == _CropAspect.circle ? 'png' : 'jpg';
-      final tempFile = await writeNewTemporaryFileBytesBounded(
-        directoryPrefix: 'openhand_clip_',
-        fileName: 'image.$ext',
-        bytes: outputBytes,
-        timeout: _imageEditorTempWriteTimeout,
-        onSecondaryError: (error, stack) =>
-            silentLog('image_editor_dialog', '清理剪贴板图片临时文件', error, stack),
-      );
-
-      var bitmapCopied = false;
-      if (Platform.isMacOS) {
-        final result = await runProcessWithTimeout('osascript', <String>[
-          '-e',
-          'set the clipboard to (read POSIX file "${tempFile.path.replaceAll('"', r'\"')}") as ${ext == 'png' ? 'picture' : 'JPEG picture'}',
-        ], tag: 'image_editor_dialog');
-        bitmapCopied = result?.exitCode == 0;
-      }
-
-      await setOpenHandClipboardText(tempFile.path);
-
+      await setOpenHandClipboardImage(outputBytes);
       if (!mounted) {
         return;
       }
-      final clipMsg = bitmapCopied
-          ? l10n.imageEditorClipboardCopiedBitmap
-          : l10n.imageEditorClipboardCopiedPath(tempFile.path);
+      final clipMsg = l10n.imageEditorClipboardCopiedBitmap;
       setState(() {
         _statusMessage = clipMsg;
         _errorMessage = null;

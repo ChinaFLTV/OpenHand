@@ -3649,12 +3649,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageEditorClipboardCopiedBitmap =>
-      'Image copied to the clipboard. The file path was also copied as text.';
-
-  @override
-  String imageEditorClipboardCopiedPath(String path) {
-    return 'Image file path copied to the clipboard: $path';
-  }
+      'Image copied to the clipboard.';
 
   @override
   String get imageEditorApplyButton => 'Apply';

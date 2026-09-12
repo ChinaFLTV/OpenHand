@@ -634,11 +634,11 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       }
       final filePath = widget.filePath;
       if (filePath != null) {
-        final ok = await _copyFilePathToClipboard(filePath);
+        final copied = await copyOpenHandFileToClipboard(filePath);
         if (!context.mounted) return;
         _showMediaSnack(
           context,
-          message: ok
+          message: copied == OpenHandFileClipboardContent.file
               ? l10n.mediaPreviewMediaFileCopied
               : l10n.mediaPreviewDirectCopyUnavailablePathCopied,
         );
@@ -654,11 +654,11 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       final bytes = widget.bytes;
       if (bytes != null) {
         final tempPath = await _writeBytesToClipboardTempFile(bytes);
-        final ok = await _copyFilePathToClipboard(tempPath);
+        final copied = await copyOpenHandFileToClipboard(tempPath);
         if (!context.mounted) return;
         _showMediaSnack(
           context,
-          message: ok
+          message: copied == OpenHandFileClipboardContent.file
               ? l10n.mediaPreviewMediaFileCopied
               : l10n.mediaPreviewDirectCopyUnavailableTempPathCopied,
         );
@@ -732,7 +732,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         );
         return true;
       } catch (_) {
-        await _copyFilePathToClipboard(filePath);
+        await copyOpenHandFileToClipboard(filePath);
         return false;
       }
     }
@@ -746,18 +746,6 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       return true;
     }
     throw const FileSystemException('图片源不可用。');
-  }
-
-  Future<bool> _copyFilePathToClipboard(String filePath) async {
-    var ok = false;
-    try {
-      ok = await writeOpenHandClipboardFiles(<String>[filePath]);
-    } catch (_) {
-      ok = false;
-    } finally {
-      await setOpenHandClipboardText(filePath, timeout: _kClipboardTimeout);
-    }
-    return ok;
   }
 
   Future<Uint8List> _downloadNetworkBytes(

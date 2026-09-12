@@ -2202,21 +2202,6 @@ void _showMediaClipboardSnack(
   showOpenHandSuccessSnack(context, message);
 }
 
-Future<bool> _copyLocalFileToPasteboard(String filePath) async {
-  var ok = false;
-  try {
-    ok = await writeOpenHandClipboardFiles(<String>[filePath]);
-  } catch (_) {
-    ok = false;
-  } finally {
-    await setOpenHandClipboardText(
-      filePath,
-      timeout: _mediaClipboardOperationTimeout,
-    );
-  }
-  return ok;
-}
-
 Future<Uint8List> _readLocalClipboardBytes(
   String filePath, {
   required int maxBytes,
@@ -2737,12 +2722,14 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
       if (!await file.exists().timeout(_mediaClipboardOperationTimeout)) {
         throw FileSystemException('File not found.', widget.filePath);
       }
-      final ok = await _copyLocalFileToPasteboard(widget.filePath);
+      final copied = await copyOpenHandFileToClipboard(widget.filePath);
       if (!context.mounted) return;
       _showMediaClipboardSnack(
         context,
-        zh: ok ? '已复制文件到剪贴板。' : '当前平台不支持直接复制文件，已复制文件路径。',
-        en: ok
+        zh: copied == OpenHandFileClipboardContent.file
+            ? '已复制文件到剪贴板。'
+            : '当前平台不支持直接复制文件，已复制文件路径。',
+        en: copied == OpenHandFileClipboardContent.file
             ? 'Copied file to clipboard.'
             : 'Direct file copy is unavailable on this platform. Copied the file path.',
       );
@@ -3201,12 +3188,14 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
           );
           return;
         } catch (_) {
-          final ok = await _copyLocalFileToPasteboard(sourceFilePath);
+          final copied = await copyOpenHandFileToClipboard(sourceFilePath);
           if (!context.mounted) return;
           _showMediaClipboardSnack(
             context,
-            zh: ok ? '已复制图片文件到剪贴板。' : '当前平台不支持直接复制图片文件，已复制文件路径。',
-            en: ok
+            zh: copied == OpenHandFileClipboardContent.file
+                ? '已复制图片文件到剪贴板。'
+                : '当前平台不支持直接复制图片文件，已复制文件路径。',
+            en: copied == OpenHandFileClipboardContent.file
                 ? 'Copied image file to clipboard.'
                 : 'Direct image file copy is unavailable on this platform. Copied the file path.',
           );
@@ -4610,12 +4599,14 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
         if (!await file.exists().timeout(_mediaClipboardOperationTimeout)) {
           throw FileSystemException('Media source file is missing.', filePath);
         }
-        final ok = await _copyLocalFileToPasteboard(filePath);
+        final copied = await copyOpenHandFileToClipboard(filePath);
         if (!context.mounted) return;
         _showMediaClipboardSnack(
           context,
-          zh: ok ? '已复制媒体文件到剪贴板。' : '当前平台不支持直接复制媒体文件，已复制文件路径。',
-          en: ok
+          zh: copied == OpenHandFileClipboardContent.file
+              ? '已复制媒体文件到剪贴板。'
+              : '当前平台不支持直接复制媒体文件，已复制文件路径。',
+          en: copied == OpenHandFileClipboardContent.file
               ? 'Copied media file to clipboard.'
               : 'Direct media file copy is unavailable on this platform. Copied the file path.',
         );

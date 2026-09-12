@@ -1872,15 +1872,7 @@
       }
     }
   },
-  "imageEditorClipboardCopiedBitmap": "已复制图片到剪贴板（文件路径同时复制为文本）。",
-  "imageEditorClipboardCopiedPath": "已复制图片文件路径到剪贴板：{path}",
-  "@imageEditorClipboardCopiedPath": {
-    "placeholders": {
-      "path": {
-        "type": "String"
-      }
-    }
-  },
+  "imageEditorClipboardCopiedBitmap": "已复制图片到剪贴板。",
   "imageEditorApplyButton": "应用",
   "imageEditorUndoButton": "回退",
   "imageEditorResetAllButton": "重置全部",

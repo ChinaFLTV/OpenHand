@@ -1867,15 +1867,7 @@
       }
     }
   },
-  "imageEditorClipboardCopiedBitmap": "Bild in die Zwischenablage kopiert. Der Dateipfad wurde ebenfalls als Text kopiert.",
-  "imageEditorClipboardCopiedPath": "Bilddateipfad in die Zwischenablage kopiert: {path}",
-  "@imageEditorClipboardCopiedPath": {
-    "placeholders": {
-      "path": {
-        "type": "String"
-      }
-    }
-  },
+  "imageEditorClipboardCopiedBitmap": "Bild in die Zwischenablage kopiert.",
   "imageEditorApplyButton": "Anwenden",
   "imageEditorUndoButton": "Rückgängig",
   "imageEditorResetAllButton": "Alles zurücksetzen",

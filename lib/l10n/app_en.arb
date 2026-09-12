@@ -1872,15 +1872,7 @@
       }
     }
   },
-  "imageEditorClipboardCopiedBitmap": "Image copied to the clipboard. The file path was also copied as text.",
-  "imageEditorClipboardCopiedPath": "Image file path copied to the clipboard: {path}",
-  "@imageEditorClipboardCopiedPath": {
-    "placeholders": {
-      "path": {
-        "type": "String"
-      }
-    }
-  },
+  "imageEditorClipboardCopiedBitmap": "Image copied to the clipboard.",
   "imageEditorApplyButton": "Apply",
   "imageEditorUndoButton": "Undo",
   "imageEditorResetAllButton": "Reset All",

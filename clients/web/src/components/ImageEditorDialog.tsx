@@ -8,6 +8,7 @@ import {
 } from '../utils/blob_data_url';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import { describeApiError } from '../utils/api_error';
+import { downloadBlobWithAnchor } from '../utils/save_blob';
 import { runWithTimeout } from '../utils/timed_abort';
 import {
   DIALOG_OVERLAY_MEDIA_Z_INDEX,
@@ -158,13 +159,19 @@ const ASPECTS: { key: CropAspect; label: string }[] = [
 ];
 
 const IMAGE_ENCODE_TIMEOUT_MS = 15_000;
-const IMAGE_CLIPBOARD_FETCH_TIMEOUT_MS = 10_000;
+const IMAGE_DATA_URL_DECODE_TIMEOUT_MS = 10_000;
+const IMAGE_EDITOR_PREVIEW_MAX_WIDTH = 720;
+const IMAGE_EDITOR_PREVIEW_MAX_HEIGHT = 420;
+const IMAGE_EDITOR_OUTPUT_MAX_LONG_SIDE = 2048;
+const IMAGE_EDITOR_JPEG_QUALITY = 0.92;
+const IMAGE_EDITOR_MAX_UNDO_ENTRIES = 20;
 
 export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialogProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const mountedRef = useRef(true);
+  const operationBusyRef = useRef(false);
   const [settings, setSettings] = useState<EditorSettings>(DEFAULT_SETTINGS);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [busy, setBusy] = useState(false);
@@ -192,7 +199,14 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
   }, []);
 
   const ratio = useMemo(() => aspectRatio(settings.aspect, naturalSize), [settings.aspect, naturalSize]);
-  const previewSize = useMemo(() => fitSize(ratio, 720, 420), [ratio]);
+  const previewSize = useMemo(
+    () => fitSize(
+      ratio,
+      IMAGE_EDITOR_PREVIEW_MAX_WIDTH,
+      IMAGE_EDITOR_PREVIEW_MAX_HEIGHT,
+    ),
+    [ratio],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -230,74 +244,83 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
   }, [settings, showOriginal, previewSize.width, previewSize.height, naturalSize.width, naturalSize.height]);
 
   function pushUndo(): void {
-    setUndoStack((prev) => [...prev.slice(-19), settings]);
+    setUndoStack((prev) => [
+      ...prev.slice(-(IMAGE_EDITOR_MAX_UNDO_ENTRIES - 1)),
+      settings,
+    ]);
   }
 
   function update<K extends keyof EditorSettings>(key: K, value: EditorSettings[K]): void {
     setSettings((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function makeResult(download = false): Promise<ImageEditorResult> {
+  async function makeResult(): Promise<{
+    result: ImageEditorResult;
+    blob: Blob;
+  }> {
     await yieldToBrowser();
     const image = imageRef.current;
     if (!image) throw new Error(t('imageEditor.loadFailed', '无法加载所选图片'));
     const outputRatio = aspectRatio(settings.aspect, naturalSize);
-    const out = outputSize(outputRatio, naturalSize, 2048);
+    const out = outputSize(
+      outputRatio,
+      naturalSize,
+      IMAGE_EDITOR_OUTPUT_MAX_LONG_SIDE,
+    );
     const canvas = document.createElement('canvas');
     renderToCanvas(canvas, image, settings, { width: out.width, height: out.height, preview: false });
     const mime = settings.aspect === 'circle' ? 'image/png' : 'image/jpeg';
-    const { dataUrl, dataBase64, size } = await encodeCanvas(canvas, mime, 0.92);
+    const { dataUrl, dataBase64, size, blob } = await encodeCanvas(
+      canvas,
+      mime,
+      IMAGE_EDITOR_JPEG_QUALITY,
+    );
     const ext = mime === 'image/png' ? 'png' : 'jpg';
     const name = replaceExtension(input.name, ext);
-    if (download) {
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = name;
-      link.click();
+    return {
+      result: { name, mime, dataUrl, dataBase64, size },
+      blob,
+    };
+  }
+
+  async function runBusyOperation(operation: () => Promise<void>): Promise<void> {
+    if (operationBusyRef.current || closing || pendingSaveResultRef.current) return;
+    operationBusyRef.current = true;
+    setBusy(true);
+    setStatus(null);
+    setError(null);
+    try {
+      await operation();
+    } catch (err: unknown) {
+      if (mountedRef.current) setError(describeApiError(err));
+    } finally {
+      operationBusyRef.current = false;
+      if (mountedRef.current) setBusy(false);
     }
-    return { name, mime, dataUrl, dataBase64, size };
   }
 
   async function save(): Promise<void> {
-    if (busy || closing) return;
-    setBusy(true);
-    setError(null);
-    try {
-      pendingSaveResultRef.current = await makeResult(false);
-      if (!mountedRef.current) return;
-      requestCloseWithReason('save');
-    } catch (err: unknown) {
+    await runBusyOperation(async () => {
       pendingSaveResultRef.current = null;
-      if (mountedRef.current) setError(describeApiError(err));
-    } finally {
-      if (mountedRef.current) setBusy(false);
-    }
+      const { result } = await makeResult();
+      if (!mountedRef.current) return;
+      pendingSaveResultRef.current = result;
+      requestCloseWithReason('save');
+    });
   }
 
   async function download(): Promise<void> {
-    setBusy(true);
-    setStatus(null);
-    setError(null);
-    try {
-      await makeResult(true);
-      if (mountedRef.current) setStatus(t('imageEditor.savedLocal', '已另存到本地'));
-    } catch (err: unknown) {
-      if (mountedRef.current) setError(describeApiError(err));
-    } finally {
-      if (mountedRef.current) setBusy(false);
-    }
+    await runBusyOperation(async () => {
+      const { result, blob } = await makeResult();
+      if (!mountedRef.current) return;
+      downloadBlobWithAnchor(blob, result.name);
+      setStatus(t('imageEditor.savedLocal', '已另存到本地'));
+    });
   }
 
   async function copyToClipboard(): Promise<void> {
-    setBusy(true);
-    setStatus(null);
-    setError(null);
-    try {
-      const result = await makeResult(false);
-      const blob = await runWithTimeout(
-        async () => (await fetch(result.dataUrl)).blob(),
-        { timeoutMs: IMAGE_CLIPBOARD_FETCH_TIMEOUT_MS },
-      );
+    await runBusyOperation(async () => {
+      const { result, blob } = await makeResult();
       if (!mountedRef.current) return;
       if (await copyBlobToClipboard(blob)) {
         if (!mountedRef.current) return;
@@ -308,11 +331,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
       } else {
         setError(t('imageEditor.copyFailed', '复制图片失败，请检查浏览器剪贴板权限'));
       }
-    } catch (err: unknown) {
-      if (mountedRef.current) setError(describeApiError(err));
-    } finally {
-      if (mountedRef.current) setBusy(false);
-    }
+    });
   }
 
   return (
@@ -539,19 +558,35 @@ function aspectRatio(aspect: CropAspect, size: { width: number; height: number }
 }
 
 function fitSize(ratio: number, maxWidth: number, maxHeight: number): { width: number; height: number } {
+  const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
   let width = maxWidth;
-  let height = Math.round(width / ratio);
+  let height = width / safeRatio;
   if (height > maxHeight) {
     height = maxHeight;
-    width = Math.round(height * ratio);
+    width = height * safeRatio;
   }
-  return { width: Math.max(180, width), height: Math.max(180, height) };
+  return {
+    width: Math.max(1, Math.round(width)),
+    height: Math.max(1, Math.round(height)),
+  };
 }
 
 function outputSize(ratio: number, natural: { width: number; height: number }, maxLongSide: number): { width: number; height: number } {
-  const longSide = Math.min(maxLongSide, Math.max(natural.width, natural.height));
-  if (ratio >= 1) return { width: Math.round(longSide), height: Math.round(longSide / ratio) };
-  return { width: Math.round(longSide * ratio), height: Math.round(longSide) };
+  const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+  const longSide = Math.max(
+    1,
+    Math.min(maxLongSide, Math.max(natural.width, natural.height)),
+  );
+  if (safeRatio >= 1) {
+    return {
+      width: Math.max(1, Math.round(longSide)),
+      height: Math.max(1, Math.round(longSide / safeRatio)),
+    };
+  }
+  return {
+    width: Math.max(1, Math.round(longSide * safeRatio)),
+    height: Math.max(1, Math.round(longSide)),
+  };
 }
 
 function renderToCanvas(
@@ -680,7 +715,7 @@ async function encodeCanvas(
   canvas: HTMLCanvasElement,
   mime: string,
   quality: number,
-): Promise<{ dataUrl: string; dataBase64: string; size: number }> {
+): Promise<{ dataUrl: string; dataBase64: string; size: number; blob: Blob }> {
   const blob = await new Promise<Blob | null>((resolve) => {
     let settled = false;
     const finish = (value: Blob | null) => {
@@ -700,10 +735,15 @@ async function encodeCanvas(
     const dataUrl = canvas.toDataURL(mime, quality);
     const dataBase64 = base64PayloadFromDataUrl(dataUrl) ?? '';
     if (!dataBase64) throw new Error('图片编码失败');
+    const fallbackBlob = await runWithTimeout(
+      async () => (await fetch(dataUrl)).blob(),
+      { timeoutMs: IMAGE_DATA_URL_DECODE_TIMEOUT_MS },
+    );
     return {
       dataUrl,
       dataBase64,
-      size: Math.ceil((dataBase64.length * 3) / 4),
+      size: fallbackBlob.size,
+      blob: fallbackBlob,
     };
   }
 
@@ -714,7 +754,7 @@ async function encodeCanvas(
   });
   const dataBase64 = base64PayloadFromDataUrl(dataUrl) ?? '';
   if (!dataBase64) throw new Error('图片编码失败');
-  return { dataUrl, dataBase64, size: blob.size };
+  return { dataUrl, dataBase64, size: blob.size, blob };
 }
 
 function yieldToBrowser(): Promise<void> {

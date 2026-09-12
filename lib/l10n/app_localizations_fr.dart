@@ -3700,12 +3700,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get imageEditorClipboardCopiedBitmap =>
-      'Image copiée dans le presse-papiers. Le chemin du fichier a également été copié en tant que texte.';
-
-  @override
-  String imageEditorClipboardCopiedPath(String path) {
-    return 'Chemin du fichier image copié dans le presse-papiers : $path';
-  }
+      'Image copiée dans le presse-papiers.';
 
   @override
   String get imageEditorApplyButton => 'Appliquer';

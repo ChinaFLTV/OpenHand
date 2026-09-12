@@ -188,6 +188,8 @@ void _replaceClipboardErrorSnack(
 const Duration kOpenHandClipboardImageReadTimeout = Duration(seconds: 10);
 const Duration kOpenHandClipboardWriteTimeout = Duration(seconds: 15);
 
+enum OpenHandFileClipboardContent { file, path }
+
 /// 限时读取剪贴板文件路径列表；失败或超时返回空列表。
 Future<List<String>> getOpenHandClipboardFiles({
   Duration timeout = kOpenHandClipboardImageReadTimeout,
@@ -242,4 +244,17 @@ Future<bool> writeOpenHandClipboardFiles(
   } catch (_) {
     return false;
   }
+}
+
+/// 优先复制文件对象；平台不支持时回退为文件路径文本。
+Future<OpenHandFileClipboardContent> copyOpenHandFileToClipboard(
+  String path, {
+  Duration timeout = kOpenHandClipboardWriteTimeout,
+}) async {
+  if (path.isEmpty) throw ArgumentError('文件路径不能为空。');
+  if (await writeOpenHandClipboardFiles(<String>[path], timeout: timeout)) {
+    return OpenHandFileClipboardContent.file;
+  }
+  await setOpenHandClipboardText(path, timeout: timeout);
+  return OpenHandFileClipboardContent.path;
 }

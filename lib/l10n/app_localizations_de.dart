@@ -3684,12 +3684,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get imageEditorClipboardCopiedBitmap =>
-      'Bild in die Zwischenablage kopiert. Der Dateipfad wurde ebenfalls als Text kopiert.';
-
-  @override
-  String imageEditorClipboardCopiedPath(String path) {
-    return 'Bilddateipfad in die Zwischenablage kopiert: $path';
-  }
+      'Bild in die Zwischenablage kopiert.';
 
   @override
   String get imageEditorApplyButton => 'Anwenden';

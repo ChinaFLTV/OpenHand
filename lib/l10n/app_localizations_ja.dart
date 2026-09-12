@@ -3558,13 +3558,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get imageEditorClipboardCopiedBitmap =>
-      '画像をクリップボードにコピーしました。ファイルパスもテキストとしてコピーされました。';
-
-  @override
-  String imageEditorClipboardCopiedPath(String path) {
-    return '画像ファイルパスをクリップボードにコピーしました：$path';
-  }
+  String get imageEditorClipboardCopiedBitmap => '画像をクリップボードにコピーしました。';
 
   @override
   String get imageEditorApplyButton => '適用';

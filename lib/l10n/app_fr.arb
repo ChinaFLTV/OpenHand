@@ -1867,15 +1867,7 @@
       }
     }
   },
-  "imageEditorClipboardCopiedBitmap": "Image copiée dans le presse-papiers. Le chemin du fichier a également été copié en tant que texte.",
-  "imageEditorClipboardCopiedPath": "Chemin du fichier image copié dans le presse-papiers : {path}",
-  "@imageEditorClipboardCopiedPath": {
-    "placeholders": {
-      "path": {
-        "type": "String"
-      }
-    }
-  },
+  "imageEditorClipboardCopiedBitmap": "Image copiée dans le presse-papiers.",
   "imageEditorApplyButton": "Appliquer",
   "imageEditorUndoButton": "Annuler",
   "imageEditorResetAllButton": "Tout réinitialiser",

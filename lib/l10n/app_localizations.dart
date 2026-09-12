@@ -6513,14 +6513,8 @@ abstract class AppLocalizations {
   /// No description provided for @imageEditorClipboardCopiedBitmap.
   ///
   /// In zh, this message translates to:
-  /// **'已复制图片到剪贴板（文件路径同时复制为文本）。'**
+  /// **'已复制图片到剪贴板。'**
   String get imageEditorClipboardCopiedBitmap;
-
-  /// No description provided for @imageEditorClipboardCopiedPath.
-  ///
-  /// In zh, this message translates to:
-  /// **'已复制图片文件路径到剪贴板：{path}'**
-  String imageEditorClipboardCopiedPath(String path);
 
   /// No description provided for @imageEditorApplyButton.
   ///

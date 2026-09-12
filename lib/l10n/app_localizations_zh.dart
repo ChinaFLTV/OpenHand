@@ -3514,12 +3514,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get imageEditorClipboardCopiedBitmap => '已复制图片到剪贴板（文件路径同时复制为文本）。';
-
-  @override
-  String imageEditorClipboardCopiedPath(String path) {
-    return '已复制图片文件路径到剪贴板：$path';
-  }
+  String get imageEditorClipboardCopiedBitmap => '已复制图片到剪贴板。';
 
   @override
   String get imageEditorApplyButton => '应用';
@@ -13934,12 +13929,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get imageEditorClipboardCopiedBitmap => '已複製圖片到剪貼簿（檔案路徑同時複製為文字）。';
-
-  @override
-  String imageEditorClipboardCopiedPath(String path) {
-    return '已複製圖片檔案路徑到剪貼簿：$path';
-  }
+  String get imageEditorClipboardCopiedBitmap => '已複製圖片到剪貼簿。';
 
   @override
   String get imageEditorApplyButton => '應用';

@@ -1867,15 +1867,7 @@
       }
     }
   },
-  "imageEditorClipboardCopiedBitmap": "画像をクリップボードにコピーしました。ファイルパスもテキストとしてコピーされました。",
-  "imageEditorClipboardCopiedPath": "画像ファイルパスをクリップボードにコピーしました：{path}",
-  "@imageEditorClipboardCopiedPath": {
-    "placeholders": {
-      "path": {
-        "type": "String"
-      }
-    }
-  },
+  "imageEditorClipboardCopiedBitmap": "画像をクリップボードにコピーしました。",
   "imageEditorApplyButton": "適用",
   "imageEditorUndoButton": "元に戻す",
   "imageEditorResetAllButton": "すべてリセット",

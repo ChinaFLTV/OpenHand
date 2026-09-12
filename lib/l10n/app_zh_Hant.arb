@@ -1867,15 +1867,7 @@
       }
     }
   },
-  "imageEditorClipboardCopiedBitmap": "已複製圖片到剪貼簿（檔案路徑同時複製為文字）。",
-  "imageEditorClipboardCopiedPath": "已複製圖片檔案路徑到剪貼簿：{path}",
-  "@imageEditorClipboardCopiedPath": {
-    "placeholders": {
-      "path": {
-        "type": "String"
-      }
-    }
-  },
+  "imageEditorClipboardCopiedBitmap": "已複製圖片到剪貼簿。",
   "imageEditorApplyButton": "應用",
   "imageEditorUndoButton": "復原",
   "imageEditorResetAllButton": "重置全部",
