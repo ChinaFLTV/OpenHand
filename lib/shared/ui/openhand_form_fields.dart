@@ -980,9 +980,11 @@ class OpenHandTintedPanel extends StatelessWidget {
   }
 }
 
-/// 编辑弹窗公共骨架：工具头 + 滚动分区 + 固定页脚。
+/// 编辑弹窗公共骨架：工具头 + 正文 + 固定页脚。
 ///
 /// 进退场走 [showAnimatedDialog] 的全局弹窗动画；页脚钉住避免长表单挡住保存。
+/// [scrollBody] 为 true 时高度按内容收缩，超过 [maxHeight] 后正文滚动；
+/// 为 false 时撑满最大高度，供 Tab 等需要 [Expanded] 的布局使用。
 class OpenHandEditorDialogScaffold extends StatelessWidget {
   const OpenHandEditorDialogScaffold({
     super.key,
@@ -1018,14 +1020,17 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final fillHeight = !scrollBody;
     return PopScope(
       canPop: canPop,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
         maxWidth: maxWidth,
         maxHeight: maxHeight,
+        expandToMax: fillHeight,
         safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
         child: Column(
+          mainAxisSize: fillHeight ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             buildOpenHandToolDialogHeader(
@@ -1037,7 +1042,8 @@ class OpenHandEditorDialogScaffold extends StatelessWidget {
               actions: headerActions,
               closeEnabled: closeEnabled,
             ),
-            Expanded(
+            Flexible(
+              fit: fillHeight ? FlexFit.tight : FlexFit.loose,
               child: scrollBody
                   ? SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
