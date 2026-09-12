@@ -10,6 +10,7 @@ import {
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { DIALOG_FOOTER_VARIANT, DialogFooterActions } from './DialogChrome';
 
 interface SessionGoneDialogProps {
   open: boolean;
@@ -112,10 +113,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
           )}
         </p>
       </div>
-      <footer
-        class="px-6 py-4 flex justify-end"
-        style={{ borderTop: '1px solid var(--m3-outline)' }}
-      >
+      <DialogFooterActions variant={DIALOG_FOOTER_VARIANT.divided}>
         <button
           id="oh-session-gone-back-btn"
           type="button"
@@ -131,7 +129,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
         >
           {navigating ? t('sessionGone.navigating', '返回中…') : t('sessionGone.back', '返回')}
         </button>
-      </footer>
+      </DialogFooterActions>
     </DialogFrame>
   );
 }

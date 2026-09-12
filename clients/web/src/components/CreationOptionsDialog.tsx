@@ -9,6 +9,7 @@ import {
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { DIALOG_FOOTER_VARIANT, DialogFooterActions } from './DialogChrome';
 
 export interface CreationOptions {
   aspectRatio?: string;
@@ -403,7 +404,7 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
           </div>
         </div>
       </div>
-      <div class="flex justify-end gap-3 pt-4">
+      <DialogFooterActions variant={DIALOG_FOOTER_VARIANT.padded}>
         <button
           type="button"
           onClick={requestCancel}
@@ -422,7 +423,7 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
         >
           {t('common.confirm', '确认')}
         </button>
-      </div>
+      </DialogFooterActions>
     </DialogFrame>
   );
 }

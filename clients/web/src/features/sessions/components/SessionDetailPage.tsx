@@ -162,6 +162,7 @@ import {
   DIALOG_ACCENT_CYCLE,
   DialogEntryRow,
   DialogFactChip,
+  DialogFooterActions,
   DialogGlyph,
   DialogIconBadge,
   DialogSectionCard,
@@ -2181,12 +2182,12 @@ function MachineTerminalHistoryDialog({
           )}
         </div>
 
-        <div class="oh-machine-terminal-dialog-footer">
+        <DialogFooterActions className="oh-machine-terminal-dialog-footer">
           <DialogActionButton onClick={requestClose} tone="ghost">
             <ComposerIcon name="close" size={14} />
             {t('common.close', '关闭')}
           </DialogActionButton>
-        </div>
+        </DialogFooterActions>
       </DialogFrame>
       {pendingDeleteTerminal ? (
         <ConfirmDialog
@@ -9500,7 +9501,7 @@ function GoalStartOptionsDialog({
 
           {error ? <p class="text-xs oh-text-error">{error}</p> : null}
 
-          <div class="oh-goal-dialog-actions">
+          <DialogFooterActions className="oh-goal-dialog-actions">
             <DialogActionButton onClick={requestClose}>
               {t('common.cancel', '取消')}
             </DialogActionButton>
@@ -9508,7 +9509,7 @@ function GoalStartOptionsDialog({
               <ComposerIcon name="goal" size={14} />
               <span>{t('goal.start.confirm', '启动目标')}</span>
             </DialogActionButton>
-          </div>
+          </DialogFooterActions>
         </form>
       </DialogFrame>
       {modelPickerOpen ? (
@@ -11880,7 +11881,7 @@ function SessionThrottleDialog({
         }}
         placeholder={current ? String(current.cards) : '1'}
       />
-      <div class="flex justify-center gap-3">
+      <DialogFooterActions>
         <button
           type="button"
           onClick={reset}
@@ -11917,7 +11918,7 @@ function SessionThrottleDialog({
         >
           {t('common.apply', '应用')}
         </button>
-      </div>
+      </DialogFooterActions>
     </DialogFrame>
   );
 }

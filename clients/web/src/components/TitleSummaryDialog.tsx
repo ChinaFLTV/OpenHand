@@ -17,6 +17,8 @@ import {
 } from './DialogFrame';
 import {
   DIALOG_ACCENT,
+  DIALOG_FOOTER_VARIANT,
+  DialogFooterActions,
   DialogGlyph,
   DialogIconBadge,
   DialogSectionCard,
@@ -294,11 +296,11 @@ export function TitleSummaryDialog({
             accent={DIALOG_ACCENT.info}
             icon={<span class="oh-spin"><DialogGlyph name="spark" /></span>}
           >
-            <div class="flex justify-end">
+            <DialogFooterActions>
               <DialogActionButton tone="secondary" onClick={handleCancelLoad}>
                 {t('common.cancel', '取消')}
               </DialogActionButton>
-            </div>
+            </DialogFooterActions>
           </DialogSectionCard>
         ) : phase === 'config' ? (
           <>
@@ -399,14 +401,14 @@ export function TitleSummaryDialog({
               </DialogSectionCard>
             )}
 
-            <div class="flex justify-end gap-2">
+            <DialogFooterActions>
               <DialogActionButton tone="secondary" onClick={requestClose}>
                 {t('common.cancel', '取消')}
               </DialogActionButton>
               <DialogActionButton tone="primary" onClick={handleGenerate} disabled={totalMessages === 0}>
                 {t('titleSummary.generate', '生成标题')}
               </DialogActionButton>
-            </div>
+            </DialogFooterActions>
           </>
         ) : phase === 'pending' ? (
           <DialogSectionCard
@@ -414,11 +416,11 @@ export function TitleSummaryDialog({
             accent={DIALOG_ACCENT.warning}
             icon={<span class="oh-spin"><DialogGlyph name="spark" /></span>}
           >
-            <div class="flex justify-end">
+            <DialogFooterActions>
               <DialogActionButton tone="secondary" onClick={handleCancelGenerate}>
                 {t('common.cancel', '取消')}
               </DialogActionButton>
-            </div>
+            </DialogFooterActions>
           </DialogSectionCard>
         ) : phase === 'success' ? (
           <DialogSectionCard
@@ -431,11 +433,11 @@ export function TitleSummaryDialog({
                 {generatedTitle}
               </p>
             </DialogTintedPanel>
-            <div class="mt-4 flex justify-end">
+            <DialogFooterActions variant={DIALOG_FOOTER_VARIANT.padded}>
               <DialogActionButton tone="primary" onClick={requestClose}>
                 {t('common.close', '关闭')}
               </DialogActionButton>
-            </div>
+            </DialogFooterActions>
           </DialogSectionCard>
         ) : (
           <DialogSectionCard
@@ -448,7 +450,7 @@ export function TitleSummaryDialog({
             accent={DIALOG_ACCENT.error}
             icon={<DialogGlyph name="alert" />}
           >
-            <div class="flex justify-end gap-2">
+            <DialogFooterActions>
               <DialogActionButton tone="secondary" onClick={requestClose}>
                 {t('common.close', '关闭')}
               </DialogActionButton>
@@ -464,7 +466,7 @@ export function TitleSummaryDialog({
               >
                 {t('common.retry', '重试')}
               </DialogActionButton>
-            </div>
+            </DialogFooterActions>
           </DialogSectionCard>
         )}
       </div>

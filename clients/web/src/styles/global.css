@@ -1638,7 +1638,7 @@ button.oh-message-context-capsule {
 }
 .oh-kb-dialog-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 8px;
   padding: 12px 18px 16px;
   border-top: 1px solid var(--m3-outline-variant);
@@ -5192,7 +5192,7 @@ button.oh-message-context-capsule {
 
 .oh-machine-terminal-dialog-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 8px;
   padding: 0 18px 18px;
 }
@@ -5917,6 +5917,11 @@ button.oh-message-context-capsule {
   padding-right: 6px;
 }
 .oh-confirm-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   flex: none;
 }
 .oh-write-approval-dialog-content {
@@ -7785,6 +7790,7 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-image-editor-status { color: var(--m3-primary); }
 .oh-image-editor-error { color: var(--m3-error); }
 .oh-image-editor-footer {
+  justify-content: center;
   padding: 14px 24px 18px;
   border-top: 1px solid color-mix(in srgb, var(--m3-outline-variant) 70%, transparent);
   background: color-mix(in srgb, var(--m3-surface-container-high) 92%, transparent);
@@ -8710,6 +8716,34 @@ button.oh-composer-pill:not(:disabled):hover {
   line-height: 1.45;
 }
 
+.oh-dialog-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.oh-dialog-footer-actions.is-padded {
+  padding-top: 16px;
+}
+
+.oh-dialog-footer-actions.is-divided {
+  flex: none;
+  padding: 16px 24px;
+  border-top: 1px solid color-mix(in srgb, var(--m3-outline-variant) 78%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container-high) 46%, transparent);
+}
+
+.oh-dialog-footer-actions.is-confirm {
+  flex: none;
+  margin-top: 20px;
+}
+
+.oh-dialog-footer-actions.is-confirm .oh-dialog-action-button {
+  min-width: 124px;
+}
+
 .oh-dialog-entry-value {
   min-width: 0;
   flex: 1;
@@ -8740,6 +8774,10 @@ button.oh-composer-pill:not(:disabled):hover {
 
   .oh-dialog-entry-label {
     width: auto !important;
+  }
+
+  .oh-dialog-footer-actions {
+    gap: 8px;
   }
 }
 

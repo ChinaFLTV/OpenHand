@@ -8,6 +8,7 @@ import {
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { DIALOG_FOOTER_VARIANT, DialogFooterActions } from './DialogChrome';
 import { svgIconProps } from '../shared/ui/svg_icon';
 
 type ConfirmCloseReason =
@@ -189,7 +190,10 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
           ) : null}
         </div>
       </div>
-      <div class="oh-confirm-dialog-actions mt-5 flex items-center justify-end gap-2">
+      <DialogFooterActions
+        variant={DIALOG_FOOTER_VARIANT.confirm}
+        className="oh-confirm-dialog-actions"
+      >
         <DialogActionButton
           className="oh-confirm-dialog-button px-4 py-2"
           tone="secondary"
@@ -206,7 +210,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         >
           {confirmLabel}
         </DialogActionButton>
-      </div>
+      </DialogFooterActions>
     </DialogFrame>
   );
 }

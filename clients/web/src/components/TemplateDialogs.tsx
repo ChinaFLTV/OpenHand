@@ -20,6 +20,7 @@ import {
   DialogHeader,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { DIALOG_FOOTER_VARIANT, DialogFooterActions } from './DialogChrome';
 
 interface DialogShellProps {
   title: string;
@@ -366,7 +367,7 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
               </p>
             ) : null}
 
-            <div class="flex items-center justify-end gap-2 pt-2">
+            <DialogFooterActions variant={DIALOG_FOOTER_VARIANT.padded}>
               <DialogActionButton
                 onClick={() => requestClose()}
                 disabled={busy}
@@ -384,7 +385,7 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
                   ? t('sessions.create.submitting', '正在创建…')
                   : t('sessions.templateConfig.submit', '开始会话')}
               </DialogActionButton>
-            </div>
+            </DialogFooterActions>
           </form>
           {modelPickerOpen ? (
             <ModelPickerDialog

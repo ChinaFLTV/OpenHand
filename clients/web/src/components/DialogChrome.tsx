@@ -28,6 +28,15 @@ export const DIALOG_ACCENT_CYCLE = [
 export const DIALOG_SUMMARY_TILE_MIN_WIDTH_PX = 168;
 export const DIALOG_ENTRY_LABEL_WIDTH_PX = 132;
 export const DIALOG_ICON_BADGE_SIZE_PX = 36;
+export const DIALOG_FOOTER_VARIANT = {
+  inline: 'inline',
+  padded: 'padded',
+  divided: 'divided',
+  confirm: 'confirm',
+} as const;
+
+export type DialogFooterActionsVariant =
+  (typeof DIALOG_FOOTER_VARIANT)[keyof typeof DIALOG_FOOTER_VARIANT];
 
 const DIALOG_PANEL_FILL_PERCENT = 10;
 const DIALOG_SECTION_FILL_PERCENT = 8;
@@ -339,6 +348,28 @@ export function DialogEntryRow({
         {label}
       </div>
       <div class="oh-dialog-entry-value">{value}</div>
+    </div>
+  );
+}
+
+export function DialogFooterActions({
+  children,
+  variant = DIALOG_FOOTER_VARIANT.inline,
+  className,
+}: {
+  children: ComponentChildren;
+  variant?: DialogFooterActionsVariant;
+  className?: string;
+}) {
+  return (
+    <div
+      class={classNames(
+        'oh-dialog-footer-actions',
+        variant !== DIALOG_FOOTER_VARIANT.inline && `is-${variant}`,
+        className,
+      )}
+    >
+      {children}
     </div>
   );
 }

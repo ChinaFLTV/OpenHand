@@ -14,6 +14,7 @@ import {
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { DialogFooterActions } from './DialogChrome';
 import { svgIconProps } from '../shared/ui/svg_icon';
 
 export interface ImageEditorInput {
@@ -469,10 +470,9 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
             {error ? <p class="oh-image-editor-error">{error}</p> : null}
           </div>
 
-          <footer class="oh-image-editor-footer">
+          <DialogFooterActions className="oh-image-editor-footer">
             <button type="button" class="oh-tap-press" disabled={busy} onClick={() => void download()}><ImageEditorIcon name="download" />{t('imageEditor.saveLocal', '另存到本地')}</button>
             <button type="button" class="oh-tap-press" disabled={busy} onClick={() => void copyToClipboard()}><ImageEditorIcon name="copy" />{t('imageEditor.copy', '复制到剪贴板')}</button>
-            <span class="flex-1" />
             <button type="button" class="oh-tap-press" disabled={busy} onClick={() => { pushUndo(); setStatus(t('imageEditor.applied', '调整已应用')); }}><ImageEditorIcon name="check" />{t('imageEditor.apply', '应用')}</button>
             <button type="button" class="oh-tap-press" disabled={busy || undoStack.length === 0} onClick={() => {
               const previous = undoStack[undoStack.length - 1];
@@ -483,7 +483,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
             <button type="button" class="oh-tap-press" disabled={busy} onClick={() => { pushUndo(); setSettings(DEFAULT_SETTINGS); }}><ImageEditorIcon name="reset" />{t('imageEditor.resetAll', '重置全部')}</button>
             <button type="button" class="oh-tap-press" disabled={busy || closing} onClick={requestClose}>{t('common.cancel', '取消')}</button>
             <button type="button" class="oh-tap-press is-primary" disabled={busy || closing || Boolean(error)} onClick={() => void save()}>{busy ? t('common.processing', '处理中…') : t('common.save', '保存')}</button>
-          </footer>
+          </DialogFooterActions>
         </div>
     </DialogFrame>
   );

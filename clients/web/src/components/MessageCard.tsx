@@ -31,6 +31,7 @@ import {
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { DialogFooterActions } from './DialogChrome';
 import { memo } from 'preact/compat';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { copyTextWithFeedback, showSnackbar } from './Snackbar';
@@ -3530,7 +3531,7 @@ function KnowledgeBaseRetrievalDialog({
           <pre class="oh-kb-dialog-pre is-context">{contextContent || '—'}</pre>
         </KnowledgeBaseDialogSection>
       </div>
-      <footer class="oh-kb-dialog-actions">
+      <DialogFooterActions className="oh-kb-dialog-actions">
         <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyContext} disabled={!contextContent}>
           <MessageIcon name="copy" size={15} />
           {t('message.kbDialog.copyContext', '复制上下文')}
@@ -3539,7 +3540,7 @@ function KnowledgeBaseRetrievalDialog({
           <MessageIcon name="audit" size={15} />
           {t('message.kbDialog.copyJson', '复制 JSON')}
         </button>
-      </footer>
+      </DialogFooterActions>
       {selectedHit ? (
         <KnowledgeChunkDetailDialog
           hit={selectedHit}
@@ -3727,7 +3728,7 @@ function KnowledgeChunkDetailDialog({
             </KnowledgeBaseDialogSection>
           ) : null}
       </div>
-      <footer class="oh-kb-dialog-actions">
+      <DialogFooterActions className="oh-kb-dialog-actions">
         <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyChunkId} disabled={!chunkId && !chunk?.id}>
           <MessageIcon name="audit" size={15} />
           {t('message.kbDialog.copyChunkId', '复制 ID')}
@@ -3739,7 +3740,7 @@ function KnowledgeChunkDetailDialog({
         <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={requestClose}>
           {t('common.close', '关闭')}
         </button>
-      </footer>
+      </DialogFooterActions>
     </DialogFrame>
   );
 }
