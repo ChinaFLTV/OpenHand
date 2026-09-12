@@ -12236,6 +12236,8 @@ class _McpProbeDetailsDialog extends StatelessWidget {
   }
 }
 
+const EdgeInsets _kProbeServerRowPadding = EdgeInsets.fromLTRB(10, 8, 12, 8);
+
 class _ProbeServerRow extends StatelessWidget {
   const _ProbeServerRow({
     required this.server,
@@ -12284,7 +12286,7 @@ class _ProbeServerRow extends StatelessWidget {
           border: Border.all(color: statusColor.withValues(alpha: 0.22)),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+          padding: _kProbeServerRowPadding,
           child: Row(
             children: [
               IconButton(
@@ -12337,6 +12339,7 @@ class _ProbeServerRow extends StatelessWidget {
                   ],
                 ),
               ),
+              kOpenHandHGap8,
               if (isBusy)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 10),
