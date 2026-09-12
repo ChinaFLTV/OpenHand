@@ -2894,7 +2894,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
 
 const double _kConnectivityPlaceholderMinHeight = 180;
 const double _kConnectivityProbeResultsMaxHeight = 360;
-const double _kConnectivityTargetAccentWidth = 5;
 const double _kConnectivityMetaChipMaxLabelWidth = 360;
 const Offset _kConnectivityCardEnterOffset = Offset(0, 8);
 
@@ -3427,123 +3426,109 @@ class _ConnectivityTargetCard extends StatelessWidget {
     final stateColor = target.ok
         ? OpenHandStatusColors.success
         : colorScheme.error;
-    final content = Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          stateColor.withValues(alpha: 0.10),
-          colorScheme.surfaceContainerLow,
-        ),
-        borderRadius: kOpenHandBorderRadius20,
-        border: Border(
-          left: BorderSide(
-            color: stateColor,
-            width: _kConnectivityTargetAccentWidth,
-          ),
-          top: BorderSide(color: stateColor.withValues(alpha: 0.28)),
-          right: BorderSide(color: stateColor.withValues(alpha: 0.28)),
-          bottom: BorderSide(color: stateColor.withValues(alpha: 0.28)),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                target.ok ? Icons.check_circle_rounded : Icons.error_rounded,
-                size: 20,
-                color: stateColor,
-              ),
-              kOpenHandHGap8,
-              Expanded(
-                child: Text(
-                  target.hostPort,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                openHandMillisecondsLabel(context, target.durationMs),
-                style: theme.textTheme.labelMedium?.copyWith(
+    final content = Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: OpenHandAccentPanel(
+        accent: stateColor,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  target.ok ? Icons.check_circle_rounded : Icons.error_rounded,
+                  size: 20,
                   color: stateColor,
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-              ),
-            ],
-          ),
-          kOpenHandGap8,
-          SelectableText(
-            target.endpointUrl,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.35,
-            ),
-          ),
-          kOpenHandGap10,
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (target.statusCode > 0)
-                _ConnectivityMetaChip(
-                  icon: Icons.verified_outlined,
-                  label: openHandHttpStatusCodeLabel(
-                    context,
-                    target.statusCode,
+                kOpenHandHGap8,
+                Expanded(
+                  child: Text(
+                    target.hostPort,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  color: target.ok
-                      ? OpenHandStatusColors.success
-                      : colorScheme.error,
                 ),
-              _ConnectivityMetaChip(
-                icon: Icons.timer_outlined,
-                label: openHandMillisecondsLabel(context, target.durationMs),
-                color: colorScheme.tertiary,
-              ),
-              _ConnectivityMetaChip(
-                icon: Icons.dns_outlined,
-                label: target.baseUrl,
-                color: OpenHandStatusColors.info,
-              ),
-            ],
-          ),
-          if (target.errorMessage.isNotEmpty) ...[
-            kOpenHandGap10,
-            Text(
-              target.errorMessage,
+                Text(
+                  openHandMillisecondsLabel(context, target.durationMs),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: stateColor,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+            kOpenHandGap8,
+            SelectableText(
+              target.endpointUrl,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.error,
-                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurfaceVariant,
                 height: 1.35,
               ),
             ),
-          ],
-          if (target.bodyPreview.isNotEmpty) ...[
-            kOpenHandGap12,
-            Text(
-              text(
-                zh: '响应摘要',
-                zhHant: '回應摘要',
-                en: 'Response summary',
-                fr: 'Résumé de la réponse',
-                de: 'Antwortübersicht',
-                ja: '応答概要',
-              ),
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w800,
-              ),
+            kOpenHandGap10,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (target.statusCode > 0)
+                  _ConnectivityMetaChip(
+                    icon: Icons.verified_outlined,
+                    label: openHandHttpStatusCodeLabel(
+                      context,
+                      target.statusCode,
+                    ),
+                    color: target.ok
+                        ? OpenHandStatusColors.success
+                        : colorScheme.error,
+                  ),
+                _ConnectivityMetaChip(
+                  icon: Icons.timer_outlined,
+                  label: openHandMillisecondsLabel(context, target.durationMs),
+                  color: colorScheme.tertiary,
+                ),
+                _ConnectivityMetaChip(
+                  icon: Icons.dns_outlined,
+                  label: target.baseUrl,
+                  color: OpenHandStatusColors.info,
+                ),
+              ],
             ),
-            kOpenHandGap8,
-            _StructuredResponsePreview(raw: target.bodyPreview),
+            if (target.errorMessage.isNotEmpty) ...[
+              kOpenHandGap10,
+              Text(
+                target.errorMessage,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ],
+            if (target.bodyPreview.isNotEmpty) ...[
+              kOpenHandGap12,
+              Text(
+                text(
+                  zh: '响应摘要',
+                  zhHant: '回應摘要',
+                  en: 'Response summary',
+                  fr: 'Résumé de la réponse',
+                  de: 'Antwortübersicht',
+                  ja: '応答概要',
+                ),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              kOpenHandGap8,
+              _StructuredResponsePreview(raw: target.bodyPreview),
+            ],
           ],
-        ],
+        ),
       ),
     );
     if (!openHandTickerMotionEnabled(context)) return content;

@@ -143,3 +143,27 @@ const BorderRadius kOpenHandBorderRadius32 = BorderRadius.all(
 const BoxConstraints kOpenHandContentMaxWidth360 = BoxConstraints(
   maxWidth: 360,
 );
+
+/// 圆角面板左侧强调条宽度。Flutter 禁止 `borderRadius` 搭配非均匀
+/// `Border`，强调条必须叠层绘制，不能写成四边不同色/宽的 `Border`。
+const double kOpenHandAccentBarWidth = 5;
+const double kOpenHandAccentBarWidthCompact = 3;
+const double kOpenHandQuoteBorderOpacity = 0.42;
+
+/// Markdown 引用块等只能给 [BoxDecoration] 的场景。
+/// 圆角必须配四边同色同宽边框；左侧强调条请改用叠层色条面板。
+BoxDecoration openHandQuoteBoxDecoration({
+  required Color accent,
+  required Color fill,
+  BorderRadius borderRadius = kOpenHandBorderRadius12,
+  double borderOpacity = kOpenHandQuoteBorderOpacity,
+}) {
+  final opacity = borderOpacity.isFinite
+      ? borderOpacity.clamp(0.0, 1.0)
+      : kOpenHandQuoteBorderOpacity;
+  return BoxDecoration(
+    color: fill,
+    borderRadius: borderRadius,
+    border: Border.all(color: accent.withValues(alpha: opacity)),
+  );
+}

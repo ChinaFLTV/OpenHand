@@ -15,6 +15,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -409,101 +410,102 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                       final brief = e.brief;
                       final color = _colorOf(e.code, cs);
                       final expanded = _expandedIndex == i;
-                      return AnimatedContainer(
-                        duration: openHandMotionDurationMs(context, 220),
-                        curve: kOpenHandSwitchInCurve,
+                      return OpenHandAccentPanel(
+                        accent: color,
+                        fill: cs.surfaceContainerHigh,
+                        borderRadius: kOpenHandBorderRadius12,
+                        barWidth: kOpenHandAccentBarWidthCompact,
                         padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: kOpenHandBorderRadius12,
-                          border: Border(
-                            left: BorderSide(color: color, width: 3),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    e.code,
-                                    style: tt.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: color,
+                        child: AnimatedSize(
+                          duration: openHandMotionDurationMs(context, 220),
+                          curve: kOpenHandSwitchInCurve,
+                          alignment: Alignment.topCenter,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      e.code,
+                                      style: tt.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: color,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    _fmtTs(e.ts),
+                                    style: tt.labelSmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    tooltip:
+                                        AppLocalizations.of(
+                                          context,
+                                        )?.webReverseIssuesCopyJson ??
+                                        'Copy JSON',
+                                    icon: const Icon(
+                                      Icons.copy_rounded,
+                                      size: 16,
+                                    ),
+                                    onPressed: () => _copyJson(e),
+                                  ),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    tooltip: expanded
+                                        ? (AppLocalizations.of(
+                                                context,
+                                              )?.webReverseIssuesCollapse ??
+                                              'Collapse')
+                                        : (AppLocalizations.of(
+                                                context,
+                                              )?.webReverseIssuesExpand ??
+                                              'Expand'),
+                                    icon: Icon(
+                                      expanded
+                                          ? Icons.unfold_less_rounded
+                                          : Icons.unfold_more_rounded,
+                                      size: 16,
+                                    ),
+                                    onPressed: () => setState(() {
+                                      _expandedIndex = expanded ? -1 : i;
+                                    }),
+                                  ),
+                                ],
+                              ),
+                              if (brief.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: SelectableText(
+                                    brief,
+                                    style: tt.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                    maxLines: expanded ? null : 2,
+                                  ),
+                                ),
+                              if (expanded)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 8),
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: cs.surfaceContainerLowest,
+                                    borderRadius: kOpenHandBorderRadius8,
+                                  ),
+                                  child: SelectableText(
+                                    e.rawJson,
+                                    style: tt.bodySmall?.copyWith(
+                                      fontFamily: kOpenHandMonospaceFontFamily,
+                                      fontSize: 11.5,
                                     ),
                                   ),
                                 ),
-                                Text(
-                                  _fmtTs(e.ts),
-                                  style: tt.labelSmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                                IconButton(
-                                  visualDensity: VisualDensity.compact,
-                                  tooltip:
-                                      AppLocalizations.of(
-                                        context,
-                                      )?.webReverseIssuesCopyJson ??
-                                      'Copy JSON',
-                                  icon: const Icon(
-                                    Icons.copy_rounded,
-                                    size: 16,
-                                  ),
-                                  onPressed: () => _copyJson(e),
-                                ),
-                                IconButton(
-                                  visualDensity: VisualDensity.compact,
-                                  tooltip: expanded
-                                      ? (AppLocalizations.of(
-                                              context,
-                                            )?.webReverseIssuesCollapse ??
-                                            'Collapse')
-                                      : (AppLocalizations.of(
-                                              context,
-                                            )?.webReverseIssuesExpand ??
-                                            'Expand'),
-                                  icon: Icon(
-                                    expanded
-                                        ? Icons.unfold_less_rounded
-                                        : Icons.unfold_more_rounded,
-                                    size: 16,
-                                  ),
-                                  onPressed: () => setState(() {
-                                    _expandedIndex = expanded ? -1 : i;
-                                  }),
-                                ),
-                              ],
-                            ),
-                            if (brief.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: SelectableText(
-                                  brief,
-                                  style: tt.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                  maxLines: expanded ? null : 2,
-                                ),
-                              ),
-                            if (expanded)
-                              Container(
-                                margin: const EdgeInsets.only(top: 8),
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: cs.surfaceContainerLowest,
-                                  borderRadius: kOpenHandBorderRadius8,
-                                ),
-                                child: SelectableText(
-                                  e.rawJson,
-                                  style: tt.bodySmall?.copyWith(
-                                    fontFamily: kOpenHandMonospaceFontFamily,
-                                    fontSize: 11.5,
-                                  ),
-                                ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },

@@ -169,11 +169,14 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
       maxWidth: maxWidth,
       maxHeight: maxHeight,
     );
+    final overlayAlignment = _showAbove
+        ? Alignment.bottomCenter
+        : Alignment.topCenter;
     return CompositedTransformFollower(
       link: _link,
       showWhenUnlinked: false,
       targetAnchor: _showAbove ? Alignment.topCenter : Alignment.bottomCenter,
-      followerAnchor: _showAbove ? Alignment.bottomCenter : Alignment.topCenter,
+      followerAnchor: overlayAlignment,
       offset: Offset(
         0,
         _showAbove ? -kOpenHandHoverOverlayGap : kOpenHandHoverOverlayGap,
@@ -182,13 +185,17 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
         customSettings: settings,
         visibility: visibility,
         onExitCompleted: onExitCompleted,
-        alignment: _showAbove ? Alignment.bottomCenter : Alignment.topCenter,
-        child: MouseRegion(
-          onEnter: (_) => _onOverlayEnter(),
-          onExit: (_) => _onOverlayExit(),
+        alignment: overlayAlignment,
+        child: UnconstrainedBox(
+          // Overlay / Follower 会下发全屏紧约束；松开 min 后卡片才能按内容收缩。
+          alignment: overlayAlignment,
           child: ConstrainedBox(
             constraints: constraints,
-            child: widget.builder(overlayContext, constraints),
+            child: MouseRegion(
+              onEnter: (_) => _onOverlayEnter(),
+              onExit: (_) => _onOverlayExit(),
+              child: widget.builder(overlayContext, constraints),
+            ),
           ),
         ),
       ),

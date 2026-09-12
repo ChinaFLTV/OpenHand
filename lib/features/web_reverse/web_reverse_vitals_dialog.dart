@@ -21,6 +21,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/oh_pill.dart';
+import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
@@ -379,59 +380,63 @@ class _VitalsDialogState extends State<_VitalsDialog> {
       // 进度条直观对齐 good 阈值；超出就 1.0 满格 + 颜色变红。
       pct = unitRatio(v, m.poorMin * 1.2);
     }
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: OpenHandAccentPanel(
+        accent: color,
+        fill: cs.surfaceContainerHigh,
         borderRadius: kOpenHandBorderRadius14,
-        border: Border(left: BorderSide(color: color, width: 3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                m.label,
-                style: tt.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
-              ),
-              kOpenHandHGap8,
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.16),
-                  borderRadius: kOpenHandPillBorderRadius,
-                ),
-                child: Text(
-                  rating,
-                  style: tt.labelSmall?.copyWith(
+        barWidth: kOpenHandAccentBarWidthCompact,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  m.label,
+                  style: tt.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                     color: color,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                _fmt(m),
-                style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-          kOpenHandGap6,
-          ClipRRect(
-            borderRadius: kOpenHandPillBorderRadius,
-            child: LinearProgressIndicator(
-              value: pct,
-              minHeight: 5,
-              backgroundColor: cs.surfaceContainerLowest,
-              valueColor: AlwaysStoppedAnimation(color),
+                kOpenHandHGap8,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.16),
+                    borderRadius: kOpenHandPillBorderRadius,
+                  ),
+                  child: Text(
+                    rating,
+                    style: tt.labelSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  _fmt(m),
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
-          ),
-        ],
+            kOpenHandGap6,
+            ClipRRect(
+              borderRadius: kOpenHandPillBorderRadius,
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 5,
+                backgroundColor: cs.surfaceContainerLowest,
+                valueColor: AlwaysStoppedAnimation(color),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

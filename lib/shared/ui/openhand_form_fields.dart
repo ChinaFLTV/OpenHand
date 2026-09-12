@@ -1031,6 +1031,65 @@ class OpenHandTintedPanel extends StatelessWidget {
   }
 }
 
+/// 圆角着色面板，左侧强调条用叠层绘制，避免非均匀 Border + borderRadius
+/// 触发 Flutter 绘制断言，同时不会用 IntrinsicHeight 去撑高度。
+class OpenHandAccentPanel extends StatelessWidget {
+  const OpenHandAccentPanel({
+    super.key,
+    required this.accent,
+    required this.child,
+    this.padding = const EdgeInsets.fromLTRB(14, 12, 14, 14),
+    this.borderRadius = kOpenHandBorderRadius20,
+    this.barWidth = kOpenHandAccentBarWidth,
+    this.fill,
+  });
+
+  final Color accent;
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final BorderRadius borderRadius;
+  final double barWidth;
+  final Color? fill;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final safeBar = barWidth.isFinite && barWidth > 0 ? barWidth : 0.0;
+    final background =
+        fill ??
+        Color.alphaBlend(
+          accent.withValues(alpha: 0.10),
+          colorScheme.surfaceContainerLow,
+        );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: borderRadius,
+        border: Border.all(color: accent.withValues(alpha: 0.28)),
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Stack(
+          children: [
+            if (safeBar > 0)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: safeBar,
+                child: ColoredBox(color: accent),
+              ),
+            Padding(
+              padding: padding.add(EdgeInsets.only(left: safeBar)),
+              child: child,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 const int kOpenHandRangeEndpointPreviewMaxLines = 2;
 const double kOpenHandRangeEndpointPreviewLineHeight = 1.35;
 

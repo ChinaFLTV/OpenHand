@@ -598,10 +598,10 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
       border: Border.all(color: borderColor),
     ),
     blockquotePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-    blockquoteDecoration: BoxDecoration(
-      color: quoteBg,
+    blockquoteDecoration: openHandQuoteBoxDecoration(
+      accent: accent,
+      fill: quoteBg,
       borderRadius: kOpenHandBorderRadius16,
-      border: Border(left: BorderSide(color: accent, width: 3)),
     ),
     horizontalRuleDecoration: BoxDecoration(
       border: Border(top: BorderSide(color: borderColor)),
@@ -705,10 +705,10 @@ MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
       border: Border.all(color: borderColor),
     ),
     blockquotePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-    blockquoteDecoration: BoxDecoration(
-      color: quoteSurface,
+    blockquoteDecoration: openHandQuoteBoxDecoration(
+      accent: accentColor,
+      fill: quoteSurface,
       borderRadius: kOpenHandBorderRadius16,
-      border: Border(left: BorderSide(color: accentColor, width: 3)),
     ),
     horizontalRuleDecoration: BoxDecoration(
       border: Border(top: BorderSide(color: borderColor)),

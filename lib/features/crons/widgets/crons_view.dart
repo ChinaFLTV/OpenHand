@@ -1938,15 +1938,10 @@ MarkdownStyleSheet _buildCollapsibleMarkdownStyleSheet({
         color: colorScheme.outlineVariant.withValues(alpha: 0.35),
       ),
     ),
-    blockquoteDecoration: BoxDecoration(
-      color: colorScheme.surfaceContainer.withValues(alpha: 0.45),
+    blockquoteDecoration: openHandQuoteBoxDecoration(
+      accent: colorScheme.primary,
+      fill: colorScheme.surfaceContainer.withValues(alpha: 0.45),
       borderRadius: kOpenHandBorderRadius6,
-      border: Border(
-        left: BorderSide(
-          color: colorScheme.primary.withValues(alpha: 0.55),
-          width: 3,
-        ),
-      ),
     ),
     blockquotePadding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
     h1: theme.textTheme.titleMedium?.copyWith(
@@ -2045,15 +2040,10 @@ MarkdownStyleSheet _buildHermesInlineMarkdownStyleSheet({
       color: codeBg,
       borderRadius: kOpenHandBorderRadius6,
     ),
-    blockquoteDecoration: BoxDecoration(
-      color: colorScheme.surfaceContainer.withValues(alpha: 0.45),
+    blockquoteDecoration: openHandQuoteBoxDecoration(
+      accent: colorScheme.primary,
+      fill: colorScheme.surfaceContainer.withValues(alpha: 0.45),
       borderRadius: kOpenHandBorderRadius6,
-      border: Border(
-        left: BorderSide(
-          color: colorScheme.primary.withValues(alpha: 0.55),
-          width: 3,
-        ),
-      ),
     ),
     blockquotePadding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
     listBullet: base,

@@ -210,21 +210,15 @@ MarkdownStyleSheet knowledgeMarkdownStyleSheet(BuildContext context) {
       color: colorScheme.surfaceContainerHigh,
       borderRadius: _kKnowledgeMarkdownBlockRadius,
     ),
-    blockquoteDecoration: BoxDecoration(
-      color: colorScheme.surfaceContainerHigh,
+    blockquoteDecoration: openHandQuoteBoxDecoration(
+      accent: colorScheme.primary,
+      fill: colorScheme.surfaceContainerHigh,
       borderRadius: _kKnowledgeMarkdownBlockRadius,
-      border: Border(
-        left: BorderSide(
-          color: colorScheme.primary,
-          width: _kKnowledgeBlockquoteBarWidth,
-        ),
-      ),
     ),
   );
 }
 
 const double _kKnowledgeMarkdownLineHeight = 1.42;
-const double _kKnowledgeBlockquoteBarWidth = 3;
 const BorderRadius _kKnowledgeMarkdownBlockRadius = BorderRadius.all(
   Radius.circular(kOpenHandRadius10),
 );

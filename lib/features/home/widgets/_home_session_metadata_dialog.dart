@@ -1607,10 +1607,7 @@ class _RuntimeToolChip extends StatelessWidget {
         final resolved =
             known ??
             _runtimeToolHoverDetail(context: overlayContext, name: name);
-        return _RuntimeToolHoverCard(
-          detail: resolved,
-          constraints: constraints,
-        );
+        return _RuntimeToolHoverCard(detail: resolved);
       },
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -1634,13 +1631,9 @@ class _RuntimeToolChip extends StatelessWidget {
 }
 
 class _RuntimeToolHoverCard extends StatelessWidget {
-  const _RuntimeToolHoverCard({
-    required this.detail,
-    required this.constraints,
-  });
+  const _RuntimeToolHoverCard({required this.detail});
 
   final AiRuntimeToolPreviewDetail detail;
-  final BoxConstraints constraints;
 
   @override
   Widget build(BuildContext context) {
@@ -1657,27 +1650,19 @@ class _RuntimeToolHoverCard extends StatelessWidget {
       color: Colors.transparent,
       shadowColor: tone.withValues(alpha: 0.28),
       borderRadius: kOpenHandBorderRadius20,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            tone.withValues(alpha: 0.10),
-            colorScheme.surfaceContainerHigh,
-          ),
-          borderRadius: kOpenHandBorderRadius20,
-          border: Border(
-            left: BorderSide(color: tone, width: 5),
-            top: BorderSide(color: tone.withValues(alpha: 0.28)),
-            right: BorderSide(color: tone.withValues(alpha: 0.28)),
-            bottom: BorderSide(color: tone.withValues(alpha: 0.28)),
-          ),
+      child: OpenHandAccentPanel(
+        accent: tone,
+        fill: Color.alphaBlend(
+          tone.withValues(alpha: 0.10),
+          colorScheme.surfaceContainerHigh,
         ),
-        child: ConstrainedBox(
-          constraints: constraints,
-          child: SingleChildScrollView(
-            primary: false,
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            physics: openHandDialogAwareScrollPhysics(context),
-            child: Column(
+        child: ListView(
+          shrinkWrap: true,
+          primary: false,
+          padding: EdgeInsets.zero,
+          physics: openHandDialogAwareScrollPhysics(context),
+          children: [
+            Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1859,7 +1844,7 @@ class _RuntimeToolHoverCard extends StatelessWidget {
                   ),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );

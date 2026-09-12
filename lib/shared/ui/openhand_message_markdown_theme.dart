@@ -172,10 +172,9 @@ class OpenHandMessageMarkdownThemeData {
           horizontal: 14,
           vertical: 11,
         ),
-        blockquoteDecoration: BoxDecoration(
-          color: quoteSurface,
-          borderRadius: kOpenHandBorderRadius12,
-          border: Border(left: BorderSide(color: tones.accent, width: 2.5)),
+        blockquoteDecoration: openHandQuoteBoxDecoration(
+          accent: tones.accent,
+          fill: quoteSurface,
         ),
         codeblockPadding: useCustomCodeBlockBuilder
             ? EdgeInsets.zero
