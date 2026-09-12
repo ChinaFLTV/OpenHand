@@ -230,7 +230,6 @@ const BorderRadius _kKnowledgeMarkdownBlockRadius = BorderRadius.all(
 );
 const double kKnowledgeDialogMetricMinWidth = 168;
 const double kKnowledgeDialogMetricGridGap = 10;
-const double kKnowledgeDialogActionChipHeight = 36;
 const double kKnowledgeDialogJsonDefaultMaxHeight = 320;
 const Duration kKnowledgeDialogTabSwitchDuration = kOpenHandMotion280;
 
@@ -939,56 +938,14 @@ class KnowledgeDialogActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final color = tone == KnowledgeDialogActionTone.destructive
-        ? colorScheme.error
-        : (accent ?? colorScheme.primary);
-    final enabled = onPressed != null;
-    return MicroPressFeedback(
-      enabled: enabled,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: kOpenHandPillBorderRadius,
-          child: AnimatedOpacity(
-            duration: openHandMotionDuration(context, kOpenHandMotion180),
-            opacity: enabled ? 1 : 0.48,
-            child: AnimatedContainer(
-              duration: openHandMotionDuration(context, kOpenHandMotion180),
-              curve: kOpenHandSwitchInCurve,
-              height: kKnowledgeDialogActionChipHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  color.withValues(alpha: 0.14),
-                  colorScheme.surfaceContainerLow,
-                ),
-                borderRadius: kOpenHandPillBorderRadius,
-                border: Border.all(color: color.withValues(alpha: 0.28)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 16, color: color),
-                  kOpenHandHGap8,
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w800,
-                      height: 1.1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return OpenHandCompactActionChip(
+      icon: icon,
+      label: label,
+      onPressed: onPressed,
+      accent: accent,
+      tone: tone == KnowledgeDialogActionTone.destructive
+          ? OpenHandCompactActionTone.destructive
+          : OpenHandCompactActionTone.accent,
     );
   }
 }

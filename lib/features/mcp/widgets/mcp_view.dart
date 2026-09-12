@@ -12027,338 +12027,236 @@ class _McpProbeDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthStandard,
-      maxHeight: kOpenHandDialogHeightStandard,
-      safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
-      child:
-          Selector<
-            McpController,
-            ({
-              List<McpServer> servers,
-              int autoProbeConcurrency,
-              int activeAutoProbeSlots,
-              int queuedAutoProbeTasks,
-              bool autoToolRefreshInProgress,
-              bool autoHealthCheckInProgress,
-              DateTime? lastBatchProbeAt,
-              DateTime? nextScheduledProbeAt,
-            })
-          >(
-            selector: (_, c) => (
-              servers: c.servers,
-              autoProbeConcurrency: c.autoProbeConcurrency,
-              activeAutoProbeSlots: c.activeAutoProbeSlots,
-              queuedAutoProbeTasks: c.queuedAutoProbeTasks,
-              autoToolRefreshInProgress: c.isAutoToolRefreshInProgress,
-              autoHealthCheckInProgress: c.isAutoHealthCheckInProgress,
-              lastBatchProbeAt: c.lastBatchProbeAt,
-              nextScheduledProbeAt: c.nextScheduledProbeAt,
-            ),
-            builder: (context, snap, _) {
-              final controller = context.read<McpController>();
-              final hasWork =
-                  snap.activeAutoProbeSlots > 0 ||
-                  snap.queuedAutoProbeTasks > 0 ||
-                  snap.autoToolRefreshInProgress ||
-                  snap.autoHealthCheckInProgress;
-              final progress = unitRatio(
-                snap.activeAutoProbeSlots,
-                snap.autoProbeConcurrency,
-              );
-
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 标题栏
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: colorScheme.outlineVariant.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: hasWork
-                                ? colorScheme.primaryContainer
-                                : colorScheme.surfaceContainerHighest,
-                            borderRadius: kOpenHandBorderRadius12,
-                          ),
-                          child: Icon(
-                            hasWork
-                                ? Icons.radar_rounded
-                                : Icons.speed_outlined,
-                            color: hasWork
-                                ? colorScheme.onPrimaryContainer
-                                : colorScheme.onSurfaceVariant,
-                            size: 18,
-                          ),
-                        ),
-                        kOpenHandHGap12,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.mcpProbeDetailsTitle,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+    return Selector<
+      McpController,
+      ({
+        List<McpServer> servers,
+        int autoProbeConcurrency,
+        int activeAutoProbeSlots,
+        int queuedAutoProbeTasks,
+        bool autoToolRefreshInProgress,
+        bool autoHealthCheckInProgress,
+        DateTime? lastBatchProbeAt,
+        DateTime? nextScheduledProbeAt,
+      })
+    >(
+      selector: (_, c) => (
+        servers: c.servers,
+        autoProbeConcurrency: c.autoProbeConcurrency,
+        activeAutoProbeSlots: c.activeAutoProbeSlots,
+        queuedAutoProbeTasks: c.queuedAutoProbeTasks,
+        autoToolRefreshInProgress: c.isAutoToolRefreshInProgress,
+        autoHealthCheckInProgress: c.isAutoHealthCheckInProgress,
+        lastBatchProbeAt: c.lastBatchProbeAt,
+        nextScheduledProbeAt: c.nextScheduledProbeAt,
+      ),
+      builder: (context, snap, _) {
+        final controller = context.read<McpController>();
+        final hasWork =
+            snap.activeAutoProbeSlots > 0 ||
+            snap.queuedAutoProbeTasks > 0 ||
+            snap.autoToolRefreshInProgress ||
+            snap.autoHealthCheckInProgress;
+        final progress = unitRatio(
+          snap.activeAutoProbeSlots,
+          snap.autoProbeConcurrency,
+        );
+        final poolAccent = hasWork
+            ? OpenHandStatusColors.info
+            : colorScheme.primary;
+        return OpenHandEditorDialogScaffold(
+          title: l10n.mcpProbeDetailsTitle,
+          subtitle: hasWork ? l10n.mcpProbePoolActive : l10n.mcpProbePoolIdle,
+          icon: hasWork ? Icons.radar_rounded : Icons.speed_outlined,
+          iconColor: poolAccent,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OpenHandDialogSectionCard(
+                icon: Icons.hub_outlined,
+                accent: poolAccent,
+                title: l10n.mcpProbePoolStatusTitle,
+                trailing: OpenHandFactChip(
+                  icon: hasWork
+                      ? Icons.radar_rounded
+                      : Icons.pause_circle_outline_rounded,
+                  label: hasWork
+                      ? l10n.mcpProbePoolActive
+                      : l10n.mcpProbePoolIdle,
+                  color: poolAccent,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OpenHandVerticalRevealSwitcher(
+                      presentKey: const ValueKey<String>('mcp-probe-progress'),
+                      slideBeginOffsetY: 0.04,
+                      child: hasWork
+                          ? Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _McpAnimatedProgressBar(
+                                value: progress,
+                                backgroundColor:
+                                    colorScheme.surfaceContainerHighest,
                               ),
-                              Text(
-                                hasWork
-                                    ? l10n.mcpProbePoolActive
-                                    : l10n.mcpProbePoolIdle,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close, size: 18),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ],
+                            )
+                          : null,
                     ),
-                  ),
-                  // 进度条
-                  _McpAnimatedProgressBar(
-                    value: progress,
-                    backgroundColor: colorScheme.surfaceContainerHighest,
-                  ),
-                  // 内容
-                  Flexible(
-                    child: ListView(
-                      padding: const EdgeInsets.all(20),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        // 探测池状态
-                        _ProbeSection(
-                          title: l10n.mcpProbePoolStatusTitle,
+                        OpenHandFactChip(
                           icon: Icons.commit_rounded,
-                          children: [
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                _McpStatusChip(
-                                  icon: Icons.commit_rounded,
-                                  label: l10n.mcpProbeSlots(
-                                    snap.activeAutoProbeSlots,
-                                    snap.autoProbeConcurrency,
-                                  ),
-                                ),
-                                _McpStatusChip(
-                                  icon: Icons.queue_rounded,
-                                  label: l10n.mcpProbeQueued(
-                                    snap.queuedAutoProbeTasks,
-                                  ),
-                                ),
-                                _McpStatusChip(
-                                  icon: Icons.build_circle_outlined,
-                                  label: l10n.mcpProbeToolsStatus(
-                                    snap.autoToolRefreshInProgress
-                                        ? l10n.mcpProbeStateRunning
-                                        : l10n.mcpProbeStateIdle,
-                                  ),
-                                ),
-                                _McpStatusChip(
-                                  icon: Icons.health_and_safety_outlined,
-                                  label: l10n.mcpProbeHealthStatus(
-                                    snap.autoHealthCheckInProgress
-                                        ? l10n.mcpProbeStateRunning
-                                        : l10n.mcpProbeStateIdle,
-                                  ),
-                                ),
-                                if (snap.lastBatchProbeAt != null)
-                                  _McpStatusChip(
-                                    icon: Icons.history_rounded,
-                                    label: l10n.mcpProbeLastRun(
-                                      _formatRelativePast(
-                                        context,
-                                        snap.lastBatchProbeAt!,
-                                      ),
-                                    ),
-                                  ),
-                                if (snap.nextScheduledProbeAt != null &&
-                                    !hasWork)
-                                  _McpStatusChip(
-                                    icon: Icons.schedule_rounded,
-                                    label: l10n.mcpProbeNextRun(
-                                      _formatRelativeFuture(
-                                        context,
-                                        snap.nextScheduledProbeAt!,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        kOpenHandGap16,
-                        // 探测控制
-                        _ProbeSection(
-                          title: l10n.mcpProbeControlsTitle,
-                          icon: Icons.tune_rounded,
-                          children: [
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                FilledButton.tonalIcon(
-                                  onPressed: hasWork
-                                      ? null
-                                      : () {
-                                          // 同步重置；控制器自带延迟调度，停止操作可可靠取消。
-                                          controller.setPageActive(false);
-                                          controller.setPageActive(true);
-                                        },
-                                  icon: const Icon(
-                                    Icons.play_arrow_rounded,
-                                    size: 18,
-                                  ),
-                                  label: Text(l10n.mcpProbeForceProbe),
-                                ),
-                                OutlinedButton.icon(
-                                  onPressed: !hasWork
-                                      ? null
-                                      : () {
-                                          // 中断：deactivate 停止所有探测
-                                          controller.setPageActive(false);
-                                        },
-                                  icon: const Icon(
-                                    Icons.stop_rounded,
-                                    size: 18,
-                                  ),
-                                  label: Text(l10n.mcpProbeStopProbing),
-                                ),
-                                OutlinedButton.icon(
-                                  onPressed: () async {
-                                    await controller.refresh();
-                                    if (!context.mounted) return;
-                                    // refresh 完成后重新激活探测
-                                    controller.setPageActive(true);
-                                  },
-                                  icon: const Icon(
-                                    Icons.refresh_rounded,
-                                    size: 18,
-                                  ),
-                                  label: Text(l10n.mcpProbeReloadServers),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        kOpenHandGap16,
-                        // 各服务探测状态
-                        _ProbeSection(
-                          title: l10n.mcpProbeServerStatusTitle(
-                            snap.servers.length,
+                          label: l10n.mcpProbeSlots(
+                            snap.activeAutoProbeSlots,
+                            snap.autoProbeConcurrency,
                           ),
-                          icon: Icons.dns_outlined,
-                          children: [
-                            for (final server in snap.servers)
-                              _ProbeServerRow(
-                                server: server,
-                                controller: controller,
-                              ),
-                            if (snap.servers.isEmpty)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                                child: Text(
-                                  l10n.mcpProbeNoServers,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                          ],
+                          color: snap.activeAutoProbeSlots > 0
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
                         ),
+                        OpenHandFactChip(
+                          icon: Icons.queue_rounded,
+                          label: l10n.mcpProbeQueued(snap.queuedAutoProbeTasks),
+                          color: snap.queuedAutoProbeTasks > 0
+                              ? OpenHandStatusColors.warning
+                              : colorScheme.onSurfaceVariant,
+                        ),
+                        OpenHandFactChip(
+                          icon: Icons.build_circle_outlined,
+                          label: l10n.mcpProbeToolsStatus(
+                            snap.autoToolRefreshInProgress
+                                ? l10n.mcpProbeStateRunning
+                                : l10n.mcpProbeStateIdle,
+                          ),
+                          color: snap.autoToolRefreshInProgress
+                              ? OpenHandStatusColors.warning
+                              : OpenHandStatusColors.success,
+                        ),
+                        OpenHandFactChip(
+                          icon: Icons.health_and_safety_outlined,
+                          label: l10n.mcpProbeHealthStatus(
+                            snap.autoHealthCheckInProgress
+                                ? l10n.mcpProbeStateRunning
+                                : l10n.mcpProbeStateIdle,
+                          ),
+                          color: snap.autoHealthCheckInProgress
+                              ? OpenHandStatusColors.warning
+                              : OpenHandStatusColors.success,
+                        ),
+                        if (snap.lastBatchProbeAt != null)
+                          OpenHandFactChip(
+                            icon: Icons.history_rounded,
+                            label: l10n.mcpProbeLastRun(
+                              _formatRelativePast(
+                                context,
+                                snap.lastBatchProbeAt!,
+                              ),
+                            ),
+                            color: OpenHandStatusColors.info,
+                          ),
+                        if (snap.nextScheduledProbeAt != null && !hasWork)
+                          OpenHandFactChip(
+                            icon: Icons.schedule_rounded,
+                            label: l10n.mcpProbeNextRun(
+                              _formatRelativeFuture(
+                                context,
+                                snap.nextScheduledProbeAt!,
+                              ),
+                            ),
+                            color: colorScheme.tertiary,
+                          ),
                       ],
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
-    );
-  }
-}
-
-class _ProbeSection extends StatelessWidget {
-  const _ProbeSection({
-    required this.title,
-    required this.icon,
-    required this.children,
-  });
-
-  final String title;
-  final IconData icon;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: colorScheme.primary),
-            kOpenHandHGap8,
-            Text(
-              title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.primary,
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-        kOpenHandGap10,
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: kOpenHandBorderRadius12,
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.tune_rounded,
+                accent: colorScheme.tertiary,
+                title: l10n.mcpProbeControlsTitle,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OpenHandCompactActionChip(
+                      icon: Icons.play_arrow_rounded,
+                      accent: OpenHandStatusColors.success,
+                      label: l10n.mcpProbeForceProbe,
+                      onPressed: hasWork
+                          ? null
+                          : () {
+                              controller.setPageActive(false);
+                              controller.setPageActive(true);
+                            },
+                    ),
+                    OpenHandCompactActionChip(
+                      icon: Icons.stop_rounded,
+                      tone: OpenHandCompactActionTone.destructive,
+                      label: l10n.mcpProbeStopProbing,
+                      onPressed: !hasWork
+                          ? null
+                          : () => controller.setPageActive(false),
+                    ),
+                    OpenHandCompactActionChip(
+                      icon: Icons.refresh_rounded,
+                      accent: OpenHandStatusColors.info,
+                      label: l10n.mcpProbeReloadServers,
+                      onPressed: () async {
+                        await controller.refresh();
+                        if (!context.mounted) return;
+                        controller.setPageActive(true);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.dns_outlined,
+                accent: colorScheme.secondary,
+                title: l10n.mcpProbeServerStatusTitle(snap.servers.length),
+                child: snap.servers.isEmpty
+                    ? OpenHandInlineEmptyState.compact(
+                        message: l10n.mcpProbeNoServers,
+                      )
+                    : Column(
+                        children: [
+                          for (var i = 0; i < snap.servers.length; i++)
+                            _ProbeServerRow(
+                              server: snap.servers[i],
+                              controller: controller,
+                              margin: EdgeInsets.only(
+                                bottom: i == snap.servers.length - 1 ? 0 : 8,
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+            ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
-          ),
-        ),
-      ],
+          actions: const [],
+        );
+      },
     );
   }
 }
 
 class _ProbeServerRow extends StatelessWidget {
-  const _ProbeServerRow({required this.server, required this.controller});
+  const _ProbeServerRow({
+    required this.server,
+    required this.controller,
+    this.margin,
+  });
 
   final McpServer server;
   final McpController controller;
+  final EdgeInsetsGeometry? margin;
 
   @override
   Widget build(BuildContext context) {
@@ -12368,116 +12266,108 @@ class _ProbeServerRow extends StatelessWidget {
     final health = controller.healthStatusFor(server.name);
     final catalog = controller.toolCatalogFor(server.name);
     final isBusy = health.isChecking || catalog.isLoading;
-
-    final statusColor = switch (health.status) {
-      McpServerHealthStatus.healthy => OpenHandStatusColors.success,
-      McpServerHealthStatus.unhealthy => colorScheme.error,
-      McpServerHealthStatus.checking => OpenHandStatusColors.warning,
-      McpServerHealthStatus.idle => colorScheme.onSurfaceVariant,
-    };
-    final statusLabel = switch (health.status) {
-      McpServerHealthStatus.healthy => l10n.mcpProbeHealthHealthy,
-      McpServerHealthStatus.unhealthy => l10n.mcpProbeHealthUnhealthy,
-      McpServerHealthStatus.checking => l10n.mcpProbeHealthChecking,
-      McpServerHealthStatus.idle => l10n.mcpProbeHealthIdle,
-    };
-
+    final enabled = server.probeEnabled;
+    final statusColor = !enabled
+        ? colorScheme.outline
+        : switch (health.status) {
+            McpServerHealthStatus.healthy => OpenHandStatusColors.success,
+            McpServerHealthStatus.unhealthy => colorScheme.error,
+            McpServerHealthStatus.checking => OpenHandStatusColors.warning,
+            McpServerHealthStatus.idle => colorScheme.tertiary,
+          };
+    final statusLabel = !enabled
+        ? l10n.mcpProbeNoProbe
+        : switch (health.status) {
+            McpServerHealthStatus.healthy => l10n.mcpProbeHealthHealthy,
+            McpServerHealthStatus.unhealthy => l10n.mcpProbeHealthUnhealthy,
+            McpServerHealthStatus.checking => l10n.mcpProbeHealthChecking,
+            McpServerHealthStatus.idle => l10n.mcpProbeHealthIdle,
+          };
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          // 启用/禁用探测开关
-          SizedBox(
-            width: 28,
-            height: 28,
-            child: Tooltip(
-              message: server.probeEnabled
-                  ? l10n.mcpProbeDisableServerTooltip
-                  : l10n.mcpProbeEnableServerTooltip,
-              child: IconButton(
+      padding: margin ?? EdgeInsets.zero,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            statusColor.withValues(alpha: 0.10),
+            colorScheme.surfaceContainerLow,
+          ),
+          borderRadius: kOpenHandBorderRadius16,
+          border: Border.all(color: statusColor.withValues(alpha: 0.22)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: enabled
+                    ? l10n.mcpProbeDisableServerTooltip
+                    : l10n.mcpProbeEnableServerTooltip,
                 onPressed: () => controller.updateServerProbeEnabled(
                   server.name,
                   !server.probeEnabled,
                 ),
                 icon: Icon(
-                  server.probeEnabled
-                      ? Icons.check_circle_rounded
-                      : Icons.cancel_rounded,
-                  size: 14,
-                  color: server.probeEnabled
+                  enabled ? Icons.check_circle_rounded : Icons.cancel_outlined,
+                  color: enabled
                       ? OpenHandStatusColors.success
-                      : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      : colorScheme.onSurfaceVariant,
                 ),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
               ),
-            ),
-          ),
-          kOpenHandHGap6,
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: server.probeEnabled
-                  ? statusColor
-                  : colorScheme.outlineVariant,
-              shape: BoxShape.circle,
-            ),
-          ),
-          kOpenHandHGap10,
-          Expanded(
-            child: Text(
-              server.name,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: server.probeEnabled
-                    ? null
-                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              kOpenHandHGap4,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      server.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: enabled ? null : colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    kOpenHandGap6,
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        OpenHandFactChip(
+                          icon: Icons.circle,
+                          label: statusLabel,
+                          color: statusColor,
+                        ),
+                        if (enabled && catalog.tools.isNotEmpty)
+                          OpenHandFactChip(
+                            icon: Icons.build_outlined,
+                            label: l10n.mcpProbeToolCount(catalog.tools.length),
+                            color: colorScheme.secondary,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
+              if (isBusy)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  ),
+                )
+              else
+                IconButton(
+                  tooltip: l10n.mcpProbeThisServer,
+                  onPressed: !enabled
+                      ? null
+                      : () => controller.reconnectServer(server.name),
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+            ],
           ),
-          kOpenHandHGap8,
-          Text(
-            server.probeEnabled ? statusLabel : l10n.mcpProbeNoProbe,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: server.probeEnabled
-                  ? statusColor
-                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (catalog.tools.isNotEmpty && server.probeEnabled) ...[
-            kOpenHandHGap8,
-            Text(
-              l10n.mcpProbeToolCount(catalog.tools.length),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-          kOpenHandHGap8,
-          // 单独触发该服务的探测（禁用态或探测中时不可点击）
-          SizedBox(
-            width: 28,
-            height: 28,
-            child: IconButton(
-              onPressed: !server.probeEnabled || isBusy
-                  ? null
-                  : () => controller.reconnectServer(server.name),
-              icon: Icon(
-                Icons.refresh_rounded,
-                size: 14,
-                color: !server.probeEnabled || isBusy
-                    ? colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
-                    : null,
-              ),
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              tooltip: l10n.mcpProbeThisServer,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

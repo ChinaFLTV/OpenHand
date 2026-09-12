@@ -165,6 +165,83 @@ class OpenHandFactChip extends StatelessWidget {
   }
 }
 
+const double kOpenHandCompactActionChipHeight = 36;
+
+enum OpenHandCompactActionTone { accent, destructive }
+
+/// 弹窗正文里的紧凑操作胶囊，不用页脚那种大块填充按钮。
+class OpenHandCompactActionChip extends StatelessWidget {
+  const OpenHandCompactActionChip({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.accent,
+    this.tone = OpenHandCompactActionTone.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final Color? accent;
+  final OpenHandCompactActionTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final color = tone == OpenHandCompactActionTone.destructive
+        ? colorScheme.error
+        : (accent ?? colorScheme.primary);
+    final enabled = onPressed != null;
+    return MicroPressFeedback(
+      enabled: enabled,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: kOpenHandPillBorderRadius,
+          child: AnimatedOpacity(
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
+            opacity: enabled ? 1 : 0.48,
+            child: AnimatedContainer(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              curve: kOpenHandSwitchInCurve,
+              height: kOpenHandCompactActionChipHeight,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  color.withValues(alpha: 0.14),
+                  colorScheme.surfaceContainerLow,
+                ),
+                borderRadius: kOpenHandPillBorderRadius,
+                border: Border.all(color: color.withValues(alpha: 0.28)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  kOpenHandHGap8,
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 行内计量胶囊：高对比容器底上的一行次级小字，用于超时、条数这类数值标注。
 class OpenHandMetricChip extends StatelessWidget {
   const OpenHandMetricChip({super.key, required this.label, this.tooltip});
