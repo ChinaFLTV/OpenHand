@@ -198,6 +198,11 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     mountedRef.current = false;
   }, []);
 
+  useEffect(() => {
+    if (!busy && !closing) return;
+    setShowOriginal(false);
+  }, [busy, closing]);
+
   const ratio = useMemo(() => aspectRatio(settings.aspect, naturalSize), [settings.aspect, naturalSize]);
   const previewSize = useMemo(
     () => fitSize(
@@ -389,22 +394,44 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
                   onPointerUp={() => { dragRef.current = null; }}
                   onPointerCancel={() => { dragRef.current = null; }}
                 />
+                {showOriginal ? (
+                  <span class="oh-image-editor-original-badge">
+                    {t('imageEditor.original', '原图')}
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   class="oh-image-editor-compare oh-tap-press"
                   data-active={showOriginal ? 'true' : 'false'}
                   aria-pressed={showOriginal}
+                  aria-label={t('imageEditor.compare', '按住对比')}
+                  title={t('imageEditor.compare', '按住对比')}
                   onPointerDown={(event) => {
-                    if (busy) return;
+                    if (busy || closing) return;
+                    event.preventDefault();
                     event.currentTarget.setPointerCapture(event.pointerId);
                     setShowOriginal(true);
                   }}
                   onPointerUp={() => setShowOriginal(false)}
                   onPointerCancel={() => setShowOriginal(false)}
-                  disabled={busy}
+                  onLostPointerCapture={() => setShowOriginal(false)}
+                  onContextMenu={(event) => event.preventDefault()}
+                  onKeyDown={(event) => {
+                    if (busy || closing || event.repeat) return;
+                    if (event.key !== ' ' && event.key !== 'Enter') return;
+                    event.preventDefault();
+                    setShowOriginal(true);
+                  }}
+                  onKeyUp={(event) => {
+                    if (event.key !== ' ' && event.key !== 'Enter') return;
+                    event.preventDefault();
+                    setShowOriginal(false);
+                  }}
+                  onBlur={() => setShowOriginal(false)}
+                  disabled={busy || closing}
                 >
                   <ImageEditorIcon name="compare" />
-                  {showOriginal ? t('imageEditor.release', '松开') : t('imageEditor.compare', '按住对比')}
+                  {showOriginal ? t('imageEditor.release', '松开返回') : t('imageEditor.compare', '按住对比')}
                 </button>
               </div>
             </section>

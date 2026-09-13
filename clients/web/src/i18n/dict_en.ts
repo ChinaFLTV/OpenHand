@@ -480,6 +480,7 @@ export const dict_en: Record<string, string> = {
   'imageEditor.watermarkPosition.bottomRight': 'Bottom right',
   'imageEditor.compare': 'Hold to compare',
   'imageEditor.release': 'Release',
+  'imageEditor.original': 'Original',
   'imageEditor.loadFailed': 'Unable to load the selected image',
   'imageEditor.encodeFailed': 'Image encoding failed',
   'imageEditor.encodeTimeout': 'Image encoding timed out',

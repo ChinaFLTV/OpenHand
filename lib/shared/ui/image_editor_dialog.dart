@@ -6,11 +6,13 @@ import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 import '../../app/support/silent_log.dart';
+import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../db/atomic_file_operations.dart';
@@ -20,6 +22,9 @@ import '../util/input_value_parsing.dart';
 import '../util/user_failure_message.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
+import 'micro_press_feedback.dart';
+import 'motion_durations.dart';
+import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'openhand_clipboard.dart';
 import 'openhand_dialog_action_button.dart';
@@ -135,6 +140,19 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   static const double _previewMaxWidth = 720;
   static const double _previewHeight = 420;
   static const double _minCropSide = 64;
+  static const double _previewOverlayInset = 12;
+  static const double _compareChipMinHeight = 36;
+  static const Color _compareOriginalInk = Color(0xFF3B2500);
+  static const EdgeInsets _compareChipPadding = EdgeInsets.fromLTRB(
+    12,
+    8,
+    14,
+    8,
+  );
+  static const EdgeInsets _originalBadgePadding = EdgeInsets.symmetric(
+    horizontal: 10,
+    vertical: 5,
+  );
 
   /// 校正方向后的图片尺寸；像素数据仅在后台 Isolate 中解码。
   int _imageWidth = 0;
@@ -188,6 +206,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   bool _isProcessing = false;
   bool _showOriginalPreview = false;
   bool _previewCompareScheduled = false;
+  int? _compareHoldPointer;
   bool _hasBakedChanges = false;
   String? _errorMessage;
   String? _statusMessage;
@@ -224,6 +243,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   @override
   void dispose() {
+    _unbindCompareHoldPointer();
     _watermarkController.dispose();
     _actionPulse.dispose();
     _successPulse.dispose();
@@ -887,14 +907,13 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final previewImageHeight = showOriginal
         ? _originalImageHeight
         : _imageHeight;
-    final compareEnabled =
-        _canEdit && _originalPreviewBytes != null && _originalImageWidth > 0;
+    final compareEnabled = _canComparePreview;
 
     return Center(
       child: LayoutBuilder(
         builder: (context, constraints) {
           final rawPreviewWidth = math.min(
-            constraints.maxWidth - 116,
+            constraints.maxWidth,
             _previewMaxWidth,
           );
           final previewWidth = rawPreviewWidth.clamp(220.0, _previewMaxWidth);
@@ -942,21 +961,34 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                 ),
                 if (showOriginal)
                   Positioned(
-                    left: 12,
-                    top: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.scrim.withValues(alpha: 0.58),
-                        borderRadius: kOpenHandPillBorderRadius,
-                      ),
-                      child: Text(
-                        l10n.imageEditorCompareOriginal,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onPrimary,
+                    left: _previewOverlayInset,
+                    top: _previewOverlayInset,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: OpenHandStatusColors.warning,
+                          borderRadius: kOpenHandPillBorderRadius,
+                          boxShadow: [
+                            BoxShadow(
+                              color: OpenHandStatusColors.warning.withValues(
+                                alpha: 0.36,
+                              ),
+                              blurRadius: 14,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: _originalBadgePadding,
+                          child: Text(
+                            l10n.imageEditorCompareOriginal,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: _compareOriginalInk,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.3,
+                                ),
+                          ),
                         ),
                       ),
                     ),
@@ -1063,74 +1095,36 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                     ),
                   ),
                 ],
+                if (compareEnabled)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        _previewOverlayInset,
+                        0,
+                        _previewOverlayInset,
+                        _previewOverlayInset,
+                      ),
+                      child: _buildCompareHoldChip(
+                        enabled: compareEnabled,
+                        showingOriginal: showOriginal,
+                      ),
+                    ),
+                  ),
               ],
             );
           }
 
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: previewWidth,
-                height: _previewHeight,
-                child: ColoredBox(
-                  color: colorScheme.surfaceContainerHigh,
-                  child: previewBody,
-                ),
+          return ClipRRect(
+            borderRadius: kOpenHandBorderRadius10,
+            child: SizedBox(
+              width: previewWidth,
+              height: _previewHeight,
+              child: ColoredBox(
+                color: colorScheme.surfaceContainerHigh,
+                child: previewBody,
               ),
-              kOpenHandHGap12,
-              SizedBox(
-                width: 104,
-                child: Listener(
-                  onPointerDown: compareEnabled
-                      ? (_) {
-                          _showOriginalPreview = true;
-                          if (!_previewCompareScheduled) {
-                            _previewCompareScheduled = true;
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              _previewCompareScheduled = false;
-                              if (mounted) setState(() {});
-                            });
-                          }
-                        }
-                      : null,
-                  onPointerUp: compareEnabled
-                      ? (_) {
-                          _showOriginalPreview = false;
-                          if (!_previewCompareScheduled) {
-                            _previewCompareScheduled = true;
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              _previewCompareScheduled = false;
-                              if (mounted) setState(() {});
-                            });
-                          }
-                        }
-                      : null,
-                  onPointerCancel: compareEnabled
-                      ? (_) {
-                          _showOriginalPreview = false;
-                          if (!_previewCompareScheduled) {
-                            _previewCompareScheduled = true;
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              _previewCompareScheduled = false;
-                              if (mounted) setState(() {});
-                            });
-                          }
-                        }
-                      : null,
-                  child: OutlinedButton.icon(
-                    onPressed: compareEnabled ? () {} : null,
-                    icon: const Icon(Icons.compare_rounded, size: 18),
-                    label: Text(
-                      showOriginal
-                          ? l10n.imageEditorCompareRelease
-                          : l10n.imageEditorCompareHold,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -1142,6 +1136,135 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   bool get _canResetAll =>
       _hasBakedChanges || _undoStack.isNotEmpty || _hasUnappliedEdits;
+
+  bool get _canComparePreview =>
+      _canEdit &&
+      !_isSaving &&
+      _originalPreviewBytes != null &&
+      _originalImageWidth > 0 &&
+      _originalImageHeight > 0;
+
+  void _unbindCompareHoldPointer() {
+    final pointer = _compareHoldPointer;
+    if (pointer == null) return;
+    GestureBinding.instance.pointerRouter.removeRoute(
+      pointer,
+      _onCompareHoldPointer,
+    );
+    _compareHoldPointer = null;
+  }
+
+  void _onCompareHoldPointer(PointerEvent event) {
+    if (event.pointer != _compareHoldPointer) return;
+    if (event is PointerUpEvent || event is PointerCancelEvent) {
+      _stopCompareHold();
+    }
+  }
+
+  void _startCompareHold(int pointer) {
+    if (!_canComparePreview) return;
+    if (_compareHoldPointer == pointer) return;
+    _unbindCompareHoldPointer();
+    _compareHoldPointer = pointer;
+    GestureBinding.instance.pointerRouter.addRoute(
+      pointer,
+      _onCompareHoldPointer,
+    );
+    _scheduleComparePreview(true);
+  }
+
+  void _stopCompareHold() {
+    _unbindCompareHoldPointer();
+    _scheduleComparePreview(false);
+  }
+
+  void _scheduleComparePreview(bool showOriginal) {
+    if (_showOriginalPreview == showOriginal) return;
+    _showOriginalPreview = showOriginal;
+    if (_previewCompareScheduled) return;
+    _previewCompareScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _previewCompareScheduled = false;
+      if (mounted) setState(() {});
+    });
+  }
+
+  Widget _buildCompareHoldChip({
+    required bool enabled,
+    required bool showingOriginal,
+  }) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final accent = showingOriginal
+        ? OpenHandStatusColors.warning
+        : colorScheme.tertiary;
+    final background = showingOriginal
+        ? accent
+        : Color.alphaBlend(
+            accent.withValues(alpha: 0.28),
+            colorScheme.surface.withValues(alpha: 0.82),
+          );
+    final ink = showingOriginal ? _compareOriginalInk : accent;
+    final chip = AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: kOpenHandSwitchInCurve,
+      constraints: const BoxConstraints(minHeight: _compareChipMinHeight),
+      padding: _compareChipPadding,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: accent.withValues(alpha: 0.55), width: 1.25),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: showingOriginal ? 0.42 : 0.24),
+            blurRadius: showingOriginal ? 18 : 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.compare_rounded, size: 16, color: ink),
+          kOpenHandHGap8,
+          Flexible(
+            child: Text(
+              showingOriginal
+                  ? l10n.imageEditorCompareRelease
+                  : l10n.imageEditorCompareHold,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: ink,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return Tooltip(
+      message: l10n.imageEditorCompareHold,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: Opacity(
+          opacity: enabled ? 1 : 0.48,
+          child: MicroPressFeedback(
+            enabled: enabled,
+            scale: 0.94,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: enabled
+                  ? (event) => _startCompareHold(event.pointer)
+                  : null,
+              child: chip,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   /// 在弹窗底部显示提示并触发对应的顶部反馈动画。
   void _showSnackBar(String message, {bool isError = false}) {
@@ -1171,6 +1294,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   }
 
   Future<void> _loadImageAsync() async {
+    _stopCompareHold();
     setState(() {
       _isProcessing = true;
       _errorMessage = null;
@@ -1340,6 +1464,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   OpenHandDialogSession<void>? _processingDialogSession;
 
   void _showProcessingOverlay() {
+    _stopCompareHold();
     final activeSession = _processingDialogSession;
     if (!mounted ||
         (activeSession != null &&

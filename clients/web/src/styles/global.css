@@ -7624,27 +7624,57 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-image-editor-canvas:active {
   cursor: grabbing;
 }
+.oh-image-editor-original-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--oh-full-access) 55%, transparent);
+  background: var(--oh-full-access);
+  color: var(--oh-on-full-access-container);
+  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--oh-full-access) 58%, transparent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  user-select: none;
+}
 .oh-image-editor-compare {
   position: absolute;
-  right: 12px;
+  left: 0;
+  right: 0;
   bottom: 12px;
-  z-index: 2;
+  z-index: 3;
   display: inline-flex;
+  width: max-content;
+  max-width: calc(100% - 24px);
   min-height: 36px;
+  margin-inline: auto;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 8px 13px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
-  background: color-mix(in srgb, var(--m3-surface) 82%, transparent);
-  color: var(--m3-on-surface);
-  box-shadow: 0 10px 24px -18px color-mix(in srgb, var(--m3-shadow, #000) 55%, transparent);
-  backdrop-filter: blur(10px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--m3-tertiary) 48%, transparent);
+  background: color-mix(in srgb, var(--m3-tertiary-container) 82%, transparent);
+  color: var(--m3-on-tertiary-container);
+  box-shadow:
+    var(--m3-elev-2),
+    0 10px 22px -14px color-mix(in srgb, var(--m3-tertiary) 46%, transparent);
+  backdrop-filter: blur(12px);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   touch-action: none;
   user-select: none;
+  -webkit-touch-callout: none;
   transition:
     transform var(--oh-motion-duration-base) var(--oh-motion-spring),
     background-color var(--oh-motion-duration-base) var(--oh-dialog-curve),
@@ -7653,13 +7683,19 @@ button.oh-composer-pill:not(:disabled):hover {
     box-shadow var(--oh-motion-duration-base) var(--oh-dialog-curve);
 }
 .oh-image-editor-compare:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--m3-primary) 36%, var(--m3-outline-variant));
-  box-shadow: 0 14px 28px -18px color-mix(in srgb, var(--m3-shadow, #000) 58%, transparent);
+  border-color: color-mix(in srgb, var(--m3-tertiary) 72%, var(--m3-outline-variant));
+  box-shadow:
+    var(--m3-elev-3),
+    0 12px 24px -12px color-mix(in srgb, var(--m3-tertiary) 52%, transparent);
 }
 .oh-image-editor-compare[data-active='true'] {
-  border-color: color-mix(in srgb, var(--m3-primary) 52%, transparent);
-  background: color-mix(in srgb, var(--m3-primary-container) 88%, transparent);
-  color: var(--m3-on-primary-container);
+  border-color: color-mix(in srgb, var(--oh-full-access) 70%, transparent);
+  background: var(--oh-full-access);
+  color: var(--oh-on-full-access-container);
+  box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--oh-full-access) 62%, transparent);
+}
+.oh-image-editor-compare:disabled {
+  opacity: 0.48;
 }
 .oh-image-editor-aspects,
 .oh-image-editor-actions,
@@ -7853,11 +7889,14 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 @media (max-width: 760px) {
+  .oh-image-editor-original-badge {
+    top: 8px;
+    left: 8px;
+  }
   .oh-image-editor-compare {
-    right: 8px;
     bottom: 8px;
     min-height: 34px;
-    padding: 7px 11px;
+    padding: 7px 12px;
   }
   .oh-image-editor-slider {
     grid-template-columns: 1fr 64px;

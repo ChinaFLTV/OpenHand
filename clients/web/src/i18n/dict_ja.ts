@@ -478,6 +478,7 @@ export const dict_ja: Record<string, string> = {
   'imageEditor.watermarkPosition.bottomRight': '右下',
   'imageEditor.compare': '長押しで比較',
   'imageEditor.release': '離す',
+  'imageEditor.original': 'オリジナル',
   'imageEditor.loadFailed': '選択した画像を読み込めません',
   'imageEditor.encodeFailed': '画像のエンコードに失敗しました',
   'imageEditor.encodeTimeout': '画像のエンコードがタイムアウトしました',
