@@ -493,7 +493,7 @@ Future<String> _readUtf8Response(
       idleTimeout: totalTimeout,
       totalTimeout: totalTimeout,
     );
-  } on ByteStreamSizeLimitException {
+  } on ByteStreamLimitException {
     throw AiJunglerApiException(
       '扫描引擎响应超过 $maxBytes 字节限制。',
       statusCode: response.statusCode,

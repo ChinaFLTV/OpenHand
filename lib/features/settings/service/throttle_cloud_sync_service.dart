@@ -420,7 +420,7 @@ class ThrottleCloudSyncService {
       return ThrottleCloudSyncResult.failure(
         '云同步请求超过 ${_remoteRequestTimeout.inSeconds} 秒。',
       );
-    } on ByteStreamSizeLimitException catch (error) {
+    } on ByteStreamLimitException catch (error) {
       return ThrottleCloudSyncResult.failure(error.message);
     } on FormatException catch (error) {
       return ThrottleCloudSyncResult.failure(

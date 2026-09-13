@@ -203,7 +203,7 @@ class SkillMarketClient {
           idleTimeout: _downloadIdleTimeout,
           totalTimeout: _downloadTotalTimeout,
         );
-      } on ByteStreamSizeLimitException {
+      } on ByteStreamLimitException {
         throw const SkillMarketException('技能归档超过大小上限。');
       }
       if (bytes.isEmpty) {
@@ -373,7 +373,7 @@ class SkillMarketClient {
             totalTimeout: _requestTimeout,
             allowMalformed: true,
           );
-        } on ByteStreamSizeLimitException {
+        } on ByteStreamLimitException {
           throw const SkillMarketException('技能文件响应超过大小上限。');
         }
       }),
@@ -469,7 +469,7 @@ class SkillMarketClient {
           idleTimeout: _requestTimeout,
           totalTimeout: _requestTimeout,
         );
-      } on ByteStreamSizeLimitException {
+      } on ByteStreamLimitException {
         throw const SkillMarketException('技能市场响应超过大小上限。');
       }
       final decoded = decodeJsonTextUsingConfig(

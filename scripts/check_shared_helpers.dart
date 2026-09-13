@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:openhand/shared/net/abortable_http_request.dart';
+import 'package:openhand/shared/net/http_response_utils.dart';
 import 'package:openhand/shared/net/http_status_utils.dart';
 import 'package:openhand/shared/net/loopback_hosts.dart';
 import 'package:openhand/shared/util/async_concurrency.dart';
@@ -52,6 +53,7 @@ Future<void> main() async {
   failures += _checkSensitiveTextRedaction();
   failures += await _checkBatchSubscriptionCancellation();
   failures += await _checkAbortableResponseLifetime();
+  failures += await _checkBoundedByteStreams();
   failures += await _checkSynchronousBoundedFileRead();
   failures += await _checkTemporaryByteStreamWrite();
   failures += await _checkTemporaryDirectoryLifecycle();
@@ -60,6 +62,48 @@ Future<void> main() async {
     exit(1);
   }
   stdout.writeln('[共享辅助检查] 通过。');
+}
+
+Future<int> _checkBoundedByteStreams() async {
+  const idleTimeout = Duration(milliseconds: 30);
+  Stream<List<int>> emptyChunks() async* {
+    while (true) {
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      yield const <int>[];
+    }
+  }
+
+  try {
+    await readBoundedByteStream(
+      emptyChunks(),
+      maxBytes: 1,
+      idleTimeout: idleTimeout,
+      totalTimeout: const Duration(seconds: 1),
+    );
+    stderr.writeln('空数据块不应阻止字节流空闲超时');
+    return 1;
+  } on TimeoutException catch (error) {
+    if (error.duration != idleTimeout) {
+      stderr.writeln('空数据块错误地刷新了字节流空闲时限');
+      return 1;
+    }
+  }
+
+  final chunks = await limitByteStream(
+    Stream<List<int>>.fromIterable(const <List<int>>[
+      <int>[],
+      <int>[1],
+      <int>[],
+    ]),
+    maxBytes: 1,
+    idleTimeout: const Duration(seconds: 1),
+    totalTimeout: const Duration(seconds: 1),
+  ).toList();
+  if (chunks.length != 1 || chunks.single.join(',') != '1') {
+    stderr.writeln('有界字节流未过滤空数据块');
+    return 1;
+  }
+  return 0;
 }
 
 int _checkPortableFileNameSanitization() {

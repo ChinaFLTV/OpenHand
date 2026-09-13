@@ -13,10 +13,21 @@ import 'network_limits.dart';
 
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
 
-final class ByteStreamSizeLimitException extends HttpException {
+sealed class ByteStreamLimitException extends HttpException {
+  ByteStreamLimitException(super.message);
+}
+
+final class ByteStreamSizeLimitException extends ByteStreamLimitException {
   ByteStreamSizeLimitException(this.maxBytes) : super('字节流超过 $maxBytes 字节上限。');
 
   final int maxBytes;
+}
+
+final class ByteStreamFragmentLimitException extends ByteStreamLimitException {
+  ByteStreamFragmentLimitException(this.maxChunks)
+    : super('字节流超过 $maxChunks 个数据块上限。');
+
+  final int maxChunks;
 }
 
 final class BoundedByteStreamPrefix {
@@ -273,6 +284,7 @@ Stream<List<int>> limitByteStream(
   Timer? idleTimer;
   Timer? totalTimer;
   var receivedBytes = 0;
+  var receivedChunks = 0;
   var settled = false;
 
   void cancelTimers() {
@@ -326,6 +338,17 @@ Stream<List<int>> limitByteStream(
         final active = stream.listen(
           (chunk) {
             if (settled) return;
+            receivedChunks += 1;
+            if (receivedChunks > kOpenHandMaxNetworkStreamChunks) {
+              terminate(
+                ByteStreamFragmentLimitException(
+                  kOpenHandMaxNetworkStreamChunks,
+                ),
+                StackTrace.current,
+              );
+              return;
+            }
+            if (chunk.isEmpty) return;
             resetIdleTimer();
             if (chunk.length > maxBytes - receivedBytes) {
               terminate(
@@ -460,6 +483,7 @@ Future<Uint8List> _consumeByteStream(
   Timer? idleTimer;
   Timer? totalTimer;
   var receivedBytes = 0;
+  var receivedChunks = 0;
   var settled = false;
 
   void cancelTimers() {
@@ -507,6 +531,15 @@ Future<Uint8List> _consumeByteStream(
     subscription = stream.listen(
       (chunk) {
         if (settled) return;
+        receivedChunks += 1;
+        if (receivedChunks > kOpenHandMaxNetworkStreamChunks) {
+          fail(
+            ByteStreamFragmentLimitException(kOpenHandMaxNetworkStreamChunks),
+            StackTrace.current,
+          );
+          return;
+        }
+        if (chunk.isEmpty) return;
         resetIdleTimer();
         final nextByteCount = receivedBytes + chunk.length;
         if (maxBytes != null &&

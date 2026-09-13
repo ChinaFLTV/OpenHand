@@ -433,7 +433,7 @@ class AiModelProxyHttpServer {
         totalTimeout: _requestReadTotalTimeout,
         cancelOnFailure: false,
       );
-    } on ByteStreamSizeLimitException {
+    } on ByteStreamLimitException {
       throw const AiModelProxyException(413, '请求体过大。');
     } on TimeoutException {
       throw TimeoutException('请求体读取超时。');

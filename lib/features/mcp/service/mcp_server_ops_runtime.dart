@@ -1013,7 +1013,7 @@ class McpServerOpsRuntime {
         idleTimeout: _requestBodyIdleTimeout,
         totalTimeout: _requestBodyTotalTimeout,
       );
-    } on ByteStreamSizeLimitException {
+    } on ByteStreamLimitException {
       return _requestBodyFailureResponse(
         HttpStatus.requestEntityTooLarge,
         'MCP request body is too large.',

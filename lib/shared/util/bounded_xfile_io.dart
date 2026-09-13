@@ -72,7 +72,7 @@ Future<Uint8List> readBoundedXFileBytes(
       maxBytes: maxBytes,
       actualBytes: knownLength,
     );
-  } on ByteStreamSizeLimitException {
+  } on ByteStreamLimitException {
     throw BoundedXFileSizeException(
       maxBytes: maxBytes,
       actualBytes: knownLength,

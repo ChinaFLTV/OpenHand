@@ -1742,7 +1742,7 @@ class WorkflowNodeExecutor {
               : responseTimeout,
           totalTimeout: remaining,
         );
-      } on ByteStreamSizeLimitException {
+      } on ByteStreamLimitException {
         throw const WorkflowNodeExecutionException('HTTP 响应超过 4 MiB 上限。');
       } finally {
         responseDeadline.stop();

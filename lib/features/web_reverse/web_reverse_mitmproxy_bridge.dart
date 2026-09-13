@@ -284,7 +284,7 @@ class WebReverseMitmproxyBridge {
         totalTimeout: _kCallbackBodyTotalTimeout,
         allowMalformed: true,
       );
-    } on ByteStreamSizeLimitException {
+    } on ByteStreamLimitException {
       return null;
     }
   }

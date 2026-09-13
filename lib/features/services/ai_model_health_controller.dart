@@ -12,6 +12,7 @@ import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/net/http_status_utils.dart';
 import '../../shared/ui/error_source.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
@@ -24,6 +25,9 @@ typedef AiModelHealthProxyResolver =
     AiExposureProxyEndpoint? Function({required String targetHost});
 
 const int _kModelHealthMaxResponseBytes = kBytesPerMiB;
+const String _kModelHealthProbeText = 'health check';
+
+typedef _AiModelHealthJob = ({AiModelConfig provider, String modelId});
 
 /// 一次显式模型巡检的取消状态；取消时主动关闭本轮创建的客户端。
 class AiModelHealthCancellation {
@@ -54,6 +58,9 @@ class AiModelHealthController extends ManagedChangeNotifier {
   List<AiModelConfig> Function()? _modelsProvider;
   AiModelHealthProxyResolver? _proxyResolver;
   final Set<http.Client> _activeClients = <http.Client>{};
+  final OpenHandDebouncer _progressNotifier = OpenHandDebouncer(
+    delay: kOpenHandFramePeriodicTimerInterval,
+  );
   Timer? _timer;
   bool _checking = false;
   bool _cancelling = false;
@@ -210,21 +217,30 @@ class AiModelHealthController extends ManagedChangeNotifier {
       ..addAll(providerList.map((provider) => provider.id.trim()));
     notifyListeners();
     try {
-      final pending = <Future<AiModelHealthRecord?>>[];
-      for (final provider in providerList) {
-        for (final modelId in _healthModelIds(provider)) {
-          if (isDisposed || cancellation.cancelled) return;
-          pending.add(
-            checkModel(provider, modelId: modelId, cancellation: cancellation),
+      final jobs = <_AiModelHealthJob>[
+        for (final provider in providerList)
+          for (final modelId in _healthModelIds(provider))
+            (provider: provider, modelId: modelId),
+      ];
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: jobs.length,
+        maxConcurrency: _settings.concurrency,
+        shouldContinue: () => !isDisposed && !cancellation.cancelled,
+        task: (index) async {
+          final job = jobs[index];
+          await checkModel(
+            job.provider,
+            modelId: job.modelId,
+            cancellation: cancellation,
+            notify: false,
           );
-          if (pending.length >= _settings.concurrency) {
-            await Future.wait(pending);
-            pending.clear();
-          }
-        }
-      }
-      if (pending.isNotEmpty) await Future.wait(pending);
+          _progressNotifier.scheduleIfIdle(() {
+            if (!isDisposed) notifyListeners();
+          });
+        },
+      );
     } finally {
+      _progressNotifier.cancel();
       _checking = false;
       _cancelling = false;
       _manualChecking = false;
@@ -311,7 +327,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
           status = _statusForFailurePhase(failurePhase);
         } finally {
           service.dispose();
-          _closeClient(client);
+          _closeClient(client, cancellation);
         }
       } else {
         final client = _createClient(
@@ -378,26 +394,26 @@ class AiModelHealthController extends ManagedChangeNotifier {
               final body = switch (modelKind) {
                 'embedding' => <String, Object?>{
                   'model': selectedModelId,
-                  'input': <String>['health check'],
+                  'input': <String>[_kModelHealthProbeText],
                 },
                 'moderation' => <String, Object?>{
                   'model': selectedModelId,
-                  'input': 'health check',
+                  'input': _kModelHealthProbeText,
                 },
                 'image' || 'image_edit' || 'video' => <String, Object?>{
                   'model': selectedModelId,
-                  'prompt': 'health check',
+                  'prompt': _kModelHealthProbeText,
                 },
                 'audio' => <String, Object?>{
                   'model': selectedModelId,
-                  'input': 'health check',
+                  'input': _kModelHealthProbeText,
                 },
                 'transcription' ||
                 'translation' => <String, Object?>{'model': selectedModelId},
                 'rerank' => <String, Object?>{
                   'model': selectedModelId,
-                  'query': 'health check',
-                  'documents': <String>['health check'],
+                  'query': _kModelHealthProbeText,
+                  'documents': <String>[_kModelHealthProbeText],
                 },
                 _ => <String, Object?>{'model': selectedModelId},
               };
@@ -430,7 +446,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
             failurePhase = 'http_status';
           }
         } finally {
-          _closeClient(client);
+          _closeClient(client, cancellation);
         }
       }
     } catch (error) {
@@ -528,20 +544,8 @@ class AiModelHealthController extends ManagedChangeNotifier {
 
   bool _isTextModel(AiModelConfig model, String modelId) {
     if (_modelKind(model, modelId) != 'text') return false;
-    final profile = model.profileFor(modelId);
-    if (profile.supportedModalities.contains(AiModelModality.text) ||
-        profile.supportedModalities.isEmpty) {
-      return !profile.capabilities.any(
-        (capability) =>
-            capability != AiModelCapability.embeddingGeneration &&
-            capability != AiModelCapability.rerank &&
-            capability != AiModelCapability.imageGeneration &&
-            capability != AiModelCapability.videoGeneration &&
-            capability != AiModelCapability.audioGeneration &&
-            capability != AiModelCapability.readerConversion,
-      );
-    }
-    return false;
+    final modalities = model.profileFor(modelId).supportedModalities;
+    return modalities.isEmpty || modalities.contains(AiModelModality.text);
   }
 
   String _modelKind(AiModelConfig provider, String modelId) {
@@ -668,9 +672,12 @@ class AiModelHealthController extends ManagedChangeNotifier {
     );
   }
 
-  void _closeClient(http.Client client) {
+  void _closeClient(
+    http.Client client,
+    AiModelHealthCancellation? cancellation,
+  ) {
     _activeClients.remove(client);
-    _activeCancellation?.clients.remove(client);
+    cancellation?.clients.remove(client);
     client.close();
   }
 
@@ -768,6 +775,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
     if (isDisposed) return;
     _timer?.cancel();
     _timer = null;
+    _progressNotifier.dispose();
     for (final client in _activeClients.toList(growable: false)) {
       client.close();
     }

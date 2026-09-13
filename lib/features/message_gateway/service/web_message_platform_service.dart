@@ -9208,7 +9208,7 @@ class WebMessagePlatformService {
         totalTimeout: _requestBodyTotalTimeout,
         cancelOnFailure: false,
       );
-    } on ByteStreamSizeLimitException {
+    } on ByteStreamLimitException {
       throw const _WebGatewayRequestException(
         HttpStatus.requestEntityTooLarge,
         'request_body_too_large',

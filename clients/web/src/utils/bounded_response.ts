@@ -7,6 +7,8 @@ interface BoundedResponseBlobOptions {
 
 type BoundedResponseBodyOptions = BoundedResponseBlobOptions;
 
+const MAX_RESPONSE_BODY_CHUNKS = 131_072;
+
 interface FetchBlobBoundedOptions extends RequestInit {
   maxBytes: number;
 }
@@ -19,6 +21,13 @@ class ResponseBodySizeLimitError extends Error {
     super(`响应体超过 ${maxMiB} MiB 安全上限。`);
     this.name = 'ResponseBodySizeLimitError';
     this.maxBytes = maxBytes;
+  }
+}
+
+class ResponseBodyFragmentLimitError extends Error {
+  constructor() {
+    super(`响应体超过 ${MAX_RESPONSE_BODY_CHUNKS} 个数据块安全上限。`);
+    this.name = 'ResponseBodyFragmentLimitError';
   }
 }
 
@@ -84,17 +93,29 @@ async function consumeResponseBodyBounded(
 
   const reader = body.getReader();
   let receivedBytes = 0;
+  let receivedChunks = 0;
   const handleAbort = () => {
     void cancelReaderQuietly(reader, signal ? abortReason(signal) : undefined);
   };
   signal?.addEventListener('abort', handleAbort, { once: true });
   try {
-    if (signal?.aborted) throw abortReason(signal);
+    if (signal?.aborted) {
+      const error = abortReason(signal);
+      await cancelReaderQuietly(reader, error);
+      throw error;
+    }
     while (true) {
       const part = await reader.read();
       if (signal?.aborted) throw abortReason(signal);
       if (part.done) break;
       const chunk = part.value;
+      receivedChunks += 1;
+      if (receivedChunks > MAX_RESPONSE_BODY_CHUNKS) {
+        const error = new ResponseBodyFragmentLimitError();
+        await cancelReaderQuietly(reader, error);
+        throw error;
+      }
+      if (chunk.byteLength === 0) continue;
       if (chunk.byteLength > maxBytes - receivedBytes) {
         const error = new ResponseBodySizeLimitError(maxBytes);
         await cancelReaderQuietly(reader, error);
@@ -103,6 +124,9 @@ async function consumeResponseBodyBounded(
       receivedBytes += chunk.byteLength;
       onChunk(chunk);
     }
+  } catch (error) {
+    await cancelReaderQuietly(reader, error);
+    throw error;
   } finally {
     signal?.removeEventListener('abort', handleAbort);
     try {

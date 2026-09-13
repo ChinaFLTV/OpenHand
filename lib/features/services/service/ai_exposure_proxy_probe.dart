@@ -445,7 +445,7 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
       idleTimeout: remaining,
       totalTimeout: remaining,
     );
-  } on ByteStreamSizeLimitException {
+  } on ByteStreamLimitException {
     throw const FormatException('代理身份响应过大');
   } on HttpException catch (error) {
     final status = int.tryParse(
