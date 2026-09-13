@@ -13,6 +13,7 @@ import {
 } from '../api/knowledge';
 import type { ComponentChildren } from 'preact';
 import { t, tDuration, tNumber } from '../i18n';
+import { formatCreationOptionDetail } from '../shared/ui/creation_option_labels';
 import { Markdown, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
 import {
@@ -66,8 +67,6 @@ import { messageFeedbackValue } from '../shared/util/message_feedback';
 import { isTerminalToolExecutionStatus } from '../shared/util/session_transcript_messages';
 import {
   clampNumber,
-  strictPositiveIntegerFromUnknown,
-  strictPositiveNumberFromUnknown,
 } from '../shared/util/number';
 import { textExceedsLength, truncateEndText } from '../shared/util/text';
 import {
@@ -1429,7 +1428,7 @@ function creationModeChips(meta: Record<string, unknown>): MessageContextChip[] 
   const mode = strictStringFromUnknown(request?.['mode']) || strictStringFromUnknown(meta['conversation_mode']);
   const data = creationModeData(mode);
   if (!data) return [];
-  const detail = creationOptionDetail(options);
+  const detail = formatCreationOptionDetail(options);
   const modePrefix = t('message.context.kind.mode', '模式');
   const label = `${modePrefix} · ${data.label}`;
   return [{
@@ -1462,51 +1461,6 @@ function mediaGenerationModeFromMetadata(
   return mode === 'image' || mode === 'video' || mode === 'audio' || mode === 'deep_research'
     ? mode
     : null;
-}
-
-function creationOptionDetail(options: Record<string, unknown> | null): string {
-  if (!options) return '';
-  const parts: string[] = [];
-  const aspectRatio = strictStringFromUnknown(options['aspect_ratio']);
-  const size = strictStringFromUnknown(options['size']);
-  const quality = strictStringFromUnknown(options['quality']);
-  const style = strictStringFromUnknown(options['style']);
-  const outputFormat = strictStringFromUnknown(options['output_format']);
-  const background = strictStringFromUnknown(options['background']);
-  const resolution = strictStringFromUnknown(options['resolution']);
-  const mode = strictStringFromUnknown(options['mode']);
-  const voice = strictStringFromUnknown(options['voice']);
-  const omitVoice = options['omit_voice'] === true;
-  const duration = strictPositiveIntegerFromUnknown(options['duration_seconds']);
-  const count = strictPositiveIntegerFromUnknown(options['count']);
-  const frameRate = strictPositiveIntegerFromUnknown(options['frame_rate']);
-  const numFrames = strictPositiveIntegerFromUnknown(options['num_frames']);
-  const seed = strictPositiveIntegerFromUnknown(options['seed']);
-  const speed = strictPositiveNumberFromUnknown(options['speed']);
-  const sampleRate = strictPositiveIntegerFromUnknown(options['sample_rate']);
-  const bitrate = strictPositiveIntegerFromUnknown(options['bitrate']);
-  if (aspectRatio) parts.push(aspectRatio);
-  else if (size) parts.push(size);
-  if (duration != null) parts.push(`${duration}s`);
-  if (resolution) parts.push(resolution);
-  if (frameRate != null) parts.push(`${frameRate}fps`);
-  if (numFrames != null) parts.push(`${numFrames}f`);
-  if (quality) parts.push(quality);
-  if (style) parts.push(style);
-  if (outputFormat) parts.push(outputFormat);
-  if (background) parts.push(background);
-  if (mode) parts.push(mode);
-  if (voice) parts.push(voice);
-  if (omitVoice) parts.push(t('creation.options.voiceUnspecified', '不指定音色'));
-  if (speed != null) parts.push(`${speed}x`);
-  if (sampleRate != null) parts.push(`${sampleRate}Hz`);
-  if (bitrate != null) parts.push(`${Math.round(bitrate / 1000)}kbps`);
-  if (seed != null) parts.push(`seed ${seed}`);
-  if (typeof options['prompt_enhance'] === 'boolean') parts.push(options['prompt_enhance'] ? 'prompt+' : 'prompt-');
-  if (typeof options['watermark'] === 'boolean') parts.push(options['watermark'] ? 'watermark' : 'no wm');
-  if (strictStringFromUnknown(options['negative_prompt'])) parts.push('negative');
-  if (count != null && count > 1) parts.push(`x${count}`);
-  return parts.join(' · ');
 }
 
 function skillChips(meta: Record<string, unknown>): MessageContextChip[] {

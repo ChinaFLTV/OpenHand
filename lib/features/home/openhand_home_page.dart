@@ -6955,8 +6955,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  /// 打开当前创建模式的选项面板；用户未确认时返回 `null`。
-  Future<AiCreationOptions?> _showCreationOptionsSheet(
+  /// 打开当前创建模式的选项弹窗；用户未确认时返回 `null`。
+  Future<AiCreationOptions?> _showCreationOptionsDialog(
     _CreationMode mode,
     AiCreationOptions initial,
   ) async {
@@ -6970,16 +6970,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       sessionController.currentSession,
     );
     final colorScheme = Theme.of(context).colorScheme;
-    return showAnimatedModalSheet<AiCreationOptions>(
+    return showAnimatedDialog<AiCreationOptions>(
       context: context,
       barrierColor: colorScheme.scrim.withValues(alpha: 0.38),
-      showDragHandle: false,
-      elevation: 14,
-      margin: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
-      ),
-      builder: (dialogContext) => _CreationOptionsSheet(
+      builder: (dialogContext) => _CreationOptionsDialog(
         mode: mode,
         initial: initial,
         selectedModel: selectedModel,
@@ -10516,7 +10510,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             // 当前帧稳定后再推送浮层，避免布局回调断言。
             await _awaitEndOfFrame();
             if (!mounted || _creationMode != mode) return;
-            final picked = await _showCreationOptionsSheet(
+            final picked = await _showCreationOptionsDialog(
               mode,
               _creationOptions,
             );

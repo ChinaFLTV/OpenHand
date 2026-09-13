@@ -3624,6 +3624,258 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorProcessing => '処理中...';
 
   @override
+  String get creationOptionsImageTitle => '画像生成オプション';
+
+  @override
+  String get creationOptionsImageSubtitle => '比率、品質、生成の制御';
+
+  @override
+  String get creationOptionsVideoTitle => '動画生成オプション';
+
+  @override
+  String get creationOptionsVideoSubtitle => '画面、動き、生成の制御';
+
+  @override
+  String get creationOptionsAudioTitle => '音声生成オプション';
+
+  @override
+  String get creationOptionsAudioSubtitle => '音色、エンコード、再生';
+
+  @override
+  String get creationOptionsSectionFrame => '画面';
+
+  @override
+  String get creationOptionsSectionFrameHint => '比率、解像度、出力スタイル';
+
+  @override
+  String get creationOptionsSectionMotion => '動き';
+
+  @override
+  String get creationOptionsSectionMotionHint => '長さ、フレームレート、生成モード';
+
+  @override
+  String get creationOptionsSectionGenerate => '生成制御';
+
+  @override
+  String get creationOptionsSectionGenerateHint => '指示の強化、透かし、乱数シード';
+
+  @override
+  String get creationOptionsSectionSound => '音声';
+
+  @override
+  String get creationOptionsSectionSoundHint => '音色、速度、音量、音高';
+
+  @override
+  String get creationOptionsSectionEncode => 'エンコード';
+
+  @override
+  String get creationOptionsSectionEncodeHint => '形式、サンプリングレート、ビットレート';
+
+  @override
+  String get creationOptionsSectionCount => '数量';
+
+  @override
+  String get creationOptionsSectionCountHint => '一度に生成する数';
+
+  @override
+  String get creationOptionsAspectRatio => 'アスペクト比';
+
+  @override
+  String get creationOptionsDuration => '長さ';
+
+  @override
+  String creationOptionsDurationSeconds(int count) {
+    return '$count 秒';
+  }
+
+  @override
+  String get creationOptionsQuality => '品質';
+
+  @override
+  String get creationOptionsStyle => 'スタイル';
+
+  @override
+  String get creationOptionsOutputFormat => '出力形式';
+
+  @override
+  String get creationOptionsBackground => '背景';
+
+  @override
+  String get creationOptionsResolution => '解像度';
+
+  @override
+  String get creationOptionsFrameRate => 'フレームレート';
+
+  @override
+  String creationOptionsFrameRateFps(int rate) {
+    return '$rate フレーム/秒';
+  }
+
+  @override
+  String get creationOptionsFrames => 'フレーム数';
+
+  @override
+  String creationOptionsFramesValue(int count) {
+    return '$count フレーム';
+  }
+
+  @override
+  String get creationOptionsMode => 'モード';
+
+  @override
+  String get creationOptionsModeKeyframes => 'キーフレーム';
+
+  @override
+  String get creationOptionsPromptEnhance => '指示の強化';
+
+  @override
+  String get creationOptionsWatermark => '透かし';
+
+  @override
+  String get creationOptionsNegativePrompt => 'ネガティブ指示';
+
+  @override
+  String get creationOptionsSeed => '乱数シード';
+
+  @override
+  String get creationOptionsVoice => '音色';
+
+  @override
+  String get creationOptionsVoiceUnspecified => '指定しない';
+
+  @override
+  String get creationOptionsCustomVoice => 'カスタム識別子';
+
+  @override
+  String get creationOptionsCustomVoiceId => 'カスタム音色識別子';
+
+  @override
+  String get creationOptionsAudioFormat => '音声形式';
+
+  @override
+  String get creationOptionsSpeed => '速度';
+
+  @override
+  String creationOptionsMultiplier(String value) {
+    return '×$value';
+  }
+
+  @override
+  String get creationOptionsSampleRate => 'サンプリングレート';
+
+  @override
+  String creationOptionsSampleRateValue(int rate) {
+    return '$rate ヘルツ';
+  }
+
+  @override
+  String get creationOptionsBitrate => 'ビットレート';
+
+  @override
+  String creationOptionsBitrateKbps(int rate) {
+    return '$rate キロビット/秒';
+  }
+
+  @override
+  String get creationOptionsVolume => '音量';
+
+  @override
+  String get creationOptionsPitch => '音高';
+
+  @override
+  String get creationOptionsCount => '数量';
+
+  @override
+  String get creationOptionsAuto => '既定';
+
+  @override
+  String get creationOptionsOn => 'オン';
+
+  @override
+  String get creationOptionsOff => 'オフ';
+
+  @override
+  String get creationOptionsQualityAuto => '自動';
+
+  @override
+  String get creationOptionsQualityStandard => '標準';
+
+  @override
+  String get creationOptionsQualityHd => '高精細';
+
+  @override
+  String get creationOptionsQualityHigh => '最高';
+
+  @override
+  String get creationOptionsStyleNatural => '自然';
+
+  @override
+  String get creationOptionsStyleVivid => '鮮やか';
+
+  @override
+  String get creationOptionsBackgroundAuto => '自動';
+
+  @override
+  String get creationOptionsBackgroundTransparent => '透明';
+
+  @override
+  String get creationOptionsBackgroundOpaque => '不透明';
+
+  @override
+  String get creationOptionsPromptEnhanceOn => '指示を強化済み';
+
+  @override
+  String get creationOptionsPromptEnhanceOff => '指示を未強化';
+
+  @override
+  String get creationOptionsWatermarkOn => '透かしあり';
+
+  @override
+  String get creationOptionsWatermarkOff => '透かしなし';
+
+  @override
+  String get creationOptionsNegativeOn => 'ネガティブ指示あり';
+
+  @override
+  String creationOptionsSeedValue(String value) {
+    return '乱数シード $value';
+  }
+
+  @override
+  String creationOptionsCountValue(int count) {
+    return '×$count';
+  }
+
+  @override
+  String get creationOptionsImageMode => '画像生成';
+
+  @override
+  String get creationOptionsVideoMode => '動画生成';
+
+  @override
+  String get creationOptionsAudioMode => '音声生成';
+
+  @override
+  String get creationOptionsDeepResearchMode => '深層研究';
+
+  @override
+  String creationOptionsModeChip(String label) {
+    return 'モード · $label';
+  }
+
+  @override
+  String get creationOptionsComposerImage => '画像';
+
+  @override
+  String get creationOptionsComposerVideo => '動画';
+
+  @override
+  String get creationOptionsComposerAudio => '音声';
+
+  @override
+  String get creationOptionsComposerResearch => '研究';
+
+  @override
   String get builtinToolTimeoutLabel => 'タイムアウト (秒)';
 
   @override

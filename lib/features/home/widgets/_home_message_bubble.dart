@@ -7165,61 +7165,17 @@ class _CreationModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (!request.isActive) return const SizedBox.shrink();
-    final (icon, labelZh, labelEn) = switch (request.mode) {
-      AiCreationMode.image => (
-        Icons.image_outlined,
-        '图片生成',
-        'Image generation',
-      ),
-      AiCreationMode.video => (
-        Icons.videocam_outlined,
-        '视频生成',
-        'Video generation',
-      ),
-      AiCreationMode.audio => (
-        Icons.audiotrack_outlined,
-        '音频生成',
-        'Audio generation',
-      ),
-      AiCreationMode.deepResearch => (
-        Icons.travel_explore_rounded,
-        '深度研究',
-        'Deep Research',
-      ),
-      AiCreationMode.none => (Icons.circle_outlined, '', ''),
+    final icon = switch (request.mode) {
+      AiCreationMode.image => Icons.image_outlined,
+      AiCreationMode.video => Icons.videocam_outlined,
+      AiCreationMode.audio => Icons.audiotrack_outlined,
+      AiCreationMode.deepResearch => Icons.travel_explore_rounded,
+      AiCreationMode.none => Icons.circle_outlined,
     };
-    final options = request.options;
-    final detailParts = <String>[
-      if (options.aspectRatio != null) options.aspectRatio!,
-      if (options.size != null && options.aspectRatio == null) options.size!,
-      if (options.durationSeconds != null) '${options.durationSeconds}s',
-      if (options.resolution != null) options.resolution!,
-      if (options.frameRate != null) '${options.frameRate}fps',
-      if (options.numFrames != null) '${options.numFrames}f',
-      if (options.quality != null) options.quality!,
-      if (options.style != null) options.style!,
-      if (options.outputFormat != null) options.outputFormat!,
-      if (options.background != null) options.background!,
-      if (options.mode != null) options.mode!,
-      if (options.voice != null) options.voice!,
-      if (options.omitVoice)
-        openHandLocalizedText(context, zh: '不指定音色', en: 'No voice'),
-      if (options.speed != null) '${options.speed}x',
-      if (options.sampleRate != null) '${options.sampleRate}Hz',
-      if (options.bitrate != null) '${options.bitrate! ~/ 1000}kbps',
-      if (options.seed != null) 'seed ${options.seed}',
-      if (options.promptEnhance != null)
-        options.promptEnhance! ? 'prompt+' : 'prompt-',
-      if (options.watermark != null) options.watermark! ? 'watermark' : 'no wm',
-      if (options.negativePrompt != null) 'negative',
-      if (options.count != 1) 'x${options.count}',
-    ];
-    final label = openHandLocalizedText(
-      context,
-      zh: '模式 · $labelZh',
-      en: 'Mode · $labelEn',
-    );
+    final detailParts = _creationOptionDetailParts(l10n, request.options);
+    final label = _creationModeChipLabel(l10n, request.mode);
     final detail = detailParts.isEmpty ? '' : ' · ${detailParts.join(' · ')}';
     return _MessageContextCapsule(
       icon: icon,

@@ -6642,6 +6642,474 @@ abstract class AppLocalizations {
   /// **'处理中…'**
   String get imageEditorProcessing;
 
+  /// No description provided for @creationOptionsImageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'图像生成选项'**
+  String get creationOptionsImageTitle;
+
+  /// No description provided for @creationOptionsImageSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'画面比例、质量与生成控制'**
+  String get creationOptionsImageSubtitle;
+
+  /// No description provided for @creationOptionsVideoTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频生成选项'**
+  String get creationOptionsVideoTitle;
+
+  /// No description provided for @creationOptionsVideoSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'画面、运动节奏与生成控制'**
+  String get creationOptionsVideoSubtitle;
+
+  /// No description provided for @creationOptionsAudioTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频生成选项'**
+  String get creationOptionsAudioTitle;
+
+  /// No description provided for @creationOptionsAudioSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'音色、编码与播放参数'**
+  String get creationOptionsAudioSubtitle;
+
+  /// No description provided for @creationOptionsSectionFrame.
+  ///
+  /// In zh, this message translates to:
+  /// **'画面'**
+  String get creationOptionsSectionFrame;
+
+  /// No description provided for @creationOptionsSectionFrameHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'比例、分辨率与输出样式'**
+  String get creationOptionsSectionFrameHint;
+
+  /// No description provided for @creationOptionsSectionMotion.
+  ///
+  /// In zh, this message translates to:
+  /// **'运动'**
+  String get creationOptionsSectionMotion;
+
+  /// No description provided for @creationOptionsSectionMotionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'时长、帧率与生成模式'**
+  String get creationOptionsSectionMotionHint;
+
+  /// No description provided for @creationOptionsSectionGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成控制'**
+  String get creationOptionsSectionGenerate;
+
+  /// No description provided for @creationOptionsSectionGenerateHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词增强、水印与随机种子'**
+  String get creationOptionsSectionGenerateHint;
+
+  /// No description provided for @creationOptionsSectionSound.
+  ///
+  /// In zh, this message translates to:
+  /// **'声音'**
+  String get creationOptionsSectionSound;
+
+  /// No description provided for @creationOptionsSectionSoundHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'音色、语速、音量与音高'**
+  String get creationOptionsSectionSoundHint;
+
+  /// No description provided for @creationOptionsSectionEncode.
+  ///
+  /// In zh, this message translates to:
+  /// **'编码'**
+  String get creationOptionsSectionEncode;
+
+  /// No description provided for @creationOptionsSectionEncodeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'格式、采样率与码率'**
+  String get creationOptionsSectionEncodeHint;
+
+  /// No description provided for @creationOptionsSectionCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'数量'**
+  String get creationOptionsSectionCount;
+
+  /// No description provided for @creationOptionsSectionCountHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'一次生成的条数'**
+  String get creationOptionsSectionCountHint;
+
+  /// No description provided for @creationOptionsAspectRatio.
+  ///
+  /// In zh, this message translates to:
+  /// **'宽高比'**
+  String get creationOptionsAspectRatio;
+
+  /// No description provided for @creationOptionsDuration.
+  ///
+  /// In zh, this message translates to:
+  /// **'时长'**
+  String get creationOptionsDuration;
+
+  /// No description provided for @creationOptionsDurationSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 秒'**
+  String creationOptionsDurationSeconds(int count);
+
+  /// No description provided for @creationOptionsQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'质量'**
+  String get creationOptionsQuality;
+
+  /// No description provided for @creationOptionsStyle.
+  ///
+  /// In zh, this message translates to:
+  /// **'风格'**
+  String get creationOptionsStyle;
+
+  /// No description provided for @creationOptionsOutputFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'输出格式'**
+  String get creationOptionsOutputFormat;
+
+  /// No description provided for @creationOptionsBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'背景'**
+  String get creationOptionsBackground;
+
+  /// No description provided for @creationOptionsResolution.
+  ///
+  /// In zh, this message translates to:
+  /// **'分辨率'**
+  String get creationOptionsResolution;
+
+  /// No description provided for @creationOptionsFrameRate.
+  ///
+  /// In zh, this message translates to:
+  /// **'帧率'**
+  String get creationOptionsFrameRate;
+
+  /// No description provided for @creationOptionsFrameRateFps.
+  ///
+  /// In zh, this message translates to:
+  /// **'{rate} 帧/秒'**
+  String creationOptionsFrameRateFps(int rate);
+
+  /// No description provided for @creationOptionsFrames.
+  ///
+  /// In zh, this message translates to:
+  /// **'帧数'**
+  String get creationOptionsFrames;
+
+  /// No description provided for @creationOptionsFramesValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 帧'**
+  String creationOptionsFramesValue(int count);
+
+  /// No description provided for @creationOptionsMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'模式'**
+  String get creationOptionsMode;
+
+  /// No description provided for @creationOptionsModeKeyframes.
+  ///
+  /// In zh, this message translates to:
+  /// **'关键帧'**
+  String get creationOptionsModeKeyframes;
+
+  /// No description provided for @creationOptionsPromptEnhance.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词增强'**
+  String get creationOptionsPromptEnhance;
+
+  /// No description provided for @creationOptionsWatermark.
+  ///
+  /// In zh, this message translates to:
+  /// **'水印'**
+  String get creationOptionsWatermark;
+
+  /// No description provided for @creationOptionsNegativePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'负向提示'**
+  String get creationOptionsNegativePrompt;
+
+  /// No description provided for @creationOptionsSeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'随机种子'**
+  String get creationOptionsSeed;
+
+  /// No description provided for @creationOptionsVoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'音色'**
+  String get creationOptionsVoice;
+
+  /// No description provided for @creationOptionsVoiceUnspecified.
+  ///
+  /// In zh, this message translates to:
+  /// **'不指定'**
+  String get creationOptionsVoiceUnspecified;
+
+  /// No description provided for @creationOptionsCustomVoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义标识'**
+  String get creationOptionsCustomVoice;
+
+  /// No description provided for @creationOptionsCustomVoiceId.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义音色标识'**
+  String get creationOptionsCustomVoiceId;
+
+  /// No description provided for @creationOptionsAudioFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频格式'**
+  String get creationOptionsAudioFormat;
+
+  /// No description provided for @creationOptionsSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'语速'**
+  String get creationOptionsSpeed;
+
+  /// No description provided for @creationOptionsMultiplier.
+  ///
+  /// In zh, this message translates to:
+  /// **'×{value}'**
+  String creationOptionsMultiplier(String value);
+
+  /// No description provided for @creationOptionsSampleRate.
+  ///
+  /// In zh, this message translates to:
+  /// **'采样率'**
+  String get creationOptionsSampleRate;
+
+  /// No description provided for @creationOptionsSampleRateValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{rate} 赫兹'**
+  String creationOptionsSampleRateValue(int rate);
+
+  /// No description provided for @creationOptionsBitrate.
+  ///
+  /// In zh, this message translates to:
+  /// **'码率'**
+  String get creationOptionsBitrate;
+
+  /// No description provided for @creationOptionsBitrateKbps.
+  ///
+  /// In zh, this message translates to:
+  /// **'{rate} 千比特/秒'**
+  String creationOptionsBitrateKbps(int rate);
+
+  /// No description provided for @creationOptionsVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'音量'**
+  String get creationOptionsVolume;
+
+  /// No description provided for @creationOptionsPitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'音高'**
+  String get creationOptionsPitch;
+
+  /// No description provided for @creationOptionsCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'数量'**
+  String get creationOptionsCount;
+
+  /// No description provided for @creationOptionsAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认'**
+  String get creationOptionsAuto;
+
+  /// No description provided for @creationOptionsOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'开'**
+  String get creationOptionsOn;
+
+  /// No description provided for @creationOptionsOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关'**
+  String get creationOptionsOff;
+
+  /// No description provided for @creationOptionsQualityAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动'**
+  String get creationOptionsQualityAuto;
+
+  /// No description provided for @creationOptionsQualityStandard.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准'**
+  String get creationOptionsQualityStandard;
+
+  /// No description provided for @creationOptionsQualityHd.
+  ///
+  /// In zh, this message translates to:
+  /// **'高清'**
+  String get creationOptionsQualityHd;
+
+  /// No description provided for @creationOptionsQualityHigh.
+  ///
+  /// In zh, this message translates to:
+  /// **'最高'**
+  String get creationOptionsQualityHigh;
+
+  /// No description provided for @creationOptionsStyleNatural.
+  ///
+  /// In zh, this message translates to:
+  /// **'自然'**
+  String get creationOptionsStyleNatural;
+
+  /// No description provided for @creationOptionsStyleVivid.
+  ///
+  /// In zh, this message translates to:
+  /// **'鲜明'**
+  String get creationOptionsStyleVivid;
+
+  /// No description provided for @creationOptionsBackgroundAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动'**
+  String get creationOptionsBackgroundAuto;
+
+  /// No description provided for @creationOptionsBackgroundTransparent.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明'**
+  String get creationOptionsBackgroundTransparent;
+
+  /// No description provided for @creationOptionsBackgroundOpaque.
+  ///
+  /// In zh, this message translates to:
+  /// **'不透明'**
+  String get creationOptionsBackgroundOpaque;
+
+  /// No description provided for @creationOptionsPromptEnhanceOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'已增强提示词'**
+  String get creationOptionsPromptEnhanceOn;
+
+  /// No description provided for @creationOptionsPromptEnhanceOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'未增强提示词'**
+  String get creationOptionsPromptEnhanceOff;
+
+  /// No description provided for @creationOptionsWatermarkOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'含水印'**
+  String get creationOptionsWatermarkOn;
+
+  /// No description provided for @creationOptionsWatermarkOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'无水印'**
+  String get creationOptionsWatermarkOff;
+
+  /// No description provided for @creationOptionsNegativeOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'含负向提示'**
+  String get creationOptionsNegativeOn;
+
+  /// No description provided for @creationOptionsSeedValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'随机种子 {value}'**
+  String creationOptionsSeedValue(String value);
+
+  /// No description provided for @creationOptionsCountValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'×{count}'**
+  String creationOptionsCountValue(int count);
+
+  /// No description provided for @creationOptionsImageMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片生成'**
+  String get creationOptionsImageMode;
+
+  /// No description provided for @creationOptionsVideoMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频生成'**
+  String get creationOptionsVideoMode;
+
+  /// No description provided for @creationOptionsAudioMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频生成'**
+  String get creationOptionsAudioMode;
+
+  /// No description provided for @creationOptionsDeepResearchMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'深度研究'**
+  String get creationOptionsDeepResearchMode;
+
+  /// No description provided for @creationOptionsModeChip.
+  ///
+  /// In zh, this message translates to:
+  /// **'模式 · {label}'**
+  String creationOptionsModeChip(String label);
+
+  /// No description provided for @creationOptionsComposerImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'图像'**
+  String get creationOptionsComposerImage;
+
+  /// No description provided for @creationOptionsComposerVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频'**
+  String get creationOptionsComposerVideo;
+
+  /// No description provided for @creationOptionsComposerAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频'**
+  String get creationOptionsComposerAudio;
+
+  /// No description provided for @creationOptionsComposerResearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'研究'**
+  String get creationOptionsComposerResearch;
+
   /// No description provided for @builtinToolTimeoutLabel.
   ///
   /// In zh, this message translates to:

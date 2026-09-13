@@ -3580,6 +3580,258 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorProcessing => '处理中…';
 
   @override
+  String get creationOptionsImageTitle => '图像生成选项';
+
+  @override
+  String get creationOptionsImageSubtitle => '画面比例、质量与生成控制';
+
+  @override
+  String get creationOptionsVideoTitle => '视频生成选项';
+
+  @override
+  String get creationOptionsVideoSubtitle => '画面、运动节奏与生成控制';
+
+  @override
+  String get creationOptionsAudioTitle => '音频生成选项';
+
+  @override
+  String get creationOptionsAudioSubtitle => '音色、编码与播放参数';
+
+  @override
+  String get creationOptionsSectionFrame => '画面';
+
+  @override
+  String get creationOptionsSectionFrameHint => '比例、分辨率与输出样式';
+
+  @override
+  String get creationOptionsSectionMotion => '运动';
+
+  @override
+  String get creationOptionsSectionMotionHint => '时长、帧率与生成模式';
+
+  @override
+  String get creationOptionsSectionGenerate => '生成控制';
+
+  @override
+  String get creationOptionsSectionGenerateHint => '提示词增强、水印与随机种子';
+
+  @override
+  String get creationOptionsSectionSound => '声音';
+
+  @override
+  String get creationOptionsSectionSoundHint => '音色、语速、音量与音高';
+
+  @override
+  String get creationOptionsSectionEncode => '编码';
+
+  @override
+  String get creationOptionsSectionEncodeHint => '格式、采样率与码率';
+
+  @override
+  String get creationOptionsSectionCount => '数量';
+
+  @override
+  String get creationOptionsSectionCountHint => '一次生成的条数';
+
+  @override
+  String get creationOptionsAspectRatio => '宽高比';
+
+  @override
+  String get creationOptionsDuration => '时长';
+
+  @override
+  String creationOptionsDurationSeconds(int count) {
+    return '$count 秒';
+  }
+
+  @override
+  String get creationOptionsQuality => '质量';
+
+  @override
+  String get creationOptionsStyle => '风格';
+
+  @override
+  String get creationOptionsOutputFormat => '输出格式';
+
+  @override
+  String get creationOptionsBackground => '背景';
+
+  @override
+  String get creationOptionsResolution => '分辨率';
+
+  @override
+  String get creationOptionsFrameRate => '帧率';
+
+  @override
+  String creationOptionsFrameRateFps(int rate) {
+    return '$rate 帧/秒';
+  }
+
+  @override
+  String get creationOptionsFrames => '帧数';
+
+  @override
+  String creationOptionsFramesValue(int count) {
+    return '$count 帧';
+  }
+
+  @override
+  String get creationOptionsMode => '模式';
+
+  @override
+  String get creationOptionsModeKeyframes => '关键帧';
+
+  @override
+  String get creationOptionsPromptEnhance => '提示词增强';
+
+  @override
+  String get creationOptionsWatermark => '水印';
+
+  @override
+  String get creationOptionsNegativePrompt => '负向提示';
+
+  @override
+  String get creationOptionsSeed => '随机种子';
+
+  @override
+  String get creationOptionsVoice => '音色';
+
+  @override
+  String get creationOptionsVoiceUnspecified => '不指定';
+
+  @override
+  String get creationOptionsCustomVoice => '自定义标识';
+
+  @override
+  String get creationOptionsCustomVoiceId => '自定义音色标识';
+
+  @override
+  String get creationOptionsAudioFormat => '音频格式';
+
+  @override
+  String get creationOptionsSpeed => '语速';
+
+  @override
+  String creationOptionsMultiplier(String value) {
+    return '×$value';
+  }
+
+  @override
+  String get creationOptionsSampleRate => '采样率';
+
+  @override
+  String creationOptionsSampleRateValue(int rate) {
+    return '$rate 赫兹';
+  }
+
+  @override
+  String get creationOptionsBitrate => '码率';
+
+  @override
+  String creationOptionsBitrateKbps(int rate) {
+    return '$rate 千比特/秒';
+  }
+
+  @override
+  String get creationOptionsVolume => '音量';
+
+  @override
+  String get creationOptionsPitch => '音高';
+
+  @override
+  String get creationOptionsCount => '数量';
+
+  @override
+  String get creationOptionsAuto => '默认';
+
+  @override
+  String get creationOptionsOn => '开';
+
+  @override
+  String get creationOptionsOff => '关';
+
+  @override
+  String get creationOptionsQualityAuto => '自动';
+
+  @override
+  String get creationOptionsQualityStandard => '标准';
+
+  @override
+  String get creationOptionsQualityHd => '高清';
+
+  @override
+  String get creationOptionsQualityHigh => '最高';
+
+  @override
+  String get creationOptionsStyleNatural => '自然';
+
+  @override
+  String get creationOptionsStyleVivid => '鲜明';
+
+  @override
+  String get creationOptionsBackgroundAuto => '自动';
+
+  @override
+  String get creationOptionsBackgroundTransparent => '透明';
+
+  @override
+  String get creationOptionsBackgroundOpaque => '不透明';
+
+  @override
+  String get creationOptionsPromptEnhanceOn => '已增强提示词';
+
+  @override
+  String get creationOptionsPromptEnhanceOff => '未增强提示词';
+
+  @override
+  String get creationOptionsWatermarkOn => '含水印';
+
+  @override
+  String get creationOptionsWatermarkOff => '无水印';
+
+  @override
+  String get creationOptionsNegativeOn => '含负向提示';
+
+  @override
+  String creationOptionsSeedValue(String value) {
+    return '随机种子 $value';
+  }
+
+  @override
+  String creationOptionsCountValue(int count) {
+    return '×$count';
+  }
+
+  @override
+  String get creationOptionsImageMode => '图片生成';
+
+  @override
+  String get creationOptionsVideoMode => '视频生成';
+
+  @override
+  String get creationOptionsAudioMode => '音频生成';
+
+  @override
+  String get creationOptionsDeepResearchMode => '深度研究';
+
+  @override
+  String creationOptionsModeChip(String label) {
+    return '模式 · $label';
+  }
+
+  @override
+  String get creationOptionsComposerImage => '图像';
+
+  @override
+  String get creationOptionsComposerVideo => '视频';
+
+  @override
+  String get creationOptionsComposerAudio => '音频';
+
+  @override
+  String get creationOptionsComposerResearch => '研究';
+
+  @override
   String get builtinToolTimeoutLabel => '超时时间（秒）';
 
   @override
@@ -13967,6 +14219,258 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get imageEditorProcessing => '處理中…';
+
+  @override
+  String get creationOptionsImageTitle => '圖像生成選項';
+
+  @override
+  String get creationOptionsImageSubtitle => '畫面比例、品質與生成控制';
+
+  @override
+  String get creationOptionsVideoTitle => '影片生成選項';
+
+  @override
+  String get creationOptionsVideoSubtitle => '畫面、運動節奏與生成控制';
+
+  @override
+  String get creationOptionsAudioTitle => '音訊生成選項';
+
+  @override
+  String get creationOptionsAudioSubtitle => '音色、編碼與播放參數';
+
+  @override
+  String get creationOptionsSectionFrame => '畫面';
+
+  @override
+  String get creationOptionsSectionFrameHint => '比例、解析度與輸出樣式';
+
+  @override
+  String get creationOptionsSectionMotion => '運動';
+
+  @override
+  String get creationOptionsSectionMotionHint => '時長、幀率與生成模式';
+
+  @override
+  String get creationOptionsSectionGenerate => '生成控制';
+
+  @override
+  String get creationOptionsSectionGenerateHint => '提示詞增強、浮水印與隨機種子';
+
+  @override
+  String get creationOptionsSectionSound => '聲音';
+
+  @override
+  String get creationOptionsSectionSoundHint => '音色、語速、音量與音高';
+
+  @override
+  String get creationOptionsSectionEncode => '編碼';
+
+  @override
+  String get creationOptionsSectionEncodeHint => '格式、取樣率與位元率';
+
+  @override
+  String get creationOptionsSectionCount => '數量';
+
+  @override
+  String get creationOptionsSectionCountHint => '一次生成的條數';
+
+  @override
+  String get creationOptionsAspectRatio => '寬高比';
+
+  @override
+  String get creationOptionsDuration => '時長';
+
+  @override
+  String creationOptionsDurationSeconds(int count) {
+    return '$count 秒';
+  }
+
+  @override
+  String get creationOptionsQuality => '品質';
+
+  @override
+  String get creationOptionsStyle => '風格';
+
+  @override
+  String get creationOptionsOutputFormat => '輸出格式';
+
+  @override
+  String get creationOptionsBackground => '背景';
+
+  @override
+  String get creationOptionsResolution => '解析度';
+
+  @override
+  String get creationOptionsFrameRate => '幀率';
+
+  @override
+  String creationOptionsFrameRateFps(int rate) {
+    return '$rate 幀/秒';
+  }
+
+  @override
+  String get creationOptionsFrames => '幀數';
+
+  @override
+  String creationOptionsFramesValue(int count) {
+    return '$count 幀';
+  }
+
+  @override
+  String get creationOptionsMode => '模式';
+
+  @override
+  String get creationOptionsModeKeyframes => '關鍵幀';
+
+  @override
+  String get creationOptionsPromptEnhance => '提示詞增強';
+
+  @override
+  String get creationOptionsWatermark => '浮水印';
+
+  @override
+  String get creationOptionsNegativePrompt => '負向提示';
+
+  @override
+  String get creationOptionsSeed => '隨機種子';
+
+  @override
+  String get creationOptionsVoice => '音色';
+
+  @override
+  String get creationOptionsVoiceUnspecified => '不指定';
+
+  @override
+  String get creationOptionsCustomVoice => '自訂識別碼';
+
+  @override
+  String get creationOptionsCustomVoiceId => '自訂音色識別碼';
+
+  @override
+  String get creationOptionsAudioFormat => '音訊格式';
+
+  @override
+  String get creationOptionsSpeed => '語速';
+
+  @override
+  String creationOptionsMultiplier(String value) {
+    return '×$value';
+  }
+
+  @override
+  String get creationOptionsSampleRate => '取樣率';
+
+  @override
+  String creationOptionsSampleRateValue(int rate) {
+    return '$rate 赫茲';
+  }
+
+  @override
+  String get creationOptionsBitrate => '位元率';
+
+  @override
+  String creationOptionsBitrateKbps(int rate) {
+    return '$rate 千位元/秒';
+  }
+
+  @override
+  String get creationOptionsVolume => '音量';
+
+  @override
+  String get creationOptionsPitch => '音高';
+
+  @override
+  String get creationOptionsCount => '數量';
+
+  @override
+  String get creationOptionsAuto => '預設';
+
+  @override
+  String get creationOptionsOn => '開';
+
+  @override
+  String get creationOptionsOff => '關';
+
+  @override
+  String get creationOptionsQualityAuto => '自動';
+
+  @override
+  String get creationOptionsQualityStandard => '標準';
+
+  @override
+  String get creationOptionsQualityHd => '高清';
+
+  @override
+  String get creationOptionsQualityHigh => '最高';
+
+  @override
+  String get creationOptionsStyleNatural => '自然';
+
+  @override
+  String get creationOptionsStyleVivid => '鮮明';
+
+  @override
+  String get creationOptionsBackgroundAuto => '自動';
+
+  @override
+  String get creationOptionsBackgroundTransparent => '透明';
+
+  @override
+  String get creationOptionsBackgroundOpaque => '不透明';
+
+  @override
+  String get creationOptionsPromptEnhanceOn => '已增強提示詞';
+
+  @override
+  String get creationOptionsPromptEnhanceOff => '未增強提示詞';
+
+  @override
+  String get creationOptionsWatermarkOn => '含浮水印';
+
+  @override
+  String get creationOptionsWatermarkOff => '無浮水印';
+
+  @override
+  String get creationOptionsNegativeOn => '含負向提示';
+
+  @override
+  String creationOptionsSeedValue(String value) {
+    return '隨機種子 $value';
+  }
+
+  @override
+  String creationOptionsCountValue(int count) {
+    return '×$count';
+  }
+
+  @override
+  String get creationOptionsImageMode => '圖片生成';
+
+  @override
+  String get creationOptionsVideoMode => '影片生成';
+
+  @override
+  String get creationOptionsAudioMode => '音訊生成';
+
+  @override
+  String get creationOptionsDeepResearchMode => '深度研究';
+
+  @override
+  String creationOptionsModeChip(String label) {
+    return '模式 · $label';
+  }
+
+  @override
+  String get creationOptionsComposerImage => '圖像';
+
+  @override
+  String get creationOptionsComposerVideo => '影片';
+
+  @override
+  String get creationOptionsComposerAudio => '音訊';
+
+  @override
+  String get creationOptionsComposerResearch => '研究';
 
   @override
   String get builtinToolTimeoutLabel => '超時時間（秒）';

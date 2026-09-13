@@ -662,8 +662,8 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
 }
 
 /// 编辑当前生成模式的 [AiCreationOptions]；用户取消时返回空值。
-class _CreationOptionsSheet extends StatefulWidget {
-  const _CreationOptionsSheet({
+class _CreationOptionsDialog extends StatefulWidget {
+  const _CreationOptionsDialog({
     required this.mode,
     required this.initial,
     this.selectedModel,
@@ -674,10 +674,10 @@ class _CreationOptionsSheet extends StatefulWidget {
   final AiModelConfig? selectedModel;
 
   @override
-  State<_CreationOptionsSheet> createState() => _CreationOptionsSheetState();
+  State<_CreationOptionsDialog> createState() => _CreationOptionsDialogState();
 }
 
-class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
+class _CreationOptionsDialogState extends State<_CreationOptionsDialog> {
   late String? _aspectRatio = widget.initial.aspectRatio;
   late String? _size = widget.initial.size;
   late int? _duration = widget.initial.durationSeconds;
@@ -750,6 +750,8 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   static const List<int> _audioBitrates = [64000, 128000, 192000, 256000];
   static const List<double> _audioVolumes = [0.8, 1.0, 1.2];
   static const List<double> _audioPitches = [-2.0, 0.0, 2.0];
+  static const int _minCreationCount = 1;
+  static const int _maxCreationCount = 4;
 
   @override
   void dispose() {
@@ -896,376 +898,364 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     final isImage = widget.mode == _CreationMode.image;
     final isVideo = widget.mode == _CreationMode.video;
     final isAudio = widget.mode == _CreationMode.audio;
-    final title = switch (widget.mode) {
-      _CreationMode.image => openHandLocalizedText(
-        context,
-        zh: '图像生成选项',
-        en: 'Image options',
+    final (title, subtitle, icon) = switch (widget.mode) {
+      _CreationMode.image => (
+        l10n.creationOptionsImageTitle,
+        l10n.creationOptionsImageSubtitle,
+        Icons.image_outlined,
       ),
-      _CreationMode.video => openHandLocalizedText(
-        context,
-        zh: '视频生成选项',
-        en: 'Video options',
+      _CreationMode.video => (
+        l10n.creationOptionsVideoTitle,
+        l10n.creationOptionsVideoSubtitle,
+        Icons.videocam_outlined,
       ),
-      _CreationMode.audio => openHandLocalizedText(
-        context,
-        zh: '音频生成选项',
-        en: 'Audio options',
+      _CreationMode.audio => (
+        l10n.creationOptionsAudioTitle,
+        l10n.creationOptionsAudioSubtitle,
+        Icons.graphic_eq_rounded,
       ),
-      _ => openHandLocalizedText(context, zh: '生成选项', en: 'Options'),
+      _ => (
+        l10n.creationOptionsImageTitle,
+        l10n.creationOptionsImageSubtitle,
+        Icons.tune_rounded,
+      ),
     };
-    final sectionStyle = theme.textTheme.labelMedium?.copyWith(
-      color: cs.onSurfaceVariant,
-      fontWeight: FontWeight.w600,
-    );
-    final maxHeight = math.min(MediaQuery.sizeOf(context).height * 0.82, 760.0);
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 14,
-          bottom: 18 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 48,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: cs.outlineVariant.withValues(alpha: 0.55),
-                  borderRadius: kOpenHandPillBorderRadius,
-                ),
-              ),
-            ),
-            kOpenHandGap16,
-            Text(title, style: theme.textTheme.titleMedium),
-            kOpenHandGap16,
-            Flexible(
-              child: SingleChildScrollView(
-                physics: openHandDialogAwareScrollPhysics(context),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (isImage || isVideo) ...[
-                      _sectionLabel(
-                        context,
-                        openHandLocalizedText(
-                          context,
-                          zh: '宽高比',
-                          en: 'Aspect ratio',
-                        ),
-                        sectionStyle,
-                      ),
-                      kOpenHandGap8,
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (isImage)
-                            for (final preset in _imageRatios)
-                              _optionChip(
-                                label: Text(preset.ratio),
-                                selected: _aspectRatio == preset.ratio,
-                                onSelected: () => setState(() {
-                                  _aspectRatio = preset.ratio;
-                                  _size = preset.size;
-                                }),
-                              ),
-                          if (isVideo)
-                            for (final ratio in _videoRatios)
-                              _optionChip(
-                                label: Text(ratio),
-                                selected: _aspectRatio == ratio,
-                                onSelected: () =>
-                                    setState(() => _aspectRatio = ratio),
-                              ),
-                        ],
-                      ),
-                      kOpenHandGap16,
+    return OpenHandEditorDialogScaffold(
+      title: title,
+      subtitle: subtitle,
+      icon: icon,
+      maxWidth: kOpenHandDialogWidthStandard,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (isImage || isVideo) ...[
+            OpenHandDialogSectionCard(
+              icon: Icons.crop_free_rounded,
+              accent: colorScheme.primary,
+              title: l10n.creationOptionsSectionFrame,
+              subtitle: l10n.creationOptionsSectionFrameHint,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _fieldLabel(context, l10n.creationOptionsAspectRatio),
+                  kOpenHandGap8,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (isImage)
+                        for (final preset in _imageRatios)
+                          _optionChip(
+                            label: Text(preset.ratio),
+                            selected: _aspectRatio == preset.ratio,
+                            onSelected: () => setState(() {
+                              _aspectRatio = preset.ratio;
+                              _size = preset.size;
+                            }),
+                          ),
+                      if (isVideo)
+                        for (final ratio in _videoRatios)
+                          _optionChip(
+                            label: Text(ratio),
+                            selected: _aspectRatio == ratio,
+                            onSelected: () =>
+                                setState(() => _aspectRatio = ratio),
+                          ),
                     ],
-                    if (isVideo || isAudio) ...[
-                      _sectionLabel(
-                        context,
-                        openHandLocalizedText(
-                          context,
-                          zh: '时长 (秒)',
-                          en: 'Duration (s)',
-                        ),
-                        sectionStyle,
-                      ),
-                      kOpenHandGap8,
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final d
-                              in (isVideo ? _videoDurations : _audioDurations))
-                            _optionChip(
-                              label: Text('${d}s'),
-                              selected: _duration == d,
-                              onSelected: () => setState(() => _duration = d),
-                            ),
-                        ],
-                      ),
-                      kOpenHandGap16,
-                    ],
-                    if (isImage) ...[
-                      _choiceSection<String>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '质量',
-                          en: 'Quality',
-                        ),
-                        values: _imageQualities,
-                        selected: _quality,
-                        labelFor: (value) => value,
-                        onSelected: (value) => setState(() => _quality = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<String>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '风格',
-                          en: 'Style',
-                        ),
-                        values: _imageStyles,
-                        selected: _style,
-                        labelFor: (value) => value,
-                        onSelected: (value) => setState(() => _style = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<String>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '输出格式',
-                          en: 'Output format',
-                        ),
-                        values: _imageFormats,
-                        selected: _outputFormat,
-                        labelFor: (value) => value,
-                        onSelected: (value) =>
-                            setState(() => _outputFormat = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<String>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '背景',
-                          en: 'Background',
-                        ),
-                        values: _imageBackgrounds,
-                        selected: _background,
-                        labelFor: (value) => value,
-                        onSelected: (value) =>
-                            setState(() => _background = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                    ],
-                    if (isVideo) ...[
-                      _choiceSection<String>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '分辨率',
-                          en: 'Resolution',
-                        ),
-                        values: _videoResolutions,
-                        selected: _resolution,
-                        labelFor: (value) => value,
-                        onSelected: (value) =>
-                            setState(() => _resolution = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<int>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '帧率',
-                          en: 'Frame rate',
-                        ),
-                        values: _videoFrameRates,
-                        selected: _frameRate,
-                        labelFor: (value) => '$value fps',
-                        onSelected: (value) =>
-                            setState(() => _frameRate = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<int>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '帧数',
-                          en: 'Frames',
-                        ),
-                        values: _videoFrames,
-                        selected: _numFrames,
-                        labelFor: (value) => '$value',
-                        onSelected: (value) =>
-                            setState(() => _numFrames = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<String>(
-                        context: context,
-                        title: openHandModeLabel(context),
-                        values: _videoModes,
-                        selected: _mode,
-                        labelFor: (value) => value,
-                        onSelected: (value) => setState(() => _mode = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                    ],
-                    if (isImage || isVideo) ...[
-                      _triBoolSection(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: 'Prompt 增强',
-                          en: 'Prompt enhance',
-                        ),
-                        value: _promptEnhance,
-                        onChanged: (value) =>
-                            setState(() => _promptEnhance = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _triBoolSection(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '水印',
-                          en: 'Watermark',
-                        ),
-                        value: _watermark,
-                        onChanged: (value) =>
-                            setState(() => _watermark = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _textInput(
-                        context,
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '负向提示',
-                          en: 'Negative prompt',
-                        ),
-                        controller: _negativePromptController,
-                        maxLines: 2,
-                      ),
-                      kOpenHandGap12,
-                      _textInput(
-                        context,
-                        label: 'Seed',
-                        controller: _seedController,
-                        keyboardType: TextInputType.number,
-                      ),
-                      kOpenHandGap16,
-                    ],
-                    if (isAudio) ...[
-                      _audioVoiceSection(context, sectionStyle),
-                      _choiceSection<String>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '音频格式',
-                          en: 'Audio format',
-                        ),
-                        values: _audioFormatValues,
-                        selected: _outputFormat,
-                        labelFor: _audioFormatLabel,
-                        onSelected: (value) =>
-                            setState(() => _outputFormat = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<double>(
-                        context: context,
-                        title: openHandSpeedLabel(context),
-                        values: _audioSpeeds,
-                        selected: _speed,
-                        labelFor: (value) => '${value}x',
-                        onSelected: (value) => setState(() => _speed = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<int>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '采样率',
-                          en: 'Sample rate',
-                        ),
-                        values: _audioSampleRates,
-                        selected: _sampleRate,
-                        labelFor: (value) => '$value',
-                        onSelected: (value) =>
-                            setState(() => _sampleRate = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<int>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '码率',
-                          en: 'Bitrate',
-                        ),
-                        values: _audioBitrateValues,
-                        selected: _bitrate,
-                        labelFor: (value) => '${value ~/ 1000} kbps',
-                        onSelected: (value) => setState(() => _bitrate = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<double>(
-                        context: context,
-                        title: openHandVolumeLabel(context),
-                        values: _audioVolumes,
-                        selected: _volume,
-                        labelFor: (value) => '${value}x',
-                        onSelected: (value) => setState(() => _volume = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                      _choiceSection<double>(
-                        context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '音高',
-                          en: 'Pitch',
-                        ),
-                        values: _audioPitches,
-                        selected: _pitch,
-                        labelFor: (value) => value.toStringAsFixed(0),
-                        onSelected: (value) => setState(() => _pitch = value),
-                        sectionStyle: sectionStyle,
-                      ),
-                    ],
-                    _countControl(context, sectionStyle),
+                  ),
+                  if (isVideo) ...[
+                    kOpenHandGap14,
+                    _choiceSection<String>(
+                      context: context,
+                      title: l10n.creationOptionsResolution,
+                      values: _videoResolutions,
+                      selected: _resolution,
+                      labelFor: (value) => value,
+                      onSelected: (value) =>
+                          setState(() => _resolution = value),
+                    ),
                   ],
-                ),
+                  if (isImage) ...[
+                    kOpenHandGap14,
+                    _choiceSection<String>(
+                      context: context,
+                      title: l10n.creationOptionsQuality,
+                      values: _imageQualities,
+                      selected: _quality,
+                      labelFor: (value) => _creationQualityLabel(l10n, value),
+                      onSelected: (value) => setState(() => _quality = value),
+                    ),
+                    kOpenHandGap14,
+                    _choiceSection<String>(
+                      context: context,
+                      title: l10n.creationOptionsStyle,
+                      values: _imageStyles,
+                      selected: _style,
+                      labelFor: (value) => _creationStyleLabel(l10n, value),
+                      onSelected: (value) => setState(() => _style = value),
+                    ),
+                    kOpenHandGap14,
+                    _choiceSection<String>(
+                      context: context,
+                      title: l10n.creationOptionsOutputFormat,
+                      values: _imageFormats,
+                      selected: _outputFormat,
+                      labelFor: (value) => value,
+                      onSelected: (value) =>
+                          setState(() => _outputFormat = value),
+                    ),
+                    kOpenHandGap14,
+                    _choiceSection<String>(
+                      context: context,
+                      title: l10n.creationOptionsBackground,
+                      values: _imageBackgrounds,
+                      selected: _background,
+                      labelFor: (value) =>
+                          _creationBackgroundLabel(l10n, value),
+                      onSelected: (value) =>
+                          setState(() => _background = value),
+                    ),
+                  ],
+                ],
               ),
             ),
-            kOpenHandGap14,
-            _actions(context),
+            kOpenHandGap12,
           ],
-        ),
+          if (isVideo)
+            OpenHandDialogSectionCard(
+              icon: Icons.motion_photos_on_outlined,
+              accent: colorScheme.tertiary,
+              title: l10n.creationOptionsSectionMotion,
+              subtitle: l10n.creationOptionsSectionMotionHint,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _fieldLabel(context, l10n.creationOptionsDuration),
+                  kOpenHandGap8,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final duration in _videoDurations)
+                        _optionChip(
+                          label: Text(
+                            l10n.creationOptionsDurationSeconds(duration),
+                          ),
+                          selected: _duration == duration,
+                          onSelected: () =>
+                              setState(() => _duration = duration),
+                        ),
+                    ],
+                  ),
+                  kOpenHandGap14,
+                  _choiceSection<int>(
+                    context: context,
+                    title: l10n.creationOptionsFrameRate,
+                    values: _videoFrameRates,
+                    selected: _frameRate,
+                    labelFor: l10n.creationOptionsFrameRateFps,
+                    onSelected: (value) => setState(() => _frameRate = value),
+                  ),
+                  kOpenHandGap14,
+                  _choiceSection<int>(
+                    context: context,
+                    title: l10n.creationOptionsFrames,
+                    values: _videoFrames,
+                    selected: _numFrames,
+                    labelFor: (value) => '$value',
+                    onSelected: (value) => setState(() => _numFrames = value),
+                  ),
+                  kOpenHandGap14,
+                  _choiceSection<String>(
+                    context: context,
+                    title: l10n.creationOptionsMode,
+                    values: _videoModes,
+                    selected: _mode,
+                    labelFor: (value) => _creationVideoModeLabel(l10n, value),
+                    onSelected: (value) => setState(() => _mode = value),
+                  ),
+                ],
+              ),
+            ),
+          if (isVideo) kOpenHandGap12,
+          if (isImage || isVideo) ...[
+            OpenHandDialogSectionCard(
+              icon: Icons.auto_awesome_rounded,
+              accent: OpenHandStatusColors.warning,
+              title: l10n.creationOptionsSectionGenerate,
+              subtitle: l10n.creationOptionsSectionGenerateHint,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _triBoolSection(
+                    context: context,
+                    title: l10n.creationOptionsPromptEnhance,
+                    value: _promptEnhance,
+                    onChanged: (value) =>
+                        setState(() => _promptEnhance = value),
+                  ),
+                  kOpenHandGap14,
+                  _triBoolSection(
+                    context: context,
+                    title: l10n.creationOptionsWatermark,
+                    value: _watermark,
+                    onChanged: (value) => setState(() => _watermark = value),
+                  ),
+                  kOpenHandGap14,
+                  _textInput(
+                    context,
+                    label: l10n.creationOptionsNegativePrompt,
+                    controller: _negativePromptController,
+                    maxLines: 2,
+                  ),
+                  kOpenHandGap12,
+                  _textInput(
+                    context,
+                    label: l10n.creationOptionsSeed,
+                    controller: _seedController,
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+              ),
+            ),
+            kOpenHandGap12,
+          ],
+          if (isAudio) ...[
+            OpenHandDialogSectionCard(
+              icon: Icons.record_voice_over_outlined,
+              accent: OpenHandStatusColors.success,
+              title: l10n.creationOptionsSectionSound,
+              subtitle: l10n.creationOptionsSectionSoundHint,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _audioVoiceSection(context),
+                  kOpenHandGap14,
+                  _fieldLabel(context, l10n.creationOptionsDuration),
+                  kOpenHandGap8,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final duration in _audioDurations)
+                        _optionChip(
+                          label: Text(
+                            l10n.creationOptionsDurationSeconds(duration),
+                          ),
+                          selected: _duration == duration,
+                          onSelected: () =>
+                              setState(() => _duration = duration),
+                        ),
+                    ],
+                  ),
+                  kOpenHandGap14,
+                  _choiceSection<double>(
+                    context: context,
+                    title: l10n.creationOptionsSpeed,
+                    values: _audioSpeeds,
+                    selected: _speed,
+                    labelFor: (value) => _creationMultiplierLabel(l10n, value),
+                    onSelected: (value) => setState(() => _speed = value),
+                  ),
+                  kOpenHandGap14,
+                  _choiceSection<double>(
+                    context: context,
+                    title: l10n.creationOptionsVolume,
+                    values: _audioVolumes,
+                    selected: _volume,
+                    labelFor: (value) => _creationMultiplierLabel(l10n, value),
+                    onSelected: (value) => setState(() => _volume = value),
+                  ),
+                  kOpenHandGap14,
+                  _choiceSection<double>(
+                    context: context,
+                    title: l10n.creationOptionsPitch,
+                    values: _audioPitches,
+                    selected: _pitch,
+                    labelFor: (value) => value.toStringAsFixed(0),
+                    onSelected: (value) => setState(() => _pitch = value),
+                  ),
+                ],
+              ),
+            ),
+            kOpenHandGap12,
+            OpenHandDialogSectionCard(
+              icon: Icons.tune_rounded,
+              accent: OpenHandStatusColors.info,
+              title: l10n.creationOptionsSectionEncode,
+              subtitle: l10n.creationOptionsSectionEncodeHint,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _choiceSection<String>(
+                    context: context,
+                    title: l10n.creationOptionsAudioFormat,
+                    values: _audioFormatValues,
+                    selected: _outputFormat,
+                    labelFor: _audioFormatLabel,
+                    onSelected: (value) =>
+                        setState(() => _outputFormat = value),
+                  ),
+                  kOpenHandGap14,
+                  _choiceSection<int>(
+                    context: context,
+                    title: l10n.creationOptionsSampleRate,
+                    values: _audioSampleRates,
+                    selected: _sampleRate,
+                    labelFor: (value) => '$value',
+                    onSelected: (value) => setState(() => _sampleRate = value),
+                  ),
+                  kOpenHandGap14,
+                  _choiceSection<int>(
+                    context: context,
+                    title: l10n.creationOptionsBitrate,
+                    values: _audioBitrateValues,
+                    selected: _bitrate,
+                    labelFor: (value) =>
+                        l10n.creationOptionsBitrateKbps(value ~/ 1000),
+                    onSelected: (value) => setState(() => _bitrate = value),
+                  ),
+                ],
+              ),
+            ),
+            kOpenHandGap12,
+          ],
+          OpenHandDialogSectionCard(
+            icon: Icons.filter_none_rounded,
+            accent: OpenHandStatusColors.caution,
+            title: l10n.creationOptionsSectionCount,
+            subtitle: l10n.creationOptionsSectionCountHint,
+            child: _countControl(context),
+          ),
+        ],
       ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: l10n.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(context).pop(_selectedOptions()),
+          label: l10n.commonConfirm,
+        ),
+      ],
     );
   }
 
-  Widget _sectionLabel(
-    BuildContext context,
-    String label,
-    TextStyle? sectionStyle,
-  ) {
-    return Text(label, style: sectionStyle);
+  Widget _fieldLabel(BuildContext context, String label) {
+    final theme = Theme.of(context);
+    return Text(
+      label,
+      style: theme.textTheme.labelLarge?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w700,
+      ),
+    );
   }
 
   Widget _optionChip({
@@ -1273,19 +1263,10 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     required bool selected,
     required VoidCallback onSelected,
   }) {
-    final height = math.max(
-      40.0,
-      MediaQuery.textScalerOf(context).scale(20) + 16,
-    );
-    return SizedBox(
-      height: height,
-      child: ChoiceChip(
-        label: label,
-        selected: selected,
-        onSelected: (_) => onSelected(),
-        visualDensity: VisualDensity.compact,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+    return OpenHandChoicePill(
+      selected: selected,
+      onSelected: onSelected,
+      child: label,
     );
   }
 
@@ -1296,34 +1277,31 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     required T? selected,
     required String Function(T value) labelFor,
     required ValueChanged<T?> onSelected,
-    required TextStyle? sectionStyle,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _sectionLabel(context, title, sectionStyle),
-          kOpenHandGap8,
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _fieldLabel(context, title),
+        kOpenHandGap8,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _optionChip(
+              label: Text(l10n.creationOptionsAuto),
+              selected: selected == null,
+              onSelected: () => onSelected(null),
+            ),
+            for (final value in values)
               _optionChip(
-                label: Text(_openhandHomePaAutoLabel(context)),
-                selected: selected == null,
-                onSelected: () => onSelected(null),
+                label: Text(labelFor(value)),
+                selected: selected == value,
+                onSelected: () => onSelected(value),
               ),
-              for (final value in values)
-                _optionChip(
-                  label: Text(labelFor(value)),
-                  selected: selected == value,
-                  onSelected: () => onSelected(value),
-                ),
-            ],
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -1332,106 +1310,93 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     required String title,
     required bool? value,
     required ValueChanged<bool?> onChanged,
-    required TextStyle? sectionStyle,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _sectionLabel(context, title, sectionStyle),
-          kOpenHandGap8,
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _optionChip(
-                label: Text(_openhandHomePaAutoLabel(context)),
-                selected: value == null,
-                onSelected: () => onChanged(null),
-              ),
-              _optionChip(
-                label: Text(openHandLocalizedText(context, zh: '开', en: 'On')),
-                selected: value == true,
-                onSelected: () => onChanged(true),
-              ),
-              _optionChip(
-                label: Text(openHandLocalizedText(context, zh: '关', en: 'Off')),
-                selected: value == false,
-                onSelected: () => onChanged(false),
-              ),
-            ],
-          ),
-        ],
-      ),
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _fieldLabel(context, title),
+        kOpenHandGap8,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _optionChip(
+              label: Text(l10n.creationOptionsAuto),
+              selected: value == null,
+              onSelected: () => onChanged(null),
+            ),
+            _optionChip(
+              label: Text(l10n.creationOptionsOn),
+              selected: value == true,
+              onSelected: () => onChanged(true),
+            ),
+            _optionChip(
+              label: Text(l10n.creationOptionsOff),
+              selected: value == false,
+              onSelected: () => onChanged(false),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _audioVoiceSection(BuildContext context, TextStyle? sectionStyle) {
+  Widget _audioVoiceSection(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final options = _audioVoiceOptions;
     final currentVoice = _voiceController.text.trim();
     final selectedKnown = _voiceInCatalog(currentVoice, options);
     final customSelected =
         !_omitVoice && _customVoiceInputVisible && !selectedKnown;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _sectionLabel(context, openHandVoiceLabel(context), sectionStyle),
-          kOpenHandGap8,
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _fieldLabel(context, l10n.creationOptionsVoice),
+        kOpenHandGap8,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _optionChip(
+              label: Text(l10n.creationOptionsVoiceUnspecified),
+              selected: _omitVoice,
+              onSelected: _selectNoAudioVoice,
+            ),
+            for (final option in options)
               _optionChip(
-                label: Text(
-                  openHandLocalizedText(context, zh: '不指定', en: 'Unspecified'),
-                ),
-                selected: _omitVoice,
-                onSelected: _selectNoAudioVoice,
-              ),
-              for (final option in options)
-                _optionChip(
-                  label: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 220),
-                    child: Text(
-                      _audioCatalogOptionLabel(option),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                label: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: Text(
+                    _audioCatalogOptionLabel(option),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  selected: !_omitVoice && currentVoice == option.value,
-                  onSelected: () => _selectAudioVoice(option.value),
                 ),
-              _optionChip(
-                label: Text(
-                  openHandLocalizedText(context, zh: '自定义 ID', en: 'Custom ID'),
-                ),
-                selected: customSelected,
-                onSelected: () => _showCustomVoiceInput(selectedKnown),
+                selected: !_omitVoice && currentVoice == option.value,
+                onSelected: () => _selectAudioVoice(option.value),
               ),
-            ],
-          ),
-          OpenHandVerticalRevealSwitcher(
-            duration: kOpenHandDialogValidationRevealDuration,
-            child: _customVoiceInputVisible
-                ? Padding(
-                    key: const ValueKey<String>('custom-audio-voice'),
-                    padding: const EdgeInsets.only(top: 12),
-                    child: _textInput(
-                      context,
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '自定义音色 ID',
-                        en: 'Custom voice ID',
-                      ),
-                      controller: _voiceController,
-                    ),
-                  )
-                : const SizedBox(key: ValueKey<String>('preset-audio-voice')),
-          ),
-        ],
-      ),
+            _optionChip(
+              label: Text(l10n.creationOptionsCustomVoice),
+              selected: customSelected,
+              onSelected: () => _showCustomVoiceInput(selectedKnown),
+            ),
+          ],
+        ),
+        OpenHandVerticalRevealSwitcher(
+          duration: kOpenHandDialogValidationRevealDuration,
+          child: _customVoiceInputVisible
+              ? Padding(
+                  key: const ValueKey<String>('custom-audio-voice'),
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _textInput(
+                    context,
+                    label: l10n.creationOptionsCustomVoiceId,
+                    controller: _voiceController,
+                  ),
+                )
+              : const SizedBox(key: ValueKey<String>('preset-audio-voice')),
+        ),
+      ],
     );
   }
 
@@ -1466,6 +1431,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     TextInputType? keyboardType,
     int maxLines = 1,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
@@ -1473,88 +1439,55 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
-        border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius12),
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius16),
       ),
     );
   }
 
-  Widget _countControl(BuildContext context, TextStyle? sectionStyle) {
+  Widget _countControl(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    final colorScheme = theme.colorScheme;
+    final canDecrease = _count > _minCreationCount;
+    final canIncrease = _count < _maxCreationCount;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(alpha: 0.10),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _sectionLabel(
-            context,
-            openHandLocalizedText(context, zh: '数量', en: 'Count'),
-            sectionStyle,
+          MicroPressFeedback(
+            enabled: canDecrease,
+            child: IconButton(
+              onPressed: canDecrease ? () => setState(() => _count--) : null,
+              icon: const Icon(Icons.remove_rounded),
+            ),
           ),
-          kOpenHandGap8,
-          Row(
-            children: [
-              SizedBox(
-                width: 46,
-                height: 46,
-                child: MicroPressFeedback(
-                  enabled: _count > 1,
-                  child: IconButton(
-                    onPressed: _count > 1
-                        ? () => setState(() => _count--)
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline),
-                  ),
-                ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              '$_count',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
-              kOpenHandHGap12,
-              Text(
-                '$_count',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              kOpenHandHGap12,
-              SizedBox(
-                width: 46,
-                height: 46,
-                child: MicroPressFeedback(
-                  enabled: _count < 4,
-                  child: IconButton(
-                    onPressed: _count < 4
-                        ? () => setState(() => _count++)
-                        : null,
-                    icon: const Icon(Icons.add_circle_outline),
-                  ),
-                ),
-              ),
-            ],
+            ),
+          ),
+          MicroPressFeedback(
+            enabled: canIncrease,
+            child: IconButton(
+              onPressed: canIncrease ? () => setState(() => _count++) : null,
+              icon: const Icon(Icons.add_rounded),
+            ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _actions(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 128),
-          child: OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: openHandCancelLabel(context),
-          ),
-        ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 128),
-          child: OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(_selectedOptions()),
-            label: openHandConfirmLabel(context),
-          ),
-        ),
-      ],
     );
   }
 
@@ -1617,6 +1550,94 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   }
 }
 
-String _openhandHomePaAutoLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '默认', en: 'Auto');
+String _creationQualityLabel(AppLocalizations l10n, String value) {
+  return switch (value) {
+    'auto' => l10n.creationOptionsQualityAuto,
+    'standard' => l10n.creationOptionsQualityStandard,
+    'hd' => l10n.creationOptionsQualityHd,
+    'high' => l10n.creationOptionsQualityHigh,
+    _ => value,
+  };
+}
+
+String _creationStyleLabel(AppLocalizations l10n, String value) {
+  return switch (value) {
+    'natural' => l10n.creationOptionsStyleNatural,
+    'vivid' => l10n.creationOptionsStyleVivid,
+    _ => value,
+  };
+}
+
+String _creationBackgroundLabel(AppLocalizations l10n, String value) {
+  return switch (value) {
+    'auto' => l10n.creationOptionsBackgroundAuto,
+    'transparent' => l10n.creationOptionsBackgroundTransparent,
+    'opaque' => l10n.creationOptionsBackgroundOpaque,
+    _ => value,
+  };
+}
+
+String _creationVideoModeLabel(AppLocalizations l10n, String value) {
+  return switch (value) {
+    'keyframes' => l10n.creationOptionsModeKeyframes,
+    _ => value,
+  };
+}
+
+String _creationMultiplierLabel(AppLocalizations l10n, num value) {
+  final rounded = value.round();
+  final text = value == rounded ? '$rounded' : '$value';
+  return l10n.creationOptionsMultiplier(text);
+}
+
+String _creationModeChipLabel(AppLocalizations l10n, AiCreationMode mode) {
+  final label = switch (mode) {
+    AiCreationMode.image => l10n.creationOptionsImageMode,
+    AiCreationMode.video => l10n.creationOptionsVideoMode,
+    AiCreationMode.audio => l10n.creationOptionsAudioMode,
+    AiCreationMode.deepResearch => l10n.creationOptionsDeepResearchMode,
+    AiCreationMode.none => '',
+  };
+  return l10n.creationOptionsModeChip(label);
+}
+
+List<String> _creationOptionDetailParts(
+  AppLocalizations l10n,
+  AiCreationOptions options,
+) {
+  return <String>[
+    if (options.aspectRatio != null) options.aspectRatio!,
+    if (options.size != null && options.aspectRatio == null) options.size!,
+    if (options.durationSeconds != null)
+      l10n.creationOptionsDurationSeconds(options.durationSeconds!),
+    if (options.resolution != null) options.resolution!,
+    if (options.frameRate != null)
+      l10n.creationOptionsFrameRateFps(options.frameRate!),
+    if (options.numFrames != null)
+      l10n.creationOptionsFramesValue(options.numFrames!),
+    if (options.quality != null) _creationQualityLabel(l10n, options.quality!),
+    if (options.style != null) _creationStyleLabel(l10n, options.style!),
+    if (options.outputFormat != null) options.outputFormat!,
+    if (options.background != null)
+      _creationBackgroundLabel(l10n, options.background!),
+    if (options.mode != null) _creationVideoModeLabel(l10n, options.mode!),
+    if (options.voice != null) options.voice!,
+    if (options.omitVoice) l10n.creationOptionsVoiceUnspecified,
+    if (options.speed != null) _creationMultiplierLabel(l10n, options.speed!),
+    if (options.sampleRate != null)
+      l10n.creationOptionsSampleRateValue(options.sampleRate!),
+    if (options.bitrate != null)
+      l10n.creationOptionsBitrateKbps(options.bitrate! ~/ 1000),
+    if (options.seed != null) l10n.creationOptionsSeedValue('${options.seed}'),
+    if (options.promptEnhance != null)
+      options.promptEnhance!
+          ? l10n.creationOptionsPromptEnhanceOn
+          : l10n.creationOptionsPromptEnhanceOff,
+    if (options.watermark != null)
+      options.watermark!
+          ? l10n.creationOptionsWatermarkOn
+          : l10n.creationOptionsWatermarkOff,
+    if (options.negativePrompt != null) l10n.creationOptionsNegativeOn,
+    if (options.count != 1) l10n.creationOptionsCountValue(options.count),
+  ];
 }

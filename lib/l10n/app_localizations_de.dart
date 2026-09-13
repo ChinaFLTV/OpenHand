@@ -3751,6 +3751,267 @@ class AppLocalizationsDe extends AppLocalizations {
   String get imageEditorProcessing => 'Verarbeitung …';
 
   @override
+  String get creationOptionsImageTitle => 'Optionen für die Bildgenerierung';
+
+  @override
+  String get creationOptionsImageSubtitle =>
+      'Seitenverhältnis, Qualität und Generierungssteuerung';
+
+  @override
+  String get creationOptionsVideoTitle => 'Optionen für die Videogenerierung';
+
+  @override
+  String get creationOptionsVideoSubtitle =>
+      'Bild, Bewegung und Generierungssteuerung';
+
+  @override
+  String get creationOptionsAudioTitle => 'Optionen für die Audiogenerierung';
+
+  @override
+  String get creationOptionsAudioSubtitle => 'Stimme, Kodierung und Wiedergabe';
+
+  @override
+  String get creationOptionsSectionFrame => 'Bild';
+
+  @override
+  String get creationOptionsSectionFrameHint =>
+      'Seitenverhältnis, Auflösung und Ausgabestil';
+
+  @override
+  String get creationOptionsSectionMotion => 'Bewegung';
+
+  @override
+  String get creationOptionsSectionMotionHint =>
+      'Dauer, Bildrate und Generierungsmodus';
+
+  @override
+  String get creationOptionsSectionGenerate => 'Generierung';
+
+  @override
+  String get creationOptionsSectionGenerateHint =>
+      'Hinweisverstärkung, Wasserzeichen und Zufallsstartwert';
+
+  @override
+  String get creationOptionsSectionSound => 'Stimme';
+
+  @override
+  String get creationOptionsSectionSoundHint =>
+      'Stimme, Tempo, Lautstärke und Tonhöhe';
+
+  @override
+  String get creationOptionsSectionEncode => 'Kodierung';
+
+  @override
+  String get creationOptionsSectionEncodeHint =>
+      'Format, Abtastrate und Bitrate';
+
+  @override
+  String get creationOptionsSectionCount => 'Anzahl';
+
+  @override
+  String get creationOptionsSectionCountHint =>
+      'Anzahl der zu erzeugenden Elemente';
+
+  @override
+  String get creationOptionsAspectRatio => 'Seitenverhältnis';
+
+  @override
+  String get creationOptionsDuration => 'Dauer';
+
+  @override
+  String creationOptionsDurationSeconds(int count) {
+    return '$count s';
+  }
+
+  @override
+  String get creationOptionsQuality => 'Qualität';
+
+  @override
+  String get creationOptionsStyle => 'Stil';
+
+  @override
+  String get creationOptionsOutputFormat => 'Ausgabeformat';
+
+  @override
+  String get creationOptionsBackground => 'Hintergrund';
+
+  @override
+  String get creationOptionsResolution => 'Auflösung';
+
+  @override
+  String get creationOptionsFrameRate => 'Bildrate';
+
+  @override
+  String creationOptionsFrameRateFps(int rate) {
+    return '$rate Bilder/s';
+  }
+
+  @override
+  String get creationOptionsFrames => 'Bilder';
+
+  @override
+  String creationOptionsFramesValue(int count) {
+    return '$count Bilder';
+  }
+
+  @override
+  String get creationOptionsMode => 'Modus';
+
+  @override
+  String get creationOptionsModeKeyframes => 'Schlüsselbilder';
+
+  @override
+  String get creationOptionsPromptEnhance => 'Hinweis verstärken';
+
+  @override
+  String get creationOptionsWatermark => 'Wasserzeichen';
+
+  @override
+  String get creationOptionsNegativePrompt => 'Negativer Hinweis';
+
+  @override
+  String get creationOptionsSeed => 'Zufallsstartwert';
+
+  @override
+  String get creationOptionsVoice => 'Stimme';
+
+  @override
+  String get creationOptionsVoiceUnspecified => 'Nicht festgelegt';
+
+  @override
+  String get creationOptionsCustomVoice => 'Benutzerdefinierte Kennung';
+
+  @override
+  String get creationOptionsCustomVoiceId =>
+      'Benutzerdefinierte Stimmenkennung';
+
+  @override
+  String get creationOptionsAudioFormat => 'Audioformat';
+
+  @override
+  String get creationOptionsSpeed => 'Tempo';
+
+  @override
+  String creationOptionsMultiplier(String value) {
+    return '×$value';
+  }
+
+  @override
+  String get creationOptionsSampleRate => 'Abtastrate';
+
+  @override
+  String creationOptionsSampleRateValue(int rate) {
+    return '$rate Hz';
+  }
+
+  @override
+  String get creationOptionsBitrate => 'Bitrate';
+
+  @override
+  String creationOptionsBitrateKbps(int rate) {
+    return '$rate kbit/s';
+  }
+
+  @override
+  String get creationOptionsVolume => 'Lautstärke';
+
+  @override
+  String get creationOptionsPitch => 'Tonhöhe';
+
+  @override
+  String get creationOptionsCount => 'Anzahl';
+
+  @override
+  String get creationOptionsAuto => 'Standard';
+
+  @override
+  String get creationOptionsOn => 'Ein';
+
+  @override
+  String get creationOptionsOff => 'Aus';
+
+  @override
+  String get creationOptionsQualityAuto => 'Automatisch';
+
+  @override
+  String get creationOptionsQualityStandard => 'Standard';
+
+  @override
+  String get creationOptionsQualityHd => 'HD';
+
+  @override
+  String get creationOptionsQualityHigh => 'Höchste';
+
+  @override
+  String get creationOptionsStyleNatural => 'Natürlich';
+
+  @override
+  String get creationOptionsStyleVivid => 'Lebhaft';
+
+  @override
+  String get creationOptionsBackgroundAuto => 'Automatisch';
+
+  @override
+  String get creationOptionsBackgroundTransparent => 'Transparent';
+
+  @override
+  String get creationOptionsBackgroundOpaque => 'Undurchsichtig';
+
+  @override
+  String get creationOptionsPromptEnhanceOn => 'Hinweis verstärkt';
+
+  @override
+  String get creationOptionsPromptEnhanceOff => 'Hinweis nicht verstärkt';
+
+  @override
+  String get creationOptionsWatermarkOn => 'Mit Wasserzeichen';
+
+  @override
+  String get creationOptionsWatermarkOff => 'Ohne Wasserzeichen';
+
+  @override
+  String get creationOptionsNegativeOn => 'Mit negativem Hinweis';
+
+  @override
+  String creationOptionsSeedValue(String value) {
+    return 'Zufallsstartwert $value';
+  }
+
+  @override
+  String creationOptionsCountValue(int count) {
+    return '×$count';
+  }
+
+  @override
+  String get creationOptionsImageMode => 'Bildgenerierung';
+
+  @override
+  String get creationOptionsVideoMode => 'Videogenerierung';
+
+  @override
+  String get creationOptionsAudioMode => 'Audiogenerierung';
+
+  @override
+  String get creationOptionsDeepResearchMode => 'Tiefenrecherche';
+
+  @override
+  String creationOptionsModeChip(String label) {
+    return 'Modus · $label';
+  }
+
+  @override
+  String get creationOptionsComposerImage => 'Bild';
+
+  @override
+  String get creationOptionsComposerVideo => 'Video';
+
+  @override
+  String get creationOptionsComposerAudio => 'Audio';
+
+  @override
+  String get creationOptionsComposerResearch => 'Forschung';
+
+  @override
   String get builtinToolTimeoutLabel => 'Timeout (Sekunden)';
 
   @override

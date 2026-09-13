@@ -4754,25 +4754,22 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final ratio = options.aspectRatio?.trim();
+    final l10n = AppLocalizations.of(context)!;
     final label = switch (mode) {
       _CreationMode.image =>
         ratio != null && ratio.isNotEmpty
             ? ratio
-            : openHandLocalizedText(context, zh: '图像', en: 'IMG'),
+            : l10n.creationOptionsComposerImage,
       _CreationMode.video =>
         ratio != null && ratio.isNotEmpty
             ? ratio
-            : openHandLocalizedText(context, zh: '视频', en: 'VID'),
+            : l10n.creationOptionsComposerVideo,
       _CreationMode.audio =>
         options.durationSeconds != null
-            ? '${options.durationSeconds}s'
-            : openHandLocalizedText(context, zh: '音频', en: 'AUD'),
-      _CreationMode.deepResearch => openHandLocalizedText(
-        context,
-        zh: '研究',
-        en: 'R',
-      ),
-      _CreationMode.none => openHandLocalizedText(context, zh: '开', en: 'ON'),
+            ? l10n.creationOptionsDurationSeconds(options.durationSeconds!)
+            : l10n.creationOptionsComposerAudio,
+      _CreationMode.deepResearch => l10n.creationOptionsComposerResearch,
+      _CreationMode.none => l10n.creationOptionsOn,
     };
     return Tooltip(
       message: openHandLocalizedText(

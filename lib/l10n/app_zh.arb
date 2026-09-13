@@ -1894,6 +1894,147 @@
   "imageEditorWatermarkColorLightness": "明度",
   "imageEditorApplySuccess": "调整已应用",
   "imageEditorProcessing": "处理中…",
+  "creationOptionsImageTitle": "图像生成选项",
+  "creationOptionsImageSubtitle": "画面比例、质量与生成控制",
+  "creationOptionsVideoTitle": "视频生成选项",
+  "creationOptionsVideoSubtitle": "画面、运动节奏与生成控制",
+  "creationOptionsAudioTitle": "音频生成选项",
+  "creationOptionsAudioSubtitle": "音色、编码与播放参数",
+  "creationOptionsSectionFrame": "画面",
+  "creationOptionsSectionFrameHint": "比例、分辨率与输出样式",
+  "creationOptionsSectionMotion": "运动",
+  "creationOptionsSectionMotionHint": "时长、帧率与生成模式",
+  "creationOptionsSectionGenerate": "生成控制",
+  "creationOptionsSectionGenerateHint": "提示词增强、水印与随机种子",
+  "creationOptionsSectionSound": "声音",
+  "creationOptionsSectionSoundHint": "音色、语速、音量与音高",
+  "creationOptionsSectionEncode": "编码",
+  "creationOptionsSectionEncodeHint": "格式、采样率与码率",
+  "creationOptionsSectionCount": "数量",
+  "creationOptionsSectionCountHint": "一次生成的条数",
+  "creationOptionsAspectRatio": "宽高比",
+  "creationOptionsDuration": "时长",
+  "creationOptionsDurationSeconds": "{count} 秒",
+  "@creationOptionsDurationSeconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "creationOptionsQuality": "质量",
+  "creationOptionsStyle": "风格",
+  "creationOptionsOutputFormat": "输出格式",
+  "creationOptionsBackground": "背景",
+  "creationOptionsResolution": "分辨率",
+  "creationOptionsFrameRate": "帧率",
+  "creationOptionsFrameRateFps": "{rate} 帧/秒",
+  "@creationOptionsFrameRateFps": {
+    "placeholders": {
+      "rate": {
+        "type": "int"
+      }
+    }
+  },
+  "creationOptionsFrames": "帧数",
+  "creationOptionsFramesValue": "{count} 帧",
+  "@creationOptionsFramesValue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "creationOptionsMode": "模式",
+  "creationOptionsModeKeyframes": "关键帧",
+  "creationOptionsPromptEnhance": "提示词增强",
+  "creationOptionsWatermark": "水印",
+  "creationOptionsNegativePrompt": "负向提示",
+  "creationOptionsSeed": "随机种子",
+  "creationOptionsVoice": "音色",
+  "creationOptionsVoiceUnspecified": "不指定",
+  "creationOptionsCustomVoice": "自定义标识",
+  "creationOptionsCustomVoiceId": "自定义音色标识",
+  "creationOptionsAudioFormat": "音频格式",
+  "creationOptionsSpeed": "语速",
+  "creationOptionsMultiplier": "×{value}",
+  "@creationOptionsMultiplier": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "creationOptionsSampleRate": "采样率",
+  "creationOptionsSampleRateValue": "{rate} 赫兹",
+  "@creationOptionsSampleRateValue": {
+    "placeholders": {
+      "rate": {
+        "type": "int"
+      }
+    }
+  },
+  "creationOptionsBitrate": "码率",
+  "creationOptionsBitrateKbps": "{rate} 千比特/秒",
+  "@creationOptionsBitrateKbps": {
+    "placeholders": {
+      "rate": {
+        "type": "int"
+      }
+    }
+  },
+  "creationOptionsVolume": "音量",
+  "creationOptionsPitch": "音高",
+  "creationOptionsCount": "数量",
+  "creationOptionsAuto": "默认",
+  "creationOptionsOn": "开",
+  "creationOptionsOff": "关",
+  "creationOptionsQualityAuto": "自动",
+  "creationOptionsQualityStandard": "标准",
+  "creationOptionsQualityHd": "高清",
+  "creationOptionsQualityHigh": "最高",
+  "creationOptionsStyleNatural": "自然",
+  "creationOptionsStyleVivid": "鲜明",
+  "creationOptionsBackgroundAuto": "自动",
+  "creationOptionsBackgroundTransparent": "透明",
+  "creationOptionsBackgroundOpaque": "不透明",
+  "creationOptionsPromptEnhanceOn": "已增强提示词",
+  "creationOptionsPromptEnhanceOff": "未增强提示词",
+  "creationOptionsWatermarkOn": "含水印",
+  "creationOptionsWatermarkOff": "无水印",
+  "creationOptionsNegativeOn": "含负向提示",
+  "creationOptionsSeedValue": "随机种子 {value}",
+  "@creationOptionsSeedValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "creationOptionsCountValue": "×{count}",
+  "@creationOptionsCountValue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "creationOptionsImageMode": "图片生成",
+  "creationOptionsVideoMode": "视频生成",
+  "creationOptionsAudioMode": "音频生成",
+  "creationOptionsDeepResearchMode": "深度研究",
+  "creationOptionsModeChip": "模式 · {label}",
+  "@creationOptionsModeChip": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "creationOptionsComposerImage": "图像",
+  "creationOptionsComposerVideo": "视频",
+  "creationOptionsComposerAudio": "音频",
+  "creationOptionsComposerResearch": "研究",
   "builtinToolTimeoutLabel": "超时时间（秒）",
   "builtinToolTimeoutHint": "默认 {seconds}s",
   "@builtinToolTimeoutHint": {

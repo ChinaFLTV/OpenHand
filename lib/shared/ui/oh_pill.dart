@@ -72,6 +72,72 @@ class OhPill extends StatelessWidget {
   }
 }
 
+/// 选项胶囊：选中时填充主色并带勾选，用于生成选项、图片编辑等弹窗。
+class OpenHandChoicePill extends StatelessWidget {
+  const OpenHandChoicePill({
+    super.key,
+    required this.selected,
+    required this.onSelected,
+    this.label,
+    this.child,
+  }) : assert(label != null || child != null);
+
+  final String? label;
+  final Widget? child;
+  final bool selected;
+  final VoidCallback? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final foreground = selected ? colorScheme.onPrimary : colorScheme.onSurface;
+    return MicroPressFeedback(
+      enabled: onSelected != null,
+      child: Material(
+        color: selected
+            ? colorScheme.primary
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: selected
+                ? colorScheme.primary
+                : colorScheme.outlineVariant.withValues(alpha: 0.62),
+          ),
+        ),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onSelected,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: DefaultTextStyle.merge(
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w700,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (selected) ...[
+                    Icon(Icons.check_rounded, size: 16, color: foreground),
+                    kOpenHandHGap6,
+                  ],
+                  child ??
+                      Text(
+                        label!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 带强调色边框的图标状态胶囊。
 class OpenHandStatusPill extends StatelessWidget {
   const OpenHandStatusPill({

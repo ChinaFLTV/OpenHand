@@ -57,7 +57,11 @@ export type DialogGlyphName =
   | 'file'
   | 'check'
   | 'alert'
-  | 'model';
+  | 'model'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'crop';
 
 const DIALOG_GLYPHS: Record<DialogGlyphName, ComponentChildren> = {
   layers: (
@@ -127,6 +131,34 @@ const DIALOG_GLYPHS: Record<DialogGlyphName, ComponentChildren> = {
       <path d="M21 8 12 3 3 8l9 5 9-5z" />
       <path d="m3 8 9 5v8" />
       <path d="m21 8-9 5v8" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="9" cy="11" r="1.6" />
+      <path d="m21 15-4.5-4.5L9 18" />
+    </>
+  ),
+  video: (
+    <>
+      <rect x="3" y="6" width="13" height="12" rx="2" />
+      <path d="m16 10 5-3v10l-5-3z" />
+    </>
+  ),
+  audio: (
+    <>
+      <path d="M4 10v4" />
+      <path d="M8 7v10" />
+      <path d="M12 4v16" />
+      <path d="M16 7v10" />
+      <path d="M20 10v4" />
+    </>
+  ),
+  crop: (
+    <>
+      <path d="M6 2v15a1 1 0 0 0 1 1h15" />
+      <path d="M2 6h15a1 1 0 0 1 1 1v15" />
     </>
   ),
 };

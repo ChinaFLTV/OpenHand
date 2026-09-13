@@ -849,22 +849,109 @@ html, body, #root {
   }
 }
 
-/* 生成选项弹窗 chip 样式 */
+/* 生成选项弹窗 */
+.oh-creation-options-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(86dvh, 800px);
+}
+.oh-creation-options-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+}
+.oh-creation-options-body .oh-dialog-section-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.oh-creation-field-label {
+  margin: 0 0 8px;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+.oh-creation-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .oh-creation-chip {
   min-height: 36px;
   display: inline-flex;
   align-items: center;
-  background: var(--m3-surface-container-highest, #e8e8e8);
-  color: var(--m3-on-surface, #1a1a1a);
-  border: 1px solid var(--m3-outline-variant, rgba(0,0,0,0.12));
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-surface-container-highest) 78%, transparent);
+  color: var(--m3-on-surface);
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  transition:
+    background-color 180ms var(--oh-motion-emphasized),
+    border-color 180ms var(--oh-motion-emphasized),
+    color 180ms var(--oh-motion-emphasized),
+    transform 180ms var(--oh-motion-spring);
 }
-.oh-creation-chip-active {
-  min-height: 36px;
+.oh-creation-chip.is-active {
+  background: var(--m3-primary);
+  color: var(--m3-on-primary);
+  border-color: var(--m3-primary);
+}
+.oh-creation-input {
+  width: 100%;
+  border-radius: 16px;
+  padding: 10px 12px;
+  font-size: 13px;
+  outline: none;
+  background: var(--m3-surface-container);
+  border: 1px solid var(--m3-outline-variant);
+  color: var(--m3-on-surface);
+}
+.oh-creation-input:focus {
+  border-color: color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant));
+}
+.oh-creation-count {
   display: inline-flex;
   align-items: center;
-  background: var(--m3-primary, #4a6741);
-  color: var(--m3-on-primary, #fff);
-  border: 1px solid transparent;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-primary) 10%, var(--m3-surface-container-low));
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 22%, transparent);
+}
+.oh-creation-count-button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--m3-primary);
+  background: transparent;
+}
+.oh-creation-count-button:disabled {
+  opacity: 0.3;
+}
+.oh-creation-count-value {
+  min-width: 28px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+}
+.oh-creation-options-dialog .oh-creation-options-action {
+  min-width: 128px;
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-weight: 800;
 }
 
 /* 标题摘要弹窗 tooltip */
@@ -1017,7 +1104,6 @@ button.oh-message-context-capsule {
   transform: translate3d(0, -1px, 0) scale(1.015);
   border-color: color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant));
   background: color-mix(in srgb, var(--m3-primary-container) 72%, var(--m3-surface));
-  box-shadow: 0 8px 20px -18px color-mix(in srgb, var(--m3-primary) 72%, transparent);
 }
 .oh-message-kb-citation-chip:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--m3-primary) 72%, transparent);
@@ -1998,7 +2084,6 @@ button.oh-message-context-capsule {
   transform: translate3d(0, -1px, 0);
   border-color: color-mix(in srgb, var(--m3-primary) 48%, transparent);
   background: color-mix(in srgb, var(--m3-primary) 18%, var(--m3-surface));
-  box-shadow: 0 8px 18px -14px color-mix(in srgb, var(--m3-primary) 66%, transparent);
 }
 
 .oh-message-content-preview-action:disabled {
@@ -2196,7 +2281,6 @@ button.oh-message-context-capsule {
 }
 .oh-user-attachment-thumbnail:hover {
   border-color: color-mix(in srgb, var(--m3-primary) 54%, var(--m3-outline-variant));
-  box-shadow: 0 14px 34px -22px color-mix(in srgb, black 82%, transparent);
 }
 .oh-user-attachment-thumbnail img,
 .oh-user-attachment-thumbnail-fallback {
@@ -2241,7 +2325,6 @@ button.oh-message-context-capsule {
 .oh-user-attachment-pill:hover {
   border-color: color-mix(in srgb, currentColor 34%, transparent);
   background: color-mix(in srgb, currentColor 15%, transparent);
-  box-shadow: 0 10px 24px -18px color-mix(in srgb, currentColor 78%, transparent);
 }
 .oh-user-attachment-leading {
   width: 24px;
@@ -5474,7 +5557,7 @@ button.oh-message-context-capsule {
 }
 
 .oh-session-capsule:hover {
-  box-shadow: 0 1px 4px color-mix(in srgb, currentColor 12%, transparent);
+  border-color: color-mix(in srgb, currentColor 28%, var(--m3-outline-variant));
 }
 
 @media (max-width: 1120px) {
@@ -6852,7 +6935,6 @@ button.oh-composer-pill {
 }
 button.oh-composer-pill:not(:disabled):hover {
   border-color: color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant));
-  box-shadow: 0 8px 22px -14px color-mix(in srgb, var(--m3-primary) 74%, transparent);
 }
 .oh-composer-pill-icon,
 .oh-composer-action-icon {
@@ -7080,7 +7162,6 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-composer-attachment-chip:not(.is-exiting):hover {
   border-color: color-mix(in srgb, var(--m3-primary) 38%, var(--m3-outline-variant));
-  box-shadow: var(--m3-elev-2);
 }
 .oh-composer-attachment-chip.is-image {
   width: 64px;

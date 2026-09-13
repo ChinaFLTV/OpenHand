@@ -3717,6 +3717,265 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageEditorProcessing => 'Processing...';
 
   @override
+  String get creationOptionsImageTitle => 'Image generation options';
+
+  @override
+  String get creationOptionsImageSubtitle =>
+      'Aspect, quality, and generation controls';
+
+  @override
+  String get creationOptionsVideoTitle => 'Video generation options';
+
+  @override
+  String get creationOptionsVideoSubtitle =>
+      'Frame, motion, and generation controls';
+
+  @override
+  String get creationOptionsAudioTitle => 'Audio generation options';
+
+  @override
+  String get creationOptionsAudioSubtitle => 'Voice, encoding, and playback';
+
+  @override
+  String get creationOptionsSectionFrame => 'Frame';
+
+  @override
+  String get creationOptionsSectionFrameHint =>
+      'Aspect, resolution, and output style';
+
+  @override
+  String get creationOptionsSectionMotion => 'Motion';
+
+  @override
+  String get creationOptionsSectionMotionHint =>
+      'Duration, frame rate, and generation mode';
+
+  @override
+  String get creationOptionsSectionGenerate => 'Generation';
+
+  @override
+  String get creationOptionsSectionGenerateHint =>
+      'Prompt enhance, watermark, and seed';
+
+  @override
+  String get creationOptionsSectionSound => 'Voice';
+
+  @override
+  String get creationOptionsSectionSoundHint =>
+      'Voice, speed, volume, and pitch';
+
+  @override
+  String get creationOptionsSectionEncode => 'Encoding';
+
+  @override
+  String get creationOptionsSectionEncodeHint =>
+      'Format, sample rate, and bitrate';
+
+  @override
+  String get creationOptionsSectionCount => 'Count';
+
+  @override
+  String get creationOptionsSectionCountHint => 'How many items to generate';
+
+  @override
+  String get creationOptionsAspectRatio => 'Aspect ratio';
+
+  @override
+  String get creationOptionsDuration => 'Duration';
+
+  @override
+  String creationOptionsDurationSeconds(int count) {
+    return '${count}s';
+  }
+
+  @override
+  String get creationOptionsQuality => 'Quality';
+
+  @override
+  String get creationOptionsStyle => 'Style';
+
+  @override
+  String get creationOptionsOutputFormat => 'Output format';
+
+  @override
+  String get creationOptionsBackground => 'Background';
+
+  @override
+  String get creationOptionsResolution => 'Resolution';
+
+  @override
+  String get creationOptionsFrameRate => 'Frame rate';
+
+  @override
+  String creationOptionsFrameRateFps(int rate) {
+    return '$rate fps';
+  }
+
+  @override
+  String get creationOptionsFrames => 'Frames';
+
+  @override
+  String creationOptionsFramesValue(int count) {
+    return '$count frames';
+  }
+
+  @override
+  String get creationOptionsMode => 'Mode';
+
+  @override
+  String get creationOptionsModeKeyframes => 'Keyframes';
+
+  @override
+  String get creationOptionsPromptEnhance => 'Prompt enhance';
+
+  @override
+  String get creationOptionsWatermark => 'Watermark';
+
+  @override
+  String get creationOptionsNegativePrompt => 'Negative prompt';
+
+  @override
+  String get creationOptionsSeed => 'Seed';
+
+  @override
+  String get creationOptionsVoice => 'Voice';
+
+  @override
+  String get creationOptionsVoiceUnspecified => 'Unspecified';
+
+  @override
+  String get creationOptionsCustomVoice => 'Custom ID';
+
+  @override
+  String get creationOptionsCustomVoiceId => 'Custom voice ID';
+
+  @override
+  String get creationOptionsAudioFormat => 'Audio format';
+
+  @override
+  String get creationOptionsSpeed => 'Speed';
+
+  @override
+  String creationOptionsMultiplier(String value) {
+    return '×$value';
+  }
+
+  @override
+  String get creationOptionsSampleRate => 'Sample rate';
+
+  @override
+  String creationOptionsSampleRateValue(int rate) {
+    return '$rate Hz';
+  }
+
+  @override
+  String get creationOptionsBitrate => 'Bitrate';
+
+  @override
+  String creationOptionsBitrateKbps(int rate) {
+    return '$rate kbps';
+  }
+
+  @override
+  String get creationOptionsVolume => 'Volume';
+
+  @override
+  String get creationOptionsPitch => 'Pitch';
+
+  @override
+  String get creationOptionsCount => 'Count';
+
+  @override
+  String get creationOptionsAuto => 'Default';
+
+  @override
+  String get creationOptionsOn => 'On';
+
+  @override
+  String get creationOptionsOff => 'Off';
+
+  @override
+  String get creationOptionsQualityAuto => 'Auto';
+
+  @override
+  String get creationOptionsQualityStandard => 'Standard';
+
+  @override
+  String get creationOptionsQualityHd => 'HD';
+
+  @override
+  String get creationOptionsQualityHigh => 'Highest';
+
+  @override
+  String get creationOptionsStyleNatural => 'Natural';
+
+  @override
+  String get creationOptionsStyleVivid => 'Vivid';
+
+  @override
+  String get creationOptionsBackgroundAuto => 'Auto';
+
+  @override
+  String get creationOptionsBackgroundTransparent => 'Transparent';
+
+  @override
+  String get creationOptionsBackgroundOpaque => 'Opaque';
+
+  @override
+  String get creationOptionsPromptEnhanceOn => 'Prompt enhanced';
+
+  @override
+  String get creationOptionsPromptEnhanceOff => 'Prompt not enhanced';
+
+  @override
+  String get creationOptionsWatermarkOn => 'Watermark on';
+
+  @override
+  String get creationOptionsWatermarkOff => 'No watermark';
+
+  @override
+  String get creationOptionsNegativeOn => 'Negative prompt';
+
+  @override
+  String creationOptionsSeedValue(String value) {
+    return 'Seed $value';
+  }
+
+  @override
+  String creationOptionsCountValue(int count) {
+    return '×$count';
+  }
+
+  @override
+  String get creationOptionsImageMode => 'Image generation';
+
+  @override
+  String get creationOptionsVideoMode => 'Video generation';
+
+  @override
+  String get creationOptionsAudioMode => 'Audio generation';
+
+  @override
+  String get creationOptionsDeepResearchMode => 'Deep research';
+
+  @override
+  String creationOptionsModeChip(String label) {
+    return 'Mode · $label';
+  }
+
+  @override
+  String get creationOptionsComposerImage => 'Image';
+
+  @override
+  String get creationOptionsComposerVideo => 'Video';
+
+  @override
+  String get creationOptionsComposerAudio => 'Audio';
+
+  @override
+  String get creationOptionsComposerResearch => 'Research';
+
+  @override
   String get builtinToolTimeoutLabel => 'Timeout (seconds)';
 
   @override

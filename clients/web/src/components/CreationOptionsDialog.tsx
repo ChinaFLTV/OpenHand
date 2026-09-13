@@ -1,15 +1,32 @@
-// 多媒体生成选项弹窗：对齐 APP 端 _CreationOptionsSheet 的参数与动效。
+// 多媒体生成选项弹窗：对齐 APP 端 _CreationOptionsDialog 的参数与居中弹窗动效。
 import { useRef, useState } from 'preact/hooks';
-import { t } from '../i18n';
+import { t, tFmt } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { normalizeInteger, strictPositiveIntegerFromText } from '../shared/util/number';
 import {
-  DIALOG_OVERLAY_EDGE_SHEET_CLASS,
+  creationBackgroundLabel,
+  creationMultiplierLabel,
+  creationQualityLabel,
+  creationStyleLabel,
+  creationVideoModeLabel,
+} from '../shared/ui/creation_option_labels';
+import {
+  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
+  DialogActionButton,
   DialogFrame,
+  DialogHeader,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
-import { DIALOG_FOOTER_VARIANT, DialogFooterActions } from './DialogChrome';
+import {
+  DIALOG_ACCENT,
+  DIALOG_FOOTER_VARIANT,
+  DialogFooterActions,
+  DialogGlyph,
+  DialogIconBadge,
+  DialogSectionCard,
+  type DialogGlyphName,
+} from './DialogChrome';
 
 export interface CreationOptions {
   aspectRatio?: string;
@@ -72,12 +89,34 @@ function clampCreationCount(value: number | undefined): number {
   });
 }
 
-function modeTitle(mode: string): string {
+function modeCopy(mode: string): {
+  title: string;
+  subtitle: string;
+  glyph: DialogGlyphName;
+  accent: string;
+} {
   switch (mode) {
-    case 'image': return t('creation.options.imageTitle', '图像生成选项');
-    case 'video': return t('creation.options.videoTitle', '视频生成选项');
-    case 'audio': return t('creation.options.audioTitle', '音频生成选项');
-    default: return '';
+    case 'video':
+      return {
+        title: t('creation.options.videoTitle', '视频生成选项'),
+        subtitle: t('creation.options.videoSubtitle', '画面、运动节奏与生成控制'),
+        glyph: 'video',
+        accent: DIALOG_ACCENT.secondary,
+      };
+    case 'audio':
+      return {
+        title: t('creation.options.audioTitle', '音频生成选项'),
+        subtitle: t('creation.options.audioSubtitle', '音色、编码与播放参数'),
+        glyph: 'audio',
+        accent: DIALOG_ACCENT.tertiary,
+      };
+    default:
+      return {
+        title: t('creation.options.imageTitle', '图像生成选项'),
+        subtitle: t('creation.options.imageSubtitle', '画面比例、质量与生成控制'),
+        glyph: 'image',
+        accent: DIALOG_ACCENT.primary,
+      };
   }
 }
 
@@ -86,12 +125,17 @@ function trimToUndefined(value: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function chipClass(active: boolean): string {
+  return `oh-tap-press oh-creation-chip ${active ? 'is-active' : ''}`;
+}
+
 interface ChipGroupProps<T extends string | number | boolean> {
   title: string;
   values: readonly T[];
   selected: T | undefined;
   labelFor?: (value: T) => string;
   onSelect: (value: T | undefined) => void;
+  allowUnset?: boolean;
 }
 
 function ChipGroup<T extends string | number | boolean>({
@@ -100,22 +144,21 @@ function ChipGroup<T extends string | number | boolean>({
   selected,
   labelFor = (value) => String(value),
   onSelect,
+  allowUnset = true,
 }: ChipGroupProps<T>) {
   return (
-    <div class="mb-4">
-      <p class="text-xs font-medium mb-2 oh-text-muted">
-        {title}
-      </p>
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => onSelect(undefined)}
-          class={`oh-tap-press px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-            selected === undefined ? 'oh-creation-chip-active' : 'oh-creation-chip'
-          }`}
-        >
-          {selected === undefined ? `✓ ${t('creation.options.auto', '默认')}` : t('creation.options.auto', '默认')}
-        </button>
+    <div class="oh-creation-field">
+      <p class="oh-creation-field-label">{title}</p>
+      <div class="oh-creation-chip-row">
+        {allowUnset ? (
+          <button
+            type="button"
+            onClick={() => onSelect(undefined)}
+            class={chipClass(selected === undefined)}
+          >
+            {selected === undefined ? `✓ ${t('creation.options.auto', '默认')}` : t('creation.options.auto', '默认')}
+          </button>
+        ) : null}
         {values.map((value) => {
           const active = selected === value;
           const label = labelFor(value);
@@ -124,9 +167,7 @@ function ChipGroup<T extends string | number | boolean>({
               key={String(value)}
               type="button"
               onClick={() => onSelect(value)}
-              class={`oh-tap-press px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                active ? 'oh-creation-chip-active' : 'oh-creation-chip'
-              }`}
+              class={chipClass(active)}
             >
               {active ? `✓ ${label}` : label}
             </button>
@@ -149,7 +190,7 @@ function TriStateGroup({ title, value, onChange }: TriStateGroupProps) {
       title={title}
       values={[true, false]}
       selected={value}
-      labelFor={(item) => item ? t('common.on', '开') : t('common.off', '关')}
+      labelFor={(item) => item ? t('creation.options.on', '开') : t('creation.options.off', '关')}
       onSelect={onChange}
     />
   );
@@ -164,24 +205,16 @@ interface TextOptionProps {
 }
 
 function TextOption({ label, value, onInput, type = 'text', rows = 1 }: TextOptionProps) {
-  const sharedClass = 'w-full rounded-xl px-3 py-2 text-sm outline-none';
-  const sharedStyle = {
-    background: 'var(--m3-surface-container)',
-    border: '1px solid var(--m3-outline-variant)',
-    color: 'var(--m3-on-surface)',
-  };
+  const sharedClass = 'oh-creation-input';
   return (
-    <label class="block mb-3">
-      <span class="block text-xs font-medium mb-2 oh-text-muted">
-        {label}
-      </span>
+    <label class="oh-creation-field">
+      <span class="oh-creation-field-label">{label}</span>
       {rows > 1 ? (
         <textarea
           value={value}
           rows={rows}
           onInput={(event) => onInput((event.currentTarget as HTMLTextAreaElement).value)}
           class={sharedClass}
-          style={sharedStyle}
         />
       ) : (
         <input
@@ -189,7 +222,6 @@ function TextOption({ label, value, onInput, type = 'text', rows = 1 }: TextOpti
           value={value}
           onInput={(event) => onInput((event.currentTarget as HTMLInputElement).value)}
           class={sharedClass}
-          style={sharedStyle}
         />
       )}
     </label>
@@ -264,165 +296,307 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
   });
 
   const requestCancel = () => requestCloseWithReason('cancel');
-
   const requestConfirm = () => {
     selectedOptionsRef.current = selectedOptions();
     requestCloseWithReason('confirm');
   };
 
+  const copy = modeCopy(mode);
   const ratios = mode === 'image' ? IMAGE_RATIOS : mode === 'video' ? VIDEO_RATIOS : [];
-  const durations = mode === 'video' ? VIDEO_DURATIONS : mode === 'audio' ? AUDIO_DURATIONS : [];
 
   return (
     <DialogFrame
       closing={closing}
       onRequestClose={requestCancel}
       closeOnBackdrop={!closing}
-      panelAnimation="slideUp"
       {...createStandardDialogFrameAppearance({
-        overlayClassName: DIALOG_OVERLAY_EDGE_SHEET_CLASS,
+        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
         overlay: {
-          background: 'color-mix(in srgb, black 32%, transparent)',
+          background: 'color-mix(in srgb, black 38%, transparent)',
           blurPx: 0,
         },
         overlayZIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
-        panelClassName:
-          'w-full max-w-3xl rounded-t-2xl px-6 py-5 flex flex-col overflow-hidden',
+        panelClassName: 'oh-creation-options-dialog rounded-2xl overflow-hidden flex flex-col',
         panelBorder: 'none',
         panelSurface: {
-          background: 'var(--m3-surface-container-low)',
-          maxHeight: '82vh',
+          boxShadow: 'var(--m3-elev-4)',
         },
       })}
-      ariaLabel={modeTitle(mode)}
+      ariaLabel={copy.title}
     >
-      <h3 class="text-base font-semibold mb-4">{modeTitle(mode)}</h3>
-      <div class="min-h-0 flex-1 overflow-y-auto pr-1">
-        {ratios.length > 0 ? (
-          <ChipGroup
-            title={t('creation.options.aspectRatio', '宽高比')}
-            values={ratios}
-            selected={aspectRatio}
-            onSelect={setAspectRatio}
-          />
-        ) : null}
-        {durations.length > 0 ? (
-          <ChipGroup
-            title={t('creation.options.duration', '时长（秒）')}
-            values={durations}
-            selected={durationSeconds}
-            labelFor={(value) => `${value}s`}
-            onSelect={setDurationSeconds}
-          />
-        ) : null}
-        {mode === 'image' ? (
-          <>
-            <ChipGroup title={t('creation.options.quality', '质量')} values={IMAGE_QUALITIES} selected={quality} onSelect={setQuality} />
-            <ChipGroup title={t('creation.options.style', '风格')} values={IMAGE_STYLES} selected={style} onSelect={setStyle} />
-            <ChipGroup title={t('creation.options.outputFormat', '输出格式')} values={IMAGE_FORMATS} selected={outputFormat} onSelect={setOutputFormat} />
-            <ChipGroup title={t('creation.options.background', '背景')} values={IMAGE_BACKGROUNDS} selected={background} onSelect={setBackground} />
-          </>
-        ) : null}
-        {mode === 'video' ? (
-          <>
-            <ChipGroup title={t('creation.options.resolution', '分辨率')} values={VIDEO_RESOLUTIONS} selected={resolution} onSelect={setResolution} />
-            <ChipGroup title={t('creation.options.frameRate', '帧率')} values={VIDEO_FRAME_RATES} selected={frameRate} labelFor={(value) => `${value} fps`} onSelect={setFrameRate} />
-            <ChipGroup title={t('creation.options.frames', '帧数')} values={VIDEO_FRAMES} selected={numFrames} onSelect={setNumFrames} />
-            <ChipGroup title={t('creation.options.mode', '模式')} values={VIDEO_MODES} selected={videoMode} onSelect={setVideoMode} />
-          </>
-        ) : null}
+      <DialogHeader
+        title={copy.title}
+        subtitle={copy.subtitle}
+        icon={
+          <DialogIconBadge accent={copy.accent}>
+            <DialogGlyph name={copy.glyph} />
+          </DialogIconBadge>
+        }
+        onClose={requestCancel}
+        closeLabel={t('common.close', '关闭')}
+        closeDisabled={closing}
+      />
+      <div class="oh-creation-options-body">
         {mode === 'image' || mode === 'video' ? (
-          <>
-            <TriStateGroup title={t('creation.options.promptEnhance', 'Prompt 增强')} value={promptEnhance} onChange={setPromptEnhance} />
-            <TriStateGroup title={t('creation.options.watermark', '水印')} value={watermark} onChange={setWatermark} />
-            <TextOption label={t('creation.options.negativePrompt', '负向提示')} value={negativePrompt} onInput={setNegativePrompt} rows={2} />
-            <TextOption label="Seed" value={seed} onInput={setSeed} type="number" />
-          </>
+          <DialogSectionCard
+            title={t('creation.options.sectionFrame', '画面')}
+            subtitle={t('creation.options.sectionFrameHint', '比例、分辨率与输出样式')}
+            accent={DIALOG_ACCENT.primary}
+            icon={<DialogGlyph name="crop" />}
+          >
+            {ratios.length > 0 ? (
+              <ChipGroup
+                title={t('creation.options.aspectRatio', '宽高比')}
+                values={ratios}
+                selected={aspectRatio}
+                onSelect={setAspectRatio}
+                allowUnset={false}
+              />
+            ) : null}
+            {mode === 'video' ? (
+              <ChipGroup
+                title={t('creation.options.resolution', '分辨率')}
+                values={VIDEO_RESOLUTIONS}
+                selected={resolution}
+                onSelect={setResolution}
+              />
+            ) : null}
+            {mode === 'image' ? (
+              <>
+                <ChipGroup
+                  title={t('creation.options.quality', '质量')}
+                  values={IMAGE_QUALITIES}
+                  selected={quality}
+                  labelFor={creationQualityLabel}
+                  onSelect={setQuality}
+                />
+                <ChipGroup
+                  title={t('creation.options.style', '风格')}
+                  values={IMAGE_STYLES}
+                  selected={style}
+                  labelFor={creationStyleLabel}
+                  onSelect={setStyle}
+                />
+                <ChipGroup
+                  title={t('creation.options.outputFormat', '输出格式')}
+                  values={IMAGE_FORMATS}
+                  selected={outputFormat}
+                  onSelect={setOutputFormat}
+                />
+                <ChipGroup
+                  title={t('creation.options.background', '背景')}
+                  values={IMAGE_BACKGROUNDS}
+                  selected={background}
+                  labelFor={creationBackgroundLabel}
+                  onSelect={setBackground}
+                />
+              </>
+            ) : null}
+          </DialogSectionCard>
         ) : null}
+
+        {mode === 'video' ? (
+          <DialogSectionCard
+            title={t('creation.options.sectionMotion', '运动')}
+            subtitle={t('creation.options.sectionMotionHint', '时长、帧率与生成模式')}
+            accent={DIALOG_ACCENT.tertiary}
+            icon={<DialogGlyph name="bolt" />}
+          >
+            <ChipGroup
+              title={t('creation.options.duration', '时长')}
+              values={VIDEO_DURATIONS}
+              selected={durationSeconds}
+              labelFor={(value) => tFmt('creation.options.durationSeconds', { count: value }, '{count} 秒')}
+              onSelect={setDurationSeconds}
+              allowUnset={false}
+            />
+            <ChipGroup
+              title={t('creation.options.frameRate', '帧率')}
+              values={VIDEO_FRAME_RATES}
+              selected={frameRate}
+              labelFor={(value) => tFmt('creation.options.frameRateFps', { rate: value }, '{rate} 帧/秒')}
+              onSelect={setFrameRate}
+            />
+            <ChipGroup
+              title={t('creation.options.frames', '帧数')}
+              values={VIDEO_FRAMES}
+              selected={numFrames}
+              onSelect={setNumFrames}
+            />
+            <ChipGroup
+              title={t('creation.options.mode', '模式')}
+              values={VIDEO_MODES}
+              selected={videoMode}
+              labelFor={creationVideoModeLabel}
+              onSelect={setVideoMode}
+            />
+          </DialogSectionCard>
+        ) : null}
+
+        {mode === 'image' || mode === 'video' ? (
+          <DialogSectionCard
+            title={t('creation.options.sectionGenerate', '生成控制')}
+            subtitle={t('creation.options.sectionGenerateHint', '提示词增强、水印与随机种子')}
+            accent={DIALOG_ACCENT.warning}
+            icon={<DialogGlyph name="spark" />}
+          >
+            <TriStateGroup
+              title={t('creation.options.promptEnhance', '提示词增强')}
+              value={promptEnhance}
+              onChange={setPromptEnhance}
+            />
+            <TriStateGroup
+              title={t('creation.options.watermark', '水印')}
+              value={watermark}
+              onChange={setWatermark}
+            />
+            <TextOption
+              label={t('creation.options.negativePrompt', '负向提示')}
+              value={negativePrompt}
+              onInput={setNegativePrompt}
+              rows={2}
+            />
+            <TextOption
+              label={t('creation.options.seed', '随机种子')}
+              value={seed}
+              onInput={setSeed}
+              type="number"
+            />
+          </DialogSectionCard>
+        ) : null}
+
         {mode === 'audio' ? (
           <>
-            <div class="mb-4">
-              <p class="text-xs font-medium mb-2 oh-text-muted">
-                {t('creation.options.voice', '音色/发音人')}
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOmitVoice(true)}
-                  class={`oh-tap-press px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    omitVoice ? 'oh-creation-chip-active' : 'oh-creation-chip'
-                  }`}
-                >
-                  {omitVoice ? `✓ ${t('creation.options.voiceUnspecified', '不指定')}` : t('creation.options.voiceUnspecified', '不指定')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOmitVoice(false)}
-                  class={`oh-tap-press px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    !omitVoice ? 'oh-creation-chip-active' : 'oh-creation-chip'
-                  }`}
-                >
-                  {!omitVoice ? `✓ ${t('creation.options.customVoice', '自定义 ID')}` : t('creation.options.customVoice', '自定义 ID')}
-                </button>
+            <DialogSectionCard
+              title={t('creation.options.sectionSound', '声音')}
+              subtitle={t('creation.options.sectionSoundHint', '音色、语速、音量与音高')}
+              accent={DIALOG_ACCENT.success}
+              icon={<DialogGlyph name="audio" />}
+            >
+              <div class="oh-creation-field">
+                <p class="oh-creation-field-label">
+                  {t('creation.options.voice', '音色')}
+                </p>
+                <div class="oh-creation-chip-row">
+                  <button
+                    type="button"
+                    onClick={() => setOmitVoice(true)}
+                    class={chipClass(omitVoice)}
+                  >
+                    {omitVoice
+                      ? `✓ ${t('creation.options.voiceUnspecified', '不指定')}`
+                      : t('creation.options.voiceUnspecified', '不指定')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOmitVoice(false)}
+                    class={chipClass(!omitVoice)}
+                  >
+                    {!omitVoice
+                      ? `✓ ${t('creation.options.customVoice', '自定义标识')}`
+                      : t('creation.options.customVoice', '自定义标识')}
+                  </button>
+                </div>
               </div>
-            </div>
-            {!omitVoice ? (
-              <TextOption label={t('creation.options.customVoiceId', '自定义音色 ID')} value={voice} onInput={setVoice} />
-            ) : null}
-            <ChipGroup title={t('creation.options.audioFormat', '音频格式')} values={AUDIO_FORMATS} selected={outputFormat} onSelect={setOutputFormat} />
-            <ChipGroup title={t('creation.options.speed', '语速')} values={AUDIO_SPEEDS} selected={speed} labelFor={(value) => `${value}x`} onSelect={setSpeed} />
-            <ChipGroup title={t('creation.options.sampleRate', '采样率')} values={AUDIO_SAMPLE_RATES} selected={sampleRate} onSelect={setSampleRate} />
-            <ChipGroup title={t('creation.options.bitrate', '码率')} values={AUDIO_BITRATES} selected={bitrate} labelFor={(value) => `${Math.round(value / 1000)} kbps`} onSelect={setBitrate} />
-            <ChipGroup title={t('creation.options.volume', '音量')} values={AUDIO_VOLUMES} selected={volume} labelFor={(value) => `${value}x`} onSelect={setVolume} />
-            <ChipGroup title={t('creation.options.pitch', '音高')} values={AUDIO_PITCHES} selected={pitch} onSelect={setPitch} />
+              {!omitVoice ? (
+                <TextOption
+                  label={t('creation.options.customVoiceId', '自定义音色标识')}
+                  value={voice}
+                  onInput={setVoice}
+                />
+              ) : null}
+              <ChipGroup
+                title={t('creation.options.duration', '时长')}
+                values={AUDIO_DURATIONS}
+                selected={durationSeconds}
+                labelFor={(value) => tFmt('creation.options.durationSeconds', { count: value }, '{count} 秒')}
+                onSelect={setDurationSeconds}
+                allowUnset={false}
+              />
+              <ChipGroup
+                title={t('creation.options.speed', '语速')}
+                values={AUDIO_SPEEDS}
+                selected={speed}
+                labelFor={creationMultiplierLabel}
+                onSelect={setSpeed}
+              />
+              <ChipGroup
+                title={t('creation.options.volume', '音量')}
+                values={AUDIO_VOLUMES}
+                selected={volume}
+                labelFor={creationMultiplierLabel}
+                onSelect={setVolume}
+              />
+              <ChipGroup
+                title={t('creation.options.pitch', '音高')}
+                values={AUDIO_PITCHES}
+                selected={pitch}
+                onSelect={setPitch}
+              />
+            </DialogSectionCard>
+            <DialogSectionCard
+              title={t('creation.options.sectionEncode', '编码')}
+              subtitle={t('creation.options.sectionEncodeHint', '格式、采样率与码率')}
+              accent={DIALOG_ACCENT.info}
+              icon={<DialogGlyph name="cpu" />}
+            >
+              <ChipGroup
+                title={t('creation.options.audioFormat', '音频格式')}
+                values={AUDIO_FORMATS}
+                selected={outputFormat}
+                onSelect={setOutputFormat}
+              />
+              <ChipGroup
+                title={t('creation.options.sampleRate', '采样率')}
+                values={AUDIO_SAMPLE_RATES}
+                selected={sampleRate}
+                onSelect={setSampleRate}
+              />
+              <ChipGroup
+                title={t('creation.options.bitrate', '码率')}
+                values={AUDIO_BITRATES}
+                selected={bitrate}
+                labelFor={(value) => tFmt('creation.options.bitrateKbps', { rate: Math.round(value / 1000) }, '{rate} 千比特/秒')}
+                onSelect={setBitrate}
+              />
+            </DialogSectionCard>
           </>
         ) : null}
-        <div class="mb-5">
-          <p class="text-xs font-medium mb-2 oh-text-muted">
-            {t('creation.options.count', '数量')}
-          </p>
-          <div class="flex items-center gap-3">
+
+        <DialogSectionCard
+          title={t('creation.options.sectionCount', '数量')}
+          subtitle={t('creation.options.sectionCountHint', '一次生成的条数')}
+          accent={DIALOG_ACCENT.caution}
+          icon={<DialogGlyph name="hash" />}
+        >
+          <div class="oh-creation-count">
             <button
               type="button"
               onClick={() => setCount((current) => clampCreationCount(current - 1))}
               disabled={closing || count <= MIN_CREATION_COUNT}
-              class="oh-tap-press w-8 h-8 rounded-full flex items-center justify-center text-lg disabled:opacity-30"
-              style={{ border: '1px solid var(--m3-outline-variant)' }}
+              class="oh-tap-press oh-creation-count-button"
             >
               −
             </button>
-            <span class="text-base font-semibold w-6 text-center">{count}</span>
+            <span class="oh-creation-count-value">{count}</span>
             <button
               type="button"
               onClick={() => setCount((current) => clampCreationCount(current + 1))}
               disabled={closing || count >= MAX_CREATION_COUNT}
-              class="oh-tap-press w-8 h-8 rounded-full flex items-center justify-center text-lg disabled:opacity-30"
-              style={{ border: '1px solid var(--m3-outline-variant)' }}
+              class="oh-tap-press oh-creation-count-button"
             >
               +
             </button>
           </div>
-        </div>
+        </DialogSectionCard>
       </div>
-      <DialogFooterActions variant={DIALOG_FOOTER_VARIANT.padded}>
-        <button
-          type="button"
-          onClick={requestCancel}
-          disabled={closing}
-          class="oh-tap-press px-5 py-2.5 rounded-full text-sm font-medium"
-          style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
-        >
+      <DialogFooterActions variant={DIALOG_FOOTER_VARIANT.divided}>
+        <DialogActionButton tone="secondary" onClick={requestCancel} disabled={closing} className="oh-creation-options-action">
           {t('common.cancel', '取消')}
-        </button>
-        <button
-          type="button"
-          onClick={requestConfirm}
-          disabled={closing}
-          class="oh-tap-press px-5 py-2.5 rounded-full text-sm font-medium disabled:opacity-60"
-          style={{ background: 'var(--m3-primary)', color: 'var(--m3-on-primary)' }}
-        >
+        </DialogActionButton>
+        <DialogActionButton tone="primary" onClick={requestConfirm} disabled={closing} className="oh-creation-options-action">
           {t('common.confirm', '确认')}
-        </button>
+        </DialogActionButton>
       </DialogFooterActions>
     </DialogFrame>
   );

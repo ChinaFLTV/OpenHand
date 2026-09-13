@@ -410,7 +410,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       runSpacing: 8,
       children: [
         for (final entry in entries.entries)
-          _ImageEditorChoicePill(
+          OpenHandChoicePill(
             label: entry.value,
             selected: _aspect == entry.key,
             onSelected: _canEdit
@@ -2580,60 +2580,6 @@ class _ImageEditorFoldCardState extends State<_ImageEditorFoldCard> {
   }
 }
 
-class _ImageEditorChoicePill extends StatelessWidget {
-  const _ImageEditorChoicePill({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback? onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final foreground = selected ? colorScheme.onPrimary : colorScheme.onSurface;
-    return Material(
-      color: selected
-          ? colorScheme.primary
-          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: selected
-              ? colorScheme.primary
-              : colorScheme.outlineVariant.withValues(alpha: 0.62),
-        ),
-      ),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onSelected,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (selected) ...[
-                Icon(Icons.check_rounded, size: 16, color: foreground),
-                kOpenHandHGap6,
-              ],
-              Text(
-                label,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: foreground,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ImageEditorCheckerboardPainter extends CustomPainter {
   const _ImageEditorCheckerboardPainter({
     required this.light,
@@ -2657,12 +2603,7 @@ class _ImageEditorCheckerboardPainter extends CustomPainter {
       for (var col = 0; col < cols; col++) {
         if ((row + col).isEven) continue;
         canvas.drawRect(
-          Rect.fromLTWH(
-            col * _cellSize,
-            row * _cellSize,
-            _cellSize,
-            _cellSize,
-          ),
+          Rect.fromLTWH(col * _cellSize, row * _cellSize, _cellSize, _cellSize),
           darkPaint,
         );
       }
