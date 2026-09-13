@@ -2736,7 +2736,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      'Drag the image to reposition the square crop area, then adjust zoom, rotation, brightness, and contrast.';
+      'Drag the crop box to frame the image. You can zoom, rotate, and flip, then use the panels below for split toning, clarity, grain, denoise, dispersion, distortion, and watermarks. Advanced adjustments apply on save.';
+
+  @override
+  String get imageEditorCompositionTitle => 'Composition';
+
+  @override
+  String get imageEditorCompositionSubtitle => 'Aspect, rotate, and flip';
+
+  @override
+  String get imageEditorBasicAdjustTitle => 'Basic adjustments';
+
+  @override
+  String get imageEditorFileTypeImages => 'Images';
 
   @override
   String get imageEditorZoomLabel => 'Zoom';
@@ -2764,21 +2776,38 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to process the selected image.';
 
   @override
-  String get imageEditorSectionColor => 'Color (temperature / tint / gamma)';
+  String get imageEditorSectionColor => 'Color';
 
   @override
-  String get imageEditorSectionSplitToning => 'Split toning (HSL)';
+  String get imageEditorSectionColorSubtitle =>
+      'Temperature, tint, and tone curve';
 
   @override
-  String get imageEditorSectionDetail =>
-      'Detail (clarity / sharpness / denoise / grain)';
+  String get imageEditorSectionSplitToning => 'Split toning';
 
   @override
-  String get imageEditorSectionEffects =>
-      'Effects (dispersion / distortion / vignette)';
+  String get imageEditorSectionSplitToningSubtitle => 'Shadows and highlights';
 
   @override
-  String get imageEditorSectionWatermark => 'Text watermark / mark';
+  String get imageEditorSectionDetail => 'Detail';
+
+  @override
+  String get imageEditorSectionDetailSubtitle =>
+      'Clarity, sharpness, denoise, and grain';
+
+  @override
+  String get imageEditorSectionEffects => 'Effects';
+
+  @override
+  String get imageEditorSectionEffectsSubtitle =>
+      'Dispersion, distortion, and vignette';
+
+  @override
+  String get imageEditorSectionWatermark => 'Text watermark';
+
+  @override
+  String get imageEditorSectionWatermarkSubtitle =>
+      'Overlay text, position, and color';
 
   @override
   String get imageEditorTemperatureLabel => 'Temperature';
@@ -2787,7 +2816,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageEditorTintLabel => 'Tint shift';
 
   @override
-  String get imageEditorGammaLabel => 'Gamma (curve)';
+  String get imageEditorGammaLabel => 'Tone curve';
 
   @override
   String get imageEditorShadowHueLabel => 'Shadow hue';
@@ -3629,7 +3658,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageEditorVignetteLabel => 'Vignette';
 
   @override
-  String get imageEditorFineRotationLabel => 'Fine Rotation (°)';
+  String get imageEditorFineRotationLabel => 'Fine rotation (degrees)';
 
   @override
   String get imageEditorSaveToFile => 'Save To File';

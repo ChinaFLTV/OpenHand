@@ -171,12 +171,7 @@ html, body, #root {
   box-sizing: border-box;
   transition:
     transform var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
-    box-shadow var(--oh-motion-duration-base) var(--oh-motion-emphasized),
     background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized);
-}
-
-.oh-sessions-card:hover {
-  box-shadow: var(--m3-elev-2);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -449,11 +444,7 @@ html, body, #root {
   transform-origin: top left;
   transition:
     transform 240ms var(--oh-motion-spring),
-    box-shadow 260ms var(--oh-motion-emphasized),
     border-color 220ms var(--oh-motion-emphasized);
-}
-.oh-media-card:hover {
-  box-shadow: var(--m3-elev-2);
 }
 @keyframes oh-media-result-enter {
   0% {
@@ -505,7 +496,6 @@ html, body, #root {
 }
 .oh-audio-result-card:hover {
   border-color: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-outline));
-  box-shadow: var(--m3-elev-2);
 }
 .oh-audio-result-card:focus-within {
   border-color: var(--m3-primary);
@@ -1273,7 +1263,6 @@ button.oh-message-context-capsule {
   transform: translate3d(0, -1px, 0) scale(1.006);
   border-color: color-mix(in srgb, var(--m3-primary) 44%, var(--m3-outline-variant));
   background: color-mix(in srgb, var(--m3-primary-container) 20%, var(--m3-surface));
-  box-shadow: 0 14px 28px -24px color-mix(in srgb, var(--m3-primary) 72%, transparent);
 }
 .oh-kb-hit-card:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--m3-primary) 72%, transparent);
@@ -2956,7 +2945,6 @@ button.oh-message-context-capsule {
 .oh-toolbox-card:hover {
   transform: translate3d(0, -1px, 0);
   border-color: color-mix(in srgb, var(--m3-primary) 26%, var(--m3-outline-variant));
-  box-shadow: 0 14px 30px -26px color-mix(in srgb, var(--m3-shadow, #000) 42%, transparent);
 }
 .oh-toolbox-badge {
   min-height: 22px;
@@ -3141,7 +3129,6 @@ button.oh-message-context-capsule {
 .oh-resource-usage-summary-card:hover {
   transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--m3-primary) 28%, var(--m3-outline-variant));
-  box-shadow: 0 16px 32px -28px color-mix(in srgb, var(--m3-shadow, #000) 46%, transparent);
 }
 .oh-resource-usage-summary-card > span {
   width: 42px;
@@ -3769,7 +3756,6 @@ button.oh-message-context-capsule {
 .oh-resource-usage-detail-card:hover,
 .oh-resource-usage-event:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--m3-primary) 12%, transparent);
 }
 .oh-resource-usage-event {
   background: var(--m3-surface-container-low);
@@ -7572,7 +7558,20 @@ button.oh-composer-pill:not(:disabled):hover {
   max-height: inherit;
 }
 .oh-image-editor-header {
-  padding: 22px 24px 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 24px 10px;
+}
+.oh-image-editor-header-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--m3-primary) 16%, transparent);
+  color: var(--m3-primary);
 }
 .oh-image-editor-header h2 {
   margin: 0;
@@ -7581,9 +7580,9 @@ button.oh-composer-pill:not(:disabled):hover {
   font-weight: 800;
 }
 .oh-image-editor-header p {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--m3-on-surface-variant);
 }
 .oh-image-editor-scroll {
@@ -7592,10 +7591,14 @@ button.oh-composer-pill:not(:disabled):hover {
   overflow: auto;
   padding: 0 24px 16px;
 }
-.oh-image-editor-preview-row {
+.oh-image-editor-stage {
   display: flex;
   justify-content: center;
   min-width: 0;
+  padding: 10px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 20%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary) 6%, var(--m3-surface-container));
 }
 .oh-image-editor-preview-shell {
   position: relative;
@@ -7603,7 +7606,7 @@ button.oh-composer-pill:not(:disabled):hover {
   width: 100%;
   min-width: 0;
   max-height: 420px;
-  border-radius: 10px;
+  border-radius: 16px;
   overflow: hidden;
   background:
     linear-gradient(45deg, color-mix(in srgb, var(--m3-outline-variant) 32%, transparent) 25%, transparent 25%),
@@ -7706,10 +7709,10 @@ button.oh-composer-pill:not(:disabled):hover {
   gap: 10px;
 }
 .oh-image-editor-aspects {
-  margin-top: 16px;
+  margin-top: 0;
 }
 .oh-image-editor-actions {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 .oh-image-editor-aspects button,
 .oh-image-editor-actions button,
@@ -7735,6 +7738,7 @@ button.oh-composer-pill:not(:disabled):hover {
   flex: none;
 }
 .oh-image-editor-aspects button[data-active='true'],
+.oh-image-editor-actions button[data-active='true'],
 .oh-image-editor-footer button.is-primary {
   border-color: transparent;
   background: var(--m3-primary);
@@ -7743,7 +7747,7 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-image-editor-sliders {
   display: grid;
   gap: 12px;
-  margin-top: 18px;
+  margin-top: 0;
 }
 .oh-image-editor-slider {
   display: grid;
@@ -7755,34 +7759,96 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-image-editor-slider input[type='range'] {
   width: 100%;
-  accent-color: var(--m3-primary);
+  accent-color: var(--oh-image-editor-tone, var(--m3-primary));
 }
 .oh-image-editor-slider output {
   text-align: right;
-  color: var(--m3-on-surface-variant);
+  color: var(--oh-image-editor-tone, var(--m3-on-surface-variant));
   font-variant-numeric: tabular-nums;
+  font-weight: 720;
 }
 .oh-image-editor-advanced-hint {
-  margin: 18px 0 8px;
+  margin: 16px 0 8px;
   font-size: 12px;
+  line-height: 1.5;
   color: var(--m3-on-surface-variant);
 }
-.oh-image-editor-section {
-  margin-top: 10px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--m3-surface-container-low) 80%, transparent);
+.oh-image-editor-panel {
+  --oh-image-editor-tone: var(--m3-primary);
+  margin-top: 12px;
   overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--oh-image-editor-tone) 22%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--oh-image-editor-tone) 8%, var(--m3-surface-container-low));
 }
-.oh-image-editor-section summary {
-  cursor: pointer;
+.oh-image-editor-panel.is-compose { --oh-image-editor-tone: var(--m3-primary); }
+.oh-image-editor-panel.is-adjust { --oh-image-editor-tone: var(--m3-tertiary); }
+.oh-image-editor-panel.is-color { --oh-image-editor-tone: #f59e0b; }
+.oh-image-editor-panel.is-detail { --oh-image-editor-tone: #3b82f6; }
+.oh-image-editor-panel.is-effects { --oh-image-editor-tone: var(--m3-secondary); }
+.oh-image-editor-panel.is-watermark { --oh-image-editor-tone: #22c55e; }
+.oh-image-editor-panel-head,
+.oh-image-editor-panel summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 14px 16px;
+  list-style: none;
+  cursor: default;
+}
+.oh-image-editor-panel summary {
+  cursor: pointer;
+}
+.oh-image-editor-panel summary::-webkit-details-marker {
+  display: none;
+}
+.oh-image-editor-panel summary::after {
+  margin-left: auto;
+  content: '';
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-right: 2px solid var(--oh-image-editor-tone);
+  border-bottom: 2px solid var(--oh-image-editor-tone);
+  transform: rotate(45deg);
+  transition: transform var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+.oh-image-editor-panel[open] summary::after {
+  transform: translateY(3px) rotate(225deg);
+}
+.oh-image-editor-panel-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--oh-image-editor-tone) 16%, transparent);
+  color: var(--oh-image-editor-tone);
+}
+.oh-image-editor-panel-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.oh-image-editor-panel-copy strong {
   font-size: 13px;
   font-weight: 800;
+  color: var(--m3-on-surface);
 }
-.oh-image-editor-section .oh-image-editor-slider,
-.oh-image-editor-section .oh-image-editor-text-field,
-.oh-image-editor-section .oh-image-editor-position-grid {
-  margin: 0 16px 12px;
+.oh-image-editor-panel-copy small {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--m3-on-surface-variant);
+}
+.oh-image-editor-panel-body {
+  padding: 0 16px 16px;
+}
+.oh-image-editor-panel .oh-image-editor-slider,
+.oh-image-editor-panel .oh-image-editor-text-field,
+.oh-image-editor-panel .oh-image-editor-position-grid {
+  margin: 0 0 10px;
 }
 .oh-image-editor-text-field {
   display: grid;

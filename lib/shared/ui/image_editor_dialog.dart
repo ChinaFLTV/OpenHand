@@ -28,6 +28,7 @@ import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'openhand_clipboard.dart';
 import 'openhand_dialog_action_button.dart';
+import 'openhand_form_fields.dart';
 import 'openhand_snack_bar.dart';
 
 /// 图片编辑结果。圆形裁剪使用透明 PNG，其余场景按编辑器配置编码。
@@ -62,9 +63,13 @@ Future<PickedImageEditorResult?> pickAndEditImage(
   int sourceMaxBytes = kImageEditorSourceMaxBytes,
   int? imageSizeLimitBytes,
 }) async {
+  final l10n = AppLocalizations.of(context);
   final sourceFile = await openFile(
     acceptedTypeGroups: <XTypeGroup>[
-      XTypeGroup(label: 'Images', extensions: acceptedExtensions),
+      XTypeGroup(
+        label: l10n?.imageEditorFileTypeImages ?? 'Images',
+        extensions: acceptedExtensions,
+      ),
     ],
   );
   if (sourceFile == null || !context.mounted) return null;
@@ -141,6 +146,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   static const double _previewHeight = 420;
   static const double _minCropSide = 64;
   static const double _previewOverlayInset = 12;
+  static const double _previewStageInset = 10;
   static const double _compareChipMinHeight = 36;
   static const Color _compareOriginalInk = Color(0xFF3B2500);
   static const EdgeInsets _compareChipPadding = EdgeInsets.fromLTRB(
@@ -271,59 +277,71 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             backgroundColor: colorScheme.surfaceContainerHigh,
             body: Stack(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.imageEditorTitle,
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                      kOpenHandGap8,
-                      Text(
-                        l10n.imageEditorCropHint,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      kOpenHandGap16,
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildPreviewPanel(context),
-                              kOpenHandGap18,
-                              _buildAspectChips(context),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    buildOpenHandToolDialogHeader(
+                      context: context,
+                      icon: Icons.auto_fix_high_rounded,
+                      title: l10n.imageEditorTitle,
+                      subtitle: l10n.imageEditorCropHint,
+                      closeEnabled: !_isSaving && !_isProcessing,
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildPreviewPanel(context),
+                            kOpenHandGap16,
+                            _buildCompositionSection(context),
+                            kOpenHandGap12,
+                            _buildBasicAdjustSection(context),
+                            kOpenHandGap12,
+                            _buildAdvancedPanels(context),
+                            if (_statusMessage != null) ...[
                               kOpenHandGap12,
-                              _buildTransformActions(context),
-                              kOpenHandGap16,
-                              _buildAdjustmentSliders(context),
-                              kOpenHandGap8,
-                              _buildAdvancedPanels(context),
-                              if (_statusMessage != null) ...[
-                                kOpenHandGap12,
-                                Text(
+                              OpenHandTintedPanel(
+                                hugContents: true,
+                                accent: OpenHandStatusColors.success,
+                                child: Text(
                                   _statusMessage!,
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.primary,
+                                    color: OpenHandStatusColors.success,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ],
-                              OpenHandDialogErrorText(message: _errorMessage),
+                              ),
                             ],
+                            OpenHandDialogErrorText(message: _errorMessage),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: OpenHandDialogBusyBar(
+                        busy: _isSaving || _isProcessing,
+                        topGap: 8,
+                      ),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: colorScheme.outlineVariant.withValues(
+                              alpha: 0.55,
+                            ),
                           ),
                         ),
                       ),
-                      OpenHandDialogBusyBar(
-                        busy: _isSaving || _isProcessing,
-                        topGap: 16,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+                        child: _buildActionBar(context),
                       ),
-                      kOpenHandGap16,
-                      _buildActionBar(context),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 Positioned(
                   top: 0,
@@ -345,6 +363,36 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     );
   }
 
+  Widget _buildCompositionSection(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
+    return OpenHandDialogSectionCard(
+      icon: Icons.crop_rotate_rounded,
+      accent: colorScheme.primary,
+      title: l10n.imageEditorCompositionTitle,
+      subtitle: l10n.imageEditorCompositionSubtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildAspectChips(context),
+          kOpenHandGap12,
+          _buildTransformActions(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBasicAdjustSection(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
+    return OpenHandDialogSectionCard(
+      icon: Icons.tune_rounded,
+      accent: colorScheme.tertiary,
+      title: l10n.imageEditorBasicAdjustTitle,
+      child: _buildAdjustmentSliders(context, colorScheme.tertiary),
+    );
+  }
+
   Widget _buildAspectChips(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final entries = <_CropAspect, String>{
@@ -362,14 +410,11 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       runSpacing: 8,
       children: [
         for (final entry in entries.entries)
-          ChoiceChip(
-            label: Text(entry.value),
+          _ImageEditorChoicePill(
+            label: entry.value,
             selected: _aspect == entry.key,
             onSelected: _canEdit
-                ? (selected) {
-                    if (!selected) {
-                      return;
-                    }
+                ? () {
                     setState(() {
                       _aspect = entry.key;
                       _cropRect = null;
@@ -383,6 +428,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   Widget _buildTransformActions(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     final pillStyle = OutlinedButton.styleFrom(
       minimumSize: const Size(0, 40),
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -394,11 +440,23 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       required VoidCallback? onPressed,
       required IconData icon,
       required String label,
+      bool selected = false,
     }) {
       return SizedBox(
         height: 40,
         child: OutlinedButton.icon(
-          style: pillStyle,
+          style: pillStyle.copyWith(
+            backgroundColor: WidgetStatePropertyAll(
+              selected ? colorScheme.primaryContainer : Colors.transparent,
+            ),
+            side: WidgetStatePropertyAll(
+              BorderSide(
+                color: selected
+                    ? colorScheme.primary.withValues(alpha: 0.48)
+                    : colorScheme.outlineVariant.withValues(alpha: 0.72),
+              ),
+            ),
+          ),
           onPressed: onPressed,
           icon: Icon(icon, size: 18),
           label: Text(label),
@@ -427,6 +485,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               : null,
           icon: Icons.flip_rounded,
           label: l10n.imageEditorFlipHorizontal,
+          selected: _flipHorizontal,
         ),
         pill(
           onPressed: _canEdit
@@ -434,6 +493,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               : null,
           icon: Icons.swap_vert_rounded,
           label: l10n.imageEditorFlipVertical,
+          selected: _flipVertical,
         ),
         pill(
           onPressed: _canEdit ? _resetAdjustments : null,
@@ -444,7 +504,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     );
   }
 
-  Widget _buildAdjustmentSliders(BuildContext context) {
+  Widget _buildAdjustmentSliders(BuildContext context, Color accent) {
     final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -454,6 +514,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _brightness,
           min: 0.5,
           max: 1.5,
+          accent: accent,
           onChanged: _canEdit
               ? (value) => setState(() => _brightness = value)
               : null,
@@ -463,6 +524,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _contrast,
           min: 0.6,
           max: 1.6,
+          accent: accent,
           onChanged: _canEdit
               ? (value) => setState(() => _contrast = value)
               : null,
@@ -472,6 +534,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _saturation,
           min: 0.0,
           max: 2.0,
+          accent: accent,
           onChanged: _canEdit
               ? (value) => setState(() => _saturation = value)
               : null,
@@ -481,6 +544,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _exposure,
           min: -1.0,
           max: 1.0,
+          accent: accent,
           onChanged: _canEdit
               ? (value) => setState(() => _exposure = value)
               : null,
@@ -490,6 +554,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _hue,
           min: -180,
           max: 180,
+          accent: accent,
           onChanged: _canEdit ? (value) => setState(() => _hue = value) : null,
         ),
         _EditorSlider(
@@ -497,6 +562,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _vignette,
           min: 0.0,
           max: 1.0,
+          accent: accent,
           onChanged: _canEdit
               ? (value) => setState(() => _vignette = value)
               : null,
@@ -506,6 +572,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _rotation,
           min: -180,
           max: 180,
+          accent: accent,
           onChanged: _canEdit
               ? (value) => setState(() => _rotation = value)
               : null,
@@ -517,27 +584,32 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   Widget _buildAdvancedPanels(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final hint = Padding(
-      padding: const EdgeInsets.only(left: 4, right: 4, bottom: 4),
-      child: Text(
-        l10n.imageEditorAdvancedApplyHint,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
+    final colorScheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        hint,
-        _AdvancedSection(
+        Padding(
+          padding: const EdgeInsets.only(left: 4, right: 4, bottom: 8),
+          child: Text(
+            l10n.imageEditorAdvancedApplyHint,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.45,
+            ),
+          ),
+        ),
+        _ImageEditorFoldCard(
+          icon: Icons.palette_rounded,
+          accent: OpenHandStatusColors.warning,
           title: l10n.imageEditorSectionColor,
+          subtitle: l10n.imageEditorSectionColorSubtitle,
           children: [
             _EditorSlider(
               label: l10n.imageEditorTemperatureLabel,
               value: _temperature,
               min: -100,
               max: 100,
+              accent: OpenHandStatusColors.warning,
               onChanged: _canEdit
                   ? (v) => setState(() => _temperature = v)
                   : null,
@@ -547,6 +619,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               value: _tint,
               min: -100,
               max: 100,
+              accent: OpenHandStatusColors.warning,
               onChanged: _canEdit ? (v) => setState(() => _tint = v) : null,
             ),
             _EditorSlider(
@@ -554,18 +627,23 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               value: _gamma,
               min: 0.5,
               max: 2.0,
+              accent: OpenHandStatusColors.warning,
               onChanged: _canEdit ? (v) => setState(() => _gamma = v) : null,
             ),
           ],
         ),
-        _AdvancedSection(
+        _ImageEditorFoldCard(
+          icon: Icons.tonality_rounded,
+          accent: OpenHandStatusColors.info,
           title: l10n.imageEditorSectionSplitToning,
+          subtitle: l10n.imageEditorSectionSplitToningSubtitle,
           children: [
             _EditorSlider(
               label: l10n.imageEditorShadowHueLabel,
               value: _shadowHue,
               min: 0,
               max: 360,
+              accent: OpenHandStatusColors.info,
               onChanged: _canEdit
                   ? (v) => setState(() => _shadowHue = v)
                   : null,
@@ -575,6 +653,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               value: _shadowStrength,
               min: 0,
               max: 100,
+              accent: OpenHandStatusColors.info,
               onChanged: _canEdit
                   ? (v) => setState(() => _shadowStrength = v)
                   : null,
@@ -584,6 +663,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               value: _highlightHue,
               min: 0,
               max: 360,
+              accent: OpenHandStatusColors.info,
               onChanged: _canEdit
                   ? (v) => setState(() => _highlightHue = v)
                   : null,
@@ -593,20 +673,25 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               value: _highlightStrength,
               min: 0,
               max: 100,
+              accent: OpenHandStatusColors.info,
               onChanged: _canEdit
                   ? (v) => setState(() => _highlightStrength = v)
                   : null,
             ),
           ],
         ),
-        _AdvancedSection(
+        _ImageEditorFoldCard(
+          icon: Icons.auto_awesome_rounded,
+          accent: colorScheme.primary,
           title: l10n.imageEditorSectionDetail,
+          subtitle: l10n.imageEditorSectionDetailSubtitle,
           children: [
             _EditorSlider(
               label: l10n.imageEditorClarityLabel,
               value: _clarity,
               min: 0,
               max: 100,
+              accent: colorScheme.primary,
               onChanged: _canEdit ? (v) => setState(() => _clarity = v) : null,
             ),
             _EditorSlider(
@@ -614,6 +699,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               value: _sharpness,
               min: 0,
               max: 100,
+              accent: colorScheme.primary,
               onChanged: _canEdit
                   ? (v) => setState(() => _sharpness = v)
                   : null,
@@ -623,6 +709,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               value: _denoise,
               min: 0,
               max: 100,
+              accent: colorScheme.primary,
               onChanged: _canEdit ? (v) => setState(() => _denoise = v) : null,
             ),
             _EditorSlider(
@@ -630,18 +717,23 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               value: _grain,
               min: 0,
               max: 100,
+              accent: colorScheme.primary,
               onChanged: _canEdit ? (v) => setState(() => _grain = v) : null,
             ),
           ],
         ),
-        _AdvancedSection(
+        _ImageEditorFoldCard(
+          icon: Icons.blur_on_rounded,
+          accent: colorScheme.secondary,
           title: l10n.imageEditorSectionEffects,
+          subtitle: l10n.imageEditorSectionEffectsSubtitle,
           children: [
             _EditorSlider(
               label: l10n.imageEditorDispersionLabel,
               value: _dispersion,
               min: 0,
               max: 20,
+              accent: colorScheme.secondary,
               onChanged: _canEdit
                   ? (v) => setState(() => _dispersion = v)
                   : null,
@@ -651,12 +743,16 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               value: _distort,
               min: -100,
               max: 100,
+              accent: colorScheme.secondary,
               onChanged: _canEdit ? (v) => setState(() => _distort = v) : null,
             ),
           ],
         ),
-        _AdvancedSection(
+        _ImageEditorFoldCard(
+          icon: Icons.branding_watermark_rounded,
+          accent: OpenHandStatusColors.success,
           title: l10n.imageEditorSectionWatermark,
+          subtitle: l10n.imageEditorSectionWatermarkSubtitle,
           children: [_buildWatermarkEditor(context)],
         ),
       ],
@@ -677,7 +773,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           decoration: InputDecoration(
             labelText: l10n.imageEditorWatermarkTextLabel,
             hintText: l10n.imageEditorWatermarkTextHint,
-            border: const OutlineInputBorder(),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(kOpenHandRadius12),
+            ),
           ),
           onChanged: (_) => setState(() {}),
           maxLength: 120,
@@ -688,6 +786,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _watermarkSize,
           min: 12,
           max: 160,
+          accent: OpenHandStatusColors.success,
           onChanged: _canEdit
               ? (v) => setState(() => _watermarkSize = v)
               : null,
@@ -697,6 +796,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _watermarkOpacity,
           min: 0.1,
           max: 1.0,
+          accent: OpenHandStatusColors.success,
           onChanged: _canEdit
               ? (v) => setState(() => _watermarkOpacity = v)
               : null,
@@ -791,6 +891,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _watermarkHue,
           min: 0,
           max: 360,
+          accent: OpenHandStatusColors.success,
           onChanged: _canEdit ? (v) => setState(() => _watermarkHue = v) : null,
         ),
         _EditorSlider(
@@ -798,6 +899,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _watermarkSaturation,
           min: 0,
           max: 1,
+          accent: OpenHandStatusColors.success,
           onChanged: _canEdit
               ? (v) => setState(() => _watermarkSaturation = v)
               : null,
@@ -807,6 +909,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _watermarkLightness,
           min: 0,
           max: 1,
+          accent: OpenHandStatusColors.success,
           onChanged: _canEdit
               ? (v) => setState(() => _watermarkLightness = v)
               : null,
@@ -912,11 +1015,12 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     return Center(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final rawPreviewWidth = math.min(
-            constraints.maxWidth,
-            _previewMaxWidth,
+          final innerMax = math.max(
+            180.0,
+            math.min(constraints.maxWidth, _previewMaxWidth) -
+                _previewStageInset * 2,
           );
-          final previewWidth = rawPreviewWidth.clamp(220.0, _previewMaxWidth);
+          final previewWidth = innerMax.clamp(180.0, _previewMaxWidth);
           final previewSize = Size(previewWidth, _previewHeight);
           _previewSize = previewSize;
 
@@ -1115,14 +1219,37 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             );
           }
 
-          return ClipRRect(
-            borderRadius: kOpenHandBorderRadius10,
-            child: SizedBox(
-              width: previewWidth,
-              height: _previewHeight,
-              child: ColoredBox(
-                color: colorScheme.surfaceContainerHigh,
-                child: previewBody,
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: kOpenHandBorderRadius20,
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.18),
+              ),
+              color: Color.alphaBlend(
+                colorScheme.primary.withValues(alpha: 0.05),
+                colorScheme.surfaceContainerHigh,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(_previewStageInset),
+              child: ClipRRect(
+                borderRadius: kOpenHandBorderRadius16,
+                child: SizedBox(
+                  width: previewWidth,
+                  height: _previewHeight,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CustomPaint(
+                        painter: _ImageEditorCheckerboardPainter(
+                          light: colorScheme.surface,
+                          dark: colorScheme.surfaceContainerHighest,
+                        ),
+                      ),
+                      previewBody,
+                    ],
+                  ),
+                ),
               ),
             ),
           );
@@ -2334,6 +2461,7 @@ class _EditorSlider extends StatelessWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.accent,
   });
 
   final String label;
@@ -2341,9 +2469,12 @@ class _EditorSlider extends StatelessWidget {
   final double min;
   final double max;
   final ValueChanged<double>? onChanged;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tone = accent ?? theme.colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
@@ -2354,51 +2485,193 @@ class _EditorSlider extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: Theme.of(context).textTheme.titleSmall,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               Text(
                 value.toStringAsFixed(2),
-                style: Theme.of(context).textTheme.bodySmall,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: tone,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
-          Slider(value: value, min: min, max: max, onChanged: onChanged),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: tone,
+              thumbColor: tone,
+              overlayColor: tone.withValues(alpha: 0.12),
+              inactiveTrackColor: tone.withValues(alpha: 0.18),
+            ),
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              onChanged: onChanged,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// 可独立展开的高级调整区。
-class _AdvancedSection extends StatelessWidget {
-  const _AdvancedSection({required this.title, required this.children});
+/// 高级调整折叠卡：彩色分区头 + 与全局动效一致的展开收起。
+class _ImageEditorFoldCard extends StatefulWidget {
+  const _ImageEditorFoldCard({
+    required this.icon,
+    required this.accent,
+    required this.title,
+    required this.children,
+    this.subtitle,
+  });
 
+  final IconData icon;
+  final Color accent;
   final String title;
+  final String? subtitle;
   final List<Widget> children;
+
+  @override
+  State<_ImageEditorFoldCard> createState() => _ImageEditorFoldCardState();
+}
+
+class _ImageEditorFoldCardState extends State<_ImageEditorFoldCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = openHandMotionDuration(context, kOpenHandMotion280);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: OpenHandDialogSectionCard(
+        icon: widget.icon,
+        accent: widget.accent,
+        title: widget.title,
+        subtitle: widget.subtitle,
+        padding: _expanded
+            ? const EdgeInsets.fromLTRB(16, 14, 16, 16)
+            : const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        onHeaderTap: () => setState(() => _expanded = !_expanded),
+        trailing: AnimatedRotation(
+          turns: _expanded ? 0.5 : 0,
+          duration: duration,
+          curve: kOpenHandSwitchInCurve,
+          child: Icon(Icons.expand_more_rounded, color: widget.accent),
+        ),
+        child: ClipRect(
+          child: AnimatedSize(
+            duration: duration,
+            curve: kOpenHandSwitchInCurve,
+            alignment: Alignment.topCenter,
+            child: _expanded
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: widget.children,
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageEditorChoicePill extends StatelessWidget {
+  const _ImageEditorChoicePill({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onSelected;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      color: theme.colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+    final colorScheme = theme.colorScheme;
+    final foreground = selected ? colorScheme.onPrimary : colorScheme.onSurface;
+    return Material(
+      color: selected
+          ? colorScheme.primary
+          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: selected
+              ? colorScheme.primary
+              : colorScheme.outlineVariant.withValues(alpha: 0.62),
+        ),
       ),
-      child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          shape: const Border(),
-          collapsedShape: const Border(),
-          title: Text(title, style: theme.textTheme.titleSmall),
-          children: children,
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onSelected,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                Icon(Icons.check_rounded, size: 16, color: foreground),
+                kOpenHandHGap6,
+              ],
+              Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+}
+
+class _ImageEditorCheckerboardPainter extends CustomPainter {
+  const _ImageEditorCheckerboardPainter({
+    required this.light,
+    required this.dark,
+  });
+
+  static const double _cellSize = 12;
+
+  final Color light;
+  final Color dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final lightPaint = Paint()..color = light;
+    final darkPaint = Paint()..color = dark;
+    canvas.drawRect(Offset.zero & size, lightPaint);
+    final cols = (size.width / _cellSize).ceil();
+    final rows = (size.height / _cellSize).ceil();
+    for (var row = 0; row < rows; row++) {
+      for (var col = 0; col < cols; col++) {
+        if ((row + col).isEven) continue;
+        canvas.drawRect(
+          Rect.fromLTWH(
+            col * _cellSize,
+            row * _cellSize,
+            _cellSize,
+            _cellSize,
+          ),
+          darkPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ImageEditorCheckerboardPainter oldDelegate) {
+    return oldDelegate.light != light || oldDelegate.dark != dark;
   }
 }
 

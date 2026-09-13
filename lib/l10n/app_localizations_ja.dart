@@ -2688,7 +2688,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      '画像をドラッグして正方形のクロップ範囲を移動し、ズーム・回転・明るさ・コントラストを調整します。';
+      '枠をドラッグして切り抜き範囲を調整できます。拡大縮小・回転・反転のほか、分割トーン、明瞭度、粒子、ノイズ除去、色収差、歪み、透かしも下のパネルから調整できます。詳細調整は保存時に適用されます。';
+
+  @override
+  String get imageEditorCompositionTitle => '構図';
+
+  @override
+  String get imageEditorCompositionSubtitle => '比率、回転、反転';
+
+  @override
+  String get imageEditorBasicAdjustTitle => '基本調整';
+
+  @override
+  String get imageEditorFileTypeImages => '画像';
 
   @override
   String get imageEditorZoomLabel => 'ズーム';
@@ -2715,19 +2727,34 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorProcessFailed => '選択した画像を処理できませんでした。';
 
   @override
-  String get imageEditorSectionColor => '色（色温度／ティント／ガンマ）';
+  String get imageEditorSectionColor => 'カラー';
 
   @override
-  String get imageEditorSectionSplitToning => 'スプリットトーン (HSL)';
+  String get imageEditorSectionColorSubtitle => '色温度、色合い、階調曲線';
 
   @override
-  String get imageEditorSectionDetail => 'ディテール（明瞭度／シャープネス／ノイズ除去／粒子）';
+  String get imageEditorSectionSplitToning => '分割トーン';
 
   @override
-  String get imageEditorSectionEffects => 'エフェクト（色収差／歪み／周辺減光）';
+  String get imageEditorSectionSplitToningSubtitle => 'シャドウとハイライト';
 
   @override
-  String get imageEditorSectionWatermark => 'テキスト透かし／マーク';
+  String get imageEditorSectionDetail => 'ディテール';
+
+  @override
+  String get imageEditorSectionDetailSubtitle => '明瞭度、シャープネス、ノイズ除去、粒子';
+
+  @override
+  String get imageEditorSectionEffects => 'エフェクト';
+
+  @override
+  String get imageEditorSectionEffectsSubtitle => '色収差、歪み、周辺減光';
+
+  @override
+  String get imageEditorSectionWatermark => 'テキスト透かし';
+
+  @override
+  String get imageEditorSectionWatermarkSubtitle => '重ねる文字、位置、色';
 
   @override
   String get imageEditorTemperatureLabel => '色温度';
@@ -2736,7 +2763,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorTintLabel => 'ティントシフト';
 
   @override
-  String get imageEditorGammaLabel => 'ガンマ（カーブ）';
+  String get imageEditorGammaLabel => '階調曲線';
 
   @override
   String get imageEditorShadowHueLabel => 'シャドウの色相';
@@ -3539,7 +3566,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorVignetteLabel => '周辺減光';
 
   @override
-  String get imageEditorFineRotationLabel => '微調整 (°)';
+  String get imageEditorFineRotationLabel => '回転の微調整（度）';
 
   @override
   String get imageEditorSaveToFile => 'ファイルに保存';

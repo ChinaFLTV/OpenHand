@@ -2842,7 +2842,6 @@ class _HistoryInspectorGroup extends StatelessWidget {
         baseColor: cs.surfaceContainerHighest.withValues(alpha: 0.45),
         baseBorder: cs.outlineVariant.withValues(alpha: 0.45),
         hoverBorder: cs.primary.withValues(alpha: 0.45),
-        hoverShadow: cs.primary.withValues(alpha: 0.15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -3142,7 +3141,7 @@ class _RedoLastIntent extends Intent {
   const _RedoLastIntent();
 }
 
-/// 检查器分组卡片的悬停抬升效果，减少动态效果时禁用动画。
+/// 检查器分组卡片的悬停描边高亮，减少动态效果时禁用动画。
 class _HoverElevateBox extends StatefulWidget {
   const _HoverElevateBox({
     required this.child,
@@ -3150,14 +3149,12 @@ class _HoverElevateBox extends StatefulWidget {
     required this.baseColor,
     required this.baseBorder,
     required this.hoverBorder,
-    required this.hoverShadow,
   });
   final Widget child;
   final double radius;
   final Color baseColor;
   final Color baseBorder;
   final Color hoverBorder;
-  final Color hoverShadow;
 
   @override
   State<_HoverElevateBox> createState() => _HoverElevateBoxState();
@@ -3182,15 +3179,6 @@ class _HoverElevateBoxState extends State<_HoverElevateBox>
             color: openHandHovered ? widget.hoverBorder : widget.baseBorder,
             width: openHandHovered ? 0.8 : 0.5,
           ),
-          boxShadow: openHandHovered
-              ? [
-                  BoxShadow(
-                    color: widget.hoverShadow,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : const [],
         ),
         child: widget.child,
       ),

@@ -2655,7 +2655,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      '拖动方框调整裁剪区域，可继续缩放、旋转、翻转，展开下方面板可使用 HSL、色调分离、清晰度、颗粒、降噪、色散、扭曲、水印等高级调整（高级调整在保存时应用）。';
+      '拖动方框调整裁剪区域，可继续缩放、旋转、翻转。展开下方分组可调整色调分离、清晰度、颗粒、降噪、色散、扭曲与水印（高级调整在保存时应用）。';
+
+  @override
+  String get imageEditorCompositionTitle => '构图';
+
+  @override
+  String get imageEditorCompositionSubtitle => '比例、旋转与翻转';
+
+  @override
+  String get imageEditorBasicAdjustTitle => '基础调整';
+
+  @override
+  String get imageEditorFileTypeImages => '图片';
 
   @override
   String get imageEditorZoomLabel => '缩放';
@@ -2682,19 +2694,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorProcessFailed => '无法处理所选图片';
 
   @override
-  String get imageEditorSectionColor => '色彩（色温 / 色调 / 伽马）';
+  String get imageEditorSectionColor => '色彩';
 
   @override
-  String get imageEditorSectionSplitToning => '色调分离（HSL）';
+  String get imageEditorSectionColorSubtitle => '色温、色调、灰度曲线';
 
   @override
-  String get imageEditorSectionDetail => '细节（清晰度 / 锐度 / 降噪 / 颗粒）';
+  String get imageEditorSectionSplitToning => '色调分离';
 
   @override
-  String get imageEditorSectionEffects => '特效（色散 / 扭曲 / 晕影）';
+  String get imageEditorSectionSplitToningSubtitle => '阴影与高光';
 
   @override
-  String get imageEditorSectionWatermark => '文字水印 / 标记';
+  String get imageEditorSectionDetail => '细节';
+
+  @override
+  String get imageEditorSectionDetailSubtitle => '清晰度、锐度、降噪、颗粒';
+
+  @override
+  String get imageEditorSectionEffects => '特效';
+
+  @override
+  String get imageEditorSectionEffectsSubtitle => '色散、扭曲、晕影';
+
+  @override
+  String get imageEditorSectionWatermark => '文字水印';
+
+  @override
+  String get imageEditorSectionWatermarkSubtitle => '叠加文字、位置与颜色';
 
   @override
   String get imageEditorTemperatureLabel => '色温';
@@ -2703,7 +2730,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorTintLabel => '色调偏移';
 
   @override
-  String get imageEditorGammaLabel => '伽马（曲线）';
+  String get imageEditorGammaLabel => '灰度曲线';
 
   @override
   String get imageEditorShadowHueLabel => '暗部色相';
@@ -3495,7 +3522,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorVignetteLabel => '暗角';
 
   @override
-  String get imageEditorFineRotationLabel => '微调旋转 (°)';
+  String get imageEditorFineRotationLabel => '微调旋转（度）';
 
   @override
   String get imageEditorSaveToFile => '另存到本地';
@@ -3538,7 +3565,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorWatermarkColorLabel => '文字颜色';
 
   @override
-  String get imageEditorWatermarkColorHue => '颜色（Hue）';
+  String get imageEditorWatermarkColorHue => '色相';
 
   @override
   String get imageEditorWatermarkColorSaturation => '饱和度';
@@ -13017,7 +13044,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get imageEditorCropHint =>
-      '拖動方框調整裁剪區域，可繼續縮放、旋轉、翻轉，展開下方面板可使用 HSL、色調分離、清晰度、顆粒、降噪、色散、扭曲、浮水印等高級調整（高級調整在儲存時應用）。';
+      '拖動方框調整裁剪區域，可繼續縮放、旋轉、翻轉。展開下方分組可調整色調分離、清晰度、顆粒、降噪、色散、扭曲與浮水印（進階調整在儲存時套用）。';
+
+  @override
+  String get imageEditorCompositionTitle => '構圖';
+
+  @override
+  String get imageEditorCompositionSubtitle => '比例、旋轉與翻轉';
+
+  @override
+  String get imageEditorBasicAdjustTitle => '基礎調整';
+
+  @override
+  String get imageEditorFileTypeImages => '圖片';
 
   @override
   String get imageEditorZoomLabel => '縮放';
@@ -13044,19 +13083,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get imageEditorProcessFailed => '無法處理所選圖片';
 
   @override
-  String get imageEditorSectionColor => '色彩（色溫 / 色調 / 伽瑪）';
+  String get imageEditorSectionColor => '色彩';
 
   @override
-  String get imageEditorSectionSplitToning => '色調分離（HSL）';
+  String get imageEditorSectionColorSubtitle => '色溫、色調、灰度曲線';
 
   @override
-  String get imageEditorSectionDetail => '細節（清晰度 / 銳利度 / 降噪 / 顆粒）';
+  String get imageEditorSectionSplitToning => '色調分離';
 
   @override
-  String get imageEditorSectionEffects => '特效（色散 / 扭曲 / 暈影）';
+  String get imageEditorSectionSplitToningSubtitle => '陰影與高光';
 
   @override
-  String get imageEditorSectionWatermark => '文字浮水印 / 標記';
+  String get imageEditorSectionDetail => '細節';
+
+  @override
+  String get imageEditorSectionDetailSubtitle => '清晰度、銳利度、降噪、顆粒';
+
+  @override
+  String get imageEditorSectionEffects => '特效';
+
+  @override
+  String get imageEditorSectionEffectsSubtitle => '色散、扭曲、暈影';
+
+  @override
+  String get imageEditorSectionWatermark => '文字浮水印';
+
+  @override
+  String get imageEditorSectionWatermarkSubtitle => '疊加文字、位置與顏色';
 
   @override
   String get imageEditorTemperatureLabel => '色溫';
@@ -13065,7 +13119,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get imageEditorTintLabel => '色調偏移';
 
   @override
-  String get imageEditorGammaLabel => '伽瑪（曲線）';
+  String get imageEditorGammaLabel => '灰度曲線';
 
   @override
   String get imageEditorShadowHueLabel => '暗部色相';
@@ -13857,7 +13911,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get imageEditorVignetteLabel => '暗角';
 
   @override
-  String get imageEditorFineRotationLabel => '微調旋轉 (°)';
+  String get imageEditorFineRotationLabel => '微調旋轉（度）';
 
   @override
   String get imageEditorSaveToFile => '另存到本機';
@@ -13900,7 +13954,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get imageEditorWatermarkColorLabel => '文字顏色';
 
   @override
-  String get imageEditorWatermarkColorHue => '顏色（Hue）';
+  String get imageEditorWatermarkColorHue => '色相';
 
   @override
   String get imageEditorWatermarkColorSaturation => '飽和度';

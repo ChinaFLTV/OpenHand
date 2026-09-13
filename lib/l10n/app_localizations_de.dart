@@ -2757,7 +2757,20 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      'Ziehen Sie das Bild, um den quadratischen Beschnittbereich zu positionieren, dann passen Sie Zoom, Drehung, Helligkeit und Kontrast an.';
+      'Ziehen Sie den Rahmen, um den Zuschnitt anzupassen. Sie können zoomen, drehen und spiegeln. Darunter finden Sie Teiltonung, Klarheit, Körnung, Rauschunterdrückung, Streuung, Verzerrung und Wasserzeichen. Erweiterte Anpassungen werden beim Speichern angewendet.';
+
+  @override
+  String get imageEditorCompositionTitle => 'Komposition';
+
+  @override
+  String get imageEditorCompositionSubtitle =>
+      'Seitenverhältnis, drehen und spiegeln';
+
+  @override
+  String get imageEditorBasicAdjustTitle => 'Grundeinstellungen';
+
+  @override
+  String get imageEditorFileTypeImages => 'Bilder';
 
   @override
   String get imageEditorZoomLabel => 'Zoom';
@@ -2786,22 +2799,37 @@ class AppLocalizationsDe extends AppLocalizations {
       'Das ausgewählte Bild konnte nicht verarbeitet werden.';
 
   @override
-  String get imageEditorSectionColor =>
-      'Farbe (Farbtemperatur / Farbton / Gamma)';
+  String get imageEditorSectionColor => 'Farbe';
 
   @override
-  String get imageEditorSectionSplitToning => 'Split Toning (HSL)';
+  String get imageEditorSectionColorSubtitle =>
+      'Farbtemperatur, Farbstich und Tonwertkurve';
 
   @override
-  String get imageEditorSectionDetail =>
-      'Details (Klarheit / Schärfe / Rauschunterdrückung / Körnung)';
+  String get imageEditorSectionSplitToning => 'Teiltonung';
 
   @override
-  String get imageEditorSectionEffects =>
-      'Effekte (Dispersion / Verzerrung / Vignette)';
+  String get imageEditorSectionSplitToningSubtitle => 'Schatten und Lichter';
 
   @override
-  String get imageEditorSectionWatermark => 'Textwasserzeichen / Markierung';
+  String get imageEditorSectionDetail => 'Details';
+
+  @override
+  String get imageEditorSectionDetailSubtitle =>
+      'Klarheit, Schärfe, Rauschunterdrückung und Körnung';
+
+  @override
+  String get imageEditorSectionEffects => 'Effekte';
+
+  @override
+  String get imageEditorSectionEffectsSubtitle =>
+      'Streuung, Verzerrung und Vignette';
+
+  @override
+  String get imageEditorSectionWatermark => 'Textwasserzeichen';
+
+  @override
+  String get imageEditorSectionWatermarkSubtitle => 'Text, Position und Farbe';
 
   @override
   String get imageEditorTemperatureLabel => 'Farbtemperatur';
@@ -2810,7 +2838,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get imageEditorTintLabel => 'Farbtonverschiebung';
 
   @override
-  String get imageEditorGammaLabel => 'Gamma (Kurve)';
+  String get imageEditorGammaLabel => 'Tonwertkurve';
 
   @override
   String get imageEditorShadowHueLabel => 'Schatten-Farbton';
@@ -3664,7 +3692,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get imageEditorVignetteLabel => 'Vignette';
 
   @override
-  String get imageEditorFineRotationLabel => 'Feinrotation (°)';
+  String get imageEditorFineRotationLabel => 'Feindrehung (Grad)';
 
   @override
   String get imageEditorSaveToFile => 'In Datei speichern';

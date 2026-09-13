@@ -4887,8 +4887,32 @@ abstract class AppLocalizations {
   /// No description provided for @imageEditorCropHint.
   ///
   /// In zh, this message translates to:
-  /// **'拖动方框调整裁剪区域，可继续缩放、旋转、翻转，展开下方面板可使用 HSL、色调分离、清晰度、颗粒、降噪、色散、扭曲、水印等高级调整（高级调整在保存时应用）。'**
+  /// **'拖动方框调整裁剪区域，可继续缩放、旋转、翻转。展开下方分组可调整色调分离、清晰度、颗粒、降噪、色散、扭曲与水印（高级调整在保存时应用）。'**
   String get imageEditorCropHint;
+
+  /// No description provided for @imageEditorCompositionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'构图'**
+  String get imageEditorCompositionTitle;
+
+  /// No description provided for @imageEditorCompositionSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'比例、旋转与翻转'**
+  String get imageEditorCompositionSubtitle;
+
+  /// No description provided for @imageEditorBasicAdjustTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'基础调整'**
+  String get imageEditorBasicAdjustTitle;
+
+  /// No description provided for @imageEditorFileTypeImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片'**
+  String get imageEditorFileTypeImages;
 
   /// No description provided for @imageEditorZoomLabel.
   ///
@@ -4941,32 +4965,62 @@ abstract class AppLocalizations {
   /// No description provided for @imageEditorSectionColor.
   ///
   /// In zh, this message translates to:
-  /// **'色彩（色温 / 色调 / 伽马）'**
+  /// **'色彩'**
   String get imageEditorSectionColor;
+
+  /// No description provided for @imageEditorSectionColorSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'色温、色调、灰度曲线'**
+  String get imageEditorSectionColorSubtitle;
 
   /// No description provided for @imageEditorSectionSplitToning.
   ///
   /// In zh, this message translates to:
-  /// **'色调分离（HSL）'**
+  /// **'色调分离'**
   String get imageEditorSectionSplitToning;
+
+  /// No description provided for @imageEditorSectionSplitToningSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'阴影与高光'**
+  String get imageEditorSectionSplitToningSubtitle;
 
   /// No description provided for @imageEditorSectionDetail.
   ///
   /// In zh, this message translates to:
-  /// **'细节（清晰度 / 锐度 / 降噪 / 颗粒）'**
+  /// **'细节'**
   String get imageEditorSectionDetail;
+
+  /// No description provided for @imageEditorSectionDetailSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'清晰度、锐度、降噪、颗粒'**
+  String get imageEditorSectionDetailSubtitle;
 
   /// No description provided for @imageEditorSectionEffects.
   ///
   /// In zh, this message translates to:
-  /// **'特效（色散 / 扭曲 / 晕影）'**
+  /// **'特效'**
   String get imageEditorSectionEffects;
+
+  /// No description provided for @imageEditorSectionEffectsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'色散、扭曲、晕影'**
+  String get imageEditorSectionEffectsSubtitle;
 
   /// No description provided for @imageEditorSectionWatermark.
   ///
   /// In zh, this message translates to:
-  /// **'文字水印 / 标记'**
+  /// **'文字水印'**
   String get imageEditorSectionWatermark;
+
+  /// No description provided for @imageEditorSectionWatermarkSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'叠加文字、位置与颜色'**
+  String get imageEditorSectionWatermarkSubtitle;
 
   /// No description provided for @imageEditorTemperatureLabel.
   ///
@@ -4983,7 +5037,7 @@ abstract class AppLocalizations {
   /// No description provided for @imageEditorGammaLabel.
   ///
   /// In zh, this message translates to:
-  /// **'伽马（曲线）'**
+  /// **'灰度曲线'**
   String get imageEditorGammaLabel;
 
   /// No description provided for @imageEditorShadowHueLabel.
@@ -6483,7 +6537,7 @@ abstract class AppLocalizations {
   /// No description provided for @imageEditorFineRotationLabel.
   ///
   /// In zh, this message translates to:
-  /// **'微调旋转 (°)'**
+  /// **'微调旋转（度）'**
   String get imageEditorFineRotationLabel;
 
   /// No description provided for @imageEditorSaveToFile.
@@ -6561,7 +6615,7 @@ abstract class AppLocalizations {
   /// No description provided for @imageEditorWatermarkColorHue.
   ///
   /// In zh, this message translates to:
-  /// **'颜色（Hue）'**
+  /// **'色相'**
   String get imageEditorWatermarkColorHue;
 
   /// No description provided for @imageEditorWatermarkColorSaturation.

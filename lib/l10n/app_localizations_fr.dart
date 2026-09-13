@@ -2766,7 +2766,20 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      'Faites glisser l’image pour repositionner la zone de recadrage carrée, puis ajustez le zoom, la rotation, la luminosité et le contraste.';
+      'Faites glisser le cadre pour recadrer. Vous pouvez zoomer, pivoter et retourner, puis utiliser les panneaux ci-dessous pour la tonalité fractionnée, la clarté, le grain, la réduction du bruit, la dispersion, la distorsion et le filigrane. Les réglages avancés s’appliquent à l’enregistrement.';
+
+  @override
+  String get imageEditorCompositionTitle => 'Composition';
+
+  @override
+  String get imageEditorCompositionSubtitle =>
+      'Proportion, rotation et retournement';
+
+  @override
+  String get imageEditorBasicAdjustTitle => 'Réglages de base';
+
+  @override
+  String get imageEditorFileTypeImages => 'Images';
 
   @override
   String get imageEditorZoomLabel => 'Zoom';
@@ -2795,22 +2808,39 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de traiter l’image sélectionnée.';
 
   @override
-  String get imageEditorSectionColor =>
-      'Couleur (température / teinte / gamma)';
+  String get imageEditorSectionColor => 'Couleur';
 
   @override
-  String get imageEditorSectionSplitToning => 'Tonalité fractionnée (HSL)';
+  String get imageEditorSectionColorSubtitle =>
+      'Température, teinte et courbe des tons';
 
   @override
-  String get imageEditorSectionDetail =>
-      'Détail (clarté / netteté / réduction du bruit / grain)';
+  String get imageEditorSectionSplitToning => 'Tonalité fractionnée';
 
   @override
-  String get imageEditorSectionEffects =>
-      'Effets (dispersion / distorsion / vignette)';
+  String get imageEditorSectionSplitToningSubtitle =>
+      'Ombres et hautes lumières';
 
   @override
-  String get imageEditorSectionWatermark => 'Filigrane texte / marque';
+  String get imageEditorSectionDetail => 'Détail';
+
+  @override
+  String get imageEditorSectionDetailSubtitle =>
+      'Clarté, netteté, réduction du bruit et grain';
+
+  @override
+  String get imageEditorSectionEffects => 'Effets';
+
+  @override
+  String get imageEditorSectionEffectsSubtitle =>
+      'Dispersion, distorsion et vignettage';
+
+  @override
+  String get imageEditorSectionWatermark => 'Filigrane texte';
+
+  @override
+  String get imageEditorSectionWatermarkSubtitle =>
+      'Texte, position et couleur';
 
   @override
   String get imageEditorTemperatureLabel => 'Température';
@@ -2819,7 +2849,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get imageEditorTintLabel => 'Décalage de teinte';
 
   @override
-  String get imageEditorGammaLabel => 'Gamma (courbe)';
+  String get imageEditorGammaLabel => 'Courbe des tons';
 
   @override
   String get imageEditorShadowHueLabel => 'Teinte des ombres';
@@ -3680,7 +3710,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get imageEditorVignetteLabel => 'Vignettage';
 
   @override
-  String get imageEditorFineRotationLabel => 'Rotation fine (°)';
+  String get imageEditorFineRotationLabel => 'Rotation fine (degrés)';
 
   @override
   String get imageEditorSaveToFile => 'Enregistrer dans un fichier';

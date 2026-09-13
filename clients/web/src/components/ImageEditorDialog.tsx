@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
 import { clampNumber, finiteNumberFromText } from '../shared/util/number';
@@ -53,7 +54,14 @@ type ImageEditorIconName =
   | 'download'
   | 'copy'
   | 'undo'
-  | 'dot';
+  | 'dot'
+  | 'photo'
+  | 'crop'
+  | 'sliders'
+  | 'palette'
+  | 'sparkle'
+  | 'wand'
+  | 'text';
 
 function ImageEditorIcon({ name, size = 15 }: { name: ImageEditorIconName; size?: number }) {
   const common = svgIconProps({ size });
@@ -80,6 +88,20 @@ function ImageEditorIcon({ name, size = 15 }: { name: ImageEditorIconName; size?
       return <svg {...common}><path d="M9 7H4v5" /><path d="M4 12a8 8 0 1 0 2.3-5.7" /></svg>;
     case 'dot':
       return <svg {...common}><circle cx="12" cy="12" r="3.3" fill="currentColor" stroke="none" /></svg>;
+    case 'photo':
+      return <svg {...common}><rect x="4" y="6" width="16" height="13" rx="2" /><circle cx="12" cy="13" r="3.1" /><path d="M8 6 9.4 4h5.2L16 6" /></svg>;
+    case 'crop':
+      return <svg {...common}><path d="M6 3v15h15" /><path d="M18 21V9H3" /></svg>;
+    case 'sliders':
+      return <svg {...common}><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /><circle cx="9" cy="7" r="1.8" fill="currentColor" /><circle cx="15" cy="12" r="1.8" fill="currentColor" /><circle cx="11" cy="17" r="1.8" fill="currentColor" /></svg>;
+    case 'palette':
+      return <svg {...common}><path d="M12 4a8 8 0 1 0 .2 16h1.5a1.8 1.8 0 0 0 0-3.6H12" /><circle cx="8.2" cy="10" r="1" fill="currentColor" stroke="none" /><circle cx="10.5" cy="7.4" r="1" fill="currentColor" stroke="none" /><circle cx="14.2" cy="7.8" r="1" fill="currentColor" stroke="none" /></svg>;
+    case 'sparkle':
+      return <svg {...common}><path d="M12 4l1.15 4.7L18 10l-4.85 1.3L12 16l-1.15-4.7L6 10l4.85-1.3z" /><path d="M18.2 15.2l.55 2.1 2.1.55-2.1.55-.55 2.1-.55-2.1-2.1-.55 2.1-.55z" /></svg>;
+    case 'wand':
+      return <svg {...common}><path d="m4 20 9-9" /><path d="m15 5 1.1.35L16.5 6.5l.35-1.15L18 5l-1.15-.35L16.5 3.5 16.15 4.65z" /><path d="M8 4.5v3" /><path d="M6.5 6h3" /></svg>;
+    case 'text':
+      return <svg {...common}><path d="M5 7h14" /><path d="M12 7v12" /><path d="M9 19h6" /></svg>;
   }
 }
 
@@ -355,12 +377,17 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     >
       <div class="oh-image-editor-body">
           <header class="oh-image-editor-header">
-            <h2>{t('imageEditor.title', '编辑图片')}</h2>
-            <p>{t('imageEditor.hint', '拖动方框调整裁剪区域，可继续缩放、旋转、翻转，展开下方面板可使用 HSL、色调分离、清晰度、颗粒、降噪、色散、扭曲、水印等高级调整（高级调整在保存时应用）。')}</p>
+            <span class="oh-image-editor-header-icon" aria-hidden="true">
+              <ImageEditorIcon name="photo" size={18} />
+            </span>
+            <div>
+              <h2>{t('imageEditor.title', '编辑图片')}</h2>
+              <p>{t('imageEditor.hint', '拖动图片调整裁剪位置，并使用下方工具精细调整。')}</p>
+            </div>
           </header>
 
           <div class="oh-image-editor-scroll">
-            <section class="oh-image-editor-preview-row">
+            <section class="oh-image-editor-stage">
               <div class="oh-image-editor-preview-shell" style={{ width: '100%', maxWidth: `${previewSize.width}px` }}>
                 <canvas
                   ref={canvasRef}
@@ -436,6 +463,12 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
               </div>
             </section>
 
+            <ImageEditorPanel
+              tone="compose"
+              icon="crop"
+              title={t('imageEditor.composition', '构图')}
+              hint={t('imageEditor.compositionHint', '比例、旋转与翻转')}
+            >
             <div class="oh-image-editor-aspects">
               {ASPECTS.map((aspect) => {
                 const active = settings.aspect === aspect;
@@ -460,11 +493,17 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
             <div class="oh-image-editor-actions">
               <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('rotation', settings.rotation - 90); }}><ImageEditorIcon name="rotateLeft" />{t('imageEditor.rotateLeft', '左转')}</button>
               <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('rotation', settings.rotation + 90); }}><ImageEditorIcon name="rotateRight" />{t('imageEditor.rotateRight', '右转')}</button>
-              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('flipH', !settings.flipH); }}><ImageEditorIcon name="flipH" />{t('imageEditor.flipH', '水平翻转')}</button>
-              <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); update('flipV', !settings.flipV); }}><ImageEditorIcon name="flipV" />{t('imageEditor.flipV', '垂直翻转')}</button>
+              <button type="button" class="oh-tap-press" data-active={settings.flipH ? 'true' : 'false'} aria-pressed={settings.flipH} onClick={() => { pushUndo(); update('flipH', !settings.flipH); }}><ImageEditorIcon name="flipH" />{t('imageEditor.flipH', '水平翻转')}</button>
+              <button type="button" class="oh-tap-press" data-active={settings.flipV ? 'true' : 'false'} aria-pressed={settings.flipV} onClick={() => { pushUndo(); update('flipV', !settings.flipV); }}><ImageEditorIcon name="flipV" />{t('imageEditor.flipV', '垂直翻转')}</button>
               <button type="button" class="oh-tap-press" onClick={() => { pushUndo(); setSettings((prev) => ({ ...DEFAULT_SETTINGS, aspect: prev.aspect })); }}><ImageEditorIcon name="reset" />{t('imageEditor.reset', '重置')}</button>
             </div>
+            </ImageEditorPanel>
 
+            <ImageEditorPanel
+              tone="adjust"
+              icon="sliders"
+              title={t('imageEditor.basicAdjust', '基础调整')}
+            >
             <section class="oh-image-editor-sliders">
               <EditorSlider label={t('imageEditor.zoom', '缩放')} value={settings.zoom} min={0.6} max={3} step={0.01} onChange={(v) => update('zoom', v)} />
               <EditorSlider label={t('imageEditor.brightness', '亮度')} value={settings.brightness} min={0.5} max={1.5} step={0.01} onChange={(v) => update('brightness', v)} />
@@ -473,30 +512,51 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
               <EditorSlider label={t('imageEditor.exposure', '曝光')} value={settings.exposure} min={-1} max={1} step={0.01} onChange={(v) => update('exposure', v)} />
               <EditorSlider label={t('imageEditor.hue', '色相')} value={settings.hue} min={-180} max={180} step={1} onChange={(v) => update('hue', v)} />
               <EditorSlider label={t('imageEditor.vignette', '暗角')} value={settings.vignette} min={0} max={1} step={0.01} onChange={(v) => update('vignette', v)} />
-              <EditorSlider label={t('imageEditor.fineRotation', '微调旋转 (°)')} value={settings.rotation} min={-180} max={180} step={1} onChange={(v) => update('rotation', v)} />
+              <EditorSlider label={t('imageEditor.fineRotation', '微调旋转（度）')} value={settings.rotation} min={-180} max={180} step={1} onChange={(v) => update('rotation', v)} />
             </section>
+            </ImageEditorPanel>
 
-            <p class="oh-image-editor-advanced-hint">{t('imageEditor.advancedHint', '展开面板中的调整会在“保存”时一次性应用到原图。')}</p>
-            <details class="oh-image-editor-section">
-              <summary>{t('imageEditor.sectionColor', '色彩（色温 / 色调 / 伽马）')}</summary>
+            <p class="oh-image-editor-advanced-hint">{t('imageEditor.advancedHint', '高级调整会在保存时应用到原图。')}</p>
+            <ImageEditorPanel
+              tone="color"
+              icon="palette"
+              collapsible
+              title={t('imageEditor.sectionColor', '色彩')}
+              hint={t('imageEditor.sectionColorHint', '色温、色调、灰度曲线')}
+            >
               <EditorSlider label={t('imageEditor.temperature', '色温')} value={settings.temperature} min={-100} max={100} step={1} onChange={(v) => update('temperature', v)} />
               <EditorSlider label={t('imageEditor.tint', '色调偏移')} value={settings.tint} min={-100} max={100} step={1} onChange={(v) => update('tint', v)} />
-              <EditorSlider label={t('imageEditor.gamma', '伽马（曲线）')} value={settings.gamma} min={0.5} max={2} step={0.01} onChange={(v) => update('gamma', v)} />
-            </details>
-            <details class="oh-image-editor-section">
-              <summary>{t('imageEditor.sectionDetail', '细节（清晰度 / 锐度 / 降噪 / 颗粒）')}</summary>
+              <EditorSlider label={t('imageEditor.gamma', '灰度曲线')} value={settings.gamma} min={0.5} max={2} step={0.01} onChange={(v) => update('gamma', v)} />
+            </ImageEditorPanel>
+            <ImageEditorPanel
+              tone="detail"
+              icon="sparkle"
+              collapsible
+              title={t('imageEditor.sectionDetail', '细节')}
+              hint={t('imageEditor.sectionDetailHint', '清晰度、锐度、降噪、颗粒')}
+            >
               <EditorSlider label={t('imageEditor.clarity', '清晰度')} value={settings.clarity} min={0} max={100} step={1} onChange={(v) => update('clarity', v)} />
               <EditorSlider label={t('imageEditor.sharpness', '锐度')} value={settings.sharpness} min={0} max={100} step={1} onChange={(v) => update('sharpness', v)} />
               <EditorSlider label={t('imageEditor.denoise', '降噪')} value={settings.denoise} min={0} max={100} step={1} onChange={(v) => update('denoise', v)} />
               <EditorSlider label={t('imageEditor.grain', '颗粒')} value={settings.grain} min={0} max={100} step={1} onChange={(v) => update('grain', v)} />
-            </details>
-            <details class="oh-image-editor-section">
-              <summary>{t('imageEditor.sectionEffects', '特效（色散 / 扭曲 / 晕影）')}</summary>
+            </ImageEditorPanel>
+            <ImageEditorPanel
+              tone="effects"
+              icon="wand"
+              collapsible
+              title={t('imageEditor.sectionEffects', '特效')}
+              hint={t('imageEditor.sectionEffectsHint', '色散、扭曲、晕影')}
+            >
               <EditorSlider label={t('imageEditor.dispersion', '色散')} value={settings.dispersion} min={0} max={20} step={1} onChange={(v) => update('dispersion', v)} />
               <EditorSlider label={t('imageEditor.distort', '扭曲（正值凸出 / 负值拉伸）')} value={settings.distort} min={-100} max={100} step={1} onChange={(v) => update('distort', v)} />
-            </details>
-            <details class="oh-image-editor-section">
-              <summary>{t('imageEditor.sectionWatermark', '文字水印 / 标记')}</summary>
+            </ImageEditorPanel>
+            <ImageEditorPanel
+              tone="watermark"
+              icon="text"
+              collapsible
+              title={t('imageEditor.sectionWatermark', '文字水印')}
+              hint={t('imageEditor.sectionWatermarkHint', '叠加文字、位置与颜色')}
+            >
               <label class="oh-image-editor-text-field">
                 <span>{t('imageEditor.watermarkText', '水印文字')}</span>
                 <input value={settings.watermarkText} maxLength={120} placeholder={t('imageEditor.watermarkHint', '输入要叠加的文字（留空则不添加）')} onInput={(e) => update('watermarkText', (e.currentTarget as HTMLInputElement).value)} />
@@ -519,7 +579,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
                   </button>
                 ))}
               </div>
-            </details>
+            </ImageEditorPanel>
 
             {status ? <p class="oh-image-editor-status">{status}</p> : null}
             {error ? <p class="oh-image-editor-error">{error}</p> : null}
@@ -569,6 +629,50 @@ function EditorSlider({ label, value, min, max, step, onChange }: {
       />
       <output>{value.toFixed(step >= 1 ? 0 : 2)}</output>
     </label>
+  );
+}
+
+type ImageEditorPanelTone = 'compose' | 'adjust' | 'color' | 'detail' | 'effects' | 'watermark';
+
+function ImageEditorPanel({
+  tone,
+  icon,
+  title,
+  hint,
+  collapsible = false,
+  children,
+}: {
+  tone: ImageEditorPanelTone;
+  icon: ImageEditorIconName;
+  title: string;
+  hint?: string;
+  collapsible?: boolean;
+  children: ComponentChildren;
+}) {
+  const heading = (
+    <>
+      <span class="oh-image-editor-panel-icon" aria-hidden="true">
+        <ImageEditorIcon name={icon} size={16} />
+      </span>
+      <span class="oh-image-editor-panel-copy">
+        <strong>{title}</strong>
+        {hint ? <small>{hint}</small> : null}
+      </span>
+    </>
+  );
+  if (collapsible) {
+    return (
+      <details class={`oh-image-editor-panel is-${tone}`}>
+        <summary>{heading}</summary>
+        <div class="oh-image-editor-panel-body">{children}</div>
+      </details>
+    );
+  }
+  return (
+    <section class={`oh-image-editor-panel is-${tone}`}>
+      <header class="oh-image-editor-panel-head">{heading}</header>
+      <div class="oh-image-editor-panel-body">{children}</div>
+    </section>
   );
 }
 
