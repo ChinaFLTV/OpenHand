@@ -2736,7 +2736,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      'Drag the crop box to frame the image. You can zoom, rotate, and flip, then use the panels below for split toning, clarity, grain, denoise, dispersion, distortion, and watermarks. Advanced adjustments apply on save.';
+      'Drag the crop box to frame the image, then zoom, rotate, or flip. Color, detail, effects, and watermarks preview live and save with the image.';
 
   @override
   String get imageEditorCompositionTitle => 'Composition';
@@ -2894,7 +2894,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageEditorAdvancedApplyHint =>
-      'Adjustments in expanded panels are applied to the original image when you save.';
+      'All adjustments are previewed live and applied to the output image when saved.';
 
   @override
   String get skillsEditorSave => 'Save';

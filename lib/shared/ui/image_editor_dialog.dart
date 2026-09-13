@@ -19,6 +19,7 @@ import '../db/atomic_file_operations.dart';
 import '../util/bounded_xfile_io.dart';
 import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
+import '../util/timer_safety.dart';
 import '../util/user_failure_message.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
@@ -150,6 +151,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   static const double _previewOverlayInset = 12;
   static const double _previewStageInset = 10;
   static const double _compareChipMinHeight = 40;
+  static const int _livePreviewMaxLongSide = 720;
+  static const Duration _livePreviewDebounce = Duration(milliseconds: 90);
   static const EdgeInsets _compareChipPadding = EdgeInsets.fromLTRB(
     14,
     9,
@@ -178,6 +181,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   double _exposure = 0.0;
   double _hue = 0.0;
   double _vignette = 0.0;
+  double _zoom = 1.0;
   double _rotation = 0.0;
   bool _flipHorizontal = false;
   bool _flipVertical = false;
@@ -211,12 +215,21 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   bool _previewCompareScheduled = false;
   int? _compareHoldPointer;
   bool _hasBakedChanges = false;
+  bool _hasTransparentOutput = false;
   String? _errorMessage;
   String? _statusMessage;
 
-  /// 撤销栈保存预览字节和尺寸快照。
-  final List<(Uint8List, int, int)> _undoStack = [];
+  /// 撤销栈保存预览字节、尺寸和透明输出状态。
+  final List<(Uint8List, int, int, bool)> _undoStack = [];
   static const int _maxUndoDepth = 20;
+
+  final OpenHandDebouncer _livePreviewDebouncer = OpenHandDebouncer(
+    delay: _livePreviewDebounce,
+    onError: (error, stack) => silentLog('图片编辑器', '刷新实时预览', error, stack),
+  );
+  int? _scheduledLivePreviewSignature;
+  int? _renderedLivePreviewSignature;
+  Uint8List? _livePreviewBytes;
 
   Offset? _moveDragStartGlobalPosition;
   Rect? _moveDragStartRect;
@@ -246,6 +259,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   @override
   void dispose() {
+    _livePreviewDebouncer.dispose();
+    _scheduledLivePreviewSignature = null;
     _unbindCompareHoldPointer();
     _watermarkController.dispose();
     _actionPulse.dispose();
@@ -506,6 +521,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _EditorSlider(
+          label: l10n.imageEditorZoomLabel,
+          value: _zoom,
+          min: 0.6,
+          max: 3.0,
+          accent: accent,
+          onChanged: _canEdit ? (value) => setState(() => _zoom = value) : null,
+        ),
         _EditorSlider(
           label: l10n.imageEditorBrightnessLabel,
           value: _brightness,
@@ -1042,6 +1065,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               previewImageHeight,
             );
             final cropRect = _resolvedCropRect(imageRect);
+            if (!showOriginal) {
+              _scheduleLivePreview(cropRect);
+            }
+            final livePreviewBytes = _livePreviewBytes;
 
             previewBody = Stack(
               children: [
@@ -1054,8 +1081,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                           transform: Matrix4.identity()
                             ..rotateZ(_rotation * math.pi / 180.0)
                             ..scaleByDouble(
-                              _flipHorizontal ? -1.0 : 1.0,
-                              _flipVertical ? -1.0 : 1.0,
+                              (_flipHorizontal ? -1.0 : 1.0) * _zoom,
+                              (_flipVertical ? -1.0 : 1.0) * _zoom,
                               1.0,
                               1.0,
                             ),
@@ -1067,6 +1094,19 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                           ),
                         ),
                 ),
+                if (!showOriginal && livePreviewBytes != null)
+                  Positioned.fromRect(
+                    rect: cropRect,
+                    child: IgnorePointer(
+                      child: _aspect == _CropAspect.circle
+                          ? ClipOval(
+                              child: _buildLivePreviewImage(livePreviewBytes),
+                            )
+                          : ClipRect(
+                              child: _buildLivePreviewImage(livePreviewBytes),
+                            ),
+                    ),
+                  ),
                 if (!showOriginal) ...[
                   Positioned.fill(
                     child: IgnorePointer(
@@ -1218,6 +1258,149 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         },
       ),
     );
+  }
+
+  Widget _buildLivePreviewImage(Uint8List bytes) {
+    return AnimatedSwitcher(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
+      child: Image.memory(
+        bytes,
+        key: ValueKey<int?>(_renderedLivePreviewSignature),
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.fill,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.high,
+      ),
+    );
+  }
+
+  void _scheduleLivePreview(Rect cropRect) {
+    final sourceBytes = _previewBytes;
+    if (sourceBytes == null || cropRect.width <= 0 || cropRect.height <= 0) {
+      return;
+    }
+    final watermarkText = _watermarkController.text.trim();
+    final signature = Object.hashAll(<Object?>[
+      identityHashCode(sourceBytes),
+      _imageWidth,
+      _imageHeight,
+      _previewSize.width,
+      _previewSize.height,
+      cropRect.left,
+      cropRect.top,
+      cropRect.width,
+      cropRect.height,
+      _zoom,
+      _rotation,
+      _flipHorizontal,
+      _flipVertical,
+      _brightness,
+      _contrast,
+      _saturation,
+      _exposure,
+      _hue,
+      _gamma,
+      _temperature,
+      _tint,
+      _shadowHue,
+      _shadowStrength,
+      _highlightHue,
+      _highlightStrength,
+      _clarity,
+      _sharpness,
+      _denoise,
+      _grain,
+      _dispersion,
+      _distort,
+      _vignette,
+      watermarkText,
+      _watermarkSize,
+      _watermarkOpacity,
+      _watermarkPosition,
+      _currentWatermarkColor.toARGB32(),
+      _aspect,
+      _hasTransparentOutput,
+    ]);
+    if (_scheduledLivePreviewSignature == signature) return;
+
+    _scheduledLivePreviewSignature = signature;
+    final request = _LivePreviewRequest(
+      signature: signature,
+      params: _buildRenderParams(
+        imageBytes: sourceBytes,
+        watermarkText: watermarkText,
+        forcePng: true,
+        resolvedCropRect: cropRect,
+        maxOutputLongSide: _livePreviewMaxLongSide,
+      ),
+      watermarkText: watermarkText,
+      watermarkSize: _watermarkSize,
+      watermarkOpacity: _watermarkOpacity,
+      watermarkPosition: _watermarkPosition,
+      watermarkColor: _currentWatermarkColor,
+      watermarkTextDirection:
+          Directionality.maybeOf(context) ?? TextDirection.ltr,
+      clipCircle: _aspect == _CropAspect.circle,
+    );
+    _livePreviewDebouncer.schedule(() => _renderLivePreview(request));
+  }
+
+  Future<void> _renderLivePreview(_LivePreviewRequest request) async {
+    try {
+      final result = await _runRenderInIsolate(request.params);
+      if (result == null) return;
+      final composedBytes = await _composeWatermarkIfNeeded(
+        sourceBytes: result.$1,
+        watermarkText: request.watermarkText,
+        watermarkSize: _scaledWatermarkSize(
+          request.watermarkSize,
+          outputWidth: result.$2,
+          outputHeight: result.$3,
+          params: request.params,
+        ),
+        watermarkOpacity: request.watermarkOpacity,
+        watermarkPosition: request.watermarkPosition,
+        watermarkColor: request.watermarkColor,
+        watermarkTextDirection: request.watermarkTextDirection,
+        outputPng: true,
+        clipCircle: request.clipCircle,
+        imageSizeLimitBytes: null,
+      );
+      if (!mounted ||
+          composedBytes == null ||
+          _scheduledLivePreviewSignature != request.signature) {
+        return;
+      }
+      setState(() {
+        _livePreviewBytes = composedBytes;
+        _renderedLivePreviewSignature = request.signature;
+      });
+    } catch (error, stack) {
+      silentLog('图片编辑器', '刷新实时预览', error, stack);
+    }
+  }
+
+  double _scaledWatermarkSize(
+    double logicalSize, {
+    required int outputWidth,
+    required int outputHeight,
+    required _IsolateRenderParams params,
+  }) {
+    final scale = math.min(
+      outputWidth / math.max(1.0, params.cropWidth),
+      outputHeight / math.max(1.0, params.cropHeight),
+    );
+    return logicalSize * scale;
+  }
+
+  void _invalidateLivePreview() {
+    _livePreviewDebouncer.cancel();
+    _scheduledLivePreviewSignature = null;
+    _renderedLivePreviewSignature = null;
+    _livePreviewBytes = null;
   }
 
   bool get _canEdit =>
@@ -1402,6 +1585,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         return;
       }
       if (!mounted) return;
+      _invalidateLivePreview();
       setState(() {
         _previewBytes = prepared.$1;
         _originalPreviewBytes = Uint8List.fromList(prepared.$1);
@@ -1411,6 +1595,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _originalImageHeight = prepared.$3;
         _undoStack.clear();
         _hasBakedChanges = false;
+        _hasTransparentOutput = false;
         _showOriginalPreview = false;
         _resetAdjustmentControls(clearMessages: false);
       });
@@ -1454,6 +1639,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         );
         return;
       }
+      _invalidateLivePreview();
       setState(() {
         _previewBytes = result.$1;
         _imageWidth = result.$2;
@@ -1491,6 +1677,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   void _handleResetAll() {
     final original = _originalPreviewBytes;
     if (original == null) return;
+    _invalidateLivePreview();
     setState(() {
       _previewBytes = Uint8List.fromList(original);
       _imageWidth = _originalImageWidth;
@@ -1498,6 +1685,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       _undoStack.clear();
       _showOriginalPreview = false;
       _hasBakedChanges = false;
+      _hasTransparentOutput = false;
       _resetAdjustmentControls();
     });
     _firePulse();
@@ -1510,6 +1698,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     _exposure = 0;
     _hue = 0;
     _vignette = 0;
+    _zoom = 1;
     _rotation = 0;
     _flipHorizontal = false;
     _flipVertical = false;
@@ -1600,6 +1789,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       _exposure != 0 ||
       _hue != 0 ||
       _vignette != 0 ||
+      _zoom != 1 ||
       _rotation.abs() > 0.01 ||
       _flipHorizontal ||
       _flipVertical ||
@@ -1620,21 +1810,29 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     required Uint8List imageBytes,
     required String watermarkText,
     required bool forcePng,
+    Rect? resolvedCropRect,
     int? maxOutputLongSide,
     int? imageSizeLimitBytes,
   }) {
     final previewSize = _previewSize == Size.zero
         ? const Size(_previewMaxWidth, _previewMaxHeight)
         : _previewSize;
+    final imageRect = _computeImageRectFor(
+      previewSize,
+      _imageWidth,
+      _imageHeight,
+    );
+    final cropRect = resolvedCropRect ?? _resolvedCropRect(imageRect);
     return _IsolateRenderParams(
       imageBytes: imageBytes,
       previewWidth: previewSize.width,
       previewHeight: previewSize.height,
-      hasCropRect: _cropRect != null,
-      cropLeft: _cropRect?.left ?? 0,
-      cropTop: _cropRect?.top ?? 0,
-      cropWidth: _cropRect?.width ?? 0,
-      cropHeight: _cropRect?.height ?? 0,
+      hasCropRect: true,
+      cropLeft: cropRect.left,
+      cropTop: cropRect.top,
+      cropWidth: cropRect.width,
+      cropHeight: cropRect.height,
+      zoom: _zoom,
       rotation: _rotation,
       flipHorizontal: _flipHorizontal,
       flipVertical: _flipVertical,
@@ -1680,6 +1878,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final watermarkColor = _currentWatermarkColor;
     final watermarkTextDirection =
         Directionality.maybeOf(context) ?? TextDirection.ltr;
+    final clipCircle = _aspect == _CropAspect.circle;
+    final transparentOutput = _hasTransparentOutput || clipCircle;
 
     setState(() => _isProcessing = true);
     _showProcessingOverlay();
@@ -1703,12 +1903,18 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       final composedBytes = await _composeWatermarkIfNeeded(
         sourceBytes: result.$1,
         watermarkText: watermarkText,
-        watermarkSize: watermarkSize,
+        watermarkSize: _scaledWatermarkSize(
+          watermarkSize,
+          outputWidth: result.$2,
+          outputHeight: result.$3,
+          params: params,
+        ),
         watermarkOpacity: watermarkOpacity,
         watermarkPosition: watermarkPosition,
         watermarkColor: watermarkColor,
         watermarkTextDirection: watermarkTextDirection,
         outputPng: true,
+        clipCircle: clipCircle,
         imageSizeLimitBytes: null,
       );
       if (composedBytes == null) {
@@ -1724,12 +1930,19 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       if (_undoStack.length >= _maxUndoDepth) {
         _undoStack.removeAt(0);
       }
-      _undoStack.add((previewBytes, _imageWidth, _imageHeight));
+      _undoStack.add((
+        previewBytes,
+        _imageWidth,
+        _imageHeight,
+        _hasTransparentOutput,
+      ));
 
+      _invalidateLivePreview();
       setState(() {
         _previewBytes = composedBytes;
         _imageWidth = result.$2;
         _imageHeight = result.$3;
+        _hasTransparentOutput = transparentOutput;
         _showOriginalPreview = false;
         _resetAdjustmentControls(clearMessages: false);
         _syncBakedState();
@@ -1751,11 +1964,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   void _handleUndo() {
     if (_undoStack.isEmpty) return;
-    final (prevBytes, prevWidth, prevHeight) = _undoStack.removeLast();
+    final (prevBytes, prevWidth, prevHeight, prevTransparentOutput) = _undoStack
+        .removeLast();
+    _invalidateLivePreview();
     setState(() {
       _previewBytes = prevBytes;
       _imageWidth = prevWidth;
       _imageHeight = prevHeight;
+      _hasTransparentOutput = prevTransparentOutput;
       _showOriginalPreview = false;
       _resetAdjustmentControls(clearMessages: false);
       _syncBakedState();
@@ -2031,6 +2247,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     required Color watermarkColor,
     required TextDirection watermarkTextDirection,
     required bool outputPng,
+    required bool clipCircle,
     required int? imageSizeLimitBytes,
   }) async {
     if (watermarkText.isEmpty) return sourceBytes;
@@ -2045,12 +2262,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
-      canvas.drawImage(baseImage, Offset.zero, Paint());
-
       final imageSize = Size(
         baseImage.width.toDouble(),
         baseImage.height.toDouble(),
       );
+      if (clipCircle) {
+        canvas.clipPath(Path()..addOval(Offset.zero & imageSize));
+      }
+      canvas.drawImage(baseImage, Offset.zero, Paint());
       final margin = math.max(
         12.0,
         math.min(imageSize.width, imageSize.height) * 0.02,
@@ -2186,7 +2405,11 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     while (encoded.length > limit &&
         working.width > 320 &&
         working.height > 320) {
-      working = img.copyResize(working, width: (working.width * 0.8).round());
+      working = img.copyResize(
+        working,
+        width: (working.width * 0.8).round(),
+        interpolation: img.Interpolation.average,
+      );
       encoded = Uint8List.fromList(img.encodeJpg(working, quality: 82));
     }
     return encoded;
@@ -2298,25 +2521,20 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   }
 
   Future<void> _handleConfirmSave() async {
-    final outputBytes = await _renderOutput();
-    if (outputBytes == null || !mounted) {
+    final result = await _renderOutput();
+    if (result == null || !mounted) {
       return;
     }
-    Navigator.of(context).pop(
-      ImageEditorResult(
-        bytes: outputBytes,
-        format: _aspect == _CropAspect.circle ? 'png' : 'jpg',
-      ),
-    );
+    Navigator.of(context).pop(result);
   }
 
   Future<void> _handleSaveToFile() async {
     final l10n = AppLocalizations.of(context)!;
-    final outputBytes = await _renderOutput();
-    if (outputBytes == null || !mounted) {
+    final result = await _renderOutput();
+    if (result == null || !mounted) {
       return;
     }
-    final isPng = _aspect == _CropAspect.circle;
+    final isPng = result.format == 'png';
     try {
       final location = await getSaveLocation(
         suggestedName:
@@ -2331,7 +2549,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       if (location == null) {
         return;
       }
-      await writeBytesFileAtomically(File(location.path), outputBytes);
+      await writeBytesFileAtomically(File(location.path), result.bytes);
       if (!mounted) {
         return;
       }
@@ -2357,12 +2575,12 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   Future<void> _handleCopyToClipboard() async {
     final l10n = AppLocalizations.of(context)!;
-    final outputBytes = await _renderOutput();
-    if (outputBytes == null || !mounted) {
+    final result = await _renderOutput();
+    if (result == null || !mounted) {
       return;
     }
     try {
-      await setOpenHandClipboardImage(outputBytes);
+      await setOpenHandClipboardImage(result.bytes);
       if (!mounted) {
         return;
       }
@@ -2386,7 +2604,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   }
 
   /// 生成最终图片，失败时返回 `null` 并更新错误状态。
-  Future<Uint8List?> _renderOutput() async {
+  Future<ImageEditorResult?> _renderOutput() async {
     final l10n = AppLocalizations.of(context)!;
     final previewBytes = _previewBytes;
     if (previewBytes == null) {
@@ -2405,6 +2623,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final watermarkTextDirection =
         Directionality.maybeOf(context) ?? TextDirection.ltr;
     final hasWatermark = watermarkText.isNotEmpty;
+    final outputPng = _hasTransparentOutput || _aspect == _CropAspect.circle;
 
     setState(() {
       _isSaving = true;
@@ -2417,7 +2636,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       final params = _buildRenderParams(
         imageBytes: previewBytes,
         watermarkText: watermarkText,
-        forcePng: false,
+        forcePng: outputPng,
         maxOutputLongSide: _imageEditorMaxOutputLongSide,
         imageSizeLimitBytes: hasWatermark ? null : widget.imageSizeLimitBytes,
       );
@@ -2435,12 +2654,18 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       final composedBytes = await _composeWatermarkIfNeeded(
         sourceBytes: result.$1,
         watermarkText: watermarkText,
-        watermarkSize: watermarkSize,
+        watermarkSize: _scaledWatermarkSize(
+          watermarkSize,
+          outputWidth: result.$2,
+          outputHeight: result.$3,
+          params: params,
+        ),
         watermarkOpacity: watermarkOpacity,
         watermarkPosition: watermarkPosition,
         watermarkColor: watermarkColor,
         watermarkTextDirection: watermarkTextDirection,
-        outputPng: _aspect == _CropAspect.circle,
+        outputPng: outputPng,
+        clipCircle: _aspect == _CropAspect.circle,
         imageSizeLimitBytes: widget.imageSizeLimitBytes,
       );
       if (composedBytes == null) {
@@ -2453,7 +2678,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         return null;
       }
 
-      return composedBytes;
+      return ImageEditorResult(
+        bytes: composedBytes,
+        format: outputPng ? 'png' : 'jpg',
+      );
     } catch (error, stack) {
       silentLog('image_editor', '渲染输出', error, stack);
       if (!mounted) return null;
@@ -2682,8 +2910,16 @@ class _CropOverlayPainter extends CustomPainter {
   final longSide = math.max(prepared.width, prepared.height);
   if (longSide > _imageEditorMaxOutputLongSide) {
     prepared = prepared.width >= prepared.height
-        ? img.copyResize(prepared, width: _imageEditorMaxOutputLongSide)
-        : img.copyResize(prepared, height: _imageEditorMaxOutputLongSide);
+        ? img.copyResize(
+            prepared,
+            width: _imageEditorMaxOutputLongSide,
+            interpolation: img.Interpolation.average,
+          )
+        : img.copyResize(
+            prepared,
+            height: _imageEditorMaxOutputLongSide,
+            interpolation: img.Interpolation.average,
+          );
   }
   return (
     Uint8List.fromList(img.encodePng(prepared)),
@@ -2744,6 +2980,30 @@ Future<(Uint8List, int, int)?> _runRenderInIsolate(
   return params == null ? null : _renderInIsolate(params);
 }
 
+class _LivePreviewRequest {
+  const _LivePreviewRequest({
+    required this.signature,
+    required this.params,
+    required this.watermarkText,
+    required this.watermarkSize,
+    required this.watermarkOpacity,
+    required this.watermarkPosition,
+    required this.watermarkColor,
+    required this.watermarkTextDirection,
+    required this.clipCircle,
+  });
+
+  final int signature;
+  final _IsolateRenderParams params;
+  final String watermarkText;
+  final double watermarkSize;
+  final double watermarkOpacity;
+  final _WatermarkPosition watermarkPosition;
+  final Color watermarkColor;
+  final TextDirection watermarkTextDirection;
+  final bool clipCircle;
+}
+
 /// 后台渲染参数，仅包含可跨 Isolate 传递的数据。
 class _IsolateRenderParams {
   _IsolateRenderParams({
@@ -2755,6 +3015,7 @@ class _IsolateRenderParams {
     required this.cropTop,
     required this.cropWidth,
     required this.cropHeight,
+    required this.zoom,
     required this.rotation,
     required this.flipHorizontal,
     required this.flipVertical,
@@ -2796,6 +3057,7 @@ class _IsolateRenderParams {
   final double cropTop;
   final double cropWidth;
   final double cropHeight;
+  final double zoom;
   final double rotation;
   final bool flipHorizontal;
   final bool flipVertical;
@@ -2838,6 +3100,7 @@ class _IsolateRenderParams {
       'cropTop': cropTop,
       'cropWidth': cropWidth,
       'cropHeight': cropHeight,
+      'zoom': zoom,
       'rotation': rotation,
       'flipHorizontal': flipHorizontal,
       'flipVertical': flipVertical,
@@ -2895,6 +3158,7 @@ class _IsolateRenderParams {
       cropTop: _doubleFromMessage(message['cropTop']),
       cropWidth: cropWidth,
       cropHeight: cropHeight,
+      zoom: _doubleFromMessage(message['zoom'], fallback: 1),
       rotation: _doubleFromMessage(message['rotation']),
       flipHorizontal: optionalBoolFromValue(message['flipHorizontal']) ?? false,
       flipVertical: optionalBoolFromValue(message['flipVertical']) ?? false,
@@ -2958,53 +3222,72 @@ class _IsolateRenderParams {
 
   final previewSize = Size(p.previewWidth, p.previewHeight);
 
-  // 1. 将预览坐标转换为源图裁剪坐标。
+  // 1. 将预览裁剪框映射到源图像素密度。
   final imageRect = _computeImageRectStatic(previewSize, orientedImage);
-  final cropRect = p.hasCropRect
+  final requestedCropRect = p.hasCropRect
       ? Rect.fromLTWH(p.cropLeft, p.cropTop, p.cropWidth, p.cropHeight)
       : imageRect;
+  final cropRect = requestedCropRect.intersect(imageRect);
+  if (cropRect.width <= 0 || cropRect.height <= 0) return null;
+  final previewScale =
+      imageRect.width / orientedImage.width * p.zoom.clamp(0.01, 10.0);
+  if (!previewScale.isFinite || previewScale <= 0) return null;
+  final cropWidth = math.max(1, (cropRect.width / previewScale).round());
+  final cropHeight = math.max(1, (cropRect.height / previewScale).round());
 
-  final scaleX = orientedImage.width / imageRect.width;
-  final scaleY = orientedImage.height / imageRect.height;
-  final cropX = ((cropRect.left - imageRect.left) * scaleX).round().clamp(
-    0,
-    orientedImage.width - 1,
-  );
-  final cropY = ((cropRect.top - imageRect.top) * scaleY).round().clamp(
-    0,
-    orientedImage.height - 1,
-  );
-  final cropW = (cropRect.width * scaleX).round().clamp(
-    1,
-    orientedImage.width - cropX,
-  );
-  final cropH = (cropRect.height * scaleY).round().clamp(
-    1,
-    orientedImage.height - cropY,
-  );
-
-  // 2. 依次应用旋转、翻转和裁剪。
+  // 2. 按预览矩阵的顺序先翻转后旋转，再以旋转后中心精确裁剪。
   img.Image working = orientedImage;
-  if (p.rotation.abs() > 0.01) {
-    working = img.copyRotate(working, angle: p.rotation);
-  }
   if (p.flipHorizontal) {
     working = img.flipHorizontal(working);
   }
   if (p.flipVertical) {
     working = img.flipVertical(working);
   }
+  if (p.rotation.abs() > 0.01) {
+    working = img.copyRotate(
+      working,
+      angle: p.rotation,
+      interpolation: img.Interpolation.linear,
+    );
+  }
+  final cropCenterX =
+      working.width / 2 +
+      (cropRect.center.dx - imageRect.center.dx) / previewScale;
+  final cropCenterY =
+      working.height / 2 +
+      (cropRect.center.dy - imageRect.center.dy) / previewScale;
+  working = _copyCropWithPadding(
+    working,
+    x: (cropCenterX - cropWidth / 2).round(),
+    y: (cropCenterY - cropHeight / 2).round(),
+    width: cropWidth,
+    height: cropHeight,
+  );
 
-  // 基于变换后的工作图像重新约束裁剪区域。
-  final sx = working.width / orientedImage.width;
-  final sy = working.height / orientedImage.height;
-  final cx = (cropX * sx).round().clamp(0, working.width - 1);
-  final cy = (cropY * sy).round().clamp(0, working.height - 1);
-  final cw = (cropW * sx).round().clamp(1, working.width - cx);
-  final ch = (cropH * sy).round().clamp(1, working.height - cy);
-  working = img.copyCrop(working, x: cx, y: cy, width: cw, height: ch);
+  // 3. 先缩放到目标尺寸，避免实时预览在大图上做无效计算。
+  final maxSide = p.maxOutputLongSide;
+  if (maxSide != null) {
+    final longSide = math.max(working.width, working.height);
+    if (longSide > maxSide) {
+      working = working.width >= working.height
+          ? img.copyResize(
+              working,
+              width: maxSide,
+              interpolation: img.Interpolation.average,
+            )
+          : img.copyResize(
+              working,
+              height: maxSide,
+              interpolation: img.Interpolation.average,
+            );
+    }
+  }
+  final effectScale = math.min(
+    working.width / math.max(1.0, cropRect.width),
+    working.height / math.max(1.0, cropRect.height),
+  );
 
-  // 3. 调整颜色。
+  // 4. 调整颜色。
   working = img.adjustColor(
     working,
     brightness: p.brightness,
@@ -3021,7 +3304,7 @@ class _IsolateRenderParams {
         : null,
   );
 
-  // 3.1 通过通道偏移调整色温和色调。
+  // 4.1 通过通道偏移调整色温和色调。
   if (p.temperature.abs() > 0.5 || p.tint.abs() > 0.5) {
     working = img.colorOffset(
       working,
@@ -3031,9 +3314,9 @@ class _IsolateRenderParams {
     );
   }
 
-  // 3.2 依次应用降噪、清晰度、锐化、颗粒、色散、畸变和暗角。
+  // 4.2 效果强度按预览像素密度缩放，保持屏幕与输出观感一致。
   if (p.denoise > 0) {
-    final radius = (p.denoise / 100 * 3).round().clamp(1, 4);
+    final radius = (p.denoise / 100 * 3 * effectScale).round().clamp(1, 16);
     working = img.gaussianBlur(working, radius: radius);
   }
   if (p.clarity > 0) {
@@ -3084,12 +3367,16 @@ class _IsolateRenderParams {
   }
   if (p.grain > 0) {
     // 将 0～100 的颗粒强度映射到 0～25 的像素噪声标准差。
-    working = img.noise(working, p.grain / 100 * 25);
+    working = img.noise(
+      working,
+      p.grain / 100 * 25,
+      random: math.Random(0x4f50484e),
+    );
   }
   if (p.dispersion > 0.5) {
     working = img.chromaticAberration(
       working,
-      shift: p.dispersion.round().clamp(1, 20),
+      shift: (p.dispersion * effectScale).round().clamp(1, 80),
     );
   }
   if (p.distort.abs() > 1) {
@@ -3106,24 +3393,11 @@ class _IsolateRenderParams {
     working = img.vignette(working, amount: p.vignette);
   }
 
-  // 3.3 水印由 UI Isolate 合成，确保 Unicode 文本正常渲染。
+  // 4.3 水印由 UI Isolate 合成，确保 Unicode 文本正常渲染。
 
-  // 4. 按需应用圆形蒙版。
+  // 5. 按需应用圆形蒙版。
   if (p.isCircle) {
     working = _applyCircularMaskStatic(working);
-  }
-
-  // 5. 限制最长边。
-  final maxSide = p.maxOutputLongSide;
-  if (maxSide != null) {
-    final longSide = math.max(working.width, working.height);
-    if (longSide > maxSide) {
-      if (working.width >= working.height) {
-        working = img.copyResize(working, width: maxSide);
-      } else {
-        working = img.copyResize(working, height: maxSide);
-      }
-    }
   }
 
   // 6. 编码并按需压缩到大小限制内。
@@ -3143,12 +3417,47 @@ class _IsolateRenderParams {
       while (outputBytes.length > limit &&
           working.width > 320 &&
           working.height > 320) {
-        working = img.copyResize(working, width: (working.width * 0.8).round());
+        working = img.copyResize(
+          working,
+          width: (working.width * 0.8).round(),
+          interpolation: img.Interpolation.average,
+        );
         outputBytes = Uint8List.fromList(img.encodeJpg(working, quality: 82));
       }
     }
   }
   return (outputBytes, working.width, working.height);
+}
+
+img.Image _copyCropWithPadding(
+  img.Image source, {
+  required int x,
+  required int y,
+  required int width,
+  required int height,
+}) {
+  final output = img.Image(width: width, height: height, numChannels: 4);
+  img.fill(output, color: img.ColorRgba8(255, 255, 255, 255));
+  final sourceX = math.max(0, x);
+  final sourceY = math.max(0, y);
+  final destinationX = math.max(0, -x);
+  final destinationY = math.max(0, -y);
+  final copyWidth = math.min(source.width - sourceX, width - destinationX);
+  final copyHeight = math.min(source.height - sourceY, height - destinationY);
+  if (copyWidth <= 0 || copyHeight <= 0) return output;
+  return img.compositeImage(
+    output,
+    source,
+    dstX: destinationX,
+    dstY: destinationY,
+    dstW: copyWidth,
+    dstH: copyHeight,
+    srcX: sourceX,
+    srcY: sourceY,
+    srcW: copyWidth,
+    srcH: copyHeight,
+    blend: img.BlendMode.direct,
+  );
 }
 
 Rect _computeImageRectStatic(Size previewSize, img.Image image) {

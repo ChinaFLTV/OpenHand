@@ -2655,7 +2655,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      '拖动方框调整裁剪区域，可继续缩放、旋转、翻转。展开下方分组可调整色调分离、清晰度、颗粒、降噪、色散、扭曲与水印（高级调整在保存时应用）。';
+      '拖动方框调整裁剪区域，可继续缩放、旋转、翻转；色彩、细节、特效与水印会实时预览并随图片保存。';
 
   @override
   String get imageEditorCompositionTitle => '构图';
@@ -2805,7 +2805,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorWatermarkPositionBottomRight => '右下';
 
   @override
-  String get imageEditorAdvancedApplyHint => '展开面板中的调整会在“保存”时一次性应用到原图。';
+  String get imageEditorAdvancedApplyHint => '所有调整都会实时预览，并在保存时应用到输出图片。';
 
   @override
   String get skillsEditorSave => '保存';
@@ -13329,7 +13329,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get imageEditorCropHint =>
-      '拖動方框調整裁剪區域，可繼續縮放、旋轉、翻轉。展開下方分組可調整色調分離、清晰度、顆粒、降噪、色散、扭曲與浮水印（進階調整在儲存時套用）。';
+      '拖動方框調整裁剪區域，可繼續縮放、旋轉、翻轉；色彩、細節、特效與浮水印會即時預覽並隨圖片儲存。';
 
   @override
   String get imageEditorCompositionTitle => '構圖';
@@ -13479,7 +13479,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get imageEditorWatermarkPositionBottomRight => '右下';
 
   @override
-  String get imageEditorAdvancedApplyHint => '展開面板中的調整會在“儲存”時一次性套用到原圖。';
+  String get imageEditorAdvancedApplyHint => '所有調整都會即時預覽，並在儲存時套用到輸出圖片。';
 
   @override
   String get skillsEditorSave => '儲存';

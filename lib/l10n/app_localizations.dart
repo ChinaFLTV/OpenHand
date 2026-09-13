@@ -4887,7 +4887,7 @@ abstract class AppLocalizations {
   /// No description provided for @imageEditorCropHint.
   ///
   /// In zh, this message translates to:
-  /// **'拖动方框调整裁剪区域，可继续缩放、旋转、翻转。展开下方分组可调整色调分离、清晰度、颗粒、降噪、色散、扭曲与水印（高级调整在保存时应用）。'**
+  /// **'拖动方框调整裁剪区域，可继续缩放、旋转、翻转；色彩、细节、特效与水印会实时预览并随图片保存。'**
   String get imageEditorCropHint;
 
   /// No description provided for @imageEditorCompositionTitle.
@@ -5187,7 +5187,7 @@ abstract class AppLocalizations {
   /// No description provided for @imageEditorAdvancedApplyHint.
   ///
   /// In zh, this message translates to:
-  /// **'展开面板中的调整会在“保存”时一次性应用到原图。'**
+  /// **'所有调整都会实时预览，并在保存时应用到输出图片。'**
   String get imageEditorAdvancedApplyHint;
 
   /// No description provided for @skillsEditorSave.

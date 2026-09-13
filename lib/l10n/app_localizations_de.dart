@@ -2757,7 +2757,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      'Ziehen Sie den Rahmen, um den Zuschnitt anzupassen. Sie können zoomen, drehen und spiegeln. Darunter finden Sie Teiltonung, Klarheit, Körnung, Rauschunterdrückung, Streuung, Verzerrung und Wasserzeichen. Erweiterte Anpassungen werden beim Speichern angewendet.';
+      'Ziehen Sie den Rahmen zum Zuschneiden und zoomen, drehen oder spiegeln Sie weiter. Farbe, Details, Effekte und Wasserzeichen werden live angezeigt und mit dem Bild gespeichert.';
 
   @override
   String get imageEditorCompositionTitle => 'Komposition';
@@ -2916,7 +2916,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get imageEditorAdvancedApplyHint =>
-      'Anpassungen in den erweiterten Bereichen werden beim Speichern auf das Originalbild angewendet.';
+      'Alle Anpassungen werden live angezeigt und beim Speichern auf das Ausgabebild angewendet.';
 
   @override
   String get skillsEditorSave => 'Speichern';

@@ -2766,7 +2766,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      'Faites glisser le cadre pour recadrer. Vous pouvez zoomer, pivoter et retourner, puis utiliser les panneaux ci-dessous pour la tonalité fractionnée, la clarté, le grain, la réduction du bruit, la dispersion, la distorsion et le filigrane. Les réglages avancés s’appliquent à l’enregistrement.';
+      'Faites glisser le cadre pour recadrer, puis zoomez, pivotez ou retournez l’image. Couleurs, détails, effets et filigranes sont prévisualisés en direct et enregistrés avec l’image.';
 
   @override
   String get imageEditorCompositionTitle => 'Composition';
@@ -2927,7 +2927,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get imageEditorAdvancedApplyHint =>
-      'Les réglages des panneaux étendus sont appliqués à l’image d’origine lors de l’enregistrement.';
+      'Tous les réglages sont prévisualisés en direct puis appliqués à l’image exportée lors de l’enregistrement.';
 
   @override
   String get skillsEditorSave => 'Enregistrer';

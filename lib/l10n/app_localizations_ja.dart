@@ -2688,7 +2688,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageEditorCropHint =>
-      '枠をドラッグして切り抜き範囲を調整できます。拡大縮小・回転・反転のほか、分割トーン、明瞭度、粒子、ノイズ除去、色収差、歪み、透かしも下のパネルから調整できます。詳細調整は保存時に適用されます。';
+      '枠をドラッグしてトリミングし、拡大縮小・回転・反転を調整できます。色、ディテール、エフェクト、透かしはリアルタイムでプレビューされ、画像と一緒に保存されます。';
 
   @override
   String get imageEditorCompositionTitle => '構図';
@@ -2838,7 +2838,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorWatermarkPositionBottomRight => '右下';
 
   @override
-  String get imageEditorAdvancedApplyHint => '展開パネル内の調整は、保存時に元の画像へ適用されます。';
+  String get imageEditorAdvancedApplyHint =>
+      'すべての調整はリアルタイムでプレビューされ、保存時に出力画像へ適用されます。';
 
   @override
   String get skillsEditorSave => '保存';

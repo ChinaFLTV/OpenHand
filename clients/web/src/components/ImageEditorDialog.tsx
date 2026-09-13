@@ -237,6 +237,11 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
 
   useEffect(() => {
     let cancelled = false;
+    setSettings(DEFAULT_SETTINGS);
+    setUndoStack([]);
+    setShowOriginal(false);
+    setStatus(null);
+    setError(null);
     const image = new Image();
     image.decoding = 'async';
     image.onload = () => {
@@ -264,7 +269,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
       renderToCanvas(canvas, image, showOriginal ? { ...DEFAULT_SETTINGS, aspect: settings.aspect } : settings, {
         width: previewSize.width,
         height: previewSize.height,
-        preview: true,
+        logicalWidth: previewSize.width,
       });
     });
     return () => cancelAnimationFrame(frame);
@@ -292,10 +297,15 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     const out = outputSize(
       outputRatio,
       naturalSize,
+      settings.zoom,
       IMAGE_EDITOR_OUTPUT_MAX_LONG_SIDE,
     );
     const canvas = document.createElement('canvas');
-    renderToCanvas(canvas, image, settings, { width: out.width, height: out.height, preview: false });
+    renderToCanvas(canvas, image, settings, {
+      width: out.width,
+      height: out.height,
+      logicalWidth: previewSize.width,
+    });
     const mime = settings.aspect === 'circle' ? 'image/png' : 'image/jpeg';
     const { dataUrl, dataBase64, size, blob } = await encodeCanvas(
       canvas,
@@ -382,7 +392,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
             </span>
             <div>
               <h2>{t('imageEditor.title', '编辑图片')}</h2>
-              <p>{t('imageEditor.hint', '拖动方框调整裁剪区域，可继续缩放、旋转、翻转。展开下方分组可调整色调分离、清晰度、颗粒、降噪、色散、扭曲与水印（高级调整在保存时应用）。')}</p>
+              <p>{t('imageEditor.hint', '拖动图片调整构图，可继续缩放、旋转、翻转；色彩、细节、特效与水印会实时预览并随图片保存。')}</p>
             </div>
           </header>
 
@@ -404,10 +414,11 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
                   onPointerMove={(event) => {
                     const drag = dragRef.current;
                     if (!drag) return;
+                    const bounds = event.currentTarget.getBoundingClientRect();
                     update(
                       'panX',
                       clampNumber(
-                        drag.panX + (event.clientX - drag.x) / previewSize.width,
+                        drag.panX + (event.clientX - drag.x) / Math.max(1, bounds.width),
                         -1.5,
                         1.5,
                       ),
@@ -415,7 +426,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
                     update(
                       'panY',
                       clampNumber(
-                        drag.panY + (event.clientY - drag.y) / previewSize.height,
+                        drag.panY + (event.clientY - drag.y) / Math.max(1, bounds.height),
                         -1.5,
                         1.5,
                       ),
@@ -514,7 +525,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
             </section>
             </ImageEditorPanel>
 
-            <p class="oh-image-editor-advanced-hint">{t('imageEditor.advancedHint', '高级调整会在保存时应用到原图。')}</p>
+            <p class="oh-image-editor-advanced-hint">{t('imageEditor.advancedHint', '所有调整都会实时预览，并在保存时应用到输出图片。')}</p>
             <ImageEditorPanel
               tone="color"
               icon="palette"
@@ -745,11 +756,21 @@ function fitSize(ratio: number, maxWidth: number, maxHeight: number): { width: n
   };
 }
 
-function outputSize(ratio: number, natural: { width: number; height: number }, maxLongSide: number): { width: number; height: number } {
+function outputSize(
+  ratio: number,
+  natural: { width: number; height: number },
+  zoom: number,
+  maxLongSide: number,
+): { width: number; height: number } {
   const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+  const safeWidth = Math.max(1, natural.width);
+  const safeHeight = Math.max(1, natural.height);
+  const safeZoom = Math.max(0.01, zoom);
+  const sourceScale = Math.max(safeRatio / safeWidth, 1 / safeHeight) * safeZoom;
+  const visibleLongSide = Math.max(safeRatio, 1) / sourceScale;
   const longSide = Math.max(
     1,
-    Math.min(maxLongSide, Math.max(natural.width, natural.height)),
+    Math.min(maxLongSide, visibleLongSide, Math.max(safeWidth, safeHeight)),
   );
   if (safeRatio >= 1) {
     return {
@@ -767,12 +788,14 @@ function renderToCanvas(
   canvas: HTMLCanvasElement,
   image: HTMLImageElement,
   settings: EditorSettings,
-  size: { width: number; height: number; preview: boolean },
+  size: { width: number; height: number; logicalWidth: number },
 ): void {
   canvas.width = size.width;
   canvas.height = size.height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.clearRect(0, 0, size.width, size.height);
   if (settings.aspect !== 'circle') {
     ctx.fillStyle = '#fff';
@@ -796,11 +819,19 @@ function renderToCanvas(
   ctx.drawImage(image, -image.naturalWidth * drawScale / 2, -image.naturalHeight * drawScale / 2, image.naturalWidth * drawScale, image.naturalHeight * drawScale);
   ctx.restore();
   if (settings.aspect === 'circle') ctx.restore();
-  applyPixelTone(ctx, size.width, size.height, settings, size.preview);
-  applyOverlays(ctx, size.width, size.height, settings);
+  const renderScale = size.width / Math.max(1, size.logicalWidth);
+  applyPixelTone(ctx, size.width, size.height, settings, renderScale);
+  applyOverlays(ctx, size.width, size.height, settings, renderScale);
+  if (settings.aspect === 'circle') applyCircularMask(ctx, size.width, size.height);
 }
 
-function applyPixelTone(ctx: CanvasRenderingContext2D, width: number, height: number, settings: EditorSettings, preview: boolean): void {
+function applyPixelTone(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  settings: EditorSettings,
+  renderScale: number,
+): void {
   if (
     settings.temperature === 0 && settings.tint === 0 && settings.gamma === 1 &&
     settings.clarity === 0 && settings.sharpness === 0 && settings.denoise === 0 &&
@@ -811,10 +842,13 @@ function applyPixelTone(ctx: CanvasRenderingContext2D, width: number, height: nu
   const temp = settings.temperature * 0.45;
   const tint = settings.tint * 0.32;
   const clarity = (settings.clarity + settings.sharpness) / 260;
-  const denoise = preview ? 0 : settings.denoise / 400;
+  const denoise = settings.denoise / 400;
   const gamma = Math.max(0.1, settings.gamma);
   for (let i = 0; i < pixels.length; i += 4) {
-    const grain = settings.grain > 0 ? (Math.random() - 0.5) * settings.grain * 0.9 : 0;
+    const pixelIndex = i / 4;
+    const grain = settings.grain > 0
+      ? deterministicNoise(pixelIndex % width, Math.floor(pixelIndex / width)) * settings.grain * 0.9
+      : 0;
     let r = pixels[i] + temp + grain;
     let g = pixels[i + 1] + tint + grain;
     let b = pixels[i + 2] - temp * 0.55 + grain;
@@ -839,7 +873,7 @@ function applyPixelTone(ctx: CanvasRenderingContext2D, width: number, height: nu
   }
   ctx.putImageData(data, 0, 0);
   if (settings.dispersion > 0) {
-    const shift = settings.dispersion * (preview ? 0.4 : 1);
+    const shift = settings.dispersion * Math.max(0.01, renderScale);
     const copy = document.createElement('canvas');
     copy.width = width;
     copy.height = height;
@@ -853,7 +887,13 @@ function applyPixelTone(ctx: CanvasRenderingContext2D, width: number, height: nu
   }
 }
 
-function applyOverlays(ctx: CanvasRenderingContext2D, width: number, height: number, settings: EditorSettings): void {
+function applyOverlays(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  settings: EditorSettings,
+  renderScale: number,
+): void {
   if (settings.vignette > 0) {
     const gradient = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.18, width / 2, height / 2, Math.max(width, height) * 0.62);
     gradient.addColorStop(0, 'rgba(0,0,0,0)');
@@ -871,13 +911,28 @@ function applyOverlays(ctx: CanvasRenderingContext2D, width: number, height: num
   ctx.save();
   ctx.globalAlpha = settings.watermarkOpacity;
   ctx.fillStyle = `hsl(${settings.watermarkHue} ${settings.watermarkSaturation * 100}% ${settings.watermarkLightness * 100}%)`;
-  ctx.font = `700 ${settings.watermarkSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
+  ctx.font = `700 ${settings.watermarkSize * Math.max(0.01, renderScale)}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
   ctx.textAlign = horizontal === 'l' ? 'left' : horizontal === 'r' ? 'right' : 'center';
   ctx.textBaseline = vertical === 't' ? 'top' : vertical === 'b' ? 'bottom' : 'middle';
   ctx.shadowColor = 'rgba(0,0,0,0.35)';
-  ctx.shadowBlur = 8;
+  ctx.shadowBlur = 8 * Math.max(0.01, renderScale);
   ctx.fillText(text, xMap[horizontal], yMap[vertical], width - margin * 2);
   ctx.restore();
+}
+
+function applyCircularMask(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.beginPath();
+  ctx.arc(width / 2, height / 2, Math.min(width, height) / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function deterministicNoise(x: number, y: number): number {
+  let value = Math.imul(x + 1, 374_761_393) ^ Math.imul(y + 1, 668_265_263);
+  value = Math.imul(value ^ (value >>> 13), 1_274_126_177);
+  return (((value ^ (value >>> 16)) >>> 0) / 0xffff_ffff) - 0.5;
 }
 
 function replaceExtension(name: string, ext: string): string {
