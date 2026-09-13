@@ -67,7 +67,7 @@ Future<PickedImageEditorResult?> pickAndEditImage(
   final sourceFile = await openFile(
     acceptedTypeGroups: <XTypeGroup>[
       XTypeGroup(
-        label: l10n?.imageEditorFileTypeImages ?? 'Images',
+        label: l10n?.imageEditorFileTypeImages ?? '图片',
         extensions: acceptedExtensions,
       ),
     ],
@@ -143,21 +143,18 @@ class _ImageEditorDialog extends StatefulWidget {
 
 class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   static const double _previewMaxWidth = 720;
-  static const double _previewHeight = 420;
+  static const double _previewMaxHeight = 420;
+  static const double _previewMinWidth = 180;
+  static const double _previewMinHeight = 120;
   static const double _minCropSide = 64;
   static const double _previewOverlayInset = 12;
   static const double _previewStageInset = 10;
-  static const double _compareChipMinHeight = 36;
-  static const Color _compareOriginalInk = Color(0xFF3B2500);
+  static const double _compareChipMinHeight = 40;
   static const EdgeInsets _compareChipPadding = EdgeInsets.fromLTRB(
-    12,
-    8,
     14,
-    8,
-  );
-  static const EdgeInsets _originalBadgePadding = EdgeInsets.symmetric(
-    horizontal: 10,
-    vertical: 5,
+    9,
+    16,
+    9,
   );
 
   /// 校正方向后的图片尺寸；像素数据仅在后台 Isolate 中解码。
@@ -834,27 +831,31 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                       Expanded(
                         child: SizedBox(
                           height: 34,
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              backgroundColor: _watermarkPosition == pos
-                                  ? colorScheme.primaryContainer
-                                  : null,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  kOpenHandRadius8,
+                          child: Tooltip(
+                            message: _watermarkPositionLabel(pos),
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                backgroundColor: _watermarkPosition == pos
+                                    ? colorScheme.primaryContainer
+                                    : null,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    kOpenHandRadius8,
+                                  ),
                                 ),
                               ),
-                            ),
-                            onPressed: _canEdit
-                                ? () => setState(() => _watermarkPosition = pos)
-                                : null,
-                            child: Icon(
-                              Icons.circle,
-                              size: 8,
-                              color: _watermarkPosition == pos
-                                  ? colorScheme.onPrimaryContainer
-                                  : colorScheme.onSurfaceVariant,
+                              onPressed: _canEdit
+                                  ? () =>
+                                        setState(() => _watermarkPosition = pos)
+                                  : null,
+                              child: Icon(
+                                Icons.circle,
+                                size: 8,
+                                color: _watermarkPosition == pos
+                                    ? colorScheme.onPrimaryContainer
+                                    : colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
                         ),
@@ -1016,12 +1017,15 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final innerMax = math.max(
-            180.0,
+            _previewMinWidth,
             math.min(constraints.maxWidth, _previewMaxWidth) -
                 _previewStageInset * 2,
           );
-          final previewWidth = innerMax.clamp(180.0, _previewMaxWidth);
-          final previewSize = Size(previewWidth, _previewHeight);
+          final previewSize = _fittedPreviewSize(
+            maxWidth: innerMax,
+            imageWidth: _imageWidth,
+            imageHeight: _imageHeight,
+          );
           _previewSize = previewSize;
 
           Widget previewBody;
@@ -1063,40 +1067,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                           ),
                         ),
                 ),
-                if (showOriginal)
-                  Positioned(
-                    left: _previewOverlayInset,
-                    top: _previewOverlayInset,
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: OpenHandStatusColors.warning,
-                          borderRadius: kOpenHandPillBorderRadius,
-                          boxShadow: [
-                            BoxShadow(
-                              color: OpenHandStatusColors.warning.withValues(
-                                alpha: 0.36,
-                              ),
-                              blurRadius: 14,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: _originalBadgePadding,
-                          child: Text(
-                            l10n.imageEditorCompareOriginal,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: _compareOriginalInk,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.3,
-                                ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                 if (!showOriginal) ...[
                   Positioned.fill(
                     child: IgnorePointer(
@@ -1234,20 +1204,12 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               padding: const EdgeInsets.all(_previewStageInset),
               child: ClipRRect(
                 borderRadius: kOpenHandBorderRadius16,
-                child: SizedBox(
-                  width: previewWidth,
-                  height: _previewHeight,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CustomPaint(
-                        painter: _ImageEditorCheckerboardPainter(
-                          light: colorScheme.surface,
-                          dark: colorScheme.surfaceContainerHighest,
-                        ),
-                      ),
-                      previewBody,
-                    ],
+                child: ColoredBox(
+                  color: colorScheme.surface,
+                  child: SizedBox(
+                    width: previewSize.width,
+                    height: previewSize.height,
+                    child: previewBody,
                   ),
                 ),
               ),
@@ -1323,16 +1285,18 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final accent = showingOriginal
-        ? OpenHandStatusColors.warning
-        : colorScheme.tertiary;
+    final label = showingOriginal
+        ? l10n.imageEditorCompareRelease
+        : l10n.imageEditorCompareHold;
     final background = showingOriginal
-        ? accent
+        ? colorScheme.primary
         : Color.alphaBlend(
-            accent.withValues(alpha: 0.28),
-            colorScheme.surface.withValues(alpha: 0.82),
+            colorScheme.primary.withValues(alpha: 0.14),
+            colorScheme.surface,
           );
-    final ink = showingOriginal ? _compareOriginalInk : accent;
+    final foreground = showingOriginal
+        ? colorScheme.onPrimary
+        : colorScheme.primary;
     final chip = AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
       curve: kOpenHandSwitchInCurve,
@@ -1341,29 +1305,24 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       decoration: BoxDecoration(
         color: background,
         borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: accent.withValues(alpha: 0.55), width: 1.25),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withValues(alpha: showingOriginal ? 0.42 : 0.24),
-            blurRadius: showingOriginal ? 18 : 12,
-            offset: const Offset(0, 6),
+        border: Border.all(
+          color: colorScheme.primary.withValues(
+            alpha: showingOriginal ? 1 : 0.32,
           ),
-        ],
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.compare_rounded, size: 16, color: ink),
+          Icon(Icons.compare_rounded, size: 18, color: foreground),
           kOpenHandHGap8,
           Flexible(
             child: Text(
-              showingOriginal
-                  ? l10n.imageEditorCompareRelease
-                  : l10n.imageEditorCompareHold,
+              label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: ink,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: foreground,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1371,21 +1330,28 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         ],
       ),
     );
-    return Tooltip(
-      message: l10n.imageEditorCompareHold,
-      child: MouseRegion(
-        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: Opacity(
-          opacity: enabled ? 1 : 0.48,
-          child: MicroPressFeedback(
-            enabled: enabled,
-            scale: 0.94,
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: enabled
-                  ? (event) => _startCompareHold(event.pointer)
-                  : null,
-              child: chip,
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      liveRegion: true,
+      label: label,
+      value: showingOriginal ? l10n.imageEditorCompareOriginal : null,
+      child: Tooltip(
+        message: label,
+        child: MouseRegion(
+          cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.48,
+            child: MicroPressFeedback(
+              enabled: enabled,
+              scale: 0.94,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: enabled
+                    ? (event) => _startCompareHold(event.pointer)
+                    : null,
+                child: chip,
+              ),
             ),
           ),
         ),
@@ -1658,7 +1624,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     int? imageSizeLimitBytes,
   }) {
     final previewSize = _previewSize == Size.zero
-        ? const Size(_previewMaxWidth, _previewHeight)
+        ? const Size(_previewMaxWidth, _previewMaxHeight)
         : _previewSize;
     return _IsolateRenderParams(
       imageBytes: imageBytes,
@@ -1858,6 +1824,55 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final left = (previewSize.width - fittedWidth) / 2;
     final top = (previewSize.height - fittedHeight) / 2;
     return Rect.fromLTWH(left, top, fittedWidth, fittedHeight);
+  }
+
+  Size _fittedPreviewSize({
+    required double maxWidth,
+    required int imageWidth,
+    required int imageHeight,
+  }) {
+    final widthBudget = maxWidth.clamp(_previewMinWidth, _previewMaxWidth);
+    if (imageWidth < 1 || imageHeight < 1) {
+      return Size(
+        widthBudget,
+        math.min(_previewMaxHeight, widthBudget * 9 / 16),
+      );
+    }
+    final scale = math.min(
+      widthBudget / imageWidth,
+      _previewMaxHeight / imageHeight,
+    );
+    return Size(
+      math.min(widthBudget, math.max(_previewMinWidth, imageWidth * scale)),
+      math.min(
+        _previewMaxHeight,
+        math.max(_previewMinHeight, imageHeight * scale),
+      ),
+    );
+  }
+
+  String _watermarkPositionLabel(_WatermarkPosition position) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (position) {
+      case _WatermarkPosition.topLeft:
+        return l10n.imageEditorWatermarkPositionTopLeft;
+      case _WatermarkPosition.topCenter:
+        return l10n.imageEditorWatermarkPositionTopCenter;
+      case _WatermarkPosition.topRight:
+        return l10n.imageEditorWatermarkPositionTopRight;
+      case _WatermarkPosition.middleLeft:
+        return l10n.imageEditorWatermarkPositionMiddleLeft;
+      case _WatermarkPosition.middleCenter:
+        return l10n.imageEditorWatermarkPositionCenter;
+      case _WatermarkPosition.middleRight:
+        return l10n.imageEditorWatermarkPositionMiddleRight;
+      case _WatermarkPosition.bottomLeft:
+        return l10n.imageEditorWatermarkPositionBottomLeft;
+      case _WatermarkPosition.bottomCenter:
+        return l10n.imageEditorWatermarkPositionBottomCenter;
+      case _WatermarkPosition.bottomRight:
+        return l10n.imageEditorWatermarkPositionBottomRight;
+    }
   }
 
   Color get _currentWatermarkColor {
@@ -2577,42 +2592,6 @@ class _ImageEditorFoldCardState extends State<_ImageEditorFoldCard> {
         ),
       ),
     );
-  }
-}
-
-class _ImageEditorCheckerboardPainter extends CustomPainter {
-  const _ImageEditorCheckerboardPainter({
-    required this.light,
-    required this.dark,
-  });
-
-  static const double _cellSize = 12;
-
-  final Color light;
-  final Color dark;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (size.isEmpty) return;
-    final lightPaint = Paint()..color = light;
-    final darkPaint = Paint()..color = dark;
-    canvas.drawRect(Offset.zero & size, lightPaint);
-    final cols = (size.width / _cellSize).ceil();
-    final rows = (size.height / _cellSize).ceil();
-    for (var row = 0; row < rows; row++) {
-      for (var col = 0; col < cols; col++) {
-        if ((row + col).isEven) continue;
-        canvas.drawRect(
-          Rect.fromLTWH(col * _cellSize, row * _cellSize, _cellSize, _cellSize),
-          darkPaint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ImageEditorCheckerboardPainter oldDelegate) {
-    return oldDelegate.light != light || oldDelegate.dark != dark;
   }
 }
 

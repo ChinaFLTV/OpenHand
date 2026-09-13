@@ -916,35 +916,66 @@ html, body, #root {
   border-color: color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant));
 }
 .oh-creation-count {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--m3-primary) 10%, var(--m3-surface-container-low));
-  border: 1px solid color-mix(in srgb, var(--m3-primary) 22%, transparent);
+  align-self: flex-start;
+  width: max-content;
+  gap: 10px;
 }
 .oh-creation-count-button {
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 999px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  font-weight: 700;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+.oh-creation-count-button.is-minus {
   color: var(--m3-primary);
-  background: transparent;
+  background: color-mix(in srgb, var(--m3-primary) 12%, var(--m3-surface));
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 32%, transparent);
+}
+.oh-creation-count-button.is-plus {
+  color: var(--m3-on-primary);
+  background: var(--m3-primary);
+  border: 1px solid var(--m3-primary);
+}
+.oh-creation-count-button.is-minus:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--m3-primary) 18%, var(--m3-surface));
+}
+.oh-creation-count-button.is-plus:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--m3-primary) 88%, var(--m3-on-primary));
 }
 .oh-creation-count-button:disabled {
-  opacity: 0.3;
+  opacity: 0.38;
+  cursor: default;
+}
+.oh-creation-count-button:focus-visible {
+  outline: 2px solid var(--m3-primary);
+  outline-offset: 2px;
+}
+.oh-creation-count-button svg {
+  display: block;
 }
 .oh-creation-count-value {
-  min-width: 28px;
-  text-align: center;
-  font-size: 18px;
+  width: 56px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  font-size: 22px;
   font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--m3-on-surface);
+  background: color-mix(in srgb, #EAB308 16%, var(--m3-surface));
+  border: 1px solid color-mix(in srgb, #EAB308 34%, transparent);
 }
 .oh-creation-options-dialog .oh-creation-options-action {
   min-width: 128px;
@@ -5948,7 +5979,6 @@ button.oh-message-context-capsule {
 .oh-session-load-older-button:not(:disabled):hover {
   border-color: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-outline-variant));
   color: var(--m3-primary);
-  box-shadow: var(--m3-elev-1);
   transform: translateY(-1px);
 }
 
@@ -6413,7 +6443,6 @@ button.oh-message-context-capsule {
 }
 .oh-composer-control:not(:disabled):hover {
   border-color: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-outline));
-  box-shadow: var(--m3-elev-2);
 }
 .oh-composer-control:not(:disabled):active {
   transform: scale(0.98);
@@ -6852,7 +6881,6 @@ button.oh-message-context-capsule {
 .oh-composer-icon-control:not(:disabled):hover {
   border-color: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-outline));
   color: var(--m3-primary);
-  box-shadow: var(--m3-elev-2);
 }
 .oh-composer-icon-control:not(:disabled):active {
   transform: scale(0.96);
@@ -7017,7 +7045,6 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-composer-instruction-pill:not(:disabled):hover {
   border-color: color-mix(in srgb, var(--m3-primary) 44%, var(--m3-outline-variant));
-  box-shadow: 0 8px 18px -14px color-mix(in srgb, var(--m3-primary) 70%, transparent);
 }
 .oh-composer-instruction-pill:disabled {
   cursor: not-allowed;
@@ -7683,19 +7710,11 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-image-editor-preview-shell {
   position: relative;
-  justify-self: center;
-  width: 100%;
-  min-width: 0;
-  max-height: 420px;
+  width: auto;
+  max-width: 100%;
   border-radius: 16px;
   overflow: hidden;
-  background:
-    linear-gradient(45deg, color-mix(in srgb, var(--m3-outline-variant) 32%, transparent) 25%, transparent 25%),
-    linear-gradient(-45deg, color-mix(in srgb, var(--m3-outline-variant) 32%, transparent) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--m3-outline-variant) 32%, transparent) 75%),
-    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--m3-outline-variant) 32%, transparent) 75%);
-  background-size: 18px 18px;
-  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  background: var(--m3-surface);
   box-shadow: inset 0 0 0 1px var(--m3-outline-variant);
 }
 .oh-image-editor-canvas {
@@ -7704,29 +7723,10 @@ button.oh-composer-pill:not(:disabled):hover {
   display: block;
   touch-action: none;
   cursor: grab;
+  vertical-align: top;
 }
 .oh-image-editor-canvas:active {
   cursor: grabbing;
-}
-.oh-image-editor-original-badge {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--oh-full-access) 55%, transparent);
-  background: var(--oh-full-access);
-  color: var(--oh-on-full-access-container);
-  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--oh-full-access) 58%, transparent);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  pointer-events: none;
-  user-select: none;
 }
 .oh-image-editor-compare {
   position: absolute;
@@ -7737,21 +7737,17 @@ button.oh-composer-pill:not(:disabled):hover {
   display: inline-flex;
   width: max-content;
   max-width: calc(100% - 24px);
-  min-height: 36px;
+  min-height: 40px;
   margin-inline: auto;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 8px 16px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--m3-tertiary) 48%, transparent);
-  background: color-mix(in srgb, var(--m3-tertiary-container) 82%, transparent);
-  color: var(--m3-on-tertiary-container);
-  box-shadow:
-    var(--m3-elev-2),
-    0 10px 22px -14px color-mix(in srgb, var(--m3-tertiary) 46%, transparent);
-  backdrop-filter: blur(12px);
-  font-size: 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 32%, transparent);
+  background: color-mix(in srgb, var(--m3-primary) 14%, var(--m3-surface));
+  color: var(--m3-primary);
+  font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
@@ -7763,20 +7759,16 @@ button.oh-composer-pill:not(:disabled):hover {
     transform var(--oh-motion-duration-base) var(--oh-motion-spring),
     background-color var(--oh-motion-duration-base) var(--oh-dialog-curve),
     border-color var(--oh-motion-duration-base) var(--oh-dialog-curve),
-    color var(--oh-motion-duration-fast) var(--oh-dialog-curve),
-    box-shadow var(--oh-motion-duration-base) var(--oh-dialog-curve);
+    color var(--oh-motion-duration-fast) var(--oh-dialog-curve);
 }
 .oh-image-editor-compare:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--m3-tertiary) 72%, var(--m3-outline-variant));
-  box-shadow:
-    var(--m3-elev-3),
-    0 12px 24px -12px color-mix(in srgb, var(--m3-tertiary) 52%, transparent);
+  border-color: color-mix(in srgb, var(--m3-primary) 48%, transparent);
+  background: color-mix(in srgb, var(--m3-primary) 20%, var(--m3-surface));
 }
 .oh-image-editor-compare[data-active='true'] {
-  border-color: color-mix(in srgb, var(--oh-full-access) 70%, transparent);
-  background: var(--oh-full-access);
-  color: var(--oh-on-full-access-container);
-  box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--oh-full-access) 62%, transparent);
+  border-color: var(--m3-primary);
+  background: var(--m3-primary);
+  color: var(--m3-on-primary);
 }
 .oh-image-editor-compare:disabled {
   opacity: 0.48;
@@ -8036,14 +8028,10 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 @media (max-width: 760px) {
-  .oh-image-editor-original-badge {
-    top: 8px;
-    left: 8px;
-  }
   .oh-image-editor-compare {
     bottom: 8px;
-    min-height: 34px;
-    padding: 7px 12px;
+    min-height: 36px;
+    padding: 7px 14px;
   }
   .oh-image-editor-slider {
     grid-template-columns: 1fr 64px;

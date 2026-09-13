@@ -2888,6 +2888,33 @@ class AppLocalizationsDe extends AppLocalizations {
   String get imageEditorWatermarkPositionLabel => 'Position';
 
   @override
+  String get imageEditorWatermarkPositionTopLeft => 'Oben links';
+
+  @override
+  String get imageEditorWatermarkPositionTopCenter => 'Oben Mitte';
+
+  @override
+  String get imageEditorWatermarkPositionTopRight => 'Oben rechts';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleLeft => 'Mitte links';
+
+  @override
+  String get imageEditorWatermarkPositionCenter => 'Mitte';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleRight => 'Mitte rechts';
+
+  @override
+  String get imageEditorWatermarkPositionBottomLeft => 'Unten links';
+
+  @override
+  String get imageEditorWatermarkPositionBottomCenter => 'Unten Mitte';
+
+  @override
+  String get imageEditorWatermarkPositionBottomRight => 'Unten rechts';
+
+  @override
   String get imageEditorAdvancedApplyHint =>
       'Anpassungen in den erweiterten Bereichen werden beim Speichern auf das Originalbild angewendet.';
 
@@ -3727,7 +3754,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get imageEditorCompareHold => 'Halten zum Vergleichen';
 
   @override
-  String get imageEditorCompareRelease => 'Loslassen';
+  String get imageEditorCompareRelease => 'Loslassen zum Zurückkehren';
 
   @override
   String get imageEditorCompareOriginal => 'Original';
@@ -3811,6 +3838,12 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get creationOptionsSectionCountHint =>
       'Anzahl der zu erzeugenden Elemente';
+
+  @override
+  String get creationOptionsDecrease => 'Verringern';
+
+  @override
+  String get creationOptionsIncrease => 'Erhöhen';
 
   @override
   String get creationOptionsAspectRatio => 'Seitenverhältnis';

@@ -752,6 +752,8 @@ class _CreationOptionsDialogState extends State<_CreationOptionsDialog> {
   static const List<double> _audioPitches = [-2.0, 0.0, 2.0];
   static const int _minCreationCount = 1;
   static const int _maxCreationCount = 4;
+  static const double _creationCountControlExtent = 44;
+  static const double _creationCountValueWidth = 56;
 
   @override
   void dispose() {
@@ -1451,40 +1453,111 @@ class _CreationOptionsDialogState extends State<_CreationOptionsDialog> {
     final colorScheme = theme.colorScheme;
     final canDecrease = _count > _minCreationCount;
     final canIncrease = _count < _maxCreationCount;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          colorScheme.primary.withValues(alpha: 0.10),
-          colorScheme.surfaceContainerLow,
-        ),
-        borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          MicroPressFeedback(
-            enabled: canDecrease,
-            child: IconButton(
-              onPressed: canDecrease ? () => setState(() => _count--) : null,
-              icon: const Icon(Icons.remove_rounded),
+    final l10n = AppLocalizations.of(context)!;
+    Widget stepButton({
+      required IconData icon,
+      required String tooltip,
+      required bool enabled,
+      required bool filled,
+      required VoidCallback onPressed,
+    }) {
+      final foreground = filled
+          ? (enabled
+                ? colorScheme.onPrimary
+                : colorScheme.onSurface.withValues(alpha: 0.38))
+          : (enabled
+                ? colorScheme.primary
+                : colorScheme.onSurface.withValues(alpha: 0.38));
+      final background = filled
+          ? (enabled
+                ? colorScheme.primary
+                : colorScheme.onSurface.withValues(alpha: 0.12))
+          : Color.alphaBlend(
+              colorScheme.primary.withValues(alpha: enabled ? 0.12 : 0.06),
+              colorScheme.surface,
+            );
+      return Tooltip(
+        message: tooltip,
+        child: MicroPressFeedback(
+          enabled: enabled,
+          child: Material(
+            color: background,
+            shape: RoundedRectangleBorder(
+              borderRadius: kOpenHandBorderRadius16,
+              side: filled
+                  ? BorderSide.none
+                  : BorderSide(
+                      color: colorScheme.primary.withValues(
+                        alpha: enabled ? 0.32 : 0.14,
+                      ),
+                    ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              '$_count',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
+            child: InkWell(
+              onTap: enabled ? onPressed : null,
+              borderRadius: kOpenHandBorderRadius16,
+              overlayColor: WidgetStatePropertyAll<Color>(
+                (filled ? colorScheme.onPrimary : colorScheme.primary)
+                    .withValues(alpha: 0.12),
+              ),
+              child: SizedBox(
+                width: _creationCountControlExtent,
+                height: _creationCountControlExtent,
+                child: Icon(icon, size: 22, color: foreground),
               ),
             ),
           ),
-          MicroPressFeedback(
-            enabled: canIncrease,
-            child: IconButton(
-              onPressed: canIncrease ? () => setState(() => _count++) : null,
-              icon: const Icon(Icons.add_rounded),
+        ),
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          stepButton(
+            icon: Icons.remove_rounded,
+            tooltip: l10n.creationOptionsDecrease,
+            enabled: canDecrease,
+            filled: false,
+            onPressed: () => setState(() => _count--),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  OpenHandStatusColors.caution.withValues(alpha: 0.16),
+                  colorScheme.surface,
+                ),
+                borderRadius: kOpenHandBorderRadius16,
+                border: Border.all(
+                  color: OpenHandStatusColors.caution.withValues(alpha: 0.34),
+                ),
+              ),
+              child: SizedBox(
+                width: _creationCountValueWidth,
+                height: _creationCountControlExtent,
+                child: Center(
+                  child: Text(
+                    '$_count',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 22,
+                      height: 1,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ),
             ),
+          ),
+          stepButton(
+            icon: Icons.add_rounded,
+            tooltip: l10n.creationOptionsIncrease,
+            enabled: canIncrease,
+            filled: true,
+            onPressed: () => setState(() => _count++),
           ),
         ],
       ),

@@ -354,7 +354,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
         setStatus(t('imageEditor.copiedBitmap', '已复制图片到剪贴板'));
       } else if (await copyTextToClipboard(result.dataUrl)) {
         if (!mountedRef.current) return;
-        setStatus(t('imageEditor.copiedDataUrl', '无法写入位图，已复制图片 data URL'));
+        setStatus(t('imageEditor.copiedDataUrl', '无法写入位图，已改为复制图片地址'));
       } else {
         setError(t('imageEditor.copyFailed', '复制图片失败，请检查浏览器剪贴板权限'));
       }
@@ -382,13 +382,16 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
             </span>
             <div>
               <h2>{t('imageEditor.title', '编辑图片')}</h2>
-              <p>{t('imageEditor.hint', '拖动图片调整裁剪位置，并使用下方工具精细调整。')}</p>
+              <p>{t('imageEditor.hint', '拖动方框调整裁剪区域，可继续缩放、旋转、翻转。展开下方分组可调整色调分离、清晰度、颗粒、降噪、色散、扭曲与水印（高级调整在保存时应用）。')}</p>
             </div>
           </header>
 
           <div class="oh-image-editor-scroll">
             <section class="oh-image-editor-stage">
-              <div class="oh-image-editor-preview-shell" style={{ width: '100%', maxWidth: `${previewSize.width}px` }}>
+              <div
+                class="oh-image-editor-preview-shell"
+                style={{ width: `${previewSize.width}px` }}
+              >
                 <canvas
                   ref={canvasRef}
                   width={previewSize.width}
@@ -421,18 +424,13 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
                   onPointerUp={() => { dragRef.current = null; }}
                   onPointerCancel={() => { dragRef.current = null; }}
                 />
-                {showOriginal ? (
-                  <span class="oh-image-editor-original-badge">
-                    {t('imageEditor.original', '原图')}
-                  </span>
-                ) : null}
                 <button
                   type="button"
                   class="oh-image-editor-compare oh-tap-press"
                   data-active={showOriginal ? 'true' : 'false'}
                   aria-pressed={showOriginal}
-                  aria-label={t('imageEditor.compare', '按住对比')}
-                  title={t('imageEditor.compare', '按住对比')}
+                  aria-label={showOriginal ? t('imageEditor.release', '松开返回') : t('imageEditor.compare', '按住对比')}
+                  title={showOriginal ? t('imageEditor.release', '松开返回') : t('imageEditor.compare', '按住对比')}
                   onPointerDown={(event) => {
                     if (busy || closing) return;
                     event.preventDefault();

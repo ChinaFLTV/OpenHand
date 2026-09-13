@@ -2778,6 +2778,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorWatermarkPositionLabel => '位置';
 
   @override
+  String get imageEditorWatermarkPositionTopLeft => '左上';
+
+  @override
+  String get imageEditorWatermarkPositionTopCenter => '顶部居中';
+
+  @override
+  String get imageEditorWatermarkPositionTopRight => '右上';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleLeft => '左侧居中';
+
+  @override
+  String get imageEditorWatermarkPositionCenter => '居中';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleRight => '右侧居中';
+
+  @override
+  String get imageEditorWatermarkPositionBottomLeft => '左下';
+
+  @override
+  String get imageEditorWatermarkPositionBottomCenter => '底部居中';
+
+  @override
+  String get imageEditorWatermarkPositionBottomRight => '右下';
+
+  @override
   String get imageEditorAdvancedApplyHint => '展开面板中的调整会在“保存”时一次性应用到原图。';
 
   @override
@@ -3632,6 +3659,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get creationOptionsSectionCountHint => '一次生成的条数';
+
+  @override
+  String get creationOptionsDecrease => '减少';
+
+  @override
+  String get creationOptionsIncrease => '增加';
 
   @override
   String get creationOptionsAspectRatio => '宽高比';
@@ -13419,6 +13452,33 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get imageEditorWatermarkPositionLabel => '位置';
 
   @override
+  String get imageEditorWatermarkPositionTopLeft => '左上';
+
+  @override
+  String get imageEditorWatermarkPositionTopCenter => '頂部置中';
+
+  @override
+  String get imageEditorWatermarkPositionTopRight => '右上';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleLeft => '左側置中';
+
+  @override
+  String get imageEditorWatermarkPositionCenter => '置中';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleRight => '右側置中';
+
+  @override
+  String get imageEditorWatermarkPositionBottomLeft => '左下';
+
+  @override
+  String get imageEditorWatermarkPositionBottomCenter => '底部置中';
+
+  @override
+  String get imageEditorWatermarkPositionBottomRight => '右下';
+
+  @override
   String get imageEditorAdvancedApplyHint => '展開面板中的調整會在“儲存”時一次性套用到原圖。';
 
   @override
@@ -14273,6 +14333,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get creationOptionsSectionCountHint => '一次生成的條數';
+
+  @override
+  String get creationOptionsDecrease => '減少';
+
+  @override
+  String get creationOptionsIncrease => '增加';
 
   @override
   String get creationOptionsAspectRatio => '寬高比';

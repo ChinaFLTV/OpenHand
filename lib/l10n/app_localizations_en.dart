@@ -2866,6 +2866,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageEditorWatermarkPositionLabel => 'Position';
 
   @override
+  String get imageEditorWatermarkPositionTopLeft => 'Top left';
+
+  @override
+  String get imageEditorWatermarkPositionTopCenter => 'Top center';
+
+  @override
+  String get imageEditorWatermarkPositionTopRight => 'Top right';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleLeft => 'Middle left';
+
+  @override
+  String get imageEditorWatermarkPositionCenter => 'Center';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleRight => 'Middle right';
+
+  @override
+  String get imageEditorWatermarkPositionBottomLeft => 'Bottom left';
+
+  @override
+  String get imageEditorWatermarkPositionBottomCenter => 'Bottom center';
+
+  @override
+  String get imageEditorWatermarkPositionBottomRight => 'Bottom right';
+
+  @override
   String get imageEditorAdvancedApplyHint =>
       'Adjustments in expanded panels are applied to the original image when you save.';
 
@@ -3687,13 +3714,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageEditorUndoButton => 'Undo';
 
   @override
-  String get imageEditorResetAllButton => 'Reset All';
+  String get imageEditorResetAllButton => 'Reset all';
 
   @override
-  String get imageEditorCompareHold => 'Hold To Compare';
+  String get imageEditorCompareHold => 'Hold to compare';
 
   @override
-  String get imageEditorCompareRelease => 'Release';
+  String get imageEditorCompareRelease => 'Release to restore';
 
   @override
   String get imageEditorCompareOriginal => 'Original';
@@ -3776,6 +3803,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get creationOptionsSectionCountHint => 'How many items to generate';
+
+  @override
+  String get creationOptionsDecrease => 'Decrease';
+
+  @override
+  String get creationOptionsIncrease => 'Increase';
 
   @override
   String get creationOptionsAspectRatio => 'Aspect ratio';

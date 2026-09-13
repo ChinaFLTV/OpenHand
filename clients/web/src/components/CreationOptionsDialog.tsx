@@ -572,20 +572,24 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
           <div class="oh-creation-count">
             <button
               type="button"
+              aria-label={t('creation.options.decrease', '减少')}
               onClick={() => setCount((current) => clampCreationCount(current - 1))}
               disabled={closing || count <= MIN_CREATION_COUNT}
-              class="oh-tap-press oh-creation-count-button"
+              class="oh-tap-press oh-creation-count-button is-minus"
             >
-              −
+              <DialogGlyph name="minus" size={22} />
             </button>
-            <span class="oh-creation-count-value">{count}</span>
+            <span class="oh-creation-count-value" aria-live="polite">
+              {count}
+            </span>
             <button
               type="button"
+              aria-label={t('creation.options.increase', '增加')}
               onClick={() => setCount((current) => clampCreationCount(current + 1))}
               disabled={closing || count >= MAX_CREATION_COUNT}
-              class="oh-tap-press oh-creation-count-button"
+              class="oh-tap-press oh-creation-count-button is-plus"
             >
-              +
+              <DialogGlyph name="plus" size={22} />
             </button>
           </div>
         </DialogSectionCard>

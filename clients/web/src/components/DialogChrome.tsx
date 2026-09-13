@@ -61,7 +61,9 @@ export type DialogGlyphName =
   | 'image'
   | 'video'
   | 'audio'
-  | 'crop';
+  | 'crop'
+  | 'minus'
+  | 'plus';
 
 const DIALOG_GLYPHS: Record<DialogGlyphName, ComponentChildren> = {
   layers: (
@@ -159,6 +161,13 @@ const DIALOG_GLYPHS: Record<DialogGlyphName, ComponentChildren> = {
     <>
       <path d="M6 2v15a1 1 0 0 0 1 1h15" />
       <path d="M2 6h15a1 1 0 0 1 1 1v15" />
+    </>
+  ),
+  minus: <path d="M5 12h14" />,
+  plus: (
+    <>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
     </>
   ),
 };

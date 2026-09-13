@@ -2811,6 +2811,33 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorWatermarkPositionLabel => '位置';
 
   @override
+  String get imageEditorWatermarkPositionTopLeft => '左上';
+
+  @override
+  String get imageEditorWatermarkPositionTopCenter => '上中央';
+
+  @override
+  String get imageEditorWatermarkPositionTopRight => '右上';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleLeft => '左中央';
+
+  @override
+  String get imageEditorWatermarkPositionCenter => '中央';
+
+  @override
+  String get imageEditorWatermarkPositionMiddleRight => '右中央';
+
+  @override
+  String get imageEditorWatermarkPositionBottomLeft => '左下';
+
+  @override
+  String get imageEditorWatermarkPositionBottomCenter => '下中央';
+
+  @override
+  String get imageEditorWatermarkPositionBottomRight => '右下';
+
+  @override
   String get imageEditorAdvancedApplyHint => '展開パネル内の調整は、保存時に元の画像へ適用されます。';
 
   @override
@@ -3600,7 +3627,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorCompareHold => '長押しで比較';
 
   @override
-  String get imageEditorCompareRelease => '離す';
+  String get imageEditorCompareRelease => '離すと戻る';
 
   @override
   String get imageEditorCompareOriginal => 'オリジナル';
@@ -3676,6 +3703,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get creationOptionsSectionCountHint => '一度に生成する数';
+
+  @override
+  String get creationOptionsDecrease => '減らす';
+
+  @override
+  String get creationOptionsIncrease => '増やす';
 
   @override
   String get creationOptionsAspectRatio => 'アスペクト比';

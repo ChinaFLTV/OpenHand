@@ -5130,6 +5130,60 @@ abstract class AppLocalizations {
   /// **'位置'**
   String get imageEditorWatermarkPositionLabel;
 
+  /// No description provided for @imageEditorWatermarkPositionTopLeft.
+  ///
+  /// In zh, this message translates to:
+  /// **'左上'**
+  String get imageEditorWatermarkPositionTopLeft;
+
+  /// No description provided for @imageEditorWatermarkPositionTopCenter.
+  ///
+  /// In zh, this message translates to:
+  /// **'顶部居中'**
+  String get imageEditorWatermarkPositionTopCenter;
+
+  /// No description provided for @imageEditorWatermarkPositionTopRight.
+  ///
+  /// In zh, this message translates to:
+  /// **'右上'**
+  String get imageEditorWatermarkPositionTopRight;
+
+  /// No description provided for @imageEditorWatermarkPositionMiddleLeft.
+  ///
+  /// In zh, this message translates to:
+  /// **'左侧居中'**
+  String get imageEditorWatermarkPositionMiddleLeft;
+
+  /// No description provided for @imageEditorWatermarkPositionCenter.
+  ///
+  /// In zh, this message translates to:
+  /// **'居中'**
+  String get imageEditorWatermarkPositionCenter;
+
+  /// No description provided for @imageEditorWatermarkPositionMiddleRight.
+  ///
+  /// In zh, this message translates to:
+  /// **'右侧居中'**
+  String get imageEditorWatermarkPositionMiddleRight;
+
+  /// No description provided for @imageEditorWatermarkPositionBottomLeft.
+  ///
+  /// In zh, this message translates to:
+  /// **'左下'**
+  String get imageEditorWatermarkPositionBottomLeft;
+
+  /// No description provided for @imageEditorWatermarkPositionBottomCenter.
+  ///
+  /// In zh, this message translates to:
+  /// **'底部居中'**
+  String get imageEditorWatermarkPositionBottomCenter;
+
+  /// No description provided for @imageEditorWatermarkPositionBottomRight.
+  ///
+  /// In zh, this message translates to:
+  /// **'右下'**
+  String get imageEditorWatermarkPositionBottomRight;
+
   /// No description provided for @imageEditorAdvancedApplyHint.
   ///
   /// In zh, this message translates to:
@@ -6749,6 +6803,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'一次生成的条数'**
   String get creationOptionsSectionCountHint;
+
+  /// No description provided for @creationOptionsDecrease.
+  ///
+  /// In zh, this message translates to:
+  /// **'减少'**
+  String get creationOptionsDecrease;
+
+  /// No description provided for @creationOptionsIncrease.
+  ///
+  /// In zh, this message translates to:
+  /// **'增加'**
+  String get creationOptionsIncrease;
 
   /// No description provided for @creationOptionsAspectRatio.
   ///
