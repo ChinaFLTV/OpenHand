@@ -15,14 +15,9 @@ Future<void> _showSidebarThreadContextMenu(
   VoidCallback? onGenerateTitle,
   VoidCallback? onTrajectory,
 }) async {
-  final selected = await showAnimatedMenu<String>(
+  final selected = await showAnimatedPointerMenu<String>(
     context: context,
-    position: RelativeRect.fromLTRB(
-      details.globalPosition.dx,
-      details.globalPosition.dy,
-      details.globalPosition.dx,
-      details.globalPosition.dy,
-    ),
+    globalPosition: details.globalPosition,
     items: [
       PopupMenuItem<String>(
         value: 'rename',

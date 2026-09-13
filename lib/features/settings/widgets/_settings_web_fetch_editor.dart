@@ -404,40 +404,23 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
         ),
         kOpenHandGap14,
 
-        // ── 本地持久化缓存 ──
-        Text(
-          _settingsLocalCacheLabel(context),
-          style: theme.textTheme.titleSmall,
-        ),
-        kOpenHandGap4,
-        Text(
-          openHandLocalizedText(
-            context,
-            zh:
-                '相同 URL 与 prompt 抓取后的正文会写入本地磁盘 (~/.openhand/cache/web_fetch/)，'
-                '后续在 TTL 内复用直接返回，零网络消耗。容量上限按 LRU 淘汰。',
-            en:
-                'Hits with the same URL/prompt persist to disk '
-                '(~/.openhand/cache/web_fetch/) and are reused within TTL. '
-                'Old entries evict on cap.',
-          ),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        kOpenHandGap8,
-        _buildWebEngineCacheFields(
+        ..._buildWebEngineCacheSection(
           context: context,
+          descriptionZh:
+              '相同 URL 与 prompt 抓取后的正文会写入本地磁盘 (~/.openhand/cache/web_fetch/)，'
+              '后续在 TTL 内复用直接返回，零网络消耗。容量上限按 LRU 淘汰。',
+          descriptionEn:
+              'Hits with the same URL/prompt persist to disk '
+              '(~/.openhand/cache/web_fetch/) and are reused within TTL. '
+              'Old entries evict on cap.',
           ttlController: _commonControllers.cacheTtl,
           maxBytesController: _commonControllers.cacheMaxBytes,
           defaultTtlSeconds: AiWebFetchSettings.defaultCacheTtlSeconds,
           currentMaxBytes: v.cacheMaxBytes,
           onTtlChanged: (value) => _emit(v.copyWith(cacheTtlSeconds: value)),
           onMaxBytesChanged: (value) => _emit(v.copyWith(cacheMaxBytes: value)),
+          actions: _buildCacheActionsRow(context),
         ),
-        kOpenHandGap10,
-        _buildCacheActionsRow(context),
-        kOpenHandGap16,
 
         ...buildWebEngineListSection(
           context: context,

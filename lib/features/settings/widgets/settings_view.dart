@@ -498,6 +498,44 @@ Widget _buildWebEngineCacheFields({
   );
 }
 
+List<Widget> _buildWebEngineCacheSection({
+  required BuildContext context,
+  required String descriptionZh,
+  required String descriptionEn,
+  required TextEditingController ttlController,
+  required TextEditingController maxBytesController,
+  required int defaultTtlSeconds,
+  required int currentMaxBytes,
+  required ValueChanged<int> onTtlChanged,
+  required ValueChanged<int> onMaxBytesChanged,
+  required Widget actions,
+}) {
+  final theme = Theme.of(context);
+  return <Widget>[
+    Text(_settingsLocalCacheLabel(context), style: theme.textTheme.titleSmall),
+    kOpenHandGap4,
+    Text(
+      openHandLocalizedText(context, zh: descriptionZh, en: descriptionEn),
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    ),
+    kOpenHandGap8,
+    _buildWebEngineCacheFields(
+      context: context,
+      ttlController: ttlController,
+      maxBytesController: maxBytesController,
+      defaultTtlSeconds: defaultTtlSeconds,
+      currentMaxBytes: currentMaxBytes,
+      onTtlChanged: onTtlChanged,
+      onMaxBytesChanged: onMaxBytesChanged,
+    ),
+    kOpenHandGap10,
+    actions,
+    kOpenHandGap16,
+  ];
+}
+
 Widget _buildToolCacheActions({
   required BuildContext context,
   required int? bytesOnDisk,

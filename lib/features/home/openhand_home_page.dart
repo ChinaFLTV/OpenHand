@@ -2773,10 +2773,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!composerShortcutAllowed && !harnessComposerShortcutAllowed) {
         return false;
       }
-      // 硬件与焦点事件会同时触发；此处执行一次，焦点回调仅标记已处理。
-      unawaited(_performShortcutAction(shortcutAction));
-      return true;
     }
+    // 硬件与焦点事件会同时触发；此处执行一次，焦点回调仅标记已处理。
     unawaited(_performShortcutAction(shortcutAction));
     return true;
   }

@@ -533,14 +533,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     final fileName = node.name;
     final relativeFromRoot = p.relative(node.path, from: rootPath);
 
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
+      globalPosition: position,
       items: [
         PopupMenuItem<String>(
           value: 'abs',
@@ -1370,14 +1365,9 @@ class _FileTreeTile extends StatelessWidget {
     return GestureDetector(
       onSecondaryTapDown: (details) async {
         lastTapPosition = details.globalPosition;
-        final selected = await showAnimatedMenu<String>(
+        final selected = await showAnimatedPointerMenu<String>(
           context: context,
-          position: RelativeRect.fromLTRB(
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-          ),
+          globalPosition: details.globalPosition,
           items: [
             PopupMenuItem<String>(
               value: 'rename',
@@ -9445,26 +9435,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     widget.onTabClosed(filePath);
   }
 
-  RelativeRect _menuPositionForGlobalOffset(Offset globalPosition) {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) {
-      return RelativeRect.fromLTRB(
-        globalPosition.dx,
-        globalPosition.dy,
-        globalPosition.dx,
-        globalPosition.dy,
-      );
-    }
-    final localPosition = overlay.globalToLocal(globalPosition);
-    return RelativeRect.fromLTRB(
-      localPosition.dx,
-      localPosition.dy,
-      overlay.size.width - localPosition.dx,
-      overlay.size.height - localPosition.dy,
-    );
-  }
-
   void _closeTabBatch(List<String> filesToClose, {String? fallbackActiveFile}) {
     if (filesToClose.isEmpty) {
       return;
@@ -9507,9 +9477,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       silentLog('file_explorer', '计算复制菜单的工作区相对路径', error, stack);
     }
 
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: _menuPositionForGlobalOffset(globalPosition),
+      globalPosition: globalPosition,
       items: [
         PopupMenuItem<String>(
           value: 'abs',
@@ -9672,9 +9642,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
 
-    final selected = await showAnimatedMenu<_EditorTabMenuAction>(
+    final selected = await showAnimatedPointerMenu<_EditorTabMenuAction>(
       context: context,
-      position: _menuPositionForGlobalOffset(globalPosition),
+      globalPosition: globalPosition,
       items: [
         buildItem(
           value: _EditorTabMenuAction.close,
@@ -9854,9 +9824,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
 
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: _menuPositionForGlobalOffset(globalPosition),
+      globalPosition: globalPosition,
       items: [
         buildItem(
           value: _ctxGoToDefinition,
@@ -10137,9 +10107,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   ) async {
     if (!mounted) return;
 
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: _menuPositionForGlobalOffset(globalPosition),
+      globalPosition: globalPosition,
       items: [
         _buildSubmenuItem(
           value: 'rename',
@@ -10270,9 +10240,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   ) async {
     if (!mounted) return;
 
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: _menuPositionForGlobalOffset(globalPosition),
+      globalPosition: globalPosition,
       items: [
         _buildSubmenuItem(
           value: 'definition',
@@ -10370,9 +10340,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final foldableRegions = _foldableRegionsForFile(filePath);
     final hasFoldableRegions = foldableRegions.isNotEmpty;
 
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: _menuPositionForGlobalOffset(globalPosition),
+      globalPosition: globalPosition,
       items: [
         _buildSubmenuItem(
           value: 'toggle_fold',

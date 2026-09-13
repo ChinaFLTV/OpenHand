@@ -818,14 +818,9 @@ class _MachineTerminalFileManagerDialogState
   ) async {
     final editable = _isMachineTerminalFileEditable(entry);
     final mediaKind = _machineTerminalMediaPreviewKind(entry);
-    final selected = await showAnimatedMenu<_MachineTerminalFileAction>(
+    final selected = await showAnimatedPointerMenu<_MachineTerminalFileAction>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        details.globalPosition.dx,
-        details.globalPosition.dy,
-        details.globalPosition.dx,
-        details.globalPosition.dy,
-      ),
+      globalPosition: details.globalPosition,
       items: [
         _fileMenuItem(
           _MachineTerminalFileAction.refresh,

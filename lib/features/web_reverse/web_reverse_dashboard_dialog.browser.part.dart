@@ -1423,16 +1423,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     Size renderSize,
     Offset localPos,
   ) async {
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final position = RelativeRect.fromLTRB(
-      globalPos.dx,
-      globalPos.dy,
-      overlay.size.width - globalPos.dx,
-      overlay.size.height - globalPos.dy,
-    );
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: position,
+      globalPosition: globalPos,
       items: [
         PopupMenuItem(value: 'copy', child: Text(openHandCopyLabel(context))),
         PopupMenuItem(

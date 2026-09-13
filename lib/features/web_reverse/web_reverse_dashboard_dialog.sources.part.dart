@@ -711,9 +711,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   ) async {
     final col = _estimateColumn(details.localPosition.dx, text);
     final pos = details.globalPosition;
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx + 1, pos.dy + 1),
+      globalPosition: pos,
       items: [
         PopupMenuItem(
           value: 'hover',
