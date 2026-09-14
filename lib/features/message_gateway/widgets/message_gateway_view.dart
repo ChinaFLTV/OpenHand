@@ -40,7 +40,6 @@ import '../../../shared/ui/generated_media_result_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/interaction_timings.dart';
-import '../../../shared/ui/markdown_inline_code.dart';
 import '../../../shared/ui/media_preview_dialog.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
@@ -84,6 +83,7 @@ import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
+import '../../home/index.dart' show OpenHandHighlightedCodeBlockBuilder;
 import '../../knowledge_base/index.dart';
 import '../../mcp/index.dart';
 import '../../workflows/index.dart';
@@ -17614,6 +17614,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             context,
             content: effectiveContent,
             foreground: foreground,
+            bubbleColor: bubbleColor,
           ),
           if (includeFooter && widget.message.reactions.isNotEmpty)
             _buildReactionRow(context, foreground),
@@ -17929,6 +17930,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     BuildContext context, {
     required String content,
     required Color foreground,
+    required Color bubbleColor,
   }) {
     final theme = Theme.of(context);
     final thinking = widget.message.isThinkingEcho;
@@ -18017,6 +18019,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                       text: visibleText,
                       bodyStyle: bodyStyle,
                       foreground: foreground,
+                      bubbleColor: bubbleColor,
                       canCollapse: canCollapse,
                       streaming: true,
                     ),
@@ -18026,6 +18029,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                       text: visibleText,
                       bodyStyle: bodyStyle,
                       foreground: foreground,
+                      bubbleColor: bubbleColor,
                       canCollapse: canCollapse,
                       streaming: false,
                     ),
@@ -18037,6 +18041,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     text: displayContent,
                     bodyStyle: bodyStyle,
                     foreground: foreground,
+                    bubbleColor: bubbleColor,
                     canCollapse: canCollapse,
                     streaming: streaming,
                   ),
@@ -18072,6 +18077,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     required String text,
     required TextStyle? bodyStyle,
     required Color foreground,
+    required Color bubbleColor,
     required bool canCollapse,
     required bool streaming,
   }) {
@@ -18119,19 +18125,16 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final thinkingFontStyle = widget.message.isThinkingEcho
         ? FontStyle.italic
         : null;
-    final codeStyle = theme.textTheme.bodySmall?.copyWith(
-      color: foreground,
-      fontFamily: kOpenHandMonospaceFontFamily,
-      fontWeight: FontWeight.w600,
-      fontStyle: thinkingFontStyle,
-    );
-    final body = OpenHandSafeMarkdownBody(
+    final body = OpenHandThemedMarkdownBody(
       key: streaming
           ? const ValueKey<String>('dingtalk-streaming-markdown')
           : ValueKey<String>('markdown:$text'),
       data: text,
       selectable: !streaming,
       streaming: streaming,
+      backgroundColor: bubbleColor,
+      textColor: foreground,
+      fontStyle: thinkingFontStyle,
       onTapLink: (text, href, title) {
         _cancelPendingActionToggle();
         unawaited(_openDingTalkMessageLink(context, href ?? text));
@@ -18141,68 +18144,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         style: bodyStyle?.copyWith(fontStyle: FontStyle.italic),
       ),
       builders: <String, MarkdownElementBuilder>{
-        'code': OpenHandMarkdownInlineCodeBuilder(
-          textStyle: codeStyle ?? const TextStyle(),
-          backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.58),
+        'pre': OpenHandHighlightedCodeBlockBuilder(
+          theme: theme,
+          baseColor: foreground,
         ),
       },
-      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-        p: bodyStyle,
-        h3: theme.textTheme.titleMedium?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w800,
-          fontStyle: thinkingFontStyle,
-        ),
-        h3Padding: const EdgeInsets.only(bottom: 2),
-        h4: theme.textTheme.labelLarge?.copyWith(
-          color: foreground.withValues(alpha: 0.86),
-          fontWeight: FontWeight.w800,
-          fontStyle: thinkingFontStyle,
-        ),
-        h4Padding: const EdgeInsets.only(top: 8, bottom: 2),
-        blockSpacing: 10,
-        code: codeStyle,
-        tableHead: theme.textTheme.labelMedium?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w800,
-          fontStyle: thinkingFontStyle,
-        ),
-        tableBody: bodyStyle?.copyWith(fontSize: 13, height: 1.42),
-        tableBorder: TableBorder.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.82),
-          width: 0.8,
-          borderRadius: BorderRadius.circular(kOpenHandRadius10),
-        ),
-        tableHeadAlign: TextAlign.left,
-        tableVerticalAlignment: TableCellVerticalAlignment.middle,
-        tablePadding: const EdgeInsets.symmetric(vertical: 3),
-        tableCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        tableCellsDecoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.38),
-        ),
-        tableHeadCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        tableHeadCellsDecoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.74),
-        ),
-        tableColumnWidth: const IntrinsicColumnWidth(),
-        tableScrollbarThumbVisibility: true,
-        codeblockDecoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.58),
-          borderRadius: BorderRadius.circular(kOpenHandRadius10),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.72),
-          ),
-        ),
-        blockquoteDecoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.42),
-          border: Border(
-            left: BorderSide(
-              color: theme.colorScheme.primary.withValues(alpha: 0.72),
-              width: 3,
-            ),
-          ),
-        ),
-      ),
     );
     return thinkingFontStyle == null
         ? body

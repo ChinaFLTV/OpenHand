@@ -9,6 +9,7 @@ import 'package:markdown/markdown.dart' as md;
 import '../util/timer_safety.dart';
 import 'markdown_ast_sanitizer.dart';
 import 'markdown_math.dart';
+import 'openhand_message_markdown_theme.dart';
 
 List<Widget> buildOpenHandMarkdownWidgets({
   required List<md.Node> nodes,
@@ -252,5 +253,58 @@ class _OpenHandSafeMarkdownBodyState extends State<OpenHandSafeMarkdownBody>
     return widget.selectable && !widget.streaming
         ? SelectionArea(child: _OpenHandMarkdownSelectionContainer(child: body))
         : body;
+  }
+}
+
+/// 技能详情、会话卡片同源的 Markdown：GFM 解析 + 共用引用块/列表/表格样式。
+class OpenHandThemedMarkdownBody extends StatelessWidget {
+  const OpenHandThemedMarkdownBody({
+    super.key,
+    required this.data,
+    this.selectable = true,
+    this.streaming = false,
+    this.backgroundColor,
+    this.textColor,
+    this.useDarkCodeSurface = false,
+    this.fontStyle,
+    this.onTapLink,
+    this.imageBuilder,
+    this.builders = const <String, MarkdownElementBuilder>{},
+  });
+
+  final String data;
+  final bool selectable;
+  final bool streaming;
+  final Color? backgroundColor;
+  final Color? textColor;
+  final bool useDarkCodeSurface;
+  final FontStyle? fontStyle;
+  final MarkdownTapLinkCallback? onTapLink;
+  final MarkdownImageBuilder? imageBuilder;
+  final Map<String, MarkdownElementBuilder> builders;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final markdownTheme = OpenHandMessageMarkdownThemeData.resolve(
+      theme: theme,
+      backgroundColor: backgroundColor ?? colorScheme.surface,
+      textColor: textColor ?? colorScheme.onSurface,
+      useDarkCodeSurface: useDarkCodeSurface,
+      useCustomCodeBlockBuilder: builders.containsKey('pre'),
+    );
+    return OpenHandSafeMarkdownBody(
+      data: data,
+      selectable: selectable,
+      streaming: streaming,
+      onTapLink: onTapLink,
+      imageBuilder: imageBuilder,
+      styleSheet: markdownTheme.styleSheetWithFontStyle(fontStyle),
+      builders: <String, MarkdownElementBuilder>{
+        'code': markdownTheme.inlineCodeBuilder,
+        ...builders,
+      },
+    );
   }
 }

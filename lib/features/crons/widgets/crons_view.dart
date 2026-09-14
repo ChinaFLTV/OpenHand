@@ -12,11 +12,13 @@ import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/list_removal_transition.dart';
+import '../../../shared/ui/markdown_surface_tones.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -1836,16 +1838,13 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
     final useMarkdown = shown.length <= _CollapsibleLongText._markdownByteLimit;
 
     final Widget bodyWidget = useMarkdown
-        ? MarkdownBody(
+        ? OpenHandThemedMarkdownBody(
             data: shown,
-            selectable: true,
-            softLineBreak: true,
-            styleSheet: _buildCollapsibleMarkdownStyleSheet(
-              theme: theme,
-              colorScheme: colorScheme,
-              baseColor: bodyTextColor,
-              subdued: widget.subdued,
-            ),
+            backgroundColor: widget.subdued
+                ? colorScheme.surfaceContainer
+                : colorScheme.surfaceContainerHigh,
+            textColor: bodyTextColor,
+            fontStyle: widget.subdued ? FontStyle.italic : null,
           )
         : SelectableText(shown, style: fallbackTextStyle);
 
@@ -1905,86 +1904,6 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
   }
 }
 
-/// Cron 历史卡片使用的紧凑 Markdown 样式。
-MarkdownStyleSheet _buildCollapsibleMarkdownStyleSheet({
-  required ThemeData theme,
-  required ColorScheme colorScheme,
-  required Color baseColor,
-  required bool subdued,
-}) {
-  final base = theme.textTheme.bodySmall?.copyWith(
-    color: baseColor,
-    height: 1.4,
-    fontStyle: subdued ? FontStyle.italic : FontStyle.normal,
-  );
-  final mono = base?.copyWith(
-    fontFamily: kOpenHandMonospaceFontFamily,
-    fontSize: 11,
-    fontStyle: FontStyle.normal,
-  );
-  final codeBg = colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
-  return MarkdownStyleSheet.fromTheme(theme).copyWith(
-    p: base,
-    a: base?.copyWith(
-      color: colorScheme.primary,
-      decoration: TextDecoration.underline,
-    ),
-    code: mono?.copyWith(backgroundColor: codeBg),
-    codeblockPadding: const EdgeInsets.all(8),
-    codeblockDecoration: BoxDecoration(
-      color: codeBg,
-      borderRadius: kOpenHandBorderRadius8,
-      border: Border.all(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-      ),
-    ),
-    blockquoteDecoration: openHandQuoteBoxDecoration(
-      accent: colorScheme.primary,
-      fill: colorScheme.surfaceContainer.withValues(alpha: 0.45),
-      borderRadius: kOpenHandBorderRadius6,
-    ),
-    blockquotePadding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-    h1: theme.textTheme.titleMedium?.copyWith(
-      color: baseColor,
-      fontWeight: FontWeight.w700,
-    ),
-    h2: theme.textTheme.titleSmall?.copyWith(
-      color: baseColor,
-      fontWeight: FontWeight.w700,
-    ),
-    h3: theme.textTheme.bodyMedium?.copyWith(
-      color: baseColor,
-      fontWeight: FontWeight.w700,
-    ),
-    h4: theme.textTheme.bodyMedium?.copyWith(
-      color: baseColor,
-      fontWeight: FontWeight.w600,
-    ),
-    h5: theme.textTheme.bodySmall?.copyWith(
-      color: baseColor,
-      fontWeight: FontWeight.w600,
-    ),
-    h6: theme.textTheme.bodySmall?.copyWith(
-      color: baseColor,
-      fontWeight: FontWeight.w600,
-    ),
-    listBullet: base,
-    tableHead: base?.copyWith(fontWeight: FontWeight.w600),
-    tableBody: base,
-    tableBorder: TableBorder.all(
-      color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-      width: 0.6,
-    ),
-    horizontalRuleDecoration: BoxDecoration(
-      border: Border(
-        top: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
-        ),
-      ),
-    ),
-  );
-}
-
 /// Hermes Talker 短字段使用的内联 Markdown 组件。
 Widget _hermesInlineMarkdown({
   required String data,
@@ -2006,10 +1925,9 @@ Widget _hermesInlineMarkdown({
   if (data.length > inlineByteLimit) {
     return SelectableText(data, style: base);
   }
-  return MarkdownBody(
+  return OpenHandSafeMarkdownBody(
     data: data,
     selectable: true,
-    softLineBreak: true,
     styleSheet: _buildHermesInlineMarkdownStyleSheet(
       theme: theme,
       colorScheme: colorScheme,
@@ -2028,6 +1946,10 @@ MarkdownStyleSheet _buildHermesInlineMarkdownStyleSheet({
     fontSize: 11,
   );
   final codeBg = colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
+  final tones = OpenHandMarkdownSurfaceTones.resolve(
+    colorScheme: colorScheme,
+    background: colorScheme.surfaceContainerHighest,
+  );
   return MarkdownStyleSheet.fromTheme(theme).copyWith(
     p: base,
     a: base?.copyWith(
@@ -2041,11 +1963,10 @@ MarkdownStyleSheet _buildHermesInlineMarkdownStyleSheet({
       borderRadius: kOpenHandBorderRadius6,
     ),
     blockquoteDecoration: openHandQuoteBoxDecoration(
-      accent: colorScheme.primary,
-      fill: colorScheme.surfaceContainer.withValues(alpha: 0.45),
-      borderRadius: kOpenHandBorderRadius6,
+      accent: tones.accent,
+      fill: tones.quoteFill,
     ),
-    blockquotePadding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+    blockquotePadding: kOpenHandMarkdownQuotePadding,
     listBullet: base,
     h1: base?.copyWith(fontWeight: FontWeight.w700),
     h2: base?.copyWith(fontWeight: FontWeight.w700),

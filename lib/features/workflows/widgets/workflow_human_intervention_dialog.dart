@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -11,7 +10,6 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_spacing.dart';
-import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/workflow_definition.dart';
@@ -184,19 +182,9 @@ class _WorkflowHumanInterventionDialogState
                         borderRadius: BorderRadius.circular(kOpenHandRadius16),
                         border: Border.all(color: colors.outlineVariant),
                       ),
-                      child: OpenHandSafeMarkdownBody(
+                      child: OpenHandThemedMarkdownBody(
                         data: widget.request.content,
-                        selectable: true,
-                        styleSheet: MarkdownStyleSheet.fromTheme(theme)
-                            .copyWith(
-                              p: theme.textTheme.bodyMedium?.copyWith(
-                                height: 1.55,
-                              ),
-                              code: theme.textTheme.bodyMedium?.copyWith(
-                                fontFamily: kOpenHandMonospaceFontFamily,
-                                backgroundColor: colors.surfaceContainerHighest,
-                              ),
-                            ),
+                        backgroundColor: colors.surfaceContainerLow,
                       ),
                     ),
                     if (widget.request.fields.isNotEmpty) ...[

@@ -3707,6 +3707,14 @@ class _HtmlMessageBody extends StatelessWidget {
         ? theme.colorScheme.surfaceContainerHigh
         : theme.colorScheme.surfaceContainerLow;
     final mutedText = theme.colorScheme.onSurfaceVariant;
+    final tones = OpenHandMarkdownSurfaceTones.resolve(
+      colorScheme: theme.colorScheme,
+      background: theme.colorScheme.surface,
+    );
+    final quoteFillHex = _cssHexFromColor(tones.quoteFill);
+    final quoteBorderHex = _cssHexFromColor(
+      tones.accent.withValues(alpha: kOpenHandQuoteBorderOpacity),
+    );
 
     final accentHex = _cssHexFromColor(accent);
     final borderHex = _cssHexFromColor(borderColor);
@@ -3741,12 +3749,12 @@ class _HtmlMessageBody extends StatelessWidget {
                   };
                 case 'blockquote':
                   return <String, String>{
-                    'border-left': '3px solid $accentHex',
-                    'padding': '4px 12px',
+                    'padding': '11px 14px',
                     'margin': '8px 0',
                     'color': mutedHex,
-                    'background-color': codeBgHex,
-                    'border-radius': '0 6px 6px 0',
+                    'background-color': quoteFillHex,
+                    'border': '1px solid $quoteBorderHex',
+                    'border-radius': '12px',
                   };
                 case 'table':
                   return <String, String>{

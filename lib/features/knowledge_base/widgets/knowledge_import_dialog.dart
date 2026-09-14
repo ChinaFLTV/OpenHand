@@ -2,8 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:markdown/markdown.dart' as md;
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
@@ -18,6 +16,7 @@ import '../../../shared/ui/openhand_editor_chrome.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
+import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -1061,13 +1060,14 @@ class _MarkdownPreview extends StatelessWidget {
                 ),
               );
             }
-            return Markdown(
-              data: data,
-              selectable: true,
-              softLineBreak: true,
-              extensionSet: md.ExtensionSet.gitHubFlavored,
-              styleSheet: knowledgeMarkdownStyleSheet(context),
+            return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: OpenHandThemedMarkdownBody(
+                data: data,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHigh,
+              ),
             );
           },
         ),

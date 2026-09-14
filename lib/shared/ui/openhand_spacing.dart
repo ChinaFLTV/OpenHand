@@ -149,6 +149,10 @@ const BoxConstraints kOpenHandContentMaxWidth360 = BoxConstraints(
 const double kOpenHandAccentBarWidth = 5;
 const double kOpenHandAccentBarWidthCompact = 3;
 const double kOpenHandQuoteBorderOpacity = 0.42;
+const EdgeInsets kOpenHandMarkdownQuotePadding = EdgeInsets.symmetric(
+  horizontal: 14,
+  vertical: 11,
+);
 
 /// Markdown 引用块等只能给 [BoxDecoration] 的场景。
 /// 圆角必须配四边同色同宽边框；左侧强调条请改用叠层色条面板。

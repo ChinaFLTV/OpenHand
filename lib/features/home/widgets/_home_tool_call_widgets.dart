@@ -3778,25 +3778,18 @@ class _SelfLearningMarkdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final base = MarkdownStyleSheet.fromTheme(theme);
-    final styleSheet = muted
-        ? base.copyWith(
-            p: theme.textTheme.bodySmall?.copyWith(
-              height: 1.5,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          )
-        : base.copyWith(p: theme.textTheme.bodyMedium?.copyWith(height: 1.5));
+    final colorScheme = Theme.of(context).colorScheme;
     return ClipRect(
       child: AnimatedSize(
         duration: openHandMotionDuration(context, _kToolCompactMotionDuration),
         curve: _kToolCardMotionCurve,
         alignment: Alignment.topLeft,
-        child: _SafeMarkdownBody(
+        child: OpenHandThemedMarkdownBody(
           data: data.isEmpty ? ' ' : data,
-          styleSheet: styleSheet,
-          selectable: true,
+          backgroundColor: colorScheme.surface,
+          textColor: muted
+              ? colorScheme.onSurfaceVariant
+              : colorScheme.onSurface,
         ),
       ),
     );

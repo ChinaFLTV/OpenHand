@@ -9527,6 +9527,23 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-markdown ul { list-style: disc; }
 .oh-markdown ol { list-style: decimal; }
 .oh-markdown li + li { margin-top: 0.18rem; }
+.oh-markdown blockquote,
+.oh-html-body blockquote {
+  margin: 0.5rem 0;
+  padding: 11px 14px;
+  color: color-mix(in srgb, currentColor 88%, transparent);
+  background: color-mix(in srgb, var(--m3-primary) 8%, var(--m3-surface-container, var(--m3-surface)));
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 42%, transparent);
+  border-radius: 12px;
+}
+.oh-markdown blockquote > :first-child,
+.oh-html-body blockquote > :first-child {
+  margin-top: 0;
+}
+.oh-markdown blockquote > :last-child,
+.oh-html-body blockquote > :last-child {
+  margin-bottom: 0;
+}
 .oh-markdown hr {
   border: none;
   border-top: 1px solid var(--m3-outline);
@@ -9769,12 +9786,6 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-html-body td {
   border: 1px solid var(--m3-outline);
   padding: 6px 10px;
-}
-.oh-html-body blockquote {
-  border-left: 3px solid var(--m3-primary);
-  padding: 4px 12px;
-  margin: 0.5rem 0;
-  color: var(--m3-on-surface-variant);
 }
 .oh-html-body img {
   max-width: 100%;

@@ -1435,17 +1435,6 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
           }}
         />
       ),
-      blockquote: (props: any) => (
-        <blockquote
-          {...props}
-          style={{
-            borderLeft: '3px solid var(--m3-primary)',
-            padding: '4px 12px',
-            margin: '0.5rem 0',
-            color: 'var(--m3-on-surface-variant)',
-          }}
-        />
-      ),
     }),
     [],
   );

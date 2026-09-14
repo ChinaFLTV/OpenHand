@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
-import '../../../shared/ui/openhand_message_markdown_theme.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../home/index.dart' show OpenHandHighlightedCodeBlockBuilder;
 
@@ -22,17 +21,11 @@ class OpenHandSkillMarkdownPreview extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final markdownBackground =
         backgroundColor ?? colorScheme.surfaceContainerLow;
-    final markdownTheme = OpenHandMessageMarkdownThemeData.resolve(
-      theme: theme,
+    return OpenHandThemedMarkdownBody(
+      data: stripOpenHandMarkdownFrontMatter(data),
       backgroundColor: markdownBackground,
       textColor: colorScheme.onSurface,
-    );
-    return OpenHandSafeMarkdownBody(
-      data: stripOpenHandMarkdownFrontMatter(data),
-      selectable: true,
-      styleSheet: markdownTheme.styleSheet,
       builders: {
-        'code': markdownTheme.inlineCodeBuilder,
         'pre': OpenHandHighlightedCodeBlockBuilder(
           theme: theme,
           baseColor: colorScheme.onSurface,

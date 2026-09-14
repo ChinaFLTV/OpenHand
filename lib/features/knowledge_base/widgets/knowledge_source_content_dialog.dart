@@ -17,7 +17,6 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
-import '../../../shared/ui/openhand_message_markdown_theme.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -1389,23 +1388,17 @@ class _KnowledgeMarkdownViewer extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final markdownBackground = colorScheme.surfaceContainerLow;
-    final markdownTheme = OpenHandMessageMarkdownThemeData.resolve(
-      theme: theme,
-      backgroundColor: markdownBackground,
-      textColor: colorScheme.onSurface,
-    );
     return DecoratedBox(
       decoration: _knowledgeViewerPanelDecoration(context),
       child: ColoredBox(
         color: markdownBackground,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: OpenHandSafeMarkdownBody(
+          child: OpenHandThemedMarkdownBody(
             data: stripOpenHandMarkdownFrontMatter(text.trim()),
-            selectable: true,
-            styleSheet: markdownTheme.styleSheet,
+            backgroundColor: markdownBackground,
+            textColor: colorScheme.onSurface,
             builders: {
-              'code': markdownTheme.inlineCodeBuilder,
               'pre': OpenHandHighlightedCodeBlockBuilder(
                 theme: theme,
                 baseColor: colorScheme.onSurface,

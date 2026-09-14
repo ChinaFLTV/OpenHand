@@ -2,12 +2,8 @@ import 'package:flutter/material.dart';
 
 /// Markdown 正文按「所在容器的实际背景」推导出的一组基础色。
 ///
-/// 主会话消息气泡与 Harness 面板各写了一份同样的推导：叠加基色、两级表面、
-/// 强调色与链接色，连 alpha 都逐字相同。这几个数值决定同一段 Markdown 在两处
-/// 看起来是不是一回事，分散着写迟早分叉。
-///
-/// 只收敛两边完全一致的部分；引用块、边框这类两边取值本就不同的，仍由各自
-/// 在这组基础色之上推导。
+/// 叠加基色、两级表面、强调色、链接色与引用块底色都从这里出，避免会话气泡、
+/// Harness 面板和其他 Markdown 表面各写一份后逐渐分叉。
 class OpenHandMarkdownSurfaceTones {
   factory OpenHandMarkdownSurfaceTones.resolve({
     required ColorScheme colorScheme,
@@ -68,4 +64,10 @@ class OpenHandMarkdownSurfaceTones {
 
   final Color accent;
   final Color link;
+
+  /// 引用块底色：强调色叠在抬起表面上，深浅主题用不同透明度。
+  Color get quoteFill => Color.alphaBlend(
+    accent.withValues(alpha: isDark ? 0.16 : 0.07),
+    elevatedSurface,
+  );
 }

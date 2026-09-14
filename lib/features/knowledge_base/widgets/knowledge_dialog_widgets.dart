@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
@@ -194,34 +193,6 @@ String localizedKnowledgeSourceStatus(BuildContext context, String status) {
   };
 }
 
-/// 知识库文档预览共用的 Markdown 样式。
-MarkdownStyleSheet knowledgeMarkdownStyleSheet(BuildContext context) {
-  final theme = Theme.of(context);
-  final colorScheme = theme.colorScheme;
-  return MarkdownStyleSheet.fromTheme(theme).copyWith(
-    p: theme.textTheme.bodyMedium?.copyWith(
-      height: _kKnowledgeMarkdownLineHeight,
-    ),
-    code: theme.textTheme.bodyMedium?.copyWith(
-      fontFamily: kOpenHandMonospaceFontFamily,
-      color: colorScheme.onSurface,
-    ),
-    codeblockDecoration: BoxDecoration(
-      color: colorScheme.surfaceContainerHigh,
-      borderRadius: _kKnowledgeMarkdownBlockRadius,
-    ),
-    blockquoteDecoration: openHandQuoteBoxDecoration(
-      accent: colorScheme.primary,
-      fill: colorScheme.surfaceContainerHigh,
-      borderRadius: _kKnowledgeMarkdownBlockRadius,
-    ),
-  );
-}
-
-const double _kKnowledgeMarkdownLineHeight = 1.42;
-const BorderRadius _kKnowledgeMarkdownBlockRadius = BorderRadius.all(
-  Radius.circular(kOpenHandRadius10),
-);
 const double kKnowledgeDialogMetricMinWidth = 168;
 const double kKnowledgeDialogMetricGridGap = 10;
 const double kKnowledgeDialogJsonDefaultMaxHeight = 320;

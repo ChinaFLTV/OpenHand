@@ -238,6 +238,11 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
         : const <md.InlineSyntax>[];
 
     final builders = <String, MarkdownElementBuilder>{
+      'code': OpenHandMessageMarkdownThemeData.resolve(
+        theme: widget.theme,
+        backgroundColor: bg ?? widget.colorScheme.surface,
+        textColor: widget.textColor ?? widget.colorScheme.onSurface,
+      ).inlineCodeBuilder,
       'pre': OpenHandHighlightedCodeBlockBuilder(
         theme: widget.theme,
         baseColor: widget.textColor ?? widget.colorScheme.onSurface,

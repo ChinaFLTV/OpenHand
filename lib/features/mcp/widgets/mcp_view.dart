@@ -7,7 +7,6 @@ import 'dart:math' as math;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -47,6 +46,7 @@ import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_ops_panel.dart';
 import '../../../shared/ui/openhand_ops_press_scale.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
+import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -14711,34 +14711,7 @@ class _ToolDescriptionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final styleSheet = MarkdownStyleSheet.fromTheme(theme).copyWith(
-      p: theme.textTheme.bodyLarge?.copyWith(
-        color: colorScheme.onSurfaceVariant,
-        height: 1.45,
-      ),
-      listBullet: theme.textTheme.bodyLarge?.copyWith(
-        color: colorScheme.onSurfaceVariant,
-      ),
-      strong: theme.textTheme.bodyLarge?.copyWith(
-        color: colorScheme.onSurface,
-        fontWeight: FontWeight.w700,
-      ),
-      code: theme.textTheme.bodyMedium?.copyWith(
-        color: colorScheme.onSurface,
-        fontFamily: kOpenHandMonospaceFontFamily,
-      ),
-      codeblockDecoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: kOpenHandBorderRadius14,
-      ),
-      blockquoteDecoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: kOpenHandBorderRadius14,
-      ),
-    );
-
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -14746,11 +14719,10 @@ class _ToolDescriptionPanel extends StatelessWidget {
         color: colorScheme.surfaceContainerLow,
         borderRadius: kOpenHandBorderRadius18,
       ),
-      child: MarkdownBody(
+      child: OpenHandThemedMarkdownBody(
         data: description,
-        selectable: true,
-        softLineBreak: true,
-        styleSheet: styleSheet,
+        backgroundColor: colorScheme.surfaceContainerLow,
+        textColor: colorScheme.onSurfaceVariant,
       ),
     );
   }

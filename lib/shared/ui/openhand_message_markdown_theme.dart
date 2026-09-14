@@ -77,10 +77,7 @@ class OpenHandMessageMarkdownThemeData {
           overlayBase.withValues(alpha: tones.isDark ? 0.18 : 0.12),
           backgroundColor,
         );
-    final quoteSurface = Color.alphaBlend(
-      tones.accent.withValues(alpha: tones.isDark ? 0.16 : 0.07),
-      tones.elevatedSurface,
-    );
+    final quoteSurface = tones.quoteFill;
     final secondaryTextColor = textColor.withValues(
       alpha: tones.isDark ? 0.92 : 0.88,
     );
@@ -168,10 +165,7 @@ class OpenHandMessageMarkdownThemeData {
         tableHeadCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         tableHeadCellsDecoration: BoxDecoration(color: tones.elevatedSurface),
         tableColumnWidth: const IntrinsicColumnWidth(),
-        blockquotePadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 11,
-        ),
+        blockquotePadding: kOpenHandMarkdownQuotePadding,
         blockquoteDecoration: openHandQuoteBoxDecoration(
           accent: tones.accent,
           fill: quoteSurface,
@@ -201,4 +195,29 @@ class OpenHandMessageMarkdownThemeData {
 
   final MarkdownStyleSheet styleSheet;
   final OpenHandMarkdownInlineCodeBuilder inlineCodeBuilder;
+
+  /// 思考回声等需要整段斜体的场景，在共用样式上叠一层字型。
+  MarkdownStyleSheet styleSheetWithFontStyle(FontStyle? fontStyle) {
+    if (fontStyle == null) return styleSheet;
+    TextStyle? styled(TextStyle? style) =>
+        style?.copyWith(fontStyle: fontStyle);
+    return styleSheet.copyWith(
+      p: styled(styleSheet.p),
+      a: styled(styleSheet.a),
+      h1: styled(styleSheet.h1),
+      h2: styled(styleSheet.h2),
+      h3: styled(styleSheet.h3),
+      h4: styled(styleSheet.h4),
+      h5: styled(styleSheet.h5),
+      h6: styled(styleSheet.h6),
+      em: styled(styleSheet.em),
+      strong: styled(styleSheet.strong),
+      del: styled(styleSheet.del),
+      blockquote: styled(styleSheet.blockquote),
+      listBullet: styled(styleSheet.listBullet),
+      code: styled(styleSheet.code),
+      tableHead: styled(styleSheet.tableHead),
+      tableBody: styled(styleSheet.tableBody),
+    );
+  }
 }

@@ -112,6 +112,11 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
         : const <md.InlineSyntax>[];
 
     final builders = <String, MarkdownElementBuilder>{
+      'code': OpenHandMessageMarkdownThemeData.resolve(
+        theme: widget.theme,
+        backgroundColor: widget.colorScheme.surface,
+        textColor: widget.colorScheme.onSurface,
+      ).inlineCodeBuilder,
       'pre': OpenHandHighlightedCodeBlockBuilder(
         theme: widget.theme,
         baseColor: widget.colorScheme.onSurface,

@@ -8374,7 +8374,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               Flexible(
                 child: _buildLspScrollableContent(
                   colorScheme: colorScheme,
-                  theme: theme,
                   hover: hover,
                 ),
               )
@@ -8401,7 +8400,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Widget _buildLspScrollableContent({
     required ColorScheme colorScheme,
-    required ThemeData theme,
     required AiLspHoverResult? hover,
   }) {
     if (hover != null) {
@@ -8418,14 +8416,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             ),
           ),
           child: hover.markdown?.trim().isNotEmpty == true
-              ? _SafeMarkdownBody(
+              ? OpenHandThemedMarkdownBody(
                   data: hover.markdown!,
-                  selectable: true,
-                  parseKey: hover.markdown!,
-                  styleSheet: _buildLspHoverMarkdownStyleSheet(
-                    theme,
-                    colorScheme,
-                  ),
+                  backgroundColor: colorScheme.surfaceContainerLowest,
+                  textColor: colorScheme.onSurface,
                 )
               : SelectableText(
                   hover.renderedText,
@@ -8671,42 +8665,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
         ),
       ],
-    );
-  }
-
-  MarkdownStyleSheet _buildLspHoverMarkdownStyleSheet(
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    final surface = colorScheme.surfaceContainerLowest;
-    final border = colorScheme.outlineVariant.withValues(alpha: 0.35);
-    return MarkdownStyleSheet.fromTheme(theme).copyWith(
-      p: (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(
-        color: colorScheme.onSurface,
-        fontSize: 12.5,
-        height: 1.55,
-      ),
-      code: TextStyle(
-        fontFamily: kOpenHandMonospaceFontFamily,
-        fontSize: 11.5,
-        color: colorScheme.primary,
-        backgroundColor: surface,
-      ),
-      codeblockPadding: const EdgeInsets.all(10),
-      codeblockDecoration: BoxDecoration(
-        color: surface,
-        borderRadius: kOpenHandBorderRadius10,
-        border: Border.all(color: border),
-      ),
-      blockquotePadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      blockquoteDecoration: BoxDecoration(
-        color: Color.alphaBlend(
-          colorScheme.primary.withValues(alpha: 0.08),
-          surface,
-        ),
-        borderRadius: kOpenHandBorderRadius10,
-        border: Border.all(color: border),
-      ),
     );
   }
 

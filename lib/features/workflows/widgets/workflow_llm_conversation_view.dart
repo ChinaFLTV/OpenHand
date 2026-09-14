@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
@@ -22,6 +21,7 @@ import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
+import '../../home/index.dart' show OpenHandHighlightedCodeBlockBuilder;
 import '../service/workflow_node_executor.dart';
 
 const double _messageAvatarSize = 28;
@@ -1007,38 +1007,16 @@ class _MarkdownMessageBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final base = theme.textTheme.bodySmall?.copyWith(
-      color: colors.onSurface,
-      height: 1.48,
-    );
-    return OpenHandSafeMarkdownBody(
+    return OpenHandThemedMarkdownBody(
       data: data,
-      selectable: true,
-      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-        p: base,
-        a: base?.copyWith(
-          color: colors.primary,
-          decoration: TextDecoration.underline,
+      backgroundColor: colors.surface,
+      textColor: colors.onSurface,
+      builders: {
+        'pre': OpenHandHighlightedCodeBlockBuilder(
+          theme: theme,
+          baseColor: colors.onSurface,
         ),
-        code: base?.copyWith(
-          fontFamily: kOpenHandMonospaceFontFamily,
-          backgroundColor: colors.surfaceContainerHighest,
-        ),
-        codeblockPadding: const EdgeInsets.all(9),
-        codeblockDecoration: BoxDecoration(
-          color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
-          borderRadius: kOpenHandBorderRadius8,
-          border: Border.all(color: colors.outlineVariant),
-        ),
-        blockquotePadding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-        blockquoteDecoration: BoxDecoration(
-          color: colors.surfaceContainerHighest.withValues(alpha: 0.48),
-          border: Border(left: BorderSide(color: colors.primary, width: 3)),
-        ),
-        h1: theme.textTheme.titleMedium,
-        h2: theme.textTheme.titleSmall,
-        h3: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
-      ),
+      },
     );
   }
 }

@@ -27,7 +27,6 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/markdown_math.dart';
-import '../../../shared/ui/markdown_surface_tones.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -38,6 +37,7 @@ import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_file_hover_popup.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_message_markdown_theme.dart';
 import '../../../shared/ui/openhand_metadata_tiles.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -544,85 +544,11 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
   ThemeData theme,
   ColorScheme colorScheme,
 ) {
-  final textColor = colorScheme.onSurface;
-  final accent = colorScheme.primary;
-  final isDark = theme.brightness == Brightness.dark;
-  final surface = colorScheme.surface;
-  final codeBlockBg = Color.alphaBlend(
-    (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-    surface,
-  );
-  final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.5);
-  final quoteBg = Color.alphaBlend(
-    accent.withValues(alpha: isDark ? 0.20 : 0.08),
-    surface,
-  );
-
-  final body = (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(
-    color: textColor,
-    height: 1.65,
-  );
-
-  return MarkdownStyleSheet.fromTheme(theme).copyWith(
-    p: body,
-    h1: (theme.textTheme.headlineSmall ?? const TextStyle()).copyWith(
-      color: textColor,
-      fontWeight: FontWeight.w800,
-      height: 1.35,
-    ),
-    h2: (theme.textTheme.titleLarge ?? const TextStyle()).copyWith(
-      color: textColor,
-      fontWeight: FontWeight.w700,
-      height: 1.35,
-    ),
-    h3: (theme.textTheme.titleMedium ?? const TextStyle()).copyWith(
-      color: textColor,
-      fontWeight: FontWeight.w700,
-      height: 1.35,
-    ),
-    h4: (theme.textTheme.titleSmall ?? const TextStyle()).copyWith(
-      color: textColor,
-      fontWeight: FontWeight.w600,
-    ),
-    code: TextStyle(
-      fontFamily: kOpenHandMonospaceFontFamily,
-      fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * 0.93,
-      color: accent,
-      backgroundColor: Colors.transparent,
-    ),
-    codeblockPadding: const EdgeInsets.all(12),
-    codeblockDecoration: BoxDecoration(
-      color: codeBlockBg,
-      borderRadius: _br12,
-      border: Border.all(color: borderColor),
-    ),
-    blockquotePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-    blockquoteDecoration: openHandQuoteBoxDecoration(
-      accent: accent,
-      fill: quoteBg,
-      borderRadius: kOpenHandBorderRadius16,
-    ),
-    horizontalRuleDecoration: BoxDecoration(
-      border: Border(top: BorderSide(color: borderColor)),
-    ),
-    tableBorder: TableBorder.symmetric(
-      inside: BorderSide(color: borderColor),
-      outside: BorderSide(color: borderColor),
-    ),
-    tableCellsPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-    tableHeadCellsPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-    tableColumnWidth: const IntrinsicColumnWidth(),
-    strong: body.copyWith(fontWeight: FontWeight.w700),
-    em: body.copyWith(fontStyle: FontStyle.italic),
-    listBullet: body.copyWith(color: accent, fontWeight: FontWeight.w700),
-    listBulletPadding: const EdgeInsets.only(right: 8),
-    a: body.copyWith(
-      color: accent,
-      fontWeight: FontWeight.w600,
-      decoration: TextDecoration.underline,
-      decorationColor: accent.withValues(alpha: 0.6),
-    ),
-  );
+  return OpenHandMessageMarkdownThemeData.resolve(
+    theme: theme,
+    backgroundColor: colorScheme.surface,
+    textColor: colorScheme.onSurface,
+  ).styleSheet;
 }
 
 // 与首页会话界面共用的圆角规格。
@@ -638,104 +564,14 @@ MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
   Color cardBg,
   Color? explicitTextColor,
 ) {
-  final tones = OpenHandMarkdownSurfaceTones.resolve(
-    colorScheme: colorScheme,
-    background: cardBg,
-  );
-  final bubbleIsDark = tones.isDark;
-  final overlayBase = tones.overlayBase;
-  final textColor =
-      explicitTextColor ??
-      (bubbleIsDark ? Colors.white : colorScheme.onSurface);
-  final subtleSurface = tones.subtleSurface;
-  final elevatedSurface = tones.elevatedSurface;
-  final accentColor = tones.accent;
-  final linkColor = tones.link;
-  final borderColor = Color.alphaBlend(
-    overlayBase.withValues(alpha: bubbleIsDark ? 0.18 : 0.12),
-    cardBg,
-  );
-  final quoteSurface = Color.alphaBlend(
-    accentColor.withValues(alpha: bubbleIsDark ? 0.22 : 0.10),
-    elevatedSurface,
-  );
-  final secondaryTextColor = textColor.withValues(
-    alpha: bubbleIsDark ? 0.92 : 0.88,
-  );
-
-  final body = (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(
-    color: textColor,
-    height: 1.65,
-  );
-
-  return MarkdownStyleSheet.fromTheme(theme).copyWith(
-    p: body,
-    h1: (theme.textTheme.headlineSmall ?? const TextStyle()).copyWith(
-      color: textColor,
-      fontWeight: FontWeight.w800,
-      height: 1.35,
-    ),
-    h2: (theme.textTheme.titleLarge ?? const TextStyle()).copyWith(
-      color: textColor,
-      fontWeight: FontWeight.w700,
-      height: 1.35,
-    ),
-    h3: (theme.textTheme.titleMedium ?? const TextStyle()).copyWith(
-      color: textColor,
-      fontWeight: FontWeight.w700,
-      height: 1.35,
-    ),
-    h4: (theme.textTheme.titleSmall ?? const TextStyle()).copyWith(
-      color: textColor,
-      fontWeight: FontWeight.w600,
-    ),
-    code: TextStyle(
-      fontFamily: kOpenHandMonospaceFontFamily,
-      fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * 0.93,
-      color: textColor,
-      backgroundColor: Colors.transparent,
-    ),
-    codeblockPadding: const EdgeInsets.all(12),
-    codeblockDecoration: BoxDecoration(
-      color: bubbleIsDark
-          ? Colors.white.withValues(alpha: 0.08)
-          : subtleSurface,
-      borderRadius: _br12,
-      border: Border.all(color: borderColor),
-    ),
-    blockquotePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-    blockquoteDecoration: openHandQuoteBoxDecoration(
-      accent: accentColor,
-      fill: quoteSurface,
-      borderRadius: kOpenHandBorderRadius16,
-    ),
-    horizontalRuleDecoration: BoxDecoration(
-      border: Border(top: BorderSide(color: borderColor)),
-    ),
-    tableBorder: TableBorder.symmetric(
-      inside: BorderSide(color: borderColor),
-      outside: BorderSide(color: borderColor),
-    ),
-    tableCellsPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-    tableCellsDecoration: BoxDecoration(color: subtleSurface),
-    tableHeadCellsPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-    tableHeadCellsDecoration: BoxDecoration(color: elevatedSurface),
-    tableColumnWidth: const IntrinsicColumnWidth(),
-    strong: body.copyWith(fontWeight: FontWeight.w700),
-    em: body.copyWith(fontStyle: FontStyle.italic),
-    blockquote: body.copyWith(color: secondaryTextColor),
-    listBullet: body.copyWith(
-      color: secondaryTextColor,
-      fontWeight: FontWeight.w700,
-    ),
-    listBulletPadding: const EdgeInsets.only(right: 8),
-    a: body.copyWith(
-      color: linkColor,
-      fontWeight: FontWeight.w600,
-      decoration: TextDecoration.underline,
-      decorationColor: linkColor.withValues(alpha: 0.6),
-    ),
-  );
+  final isDark =
+      ThemeData.estimateBrightnessForColor(cardBg) == Brightness.dark;
+  return OpenHandMessageMarkdownThemeData.resolve(
+    theme: theme,
+    backgroundColor: cardBg,
+    textColor:
+        explicitTextColor ?? (isDark ? Colors.white : colorScheme.onSurface),
+  ).styleSheet;
 }
 
 const Color _hePendingTone = kHarnessStatusIdleTone;

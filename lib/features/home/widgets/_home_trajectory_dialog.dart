@@ -4709,8 +4709,7 @@ class _TrajectoryMarkdownDetailState extends State<_TrajectoryMarkdownDetail> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     if (widget.text.trim().isEmpty) {
       return OpenHandInlineEmptyState.compact(message: widget.emptyText);
     }
@@ -4724,15 +4723,10 @@ class _TrajectoryMarkdownDetailState extends State<_TrajectoryMarkdownDetail> {
           color: colorScheme.outlineVariant.withValues(alpha: 0.7),
         ),
       ),
-      child: OpenHandSafeMarkdownBody(
+      child: OpenHandThemedMarkdownBody(
         data: widget.text,
-        selectable: true,
-        styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-          p: theme.textTheme.bodySmall?.copyWith(height: 1.5),
-          code: theme.textTheme.bodySmall?.copyWith(
-            fontFamily: kOpenHandMonospaceFontFamily,
-          ),
-        ),
+        backgroundColor: colorScheme.surfaceContainer,
+        textColor: colorScheme.onSurface,
       ),
     );
     if (!widget.preview) return content;
