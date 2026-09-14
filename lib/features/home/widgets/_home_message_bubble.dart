@@ -275,6 +275,7 @@ class _MessageBubbleState extends State<_MessageBubble>
   // 限制 AnimatedSize 期间每帧触发的外层 layout-change 通知频率，
   // 避免逐帧 jumpTo 底部导致上下抽搐。
   Timer? _layoutChangeThrottleTimer;
+  bool _layoutChangePending = false;
   Timer? _responseVariantSizeMotionResetTimer;
   Timer? _expansionSizeMotionResetTimer;
 
@@ -358,6 +359,9 @@ class _MessageBubbleState extends State<_MessageBubble>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message.id != widget.message.id ||
         oldWidget.sessionId != widget.sessionId) {
+      _layoutChangeThrottleTimer?.cancel();
+      _layoutChangeThrottleTimer = null;
+      _layoutChangePending = false;
       _compressionExpanded = false;
       _uncontrolledBodyExpanded = false;
       _loadExpansionOverridesForMessage();
@@ -401,9 +405,16 @@ class _MessageBubbleState extends State<_MessageBubble>
     return NotificationListener<SizeChangedLayoutNotification>(
       onNotification: (notification) {
         if (_layoutChangeThrottleTimer?.isActive ?? false) {
+          _layoutChangePending = true;
           return false;
         }
-        _layoutChangeThrottleTimer = startSafeTimer(kOpenHandMotion200, () {});
+        _layoutChangeThrottleTimer = startSafeTimer(kOpenHandMotion200, () {
+          _layoutChangeThrottleTimer = null;
+          if (!mounted || !_layoutChangePending) return;
+          _layoutChangePending = false;
+          // 冷加载的最终高度也必须通知，不能只按加载中的高度贴底。
+          widget.onLayoutChanged();
+        });
         widget.onLayoutChanged();
         return false;
       },
