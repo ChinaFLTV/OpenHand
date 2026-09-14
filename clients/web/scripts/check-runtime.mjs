@@ -245,7 +245,81 @@ try {
   metaRequests[0].resolve(metaResponse(600));
   await oldRefresh;
   assert.equal(getDialogExitDurationMs(), 120, '旧元数据不能覆盖新会话的设置');
-  console.log('[Web 运行时检查] 鉴权隔离、存储兜底、有界响应、取消原因、事件订阅与输入法关闭行为通过。');
+  const { BoundedTextCache } = await server.ssrLoadModule('/src/shared/util/bounded_text_cache.ts');
+  const textCache = new BoundedTextCache(2, 12);
+  textCache.set('甲', '一');
+  textCache.set('乙', '二');
+  textCache.get('甲');
+  textCache.set('丙', '三');
+  assert.equal(textCache.get('乙'), undefined, '缓存必须淘汰最久未使用的条目');
+  textCache.set('甲', '四'.repeat(10));
+  assert.equal(textCache.get('丙'), undefined, '替换条目后仍须遵守总字符预算');
+  textCache.set('超限', '五'.repeat(20));
+  assert.equal(textCache.get('超限'), undefined, '单条超限内容不得挤占缓存');
+  textCache.set('甲', '');
+  textCache.set('丁', '六'.repeat(10));
+  assert.equal(textCache.get('甲'), '', '空净化结果也必须正确缓存和计费');
+
+  replaceGlobal('document', { documentElement: { getAttribute: () => null } });
+  const { RichContentFrameScheduler } = await server.ssrLoadModule('/src/shared/ui/rich_content_frame_scheduler.ts');
+  const frames = [];
+  const idleCallbacks = [];
+  replaceGlobal('requestAnimationFrame', (callback) => { frames.push(callback); return frames.length; });
+  replaceGlobal('requestIdleCallback', (callback) => { idleCallbacks.push(callback); return idleCallbacks.length; });
+  const scheduler = new RichContentFrameScheduler();
+  let renderedCards = 0;
+  const cancelledCards = Array.from({ length: 2000 }, () => scheduler.schedule(() => { renderedCards += 1; }));
+  for (const cancel of cancelledCards) cancel();
+  scheduler.schedule(() => { renderedCards += 1; });
+  scheduler.schedule(() => { renderedCards += 1; });
+  assert.equal(frames.length, 1, '大量挂载和取消只能保留一个帧调度链');
+  frames.shift()();
+  assert.equal(renderedCards, 0, '帧开始时应先等待空闲预算');
+  idleCallbacks.shift()();
+  assert.equal(renderedCards, 1, '两千条失效任务不能阻塞当前可见卡片');
+  assert.equal(idleCallbacks.length, 0, '同一空闲周期不能连续升级多张卡片');
+  frames.shift()();
+  idleCallbacks.shift()();
+  assert.equal(renderedCards, 2, '下一张卡片必须在下一帧执行');
+  assert.equal(frames.length, 0, '队列清空后必须停止调度');
+  scheduler.schedule(() => { throw new Error('模拟渲染失败'); });
+  scheduler.schedule(() => { renderedCards += 1; });
+  frames.shift()();
+  assert.throws(() => idleCallbacks.shift()(), /模拟渲染失败/, '渲染错误不能静默吞掉');
+  frames.shift()();
+  idleCallbacks.shift()();
+  assert.equal(renderedCards, 3, '单条任务失败不能堵塞后续卡片');
+
+  let clockMs = 0;
+  let timerId = 0;
+  const timers = new Map();
+  replaceGlobal('performance', { now: () => clockMs });
+  replaceGlobal('document', { documentElement: { getAttribute: () => 'true' } });
+  replaceGlobal('window', {
+    setTimeout(callback, delay) { const id = ++timerId; timers.set(id, { callback, at: clockMs + delay }); return id; },
+    clearTimeout(id) { timers.delete(id); },
+  });
+  const cancelWhileScrolling = scheduler.schedule(() => { renderedCards += 1; });
+  frames.shift()();
+  cancelWhileScrolling();
+  assert.equal(timers.size, 0, '滚动等待中的任务全部取消后必须清除计时器');
+  scheduler.schedule(() => { renderedCards += 1; });
+  frames.shift()();
+  for (let step = 0; timers.size > 0 && step < 100; step += 1) {
+    const [id, timer] = timers.entries().next().value;
+    timers.delete(id);
+    clockMs = timer.at;
+    timer.callback();
+  }
+  assert.equal(timers.size, 0, '持续滚动等待必须有界');
+  assert.ok(clockMs <= 3000, '持续滚动不能无限推迟卡片渲染');
+  assert.equal(frames.length, 1, '达到等待上限后重新申请一帧预算');
+  frames.shift()();
+  idleCallbacks.shift()();
+  assert.equal(renderedCards, 4, '持续滚动达到上限后也须让任务取得进展');
+  assert.equal(frames.length, 0, '滚动兜底完成后不能持续空转');
+
+  console.log('[Web 运行时检查] 鉴权隔离、存储兜底、有界响应、取消原因、事件订阅、输入法关闭、富文本帧预算与缓存边界检查通过。');
 } finally {
   for (const [name, descriptor] of savedGlobals) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);

@@ -1,6 +1,8 @@
 // Markdown 渲染组件：按需加载插件，限制长内容解析，并为批量挂载分帧调度。
 
 import { memo } from 'preact/compat';
+import { richContentFrameScheduler } from '../shared/ui/rich_content_frame_scheduler';
+import { BoundedTextCache } from '../shared/util/bounded_text_cache';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -102,8 +104,6 @@ const MARKDOWN_PLACEHOLDER_WIDTHS = [72, 90, 64, 82, 58, 46] as const;
 // 小增量流式更新合并到固定间隔，避免重复解析整棵 Markdown 树。
 const MARKDOWN_STREAM_FLUSH_MS = 80;
 const MARKDOWN_STREAM_FLUSH_DELTA = 64;
-const MARKDOWN_IDLE_CALLBACK_TIMEOUT_MS = 100;
-const MARKDOWN_FRAME_FALLBACK_TIMEOUT_MS = 16;
 // 无围栏代码块时跳过高亮插件。
 const FENCED_CODE_RE = /(^|\n)[ \t]*```/;
 const MATH_DELIMITER_RE = /\\\(|\\\[|\$\$/;
@@ -113,12 +113,8 @@ const MARKDOWN_MEDIA_REF = /!?\[[^\]\n]{0,240}\]\(([^)\r\n]+)\)/g;
 const INLINE_DIFF_PREVIEW_LINE_LIMIT = 28;
 const INLINE_DIFF_HUNK_HEADER_RE = /^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+))?)?/;
 
-/// Markdown 解析调度器：每帧仅升级一个延迟挂载组件。
-const MARKDOWN_FRAME_BUDGET_PER_FRAME = 1;
-const MARKDOWN_FRAME_MAX_CANCELLED_PER_DRAIN = 64;
-const MARKDOWN_PARSE_READY_CACHE_LIMIT = 768;
 const HTML_SANITIZE_CACHE_LIMIT = 256;
-const HTML_RENDER_READY_CACHE_LIMIT = 512;
+const HTML_SANITIZE_CACHE_MAX_CHARS = 2 * 1024 * 1024;
 const HTML_RENDER_PROFILE_CACHE_LIMIT = 256;
 // 延迟挂载的 HTML 保持在视口附近，避免打开长会话时同时净化并渲染大量离屏卡片。
 const HTML_DEFERRED_RENDER_ROOT_MARGIN = '120px 0px';
@@ -147,87 +143,9 @@ function rememberLru<K, V>(cache: Map<K, V>, key: K, value: V, limit: number): v
   }
 }
 
-const markdownParseReadyCache = new Map<string, true>();
-const htmlSanitizeCache = new Map<string, string>();
-const htmlRenderReadyCache = new Map<string, true>();
+const htmlSanitizeCache = new BoundedTextCache(HTML_SANITIZE_CACHE_LIMIT, HTML_SANITIZE_CACHE_MAX_CHARS);
 const htmlRenderProfileCache = new Map<string, HtmlRenderProfile>();
 const htmlLikeDetectCache = new Map<string, boolean>();
-
-class MarkdownFrameScheduler {
-  private pending: Array<{ task: () => void; cancelled: boolean }> = [];
-  private pendingHead = 0;
-  private draining = false;
-
-  schedule(task: () => void): () => void {
-    const entry = { task, cancelled: false };
-    this.pending.push(entry);
-    if (!this.draining) {
-      this.draining = true;
-      this.scheduleDrain();
-    }
-    return () => {
-      entry.cancelled = true;
-    };
-  }
-
-  private scheduleDrain(): void {
-    // 优先使用 requestIdleCallback：在浏览器主线程空闲时再 drain，给用户输入
-    // / 动画 / 滚动让位，长会话首屏批量解析不再与用户交互抢主线程。bounded
-    // timeout 防止持续繁忙时彻底拖延 markdown 升级。Safari 不支持 rIC，
-    // 自动退化到 rAF；rAF 也没有时退到 setTimeout。
-    const cb = () => {
-      if (isTranscriptScrollActive()) {
-        scheduleAfterTranscriptScrollSettles(() => this.scheduleDrain());
-        return;
-      }
-      let completed = 0;
-      let cancelled = 0;
-      while (
-        completed < MARKDOWN_FRAME_BUDGET_PER_FRAME &&
-        cancelled < MARKDOWN_FRAME_MAX_CANCELLED_PER_DRAIN &&
-        this.pendingHead < this.pending.length
-      ) {
-        const entry = this.pending[this.pendingHead];
-        this.pendingHead += 1;
-        if (entry == null || entry.cancelled) {
-          cancelled += 1;
-          continue;
-        }
-        try {
-          entry.task();
-        } catch (_e) {
-          // 任务自身抛错不影响调度器继续 drain。
-        }
-        completed += 1;
-      }
-      if (this.pendingHead < this.pending.length) {
-        if (this.pendingHead >= 256 && this.pendingHead * 2 >= this.pending.length) {
-          this.pending = this.pending.slice(this.pendingHead);
-          this.pendingHead = 0;
-        }
-        this.scheduleDrain();
-      } else {
-        this.pending = [];
-        this.pendingHead = 0;
-        this.draining = false;
-      }
-    };
-    if (isTranscriptScrollActive()) {
-      scheduleAfterTranscriptScrollSettles(() => this.scheduleDrain());
-      return;
-    }
-    const ric = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => unknown }).requestIdleCallback;
-    if (typeof ric === 'function') {
-      ric(cb, { timeout: MARKDOWN_IDLE_CALLBACK_TIMEOUT_MS });
-    } else if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(cb);
-    } else {
-      setTimeout(cb, MARKDOWN_FRAME_FALLBACK_TIMEOUT_MS);
-    }
-  }
-}
-const markdownFrameScheduler = new MarkdownFrameScheduler();
-const htmlFrameScheduler = new MarkdownFrameScheduler();
 
 function isLocalMediaReference(raw: unknown): boolean {
   if (typeof raw !== 'string') return false;
@@ -608,24 +526,27 @@ const HtmlBody = memo(function HtmlBody({ source, mono }: { source: string; mono
   useEffect(() => {
     if (purify != null) return;
     let cancelled = false;
+    let cancelRender: (() => void) | null = null;
     loadDomPurify().then((p) => {
-      if (!cancelled) setPurify(() => p);
+      if (cancelled) return;
+      cancelRender = richContentFrameScheduler.schedule(() => setPurify(() => p));
     }).catch(ignoreError);
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      cancelRender?.();
+    };
   }, [purify]);
   const fontFamily = mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit';
-  const sanitizeKey = useMemo(() => contentCacheKey('html', source), [source]);
   const safeHtml = useMemo(() => {
     if (purify == null) return '';
-    const cached = htmlSanitizeCache.get(sanitizeKey);
+    const cached = htmlSanitizeCache.get(source);
     if (cached != null) {
-      rememberLru(htmlSanitizeCache, sanitizeKey, cached, HTML_SANITIZE_CACHE_LIMIT);
       return cached;
     }
     const next = purify.sanitize(source, { USE_PROFILES: { html: true } });
-    rememberLru(htmlSanitizeCache, sanitizeKey, next, HTML_SANITIZE_CACHE_LIMIT);
+    htmlSanitizeCache.set(source, next);
     return next;
-  }, [purify, sanitizeKey, source]);
+  }, [purify, source]);
   useLayoutEffect(() => {
     const element = containerRef.current;
     if (element == null || purify == null) return;
@@ -673,54 +594,30 @@ function HtmlBodyPlaceholder({ source }: { source: string }) {
 const DeferredHtmlBody = memo(function DeferredHtmlBody({
   source,
   mono,
-  deferInitialRender,
 }: {
   source: string;
   mono: boolean;
-  deferInitialRender: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const renderKey = useMemo(() => contentCacheKey('html-render', source), [source]);
-  const nearViewportRef = useRef(
-    !deferInitialRender && htmlRenderReadyCache.has(renderKey),
-  );
-  const [nearViewport, setNearViewport] = useState(() => nearViewportRef.current);
-  const [renderReady, setRenderReady] = useState(
-    () => !deferInitialRender && htmlRenderReadyCache.has(renderKey),
-  );
-
-  useEffect(() => {
-    if (!deferInitialRender && htmlRenderReadyCache.has(renderKey)) {
-      nearViewportRef.current = true;
-      setNearViewport(true);
-      setRenderReady(true);
-      return;
-    }
-    setRenderReady(false);
-    if (nearViewportRef.current) {
-      setNearViewport(true);
-    } else {
-      setNearViewport(false);
-    }
-  }, [deferInitialRender, renderKey]);
+  const [nearViewport, setNearViewport] = useState(false);
+  const [renderReady, setRenderReady] = useState(false);
 
   useEffect(() => {
     if (nearViewport) return;
     const element = hostRef.current;
     if (element == null) return;
     if (typeof IntersectionObserver !== 'function') {
-      nearViewportRef.current = true;
       setNearViewport(true);
       return;
     }
     let cancelled = false;
+    let cancelScrollWait: (() => void) | null = null;
     const observer = new IntersectionObserver((entries) => {
       if (cancelled) return;
       const visible = entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0);
       if (!visible) return;
-      scheduleAfterTranscriptScrollSettles(() => {
+      cancelScrollWait = scheduleAfterTranscriptScrollSettles(() => {
         if (cancelled) return;
-        nearViewportRef.current = true;
         setNearViewport(true);
       });
       observer.disconnect();
@@ -732,22 +629,15 @@ const DeferredHtmlBody = memo(function DeferredHtmlBody({
     observer.observe(element);
     return () => {
       cancelled = true;
+      cancelScrollWait?.();
       observer.disconnect();
     };
-  }, [nearViewport, renderKey]);
+  }, [nearViewport]);
 
   useEffect(() => {
     if (!nearViewport || renderReady) return;
-    if (!deferInitialRender && htmlRenderReadyCache.has(renderKey)) {
-      setRenderReady(true);
-      return;
-    }
-    const cancel = htmlFrameScheduler.schedule(() => {
-      rememberLru(htmlRenderReadyCache, renderKey, true, HTML_RENDER_READY_CACHE_LIMIT);
-      setRenderReady(true);
-    });
-    return cancel;
-  }, [deferInitialRender, nearViewport, renderKey, renderReady]);
+    return richContentFrameScheduler.schedule(() => setRenderReady(true));
+  }, [nearViewport, renderReady]);
 
   return (
     <div ref={hostRef} class="oh-html-body-deferred">
@@ -790,7 +680,7 @@ const ProgressiveHtmlBody = memo(function ProgressiveHtmlBody({
       setProfileState({ key: profileKey, profile: htmlRenderProfile(source) });
       return;
     }
-    return htmlFrameScheduler.schedule(() => {
+    return richContentFrameScheduler.schedule(() => {
       setProfileState({ key: profileKey, profile: htmlRenderProfile(source) });
     });
   }, [deferInitialRender, profile, profileKey, source]);
@@ -804,7 +694,6 @@ const ProgressiveHtmlBody = memo(function ProgressiveHtmlBody({
       <DeferredHtmlBody
         source={source}
         mono={mono}
-        deferInitialRender={deferInitialRender}
       />
     );
   }
@@ -1253,38 +1142,16 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
       || FENCED_CODE_RE.test(content)
       || MATH_DELIMITER_RE.test(content)
     );
-  const markdownReadyKey = useMemo(
-    () =>
-      shouldDeferParse
-        ? contentCacheKey(`md:${format}:${htmlFallback}`, markdownContent)
-        : '',
-    [format, htmlFallback, markdownContent, shouldDeferParse],
-  );
-  const [parseReady, setParseReady] = useState(
-    () => !shouldDeferParse || markdownParseReadyCache.has(markdownReadyKey),
-  );
-  const lastSourceRef = useRef<string>(content);
+  // 已显示过不代表解析树仍存在；每次重新挂载都重新申请帧预算。
+  const [parseReady, setParseReady] = useState(() => !shouldDeferParse);
   useEffect(() => {
-    if (!shouldDeferParse) {
-      if (!parseReady) setParseReady(true);
-      lastSourceRef.current = content;
-      return;
-    }
-    if (markdownParseReadyCache.has(markdownReadyKey)) {
-      if (!parseReady) setParseReady(true);
-      lastSourceRef.current = content;
-      return;
-    }
-    if (lastSourceRef.current === content && parseReady) return;
-    lastSourceRef.current = content;
-    // 内容变更后重新 defer 一次, 避免流式追加时立刻 parse 引发 jank。
     if (parseReady) return;
-    const cancel = markdownFrameScheduler.schedule(() => {
-      rememberLru(markdownParseReadyCache, markdownReadyKey, true, MARKDOWN_PARSE_READY_CACHE_LIMIT);
+    if (!shouldDeferParse) {
       setParseReady(true);
-    });
-    return cancel;
-  }, [shouldDeferParse, content, deferInitialRender, parseReady, markdownReadyKey]);
+      return;
+    }
+    return richContentFrameScheduler.schedule(() => setParseReady(true));
+  }, [shouldDeferParse, parseReady]);
 
   // 流式节流：parseReady=true 之后的内容变更走 coalesce —— 增量较小
   // 且距上次 flush 不到 80ms 时延迟到本批结束再 setState，避免 SSE 每 tick
@@ -1356,10 +1223,15 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
   useEffect(() => {
     if (!hasFencedCode || rehypeHighlightPlugin != null) return;
     let cancelled = false;
+    let cancelRender: (() => void) | null = null;
     loadRehypeHighlight().then((plugin) => {
-      if (!cancelled) setRehypeHighlightPlugin(() => plugin);
+      if (cancelled) return;
+      cancelRender = richContentFrameScheduler.schedule(() => setRehypeHighlightPlugin(() => plugin));
     }).catch(ignoreError);
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      cancelRender?.();
+    };
   }, [hasFencedCode, rehypeHighlightPlugin]);
   const [remarkMathPlugin, setRemarkMathPlugin] = useState<MarkdownPlugin | null>(
     () => remarkMathState.value,
@@ -1370,17 +1242,19 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
   useEffect(() => {
     if (!hasMath || (remarkMathPlugin != null && rehypeKatexPlugin != null)) return;
     let cancelled = false;
-    if (remarkMathPlugin == null) {
-      loadRemarkMath().then((plugin) => {
-        if (!cancelled) setRemarkMathPlugin(() => plugin);
-      }).catch(ignoreError);
-    }
-    if (rehypeKatexPlugin == null) {
-      loadRehypeKatex().then((plugin) => {
-        if (!cancelled) setRehypeKatexPlugin(() => plugin);
-      }).catch(ignoreError);
-    }
-    return () => { cancelled = true; };
+    let cancelRender: (() => void) | null = null;
+    Promise.all([loadRemarkMath(), loadRehypeKatex()]).then(([math, katex]) => {
+      if (cancelled) return;
+      // 两个公式插件一起提交，避免同一卡片连续重跑两次解析管线。
+      cancelRender = richContentFrameScheduler.schedule(() => {
+        setRemarkMathPlugin(() => math);
+        setRehypeKatexPlugin(() => katex);
+      });
+    }).catch(ignoreError);
+    return () => {
+      cancelled = true;
+      cancelRender?.();
+    };
   }, [hasMath, remarkMathPlugin, rehypeKatexPlugin]);
   const remarkPlugins = useMemo(
     () => (hasMath && remarkMathPlugin ? [remarkGfm, remarkMathPlugin as never] : [remarkGfm]),

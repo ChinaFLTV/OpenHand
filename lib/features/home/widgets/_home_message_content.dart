@@ -1581,22 +1581,15 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     _scheduleDeferredParse(throttle: widget.streaming && _children != null);
   }
 
-  /// 大体量 Markdown 冷解析延迟到共享帧预算；缓存命中时同步复用 AST。
+  /// 富文本构建使用共享帧预算；AST 命中仅省去解析，不豁免组件树构建。
   /// 流式更新保留上一棵富文本树，避免内容在富文本和占位之间反复切换。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
-    final normalizedSource = normalizeOpenHandMarkdownSource(
-      widget.data.isEmpty ? ' ' : widget.data,
-      stripMessageScaffolding: true,
-    );
-    final astCacheKey = _markdownAstCacheKeyFor(normalizedSource, widget);
-    final hasWarmAst =
-        !widget.streaming && _markdownAstCache.get(astCacheKey) != null;
     final deferredThreshold = widget.streaming
         ? _markdownStreamingDeferredParseThresholdChars
         : _markdownDeferredParseThresholdChars;
-    final deferHistoricalInitial = initial && !widget.streaming && !hasWarmAst;
+    final deferHistoricalInitial = initial && !widget.streaming;
     final overDeferredThreshold = widget.data.length > deferredThreshold;
-    if ((deferHistoricalInitial || (overDeferredThreshold && !hasWarmAst)) &&
+    if ((deferHistoricalInitial || overDeferredThreshold) &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
         (overDeferredThreshold ||
             !_canRenderMarkdownAsPlainText(widget.data))) {
@@ -1613,7 +1606,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       }
       if (initial || !hadChildren) {
         _renderDeferredPlaceholder(
-          normalizedSource,
+          normalizeOpenHandMarkdownSource(
+            widget.data.isEmpty ? ' ' : widget.data,
+            stripMessageScaffolding: true,
+          ),
           streaming: widget.streaming,
         );
       }
