@@ -1492,6 +1492,7 @@ class _MessageBubbleState extends State<_MessageBubble>
           label: openHandCopyLabel(context),
         ),
         if (!isGoalRuntimeMessage &&
+            !message.isToolMessage &&
             widget.speechEnabled &&
             widget.onToggleSpeech != null)
           _MessageActionSpec(
@@ -1505,6 +1506,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                 : openHandLocalizedText(context, zh: '朗读', en: 'Read'),
           ),
         if (!isGoalRuntimeMessage &&
+            !message.isToolMessage &&
             widget.translationEnabled &&
             widget.onToggleTranslation != null)
           _MessageActionSpec(
@@ -1553,6 +1555,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                 selectedFeedback == AiSessionMessageFeedback.needsImprovement,
           ),
         if (!isGoalRuntimeMessage &&
+            !message.isToolMessage &&
             isAssistantResponse &&
             !isStreamingAssistant &&
             widget.onRegenerateResponse != null)

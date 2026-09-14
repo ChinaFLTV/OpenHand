@@ -9769,6 +9769,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _regenerateMessage(AiSessionMessage message) async {
+    if (message.isToolMessage) return;
     final controller = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
     final session = controller.currentSession;

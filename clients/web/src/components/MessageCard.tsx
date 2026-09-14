@@ -64,7 +64,7 @@ import {
   knowledgeBaseResultRecords,
 } from '../shared/util/knowledge';
 import { messageFeedbackValue } from '../shared/util/message_feedback';
-import { isTerminalToolExecutionStatus } from '../shared/util/session_transcript_messages';
+import { isTerminalToolExecutionStatus, isToolMessage } from '../shared/util/session_transcript_messages';
 import {
   clampNumber,
 } from '../shared/util/number';
@@ -2618,6 +2618,7 @@ function MessageCardImpl({
     ? kbMetadata
     : associatedKbReferenceMetadata;
   const textActionKindSupported =
+    !isToolMessage(message) &&
     !goalMessageView &&
     (isUserBubble || message.kind === 'reasoning' || isFormalAssistantResponse);
   const textMessageActionSupported =
@@ -2643,6 +2644,7 @@ function MessageCardImpl({
     Boolean(onSetFeedback) &&
     (isUserBubble || (isFormalAssistantResponse && !activelyStreaming));
   const canRegenerateMessage =
+    !isToolMessage(message) &&
     regenerationEnabled &&
     Boolean(onRegenerate) &&
     !goalMessageView &&

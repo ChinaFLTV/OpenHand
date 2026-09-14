@@ -128,6 +128,7 @@ import {
 } from '../../../shared/util/value';
 import {
   displayableTranscriptMessages,
+  isToolMessage,
   messageHasRenderableTranscriptOutput,
 } from '../../../shared/util/session_transcript_messages';
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
@@ -5022,7 +5023,7 @@ export function SessionDetailPage() {
   // 反馈中集合、sendPhase）在一个回合内高频变化，进依赖数组会让窗口内每张
   // 卡片的 memo 浅比较全部失效，等于整屏重渲染 + 重解析。
   const handleToggleMessageTranslation = useEventCallback(async (m: SessionMessage) => {
-    if (!sessionId) return;
+    if (!sessionId || isToolMessage(m)) return;
     if (messageHasDeferredContent(m)) {
       const full = await loadFullMessageContent(m);
       if (!full) return;
@@ -5112,6 +5113,7 @@ export function SessionDetailPage() {
   });
 
   const handleToggleMessageTts = useCallback(async (m: SessionMessage) => {
+    if (isToolMessage(m)) return;
     if (!sessionId) return;
     const requestSessionId = sessionId;
     try {
@@ -5159,6 +5161,7 @@ export function SessionDetailPage() {
   });
 
   const handleRegenerateMessage = useEventCallback(async (m: SessionMessage) => {
+    if (isToolMessage(m)) return;
     if (!sessionId || regeneratingMessageIds.has(m.id)) return;
     if (sendPhase !== 'idle') {
       showSnackbar(t('message.regenerate.busy', '当前会话正在运行，稍后再试'), { tone: 'error' });

@@ -548,6 +548,15 @@ class AiSessionMessage {
   final String id;
   final AiSessionMessageKind kind;
   final AiSessionMessageRole role;
+
+  /// 工具调用、结果及文件变动汇总不提供正文类操作。
+  bool get isToolMessage =>
+      role == AiSessionMessageRole.tool ||
+      kind == AiSessionMessageKind.toolCall ||
+      kind.isToolResultKind ||
+      kind == AiSessionMessageKind.fileMutationSummary ||
+      metadata['round_file_mutation_summary'] == true;
+
   final String content;
   final DateTime createdAt;
   final int characterCount;

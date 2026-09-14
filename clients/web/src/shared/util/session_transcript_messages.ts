@@ -1,6 +1,16 @@
 import type { SessionMessage } from '../../api/sessions';
 import { recordOrNullFromUnknown, stringFromUnknown } from './value';
 
+const TOOL_MESSAGE_KINDS = new Set([
+  'tool_call', 'tool', 'mcp', 'skill', 'hook', 'file_mutation_summary',
+]);
+
+/** 工具调用、结果及文件变动汇总不提供正文类操作。 */
+export function isToolMessage(message: SessionMessage): boolean {
+  return message.role === 'tool' || TOOL_MESSAGE_KINDS.has(message.kind)
+    || message.metadata?.['round_file_mutation_summary'] === true;
+}
+
 const TERMINAL_TOOL_EXECUTION_STATUSES = new Set([
   'success',
   'ok',

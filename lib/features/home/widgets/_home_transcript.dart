@@ -1773,6 +1773,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessage message,
     AiTtsSettings settings,
   ) async {
+    if (message.isToolMessage) return;
     final settingsController = context.read<SettingsController>();
     try {
       await widget.ttsPlaybackService.toggleMessage(
@@ -1801,7 +1802,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessage message,
     AiTranslationSettings settings,
   ) async {
-    if (_messageHasMultimediaContent(message)) return;
+    if (message.isToolMessage || _messageHasMultimediaContent(message)) return;
     final sourceText = _translatableMessageText(message, settings);
     if (sourceText == null) return;
     final settingsController = context.read<SettingsController>();
@@ -2153,7 +2154,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessage message,
     SettingsController settings,
   ) {
-    if (message.metadata[aiSessionMessageMetadataStreamingKey] == true) {
+    if (message.isToolMessage ||
+        message.metadata[aiSessionMessageMetadataStreamingKey] == true) {
       return false;
     }
     if (_messageHasMultimediaContent(message)) {
@@ -2260,6 +2262,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessage message,
     SettingsController settings,
   ) {
+    if (message.isToolMessage) return false;
     return switch (message.kind) {
       AiSessionMessageKind.user || AiSessionMessageKind.reasoning => true,
       AiSessionMessageKind.assistant =>
