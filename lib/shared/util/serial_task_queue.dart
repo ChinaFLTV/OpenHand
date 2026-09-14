@@ -60,8 +60,8 @@ final class LatestTaskQueue {
       _pending = next;
     } else {
       _running = true;
-      _idle = _drain(next);
-      unawaited(_idle);
+      // 先登记整轮完成信号，再启动任务，保证同步重入读取 idle 时拿到当前轮次。
+      _idle = Future<void>.microtask(() => _drain(next));
     }
     return next.done;
   }

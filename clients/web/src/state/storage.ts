@@ -16,6 +16,9 @@ import { recordOrNullFromUnknown } from '../shared/util/value';
 let fallbackDeviceId = '';
 let fallbackToken: string | null = null;
 let fallbackProfile: AuthProfile | null = null;
+let tokenStorageOverridden = false;
+let profileStorageOverridden = false;
+let authRevision = 0;
 
 export interface AuthProfile {
   device_id?: string;
@@ -29,48 +32,56 @@ export interface AuthProfile {
 /// 首次访问时生成一个 v4 UUID 作为设备 ID 持久化；不依赖 cookie，避免
 /// 跨域 / 隐私模式的兼容问题。
 export function ensureDeviceId(): string {
-  let id = readBrowserStorage(STORAGE_KEY_DEVICE_ID)?.trim() || fallbackDeviceId;
+  let id = readBrowserStorage(STORAGE_KEY_DEVICE_ID, fallbackDeviceId)?.trim() || fallbackDeviceId;
   if (!id) {
     id =
       globalThis.crypto?.randomUUID?.() ??
       `web-${Math.random().toString(36).slice(2)}-${Date.now()}`;
-    fallbackDeviceId = id;
     writeBrowserStorage(STORAGE_KEY_DEVICE_ID, id);
   }
+  fallbackDeviceId = id;
   return id;
 }
 
 export function readToken(): string | null {
-  return readBrowserStorage(STORAGE_KEY_TOKEN)?.trim() || fallbackToken;
+  if (!tokenStorageOverridden) {
+    fallbackToken = readBrowserStorage(STORAGE_KEY_TOKEN, fallbackToken)?.trim() || null;
+  }
+  return fallbackToken;
+}
+
+/** 绑定请求发起时的登录状态，拒绝旧会话的迟到响应。 */
+export function captureAuthSession(): () => boolean {
+  const revision = authRevision;
+  const token = readToken();
+  return () => revision === authRevision && token === readToken();
 }
 
 export function writeToken(token: string, profile: AuthProfile | null): void {
-  fallbackToken = token;
+  authRevision += 1;
+  fallbackToken = token.trim();
   fallbackProfile = profile;
-  writeBrowserStorage(STORAGE_KEY_TOKEN, token);
+  tokenStorageOverridden = !writeBrowserStorage(STORAGE_KEY_TOKEN, fallbackToken);
   if (profile) {
-    writeBrowserJsonStorage(STORAGE_KEY_PROFILE, profile);
+    profileStorageOverridden = !writeBrowserJsonStorage(STORAGE_KEY_PROFILE, profile);
   } else {
-    removeBrowserStorage(STORAGE_KEY_PROFILE);
+    profileStorageOverridden = !removeBrowserStorage(STORAGE_KEY_PROFILE);
   }
 }
 
 export function readProfile(): AuthProfile | null {
-  const profile = recordOrNullFromUnknown(
-    readBrowserJsonStorage(STORAGE_KEY_PROFILE),
-  ) as AuthProfile | null;
-  if (profile != null) {
-    fallbackProfile = profile;
-    return profile;
+  if (!profileStorageOverridden) {
+    fallbackProfile = recordOrNullFromUnknown(
+      readBrowserJsonStorage(STORAGE_KEY_PROFILE, fallbackProfile),
+    ) as AuthProfile | null;
   }
-  // 损坏的持久化数据无需反复解析，保留内存中的最近有效资料。
-  removeBrowserStorage(STORAGE_KEY_PROFILE);
   return fallbackProfile;
 }
 
 export function clearAuthStorage(): void {
+  authRevision += 1;
   fallbackToken = null;
   fallbackProfile = null;
-  removeBrowserStorage(STORAGE_KEY_TOKEN);
-  removeBrowserStorage(STORAGE_KEY_PROFILE);
+  tokenStorageOverridden = !removeBrowserStorage(STORAGE_KEY_TOKEN);
+  profileStorageOverridden = !removeBrowserStorage(STORAGE_KEY_PROFILE);
 }

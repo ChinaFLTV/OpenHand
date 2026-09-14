@@ -13,7 +13,7 @@ function isEscapeEvent(event: KeyboardEvent): boolean {
 }
 
 function handleEscape(event: KeyboardEvent): void {
-  if (!isEscapeEvent(event)) return;
+  if (event.isComposing || !isEscapeEvent(event)) return;
   const target = layers[layers.length - 1];
   if (!target) return;
   // 捕获阶段先钉住当前顶层。输入框 preventDefault 不再误伤弹窗关闭；
@@ -21,7 +21,6 @@ function handleEscape(event: KeyboardEvent): void {
   event.preventDefault();
   queueMicrotask(() => {
     if (layers[layers.length - 1] !== target) return;
-    if (!layers.includes(target)) return;
     if (target.canClose()) target.requestClose();
   });
 }

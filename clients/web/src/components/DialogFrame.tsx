@@ -506,7 +506,7 @@ let previousDocumentOverscrollBehavior = '';
 
 interface DialogFocusEntry {
   readonly panel: () => HTMLElement | null;
-  readonly previousFocus: HTMLElement | null;
+  previousFocus: HTMLElement | null;
 }
 
 let dialogFocusStack: DialogFocusEntry[] = [];
@@ -582,18 +582,18 @@ function acquireDialogScrollLock(): () => void {
 function isAvailableDialogFocusTarget(element: HTMLElement): boolean {
   if (
     !element.isConnected
-    || element.hidden
+    || element.closest('[hidden], [inert], [aria-hidden="true"]') != null
+    || element.getClientRects().length === 0
     || element.matches(':disabled')
-    || element.getAttribute('aria-hidden') === 'true'
     || element.getAttribute('aria-disabled') === 'true'
   ) return false;
   const style = window.getComputedStyle(element);
-  return style.display !== 'none' && style.visibility !== 'hidden';
+  return style.visibility !== 'hidden' && style.visibility !== 'collapse';
 }
 
 function dialogFocusTargets(panel: HTMLElement): HTMLElement[] {
   return [...panel.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR)]
-    .filter(isAvailableDialogFocusTarget);
+    .filter((element) => element.tabIndex >= 0 && isAvailableDialogFocusTarget(element));
 }
 
 function focusDialogEntry(entry: DialogFocusEntry): void {
@@ -653,6 +653,7 @@ function detachDialogFocusListenerIfIdle(): void {
 }
 
 function registerDialogFocus(panel: () => HTMLElement | null): () => void {
+  const registeredPanel = panel();
   const active = document.activeElement;
   const entry: DialogFocusEntry = {
     panel,
@@ -663,6 +664,11 @@ function registerDialogFocus(panel: () => HTMLElement | null): () => void {
   queueMicrotask(() => focusDialogEntry(entry));
   return () => {
     const wasTop = dialogFocusStack[dialogFocusStack.length - 1] === entry;
+    for (const item of dialogFocusStack) {
+      if (item !== entry && item.previousFocus && registeredPanel?.contains(item.previousFocus)) {
+        item.previousFocus = entry.previousFocus;
+      }
+    }
     dialogFocusStack = dialogFocusStack.filter((item) => item !== entry);
     detachDialogFocusListenerIfIdle();
     if (!wasTop) return;
@@ -671,7 +677,7 @@ function registerDialogFocus(panel: () => HTMLElement | null): () => void {
     const previousFocus = entry.previousFocus;
     if (
       previousFocus != null
-      && previousFocus.isConnected
+      && isAvailableDialogFocusTarget(previousFocus)
       && (nextTop == null || nextPanel?.contains(previousFocus) === true)
     ) {
       previousFocus.focus({ preventScroll: true });

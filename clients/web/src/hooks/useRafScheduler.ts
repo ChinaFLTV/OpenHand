@@ -9,6 +9,7 @@ interface RafScheduler {
 export function useRafScheduler(callback: () => void): RafScheduler {
   const callbackRef = useRef(callback);
   const frameRef = useRef<number | null>(null);
+  const activeRef = useRef(true);
   callbackRef.current = callback;
 
   const cancel = useCallback(() => {
@@ -19,10 +20,12 @@ export function useRafScheduler(callback: () => void): RafScheduler {
 
   const flush = useCallback(() => {
     cancel();
+    if (!activeRef.current) return;
     callbackRef.current();
   }, [cancel]);
 
   const schedule = useCallback(() => {
+    if (!activeRef.current) return;
     if (typeof window === 'undefined') {
       callbackRef.current();
       return;
@@ -34,7 +37,13 @@ export function useRafScheduler(callback: () => void): RafScheduler {
     });
   }, []);
 
-  useEffect(() => cancel, [cancel]);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+      cancel();
+    };
+  }, [cancel]);
 
   return { schedule, flush, cancel };
 }

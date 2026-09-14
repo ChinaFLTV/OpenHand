@@ -10,7 +10,8 @@
   "description": "OpenHand Web 通用消息平台前端 (Vite + Preact + TypeScript + Tailwind)",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm typecheck && vite build && node scripts/stamp-service-worker.mjs ../../assets/web && node scripts/validate-bundle.mjs ../../assets/web",
+    "build": "pnpm typecheck && pnpm check:runtime && vite build && node scripts/stamp-service-worker.mjs ../../assets/web && node scripts/validate-bundle.mjs ../../assets/web",
+    "check:runtime": "node scripts/check-runtime.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit"
   },

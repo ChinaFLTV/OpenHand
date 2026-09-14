@@ -19,6 +19,7 @@ use hunt_store::HuntStore;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use std::{
+    future::{Future, IntoFuture},
     io::{self, Read},
     net::SocketAddr,
     path::PathBuf,
@@ -26,7 +27,7 @@ use std::{
     time::{Duration, Instant},
 };
 use subtle::ConstantTimeEq;
-use tokio::{net::TcpListener, signal};
+use tokio::{net::TcpListener, signal, sync::watch};
 use tokio_stream::wrappers::BroadcastStream;
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{error, info};
@@ -39,12 +40,14 @@ const DEFAULT_LIST_LIMIT: usize = 200;
 const MAX_LIST_LIMIT: usize = 2_000;
 const DEFAULT_LISTEN_ADDRESS: &str = "127.0.0.1:0";
 const SSE_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(15);
+const SERVER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 struct AppState {
     engine: HuntEngine,
     token: Arc<SecretString>,
     started_at: Instant,
+    shutdown: watch::Receiver<bool>,
 }
 
 #[derive(Serialize)]
@@ -160,10 +163,12 @@ async fn main() -> anyhow::Result<()> {
     }
     let store = HuntStore::open(&config.data_dir).await?;
     let engine = HuntEngine::new(store).await?;
+    let (shutdown_sender, shutdown_receiver) = watch::channel(false);
     let state = AppState {
         engine,
         token: Arc::new(SecretString::from(token)),
         started_at: Instant::now(),
+        shutdown: shutdown_receiver.clone(),
     };
     let app = routes(state.clone())
         .layer(RequestBodyLimitLayer::new(MAX_REQUEST_BYTES))
@@ -181,12 +186,34 @@ async fn main() -> anyhow::Result<()> {
         })?
     );
     info!("扫描守护进程已启动：{local_address}");
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+    let server = axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            shutdown_signal().await;
+            shutdown_sender.send_replace(true);
+        })
+        .into_future();
+    wait_for_server_shutdown(server, shutdown_receiver, SERVER_SHUTDOWN_TIMEOUT)
         .await
         .context("扫描守护进程异常退出")?;
     info!("扫描守护进程已停止");
     Ok(())
+}
+
+/// 运行期间不限时；收到停机信号后有界等待现有请求结束。
+async fn wait_for_server_shutdown(
+    server: impl Future<Output = io::Result<()>>,
+    mut shutdown: watch::Receiver<bool>,
+    timeout: Duration,
+) -> io::Result<()> {
+    tokio::pin!(server);
+    tokio::select! {
+        result = &mut server => result,
+        _ = shutdown.wait_for(|stopping| *stopping) => {
+            tokio::time::timeout(timeout, server)
+                .await
+                .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "等待请求结束超过停机时限。"))?
+        }
+    }
 }
 
 fn routes(state: AppState) -> Router {
@@ -325,7 +352,10 @@ async fn job_events(
             }
         }
     });
-    let stream = initial_stream.chain(live_stream);
+    let stream = initial_stream.chain(live_stream).take_until(async move {
+        let mut shutdown = state.shutdown;
+        let _ = shutdown.wait_for(|stopping| *stopping).await;
+    });
     Ok(Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
             .interval(SSE_KEEP_ALIVE_INTERVAL)
@@ -659,5 +689,41 @@ async fn shutdown_signal() {
         if let Err(error) = signal::ctrl_c().await {
             error!("监听中断信号失败：{error}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn shutdown_bounds_unresponsive_requests() {
+        let (sender, receiver) = watch::channel(false);
+        sender.send_replace(true);
+        let result =
+            wait_for_server_shutdown(std::future::pending(), receiver, Duration::from_millis(10))
+                .await;
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
+    }
+
+    #[tokio::test]
+    async fn running_server_is_not_limited_by_shutdown_timeout() {
+        let (_sender, receiver) = watch::channel(false);
+        let server = async {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            Ok(())
+        };
+        wait_for_server_shutdown(server, receiver, Duration::from_millis(1))
+            .await
+            .expect("正常运行的服务不应受到停机时限影响");
+    }
+
+    #[tokio::test]
+    async fn shutdown_preserves_server_failure() {
+        let (sender, receiver) = watch::channel(false);
+        sender.send_replace(true);
+        let server = async { Err(io::Error::other("模拟服务故障")) };
+        let result = wait_for_server_shutdown(server, receiver, SERVER_SHUTDOWN_TIMEOUT).await;
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::Other);
     }
 }

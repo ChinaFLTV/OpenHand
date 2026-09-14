@@ -6,9 +6,11 @@ import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/lifecycle_cache.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 
@@ -37,9 +39,10 @@ class WebReverseSessionArtifacts {
   bool _ready = false;
   bool _closed = false;
   Timer? _flushTimer;
-  Future<void>? _initFuture;
-  Future<void>? _flushFuture;
-  Future<void>? _closeFuture;
+  final OpenHandSingleFlight<void> _initializeFlight =
+      OpenHandSingleFlight<void>();
+  final OpenHandSingleFlight<void> _flushFlight = OpenHandSingleFlight<void>();
+  final OpenHandAsyncOnce _closeOnce = OpenHandAsyncOnce();
   bool _flushRequested = false;
 
   // 写缓冲：保存待 flush 的字符串行；flush 时合并写入。
@@ -47,27 +50,27 @@ class WebReverseSessionArtifacts {
   final StringBuffer _consoleBuf = StringBuffer();
   final Set<String> _reportedBufferDrops = <String>{};
 
-  // HAR 草稿：每条 request/response 元数据按 requestId 累积，stop 时聚合。
-  final Map<String, _HarEntryDraft> _harDrafts = <String, _HarEntryDraft>{};
+  // 保留最近活跃的 HAR 草稿，同时限制条目数和总字符数。
+  final LifecycleLruCache<_HarEntryDraft> _harDrafts =
+      LifecycleLruCache<_HarEntryDraft>(
+        maxEntries: _maxHarDrafts,
+        maxCost: _maxHarDraftCharacters,
+        costOf: (draft) => draft.retainedCharacters,
+      );
 
   static const int _maxHarDrafts = 2000;
+  static const int _maxHarDraftCharacters = 16 * kBytesPerMiB;
   static const int _maxHarHeaders = 128;
   static const int _maxHarHeaderValueChars = 8 * kBytesPerKiB;
   static const int _maxHarPostDataChars = 256 * kBytesPerKiB;
   static const int _maxJsonlEventChars = 1 * kBytesPerMiB;
   static const int _maxJsonlPendingChars = 4 * kBytesPerMiB;
   static const Duration _fileIoTimeout = Duration(seconds: 3);
+  static const String _harHttpVersion = 'HTTP/1.1';
 
   Future<void> init() {
     if (_closed || _ready) return Future<void>.value();
-    final existing = _initFuture;
-    if (existing != null) return existing;
-    late final Future<void> initializing;
-    initializing = _initialize().whenComplete(() {
-      if (identical(_initFuture, initializing)) _initFuture = null;
-    });
-    _initFuture = initializing;
-    return initializing;
+    return _initializeFlight.run(_initialize);
   }
 
   Future<void> _initialize() async {
@@ -76,9 +79,10 @@ class WebReverseSessionArtifacts {
     try {
       await Future.wait<Directory>(
         <String>['network', 'scripts', 'screenshots', 'har'].map(
-          (name) => Directory(
-            '$rootDir/$name',
-          ).create(recursive: true).timeout(_fileIoTimeout),
+          (name) => createDirectoryBounded(
+            Directory('$rootDir/$name'),
+            timeout: _fileIoTimeout,
+          ),
         ),
       );
       if (_closed) return;
@@ -144,16 +148,14 @@ class WebReverseSessionArtifacts {
     required DateTime startedAt,
   }) {
     if (_closed) return;
-    final draft = _harDrafts.putIfAbsent(
-      requestId,
-      () => _HarEntryDraft(requestId: requestId),
-    );
-    _pruneHarDrafts();
+    final draft =
+        _harDrafts.get(requestId) ?? _HarEntryDraft(requestId: requestId);
     draft.url = url;
     draft.method = method;
     draft.requestHeaders = _clipHeaders(headers);
     draft.postData = clipNullableText(postData, _maxHarPostDataChars);
     draft.startedAt = startedAt;
+    _harDrafts.put(requestId, draft);
   }
 
   void recordHarResponse({
@@ -165,28 +167,30 @@ class WebReverseSessionArtifacts {
     int? bodySize,
   }) {
     if (_closed) return;
-    final draft = _harDrafts[requestId];
+    final draft = _harDrafts.get(requestId);
     if (draft == null) return;
     draft.status = status;
     draft.statusText = statusText;
     draft.mimeType = mimeType;
     draft.responseHeaders = _clipHeaders(headers);
     draft.bodySize = bodySize ?? -1;
+    _harDrafts.put(requestId, draft);
   }
 
   void recordHarFinished(String requestId, DateTime finishedAt) {
     if (_closed) return;
-    final draft = _harDrafts[requestId];
+    final draft = _harDrafts.get(requestId);
     if (draft == null) return;
     draft.finishedAt = finishedAt;
   }
 
   void recordHarFailed(String requestId, String errorText, DateTime failedAt) {
     if (_closed) return;
-    final draft = _harDrafts[requestId];
+    final draft = _harDrafts.get(requestId);
     if (draft == null) return;
     draft.errorText = errorText;
     draft.finishedAt = failedAt;
+    _harDrafts.put(requestId, draft);
   }
 
   void evictHarDraft(String requestId) {
@@ -224,17 +228,8 @@ class WebReverseSessionArtifacts {
 
   Future<void> _flush() {
     if (!_ready) return Future<void>.value();
-    final active = _flushFuture;
-    if (active != null) {
-      _flushRequested = true;
-      return active;
-    }
-    late final Future<void> flushing;
-    flushing = _drainBuffers().whenComplete(() {
-      if (identical(_flushFuture, flushing)) _flushFuture = null;
-    });
-    _flushFuture = flushing;
-    return flushing;
+    if (_flushFlight.isRunning) _flushRequested = true;
+    return _flushFlight.run(_drainBuffers);
   }
 
   Future<void> _drainBuffers() async {
@@ -292,7 +287,12 @@ class WebReverseSessionArtifacts {
   Future<String?> exportHar() async {
     if (!_ready || _closed) return null;
     final entries = <Map<String, Object?>>[];
-    for (final draft in _harDrafts.values) {
+    final drafts = _harDrafts.snapshot().values.toList()
+      ..sort(
+        (left, right) => (left.startedAt?.microsecondsSinceEpoch ?? 0)
+            .compareTo(right.startedAt?.microsecondsSinceEpoch ?? 0),
+      );
+    for (final draft in drafts) {
       if (draft.url.isEmpty) continue;
       final startedAt = draft.startedAt ?? DateTime.now().toUtc();
       final finishedAt = draft.finishedAt ?? startedAt;
@@ -303,7 +303,7 @@ class WebReverseSessionArtifacts {
         'request': <String, Object?>{
           'method': draft.method,
           'url': draft.url,
-          'httpVersion': 'HTTP/1.1',
+          'httpVersion': _harHttpVersion,
           'cookies': const <Object?>[],
           'headers': _harHeaders(draft.requestHeaders),
           'queryString': const <Object?>[],
@@ -313,12 +313,14 @@ class WebReverseSessionArtifacts {
               'text': draft.postData,
             },
           'headersSize': -1,
-          'bodySize': draft.postData?.length ?? -1,
+          'bodySize': draft.postData == null
+              ? -1
+              : utf8ByteLength(draft.postData!),
         },
         'response': <String, Object?>{
           'status': draft.status,
           'statusText': draft.statusText,
-          'httpVersion': 'HTTP/1.1',
+          'httpVersion': _harHttpVersion,
           'cookies': const <Object?>[],
           'headers': _harHeaders(draft.responseHeaders),
           'content': <String, Object?>{
@@ -362,30 +364,15 @@ class WebReverseSessionArtifacts {
 
   Future<void> close() {
     _closed = true;
-    final existing = _closeFuture;
-    if (existing != null) return existing;
-    final closing = _performClose();
-    _closeFuture = closing;
-    return closing;
+    return _closeOnce.run(_performClose);
   }
 
   Future<void> _performClose() async {
     _flushTimer?.cancel();
     _flushTimer = null;
     await _flush();
-    final networkSink = _networkSink;
-    final consoleSink = _consoleSink;
-    _networkSink = null;
-    _consoleSink = null;
-    _ready = false;
-    _networkBuf.clear();
-    _consoleBuf.clear();
-    _reportedBufferDrops.clear();
+    await _disableWriting();
     _harDrafts.clear();
-    await Future.wait<bool>(<Future<bool>>[
-      _closeSink(networkSink, '网络'),
-      _closeSink(consoleSink, '控制台'),
-    ]);
   }
 
   Future<bool> _closeSink(
@@ -409,12 +396,6 @@ class WebReverseSessionArtifacts {
     return headers.entries
         .map((e) => <String, Object?>{'name': e.key, 'value': '${e.value}'})
         .toList(growable: false);
-  }
-
-  void _pruneHarDrafts() {
-    while (_harDrafts.length > _maxHarDrafts) {
-      _harDrafts.remove(_harDrafts.keys.first);
-    }
   }
 
   static Map<String, Object?> _clipHeaders(Map<String, Object?> headers) {
@@ -442,4 +423,22 @@ class _HarEntryDraft {
   Map<String, Object?>? responseHeaders;
   int bodySize = -1;
   String? errorText;
+
+  int get retainedCharacters =>
+      requestId.length +
+      url.length +
+      method.length +
+      statusText.length +
+      mimeType.length +
+      (postData?.length ?? 0) +
+      (errorText?.length ?? 0) +
+      _headerCharacters(requestHeaders) +
+      _headerCharacters(responseHeaders);
+
+  static int _headerCharacters(Map<String, Object?>? headers) =>
+      headers?.entries.fold<int>(
+        0,
+        (total, entry) => total + entry.key.length + '${entry.value}'.length,
+      ) ??
+      0;
 }

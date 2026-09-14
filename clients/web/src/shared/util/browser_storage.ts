@@ -22,16 +22,29 @@ function getBrowserStorage(): Storage | null {
   return null;
 }
 
-export function readBrowserStorage(key: string): string | null {
+function readStorageValue(key: string): string | null | undefined {
   try {
-    return getBrowserStorage()?.getItem(key) ?? null;
+    return getBrowserStorage()?.getItem(key);
   } catch {
-    return null;
+    return undefined;
   }
 }
 
-export function readBrowserJsonStorage(key: string): unknown | null {
-  const raw = readBrowserStorage(key);
+/** 仅在存储不可用时使用内存值，已删除的键仍返回 null。 */
+export function readBrowserStorage(
+  key: string,
+  fallback: string | null = null,
+): string | null {
+  const value = readStorageValue(key);
+  return value === undefined ? fallback : value;
+}
+
+export function readBrowserJsonStorage(
+  key: string,
+  fallback: unknown = null,
+): unknown {
+  const raw = readStorageValue(key);
+  if (raw === undefined) return fallback;
   if (raw == null) return null;
   const parsed = parseJsonSafely(raw);
   if (parsed == null) {

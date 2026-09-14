@@ -51,11 +51,11 @@ export function useDialogExitMotion<Reason extends string = string>(
 
   const requestCloseWithReason = useEventCallback((reason?: Reason) => {
     if (closingRef.current) return;
+    closingRef.current = true;
     closeReasonRef.current = reason;
     try {
       onBeforeClose?.(reason);
     } finally {
-      closingRef.current = true;
       setClosing(true);
       const durationMs = reduceMotion
         ? 0

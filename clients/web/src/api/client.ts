@@ -1,8 +1,8 @@
 // 通用 fetch 封装：自动注入 OpenHand service 要求的设备头与 Bearer token，
-// 401 时清空本地认证态并 throw `UnauthorizedError`，调用方按需跳 /login。
+// 当前登录状态的鉴权请求返回 401 时清除凭据；旧会话响应按取消处理。
 // JSON 请求 / 响应自动序列化；非 2xx 抛 ApiError(status, body)。
 
-import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
+import { captureAuthSession, clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
 import {
   JsonStructureLimitError,
   parseJsonBounded,
@@ -97,22 +97,6 @@ type ApiResponseReader<T> = (
   signal: AbortSignal,
 ) => Promise<T>;
 
-async function throwIfApiResponseFailed(
-  response: Response,
-  signal?: AbortSignal,
-): Promise<void> {
-  if (response.status === 401) {
-    clearAuthStorage();
-    throw new UnauthorizedError(await readApiErrorBody(response, signal));
-  }
-  if (!response.ok) {
-    throw new ApiError(
-      response.status,
-      await readApiErrorBody(response, signal),
-    );
-  }
-}
-
 async function readApiErrorBody(
   response: Response,
   signal?: AbortSignal,
@@ -135,12 +119,6 @@ async function readApiErrorBody(
   }
 }
 
-interface ApiAbortSignal {
-  signal?: AbortSignal;
-  timed?: TimedAbortController;
-  cleanup: () => void;
-}
-
 function normalizeApiRequestTimeoutMs(value: number | undefined): number {
   return normalizeDurationMs(value == null || value <= 0 ? undefined : value, {
     fallback: DEFAULT_API_REQUEST_TIMEOUT_MS,
@@ -149,25 +127,15 @@ function normalizeApiRequestTimeoutMs(value: number | undefined): number {
   });
 }
 
-function createApiAbortSignal(opts: ApiOptions): ApiAbortSignal {
-  const timeoutMs = normalizeApiRequestTimeoutMs(opts.timeoutMs);
-  const timed = createTimedAbortController(timeoutMs, opts.signal);
-  return {
-    signal: timed.controller.signal,
-    timed,
-    cleanup: timed.dispose,
-  };
-}
-
 function timeoutErrorFromAbortSignal(
-  abortSignal: ApiAbortSignal,
+  timed: TimedAbortController,
   error: unknown,
 ): OperationTimeoutError | null {
   if (!isAbortError(error)) return null;
-  const reason = abortSignal.signal?.reason;
+  const reason = timed.controller.signal.reason;
   if (reason instanceof OperationTimeoutError) return reason;
-  if (abortSignal.timed?.timedOut) {
-    return new OperationTimeoutError(abortSignal.timed.timeoutMs);
+  if (timed.timedOut) {
+    return new OperationTimeoutError(timed.timeoutMs);
   }
   return null;
 }
@@ -177,6 +145,12 @@ async function readAuthenticatedApiResponse<T>(
   opts: ApiOptions,
   readResponse: ApiResponseReader<T>,
 ): Promise<T> {
+  const isCurrentSession = captureAuthSession();
+  const checkSession = () => {
+    if (!opts.anonymous && !isCurrentSession()) {
+      throw new DOMException('登录状态已变更，忽略旧请求响应。', 'AbortError');
+    }
+  };
   const headers = createApiRequestHeaders({
     anonymous: opts.anonymous,
     accept: opts.accept,
@@ -187,21 +161,38 @@ async function readAuthenticatedApiResponse<T>(
     body = JSON.stringify(opts.body);
   }
 
-  const abortSignal = createApiAbortSignal(opts);
+  const timed = createTimedAbortController(
+    normalizeApiRequestTimeoutMs(opts.timeoutMs),
+    opts.signal,
+  );
+  const signal = timed.controller.signal;
+  let response: Response | undefined;
   try {
-    const response = await fetch(path, {
+    response = await fetch(path, {
       method: opts.method ?? 'GET',
       headers,
       body,
       credentials: 'same-origin',
-      signal: abortSignal.signal,
+      signal,
     });
-    await throwIfApiResponseFailed(response, abortSignal.signal);
-    return await readResponse(response, abortSignal.signal!);
+    checkSession();
+    if (!response.ok) {
+      const errorBody = await readApiErrorBody(response, signal);
+      checkSession();
+      if (response.status === 401) {
+        if (!opts.anonymous) clearAuthStorage();
+        throw new UnauthorizedError(errorBody);
+      }
+      throw new ApiError(response.status, errorBody);
+    }
+    const result = await readResponse(response, signal);
+    checkSession();
+    return result;
   } catch (error) {
-    throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
+    if (response) cancelResponseBodyQuietly(response, error);
+    throw timeoutErrorFromAbortSignal(timed, error) ?? error;
   } finally {
-    abortSignal.cleanup();
+    timed.dispose();
   }
 }
 

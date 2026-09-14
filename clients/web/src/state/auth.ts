@@ -130,6 +130,7 @@ export function useAuth(): AuthState {
   const [state, setState] = useState<AuthState>(current);
   useEffect(() => {
     subscribers.add(setState);
+    setState(current);
     void bootOnce();
     return () => {
       subscribers.delete(setState);
@@ -148,7 +149,7 @@ export function markLoggedIn(profile: AuthProfile): void {
     isAuthenticated: true,
     profile,
   });
-  void refreshMeta().catch(ignoreError);
+  void refreshMeta({ force: true }).catch(ignoreError);
 }
 
 export function logout(): void {
@@ -166,13 +167,13 @@ export function logout(): void {
   });
   // 内存里的 meta 还留着登录期间拿到的模型清单与用户指令，登出后补拉一次
   // 匿名版把它们换掉。
-  if (current.authRequired) void refreshMeta().catch(ignoreError);
+  if (current.authRequired) void refreshMeta({ force: true }).catch(ignoreError);
   if (revokeRequest) void revokeRequest;
 }
 
 /// 显式刷新一次 /api/meta（例如桌面端切换了主题色后）。
-export async function refreshMeta(): Promise<void> {
-  if (refreshPromise) return refreshPromise;
+export async function refreshMeta({ force = false }: { force?: boolean } = {}): Promise<void> {
+  if (refreshPromise && !force) return refreshPromise;
   bootController?.abort();
   bootPromise = null;
   const pending = bootOnce();

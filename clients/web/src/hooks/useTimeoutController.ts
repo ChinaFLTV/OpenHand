@@ -12,6 +12,7 @@ interface TimeoutController {
 export function useTimeoutController(): TimeoutController {
   const timerRef = useRef<number | null>(null);
   const tokenRef = useRef(0);
+  const activeRef = useRef(true);
 
   const clearTimer = useCallback(() => {
     tokenRef.current += 1;
@@ -24,6 +25,7 @@ export function useTimeoutController(): TimeoutController {
 
   const scheduleTimer = useCallback(
     (callback: () => void, delayMs?: number | null) => {
+      if (!activeRef.current) return;
       clearTimer();
       const safeDelayMs = normalizeDurationMs(delayMs, {
         fallback: 0,
@@ -45,7 +47,13 @@ export function useTimeoutController(): TimeoutController {
     [clearTimer],
   );
 
-  useEffect(() => () => clearTimer(), [clearTimer]);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+      clearTimer();
+    };
+  }, [clearTimer]);
 
   return { clearTimer, scheduleTimer };
 }

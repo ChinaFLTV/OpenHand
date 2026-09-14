@@ -165,10 +165,14 @@ export async function runWithTimeout<T>(
       new Promise<never>((_, reject) => {
         timer = window.setTimeout(() => {
           timer = null;
-          reject(
-            createTimeoutError?.(effectiveTimeoutMs) ??
-              new OperationTimeoutError(effectiveTimeoutMs),
-          );
+          try {
+            reject(
+              createTimeoutError?.(effectiveTimeoutMs) ??
+                new OperationTimeoutError(effectiveTimeoutMs),
+            );
+          } catch (error) {
+            reject(error);
+          }
         }, effectiveTimeoutMs);
       }),
     ]);
@@ -208,7 +212,13 @@ export async function runWithAbortableTimeout<T>(
 
   try {
     return await runWithTimeout(
-      () => Promise.race([Promise.resolve(task(controller.signal)), abortPromise]),
+      () => Promise.race([
+        Promise.resolve().then(() => {
+          if (controller.signal.aborted) throw abortReasonFromSignal(controller.signal);
+          return task(controller.signal);
+        }),
+        abortPromise,
+      ]),
       {
         timeoutMs,
         createTimeoutError: (effectiveTimeoutMs) => {
