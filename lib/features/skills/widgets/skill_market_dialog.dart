@@ -209,18 +209,8 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
+            color: colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(kOpenHandRadius18),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[
-                colorScheme.primaryContainer,
-                Color.alphaBlend(
-                  colorScheme.tertiaryContainer.withValues(alpha: 0.82),
-                  colorScheme.primaryContainer,
-                ),
-              ],
-            ),
           ),
           child: SizedBox(
             width: 52,
@@ -1646,18 +1636,8 @@ class _MarketStateMessage extends StatelessWidget {
             children: [
               DecoratedBox(
                 decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(kOpenHandRadius22),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: <Color>[
-                      colorScheme.primaryContainer,
-                      Color.alphaBlend(
-                        colorScheme.tertiaryContainer.withValues(alpha: 0.78),
-                        colorScheme.secondaryContainer,
-                      ),
-                    ],
-                  ),
                 ),
                 child: SizedBox(
                   width: 72,
