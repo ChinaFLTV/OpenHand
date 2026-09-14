@@ -1773,9 +1773,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
         decoration: diffDecoration,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final viewportWidth = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : 640.0;
+            final viewportWidth = resolvedCodeViewportWidth(constraints);
             final contentWidth = codeBodyContentWidth(
               viewportWidth: viewportWidth,
               maxTextLength: maxTextLength,
@@ -1843,6 +1841,7 @@ const double kCodeBodyRowExtent = 25;
 const double _kCodeBodyContentWidthMax = 3600;
 const double _kCodeBodyContentWidthPadding = 96;
 const double _kCodeBodyApproxCharWidth = 7.6;
+const double _kCodeViewportFallbackWidth = 640;
 
 /// 正文高度：不超过 [maxBodyHeight]，也不小于一行。
 double codeBodyHeight({required double maxBodyHeight, required int lineCount}) {
@@ -1864,6 +1863,13 @@ double codeBodyContentWidth({
       _kCodeBodyContentWidthPadding + maxTextLength * _kCodeBodyApproxCharWidth,
     ),
   );
+}
+
+/// LayoutBuilder 偶发给出 0 / NaN / 无限宽；换行模式下用 0 宽去 tight 行宽会把文本挤没。
+double resolvedCodeViewportWidth(BoxConstraints constraints) {
+  final width = constraints.maxWidth;
+  if (width.isFinite && width > 0) return width;
+  return _kCodeViewportFallbackWidth;
 }
 
 /// 代码 / diff 行视图的双向滚动外壳。
@@ -1988,7 +1994,7 @@ class _CodexDiffLineRow extends StatelessWidget {
     }
     return ConstrainedBox(
       constraints: wrapLines
-          ? BoxConstraints.tightFor(width: minWidth)
+          ? BoxConstraints.tightFor(width: math.max(minWidth, 1.0))
           : BoxConstraints(minWidth: minWidth),
       child: DecoratedBox(
         decoration: BoxDecoration(color: _background),

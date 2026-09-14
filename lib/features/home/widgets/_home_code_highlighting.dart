@@ -644,9 +644,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
             else
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final viewportWidth = constraints.maxWidth.isFinite
-                      ? constraints.maxWidth
-                      : 640.0;
+                  final viewportWidth = resolvedCodeViewportWidth(constraints);
                   final contentWidth = _wrapLines
                       ? viewportWidth
                       : codeBodyContentWidth(
@@ -1353,8 +1351,15 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     final useSelectable =
         widget.selectable && widget.content.length <= 8 * kBytesPerKiB;
     final wrap = _wrapLines;
+    // SelectableText 没有 softWrap：折行靠父级有界宽度，
+    // 不折行则放进横向滚动，拿到无限宽后按最长行排。
     final text = useSelectable
-        ? SelectableText.rich(span, softWrap: wrap)
+        ? SelectableText.rich(
+            span,
+            textWidthBasis: wrap
+                ? TextWidthBasis.parent
+                : TextWidthBasis.longestLine,
+          )
         : RichText(text: span, softWrap: wrap);
     if (wrap) {
       return SizedBox(width: double.infinity, child: text);
