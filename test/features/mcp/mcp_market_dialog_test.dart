@@ -4,17 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:openhand/app/theme/openhand_theme.dart';
+import 'package:openhand/app/theme/openhand_theme_preset.dart';
 import 'package:openhand/features/mcp/data/mcp_market_client.dart';
 import 'package:openhand/features/mcp/widgets/mcp_market_dialog.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 
 void main() {
-  for (final size in [
-    const Size(1280, 960),
-    const Size(600, 700),
-    const Size(400, 650),
+  for (final (size, textScale) in [
+    (const Size(1280, 960), 1.0),
+    (const Size(600, 700), 1.0),
+    (const Size(400, 650), 1.0),
+    (const Size(1280, 960), 1.8),
   ]) {
-    testWidgets('市场在 ${size.width} 宽度下展示并打开配置', (tester) async {
+    testWidgets('市场在 ${size.width} 宽度、$textScale 倍字体下展示并打开配置', (tester) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -51,6 +54,13 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           locale: const Locale('zh'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -74,6 +84,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('MCP 市场'), findsOneWidget);
+      for (final label in ['全部', '搜索与信息检索 · 1']) {
+        final text = find.text(label);
+        final chip = find.ancestor(of: text, matching: find.byType(ChoiceChip));
+        expect(
+          (tester.getCenter(text).dy - tester.getCenter(chip).dy).abs(),
+          lessThan(1),
+          reason: '分类胶囊的选中态与未选中态文字均应垂直居中',
+        );
+      }
       expect(find.text('图灵知识桥'), findsWidgets);
       if (size.width < 800) {
         await tester.tap(find.text('服务详情'));

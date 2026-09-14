@@ -31,6 +31,8 @@ Future<void> showMcpMarketDialog(
 
 const double _marketWidth = 1220;
 const double _marketHeight = 840;
+const double _categoryMinHeight = 36;
+const double _categoryVerticalPadding = 4;
 const Duration _searchDelay = Duration(milliseconds: 320);
 
 class _McpMarketDialog extends StatefulWidget {
@@ -421,6 +423,13 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
   }
 
   Widget _listPane({bool compact = false}) {
+    final labelFontSize =
+        Theme.of(context).textTheme.labelLarge?.fontSize ?? 14;
+    final categoryHeight = math.max(
+      _categoryMinHeight,
+      MediaQuery.textScalerOf(context).scale(labelFontSize) +
+          _categoryVerticalPadding * 2,
+    );
     return _panel(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -445,7 +454,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
             ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 36,
+              height: categoryHeight,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
@@ -512,14 +521,24 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
 
   Widget _categoryChip(String value, String label) => Padding(
     padding: const EdgeInsets.only(right: 6),
-    child: ChoiceChip(
-      label: Text(label),
-      selected: _category == value,
-      onSelected: (_) {
-        if (_category == value) return;
-        setState(() => _category = value);
-        unawaited(_loadList(resetPage: true));
-      },
+    // 横向列表会拉伸子项，先居中以保留胶囊自身的自然高度。
+    child: Center(
+      child: ChoiceChip(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: _categoryVerticalPadding,
+        ),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
+        label: Text(label, maxLines: 1, style: const TextStyle(height: 1)),
+        selected: _category == value,
+        onSelected: (_) {
+          if (_category == value) return;
+          setState(() => _category = value);
+          unawaited(_loadList(resetPage: true));
+        },
+      ),
     ),
   );
 
