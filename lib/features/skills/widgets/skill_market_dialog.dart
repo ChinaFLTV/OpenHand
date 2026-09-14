@@ -19,6 +19,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_file_icons.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -51,8 +52,11 @@ const double _kSkillMarketListAvatarSize = 46;
 const double _kSkillMarketDetailAvatarSize = 64;
 const double _kSkillMarketConfirmAvatarSize = 52;
 const int _kSkillMarketMaxPreviewVersions = 12;
-const int _kSkillMarketMaxPreviewFiles = 12;
-const double _kSkillMarketFilesExpandedMaxHeight = 420;
+const double _kSkillMarketFileTreeMaxHeight = 420;
+const double _kSkillMarketFileTreeRowExtent = 32;
+const double _kSkillMarketFileTreeRowGap = 4;
+const double _kSkillMarketFileTreeIndent = 16;
+const int _kSkillMarketFileTreeMaxSegments = 16;
 const int _kSkillMarketMaxPreviewSubcategories = 3;
 
 class _SkillMarketDialog extends StatefulWidget {
@@ -1510,23 +1514,18 @@ class _SkillMarketIncludedFilesPanel extends StatefulWidget {
 class _SkillMarketIncludedFilesPanelState
     extends State<_SkillMarketIncludedFilesPanel> {
   final ScrollController _scrollController = ScrollController();
-  bool _expanded = false;
-
-  int get _previewCount =>
-      math.min(_kSkillMarketMaxPreviewFiles, widget.files.length);
-
-  int get _hiddenCount => widget.files.length - _previewCount;
-
-  bool get _canExpand => _hiddenCount > 0;
+  late List<_SkillMarketFileTreeRow> _rows = _skillMarketFileTreeRows(
+    widget.files,
+  );
 
   @override
   void didUpdateWidget(covariant _SkillMarketIncludedFilesPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_filesChanged(oldWidget.files, widget.files)) return;
+    _rows = _skillMarketFileTreeRows(widget.files);
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
-    _expanded = false;
   }
 
   @override
@@ -1546,122 +1545,247 @@ class _SkillMarketIncludedFilesPanelState
         previous.last.path != next.last.path;
   }
 
-  void _toggleExpanded() {
-    if (!_canExpand) return;
-    if (_expanded && _scrollController.hasClients) {
-      _scrollController.jumpTo(0);
-    }
-    setState(() => _expanded = !_expanded);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final visibleCount = _expanded ? widget.files.length : _previewCount;
+    if (_rows.isEmpty) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return Text(
+        openHandLocalizedText(
+          context,
+          zh: '没有可展示的文件路径。',
+          zhHant: '沒有可展示的檔案路徑。',
+          en: 'No file paths to display.',
+          fr: 'Aucun chemin de fichier à afficher.',
+          de: 'Keine Dateipfade vorhanden.',
+          ja: '表示できるファイルパスがありません。',
+        ),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
     final panelMotion = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.panel,
     );
-    final chipMotion = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.chip,
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AnimatedSize(
-          duration: panelMotion.entranceDuration,
-          reverseDuration: panelMotion.exitDuration,
-          curve: panelMotion.curve.curve,
-          alignment: Alignment.topCenter,
-          child: ClipRect(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxHeight: _kSkillMarketFilesExpandedMaxHeight,
-              ),
-              child: OpenHandSafeScrollbar(
-                controller: _scrollController,
-                child: ListView.separated(
-                  controller: _scrollController,
-                  primary: false,
-                  shrinkWrap: !_expanded,
-                  padding: EdgeInsets.zero,
-                  physics: _expanded
-                      ? openHandDialogAwareScrollPhysics(context)
-                      : const NeverScrollableScrollPhysics(),
-                  itemCount: visibleCount,
-                  separatorBuilder: (context, index) => kOpenHandGap8,
-                  itemBuilder: (context, index) {
-                    return _SkillMarketFileRow(
-                      file: widget.files[index],
-                      accent: widget.accent,
-                    );
-                  },
-                ),
-              ),
+    final estimatedHeight =
+        (_rows.length * _kSkillMarketFileTreeRowExtent +
+            math.max(0, _rows.length - 1) * _kSkillMarketFileTreeRowGap) *
+        MediaQuery.textScalerOf(context).scale(1);
+    final fillsViewport = estimatedHeight > _kSkillMarketFileTreeMaxHeight;
+    return AnimatedSize(
+      duration: panelMotion.entranceDuration,
+      reverseDuration: panelMotion.exitDuration,
+      curve: panelMotion.curve.curve,
+      alignment: Alignment.topCenter,
+      child: ClipRect(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxHeight: _kSkillMarketFileTreeMaxHeight,
+          ),
+          child: OpenHandSafeScrollbar(
+            controller: _scrollController,
+            child: ListView.separated(
+              controller: _scrollController,
+              primary: false,
+              shrinkWrap: !fillsViewport,
+              padding: EdgeInsets.zero,
+              physics: fillsViewport
+                  ? openHandDialogAwareScrollPhysics(context)
+                  : const NeverScrollableScrollPhysics(),
+              itemCount: _rows.length,
+              separatorBuilder: (context, index) =>
+                  const SizedBox(height: _kSkillMarketFileTreeRowGap),
+              itemBuilder: (context, index) {
+                return _SkillMarketFileTreeRowView(
+                  row: _rows[index],
+                  accent: widget.accent,
+                );
+              },
             ),
           ),
         ),
-        if (_canExpand) ...[
-          kOpenHandGap10,
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: AnimatedSize(
-              duration: chipMotion.entranceDuration,
-              reverseDuration: chipMotion.exitDuration,
-              curve: chipMotion.curve.curve,
-              alignment: AlignmentDirectional.centerStart,
-              child: OpenHandFactChip(
-                icon: _expanded
-                    ? Icons.unfold_less_rounded
-                    : Icons.more_horiz_rounded,
-                label: _expanded
-                    ? openHandCollapseLabel(context)
-                    : skillMarketFilesMoreLabel(context, _hiddenCount),
-                color: colorScheme.secondary,
-                onPressed: _toggleExpanded,
-              ),
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
 
-class _SkillMarketFileRow extends StatelessWidget {
-  const _SkillMarketFileRow({required this.file, required this.accent});
+class _SkillMarketFileTreeNode {
+  _SkillMarketFileTreeNode({
+    required this.name,
+    required this.path,
+    required this.isDirectory,
+  });
 
-  final SkillMarketFileEntry file;
+  final String name;
+  final String path;
+  bool isDirectory;
+  int size = 0;
+  final Map<String, _SkillMarketFileTreeNode> children =
+      <String, _SkillMarketFileTreeNode>{};
+
+  List<_SkillMarketFileTreeNode> get sortedChildren {
+    final list = children.values.toList();
+    list.sort((a, b) {
+      if (a.isDirectory != b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return list;
+  }
+}
+
+class _SkillMarketFileTreeRow {
+  const _SkillMarketFileTreeRow({required this.node, required this.depth});
+
+  final _SkillMarketFileTreeNode node;
+  final int depth;
+}
+
+List<String> _skillMarketPathSegments(String raw) {
+  var normalized = raw.trim().replaceAll('\\', '/');
+  while (normalized.startsWith('./')) {
+    normalized = normalized.substring(2);
+  }
+  if (normalized.isEmpty) return const <String>[];
+  final parts = <String>[];
+  for (final part in normalized.split('/')) {
+    if (part.isEmpty || part == '.') continue;
+    if (part == '..') return const <String>[];
+    parts.add(part);
+  }
+  if (parts.isEmpty) return const <String>[];
+  if (parts.length <= _kSkillMarketFileTreeMaxSegments) return parts;
+  return <String>[
+    ...parts.take(_kSkillMarketFileTreeMaxSegments - 1),
+    parts.skip(_kSkillMarketFileTreeMaxSegments - 1).join('/'),
+  ];
+}
+
+List<_SkillMarketFileTreeRow> _skillMarketFileTreeRows(
+  List<SkillMarketFileEntry> files,
+) {
+  final root = _SkillMarketFileTreeNode(name: '', path: '', isDirectory: true);
+  final seen = <String>{};
+  for (final file in files) {
+    final parts = _skillMarketPathSegments(file.path);
+    if (parts.isEmpty) continue;
+    final key = parts.join('/');
+    if (!seen.add(key)) continue;
+    final fileSize = file.size < 0 ? 0 : file.size;
+    var current = root;
+    final pathBuffer = StringBuffer();
+    for (var i = 0; i < parts.length; i++) {
+      final isLeaf = i == parts.length - 1;
+      final part = parts[i];
+      if (pathBuffer.isNotEmpty) pathBuffer.write('/');
+      pathBuffer.write(part);
+      final childPath = pathBuffer.toString();
+      final child = current.children.putIfAbsent(
+        part,
+        () => _SkillMarketFileTreeNode(
+          name: part,
+          path: childPath,
+          isDirectory: !isLeaf,
+        ),
+      );
+      if (!isLeaf) {
+        child.isDirectory = true;
+        child.size += fileSize;
+      } else if (child.isDirectory) {
+        child.size += fileSize;
+      } else {
+        child.size = fileSize;
+      }
+      current = child;
+    }
+    root.size += fileSize;
+  }
+  final rows = <_SkillMarketFileTreeRow>[];
+  void walk(List<_SkillMarketFileTreeNode> nodes, int depth) {
+    for (final node in nodes) {
+      rows.add(_SkillMarketFileTreeRow(node: node, depth: depth));
+      if (node.isDirectory && node.children.isNotEmpty) {
+        walk(node.sortedChildren, depth + 1);
+      }
+    }
+  }
+
+  walk(root.sortedChildren, 0);
+  return rows;
+}
+
+class _SkillMarketFileTreeRowView extends StatelessWidget {
+  const _SkillMarketFileTreeRowView({
+    required this.row,
+    required this.accent,
+  });
+
+  final _SkillMarketFileTreeRow row;
   final Color accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Row(
-      children: [
-        Icon(Icons.insert_drive_file_outlined, size: 16, color: accent),
-        kOpenHandHGap8,
-        Expanded(
-          child: Text(
-            file.path,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
+    final node = row.node;
+    final indent =
+        math.min(row.depth, _kSkillMarketFileTreeMaxSegments) *
+        _kSkillMarketFileTreeIndent;
+    final icon = node.isDirectory
+        ? Icons.folder_rounded
+        : openHandFileNameIcon(node.name);
+    final iconColor = node.isDirectory ? accent : colorScheme.onSurfaceVariant;
+    final label = Text(
+      node.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.bodySmall?.copyWith(
+        fontWeight: node.isDirectory ? FontWeight.w700 : FontWeight.w600,
+      ),
+    );
+    return Padding(
+      padding: EdgeInsets.only(left: indent),
+      child: SizedBox(
+        height: _kSkillMarketFileTreeRowExtent,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: node.isDirectory ? accent.withValues(alpha: 0.10) : null,
+            borderRadius: BorderRadius.circular(kOpenHandRadius8),
+            border: row.depth == 0
+                ? null
+                : Border(
+                    left: BorderSide(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                      width: 1.5,
+                    ),
+                  ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: iconColor),
+                kOpenHandHGap8,
+                Expanded(
+                  child: node.path.isEmpty
+                      ? label
+                      : Tooltip(message: node.path, child: label),
+                ),
+                kOpenHandHGap8,
+                Text(
+                  formatByteSize(node.size),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        kOpenHandHGap8,
-        Text(
-          formatByteSize(file.size),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

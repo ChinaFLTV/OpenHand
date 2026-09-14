@@ -231,18 +231,6 @@ String skillMarketStarsLabel(BuildContext context) {
   );
 }
 
-String skillMarketFilesMoreLabel(BuildContext context, int hiddenCount) {
-  return openHandLocalizedText(
-    context,
-    zh: '还有 $hiddenCount 个文件',
-    zhHant: '還有 $hiddenCount 個檔案',
-    en: '$hiddenCount more files',
-    fr: '$hiddenCount fichiers de plus',
-    de: '$hiddenCount weitere Dateien',
-    ja: '他 $hiddenCount 件',
-  );
-}
-
 const Map<String, _SkillMarketCopy> _sources = <String, _SkillMarketCopy>{
   'enterprise': (
     zh: '企业',
