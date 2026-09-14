@@ -80,6 +80,14 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         expect(find.text('使用说明'), findsOneWidget);
+        for (final tab in ['浏览服务', '服务详情', '浏览服务', '服务详情']) {
+          await tester.tap(find.text(tab));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 40));
+          expect(tester.takeException(), isNull);
+        }
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
       }
       await tester.tap(find.text('添加配置'));
       await tester.pumpAndSettle();
@@ -90,6 +98,85 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  testWidgets('长说明切换到短说明及快速往返时不溢出，仍可滚动到底部', (tester) async {
+    tester.view.physicalSize = const Size(1280, 960);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final servers = [
+      {'slug': 'long', 'name': '长说明服务', 'status': 'visible'},
+      {'slug': 'short', 'name': '短说明服务', 'status': 'visible'},
+    ];
+    final client = McpMarketClient(
+      httpClient: MockClient((request) async {
+        final path = request.url.path;
+        if (path.endsWith('/readme')) {
+          return _response(
+            path.contains('/long/')
+                ? '${List.generate(80, (index) => '第 $index 段使用说明。').join('\n\n')}\n\n文档末尾'
+                : '简短说明',
+            200,
+          );
+        }
+        final body = path.endsWith('/categories')
+            ? {'items': []}
+            : path.endsWith('/servers')
+            ? {'items': servers, 'total': servers.length}
+            : servers.firstWhere(
+                (server) => path.endsWith('/${server['slug']}'),
+              );
+        return _response(jsonEncode(body), 200);
+      }),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showMcpMarketDialog(
+                context,
+                client: client,
+                onConfigure: (_) async {},
+              ),
+              child: const Text('打开市场'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('打开市场'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final detailScroll = find
+        .ancestor(
+          of: find.byKey(const ValueKey('long')),
+          matching: find.byType(SingleChildScrollView),
+        )
+        .first;
+    final scroll = tester
+        .widget<SingleChildScrollView>(detailScroll)
+        .controller!;
+    expect(scroll.position.maxScrollExtent, greaterThan(1000));
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pump();
+    expect(find.text('文档末尾').hitTestable(), findsOneWidget);
+    for (final name in ['短说明服务', '长说明服务', '短说明服务']) {
+      await tester.tap(find.text(name).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('long')), findsNothing);
+    expect(scroll.offset, 0);
+    expect(scroll.position.maxScrollExtent, lessThan(1000));
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+  });
 }
 
 http.Response _response(String body, int status) =>

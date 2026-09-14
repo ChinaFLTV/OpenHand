@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
@@ -384,7 +385,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
     },
   );
 
-  Widget _switchContent(Widget child) {
+  Widget _switchContent(Widget child, {bool sizeToCurrentChild = false}) {
     final motion = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
@@ -394,14 +395,13 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
       duration: Duration(milliseconds: motion.durationMs),
       switchInCurve: kOpenHandSwitchInCurve,
       switchOutCurve: kOpenHandSwitchOutCurve,
-      layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          for (final child in previous)
-            Positioned.fill(child: IgnorePointer(child: child)),
-          if (current != null) current,
-        ],
-      ),
+      layoutBuilder: (current, previous) =>
+          buildCollisionSafeAnimatedSwitcherLayout(
+            current,
+            previous,
+            alignment: Alignment.topCenter,
+            sizeToCurrentChild: sizeToCurrentChild,
+          ),
       child: child,
     );
   }
@@ -837,6 +837,8 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
               ),
             ],
           ),
+          // 旧文档自然布局，新文档决定滚动范围，避免长文档退场时被压缩。
+          sizeToCurrentChild: true,
         ),
       ),
     );
