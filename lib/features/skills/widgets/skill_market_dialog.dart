@@ -18,9 +18,13 @@ import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_busy_indicators.dart';
+import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_file_icons.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_inline_empty_state.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -58,6 +62,8 @@ const double _kSkillMarketFileTreeRowGap = 4;
 const double _kSkillMarketFileTreeIndent = 16;
 const int _kSkillMarketFileTreeMaxSegments = 16;
 const int _kSkillMarketMaxPreviewSubcategories = 3;
+const double _kSkillMarketFilePreviewEditorHeight = 560;
+const int _kSkillMarketFilePreviewMaxBytes = 4 * kBytesPerMiB;
 
 class _SkillMarketDialog extends StatefulWidget {
   const _SkillMarketDialog();
@@ -91,6 +97,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   final Map<String, String> _selectedPreviewVersions = <String, String>{};
   final ValueNotifier<int> _installSuccessSignal = ValueNotifier<int>(0);
   final ValueNotifier<int> _installErrorSignal = ValueNotifier<int>(0);
+  bool _filePreviewOpen = false;
 
   @override
   void initState() {
@@ -496,6 +503,23 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 bundle: snapshot.data!,
                 maxMarkdownChars: _maxMarkdownChars,
                 onVersionSelected: _selectSkillVersion,
+                onFileOpen: (path, size) {
+                  final bundle = snapshot.data!;
+                  final slug = bundle.detail.skill.slug.isNotEmpty
+                      ? bundle.detail.skill.slug
+                      : selectedSkill.slug;
+                  final version = bundle.resolvedVersion.isNotEmpty
+                      ? bundle.resolvedVersion
+                      : selectedSkill.version;
+                  unawaited(
+                    _openSkillMarketFile(
+                      slug: slug,
+                      version: version,
+                      path: path,
+                      size: size,
+                    ),
+                  );
+                },
               );
             },
           );
@@ -747,6 +771,39 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       );
       _installError = null;
     });
+  }
+
+  Future<void> _openSkillMarketFile({
+    required String slug,
+    required String version,
+    required String path,
+    required int size,
+  }) async {
+    if (_filePreviewOpen) return;
+    final normalizedSlug = slug.trim();
+    final normalizedVersion = version.trim();
+    final normalizedPath = path.trim();
+    if (normalizedSlug.isEmpty ||
+        normalizedVersion.isEmpty ||
+        normalizedPath.isEmpty) {
+      return;
+    }
+    _filePreviewOpen = true;
+    try {
+      if (!mounted) return;
+      await showAnimatedDialog<void>(
+        context: context,
+        builder: (dialogContext) => _SkillMarketFilePreviewDialog(
+          client: _marketClient,
+          slug: normalizedSlug,
+          version: normalizedVersion,
+          path: normalizedPath,
+          size: size < 0 ? 0 : size,
+        ),
+      );
+    } finally {
+      _filePreviewOpen = false;
+    }
   }
 
   Future<void> _installSelectedSkill() async {
@@ -1161,12 +1218,14 @@ class _SkillMarketDetailView extends StatelessWidget {
     required this.bundle,
     required this.maxMarkdownChars,
     required this.onVersionSelected,
+    required this.onFileOpen,
   });
 
   final SkillMarketSummary summary;
   final SkillMarketBundle bundle;
   final int maxMarkdownChars;
   final ValueChanged<String> onVersionSelected;
+  final void Function(String path, int size) onFileOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -1462,6 +1521,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                 ),
                 files: files,
                 accent: accent,
+                onFileOpen: onFileOpen,
               ),
             ),
           ],
@@ -1501,10 +1561,12 @@ class _SkillMarketIncludedFilesPanel extends StatefulWidget {
     super.key,
     required this.files,
     required this.accent,
+    required this.onFileOpen,
   });
 
   final List<SkillMarketFileEntry> files;
   final Color accent;
+  final void Function(String path, int size) onFileOpen;
 
   @override
   State<_SkillMarketIncludedFilesPanel> createState() =>
@@ -1559,9 +1621,9 @@ class _SkillMarketIncludedFilesPanelState
           de: 'Keine Dateipfade vorhanden.',
           ja: '表示できるファイルパスがありません。',
         ),
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
       );
     }
     final panelMotion = openHandMotionSettingsOf(
@@ -1600,6 +1662,7 @@ class _SkillMarketIncludedFilesPanelState
                 return _SkillMarketFileTreeRowView(
                   row: _rows[index],
                   accent: widget.accent,
+                  onFileOpen: widget.onFileOpen,
                 );
               },
             ),
@@ -1615,10 +1678,12 @@ class _SkillMarketFileTreeNode {
     required this.name,
     required this.path,
     required this.isDirectory,
+    this.sourcePath = '',
   });
 
   final String name;
   final String path;
+  final String sourcePath;
   bool isDirectory;
   int size = 0;
   final Map<String, _SkillMarketFileTreeNode> children =
@@ -1688,6 +1753,7 @@ List<_SkillMarketFileTreeRow> _skillMarketFileTreeRows(
           name: part,
           path: childPath,
           isDirectory: !isLeaf,
+          sourcePath: isLeaf ? file.path : '',
         ),
       );
       if (!isLeaf) {
@@ -1720,10 +1786,12 @@ class _SkillMarketFileTreeRowView extends StatelessWidget {
   const _SkillMarketFileTreeRowView({
     required this.row,
     required this.accent,
+    required this.onFileOpen,
   });
 
   final _SkillMarketFileTreeRow row;
   final Color accent;
+  final void Function(String path, int size) onFileOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -1745,7 +1813,7 @@ class _SkillMarketFileTreeRowView extends StatelessWidget {
         fontWeight: node.isDirectory ? FontWeight.w700 : FontWeight.w600,
       ),
     );
-    return Padding(
+    final rowBody = Padding(
       padding: EdgeInsets.only(left: indent),
       child: SizedBox(
         height: _kSkillMarketFileTreeRowExtent,
@@ -1787,6 +1855,260 @@ class _SkillMarketFileTreeRowView extends StatelessWidget {
         ),
       ),
     );
+    if (node.isDirectory) return rowBody;
+    final openPath = node.sourcePath.trim().isEmpty
+        ? node.path
+        : node.sourcePath;
+    return MicroPressFeedback(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: openPath.trim().isEmpty
+              ? null
+              : () => onFileOpen(openPath, node.size),
+          borderRadius: BorderRadius.circular(kOpenHandRadius8),
+          mouseCursor: WidgetStateMouseCursor.clickable,
+          child: rowBody,
+        ),
+      ),
+    );
+  }
+}
+
+enum _SkillMarketFilePreviewKind { loading, ready, error, binary, tooLarge }
+
+class _SkillMarketFilePreviewDialog extends StatefulWidget {
+  const _SkillMarketFilePreviewDialog({
+    required this.client,
+    required this.slug,
+    required this.version,
+    required this.path,
+    required this.size,
+  });
+
+  final SkillMarketClient client;
+  final String slug;
+  final String version;
+  final String path;
+  final int size;
+
+  @override
+  State<_SkillMarketFilePreviewDialog> createState() =>
+      _SkillMarketFilePreviewDialogState();
+}
+
+class _SkillMarketFilePreviewDialogState
+    extends State<_SkillMarketFilePreviewDialog> {
+  int _loadToken = 0;
+  _SkillMarketFilePreviewKind _kind = _SkillMarketFilePreviewKind.loading;
+  String _content = '';
+  String? _errorMessage;
+
+  String get _fileName {
+    final normalized = widget.path.replaceAll('\\', '/');
+    final slash = normalized.lastIndexOf('/');
+    if (slash < 0 || slash >= normalized.length - 1) return normalized;
+    return normalized.substring(slash + 1);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (openHandFileNameLooksLikeBinary(_fileName)) {
+      _kind = _SkillMarketFilePreviewKind.binary;
+      return;
+    }
+    if (widget.size > _kSkillMarketFilePreviewMaxBytes) {
+      _kind = _SkillMarketFilePreviewKind.tooLarge;
+      return;
+    }
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _loadToken += 1;
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final token = ++_loadToken;
+    if (_kind != _SkillMarketFilePreviewKind.loading || _errorMessage != null) {
+      setState(() {
+        _kind = _SkillMarketFilePreviewKind.loading;
+        _errorMessage = null;
+      });
+    }
+    try {
+      final content = await widget.client.fetchSkillFileContent(
+        slug: widget.slug,
+        path: widget.path,
+        version: widget.version,
+      );
+      if (!mounted || token != _loadToken) return;
+      if (content.contains('\u0000')) {
+        setState(() => _kind = _SkillMarketFilePreviewKind.binary);
+        return;
+      }
+      setState(() {
+        _kind = _SkillMarketFilePreviewKind.ready;
+        _content = content;
+      });
+    } catch (error, stack) {
+      if (isHttpRequestAborted(error)) return;
+      if (error is StateError && error.message.contains('已关闭')) return;
+      silentLog(
+        'skill_market_dialog',
+        '读取技能文件 ${widget.slug}/${widget.path}',
+        error,
+        stack,
+      );
+      if (!mounted || token != _loadToken) return;
+      setState(() {
+        _kind = _SkillMarketFilePreviewKind.error;
+        _errorMessage = userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '无法加载该文件内容，请稍后重试。',
+            zhHant: '無法載入該檔案內容，請稍後重試。',
+            en: 'Unable to load this file. Try again later.',
+            fr: 'Impossible de charger ce fichier. Réessayez plus tard.',
+            de: 'Datei konnte nicht geladen werden. Später erneut versuchen.',
+            ja: 'このファイルを読み込めません。しばらくして再試行してください。',
+          ),
+          detailResolver: (value) {
+            if (value is SkillMarketException) return value.message;
+            return null;
+          },
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return OpenHandEditorDialogScaffold(
+      title: _fileName,
+      subtitle: widget.version.isEmpty
+          ? widget.path
+          : '${widget.path} · ${widget.version}',
+      icon: openHandFileNameIcon(_fileName),
+      iconColor: colorScheme.primary,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      body: OpenHandContentStateSwitcher(
+        stateKey: _kind.name,
+        child: _buildBody(context),
+      ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: openHandCloseLabel(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    switch (_kind) {
+      case _SkillMarketFilePreviewKind.loading:
+        return SizedBox(
+          height: 220,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OpenHandBusyStatusIcon(
+                busy: true,
+                icon: Icons.description_rounded,
+                size: 28,
+                color: colorScheme.primary,
+              ),
+              kOpenHandGap14,
+              Text(
+                openHandLocalizedText(
+                  context,
+                  zh: '正在加载文件内容…',
+                  zhHant: '正在載入檔案內容…',
+                  en: 'Loading file content…',
+                  fr: 'Chargement du fichier…',
+                  de: 'Dateiinhalt wird geladen…',
+                  ja: 'ファイル内容を読み込み中…',
+                ),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      case _SkillMarketFilePreviewKind.binary:
+        return OpenHandInlineEmptyState(
+          icon: Icons.perm_media_outlined,
+          message: openHandLocalizedText(
+            context,
+            zh: '该文件不是文本内容，无法在编辑器中预览。',
+            zhHant: '此檔案不是文字內容，無法在編輯器中預覽。',
+            en: 'This file is not text and cannot be previewed in the editor.',
+            fr: 'Ce fichier n’est pas du texte et ne peut pas être prévisualisé.',
+            de: 'Diese Datei ist kein Text und kann im Editor nicht angezeigt werden.',
+            ja: 'このファイルはテキストではないため、エディタでプレビューできません。',
+          ),
+        );
+      case _SkillMarketFilePreviewKind.tooLarge:
+        return OpenHandInlineEmptyState(
+          icon: Icons.sd_storage_outlined,
+          message: openHandLocalizedText(
+            context,
+            zh: '文件过大，无法在编辑器中预览（上限 ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}）。',
+            zhHant:
+                '檔案過大，無法在編輯器中預覽（上限 ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}）。',
+            en: 'This file is too large to preview (limit ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}).',
+            fr: 'Fichier trop volumineux pour l’aperçu (limite ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}).',
+            de: 'Datei ist zu groß für die Vorschau (Limit ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}).',
+            ja: 'ファイルが大きすぎてプレビューできません（上限 ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}）。',
+          ),
+        );
+      case _SkillMarketFilePreviewKind.error:
+        return Column(
+          children: [
+            OpenHandInlineEmptyState(
+              icon: Icons.error_outline_rounded,
+              message:
+                  _errorMessage ??
+                  openHandLocalizedText(
+                    context,
+                    zh: '无法加载该文件内容，请稍后重试。',
+                    zhHant: '無法載入該檔案內容，請稍後重試。',
+                    en: 'Unable to load this file. Try again later.',
+                    fr: 'Impossible de charger ce fichier. Réessayez plus tard.',
+                    de: 'Datei konnte nicht geladen werden. Später erneut versuchen.',
+                    ja: 'このファイルを読み込めません。しばらくして再試行してください。',
+                  ),
+            ),
+            kOpenHandGap12,
+            OpenHandCompactActionChip(
+              icon: Icons.refresh_rounded,
+              label: openHandRetryLabel(context),
+              onPressed: _load,
+            ),
+          ],
+        );
+      case _SkillMarketFilePreviewKind.ready:
+        return OpenHandCodeEditor(
+          value: _content,
+          language:
+              openHandEditorLanguageFromFileName(_fileName) ?? 'plaintext',
+          fileName: _fileName,
+          icon: openHandFileNameIcon(_fileName),
+          height: _kSkillMarketFilePreviewEditorHeight,
+          borderRadius: kOpenHandBorderRadius16,
+          readOnly: true,
+          onChanged: (_) {},
+        );
+    }
   }
 }
 

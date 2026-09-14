@@ -1619,51 +1619,11 @@ IconData _fileExplorerIcon(_FileNode node) {
       : openHandFileNameIcon(node.name);
 }
 
-String? _editorLanguageFromPath(String filePath) {
-  final ext = p.extension(filePath).toLowerCase();
-  return switch (ext) {
-    '.dart' => 'dart',
-    '.py' => 'python',
-    '.js' => 'javascript',
-    '.jsx' => 'javascript',
-    '.ts' => 'typescript',
-    '.tsx' => 'typescript',
-    '.json' => 'json',
-    '.yaml' || '.yml' => 'yaml',
-    '.md' => 'markdown',
-    '.html' || '.htm' => 'html',
-    '.css' => 'css',
-    '.scss' => 'scss',
-    '.less' => 'less',
-    '.xml' => 'xml',
-    '.sql' => 'sql',
-    '.go' => 'go',
-    '.rs' => 'rust',
-    '.java' => 'java',
-    '.kt' => 'kotlin',
-    '.swift' => 'swift',
-    '.c' => 'c',
-    '.cpp' || '.cc' || '.cxx' => 'cpp',
-    '.h' || '.hpp' => 'cpp',
-    '.sh' || '.bash' || '.zsh' => 'bash',
-    '.rb' => 'ruby',
-    '.php' => 'php',
-    '.lua' => 'lua',
-    '.r' => 'r',
-    '.toml' => 'ini',
-    '.ini' || '.cfg' => 'ini',
-    '.gradle' => 'groovy',
-    '.groovy' => 'groovy',
-    '.dockerfile' => 'dockerfile',
-    _ => null,
-  };
-}
-
 String _resolveEditorLanguage({
   required String filePath,
   required String projectLanguage,
 }) {
-  final detected = _editorLanguageFromPath(filePath);
+  final detected = openHandEditorLanguageFromFileName(filePath);
   if (detected != null) {
     return detected;
   }
