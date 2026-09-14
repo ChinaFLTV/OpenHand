@@ -2,6 +2,8 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/widgets.dart';
 
+import 'byte_size_format.dart';
+
 /// 组件内按语言选择文本的唯一入口。
 
 Locale? _ambientLocaleOverride;
@@ -14,6 +16,28 @@ Locale get openHandAmbientLocale =>
     _ambientLocaleOverride ?? PlatformDispatcher.instance.locale;
 
 set openHandAmbientLocale(Locale locale) => _ambientLocaleOverride = locale;
+
+/// 按当前界面语言格式化体积。
+String formatLocalizedByteSize(num bytes) {
+  final locale = openHandAmbientLocale;
+  return formatByteSize(
+    bytes,
+    languageCode: locale.languageCode,
+    scriptCode: locale.scriptCode,
+    countryCode: locale.countryCode,
+  );
+}
+
+/// 按 [context] 当前语言格式化体积。
+String formatLocalizedByteSizeOf(BuildContext context, num bytes) {
+  final locale = Localizations.localeOf(context);
+  return formatByteSize(
+    bytes,
+    languageCode: locale.languageCode,
+    scriptCode: locale.scriptCode,
+    countryCode: locale.countryCode,
+  );
+}
 
 /// 按 [openHandAmbientLocale] 返回文本，供没有 [BuildContext] 的调用方使用。
 String openHandAmbientText({

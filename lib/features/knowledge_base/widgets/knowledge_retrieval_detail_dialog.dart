@@ -731,6 +731,8 @@ class _HitTile extends StatelessWidget {
           child: InkWell(
             onTap: () => _showKnowledgeRetrievalHitDetailDialog(context, hit),
             borderRadius: kOpenHandBorderRadius16,
+            hoverColor: Colors.transparent,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             child: OpenHandTintedPanel(
               accent: accent,
               padding: const EdgeInsets.all(12),

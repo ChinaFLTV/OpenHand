@@ -11,6 +11,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
@@ -57,9 +58,10 @@ const double _kSkillMarketDetailAvatarSize = 64;
 const double _kSkillMarketConfirmAvatarSize = 52;
 const int _kSkillMarketMaxPreviewVersions = 12;
 const double _kSkillMarketFileTreeMaxHeight = 420;
-const double _kSkillMarketFileTreeRowExtent = 32;
-const double _kSkillMarketFileTreeRowGap = 4;
-const double _kSkillMarketFileTreeIndent = 16;
+const double _kSkillMarketFileTreeRowMinHeight = 36;
+const double _kSkillMarketFileTreeRowGap = 8;
+const double _kSkillMarketFileTreeIndent = 20;
+const double _kSkillMarketFileTreeChevronSize = 16;
 const int _kSkillMarketFileTreeMaxSegments = 16;
 const int _kSkillMarketMaxPreviewSubcategories = 3;
 const double _kSkillMarketFilePreviewEditorHeight = 560;
@@ -1082,6 +1084,8 @@ class _SkillMarketResultTile extends StatelessWidget {
     return MicroPressFeedback(
       child: Material(
         color: Colors.transparent,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: radius,
@@ -1576,15 +1580,15 @@ class _SkillMarketIncludedFilesPanel extends StatefulWidget {
 class _SkillMarketIncludedFilesPanelState
     extends State<_SkillMarketIncludedFilesPanel> {
   final ScrollController _scrollController = ScrollController();
-  late List<_SkillMarketFileTreeRow> _rows = _skillMarketFileTreeRows(
-    widget.files,
-  );
+  final Set<String> _expandedPaths = <String>{};
+  late _SkillMarketFileTreeNode _root = _skillMarketFileTree(widget.files);
 
   @override
   void didUpdateWidget(covariant _SkillMarketIncludedFilesPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_filesChanged(oldWidget.files, widget.files)) return;
-    _rows = _skillMarketFileTreeRows(widget.files);
+    _root = _skillMarketFileTree(widget.files);
+    _expandedPaths.clear();
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
@@ -1607,9 +1611,19 @@ class _SkillMarketIncludedFilesPanelState
         previous.last.path != next.last.path;
   }
 
+  void _toggleDirectory(String path) {
+    if (path.isEmpty) return;
+    setState(() {
+      if (!_expandedPaths.add(path)) {
+        _expandedPaths.remove(path);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_rows.isEmpty) {
+    final roots = _root.sortedChildren;
+    if (roots.isEmpty) {
       final colorScheme = Theme.of(context).colorScheme;
       return Text(
         openHandLocalizedText(
@@ -1630,41 +1644,237 @@ class _SkillMarketIncludedFilesPanelState
       context,
       OpenHandMotionSettingsScope.panel,
     );
-    final estimatedHeight =
-        (_rows.length * _kSkillMarketFileTreeRowExtent +
-            math.max(0, _rows.length - 1) * _kSkillMarketFileTreeRowGap) *
-        MediaQuery.textScalerOf(context).scale(1);
-    final fillsViewport = estimatedHeight > _kSkillMarketFileTreeMaxHeight;
-    return AnimatedSize(
-      duration: panelMotion.entranceDuration,
-      reverseDuration: panelMotion.exitDuration,
-      curve: panelMotion.curve.curve,
-      alignment: Alignment.topCenter,
-      child: ClipRect(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxHeight: _kSkillMarketFileTreeMaxHeight,
-          ),
-          child: OpenHandSafeScrollbar(
+    return ClipRect(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxHeight: _kSkillMarketFileTreeMaxHeight,
+        ),
+        child: OpenHandSafeScrollbar(
+          controller: _scrollController,
+          child: SingleChildScrollView(
             controller: _scrollController,
-            child: ListView.separated(
-              controller: _scrollController,
-              primary: false,
-              shrinkWrap: !fillsViewport,
-              padding: EdgeInsets.zero,
-              physics: fillsViewport
-                  ? openHandDialogAwareScrollPhysics(context)
-                  : const NeverScrollableScrollPhysics(),
-              itemCount: _rows.length,
-              separatorBuilder: (context, index) =>
-                  const SizedBox(height: _kSkillMarketFileTreeRowGap),
-              itemBuilder: (context, index) {
-                return _SkillMarketFileTreeRowView(
-                  row: _rows[index],
-                  accent: widget.accent,
-                  onFileOpen: widget.onFileOpen,
-                );
-              },
+            primary: false,
+            physics: openHandDialogAwareScrollPhysics(context),
+            child: _buildTreeList(
+              nodes: roots,
+              depth: 0,
+              revealDuration: panelMotion.entranceDuration,
+              revealReverseDuration: panelMotion.exitDuration,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTreeList({
+    required List<_SkillMarketFileTreeNode> nodes,
+    required int depth,
+    required Duration revealDuration,
+    required Duration revealReverseDuration,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < nodes.length; i++) ...[
+          if (i > 0) const SizedBox(height: _kSkillMarketFileTreeRowGap),
+          _buildTreeEntry(
+            node: nodes[i],
+            depth: depth,
+            revealDuration: revealDuration,
+            revealReverseDuration: revealReverseDuration,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTreeEntry({
+    required _SkillMarketFileTreeNode node,
+    required int depth,
+    required Duration revealDuration,
+    required Duration revealReverseDuration,
+  }) {
+    final children = node.sortedChildren;
+    final canExpand = node.isDirectory && children.isNotEmpty;
+    final expanded = canExpand && _expandedPaths.contains(node.path);
+    return Column(
+      key: ValueKey<String>(node.path),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildTreeRow(
+          node: node,
+          depth: depth,
+          canExpand: canExpand,
+          expanded: expanded,
+          childCount: children.length,
+          revealDuration: revealDuration,
+        ),
+        if (canExpand)
+          OpenHandVerticalRevealSwitcher(
+            duration: revealDuration,
+            reverseDuration: revealReverseDuration,
+            slideBeginOffsetY: -0.04,
+            presentKey: ValueKey<String>('expand-${node.path}'),
+            child: expanded
+                ? Padding(
+                    padding: const EdgeInsets.only(
+                      top: _kSkillMarketFileTreeRowGap,
+                    ),
+                    child: _buildTreeList(
+                      nodes: children,
+                      depth: depth + 1,
+                      revealDuration: revealDuration,
+                      revealReverseDuration: revealReverseDuration,
+                    ),
+                  )
+                : null,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTreeRow({
+    required _SkillMarketFileTreeNode node,
+    required int depth,
+    required bool canExpand,
+    required bool expanded,
+    required int childCount,
+    required Duration revealDuration,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final indent =
+        math.min(depth, _kSkillMarketFileTreeMaxSegments) *
+        _kSkillMarketFileTreeIndent;
+    final isDirectory = node.isDirectory;
+    final openPath = node.sourcePath.trim().isEmpty
+        ? node.path
+        : node.sourcePath;
+    final canOpenFile = !isDirectory && openPath.trim().isNotEmpty;
+    final onTap = canExpand
+        ? () => _toggleDirectory(node.path)
+        : canOpenFile
+        ? () => widget.onFileOpen(openPath, node.size)
+        : null;
+    final icon = isDirectory
+        ? (expanded ? Icons.folder_open_rounded : Icons.folder_rounded)
+        : openHandFileNameIcon(node.name);
+    final iconColor = isDirectory
+        ? widget.accent
+        : colorScheme.onSurfaceVariant;
+    final tooltip = node.path.isEmpty
+        ? node.name
+        : isDirectory
+        ? openHandLocalizedText(
+            context,
+            zh: expanded ? '折叠 ${node.path}' : '展开 ${node.path}',
+            zhHant: expanded ? '摺疊 ${node.path}' : '展開 ${node.path}',
+            en: expanded ? 'Collapse ${node.path}' : 'Expand ${node.path}',
+            fr: expanded ? 'Réduire ${node.path}' : 'Développer ${node.path}',
+            de: expanded
+                ? '${node.path} einklappen'
+                : '${node.path} ausklappen',
+            ja: expanded ? '${node.path} を折りたたむ' : '${node.path} を展開',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '预览 ${node.path}',
+            zhHant: '預覽 ${node.path}',
+            en: 'Preview ${node.path}',
+            fr: 'Aperçu ${node.path}',
+            de: '${node.path} Vorschau',
+            ja: '${node.path} をプレビュー',
+          );
+    final row = ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: _kSkillMarketFileTreeRowMinHeight,
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(8 + indent, 7, 10, 7),
+        child: Row(
+          children: [
+            SizedBox(
+              width: _kSkillMarketFileTreeChevronSize,
+              height: _kSkillMarketFileTreeChevronSize,
+              child: canExpand
+                  ? AnimatedExpandChevron(
+                      expanded: expanded,
+                      size: _kSkillMarketFileTreeChevronSize,
+                      color: colorScheme.onSurfaceVariant,
+                      duration: revealDuration,
+                    )
+                  : null,
+            ),
+            kOpenHandHGap6,
+            Icon(icon, size: 16, color: iconColor),
+            kOpenHandHGap8,
+            Expanded(
+              child: Text(
+                node.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: isDirectory ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
+            if (isDirectory && childCount > 0) ...[
+              kOpenHandHGap8,
+              Text(
+                _skillMarketFileTreeItemCount(context, childCount),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.78),
+                ),
+              ),
+            ],
+            kOpenHandHGap8,
+            Text(
+              formatLocalizedByteSizeOf(context, node.size),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    return Semantics(
+      button: onTap != null,
+      expanded: canExpand ? expanded : null,
+      label: node.name,
+      child: Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 420),
+        child: MicroPressFeedback(
+          enabled: onTap != null,
+          child: Material(
+            color: Colors.transparent,
+            shadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: kOpenHandBorderRadius10,
+              mouseCursor: onTap == null
+                  ? SystemMouseCursors.basic
+                  : WidgetStateMouseCursor.clickable,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              overlayColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.pressed)) {
+                  return widget.accent.withValues(alpha: 0.10);
+                }
+                if (states.contains(WidgetState.hovered) ||
+                    states.contains(WidgetState.focused)) {
+                  return colorScheme.onSurface.withValues(alpha: 0.05);
+                }
+                return Colors.transparent;
+              }),
+              child: row,
             ),
           ),
         ),
@@ -1688,8 +1898,11 @@ class _SkillMarketFileTreeNode {
   int size = 0;
   final Map<String, _SkillMarketFileTreeNode> children =
       <String, _SkillMarketFileTreeNode>{};
+  List<_SkillMarketFileTreeNode>? _sortedChildren;
 
   List<_SkillMarketFileTreeNode> get sortedChildren {
+    final cached = _sortedChildren;
+    if (cached != null) return cached;
     final list = children.values.toList();
     list.sort((a, b) {
       if (a.isDirectory != b.isDirectory) {
@@ -1697,15 +1910,8 @@ class _SkillMarketFileTreeNode {
       }
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
-    return list;
+    return _sortedChildren = list;
   }
-}
-
-class _SkillMarketFileTreeRow {
-  const _SkillMarketFileTreeRow({required this.node, required this.depth});
-
-  final _SkillMarketFileTreeNode node;
-  final int depth;
 }
 
 List<String> _skillMarketPathSegments(String raw) {
@@ -1728,7 +1934,7 @@ List<String> _skillMarketPathSegments(String raw) {
   ];
 }
 
-List<_SkillMarketFileTreeRow> _skillMarketFileTreeRows(
+_SkillMarketFileTreeNode _skillMarketFileTree(
   List<SkillMarketFileEntry> files,
 ) {
   final root = _SkillMarketFileTreeNode(name: '', path: '', isDirectory: true);
@@ -1768,111 +1974,7 @@ List<_SkillMarketFileTreeRow> _skillMarketFileTreeRows(
     }
     root.size += fileSize;
   }
-  final rows = <_SkillMarketFileTreeRow>[];
-  void walk(List<_SkillMarketFileTreeNode> nodes, int depth) {
-    for (final node in nodes) {
-      rows.add(_SkillMarketFileTreeRow(node: node, depth: depth));
-      if (node.isDirectory && node.children.isNotEmpty) {
-        walk(node.sortedChildren, depth + 1);
-      }
-    }
-  }
-
-  walk(root.sortedChildren, 0);
-  return rows;
-}
-
-class _SkillMarketFileTreeRowView extends StatelessWidget {
-  const _SkillMarketFileTreeRowView({
-    required this.row,
-    required this.accent,
-    required this.onFileOpen,
-  });
-
-  final _SkillMarketFileTreeRow row;
-  final Color accent;
-  final void Function(String path, int size) onFileOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final node = row.node;
-    final indent =
-        math.min(row.depth, _kSkillMarketFileTreeMaxSegments) *
-        _kSkillMarketFileTreeIndent;
-    final icon = node.isDirectory
-        ? Icons.folder_rounded
-        : openHandFileNameIcon(node.name);
-    final iconColor = node.isDirectory ? accent : colorScheme.onSurfaceVariant;
-    final label = Text(
-      node.name,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: theme.textTheme.bodySmall?.copyWith(
-        fontWeight: node.isDirectory ? FontWeight.w700 : FontWeight.w600,
-      ),
-    );
-    final rowBody = Padding(
-      padding: EdgeInsets.only(left: indent),
-      child: SizedBox(
-        height: _kSkillMarketFileTreeRowExtent,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: node.isDirectory ? accent.withValues(alpha: 0.10) : null,
-            borderRadius: BorderRadius.circular(kOpenHandRadius8),
-            border: row.depth == 0
-                ? null
-                : Border(
-                    left: BorderSide(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-                      width: 1.5,
-                    ),
-                  ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Icon(icon, size: 16, color: iconColor),
-                kOpenHandHGap8,
-                Expanded(
-                  child: node.path.isEmpty
-                      ? label
-                      : Tooltip(message: node.path, child: label),
-                ),
-                kOpenHandHGap8,
-                Text(
-                  formatByteSize(node.size),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    if (node.isDirectory) return rowBody;
-    final openPath = node.sourcePath.trim().isEmpty
-        ? node.path
-        : node.sourcePath;
-    return MicroPressFeedback(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: openPath.trim().isEmpty
-              ? null
-              : () => onFileOpen(openPath, node.size),
-          borderRadius: BorderRadius.circular(kOpenHandRadius8),
-          mouseCursor: WidgetStateMouseCursor.clickable,
-          child: rowBody,
-        ),
-      ),
-    );
-  }
+  return root;
 }
 
 enum _SkillMarketFilePreviewKind { loading, ready, error, binary, tooLarge }
@@ -2058,17 +2160,20 @@ class _SkillMarketFilePreviewDialogState
           ),
         );
       case _SkillMarketFilePreviewKind.tooLarge:
+        final limitLabel = formatLocalizedByteSizeOf(
+          context,
+          _kSkillMarketFilePreviewMaxBytes,
+        );
         return OpenHandInlineEmptyState(
           icon: Icons.sd_storage_outlined,
           message: openHandLocalizedText(
             context,
-            zh: '文件过大，无法在编辑器中预览（上限 ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}）。',
-            zhHant:
-                '檔案過大，無法在編輯器中預覽（上限 ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}）。',
-            en: 'This file is too large to preview (limit ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}).',
-            fr: 'Fichier trop volumineux pour l’aperçu (limite ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}).',
-            de: 'Datei ist zu groß für die Vorschau (Limit ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}).',
-            ja: 'ファイルが大きすぎてプレビューできません（上限 ${formatByteSize(_kSkillMarketFilePreviewMaxBytes)}）。',
+            zh: '文件过大，无法在编辑器中预览（上限 $limitLabel）。',
+            zhHant: '檔案過大，無法在編輯器中預覽（上限 $limitLabel）。',
+            en: 'This file is too large to preview (limit $limitLabel).',
+            fr: 'Fichier trop volumineux pour l’aperçu (limite $limitLabel).',
+            de: 'Datei ist zu groß für die Vorschau (Limit $limitLabel).',
+            ja: 'ファイルが大きすぎてプレビューできません（上限 $limitLabel）。',
           ),
         );
       case _SkillMarketFilePreviewKind.error:
@@ -2255,7 +2360,7 @@ String _localizedSummary(
   final enText = en.trim();
   if (enText.isEmpty) return zhText;
   if (zhText.isEmpty) return enText;
-  return openHandLocalizedText(context, zh: zhText, en: enText);
+  return openHandLocalizedText(context, zh: zhText, zhHant: zhText, en: enText);
 }
 
 Set<String> _installedSkillKeys(SkillsController controller) {
@@ -2292,6 +2397,19 @@ String _formatCount(BuildContext context, int value) {
   } catch (_) {
     return '$safe';
   }
+}
+
+String _skillMarketFileTreeItemCount(BuildContext context, int count) {
+  final safe = count < 0 ? 0 : count;
+  return openHandLocalizedText(
+    context,
+    zh: '$safe 项',
+    zhHant: '$safe 項',
+    en: safe == 1 ? '1 item' : '$safe items',
+    fr: safe == 1 ? '1 élément' : '$safe éléments',
+    de: safe == 1 ? '1 Element' : '$safe Elemente',
+    ja: '$safe 件',
+  );
 }
 
 Color _skillMarketCategoryAccent(ColorScheme colorScheme, String category) {

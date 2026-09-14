@@ -1370,6 +1370,8 @@ class _SessionRow extends StatelessWidget {
     final card = Card(
       margin: EdgeInsets.symmetric(vertical: denseMode ? 2 : 4, horizontal: 4),
       elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         side: BorderSide(
           color: isPreviewing

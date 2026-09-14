@@ -4751,15 +4751,7 @@ class _WorkflowMetadataDialogState extends State<_WorkflowMetadataDialog> {
                     ? colors.primary.withValues(alpha: 0.58)
                     : Colors.transparent,
               ),
-              boxShadow: highlighted
-                  ? [
-                      BoxShadow(
-                        color: colors.primary.withValues(alpha: 0.2),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                      ),
-                    ]
-                  : const [],
+              boxShadow: const <BoxShadow>[],
             ),
             child: Opacity(
               opacity: _dragIndex == index ? 0.3 : 1,

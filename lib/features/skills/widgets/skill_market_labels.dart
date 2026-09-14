@@ -46,10 +46,13 @@ String _lookup(
     return _copy(context, hit);
   }
   final apiName = fallbackName?.trim() ?? '';
-  if (apiName.isNotEmpty && openHandIsChineseLocale(context)) {
+  if (apiName.isNotEmpty) {
     return apiName;
   }
-  return _humanizeKey(normalized);
+  if (Localizations.localeOf(context).languageCode.toLowerCase() == 'en') {
+    return _humanizeKey(normalized);
+  }
+  return key.trim();
 }
 
 String _humanizeKey(String key) {

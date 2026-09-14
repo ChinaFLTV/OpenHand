@@ -106,7 +106,7 @@ abstract final class OpenHandTheme {
           alpha: isDark ? 0.86 : 0.94,
         ),
         elevation: 0,
-        shadowColor: Colors.black.withValues(alpha: isDark ? 0.28 : 0.10),
+        shadowColor: Colors.transparent,
         surfaceTintColor: colorScheme.surfaceTint,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(

@@ -4492,15 +4492,7 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
                                           ),
                                           width: hovered ? 1.5 : 1,
                                         ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: fill.withValues(
-                                              alpha: hovered ? 0.42 : 0.16,
-                                            ),
-                                            blurRadius: hovered ? 14 : 5,
-                                            offset: Offset(0, hovered ? 5 : 1),
-                                          ),
-                                        ],
+                                        boxShadow: const <BoxShadow>[],
                                       ),
                                     ),
                                   ),

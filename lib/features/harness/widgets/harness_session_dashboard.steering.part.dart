@@ -498,6 +498,8 @@ class _HeSteeringEntryTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: kOpenHandBorderRadius16,
+          hoverColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: OpenHandTintedPanel(
             accent: accent,
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),

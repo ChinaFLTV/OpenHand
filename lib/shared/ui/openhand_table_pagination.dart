@@ -838,15 +838,7 @@ class _PagerChrome extends StatelessWidget {
             border: Border.all(
               color: selected ? colors.primary : colors.outlineVariant,
             ),
-            boxShadow: selected
-                ? <BoxShadow>[
-                    BoxShadow(
-                      color: colors.primary.withValues(alpha: 0.28),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ]
-                : const <BoxShadow>[],
+            boxShadow: const <BoxShadow>[],
           ),
           child: child,
         ),

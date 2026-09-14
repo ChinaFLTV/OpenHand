@@ -1047,15 +1047,7 @@ class _TelemetryTileState extends State<_TelemetryTile> {
                 ),
                 width: _focused ? 1.6 : 1,
               ),
-              boxShadow: highlighted
-                  ? [
-                      BoxShadow(
-                        color: widget.color.withValues(alpha: 0.12),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : const <BoxShadow>[],
+              boxShadow: const <BoxShadow>[],
             ),
             child: Material(
               color: Colors.transparent,
