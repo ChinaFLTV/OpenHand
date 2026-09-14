@@ -604,7 +604,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = !_wrMotionEnabled(context);
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     final sourceBps = widget.controller.userBreakpoints.toList()
       ..sort((a, b) {
         final c = a.url.compareTo(b.url);

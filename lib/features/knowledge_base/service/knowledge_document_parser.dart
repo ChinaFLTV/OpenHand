@@ -383,7 +383,7 @@ class HtmlKnowledgeDocumentParser extends KnowledgeDocumentParser {
     );
     final text = request.settings.htmlParsingMode == 'plain_text'
         ? _compactBlankLines(
-            '# $title\n\n${_htmlEntitiesToText(_stripTags(raw))}',
+            '# $title\n\n${_htmlEntitiesToText(stripHtmlTags(raw))}',
           )
         : _htmlToReadableMarkdown(raw, title);
     return KnowledgeDocumentParseResult(
@@ -1037,25 +1037,21 @@ String _htmlToReadableMarkdown(String raw, String title) {
         dotAll: true,
       ),
       (match) =>
-          '\n${'#' * level} ${_htmlEntitiesToText(_stripTags(match.group(1) ?? '')).trim()}\n',
+          '\n${'#' * level} ${_htmlEntitiesToText(stripHtmlTags(match.group(1) ?? '')).trim()}\n',
     );
   }
   html = html
       .replaceAll(_htmlBlockClosePattern, '\n')
       .replaceAll(_htmlBreakPattern, '\n')
       .replaceAll(_htmlTableCellClosePattern, ' | ');
-  final body = _htmlEntitiesToText(_stripTags(html));
+  final body = _htmlEntitiesToText(stripHtmlTags(html));
   return _compactBlankLines('# $title\n\n$body');
 }
 
 String _htmlTitle(String raw) {
   final match = _htmlTitlePattern.firstMatch(raw);
   if (match == null) return '';
-  return _htmlEntitiesToText(_stripTags(match.group(1) ?? '')).trim();
-}
-
-String _stripTags(String value) {
-  return stripHtmlTags(value);
+  return _htmlEntitiesToText(stripHtmlTags(match.group(1) ?? '')).trim();
 }
 
 String _htmlEntitiesToText(String value) {

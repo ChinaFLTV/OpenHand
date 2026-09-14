@@ -40,14 +40,20 @@ jobs:
         run: dart run scripts/check_shared_helpers.dart
       - name: 执行静态分析
         run: flutter analyze
-      - name: 执行回归测试
-        run: flutter test
 
   web:
     name: Web 类型与产物检查
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.4'
+          cache: true
+      - name: 安装 Dart 检查依赖
+        run: flutter pub get
       - name: 安装 Node.js
         uses: actions/setup-node@v4
         with:

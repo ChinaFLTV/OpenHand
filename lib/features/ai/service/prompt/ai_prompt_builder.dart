@@ -2541,7 +2541,9 @@ class AiPromptBuilder {
       session: session,
       runtimeContext: runtimeContext,
     );
-    final hasIncompleteTodo = _hasIncompleteTodoItems(session.todoItems);
+    final hasIncompleteTodo = AiSessionTodoState.hasIncomplete(
+      session.todoItems,
+    );
     final compressionExitPlanModeAvailable =
         session.mode == AiSessionMode.plan &&
         !session.awaitingPlanApproval &&
@@ -2597,10 +2599,6 @@ class AiPromptBuilder {
       if (recentPlanRecords.isNotEmpty)
         'recent_plan_records': recentPlanRecords,
     };
-  }
-
-  bool _hasIncompleteTodoItems(List<AiSessionTodoItem> todoItems) {
-    return AiSessionTodoState.hasIncomplete(todoItems);
   }
 
   Map<String, Object?> _compressionPlanRecordSnapshot(
@@ -6844,7 +6842,7 @@ $content
       return null;
     }
     if (recoveryInspectionRequired) {
-      final completedButNeedsReview = _hasCompletedTodoItemsOnly(
+      final completedButNeedsReview = AiSessionTodoState.allCompleted(
         session.todoItems,
       );
       final failedSteps = session.todoItems
@@ -6964,10 +6962,6 @@ $content
         id.startsWith('o1') ||
         id.startsWith('o3') ||
         id.startsWith('o4');
-  }
-
-  bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
-    return AiSessionTodoState.allCompleted(todoItems);
   }
 }
 

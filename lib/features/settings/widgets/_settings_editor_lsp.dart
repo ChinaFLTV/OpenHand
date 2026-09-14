@@ -775,7 +775,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final motionEnabled = _settingsMotionEnabled(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     return MouseRegion(
       onEnter: (_) {
         if (_hovered) return;

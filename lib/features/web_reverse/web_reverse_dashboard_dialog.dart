@@ -167,10 +167,6 @@ const Duration _kSwitchDuration = kOpenHandMotion220;
 const Duration _kDevToolsDiscoveryTimeout = Duration(seconds: 3);
 const int _kDevToolsDiscoveryMaxResponseBytes = 4 * kBytesPerMiB;
 
-bool _wrMotionEnabled(BuildContext context) {
-  return openHandTickerMotionEnabled(context);
-}
-
 int _pageTargetsOrderHash(List<CdpPageTargetSnapshot> targets) {
   return rollingHash30(targets, (target) => target.id.hashCode);
 }
@@ -415,7 +411,9 @@ class _DashboardScriptResultPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return AnimatedSize(
-      duration: _wrMotionEnabled(context) ? _kSwitchDuration : Duration.zero,
+      duration: openHandTickerMotionEnabled(context)
+          ? _kSwitchDuration
+          : Duration.zero,
       curve: kOpenHandSwitchInCurve,
       child: text == null
           ? const SizedBox.shrink()
@@ -544,7 +542,7 @@ class _DashboardScriptWorkspace extends StatelessWidget {
           kOpenHandHGap12,
           Expanded(
             child: AnimatedContainer(
-              duration: _wrMotionEnabled(context)
+              duration: openHandTickerMotionEnabled(context)
                   ? _kSwitchDuration
                   : Duration.zero,
               curve: kOpenHandSwitchInCurve,
@@ -609,7 +607,7 @@ class _DashboardToggleTileState extends State<_DashboardToggleTile>
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
-          duration: _wrMotionEnabled(context)
+          duration: openHandTickerMotionEnabled(context)
               ? kOpenHandMotion160
               : Duration.zero,
           curve: kOpenHandSwitchInCurve,
@@ -1480,7 +1478,7 @@ class _WebReverseDashboardDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = !_wrMotionEnabled(context);
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     final ctrl = widget.controller;
     final isZh = openHandIsChineseLocale(context);
     return CallbackShortcuts(
@@ -1681,13 +1679,13 @@ class _WebReverseDashboardDialogState
           _CdpMcpBridgeToggle(
             enabled: cdpMcpEnabled,
             busy: _cdpMcpToggleBusy,
-            reduceMotion: !_wrMotionEnabled(context),
+            reduceMotion: !openHandTickerMotionEnabled(context),
             onChanged: _setCdpMcpEnabled,
           ),
           kOpenHandHGap6,
           _CdpMcpBridgeStatusPill(
             status: bridgeStatus,
-            reduceMotion: !_wrMotionEnabled(context),
+            reduceMotion: !openHandTickerMotionEnabled(context),
           ),
           kOpenHandHGap6,
           IconButton(

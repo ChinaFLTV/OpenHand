@@ -98,13 +98,6 @@ Color resolveAnimatedDialogBarrierColor(
   return Theme.of(context).colorScheme.scrim.withValues(alpha: 0.54);
 }
 
-Widget? _constrainDialogContent(Widget? content, double? maxWidth) {
-  return buildOpenHandDialogConstrainedContent(
-    child: content,
-    maxWidth: maxWidth,
-  );
-}
-
 double? _validDialogDimension(double? value) {
   if (value == null || !value.isFinite || value <= 0) return null;
   return value;
@@ -388,7 +381,10 @@ Future<bool> showOpenHandConfirmDialog({
     builder: (dialogContext) => buildOpenHandAlertDialog(
       icon: icon,
       title: Text(title),
-      content: _constrainDialogContent(dialogContent, maxWidth),
+      content: buildOpenHandDialogConstrainedContent(
+        child: dialogContent,
+        maxWidth: maxWidth,
+      ),
       actions: <Widget>[
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -1291,7 +1287,10 @@ Future<void> showOpenHandInfoDialog({
     builder: (dialogContext) => buildOpenHandAlertDialog(
       icon: icon,
       title: Text(title),
-      content: _constrainDialogContent(dialogContent, maxWidth),
+      content: buildOpenHandDialogConstrainedContent(
+        child: dialogContent,
+        maxWidth: maxWidth,
+      ),
       actions: <Widget>[
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(dialogContext).pop(),

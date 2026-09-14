@@ -155,10 +155,6 @@ const _settingsOperationDialogTransitionProfile =
       slideDownOffset: Offset(0, -0.1),
     );
 
-bool _settingsMotionEnabled(BuildContext context) {
-  return openHandTickerMotionEnabled(context);
-}
-
 void _syncControllerText(TextEditingController controller, String text) {
   if (controller.text == text) return;
   controller.value = controller.value.copyWith(

@@ -224,7 +224,9 @@ class _OperationsDataScopeBar extends StatelessWidget {
         _InsightContextDatum(
           icon: Icons.schedule_rounded,
           label: '最近更新',
-          value: updatedAt == null ? '暂无运行数据' : _taskLedgerDateTime(updatedAt),
+          value: updatedAt == null
+              ? '暂无运行数据'
+              : formatYearMonthDayHmsLocal(updatedAt),
           flex: 2,
         ),
       ],
@@ -1201,7 +1203,7 @@ class _TaskLedgerScopeBar extends StatelessWidget {
           label: '最近更新',
           value: refreshedAt == null
               ? '暂无任务数据'
-              : _taskLedgerDateTime(refreshedAt!),
+              : formatYearMonthDayHmsLocal(refreshedAt!),
           flex: 2,
         ),
       ],
@@ -1425,7 +1427,7 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
               width: _kTaskLedgerCreatedWidth,
               child: Text(
                 task.createdAtReported
-                    ? _taskLedgerDateTime(task.createdAt)
+                    ? formatYearMonthDayHmsLocal(task.createdAt)
                     : '未上报',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1434,7 +1436,9 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
             _TaskLedgerCell(
               width: _kTaskLedgerStartedWidth,
               child: Text(
-                startedAt == null ? '未上报' : _taskLedgerDateTime(startedAt),
+                startedAt == null
+                    ? '未上报'
+                    : formatYearMonthDayHmsLocal(startedAt),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1442,7 +1446,9 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
             _TaskLedgerCell(
               width: _kTaskLedgerFinishedWidth,
               child: Text(
-                finishedAt == null ? '运行中' : _taskLedgerDateTime(finishedAt),
+                finishedAt == null
+                    ? '运行中'
+                    : formatYearMonthDayHmsLocal(finishedAt),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1507,7 +1513,7 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
               width: _kTaskLedgerUpdatedWidth,
               child: Text(
                 task.progress.updatedAtReported
-                    ? _taskLedgerDateTime(task.progress.updatedAt)
+                    ? formatYearMonthDayHmsLocal(task.progress.updatedAt)
                     : '未上报',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1610,7 +1616,7 @@ class _TaskLedgerCompactRow extends StatelessWidget {
           kOpenHandGap4,
           Text(
             task.createdAtReported
-                ? '创建时间：${_taskLedgerDateTime(task.createdAt)}'
+                ? '创建时间：${formatYearMonthDayHmsLocal(task.createdAt)}'
                 : '创建时间：未上报',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1626,7 +1632,7 @@ class _TaskLedgerCompactRow extends StatelessWidget {
           Text(
             finishedAt == null
                 ? '结束时间：运行中 · 已运行 ${_taskLedgerDurationText(task)}'
-                : '结束时间：${_taskLedgerDateTime(finishedAt)} · 耗时 ${_taskLedgerDurationText(task)}',
+                : '结束时间：${formatYearMonthDayHmsLocal(finishedAt)} · 耗时 ${_taskLedgerDurationText(task)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -1699,8 +1705,4 @@ String _taskLedgerSources(List<AiExposureSource> sources) {
   if (sources.isEmpty) return '历史记录缺少来源';
   final visible = sources.take(2).map(aiExposureSourceDisplayName).join(' / ');
   return sources.length <= 2 ? visible : '$visible +${sources.length - 2}';
-}
-
-String _taskLedgerDateTime(DateTime value) {
-  return formatYearMonthDayHmsLocal(value);
 }

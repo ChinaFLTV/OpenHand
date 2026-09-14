@@ -15358,7 +15358,7 @@ _SchemaField? _descriptorField(Object? value, {String prefix = ''}) {
           'title',
         ]) ??
         '',
-    required: _readBoolFlag(descriptor['required']),
+    required: boolFromValue(descriptor['required']),
   );
 }
 
@@ -15829,10 +15829,6 @@ Object? _displayedSchemaMetadata({
     return null;
   }
   return normalizedSchema;
-}
-
-bool _readBoolFlag(Object? value) {
-  return boolFromValue(value);
 }
 
 String _localizedText(

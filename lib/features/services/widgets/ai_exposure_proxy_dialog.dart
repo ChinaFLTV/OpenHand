@@ -2397,8 +2397,8 @@ class _ProxyAverageResponseTrendChart extends StatelessWidget {
             xLabels: trend.isEmpty
                 ? const <String>[]
                 : <String>[
-                    _chartTimeLabel(trend.first.at),
-                    _chartTimeLabel(trend.last.at),
+                    formatMonthDayHmLocal(trend.first.at),
+                    formatMonthDayHmLocal(trend.last.at),
                   ],
           ),
           size: Size.infinite,
@@ -3360,8 +3360,8 @@ class _ProxyRequestTrendChart extends StatelessWidget {
             xLabels: trend.isEmpty
                 ? const <String>[]
                 : <String>[
-                    _chartTimeLabel(trend.first.at),
-                    _chartTimeLabel(trend.last.at),
+                    formatMonthDayHmLocal(trend.first.at),
+                    formatMonthDayHmLocal(trend.last.at),
                   ],
           ),
         ),
@@ -3468,7 +3468,9 @@ class _ProxyRequestRecordsTable extends StatelessWidget {
                   _ProxyRequestCell(record.clientEndpoint),
                   _ProxyRequestCell(record.proxyNode),
                   _ProxyRequestCell(record.remoteIp),
-                  _ProxyRequestCell(_dateTimeLabel(record.sample.at)),
+                  _ProxyRequestCell(
+                    formatYearMonthDayHmsLocal(record.sample.at),
+                  ),
                   _ProxyRequestCell(
                     record.sample.responseTimeMs <= 0
                         ? kOpenHandTableMetricEmpty
@@ -3533,10 +3535,6 @@ String _durationLabel(
     return text(zh: '${value.inHours} 小时', en: '${value.inHours} hr');
   }
   return text(zh: '${value.inMinutes} 分钟', en: '${value.inMinutes} min');
-}
-
-String _chartTimeLabel(DateTime value) {
-  return formatMonthDayHmLocal(value);
 }
 
 String _proxyRequestResultLabel(
@@ -4004,7 +4002,7 @@ class _ProxyDetailTrendTooltip extends StatelessWidget {
             ),
             kOpenHandGap3,
             Text(
-              _dateTimeLabel(point.at),
+              formatYearMonthDayHmsLocal(point.at),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
@@ -4290,8 +4288,8 @@ class _ProxyEndpointDetailsDialogState
                 OpenHandInlineIconLabel(
                   icon: Icons.schedule_rounded,
                   label: text(
-                    zh: '最近使用 ${_timeLabel(statistics.lastUsedAt!)}',
-                    en: 'Used ${_timeLabel(statistics.lastUsedAt!)}',
+                    zh: '最近使用 ${formatHourMinuteSecondLocal(statistics.lastUsedAt!)}',
+                    en: 'Used ${formatHourMinuteSecondLocal(statistics.lastUsedAt!)}',
                   ),
                   color: colors.onSurfaceVariant,
                 ),
@@ -4499,7 +4497,7 @@ class _ProxyEndpointDetailsDialogState
                 if (sample != null)
                   OpenHandInlineIconLabel(
                     icon: Icons.schedule_rounded,
-                    label: _timeLabel(sample.checkedAt),
+                    label: formatHourMinuteSecondLocal(sample.checkedAt),
                     color: colors.onSurfaceVariant,
                   ),
               ],
@@ -4790,7 +4788,9 @@ class _ProxyEndpointDetailsDialogState
                             ),
                           OpenHandInlineIconLabel(
                             icon: Icons.update_rounded,
-                            label: _timeLabel(identity.observedAt),
+                            label: formatHourMinuteSecondLocal(
+                              identity.observedAt,
+                            ),
                             color: colors.onSurfaceVariant,
                           ),
                         ],
@@ -5052,7 +5052,7 @@ class _ProxyEndpointDetailsDialogState
                             SizedBox(
                               width: 58,
                               child: Text(
-                                _timeLabel(item.at),
+                                formatHourMinuteSecondLocal(item.at),
                                 textAlign: TextAlign.end,
                                 style: Theme.of(context).textTheme.labelSmall,
                               ),
@@ -5794,7 +5794,9 @@ class _ProxyEndpointCard extends StatelessWidget {
                         ? null
                         : OpenHandInlineIconLabel(
                             icon: Icons.schedule_rounded,
-                            label: _timeLabel(sample.checkedAt),
+                            label: formatHourMinuteSecondLocal(
+                              sample.checkedAt,
+                            ),
                             color: colors.onSurfaceVariant,
                           ),
                   ),
@@ -6049,8 +6051,8 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
                   )
                 : openHandLocalizedText(
                     context,
-                    zh: '${hoveredSample.latencyMs} ms，${_dateTimeLabel(hoveredSample.checkedAt)}',
-                    en: '${hoveredSample.latencyMs} ms, ${_dateTimeLabel(hoveredSample.checkedAt)}',
+                    zh: '${hoveredSample.latencyMs} ms，${formatYearMonthDayHmsLocal(hoveredSample.checkedAt)}',
+                    en: '${hoveredSample.latencyMs} ms, ${formatYearMonthDayHmsLocal(hoveredSample.checkedAt)}',
                   ),
             hint: samples.isEmpty
                 ? null
@@ -6266,7 +6268,7 @@ class _ProxyLatencyTooltip extends StatelessWidget {
             ),
             kOpenHandGap2,
             Text(
-              _dateTimeLabel(sample.checkedAt),
+              formatYearMonthDayHmsLocal(sample.checkedAt),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
@@ -6514,11 +6516,3 @@ String _intervalLabel(
 ) => minutes < 60
     ? text(zh: '$minutes 分钟', en: '$minutes min')
     : text(zh: '${minutes ~/ 60} 小时', en: '${minutes ~/ 60} hr');
-
-String _timeLabel(DateTime value) {
-  return formatHourMinuteSecondLocal(value);
-}
-
-String _dateTimeLabel(DateTime value) {
-  return formatYearMonthDayHmsLocal(value);
-}

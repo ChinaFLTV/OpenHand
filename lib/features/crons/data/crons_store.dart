@@ -244,7 +244,7 @@ class CronsStore {
       throw FormatException('定时任务记录无效：$id');
     }
     final tagsText = _text(row, 'tags');
-    final tags = _parseTags(tagsText);
+    final tags = splitTrimmedNonEmpty(tagsText);
     final environmentText = _text(row, 'environment');
     final environment = _parseEnv(environmentText);
     if (tags.join(',') != tagsText ||
@@ -754,10 +754,6 @@ class CronsStore {
       (total, column) => total + utf8ByteLength('${row[column] ?? ''}'),
     );
   }
-}
-
-List<String> _parseTags(String raw) {
-  return splitTrimmedNonEmpty(raw);
 }
 
 Map<String, String> _parseEnv(String raw) {

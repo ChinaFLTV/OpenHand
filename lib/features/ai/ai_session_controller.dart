@@ -10216,7 +10216,7 @@ class AiSessionController extends ChangeNotifier {
     }
     final allowExitPlanMode =
         !recoveryInspectionRequired &&
-        _hasIncompleteTodoItems(session.todoItems);
+        AiSessionTodoState.hasIncomplete(session.todoItems);
     final filteredTools = <String, AiResolvedTool>{};
     for (final entry in baseCatalog.toolsByName.entries) {
       if (_isAllowedPlanModePlanningTool(
@@ -10431,7 +10431,7 @@ class AiSessionController extends ChangeNotifier {
     if (_looksLikePlanApproval(content)) {
       return true;
     }
-    return _hasIncompleteTodoItems(session.todoItems) &&
+    return AiSessionTodoState.hasIncomplete(session.todoItems) &&
         _looksLikePlanExecutionContinuation(content);
   }
 
@@ -10450,7 +10450,7 @@ class AiSessionController extends ChangeNotifier {
     final explicitRecoveryRequested = _looksLikePlanRecoveryContinuation(
       content,
     );
-    if (_hasCompletedTodoItemsOnly(session.todoItems)) {
+    if (AiSessionTodoState.allCompleted(session.todoItems)) {
       return explicitRecoveryRequested ||
           _looksLikePlanExecutionContinuation(content) ||
           _looksLikePlanApproval(content);
@@ -10458,7 +10458,7 @@ class AiSessionController extends ChangeNotifier {
     if (!explicitRecoveryRequested) {
       return false;
     }
-    return _hasFailedTodoItems(session.todoItems) ||
+    return AiSessionTodoState.hasFailure(session.todoItems) ||
         AiPlanApprovalDetector.hasRecentToolFailure(session);
   }
 
@@ -10476,7 +10476,7 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
     if (session.todoItems.isNotEmpty) {
-      return _hasIncompleteTodoItems(session.todoItems);
+      return AiSessionTodoState.hasIncomplete(session.todoItems);
     }
     return session.latestActivePlanRecord?.status ==
         AiSessionPlanStatus.inProgress;
@@ -10492,7 +10492,7 @@ class AiSessionController extends ChangeNotifier {
         executionApprovedForSend ||
         session.mode != AiSessionMode.plan ||
         session.awaitingPlanApproval ||
-        !_hasIncompleteTodoItems(session.todoItems) ||
+        !AiSessionTodoState.hasIncomplete(session.todoItems) ||
         finalReply.trim().isEmpty) {
       return false;
     }
@@ -10658,7 +10658,7 @@ class AiSessionController extends ChangeNotifier {
   AiSession _archiveCompletedPlanStateIfNeeded(AiSession session) {
     if (session.mode != AiSessionMode.plan ||
         session.awaitingPlanApproval ||
-        !_hasCompletedTodoItemsOnly(session.todoItems)) {
+        !AiSessionTodoState.allCompleted(session.todoItems)) {
       return session;
     }
     final archivedAt = _clock().toUtc();
@@ -10683,7 +10683,7 @@ class AiSessionController extends ChangeNotifier {
         session.awaitingPlanApproval ||
         (session.pendingPlan ?? '').trim().isNotEmpty;
     if (session.mode != AiSessionMode.plan ||
-        !_hasCompletedTodoItemsOnly(session.todoItems) ||
+        !AiSessionTodoState.allCompleted(session.todoItems) ||
         !hasStaleApprovalState) {
       return session;
     }
@@ -10919,7 +10919,7 @@ class AiSessionController extends ChangeNotifier {
     if (_shouldReflectTrackedPlanFailure(session)) {
       return AiSessionPlanStatus.failed;
     }
-    if (_hasIncompleteTodoItems(session.todoItems)) {
+    if (AiSessionTodoState.hasIncomplete(session.todoItems)) {
       return AiSessionPlanStatus.inProgress;
     }
     return AiSessionPlanStatus.completed;
@@ -10941,7 +10941,7 @@ class AiSessionController extends ChangeNotifier {
     )) {
       return true;
     }
-    if (_hasFailedTodoItems(session.todoItems)) {
+    if (AiSessionTodoState.hasFailure(session.todoItems)) {
       return true;
     }
     return shouldReflectAiPlanFailureAfter(

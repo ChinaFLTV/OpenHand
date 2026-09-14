@@ -604,7 +604,7 @@ class _OfflineSpeechModelCardState extends State<_OfflineSpeechModelCard> {
     }
     final persisted = widget.settings.configuration(widget.model);
     if (_draftConfiguration != null &&
-        _settingsJsonEquals(_draftConfiguration, persisted)) {
+        stableJsonEquals(_draftConfiguration, persisted)) {
       _draftConfiguration = null;
     }
   }

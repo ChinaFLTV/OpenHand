@@ -600,7 +600,7 @@ class AiSession {
       autoTitleFirstUserContent: _readNullableString(
         sessionJson['auto_title_first_user_content'],
       ),
-      autoTitleGeneratedAt: _parseNullableDateTime(
+      autoTitleGeneratedAt: utcDateTimeFromValue(
         sessionJson['auto_title_generated_at'],
       ),
       autoTitleSourceMessageId: _readNullableString(
@@ -609,7 +609,7 @@ class AiSession {
       latestCompressionCheckpointMessageId: _readNullableString(
         sessionJson['latest_compression_checkpoint_message_id'],
       ),
-      latestCompressionAt: _parseNullableDateTime(
+      latestCompressionAt: utcDateTimeFromValue(
         sessionJson['latest_compression_at'],
       ),
       mode: AiSessionMode.fromStorage('${sessionJson['mode'] ?? 'chat'}'),
@@ -1445,10 +1445,6 @@ class AiSession {
   }) {
     return utcDateTimeFromValue(value) ?? fallback();
   }
-
-  static DateTime? _parseNullableDateTime(Object? value) {
-    return utcDateTimeFromValue(value);
-  }
 }
 
 /// 流式尾消息共享历史前缀，只复制极小尾段，避免每个片段复制整段会话历史。
@@ -1808,15 +1804,19 @@ class AiSessionEnvironment {
 class AiSessionStatistics {
   factory AiSessionStatistics.fromJson(Object? raw) {
     final json = stringKeyedMapFromValueOrJsonText(raw);
-    final cacheCreationTokens = _readNullableInt(json['cache_creation_tokens']);
-    final cacheReadTokens = _readNullableInt(json['cache_read_tokens']);
+    final cacheCreationTokens = optionalNonNegativeIntegralIntFromValue(
+      json['cache_creation_tokens'],
+    );
+    final cacheReadTokens = optionalNonNegativeIntegralIntFromValue(
+      json['cache_read_tokens'],
+    );
     final hasCacheUsageTelemetry =
         cacheCreationTokens != null || cacheReadTokens != null;
     final cacheHitTrendPoints = hasCacheUsageTelemetry
         ? _readTrendPoints(json['cache_hit_trend_points'])
         : const <AiSessionCacheHitTrendPoint>[];
     final parsedCacheHitRatio = hasCacheUsageTelemetry
-        ? _readNullableDouble(json['cache_hit_ratio'])
+        ? optionalUnitIntervalFromValue(json['cache_hit_ratio'])
         : null;
     final cacheHitRatio =
         (cacheReadTokens ?? 0) > 0 &&
@@ -1837,18 +1837,38 @@ class AiSessionStatistics {
       totalPromptCharacters: _readInt(json['total_prompt_characters']),
       promptBuildCount: _readInt(json['prompt_build_count']),
       compressionRunCount: _readInt(json['compression_run_count']),
-      totalPromptTokens: _readNullableInt(json['total_prompt_tokens']),
-      totalCompletionTokens: _readNullableInt(json['total_completion_tokens']),
-      totalTokens: _readNullableInt(json['total_tokens']),
+      totalPromptTokens: optionalNonNegativeIntegralIntFromValue(
+        json['total_prompt_tokens'],
+      ),
+      totalCompletionTokens: optionalNonNegativeIntegralIntFromValue(
+        json['total_completion_tokens'],
+      ),
+      totalTokens: optionalNonNegativeIntegralIntFromValue(
+        json['total_tokens'],
+      ),
       cacheCreationTokens: cacheCreationTokens,
       cacheReadTokens: cacheReadTokens,
-      reasoningTokens: _readNullableInt(json['reasoning_tokens']),
-      audioInputTokens: _readNullableInt(json['audio_input_tokens']),
-      imageInputTokens: _readNullableInt(json['image_input_tokens']),
-      videoInputTokens: _readNullableInt(json['video_input_tokens']),
-      webSearchToolUsage: _readNullableInt(json['web_search_tool_usage']),
-      webSearchPageUsage: _readNullableInt(json['web_search_page_usage']),
-      firstPromptTokens: _readNullableInt(json['first_prompt_tokens']),
+      reasoningTokens: optionalNonNegativeIntegralIntFromValue(
+        json['reasoning_tokens'],
+      ),
+      audioInputTokens: optionalNonNegativeIntegralIntFromValue(
+        json['audio_input_tokens'],
+      ),
+      imageInputTokens: optionalNonNegativeIntegralIntFromValue(
+        json['image_input_tokens'],
+      ),
+      videoInputTokens: optionalNonNegativeIntegralIntFromValue(
+        json['video_input_tokens'],
+      ),
+      webSearchToolUsage: optionalNonNegativeIntegralIntFromValue(
+        json['web_search_tool_usage'],
+      ),
+      webSearchPageUsage: optionalNonNegativeIntegralIntFromValue(
+        json['web_search_page_usage'],
+      ),
+      firstPromptTokens: optionalNonNegativeIntegralIntFromValue(
+        json['first_prompt_tokens'],
+      ),
       lastPromptSystemMessageCount: _readInt(
         json['last_prompt_system_message_count'],
       ),
@@ -2178,15 +2198,7 @@ class AiSessionStatistics {
   }
 
   static int _readInt(Object? value) {
-    return _readNullableInt(value) ?? 0;
-  }
-
-  static int? _readNullableInt(Object? value) {
-    return optionalNonNegativeIntegralIntFromValue(value);
-  }
-
-  static double? _readNullableDouble(Object? value) {
-    return optionalUnitIntervalFromValue(value);
+    return optionalNonNegativeIntegralIntFromValue(value) ?? 0;
   }
 
   static List<AiSessionCacheHitTrendPoint> _readTrendPoints(Object? value) {
@@ -2238,8 +2250,10 @@ class AiSessionCacheHitTrendPoint {
       starterMessageKind: _readString(json[starterMessageKindJsonKey]),
       starterOrigin: _readString(json[starterOriginJsonKey]),
       anchorMessageId: _readString(json[anchorMessageIdJsonKey]),
-      idleGapSeconds: _readNullableNonNegativeInt(json[idleGapSecondsJsonKey]),
-      previousDenominatorTokens: _readNullableNonNegativeInt(
+      idleGapSeconds: optionalNonNegativeIntFromValue(
+        json[idleGapSecondsJsonKey],
+      ),
+      previousDenominatorTokens: optionalNonNegativeIntFromValue(
         json[previousDenominatorTokensJsonKey],
       ),
     );
@@ -2301,11 +2315,7 @@ class AiSessionCacheHitTrendPoint {
   }
 
   static int _readNonNegativeInt(Object? value) {
-    return _readNullableNonNegativeInt(value) ?? 0;
-  }
-
-  static int? _readNullableNonNegativeInt(Object? value) {
-    return optionalNonNegativeIntFromValue(value);
+    return optionalNonNegativeIntFromValue(value) ?? 0;
   }
 
   static double _readHitRatio(Object? value) {

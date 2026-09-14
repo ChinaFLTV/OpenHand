@@ -1,11 +1,4 @@
-// PWA 与桌面通知统一入口。
-//
-// 设计原则:
-// - 注册 SW 异步进行, 任何失败都吞掉, 不影响主应用启动。
-// - 通知权限只在「用户已经收到至少一次后台消息」时主动请求, 不打扰首次访问。
-// - 页面前台 (document.visibilityState === 'visible') 时永远不弹通知, 避免与
-//   App 内的红点 + 列表行为重复。
-// - 同一 sessionId 共用一个 tag, 后到的会替换旧的, 不堆叠成长串。
+// PWA 与后台消息通知入口；注册失败不阻断启动，同一会话的通知复用标签。
 
 import { ignoreError, runIgnoringErrors } from '../shared/util/errors';
 import { NOTIFICATION_TAG_MESSAGE, SW_MESSAGE_TYPE_NOTIFY } from '../shared/util/storage_keys';
@@ -60,15 +53,13 @@ async function _ensurePermission(): Promise<boolean> {
   try {
     const result = await Notification.requestPermission();
     return result === 'granted';
-  } catch (error) {
-    ignoreError(error);
+  } catch {
     return false;
   }
 }
 
 /// 仅在页面隐藏时触发桌面通知。
-/// SW 已注册时优先 postMessage 让 SW 发 (PWA 安装后即使页面关闭也能弹);
-/// 否则降级为页面级 Notification。
+/// 优先由已注册的 Service Worker 发送，否则使用页面通知。
 export async function notifyIfHidden(opts: {
   title: string;
   body?: string;
@@ -127,7 +118,7 @@ export async function notifyIfHidden(opts: {
       }
       n.close();
     };
-  } catch (error) {
-    ignoreError(error);
+  } catch {
+    // 系统通知不可用时，消息仍由页面展示。
   }
 }

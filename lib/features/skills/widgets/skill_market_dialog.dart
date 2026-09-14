@@ -1650,10 +1650,14 @@ String _localizedSummary(
 Set<String> _installedSkillKeys(SkillsController controller) {
   final keys = <String>{};
   for (final skill in controller.skills) {
-    keys.add(_normalizeSkillKey(skill.name));
-    keys.add(_normalizeSkillKey(OpenHandPaths.basename(skill.directoryPath)));
+    keys.add(normalizeAsciiSlugKey(skill.name));
     keys.add(
-      _normalizeSkillKey(OpenHandPaths.basename(skill.relativeDirectoryPath)),
+      normalizeAsciiSlugKey(OpenHandPaths.basename(skill.directoryPath)),
+    );
+    keys.add(
+      normalizeAsciiSlugKey(
+        OpenHandPaths.basename(skill.relativeDirectoryPath),
+      ),
     );
   }
   keys.remove('');
@@ -1664,12 +1668,8 @@ bool _isMarketSkillInstalled(
   SkillMarketSummary skill,
   Set<String> installedSkillKeys,
 ) {
-  return installedSkillKeys.contains(_normalizeSkillKey(skill.slug)) ||
-      installedSkillKeys.contains(_normalizeSkillKey(skill.name));
-}
-
-String _normalizeSkillKey(String value) {
-  return normalizeAsciiSlugKey(value);
+  return installedSkillKeys.contains(normalizeAsciiSlugKey(skill.slug)) ||
+      installedSkillKeys.contains(normalizeAsciiSlugKey(skill.name));
 }
 
 String _formatCount(int value) {

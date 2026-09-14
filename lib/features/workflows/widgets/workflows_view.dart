@@ -754,7 +754,7 @@ class _WorkflowCard extends StatelessWidget {
                   kOpenHandHGap6,
                   Expanded(
                     child: Text(
-                      '更新于 ${_timeText(workflow.updatedAt)}',
+                      '更新于 ${formatYearMonthDayHmLocal(workflow.updatedAt)}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),
@@ -895,8 +895,4 @@ String _ensureExportExtension(String filePath, String extension) {
   final expected = '.$extension';
   if (path.extension(filePath).toLowerCase() == expected) return filePath;
   return path.setExtension(filePath, expected);
-}
-
-String _timeText(DateTime value) {
-  return formatYearMonthDayHmLocal(value);
 }

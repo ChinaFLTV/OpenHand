@@ -5,16 +5,13 @@ export function isAbortError(error: unknown): boolean {
   return recordOrNullFromUnknown(error)?.name === 'AbortError';
 }
 
-export function ignoreError(error?: unknown): void {
-  void error;
-}
+export function ignoreError(_error?: unknown): void {}
 
 export function runIgnoringErrors(action: () => void): boolean {
   try {
     action();
     return true;
-  } catch (error) {
-    ignoreError(error);
+  } catch {
     return false;
   }
 }

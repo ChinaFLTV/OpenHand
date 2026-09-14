@@ -1213,7 +1213,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
     final content = _effectiveContent;
     final text = content.text;
     final stats = _statsFor(text);
-    final normalizedLanguage = _normalizeCodeLanguage(content.language);
+    final normalizedLanguage = normalizeOpenHandCodeLanguage(content.language);
     final languageLabel =
         normalizedLanguage ??
         openHandLocalizedText(
@@ -2411,11 +2411,11 @@ bool _shouldTickToolExecutionElapsed(AiSessionMessage message) {
 }
 
 DateTime? _toolExecutionStartedAt(AiSessionMessage message) {
-  return _dateTimeFromMetadata(message.metadata['tool_execution_started_at']);
+  return utcDateTimeFromValue(message.metadata['tool_execution_started_at']);
 }
 
 DateTime? _toolExecutionFinishedAt(AiSessionMessage message) {
-  return _dateTimeFromMetadata(message.metadata['tool_execution_finished_at']);
+  return utcDateTimeFromValue(message.metadata['tool_execution_finished_at']);
 }
 
 String _toolExecutionCommand(AiSessionMessage message) {
@@ -2521,7 +2521,7 @@ int _reasoningElapsedMs(AiSessionMessage message) {
     return fixedElapsedMs;
   }
   final startedAt =
-      _dateTimeFromMetadata(
+      utcDateTimeFromValue(
         message.metadata[aiSessionMessageReasoningStartedAtKey],
       ) ??
       message.createdAt.toUtc();
@@ -2530,32 +2530,24 @@ int _reasoningElapsedMs(AiSessionMessage message) {
 }
 
 int? _reasoningFixedElapsedMs(AiSessionMessage message) {
-  final storedElapsed = _nonNegativeIntFromMetadata(
+  final storedElapsed = optionalNonNegativeIntFromValue(
     message.metadata[aiSessionMessageReasoningElapsedMsKey],
   );
   if (storedElapsed != null) {
     return storedElapsed;
   }
-  final endedAt = _dateTimeFromMetadata(
+  final endedAt = utcDateTimeFromValue(
     message.metadata[aiSessionMessageReasoningEndedAtKey],
   );
   if (endedAt == null) {
     return null;
   }
   final startedAt =
-      _dateTimeFromMetadata(
+      utcDateTimeFromValue(
         message.metadata[aiSessionMessageReasoningStartedAtKey],
       ) ??
       message.createdAt.toUtc();
   return math.max(0, endedAt.difference(startedAt).inMilliseconds);
-}
-
-int? _nonNegativeIntFromMetadata(Object? rawValue) {
-  return optionalNonNegativeIntFromValue(rawValue);
-}
-
-DateTime? _dateTimeFromMetadata(Object? rawValue) {
-  return utcDateTimeFromValue(rawValue);
 }
 
 int? _toolExecutionExitCode(AiSessionMessage message) {

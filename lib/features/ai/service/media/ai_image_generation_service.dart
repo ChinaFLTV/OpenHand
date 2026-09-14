@@ -1098,8 +1098,16 @@ class AiImageGenerationService {
         body['source_weight'] = _sourceWeightFromOptions(options);
       }
       _putPositiveInt(body, 'seed', options.seed);
-      _putPositiveInt(body, 'steps', _stepsFromQuality(options.quality));
-      _putPositiveDouble(body, 'cfg_scale', _doubleFromStyle(options.style));
+      _putPositiveInt(
+        body,
+        'steps',
+        optionalPositiveIntFromValue(options.quality),
+      );
+      _putPositiveDouble(
+        body,
+        'cfg_scale',
+        optionalDoubleFromValue(options.style),
+      );
       putIfNotBlank(body, 'negative_prompt', options.negativePrompt);
       _putBool(body, 'text_mode', options.promptEnhance);
       body.remove('aspect_ratio');
@@ -1811,16 +1819,8 @@ class AiImageGenerationService {
     return null;
   }
 
-  int? _stepsFromQuality(String? value) {
-    return optionalPositiveIntFromValue(value);
-  }
-
-  double? _doubleFromStyle(String? value) {
-    return optionalDoubleFromValue(value);
-  }
-
   double _sourceWeightFromOptions(AiCreationOptions options) {
-    final parsed = _doubleFromStyle(options.style);
+    final parsed = optionalDoubleFromValue(options.style);
     if (parsed == null || parsed <= 0) return 0.5;
     return parsed > 1 ? 1 : parsed;
   }

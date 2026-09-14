@@ -2242,13 +2242,13 @@ class AiSessionStore {
       ),
       autoTitleFirstUserContent:
           row['auto_title_first_user_content'] as String?,
-      autoTitleGeneratedAt: _parseNullableDateTime(
+      autoTitleGeneratedAt: utcDateTimeFromValue(
         row['auto_title_generated_at'],
       ),
       autoTitleSourceMessageId: row['auto_title_source_message_id'] as String?,
       latestCompressionCheckpointMessageId:
           row['latest_compression_checkpoint_message_id'] as String?,
-      latestCompressionAt: _parseNullableDateTime(row['latest_compression_at']),
+      latestCompressionAt: utcDateTimeFromValue(row['latest_compression_at']),
       mode: AiSessionMode.fromStorage((row['mode'] as String?) ?? 'chat'),
       awaitingPlanApproval: boolFromValue(row['awaiting_plan_approval']),
       pendingPlan: row['pending_plan'] as String?,
@@ -2514,10 +2514,6 @@ class AiSessionStore {
       }
     }
     return const <Object?>[];
-  }
-
-  static DateTime? _parseNullableDateTime(Object? value) {
-    return utcDateTimeFromValue(value);
   }
 
   Future<int> _countMessages(String sessionId) async {

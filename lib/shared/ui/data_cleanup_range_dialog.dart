@@ -69,9 +69,9 @@ class _OpenHandCleanupRangeDialogState
     super.initState();
     final now = DateTime.now();
     _startController = TextEditingController(
-      text: _formatInput(now.subtract(const Duration(days: 1))),
+      text: formatYearMonthDayHm(now.subtract(const Duration(days: 1))),
     );
-    _endController = TextEditingController(text: _formatInput(now));
+    _endController = TextEditingController(text: formatYearMonthDayHm(now));
   }
 
   @override
@@ -372,10 +372,6 @@ String _presetLabel(BuildContext context, OpenHandCleanupRangePreset preset) {
     ),
     OpenHandCleanupRangePreset.custom => openHandCustomLabel(context),
   };
-}
-
-String _formatInput(DateTime value) {
-  return formatYearMonthDayHm(value);
 }
 
 DateTime? _parseInput(String value, {required bool endOfDay}) {

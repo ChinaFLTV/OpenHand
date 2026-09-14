@@ -97,17 +97,39 @@ class AiTokenUsage {
   factory AiTokenUsage.fromJson(Object? raw) {
     final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiTokenUsage(
-      promptTokens: _readInt(json['prompt_tokens']),
-      completionTokens: _readInt(json['completion_tokens']),
-      totalTokens: _readInt(json['total_tokens']),
-      cacheCreationTokens: _readInt(json['cache_creation_tokens']),
-      cacheReadTokens: _readInt(json['cache_read_tokens']),
-      reasoningTokens: _readInt(json['reasoning_tokens']),
-      audioInputTokens: _readInt(json['audio_input_tokens']),
-      imageInputTokens: _readInt(json['image_input_tokens']),
-      videoInputTokens: _readInt(json['video_input_tokens']),
-      webSearchToolUsage: _readInt(json['web_search_tool_usage']),
-      webSearchPageUsage: _readInt(json['web_search_page_usage']),
+      promptTokens: optionalNonNegativeIntegralIntFromValue(
+        json['prompt_tokens'],
+      ),
+      completionTokens: optionalNonNegativeIntegralIntFromValue(
+        json['completion_tokens'],
+      ),
+      totalTokens: optionalNonNegativeIntegralIntFromValue(
+        json['total_tokens'],
+      ),
+      cacheCreationTokens: optionalNonNegativeIntegralIntFromValue(
+        json['cache_creation_tokens'],
+      ),
+      cacheReadTokens: optionalNonNegativeIntegralIntFromValue(
+        json['cache_read_tokens'],
+      ),
+      reasoningTokens: optionalNonNegativeIntegralIntFromValue(
+        json['reasoning_tokens'],
+      ),
+      audioInputTokens: optionalNonNegativeIntegralIntFromValue(
+        json['audio_input_tokens'],
+      ),
+      imageInputTokens: optionalNonNegativeIntegralIntFromValue(
+        json['image_input_tokens'],
+      ),
+      videoInputTokens: optionalNonNegativeIntegralIntFromValue(
+        json['video_input_tokens'],
+      ),
+      webSearchToolUsage: optionalNonNegativeIntegralIntFromValue(
+        json['web_search_tool_usage'],
+      ),
+      webSearchPageUsage: optionalNonNegativeIntegralIntFromValue(
+        json['web_search_page_usage'],
+      ),
     );
   }
   const AiTokenUsage({
@@ -209,10 +231,6 @@ class AiTokenUsage {
         other.webSearchPageUsage,
       ),
     );
-  }
-
-  static int? _readInt(Object? value) {
-    return optionalNonNegativeIntegralIntFromValue(value);
   }
 
   static int? _sumNullable(int? left, int? right) {

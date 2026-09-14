@@ -67,7 +67,7 @@ class SkillMarketSummary {
       installs: _readInt(json['installs']),
       name: _readString(json['name']),
       ownerName: _readString(json['ownerName']),
-      requiresApiKey: _readBool(json['requires_api_key']),
+      requiresApiKey: boolFromValue(json['requires_api_key']),
       score: _readDouble(json['score']),
       slug: _readString(json['slug']),
       source: _readString(json['source']),
@@ -162,7 +162,7 @@ class SkillMarketDetailSkill {
       createdAt: _readInt(json['createdAt']),
       displayName: _readString(json['displayName']),
       iconUrl: _readNullableString(json['iconUrl']),
-      requiresApiKey: _readBool(json['requiresApiKey']),
+      requiresApiKey: boolFromValue(json['requiresApiKey']),
       slug: _readString(json['slug']),
       source: _readString(json['source']),
       stats: SkillMarketStats.fromJson(_readMap(json['stats'])),
@@ -360,10 +360,6 @@ int _readInt(Object? value) {
 
 double _readDouble(Object? value) {
   return doubleFromValue(value, fallback: 0);
-}
-
-bool _readBool(Object? value) {
-  return boolFromValue(value);
 }
 
 Map<String, String> _readStringMap(Object? value) {

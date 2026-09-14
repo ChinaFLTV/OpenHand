@@ -213,7 +213,7 @@ class KnowledgeMessageMetadata {
       if (score != null && nullIfBlank('$score') != null) {
         buffer.writeln('Score: $score');
       }
-      if (_isTruthy(hit['content_truncated'])) {
+      if (boolFromValue(hit['content_truncated'])) {
         buffer.writeln('Content Status: truncated');
       }
       buffer
@@ -390,7 +390,7 @@ class KnowledgeMessageMetadata {
     if (content.isNotEmpty) {
       return 2000 +
           content.length -
-          (_isTruthy(hit['content_truncated']) ? 500 : 0);
+          (boolFromValue(hit['content_truncated']) ? 500 : 0);
     }
     final preview = _textValue(hit, 'preview');
     return preview.isNotEmpty ? preview.length : 0;
@@ -422,10 +422,6 @@ class KnowledgeMessageMetadata {
 
   static String _contextSource(Map<String, Object?> hit) {
     return _firstTextValue(hit, _knowledgeSourceKeys, ignoreLiteralNull: true);
-  }
-
-  static bool _isTruthy(Object? value) {
-    return boolFromValue(value);
   }
 
   static bool _looksLikeKnowledgeMetadata(Map<String, Object?> metadata) {

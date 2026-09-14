@@ -168,7 +168,7 @@ void _warmHighlightedCodeSpan({
   required bool forceDarkSurface,
   String? language,
 }) {
-  final effectiveLanguage = _normalizeCodeLanguage(language);
+  final effectiveLanguage = normalizeOpenHandCodeLanguage(language);
   final useDarkPalette =
       forceDarkSurface || theme.brightness == Brightness.dark;
   final signature = _highlightSignatureForInputs(
@@ -302,15 +302,15 @@ bool _isDiffFenceLanguage(String? language) {
 String? _languageForInlineDiffHighlight(String? language) {
   final value = (language ?? '').trim().toLowerCase();
   if (value.startsWith('diff-')) {
-    return _normalizeCodeLanguage(value.substring(5));
+    return normalizeOpenHandCodeLanguage(value.substring(5));
   }
   if (value.startsWith('patch-')) {
-    return _normalizeCodeLanguage(value.substring(6));
+    return normalizeOpenHandCodeLanguage(value.substring(6));
   }
   if (_isDiffFenceLanguage(value)) {
     return null;
   }
-  return _normalizeCodeLanguage(value);
+  return normalizeOpenHandCodeLanguage(value);
 }
 
 bool _looksLikeInlineDiffCodeBlock({
@@ -1018,7 +1018,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveLanguage = _normalizeCodeLanguage(widget.language);
+    final effectiveLanguage = normalizeOpenHandCodeLanguage(widget.language);
     final displayLanguage =
         effectiveLanguage == null || effectiveLanguage == 'plaintext'
         ? openHandPlainTextLabel(context)
@@ -1242,7 +1242,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   }
 
   void _ensureHighlightedSpan() {
-    final effectiveLanguage = _normalizeCodeLanguage(widget.language);
+    final effectiveLanguage = normalizeOpenHandCodeLanguage(widget.language);
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
     final signature = _highlightSignatureFor(
@@ -1313,7 +1313,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         }
         _highlightScheduled = false;
         _highlightPendingAfterScroll = false;
-        final currentEffectiveLanguage = _normalizeCodeLanguage(
+        final currentEffectiveLanguage = normalizeOpenHandCodeLanguage(
           widget.language,
         );
         final currentUseDarkPalette =
@@ -1697,10 +1697,6 @@ String? _extractCodeLanguage(md.Element? element) {
     }
   }
   return null;
-}
-
-String? _normalizeCodeLanguage(String? language) {
-  return normalizeOpenHandCodeLanguage(language);
 }
 
 bool _isHtmlLanguage(String? language) {

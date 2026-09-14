@@ -259,7 +259,7 @@ class _SnippetTileState extends State<_SnippetTile>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = !_wrMotionEnabled(context);
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     final bg = widget.selected
         ? cs.primary.withValues(alpha: 0.16)
         : (openHandHovered ? cs.surfaceContainerHighest : Colors.transparent);

@@ -1,9 +1,5 @@
 part of '../ai_session_controller.dart';
 
-bool _hasIncompleteTodoItems(List<AiSessionTodoItem> todoItems) {
-  return AiSessionTodoState.hasIncomplete(todoItems);
-}
-
 bool _hasPlanExecutionContext(AiSession session) {
   return session.todoItems.isNotEmpty ||
       (session.pendingPlan ?? '').trim().isNotEmpty ||
@@ -12,14 +8,6 @@ bool _hasPlanExecutionContext(AiSession session) {
 
 String _normalizeToolName(String toolName) {
   return toolName.trim().toLowerCase();
-}
-
-bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
-  return AiSessionTodoState.allCompleted(todoItems);
-}
-
-bool _hasFailedTodoItems(List<AiSessionTodoItem> todoItems) {
-  return AiSessionTodoState.hasFailure(todoItems);
 }
 
 bool _environmentEquals(AiSessionEnvironment left, AiSessionEnvironment right) {

@@ -2161,7 +2161,7 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
   @override
   void didUpdateWidget(covariant _AnimatedDualSparkline old) {
     super.didUpdateWidget(old);
-    final reduceMotion = !_wrMotionEnabled(context);
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     var changed = false;
     if (!listEquals(old.primary, widget.primary)) {
       _fromPri = _resampleSparklineValues(_curPri(), widget.primary.length);

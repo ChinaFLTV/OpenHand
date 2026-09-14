@@ -674,29 +674,41 @@ class AiModelProfile {
     return AiModelProfile(
       displayName: _readString(json['display_name']),
       description: _readString(json['description']),
-      isMultimodal: _readBool(json['is_multimodal']),
+      isMultimodal: optionalBoolFromValue(json['is_multimodal']),
       supportedModalities: _parseModalities(json['supported_modalities']),
-      maxContextLength: _readNullablePositiveInt(json['max_context_length']),
-      maxSummaryLength: _readNullablePositiveInt(json['max_summary_length']),
-      maxOutputLength: _readNullablePositiveInt(json['max_output_length']),
-      maxThinkingLength: _readNullablePositiveInt(json['max_thinking_length']),
-      thinkingEnabled: _readBool(json[_thinkingEnabledJsonKey]),
-      reasoningEffortControlEnabled: _readBool(
+      maxContextLength: optionalPositiveIntFromValue(
+        json['max_context_length'],
+      ),
+      maxSummaryLength: optionalPositiveIntFromValue(
+        json['max_summary_length'],
+      ),
+      maxOutputLength: optionalPositiveIntFromValue(json['max_output_length']),
+      maxThinkingLength: optionalPositiveIntFromValue(
+        json['max_thinking_length'],
+      ),
+      thinkingEnabled: optionalBoolFromValue(json[_thinkingEnabledJsonKey]),
+      reasoningEffortControlEnabled: optionalBoolFromValue(
         json[_reasoningEffortControlEnabledJsonKey],
       ),
       reasoningEffort: optionalStringFromValue(json[_reasoningEffortJsonKey]),
       reasoningEffortOptions: _parseReasoningEffortOptions(
         json[_reasoningEffortOptionsJsonKey],
       ),
-      requiresReasoningEcho: _readBool(json['requires_reasoning_echo']),
+      requiresReasoningEcho: optionalBoolFromValue(
+        json['requires_reasoning_echo'],
+      ),
       capabilities: _parseCapabilities(json['capabilities']),
-      supportsAttachments: _readBool(json['supports_attachments']),
-      inputUsdPer1M: _readNullableNonNegativeDouble(json['input_usd_per_1m']),
-      outputUsdPer1M: _readNullableNonNegativeDouble(json['output_usd_per_1m']),
-      cacheReadUsdPer1M: _readNullableNonNegativeDouble(
+      supportsAttachments: optionalBoolFromValue(json['supports_attachments']),
+      inputUsdPer1M: optionalNonNegativeDoubleFromValue(
+        json['input_usd_per_1m'],
+      ),
+      outputUsdPer1M: optionalNonNegativeDoubleFromValue(
+        json['output_usd_per_1m'],
+      ),
+      cacheReadUsdPer1M: optionalNonNegativeDoubleFromValue(
         json['cache_read_usd_per_1m'],
       ),
-      cacheWriteUsdPer1M: _readNullableNonNegativeDouble(
+      cacheWriteUsdPer1M: optionalNonNegativeDoubleFromValue(
         json['cache_write_usd_per_1m'],
       ),
       canonicalSlug: _readString(json['canonical_slug']),
@@ -720,21 +732,23 @@ class AiModelProfile {
             )
           : null,
       isGlobalDefaultTitleModel:
-          _readBool(json[_globalDefaultTitleModelJsonKey]) ?? false,
-      embeddingDimensions: _readNullablePositiveInt(
+          optionalBoolFromValue(json[_globalDefaultTitleModelJsonKey]) ?? false,
+      embeddingDimensions: optionalPositiveIntFromValue(
         json['embedding_dimensions'],
       ),
-      embeddingMaxInputTokens: _readNullablePositiveInt(
+      embeddingMaxInputTokens: optionalPositiveIntFromValue(
         json['embedding_max_input_tokens'],
       ),
       embeddingSupportsCustomDimensions:
-          _readBool(json['embedding_supports_custom_dimensions']) ?? false,
+          optionalBoolFromValue(json['embedding_supports_custom_dimensions']) ??
+          false,
       embeddingEndpointPath: _readString(json['embedding_endpoint_path']),
-      embeddingBatchSize: _readNullablePositiveInt(
+      embeddingBatchSize: optionalPositiveIntFromValue(
         json['embedding_batch_size'],
       ),
       embeddingRequiresSpecialBody:
-          _readBool(json['embedding_requires_special_body']) ?? false,
+          optionalBoolFromValue(json['embedding_requires_special_body']) ??
+          false,
       embeddingQueryModelId: _readString(json['embedding_query_model_id']),
       embeddingDocumentModelId: _readString(
         json['embedding_document_model_id'],
@@ -785,42 +799,47 @@ class AiModelProfile {
       embeddingSimilarityMetric: _readString(
         json['embedding_similarity_metric'],
       ),
-      embeddingOutputsNormalized: _readBool(
+      embeddingOutputsNormalized: optionalBoolFromValue(
         json['embedding_outputs_normalized'],
       ),
-      embeddingMinDimensions: _readNullablePositiveInt(
+      embeddingMinDimensions: optionalPositiveIntFromValue(
         json['embedding_min_dimensions'],
       ),
-      embeddingMaxDimensions: _readNullablePositiveInt(
+      embeddingMaxDimensions: optionalPositiveIntFromValue(
         json['embedding_max_dimensions'],
       ),
-      embeddingMaxInputsPerBatch: _readNullablePositiveInt(
+      embeddingMaxInputsPerBatch: optionalPositiveIntFromValue(
         json['embedding_max_inputs_per_batch'],
       ),
-      embeddingMaxTokensPerBatch: _readNullablePositiveInt(
+      embeddingMaxTokensPerBatch: optionalPositiveIntFromValue(
         json['embedding_max_tokens_per_batch'],
       ),
       embeddingSupportsTruncation:
-          _readBool(json['embedding_supports_truncation']) ?? false,
+          optionalBoolFromValue(json['embedding_supports_truncation']) ?? false,
       rerankEndpointPath: _readString(json['rerank_endpoint_path']),
-      rerankMaxInputTokens: _readNullablePositiveInt(
+      rerankMaxInputTokens: optionalPositiveIntFromValue(
         json['rerank_max_input_tokens'],
       ),
-      rerankMaxDocuments: _readNullablePositiveInt(
+      rerankMaxDocuments: optionalPositiveIntFromValue(
         json['rerank_max_documents'],
       ),
-      rerankDefaultTopN: _readNullablePositiveInt(json['rerank_default_top_n']),
+      rerankDefaultTopN: optionalPositiveIntFromValue(
+        json['rerank_default_top_n'],
+      ),
       rerankSupportedParameters: stringListFromListValue(
         json['rerank_supported_parameters'],
       ),
       rerankSupportsReturnDocuments:
-          _readBool(json['rerank_supports_return_documents']) ?? false,
+          optionalBoolFromValue(json['rerank_supports_return_documents']) ??
+          false,
       rerankSupportsInstruction:
-          _readBool(json['rerank_supports_instruction']) ?? false,
+          optionalBoolFromValue(json['rerank_supports_instruction']) ?? false,
       rerankDefaultInstruction: _readString(json['rerank_default_instruction']),
       rerankSupportsTruncation:
-          _readBool(json['rerank_supports_truncation']) ?? false,
-      rerankDefaultTruncation: _readBool(json['rerank_default_truncation']),
+          optionalBoolFromValue(json['rerank_supports_truncation']) ?? false,
+      rerankDefaultTruncation: optionalBoolFromValue(
+        json['rerank_default_truncation'],
+      ),
       readerSourceTypes: ReaderFileType.normalizeList(
         stringListFromListValue(json['reader_source_types']),
       ),
@@ -1514,14 +1533,6 @@ class AiModelProfile {
     return const <String, Object?>{};
   }
 
-  static int? _readNullablePositiveInt(Object? value) {
-    return optionalPositiveIntFromValue(value);
-  }
-
-  static double? _readNullableNonNegativeDouble(Object? value) {
-    return optionalNonNegativeDoubleFromValue(value);
-  }
-
   static List<AiReasoningEffortOption> _parseReasoningEffortOptions(
     Object? value,
   ) {
@@ -1547,10 +1558,6 @@ class AiModelProfile {
       result.add(option);
     }
     return List<AiReasoningEffortOption>.unmodifiable(result);
-  }
-
-  static bool? _readBool(Object? value) {
-    return optionalBoolFromValue(value);
   }
 
   static String? _readString(Object? value) {

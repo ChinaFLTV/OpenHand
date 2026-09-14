@@ -23,7 +23,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
     final memoryController = context.watch<MemoryController>();
     final profile = memoryController.userProfile;
     final hasProfile = profile != null && profile.content.trim().isNotEmpty;
-    final motionEnabled = _settingsMotionEnabled(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final preview = hasProfile
         ? _previewContent(profile.content)
         : openHandLocalizedText(

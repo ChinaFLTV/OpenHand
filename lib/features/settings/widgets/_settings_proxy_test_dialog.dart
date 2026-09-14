@@ -686,7 +686,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
 
   @override
   Widget build(BuildContext context) {
-    final motionEnabled = _settingsMotionEnabled(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     _syncCursorBlinkController(motionEnabled);
     final l10n = AppLocalizations.of(context)!;
     final mediaSize = MediaQuery.sizeOf(context);
@@ -919,7 +919,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   }
 
   Widget _buildBlinkingCursor() {
-    final motionEnabled = _settingsMotionEnabled(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     if (!motionEnabled) {
       return _buildCursor(t: 0.5);
     }
@@ -1222,7 +1222,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     _totalStopwatch
       ..reset()
       ..start();
-    _syncCursorBlinkController(_settingsMotionEnabled(context));
+    _syncCursorBlinkController(openHandTickerMotionEnabled(context));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _runDiagnostics();

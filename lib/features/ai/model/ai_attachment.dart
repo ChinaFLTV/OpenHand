@@ -71,10 +71,10 @@ class AiMessageAttachment {
       summaryText: json['summary_text'] == null
           ? ''
           : '${json['summary_text']}',
-      width: _readNullableInt(json['width']),
-      height: _readNullableInt(json['height']),
+      width: optionalNonNegativeIntFromValue(json['width']),
+      height: optionalNonNegativeIntFromValue(json['height']),
       originalSourcePath: optionalStringFromValue(json['original_source_path']),
-      pixelCount: _readNullableInt(json['pixel_count']),
+      pixelCount: optionalNonNegativeIntFromValue(json['pixel_count']),
       compressionRatio: optionalUnitIntervalFromValue(
         json['compression_ratio'],
       ),
@@ -233,12 +233,8 @@ class AiMessageAttachment {
   }
 
   static int _readInt(Object? value) {
-    final parsed = _readNullableInt(value);
+    final parsed = optionalNonNegativeIntFromValue(value);
     return parsed ?? 0;
-  }
-
-  static int? _readNullableInt(Object? value) {
-    return optionalNonNegativeIntFromValue(value);
   }
 
   static String _clip(String value, int maxCharacters) {

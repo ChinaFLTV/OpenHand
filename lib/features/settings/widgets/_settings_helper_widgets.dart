@@ -282,7 +282,7 @@ class _SettingsSubsectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final motionEnabled = _settingsMotionEnabled(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final revealDuration = openHandMotionDuration(context, kOpenHandMotion420);
     final revealReverseDuration = openHandMotionDuration(
       context,
@@ -921,7 +921,7 @@ class _AiTranslationProviderCardState
     final latest = _latestProviderSettings;
     if (latest == null) return;
     final persisted = widget.settings.provider(widget.provider).normalized();
-    if (_settingsJsonEquals(latest.toJson(), persisted.toJson())) {
+    if (stableJsonEquals(latest.toJson(), persisted.toJson())) {
       _latestProviderSettings = null;
     }
   }
@@ -1782,7 +1782,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     final latest = _latestProviderSettings;
     if (latest == null) return;
     final persisted = widget.settings.provider(widget.provider).normalized();
-    if (_settingsJsonEquals(latest.toJson(), persisted.toJson())) {
+    if (stableJsonEquals(latest.toJson(), persisted.toJson())) {
       _latestProviderSettings = null;
     }
   }
@@ -2863,7 +2863,7 @@ class _AiProviderInsertionGuide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final motionEnabled = _settingsMotionEnabled(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final theme = Theme.of(context);
     final color = theme.colorScheme.primary.withValues(alpha: 0.82);
     return ClipRect(
@@ -3939,10 +3939,6 @@ AiModelConfig? _selectedAiTtsModel({
     }
   }
   return null;
-}
-
-bool _settingsJsonEquals(Object? left, Object? right) {
-  return stableJsonEquals(left, right);
 }
 
 List<T>? _settingsReorderedProviderPriorityAt<T>(
@@ -6229,7 +6225,7 @@ class _AnimatedSettingReveal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!_settingsMotionEnabled(context)) {
+    if (!openHandTickerMotionEnabled(context)) {
       return visible ? child : const SizedBox.shrink();
     }
     final sizeDuration = openHandMotionDuration(context, kOpenHandMotion420);

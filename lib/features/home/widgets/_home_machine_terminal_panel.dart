@@ -975,14 +975,14 @@ class _MachineTerminalHistoryDialogState
                     ),
                     _historyCell(
                       context,
-                      _formatTerminalHistoryTime(terminal.startedAt),
+                      formatYearMonthDayHmsLocal(terminal.startedAt),
                       width: columns.started,
                       mono: true,
                       scaleDown: true,
                     ),
                     _historyCell(
                       context,
-                      _formatTerminalHistoryTime(terminal.updatedAt),
+                      formatYearMonthDayHmsLocal(terminal.updatedAt),
                       width: columns.updated,
                       mono: true,
                       scaleDown: true,
@@ -1492,7 +1492,7 @@ class _MachineTerminalHistoryDetailDialogState
                     ),
                     _MachineTerminalChip(
                       icon: Icons.schedule_rounded,
-                      label: _formatTerminalHistoryTime(
+                      label: formatYearMonthDayHmsLocal(
                         widget.snapshot.updatedAt,
                       ),
                       color: cs.tertiary,
@@ -1793,7 +1793,7 @@ class _MachineTerminalCommandHistoryTile extends StatelessWidget {
                   label: openHandTimedOutLabel(context),
                 ),
               _MachineTerminalTinyBadge(
-                label: _formatTerminalHistoryTime(record.completedAt),
+                label: formatYearMonthDayHmsLocal(record.completedAt),
               ),
             ],
           ),
@@ -2401,10 +2401,6 @@ int _terminalHistoryBytes(List<MachineTerminalSnapshot> terminals) {
     0,
     (total, item) => total + item.historyOutputCharacters,
   );
-}
-
-String _formatTerminalHistoryTime(DateTime value) {
-  return formatYearMonthDayHmsLocal(value);
 }
 
 Future<void> _copyCommandRecord(

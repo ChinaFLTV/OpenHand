@@ -453,8 +453,8 @@ class SkillsRepository {
     final fallbackName = _titleFromSlug(OpenHandPaths.basename(directoryPath));
     final description = metadata['description'] ?? _extractDescription(lines);
     final openAiMetadata = await _loadOpenAiMetadata(directoryPath);
-    final resolvedName = _sanitizeDisplayValue(metadata['name']);
-    final resolvedDescription = _sanitizeDisplayValue(description);
+    final resolvedName = nullIfBlank(metadata['name']);
+    final resolvedDescription = nullIfBlank(description);
 
     return LocalSkill(
       name: openAiMetadata?.displayName ?? resolvedName ?? fallbackName,
@@ -572,21 +572,15 @@ class SkillsRepository {
       }
 
       return _OpenAiMetadataDocument(
-        displayName: _sanitizeDisplayValue(
-          _readYamlString(interface['display_name']),
-        ),
-        shortDescription: _sanitizeDisplayValue(
+        displayName: nullIfBlank(_readYamlString(interface['display_name'])),
+        shortDescription: nullIfBlank(
           _readYamlString(interface['short_description']),
         ),
-        defaultPrompt: _sanitizeDisplayValue(
+        defaultPrompt: nullIfBlank(
           _readYamlString(interface['default_prompt']),
         ),
-        iconSmallPath: _sanitizeDisplayValue(
-          _readYamlString(interface['icon_small']),
-        ),
-        iconLargePath: _sanitizeDisplayValue(
-          _readYamlString(interface['icon_large']),
-        ),
+        iconSmallPath: nullIfBlank(_readYamlString(interface['icon_small'])),
+        iconLargePath: nullIfBlank(_readYamlString(interface['icon_large'])),
       );
     } catch (error, stack) {
       silentLog('skills_repository', '读取 OpenAI 元数据文档', error, stack);
@@ -617,7 +611,7 @@ class SkillsRepository {
     required String skillDirectoryPath,
     required String metadataDirectoryPath,
   }) async {
-    final sanitizedPath = _sanitizeDisplayValue(rawPath);
+    final sanitizedPath = nullIfBlank(rawPath);
     if (sanitizedPath == null) {
       return null;
     }
@@ -699,11 +693,11 @@ class SkillsRepository {
     Uint8List? imageIconBytes,
     bool allowMissingIcon = false,
   }) {
-    final normalizedName = _sanitizeDisplayValue(name);
+    final normalizedName = nullIfBlank(name);
     if (normalizedName == null) {
       throw const FileSystemException('技能名称为空。');
     }
-    final normalizedShortDescription = _sanitizeDisplayValue(shortDescription);
+    final normalizedShortDescription = nullIfBlank(shortDescription);
     if (normalizedShortDescription == null) {
       throw const FileSystemException('技能描述为空。');
     }
@@ -728,12 +722,8 @@ class SkillsRepository {
     );
   }
 
-  String? _sanitizeDisplayValue(String? value) {
-    return nullIfBlank(value);
-  }
-
   String? _sanitizeEmojiIcon(String? value) {
-    final sanitizedValue = _sanitizeDisplayValue(value);
+    final sanitizedValue = nullIfBlank(value);
     if (sanitizedValue == null) {
       return null;
     }
@@ -846,13 +836,11 @@ class SkillsRepository {
     final lines = normalizedContent.split('\n');
     final metadata = _extractFrontMatter(lines);
     final resolvedName =
-        _sanitizeDisplayValue(metadata['name']) ??
+        nullIfBlank(metadata['name']) ??
         existingMetadata.displayName ??
         fallbackSkill.name;
     final resolvedDescription =
-        _sanitizeDisplayValue(
-          metadata['description'] ?? _extractDescription(lines),
-        ) ??
+        nullIfBlank(metadata['description'] ?? _extractDescription(lines)) ??
         existingMetadata.shortDescription ??
         fallbackSkill.description;
     final defaultPrompt = _deriveDefaultPrompt(

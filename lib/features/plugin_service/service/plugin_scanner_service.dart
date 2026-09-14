@@ -344,7 +344,7 @@ class PluginScannerService {
     required String installedVersion,
     String? releaseHint,
   }) async {
-    final major = _extractNodeMajor(installedVersion);
+    final major = versionMajorFromText(installedVersion);
     if (major == null) return null;
     final normalizedHint = (releaseHint ?? '').trim().toLowerCase();
     final preferLts = normalizedHint.startsWith('lts') || major.isEven;
@@ -386,10 +386,6 @@ class PluginScannerService {
       if (preferLts ? isLts : !isLts) return version;
     }
     return null;
-  }
-
-  static int? _extractNodeMajor(String version) {
-    return versionMajorFromText(version);
   }
 
   static bool _isNodeVersion(String value) {
