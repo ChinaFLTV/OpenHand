@@ -3363,7 +3363,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     padding: const EdgeInsets.only(bottom: 12),
                     physics: kOpenHandClampingPhysics,
                     primary: false,
-                    addAutomaticKeepAlives: true,
                     addRepaintBoundaries: false,
                     itemCount: listItemCount,
                     findChildIndexCallback: (key) =>

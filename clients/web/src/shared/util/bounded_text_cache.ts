@@ -3,7 +3,13 @@ export class BoundedTextCache {
   private readonly entries = new Map<string, string>();
   private characters = 0;
 
-  constructor(private readonly maxEntries: number, private readonly maxCharacters: number) {}
+  constructor(private readonly maxEntries: number, private readonly maxCharacters: number) {
+    for (const [name, value] of [['maxEntries', maxEntries], ['maxCharacters', maxCharacters]] as const) {
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new RangeError(`${name} 必须为非负安全整数。`);
+      }
+    }
+  }
 
   get(key: string): string | undefined {
     const value = this.entries.get(key);

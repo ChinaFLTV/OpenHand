@@ -252,16 +252,22 @@ restore_web_output() {
     return
   fi
   log "构建未完成，恢复原有 $OUT_DIR"
-  rm -rf -- "$OUT_DIR"
-  mkdir -p "$OUT_DIR"
-  cp -a "$BACKUP_DIR/out/." "$OUT_DIR/" 2>/dev/null || true
+  if ! rm -rf -- "$OUT_DIR" \
+    || ! mkdir -p "$OUT_DIR" \
+    || ! cp -a "$BACKUP_DIR/out/." "$OUT_DIR/"; then
+    log "恢复失败，原有产物备份保留在 $BACKUP_DIR/out，请检查目录权限和磁盘空间" >&2
+    return 1
+  fi
 }
 
 cleanup() {
   local exit_code=$?
-  restore_web_output
-  if [[ -n "$BACKUP_DIR" ]]; then
-    rm -rf -- "$BACKUP_DIR"
+  if restore_web_output; then
+    if [[ -n "$BACKUP_DIR" ]]; then
+      rm -rf -- "$BACKUP_DIR"
+    fi
+  else
+    exit_code=1
   fi
   exit "$exit_code"
 }

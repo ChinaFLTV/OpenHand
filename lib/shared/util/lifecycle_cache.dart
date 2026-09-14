@@ -31,9 +31,9 @@ class LifecycleLruCache<V> {
     final previous = _entries.remove(key);
     if (previous != null) _totalCost -= previous.cost;
     if (costLimit != null && cost > costLimit) return;
+    _evictOverflow(addedCost: cost, addedEntries: 1);
     _entries[key] = _LifecycleCacheEntry<V>(value, cost);
     _totalCost += cost;
-    _evictOverflow();
   }
 
   V putIfAbsent(String key, V Function() create) {
@@ -72,10 +72,15 @@ class LifecycleLruCache<V> {
       remove(key);
       return false;
     }
-    _totalCost += normalizedCost - entry.cost;
+    final addedCost = normalizedCost - entry.cost;
+    // 先腾出预算，避免大成本相加溢出；淘汰过程仍保持原有访问顺序。
+    if (addedCost > 0) {
+      _evictOverflow(addedCost: addedCost, updatedKey: key);
+    }
+    if (!identical(_entries[key], entry)) return false;
+    _totalCost += addedCost;
     entry.cost = normalizedCost;
-    _evictOverflow();
-    return identical(_entries[key]?.value, expectedValue);
+    return true;
   }
 
   void removeWhere(bool Function(String key, V value) test) {
@@ -103,10 +108,14 @@ class LifecycleLruCache<V> {
     return cost.clamp(0, _maxLifecycleCacheEntryCost);
   }
 
-  void _evictOverflow() {
+  void _evictOverflow({
+    int addedCost = 0,
+    int addedEntries = 0,
+    String? updatedKey,
+  }) {
     final costLimit = maxCost;
-    while (_entries.length > maxEntries ||
-        (costLimit != null && _totalCost > costLimit)) {
+    while (_entries.length > maxEntries - addedEntries ||
+        (costLimit != null && _totalCost > costLimit - addedCost)) {
       if (_entries.isEmpty) {
         _totalCost = 0;
         return;
@@ -114,6 +123,7 @@ class LifecycleLruCache<V> {
       final oldestKey = _entries.keys.first;
       final oldest = _entries.remove(oldestKey);
       if (oldest != null) _totalCost -= oldest.cost;
+      if (oldestKey == updatedKey) return;
     }
   }
 }

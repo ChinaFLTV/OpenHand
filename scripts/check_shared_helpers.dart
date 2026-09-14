@@ -15,6 +15,7 @@ import 'package:openhand/shared/util/duration_bounds.dart';
 import 'package:openhand/shared/util/exponential_backoff.dart';
 import 'package:openhand/shared/util/hex_encoding.dart';
 import 'package:openhand/shared/util/input_value_parsing.dart';
+import 'package:openhand/shared/util/lifecycle_cache.dart';
 import 'package:openhand/shared/util/message_frame_scan.dart';
 import 'package:openhand/shared/util/path_safety.dart';
 import 'package:openhand/shared/util/platform_shell.dart';
@@ -50,6 +51,7 @@ Future<void> main() async {
   failures += _checkPlatformShell();
   failures += _checkTextSearch();
   failures += _checkBoundedTextBuffer();
+  failures += _checkLifecycleCache();
   failures += _checkSensitiveTextRedaction();
   failures += await _checkBatchSubscriptionCancellation();
   failures += await _checkAbortableResponseLifetime();
@@ -869,6 +871,49 @@ int _checkBoundedTextBuffer() {
     ..append('😀');
   if (buffer.text != '234😀' || buffer.length != 5) {
     stderr.writeln('BoundedTextBuffer 裁剪时破坏了 UTF-16 代理对');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkLifecycleCache() {
+  const largeCost = 1 << 62;
+  final cache = LifecycleLruCache<int>(
+    maxEntries: 3,
+    maxCost: largeCost + 1,
+    costOf: (value) => value,
+  );
+  cache
+    ..put('旧条目', largeCost)
+    ..put('新条目', largeCost);
+  if (cache.containsKey('旧条目') || !cache.containsKey('新条目')) {
+    stderr.writeln('缓存成本相加溢出后未遵守预算');
+    return 1;
+  }
+  cache.put('待回填', 1);
+  if (!cache.updateCostIfIdentical('待回填', 1, largeCost) ||
+      cache.containsKey('新条目')) {
+    stderr.writeln('缓存回填成本溢出或未淘汰旧条目');
+    return 1;
+  }
+  cache
+    ..clear()
+    ..put('旧条目', 1)
+    ..put('新条目', largeCost);
+  if (cache.updateCostIfIdentical('旧条目', 1, largeCost) ||
+      !cache.containsKey('新条目')) {
+    stderr.writeln('回填被淘汰的旧条目时错误删除了新条目');
+    return 1;
+  }
+  final nullable = LifecycleLruCache<String?>(maxEntries: 2);
+  nullable.put('空值', null);
+  var created = false;
+  nullable.putIfAbsent('空值', () {
+    created = true;
+    return '不应创建';
+  });
+  if (created || !nullable.removeIfIdentical('空值', null)) {
+    stderr.writeln('缓存未正确区分空值与缺失条目');
     return 1;
   }
   return 0;

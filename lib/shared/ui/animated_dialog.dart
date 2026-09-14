@@ -105,11 +105,6 @@ Widget? _constrainDialogContent(Widget? content, double? maxWidth) {
   );
 }
 
-double? _validDialogMaxWidth(double? maxWidth) {
-  if (maxWidth == null || !maxWidth.isFinite || maxWidth <= 0) return null;
-  return maxWidth;
-}
-
 double? _validDialogDimension(double? value) {
   if (value == null || !value.isFinite || value <= 0) return null;
   return value;
@@ -464,7 +459,7 @@ Future<String?> showOpenHandTextInputDialog({
   final resolvedMaxLines = maxLines == null || maxLines < resolvedMinLines
       ? resolvedMinLines
       : maxLines;
-  final resolvedMaxWidth = _validDialogMaxWidth(maxWidth);
+  final resolvedMaxWidth = _validDialogDimension(maxWidth);
   String normalize(String value) => trimResult ? value.trim() : value;
 
   try {
@@ -1420,7 +1415,7 @@ Widget buildOpenHandDialogFormShell({
         RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kOpenHandDialogFormRadius),
         ),
-    maxWidth: _validDialogMaxWidth(maxWidth) ?? kOpenHandDialogDefaultMaxWidth,
+    maxWidth: _validDialogDimension(maxWidth) ?? kOpenHandDialogDefaultMaxWidth,
     child: IntrinsicWidth(
       child: Padding(
         padding: padding,

@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "vite",
     "build": "pnpm typecheck && pnpm check:runtime && vite build && node scripts/stamp-service-worker.mjs ../../assets/web && node scripts/validate-bundle.mjs ../../assets/web",
-    "check:runtime": "node scripts/check-runtime.mjs",
+    "check:runtime": "node scripts/check-runtime.mjs && node scripts/check-interactions.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit"
   },

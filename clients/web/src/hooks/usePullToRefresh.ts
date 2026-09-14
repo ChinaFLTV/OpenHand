@@ -1,19 +1,14 @@
-// 下拉刷新 hook：监听容器顶部的 touch/pointer 拖拽，
-// 当滚动条已经处于顶部且用户向下拖拽 ≥ 阈值时调用 onRefresh()。
-//
-// 设计：
-// - 不修改任何 CSS scroll 行为；仅返回 `{ pulled, refreshing }` 让调用方
-//   渲染顶部进度指示。
-// - 拉动 < activationDistance 时只显示下拉提示；松手后归零。
-// - 拉动 ≥ activationDistance 时调用 onRefresh()，期间 refreshing=true，
-//   pulled 锁在阈值不再随手指变化，避免抖动。
-// - 防止同一手势重复触发：refreshing 期间忽略后续 touch。
+// 下拉刷新仅在所属手势正常结束时提交；取消、禁用和卸载均释放手势。
 
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { RefObject } from 'preact';
+import { showSnackbar } from '../components/Snackbar';
+import { isAbortError } from '../shared/util/errors';
 import { clampNumber } from '../shared/util/number';
+import { useEventCallback } from './useEventCallback';
 
 const MIN_PULL_DELTA_PX = 12;
+const PULL_RESISTANCE_EXPONENT = 0.85;
 const DEFAULT_ACTIVATION_DISTANCE_PX = 80;
 const DEFAULT_MAX_DISTANCE_PX = 140;
 const MIN_ACTIVATION_DISTANCE_PX = 1;
@@ -70,23 +65,26 @@ export function usePullToRefresh<E extends HTMLElement>(
   );
   const [pulled, setPulled] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const startY = useRef<number | null>(null);
-  const activePointerId = useRef<number | null>(null);
-  const pulledRef = useRef(0);
-  const tracking = useRef(false);
+  const refreshingRef = useRef(false);
+  const refresh = useEventCallback(onRefresh);
   const mountedRef = useRef(true);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled) return;
     const el = ref.current;
     if (!el) return;
+    let startY: number | null = null;
+    let activePointerId: number | null = null;
+    let activeTouchId: number | null = null;
+    let distance = 0;
+    let tracking = false;
 
     const isAtTop = (): boolean => {
       // 优先看 window 滚动；若调用方传的是局部滚动容器则看其 scrollTop。
@@ -102,21 +100,36 @@ export function usePullToRefresh<E extends HTMLElement>(
     };
 
     const updatePulled = (value: number) => {
-      pulledRef.current = value;
-      setPulled(value);
+      distance = value;
+      if (mountedRef.current) setPulled(value);
+    };
+
+    const resetGesture = () => {
+      const pointerId = activePointerId;
+      activePointerId = null;
+      activeTouchId = null;
+      startY = null;
+      tracking = false;
+      if (pointerId != null && el.hasPointerCapture(pointerId)) {
+        el.releasePointerCapture(pointerId);
+      }
+    };
+
+    const cancelPull = () => {
+      resetGesture();
+      if (!refreshingRef.current) updatePulled(0);
     };
 
     const beginPull = (y: number) => {
-      startY.current = y;
-      tracking.current = true;
+      startY = y;
+      tracking = true;
     };
 
     const updatePull = (y: number) => {
-      if (!tracking.current || refreshing || startY.current == null) return;
-      const dy = y - startY.current;
+      if (!tracking || refreshingRef.current || startY == null) return;
+      const dy = y - startY;
       if (dy <= 0) {
-        updatePulled(0);
-        tracking.current = false;
+        cancelPull();
         return;
       }
       if (dy < MIN_PULL_DELTA_PX) {
@@ -124,47 +137,66 @@ export function usePullToRefresh<E extends HTMLElement>(
         return;
       }
       // 引入阻尼，越拉越慢，最大不过 safeMaxDistance。
-      updatePulled(clampNumber(Math.pow(dy - MIN_PULL_DELTA_PX, 0.85), 0, safeMaxDistance));
+      updatePulled(clampNumber(Math.pow(dy - MIN_PULL_DELTA_PX, PULL_RESISTANCE_EXPONENT), 0, safeMaxDistance));
     };
 
     const finishPull = async () => {
-      if (!tracking.current) return;
-      tracking.current = false;
-      activePointerId.current = null;
-      const reached = pulledRef.current >= safeActivationDistance;
-      startY.current = null;
+      if (!tracking || refreshingRef.current) return;
+      const reached = distance >= safeActivationDistance;
+      resetGesture();
       if (!reached) {
         updatePulled(0);
         return;
       }
       updatePulled(safeActivationDistance);
+      refreshingRef.current = true;
       setRefreshing(true);
       try {
-        await onRefresh();
+        await refresh();
+      } catch (error) {
+        if (mountedRef.current && !isAbortError(error)) {
+          showSnackbar(error instanceof Error ? error.message : String(error), { tone: 'error' });
+        }
       } finally {
-        if (!mountedRef.current) return;
-        setRefreshing(false);
-        updatePulled(0);
+        refreshingRef.current = false;
+        if (mountedRef.current) {
+          setRefreshing(false);
+          updatePulled(0);
+        }
       }
     };
 
     const onTouchStart = (ev: TouchEvent) => {
-      if (refreshing) return;
-      if (shouldIgnorePullTarget(ev.target)) return;
-      if (!isAtTop()) return;
-      if (ev.touches.length !== 1) return;
+      if (ev.touches.length !== 1) {
+        cancelPull();
+        return;
+      }
+      if (refreshingRef.current || activePointerId != null) return;
+      if (shouldIgnorePullTarget(ev.target) || !isAtTop()) return;
+      activeTouchId = ev.touches[0].identifier;
       beginPull(ev.touches[0].clientY);
     };
 
     const onTouchMove = (ev: TouchEvent) => {
+      if (activeTouchId == null) return;
+      if (ev.touches.length !== 1 || ev.touches[0].identifier !== activeTouchId) {
+        cancelPull();
+        return;
+      }
       updatePull(ev.touches[0].clientY);
     };
 
+    const onTouchEnd = (ev: TouchEvent) => {
+      if (Array.from(ev.changedTouches).some((touch) => touch.identifier === activeTouchId)) {
+        void finishPull();
+      }
+    };
+
     const onPointerDown = (ev: PointerEvent) => {
-      if (ev.pointerType !== 'pen') return;
+      if (ev.pointerType !== 'pen' || !ev.isPrimary || tracking) return;
       if (shouldIgnorePullTarget(ev.target)) return;
-      if (refreshing || ev.button !== 0 || !isAtTop()) return;
-      activePointerId.current = ev.pointerId;
+      if (refreshingRef.current || ev.button !== 0 || !isAtTop()) return;
+      activePointerId = ev.pointerId;
       beginPull(ev.clientY);
       try {
         el.setPointerCapture(ev.pointerId);
@@ -174,34 +206,41 @@ export function usePullToRefresh<E extends HTMLElement>(
     };
 
     const onPointerMove = (ev: PointerEvent) => {
-      if (activePointerId.current !== ev.pointerId) return;
+      if (activePointerId !== ev.pointerId) return;
       updatePull(ev.clientY);
-      if (pulledRef.current > 0) ev.preventDefault();
+      if (distance > 0) ev.preventDefault();
     };
 
-    const onPointerEnd = () => {
-      void finishPull();
+    const onPointerEnd = (ev: PointerEvent) => {
+      if (activePointerId === ev.pointerId) void finishPull();
+    };
+
+    const onPointerCancel = (ev: PointerEvent) => {
+      if (activePointerId === ev.pointerId) cancelPull();
     };
 
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: true });
-    el.addEventListener('touchend', onPointerEnd);
-    el.addEventListener('touchcancel', onPointerEnd);
+    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchcancel', cancelPull);
     el.addEventListener('pointerdown', onPointerDown);
     el.addEventListener('pointermove', onPointerMove, { passive: false });
     el.addEventListener('pointerup', onPointerEnd);
-    el.addEventListener('pointercancel', onPointerEnd);
+    el.addEventListener('pointercancel', onPointerCancel);
+    el.addEventListener('lostpointercapture', onPointerCancel);
     return () => {
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
-      el.removeEventListener('touchend', onPointerEnd);
-      el.removeEventListener('touchcancel', onPointerEnd);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', cancelPull);
       el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('pointermove', onPointerMove);
       el.removeEventListener('pointerup', onPointerEnd);
-      el.removeEventListener('pointercancel', onPointerEnd);
+      el.removeEventListener('pointercancel', onPointerCancel);
+      el.removeEventListener('lostpointercapture', onPointerCancel);
+      cancelPull();
     };
-  }, [ref, onRefresh, safeActivationDistance, safeMaxDistance, enabled, refreshing]);
+  }, [ref, refresh, safeActivationDistance, safeMaxDistance, enabled]);
 
   return { pulled, refreshing, willRelease: pulled >= safeActivationDistance };
 }

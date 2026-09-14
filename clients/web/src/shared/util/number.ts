@@ -1,10 +1,3 @@
-interface NormalizeDurationMsOptions {
-  fallback: number;
-  min?: number;
-  max?: number;
-  zeroDisables?: boolean;
-}
-
 interface NormalizeIntegerOptions {
   fallback: number;
   min?: number;
@@ -61,7 +54,7 @@ export function normalizeDurationMs(
     min = 0,
     max = Number.MAX_SAFE_INTEGER,
     zeroDisables = false,
-  }: NormalizeDurationMsOptions,
+  }: NormalizeIntegerOptions,
 ): number {
   return normalizeInteger(value, { fallback, min, max, zeroDisables });
 }

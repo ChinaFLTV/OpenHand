@@ -3,7 +3,7 @@ interface OverlayEscapeLayer {
   requestClose: () => void;
 }
 
-let layers: OverlayEscapeLayer[] = [];
+let layers: Array<{ layer: OverlayEscapeLayer }> = [];
 let listenerAttached = false;
 
 function isEscapeEvent(event: KeyboardEvent): boolean {
@@ -21,7 +21,7 @@ function handleEscape(event: KeyboardEvent): void {
   event.preventDefault();
   queueMicrotask(() => {
     if (layers[layers.length - 1] !== target) return;
-    if (target.canClose()) target.requestClose();
+    if (target.layer.canClose()) target.layer.requestClose();
   });
 }
 
@@ -43,13 +43,14 @@ function detachListenerIfIdle(): void {
 export function registerOverlayEscapeLayer(
   layer: OverlayEscapeLayer,
 ): () => void {
-  layers.push(layer);
+  const registration = { layer };
+  layers.push(registration);
   attachListener();
   let registered = true;
   return () => {
     if (!registered) return;
     registered = false;
-    layers = layers.filter((item) => item !== layer);
+    layers = layers.filter((item) => item !== registration);
     detachListenerIfIdle();
   };
 }

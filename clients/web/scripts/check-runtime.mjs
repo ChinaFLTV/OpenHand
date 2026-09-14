@@ -178,6 +178,19 @@ try {
   removeLayer();
   removeLayer();
 
+  const sharedLayer = new class {
+    enabled = true;
+    canClose() { return this.enabled; }
+    requestClose() { closed++; }
+  }();
+  const removeFirstRegistration = registerOverlayEscapeLayer(sharedLayer);
+  const removeSecondRegistration = registerOverlayEscapeLayer(sharedLayer);
+  removeFirstRegistration();
+  browser.dispatchEvent(Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' }));
+  await Promise.resolve();
+  assert.equal(closed, 2, '移除同一浮层的旧登记不能误删新登记');
+  removeSecondRegistration();
+
   const { subscribeSessionEvents } = await server.ssrLoadModule('/src/api/session_events.ts');
   let eventSource;
   replaceGlobal('EventSource', class extends EventTarget {
@@ -246,6 +259,13 @@ try {
   await oldRefresh;
   assert.equal(getDialogExitDurationMs(), 120, '旧元数据不能覆盖新会话的设置');
   const { BoundedTextCache } = await server.ssrLoadModule('/src/shared/util/bounded_text_cache.ts');
+  for (const invalid of [NaN, Infinity, -Infinity, -1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => new BoundedTextCache(invalid, 12), RangeError, '条目数异常时必须拒绝创建缓存');
+    assert.throws(() => new BoundedTextCache(2, invalid), RangeError, '字符预算异常时必须拒绝创建缓存');
+  }
+  const disabledCache = new BoundedTextCache(0, 0);
+  disabledCache.set('', '');
+  assert.equal(disabledCache.get(''), undefined, '零容量缓存不能保留条目');
   const textCache = new BoundedTextCache(2, 12);
   textCache.set('甲', '一');
   textCache.set('乙', '二');
