@@ -393,26 +393,6 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
         ),
         if (_needsCollapse && !_expanded) ...[
           kOpenHandGap6,
-          ClipRect(
-            child: Column(
-              children: [
-                Container(
-                  height: 32,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        colorScheme.surface.withValues(alpha: 0),
-                        colorScheme.surface.withValues(alpha: 0.80),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          kOpenHandGap4,
           OpenHandTapRegion(
             onTap: _expand,
             child: Container(

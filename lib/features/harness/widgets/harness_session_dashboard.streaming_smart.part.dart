@@ -188,46 +188,37 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
           kOpenHandGap8,
         ],
         if (children != null && children.isNotEmpty)
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.white],
-              stops: [0.0, 0.08],
-            ).createShader(bounds),
-            blendMode: BlendMode.dstIn,
-            child: () {
-              // 仅让最新区块淡入上移，已有区块保持稳定。
-              Widget animatedLast(Widget w) => TweenAnimationBuilder<double>(
-                key: ValueKey<int>(_contentRevision),
-                tween: Tween<double>(begin: 0.0, end: 1.0),
-                duration: openHandMotionDuration(
-                  context,
-                  _kStreamingBlockRevealDuration,
+          () {
+            // 仅让最新区块淡入上移，已有区块保持稳定。
+            Widget animatedLast(Widget w) => TweenAnimationBuilder<double>(
+              key: ValueKey<int>(_contentRevision),
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              duration: openHandMotionDuration(
+                context,
+                _kStreamingBlockRevealDuration,
+              ),
+              curve: kOpenHandSwitchInCurve,
+              builder: (_, v, child) => Opacity(
+                opacity: clampUnitInterval(v),
+                child: Transform.translate(
+                  offset: Offset(0.0, 6.0 * (1.0 - v)),
+                  child: child,
                 ),
-                curve: kOpenHandSwitchInCurve,
-                builder: (_, v, child) => Opacity(
-                  opacity: clampUnitInterval(v),
-                  child: Transform.translate(
-                    offset: Offset(0.0, 6.0 * (1.0 - v)),
-                    child: child,
-                  ),
-                ),
-                child: w,
-              );
-              if (children.length == 1) {
-                return animatedLast(children.single);
-              }
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ...children.take(children.length - 1),
-                  animatedLast(children.last),
-                ],
-              );
-            }(),
-          ),
+              ),
+              child: w,
+            );
+            if (children.length == 1) {
+              return animatedLast(children.single);
+            }
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...children.take(children.length - 1),
+                animatedLast(children.last),
+              ],
+            );
+          }(),
         const _HeStreamingIndicator(),
       ],
     );

@@ -2072,16 +2072,8 @@ button.oh-message-context-capsule {
   padding: 10px 11px;
   border: 1px solid color-mix(in srgb, var(--m3-primary) 24%, var(--m3-outline-variant));
   border-radius: 15px;
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--m3-primary-container) 62%, var(--m3-surface)) 0%,
-      color-mix(in srgb, var(--m3-tertiary-container) 38%, var(--m3-surface)) 100%
-    );
+  background: color-mix(in srgb, var(--m3-primary-container) 58%, var(--m3-surface));
   color: var(--m3-on-surface);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #ffffff 36%, transparent),
-    0 12px 30px -28px color-mix(in srgb, var(--m3-primary) 70%, transparent);
 }
 
 .oh-message-content-preview-icon {
@@ -9595,7 +9587,6 @@ button.oh-composer-pill:not(:disabled):hover {
   font-size: 0.9rem;
   line-height: 1.58;
   opacity: 0.82;
-  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
 }
 .oh-html-progressive-actions {
   display: flex;
@@ -9649,21 +9640,13 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-html-body-placeholder span::after {
   content: '';
   position: absolute;
-  inset: -40% auto -40% -45%;
-  width: 35%;
+  inset: 0;
   pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, currentColor 12%, transparent),
-    transparent
-  );
-  transform: translate3d(0, 0, 0);
-  will-change: transform;
-  animation: oh-placeholder-sweep 1.4s ease-in-out infinite;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  animation: oh-placeholder-pulse 1.4s ease-in-out infinite;
 }
-@keyframes oh-placeholder-sweep {
-  to { transform: translate3d(420%, 0, 0); }
+@keyframes oh-placeholder-pulse {
+  50% { opacity: 0.35; }
 }
 @media (prefers-reduced-motion: reduce) {
   .oh-markdown-render-placeholder span::after,

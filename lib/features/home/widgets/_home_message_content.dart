@@ -9,6 +9,7 @@ const int _plainTextCollapsedPreviewMaxChars = 1600;
 const double _messageResponsePreviewMaxHeight = 240;
 const double _toolResultPreviewMaxHeight = 176;
 const double _collapsedMessageFadeHeight = 40;
+const double _collapsedMessageFadeOpacity = 0.86;
 const Duration _collapsedMessageFadeDuration = kOpenHandMotion160;
 const Duration _collapsedPreviewScrollSettleDelay = Duration(milliseconds: 220);
 const Duration _streamingHtmlDotsDuration = Duration(milliseconds: 1100);
@@ -236,14 +237,7 @@ class _CollapsedPreviewFade extends StatelessWidget {
           child: Container(
             height: _collapsedMessageFadeHeight,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  fadeColor.withValues(alpha: 0),
-                  fadeColor.withValues(alpha: 0.94),
-                ],
-              ),
+              color: fadeColor.withValues(alpha: _collapsedMessageFadeOpacity),
             ),
           ),
         ),

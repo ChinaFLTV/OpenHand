@@ -4686,8 +4686,7 @@ function ReasoningCollapsibleBody({
   }, [scrollStateKey, settleCollapsedScroll, useCollapsedScroll]);
 
   // 折叠态设置 max-height；正式响应展开态不设人为上限，避免极长正文被裁剪。
-  // 底部渐隐用 overlay 而不是 mask-image，避免和流式文本 reveal 的 inline
-  // mask 叠加后让已稳定文本在折叠态反复明暗闪动。
+  // 底部用纯色遮罩而不是渐变/mask，避免和流式文本 reveal 叠出闪动。
   return (
     <div
       ref={bodyRef}
@@ -4713,7 +4712,7 @@ function ReasoningCollapsibleBody({
           class={`oh-reasoning-collapsible-fade${atBottom ? ' is-hidden' : ''}${scrollingCollapsedBody ? ' is-scroll-sync' : ''}`}
           aria-hidden="true"
           style={{
-            background: `linear-gradient(to bottom, transparent, ${fadeBackground})`,
+            background: fadeBackground,
           }}
         />
       ) : null}

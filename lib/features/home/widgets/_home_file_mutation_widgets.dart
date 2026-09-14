@@ -3274,13 +3274,9 @@ class _BulkUndoOverlay extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                cs.primary.withValues(alpha: 0.10),
-                cs.primary.withValues(alpha: 0.04),
-              ],
+            color: Color.alphaBlend(
+              cs.primary.withValues(alpha: 0.08),
+              cs.surface.withValues(alpha: 0.78),
             ),
           ),
           alignment: Alignment.center,
@@ -3844,13 +3840,9 @@ class _RoundFileMutationSummaryCardState
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.primary.withValues(alpha: 0.14),
-            cs.primary.withValues(alpha: 0.04),
-          ],
+        color: Color.alphaBlend(
+          cs.primary.withValues(alpha: 0.10),
+          cs.surfaceContainerHigh,
         ),
       ),
       child: Row(
