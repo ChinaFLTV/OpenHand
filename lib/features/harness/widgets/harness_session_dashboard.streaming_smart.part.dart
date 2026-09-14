@@ -112,7 +112,11 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
         : const <md.InlineSyntax>[];
 
     final builders = <String, MarkdownElementBuilder>{
-      'pre': _HeDiffBuilder(colorScheme: widget.colorScheme),
+      'pre': OpenHandHighlightedCodeBlockBuilder(
+        theme: widget.theme,
+        baseColor: widget.colorScheme.onSurface,
+        selectable: false,
+      ),
       if (widget.filePathRoots.isNotEmpty) ...{
         messageResolvedPathElementTag: _HeFilePathBuilder(
           textColor: widget.colorScheme.onSurface,

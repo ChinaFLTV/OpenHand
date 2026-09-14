@@ -16,6 +16,7 @@ import {
 } from '../shared/ui/transcript_scroll_activity';
 import { showSnackbar } from './Snackbar';
 import { MermaidView } from './MermaidView';
+import { t } from '../i18n';
 import {
   downloadBlobWithAnchor,
   revokeObjectUrlQuietly,
@@ -733,6 +734,51 @@ interface CodeBlockSurfaceProps {
   children: any;
 }
 
+function WrapLinesIcon({ wrapped }: { wrapped: boolean }) {
+  const common = svgIconProps({ size: 16 });
+  if (wrapped) {
+    return (
+      <svg {...common}>
+        <path d="M3 6h18" />
+        <path d="M3 12h15a3 3 0 1 1 0 6h-4" />
+        <path d="m16 16-2 2 2 2" />
+        <path d="M3 18h7" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M3 6h18" />
+      <path d="M3 12h18" />
+      <path d="M3 18h18" />
+    </svg>
+  );
+}
+
+function CodeBlockWrapButton({
+  wrapLines,
+  onToggle,
+}: {
+  wrapLines: boolean;
+  onToggle: () => void;
+}) {
+  const label = wrapLines
+    ? t('codeBlock.unwrap', '取消换行')
+    : t('codeBlock.wrap', '自动换行');
+  return (
+    <button
+      type="button"
+      class={`oh-code-block-icon-btn oh-tap-press${wrapLines ? ' is-active' : ''}`}
+      title={label}
+      aria-label={label}
+      aria-pressed={wrapLines}
+      onClick={onToggle}
+    >
+      <WrapLinesIcon wrapped={wrapLines} />
+    </button>
+  );
+}
+
 type InlineDiffLineKind = 'context' | 'addition' | 'deletion' | 'folded';
 
 interface InlineDiffLine {
@@ -879,16 +925,17 @@ function downloadInlineDiff(source: string, lang: string | null): boolean {
   try {
     const blob = new Blob([source], { type: 'text/x-diff;charset=utf-8' });
     downloadBlobWithAnchor(blob, `diff_block.${ext}`);
-    showSnackbar('Diff 已下载', { tone: 'success' });
+    showSnackbar(t('codeBlock.diffDownloaded', 'Diff 已下载'), { tone: 'success' });
     return true;
   } catch {
-    showSnackbar('下载 Diff 失败', { tone: 'error' });
+    showSnackbar(t('codeBlock.diffDownloadFailed', '下载 Diff 失败'), { tone: 'error' });
     return false;
   }
 }
 
 function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: string }) {
   const [showFull, setShowFull] = useState(false);
+  const [wrapLines, setWrapLines] = useState(false);
   const { active: copied, trigger: showCopied, reset: resetCopied } = useTransientFlag();
   const {
     active: downloaded,
@@ -914,32 +961,39 @@ function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: 
       <div class="oh-inline-diff-header">
         <span class="oh-inline-diff-chip">diff</span>
         <span style={{ flex: 1 }} />
+        <CodeBlockWrapButton
+          wrapLines={wrapLines}
+          onToggle={() => setWrapLines((value) => !value)}
+        />
         <button
           type="button"
-          class="oh-code-block-copy"
+          class="oh-code-block-copy oh-tap-press"
           onClick={async () => {
             if (await copyTextToClipboard(plainText)) {
               showCopied();
-              showSnackbar('Diff 内容已复制', { tone: 'success' });
+              showSnackbar(t('codeBlock.diffCopied', 'Diff 内容已复制'), { tone: 'success' });
             } else {
-              showSnackbar('复制 Diff 失败，请检查浏览器权限', { tone: 'error' });
+              showSnackbar(t('codeBlock.diffCopyFailed', '复制 Diff 失败，请检查浏览器权限'), { tone: 'error' });
             }
           }}
-        >{copied ? '已复制' : '复制'}</button>
+        >{copied ? t('common.copied', '已复制') : t('common.copy', '复制')}</button>
         <button
           type="button"
-          class="oh-code-block-copy"
+          class="oh-code-block-copy oh-tap-press"
           onClick={() => {
             if (downloadInlineDiff(plainText, lang)) {
               showDownloaded();
             }
           }}
-        >{downloaded ? '已下载' : '下载'}</button>
+        >{downloaded ? t('codeBlock.downloaded', '已下载') : t('codeBlock.download', '下载')}</button>
       </div>
       {lines.length === 0 ? (
         <div class="oh-inline-diff-empty">内容相同或不可对比。</div>
       ) : (
-        <div class="oh-inline-diff-body" data-expanded={showFull ? 'true' : 'false'}>
+        <div
+          class={`oh-inline-diff-body${wrapLines ? ' is-wrap' : ''}`}
+          data-expanded={showFull ? 'true' : 'false'}
+        >
           {visibleLines.map((line, index) => (
             <div key={`${index}-${line.kind}-${line.lineNumber ?? ''}-${line.text}`} class={`oh-inline-diff-row is-${line.kind}`}>
               <span class="oh-inline-diff-accent" aria-hidden />
@@ -977,12 +1031,18 @@ function CodeBlockSurface({
   children,
 }: CodeBlockSurfaceProps) {
   const [mermaidViewActive, setMermaidViewActive] = useState(false);
+  const [wrapLines, setWrapLines] = useState(false);
   const isMermaid = (lang ?? '').trim().toLowerCase() === 'mermaid';
   const isHtmlLang = lang != null && /^x?html\d?$/i.test(lang);
   const effectivePlainText = plainText.replace(/\n$/, '');
   if (looksLikeInlineDiffCodeBlock(lang, effectivePlainText)) {
     return <InlineDiffBlock lang={lang} plainText={effectivePlainText} />;
   }
+  const bodyClass = [
+    codeClassName,
+    'oh-code-block-body',
+    wrapLines ? 'is-wrap' : 'is-scroll',
+  ].filter(Boolean).join(' ');
   return (
     <div class="oh-code-block">
       <div class="oh-code-block-header">
@@ -991,46 +1051,39 @@ function CodeBlockSurface({
         {isMermaid ? (
           <button
             type="button"
-            class="oh-code-block-copy"
-            style={{ marginRight: 8 }}
+            class="oh-code-block-copy oh-tap-press"
             onClick={() => setMermaidViewActive((v) => !v)}
-          >{mermaidViewActive ? '代码' : '视图'}</button>
+          >{mermaidViewActive ? t('codeBlock.code', '代码') : t('codeBlock.view', '视图')}</button>
         ) : null}
         {isHtmlLang ? (
           <button
             type="button"
-            class="oh-code-block-copy"
-            style={{ marginRight: 8 }}
+            class="oh-code-block-copy oh-tap-press"
             onClick={() => openHtmlInNewTab(effectivePlainText)}
-          >浏览器打开</button>
+          >{t('codeBlock.openInBrowser', '浏览器打开')}</button>
         ) : null}
+        <CodeBlockWrapButton
+          wrapLines={wrapLines}
+          onToggle={() => setWrapLines((value) => !value)}
+        />
         <button
           type="button"
-          class="oh-code-block-copy"
+          class="oh-code-block-copy oh-tap-press"
           onClick={async () => {
             if (await copyTextToClipboard(effectivePlainText)) {
-              showSnackbar('代码已复制', { tone: 'success' });
+              showSnackbar(t('codeBlock.copySuccess', '代码已复制'), { tone: 'success' });
             } else {
-              showSnackbar('复制失败，请检查浏览器权限', { tone: 'error' });
+              showSnackbar(t('codeBlock.copyFailed', '复制失败，请检查浏览器权限'), { tone: 'error' });
             }
           }}
-        >复制</button>
+        >{t('common.copy', '复制')}</button>
       </div>
       {isMermaid && mermaidViewActive ? (
         <MermaidView source={effectivePlainText} />
       ) : (
         <code
-          className={codeClassName}
           {...(codeRest as any)}
-          style={{
-            display: 'block',
-            padding: '0.75rem 1rem',
-            overflowX: 'auto',
-            fontSize: '0.86em',
-            lineHeight: 1.6,
-            background: 'transparent',
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-          }}
+          className={bodyClass}
         >
           {children}
         </code>

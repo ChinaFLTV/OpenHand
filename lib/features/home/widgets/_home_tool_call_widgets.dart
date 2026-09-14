@@ -742,7 +742,6 @@ class _ToolOutputPanel extends StatefulWidget {
 
 class _ToolOutputPanelState extends State<_ToolOutputPanel> {
   bool _isExpanded = false;
-  bool _isWrapped = false;
   _ToolOutputPreview? _cachedPreview;
   String? _cachedPreviewKey;
 
@@ -750,13 +749,6 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
     _markToolCardInteractiveTap(context);
     setState(() {
       _isExpanded = !_isExpanded;
-    });
-  }
-
-  void _toggleWrapped() {
-    _markToolCardInteractiveTap(context);
-    setState(() {
-      _isWrapped = !_isWrapped;
     });
   }
 
@@ -809,33 +801,10 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextButton.icon(
-                  onPressed: _toggleWrapped,
-                  icon: Icon(
-                    _isWrapped
-                        ? Icons.wrap_text_rounded
-                        : Icons.segment_rounded,
-                    size: 14,
-                  ),
-                  label: Text(
-                    _isWrapped
-                        ? AppLocalizations.of(context)!.tlCallUnwrap
-                        : AppLocalizations.of(context)!.tlCallWrapLines,
-                  ),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    minimumSize: const Size(0, 28),
-                    foregroundColor: widget.theme.colorScheme.primary,
-                    textStyle: widget.theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (isLong) ...[
-                  kOpenHandHGap8,
+            if (isLong)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   TextButton.icon(
                     onPressed: _toggleExpanded,
                     icon: Icon(
@@ -879,8 +848,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                     ),
                   ],
                 ],
-              ],
-            ),
+              ),
           ],
         ),
         kOpenHandGap8,
@@ -893,7 +861,6 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
               ? widget.theme.colorScheme.onErrorContainer
               : widget.theme.colorScheme.onSurface,
           accentColor: widget.isError ? widget.theme.colorScheme.error : null,
-          wrapLines: _isWrapped,
         ),
       ],
     );
@@ -1355,9 +1322,10 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
                     alignment: WrapAlignment.end,
                     children: [
                       _ToolContentDialogIconButton(
-                        tooltip: _wrapLines
-                            ? AppLocalizations.of(context)!.tlCallUnwrap
-                            : AppLocalizations.of(context)!.tlCallWrapLines,
+                        tooltip: openHandCodeWrapToggleLabel(
+                          context,
+                          wrapLines: _wrapLines,
+                        ),
                         icon: _wrapLines
                             ? Icons.wrap_text_rounded
                             : Icons.segment_rounded,

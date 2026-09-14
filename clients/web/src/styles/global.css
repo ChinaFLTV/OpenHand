@@ -2053,7 +2053,8 @@ button.oh-message-context-capsule {
 }
 
 .oh-message-card.is-reasoning .oh-code-block-lang,
-.oh-message-card.is-reasoning .oh-code-block-copy {
+.oh-message-card.is-reasoning .oh-code-block-copy,
+.oh-message-card.is-reasoning .oh-code-block-icon-btn {
   color: inherit;
   background: color-mix(in srgb, currentColor 11%, transparent);
 }
@@ -9822,13 +9823,10 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-code-block-header {
   display: flex;
   align-items: center;
-  /* 关键：padding 6px / gap 0 + 按钮水平 padding 6px：让"代码 / 复制"
-     按钮之间"胶囊外缘到胶囊外缘"的视觉间隙 = 6+0+6 = 12px，与到
-     右边沿的 6+6 = 12px 严格相等，整排看上去整齐规整。 */
-  padding: 6px;
+  padding: 6px 8px;
   background: var(--m3-surface-container-high, rgba(0,0,0,0.05));
   border-bottom: 1px solid var(--m3-outline-variant, rgba(127,127,127,0.2));
-  gap: 0;
+  gap: 4px;
 }
 .oh-code-block-lang {
   font-size: 0.78em;
@@ -9853,6 +9851,45 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-code-block-copy:hover {
   background: var(--m3-surface-container-high, rgba(0,0,0,0.1));
+}
+.oh-code-block-icon-btn {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--m3-on-surface-variant, #666);
+  background: var(--m3-surface-container-highest, rgba(0,0,0,0.06));
+  cursor: pointer;
+}
+.oh-code-block-icon-btn:hover {
+  background: var(--m3-surface-container-high, rgba(0,0,0,0.1));
+}
+.oh-code-block-icon-btn.is-active {
+  color: var(--m3-on-primary-container, var(--m3-on-surface, #202124));
+  background: var(--m3-primary-container, rgba(0,100,200,0.16));
+}
+.oh-code-block-body {
+  display: block;
+  padding: 0.75rem 1rem;
+  font-size: 0.86em;
+  line-height: 1.6;
+  background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.oh-code-block-body.is-scroll {
+  overflow-x: auto;
+  white-space: pre;
+}
+.oh-code-block-body.is-wrap {
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .oh-inline-diff-block {
@@ -9929,6 +9966,14 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-inline-diff-code {
   padding: 3px 18px 3px 14px;
   white-space: pre;
+}
+.oh-inline-diff-body.is-wrap .oh-inline-diff-row {
+  grid-template-columns: 4px 58px minmax(0, 1fr);
+}
+.oh-inline-diff-body.is-wrap .oh-inline-diff-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .oh-inline-diff-row.is-folded .oh-inline-diff-code {
   color: var(--m3-on-surface-variant, #666);

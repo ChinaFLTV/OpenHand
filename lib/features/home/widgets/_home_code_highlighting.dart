@@ -9,6 +9,8 @@ const int _highlightSkipThresholdChars = 80 * kBytesPerKiB;
 /// （首帧纯文本，后续帧补色），避免多 tool_call 同帧 mount 时把主线程撑爆。
 /// _buildCodeBody 的 null 回退确保即使 span 为 null 也能显示内容。
 const int _highlightDeferThresholdChars = 256;
+const double _kCodeBlockToolbarActionSize = 30;
+const double _kCodeBlockToolbarIconSize = 16;
 const Duration _tempPreviewCleanupTotalTimeout = Duration(seconds: 20);
 const Duration _tempPreviewWriteTimeout = Duration(seconds: 30);
 const BoundedDeletePolicy _tempPreviewDeletePolicy = BoundedDeletePolicy(
@@ -502,6 +504,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
   late bool _showFull;
   bool _copied = false;
   bool _downloaded = false;
+  bool _wrapLines = false;
   Timer? _copiedResetTimer;
   Timer? _downloadedResetTimer;
 
@@ -560,6 +563,16 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     _rememberExpandedState();
   }
 
+  void _toggleWrapLines() {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    setState(() {
+      _wrapLines = !_wrapLines;
+      if (_wrapLines && _horizontalController.hasClients) {
+        _horizontalController.jumpTo(0);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -608,8 +621,10 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
             _InlineCodexDiffHeader(
               copied: _copied,
               downloaded: _downloaded,
+              wrapLines: _wrapLines,
               onCopy: _copyDiff,
               onDownload: () => _downloadDiff(widget.language),
+              onToggleWrap: _toggleWrapLines,
               palette: palette,
             ),
             if (_lines.isEmpty)
@@ -632,13 +647,16 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
                   final viewportWidth = constraints.maxWidth.isFinite
                       ? constraints.maxWidth
                       : 640.0;
-                  final contentWidth = codeBodyContentWidth(
-                    viewportWidth: viewportWidth,
-                    maxTextLength: maxTextLength,
-                  );
+                  final contentWidth = _wrapLines
+                      ? viewportWidth
+                      : codeBodyContentWidth(
+                          viewportWidth: viewportWidth,
+                          maxTextLength: maxTextLength,
+                        );
                   return _CodeLineViewport(
                     height: bodyHeight,
                     contentWidth: contentWidth,
+                    wrapLines: _wrapLines,
                     itemCount: visibleLines.length,
                     verticalController: _verticalController,
                     horizontalController: _horizontalController,
@@ -651,6 +669,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
                         language: widget.language,
                         baseStyle: baseStyle,
                         palette: palette,
+                        wrapLines: _wrapLines,
                         cacheKey:
                             'inline-diff|$_contentKey|'
                             '${brightness.name}|${codeTheme.name}|'
@@ -762,15 +781,19 @@ class _InlineCodexDiffHeader extends StatelessWidget {
   const _InlineCodexDiffHeader({
     required this.copied,
     required this.downloaded,
+    required this.wrapLines,
     required this.onCopy,
     required this.onDownload,
+    required this.onToggleWrap,
     required this.palette,
   });
 
   final bool copied;
   final bool downloaded;
+  final bool wrapLines;
   final VoidCallback onCopy;
   final VoidCallback onDownload;
+  final VoidCallback onToggleWrap;
   final _CodexDiffPalette palette;
 
   @override
@@ -791,6 +814,18 @@ class _InlineCodexDiffHeader extends StatelessWidget {
               foregroundColor: palette.mutedText,
             ),
             const Spacer(),
+            _CodeBlockCircularAction(
+              label: openHandCodeWrapToggleLabel(context, wrapLines: wrapLines),
+              icon: wrapLines ? Icons.wrap_text_rounded : Icons.segment_rounded,
+              backgroundColor: wrapLines
+                  ? palette.foldedBackground
+                  : palette.footerBorder,
+              foregroundColor: wrapLines
+                  ? palette.mutedText
+                  : palette.footerForeground,
+              onTap: onToggleWrap,
+            ),
+            kOpenHandHGap4,
             _InlineDiffPill(
               label: copied
                   ? openHandCopiedLabel(context)
@@ -876,6 +911,66 @@ class _InlineDiffPill extends StatelessWidget {
   }
 }
 
+class _CodeBlockCircularAction extends StatelessWidget {
+  const _CodeBlockCircularAction({
+    required this.label,
+    required this.icon,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: _kCodeBlockToolbarActionSize,
+          height: _kCodeBlockToolbarActionSize,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: openHandMotionDuration(context, kOpenHandMotion160),
+              switchInCurve: kOpenHandEntranceCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child),
+              ),
+              child: Icon(
+                icon,
+                key: ValueKey<IconData>(icon),
+                size: _kCodeBlockToolbarIconSize,
+                color: foregroundColor,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: MicroPressFeedback(scale: 0.9, child: button),
+      ),
+    );
+  }
+}
+
 class _HighlightedCodePanel extends StatefulWidget {
   const _HighlightedCodePanel({
     required this.content,
@@ -915,6 +1010,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   bool _copying = false;
   bool _downloading = false;
   bool _mermaidViewActive = false;
+  late bool _wrapLines;
   Timer? _copiedResetTimer;
   Timer? _downloadedResetTimer;
   _CodeBlockPalette? _cachedPalette;
@@ -933,6 +1029,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   @override
   void initState() {
     super.initState();
+    _wrapLines = widget.wrapLines;
     _lineCount = _countLines(widget.content);
   }
 
@@ -976,6 +1073,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _downloadedResetTimer?.cancel();
       _downloaded = false;
     }
+    if (oldWidget.wrapLines != widget.wrapLines) {
+      _wrapLines = widget.wrapLines;
+    }
     _ensureHighlightedSpan();
   }
 
@@ -1005,6 +1105,13 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
     setState(() {
       _mermaidViewActive = !_mermaidViewActive;
+    });
+  }
+
+  void _toggleWrapLines() {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    setState(() {
+      _wrapLines = !_wrapLines;
     });
   }
 
@@ -1129,6 +1236,19 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                     kOpenHandHGap4,
                   ],
                   _buildToolbarAction(
+                    label: openHandCodeWrapToggleLabel(
+                      context,
+                      wrapLines: _wrapLines,
+                    ),
+                    icon: _wrapLines
+                        ? Icons.wrap_text_rounded
+                        : Icons.segment_rounded,
+                    palette: palette,
+                    active: _wrapLines,
+                    onTap: _toggleWrapLines,
+                  ),
+                  kOpenHandHGap4,
+                  _buildToolbarAction(
                     label: copyLabel,
                     icon: _copied
                         ? Icons.check_rounded
@@ -1232,13 +1352,14 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     // EditableText 层在大 TextSpan 上的 O(n) layout 开销。
     final useSelectable =
         widget.selectable && widget.content.length <= 8 * kBytesPerKiB;
-    if (widget.wrapLines) {
-      return useSelectable ? SelectableText.rich(span) : RichText(text: span);
+    final wrap = _wrapLines;
+    final text = useSelectable
+        ? SelectableText.rich(span, softWrap: wrap)
+        : RichText(text: span, softWrap: wrap);
+    if (wrap) {
+      return SizedBox(width: double.infinity, child: text);
     }
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: useSelectable ? SelectableText.rich(span) : RichText(text: span),
-    );
+    return SingleChildScrollView(scrollDirection: Axis.horizontal, child: text);
   }
 
   void _ensureHighlightedSpan() {
@@ -1399,47 +1520,14 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     required VoidCallback onTap,
     bool active = false,
   }) {
-    final button = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: kOpenHandPillBorderRadius,
-        child: Ink(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: active ? palette.badgeColor : palette.actionColor,
-            borderRadius: kOpenHandPillBorderRadius,
-          ),
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion160),
-              switchInCurve: kOpenHandEntranceCurve,
-              switchOutCurve: kOpenHandSwitchOutCurve,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(scale: animation, child: child),
-              ),
-              child: Icon(
-                icon,
-                key: ValueKey<IconData>(icon),
-                size: 16,
-                color: active
-                    ? palette.badgeTextColor
-                    : palette.actionTextColor,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    return Tooltip(
-      message: label,
-      child: Semantics(
-        button: true,
-        label: label,
-        child: MicroPressFeedback(scale: 0.9, child: button),
-      ),
+    return _CodeBlockCircularAction(
+      label: label,
+      icon: icon,
+      backgroundColor: active ? palette.badgeColor : palette.actionColor,
+      foregroundColor: active
+          ? palette.badgeTextColor
+          : palette.actionTextColor,
+      onTap: onTap,
     );
   }
 

@@ -1868,10 +1868,11 @@ double codeBodyContentWidth({
 
 /// 代码 / diff 行视图的双向滚动外壳。
 ///
-/// 纵向由 [verticalController] 驱动列表本体，横向由 [horizontalController]
-/// 承载超宽内容；[PrimaryScrollController.none] 用来切断与页面主滚动的耦合，
-/// 否则代码块内的滚轮事件会一路冒泡到会话列表。内联 diff 面板与文件改动卡片
-/// 此前各写了一份完全相同的六层嵌套。
+/// 纵向由 [verticalController] 驱动列表本体；默认横向由
+/// [horizontalController] 承载超宽内容。开启换行时取消横向滚动，
+/// 行高随内容增长，由列表自身纵向消化溢出。
+/// [PrimaryScrollController.none] 用来切断与页面主滚动的耦合，
+/// 否则代码块内的滚轮事件会一路冒泡到会话列表。
 class _CodeLineViewport extends StatelessWidget {
   const _CodeLineViewport({
     required this.height,
@@ -1880,6 +1881,7 @@ class _CodeLineViewport extends StatelessWidget {
     required this.itemBuilder,
     required this.verticalController,
     required this.horizontalController,
+    this.wrapLines = false,
   });
 
   final double height;
@@ -1888,32 +1890,33 @@ class _CodeLineViewport extends StatelessWidget {
   final IndexedWidgetBuilder itemBuilder;
   final ScrollController verticalController;
   final ScrollController horizontalController;
+  final bool wrapLines;
 
   @override
   Widget build(BuildContext context) {
+    final list = SelectionArea(
+      child: ListView.builder(
+        controller: verticalController,
+        primary: false,
+        padding: EdgeInsets.zero,
+        itemExtent: wrapLines ? null : kCodeBodyRowExtent,
+        itemCount: itemCount,
+        itemBuilder: itemBuilder,
+      ),
+    );
     return SizedBox(
       height: height,
       child: PrimaryScrollController.none(
         child: OpenHandSafeScrollbar(
           controller: verticalController,
-          child: SingleChildScrollView(
-            controller: horizontalController,
-            scrollDirection: Axis.horizontal,
-            primary: false,
-            child: SizedBox(
-              width: contentWidth,
-              child: SelectionArea(
-                child: ListView.builder(
-                  controller: verticalController,
+          child: wrapLines
+              ? list
+              : SingleChildScrollView(
+                  controller: horizontalController,
+                  scrollDirection: Axis.horizontal,
                   primary: false,
-                  padding: EdgeInsets.zero,
-                  itemExtent: kCodeBodyRowExtent,
-                  itemCount: itemCount,
-                  itemBuilder: itemBuilder,
+                  child: SizedBox(width: contentWidth, child: list),
                 ),
-              ),
-            ),
-          ),
         ),
       ),
     );
@@ -1931,6 +1934,7 @@ class _CodexDiffLineRow extends StatelessWidget {
     required this.cacheKey,
     this.foldedExpanded = false,
     this.onToggleFold,
+    this.wrapLines = false,
   });
 
   final _CodexDiffLine line;
@@ -1942,6 +1946,7 @@ class _CodexDiffLineRow extends StatelessWidget {
   final String cacheKey;
   final bool foldedExpanded;
   final VoidCallback? onToggleFold;
+  final bool wrapLines;
 
   Color get _background {
     return switch (line.kind) {
@@ -1982,12 +1987,16 @@ class _CodexDiffLineRow extends StatelessWidget {
       );
     }
     return ConstrainedBox(
-      constraints: BoxConstraints(minWidth: minWidth),
+      constraints: wrapLines
+          ? BoxConstraints.tightFor(width: minWidth)
+          : BoxConstraints(minWidth: minWidth),
       child: DecoratedBox(
         decoration: BoxDecoration(color: _background),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: wrapLines ? MainAxisSize.max : MainAxisSize.min,
+          crossAxisAlignment: wrapLines
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.stretch,
           children: [
             ColoredBox(color: _accentColor, child: kOpenHandHGap4),
             SizedBox(
@@ -2007,17 +2016,24 @@ class _CodexDiffLineRow extends StatelessWidget {
               ),
             ),
             Container(width: 1, color: palette.separator),
-            Padding(
-              padding: const EdgeInsets.only(left: 14, right: 18),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text.rich(
-                  _highlightedCodeSpan(),
-                  softWrap: false,
-                  overflow: TextOverflow.visible,
-                ),
-              ),
-            ),
+            wrapLines
+                ? Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 14, right: 18),
+                      child: Text.rich(_highlightedCodeSpan(), softWrap: true),
+                    ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.only(left: 14, right: 18),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text.rich(
+                        _highlightedCodeSpan(),
+                        softWrap: false,
+                        overflow: TextOverflow.visible,
+                      ),
+                    ),
+                  ),
           ],
         ),
       ),

@@ -410,6 +410,39 @@ String openHandCopyLabel(BuildContext context) {
   );
 }
 
+String openHandWrapLinesLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '自动换行',
+    zhHant: '自動換行',
+    en: 'Wrap lines',
+    fr: 'Renvoyer à la ligne',
+    de: 'Zeilen umbrechen',
+    ja: '行を折り返す',
+  );
+}
+
+String openHandUnwrapLinesLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '取消换行',
+    zhHant: '取消換行',
+    en: 'Unwrap lines',
+    fr: 'Annuler le retour à la ligne',
+    de: 'Umbruch aufheben',
+    ja: '折り返しを解除',
+  );
+}
+
+String openHandCodeWrapToggleLabel(
+  BuildContext context, {
+  required bool wrapLines,
+}) {
+  return wrapLines
+      ? openHandUnwrapLinesLabel(context)
+      : openHandWrapLinesLabel(context);
+}
+
 String openHandErrorLabel(BuildContext context) {
   return openHandLocalizedText(
     context,
