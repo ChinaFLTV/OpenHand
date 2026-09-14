@@ -3318,6 +3318,8 @@ class _RoundFileMutationSummaryCard extends StatefulWidget {
 
 class _RoundFileMutationSummaryCardState
     extends State<_RoundFileMutationSummaryCard> {
+  // 缓存随消息对象释放，重挂时先复用已加载行，后台刷新撤销等状态。
+  static final _rowCache = Expando<List<_RoundSummaryRow>>();
   Future<List<_RoundSummaryRow>>? _rowsFuture;
   String? _lastSessionId;
   String? _lastMessageId;
@@ -3381,6 +3383,7 @@ class _RoundFileMutationSummaryCardState
   }
 
   Future<List<_RoundSummaryRow>> _load(BuildContext ctx) async {
+    final message = widget.message;
     final ctrl = ctx.read<AiSessionController>();
     final sessionId = ctrl.currentSession?.id ?? '';
     if (sessionId.isEmpty) return const <_RoundSummaryRow>[];
@@ -3434,6 +3437,7 @@ class _RoundFileMutationSummaryCardState
     rows.sort(
       (a, b) => a.view.record.createdAt.compareTo(b.view.record.createdAt),
     );
+    _rowCache[message] = rows;
     return rows;
   }
 
@@ -3688,117 +3692,111 @@ class _RoundFileMutationSummaryCardState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final reduceMotion = !openHandTickerMotionEnabled(context);
-    return AppearOnce(
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: cs.surfaceContainer.withValues(alpha: 0.92),
-              borderRadius: kOpenHandBorderRadius18,
-              border: Border.all(
-                color: cs.primary.withValues(alpha: 0.28),
-                width: 0.8,
-              ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainer.withValues(alpha: 0.92),
+            borderRadius: kOpenHandBorderRadius18,
+            border: Border.all(
+              color: cs.primary.withValues(alpha: 0.28),
+              width: 0.8,
             ),
-            child: ClipRRect(
-              borderRadius: kOpenHandBorderRadius18,
-              child: FutureBuilder<List<_RoundSummaryRow>>(
-                future: _rowsFuture,
-                builder: (context, snap) {
-                  final rows = snap.data ?? const <_RoundSummaryRow>[];
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildHeader(theme, cs, rows),
-                      if (rows.isEmpty &&
-                          snap.connectionState != ConnectionState.done)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 12,
-                                height: 12,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.6,
-                                  color: cs.primary,
-                                ),
+          ),
+          child: ClipRRect(
+            borderRadius: kOpenHandBorderRadius18,
+            child: FutureBuilder<List<_RoundSummaryRow>>(
+              future: _rowsFuture,
+              initialData: _rowCache[widget.message],
+              builder: (context, snap) {
+                final rows = snap.data ?? const <_RoundSummaryRow>[];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeader(theme, cs, rows),
+                    if (rows.isEmpty &&
+                        snap.connectionState != ConnectionState.done)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.6,
+                                color: cs.primary,
                               ),
-                              kOpenHandHGap8,
-                              Text(
-                                openHandLocalizedText(
-                                  context,
-                                  zh: '正在汇总本轮文件变动…',
-                                  en: 'Aggregating round mutations…',
-                                ),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
+                            ),
+                            kOpenHandHGap8,
+                            Text(
+                              openHandLocalizedText(
+                                context,
+                                zh: '正在汇总本轮文件变动…',
+                                en: 'Aggregating round mutations…',
                               ),
-                            ],
-                          ),
-                        )
-                      else if (rows.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
-                          child: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '本轮无文件变动。',
-                              en: 'No file mutations this round.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
                             ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
+                          ],
+                        ),
+                      )
+                    else if (rows.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                        child: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '本轮无文件变动。',
+                            en: 'No file mutations this round.',
                           ),
-                        )
-                      else
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                          child: _buildGroupedBody(
-                            theme,
-                            cs,
-                            rows,
-                            reduceMotion,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
                           ),
                         ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-          // 撤销或导出成功后温和高亮顶边。
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
-          ),
-          // 批量撤销遮罩。
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: !_bulkUndoBusy,
-              child: AnimatedSwitcher(
-                duration: openHandMotionDuration(
-                  context,
-                  _kFileMutationOverlaySwitchDuration,
-                ),
-                child: _bulkUndoBusy
-                    ? _BulkUndoOverlay(
-                        key: const ValueKey('round-bulk-undo-overlay'),
-                        done: _bulkUndoDone,
-                        total: _bulkUndoTotal,
                       )
-                    : const SizedBox.shrink(
-                        key: ValueKey('round-bulk-undo-overlay-hidden'),
+                    else
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                        child: _buildGroupedBody(theme, cs, rows, reduceMotion),
                       ),
-              ),
+                  ],
+                );
+              },
             ),
           ),
-        ],
-      ),
+        ),
+        // 撤销或导出成功后温和高亮顶边。
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
+        ),
+        // 批量撤销遮罩。
+        Positioned.fill(
+          child: IgnorePointer(
+            ignoring: !_bulkUndoBusy,
+            child: AnimatedSwitcher(
+              duration: openHandMotionDuration(
+                context,
+                _kFileMutationOverlaySwitchDuration,
+              ),
+              child: _bulkUndoBusy
+                  ? _BulkUndoOverlay(
+                      key: const ValueKey('round-bulk-undo-overlay'),
+                      done: _bulkUndoDone,
+                      total: _bulkUndoTotal,
+                    )
+                  : const SizedBox.shrink(
+                      key: ValueKey('round-bulk-undo-overlay-hidden'),
+                    ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

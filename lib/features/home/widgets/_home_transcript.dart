@@ -58,24 +58,27 @@ _knowledgeBaseDirectMetadataCache = Expando<_KnowledgeBaseMetadataCacheEntry>(
 /// keepAlive 开关由参数驱动而非「换一个 widget 类型」。按类型切换会让
 /// Element 类型不匹配，选中/取消选中一条 HTML 消息就整棵子树卸载重建——
 /// 重新净化、重新解析、WebView 重挂，恰好把 keepAlive 想省的开销全付一遍。
-class _TranscriptHtmlKeepAlive extends StatefulWidget {
-  const _TranscriptHtmlKeepAlive({required this.enabled, required this.child});
+class _TranscriptBubbleKeepAlive extends StatefulWidget {
+  const _TranscriptBubbleKeepAlive({
+    required this.enabled,
+    required this.child,
+  });
 
   final bool enabled;
   final Widget child;
 
   @override
-  State<_TranscriptHtmlKeepAlive> createState() =>
-      _TranscriptHtmlKeepAliveState();
+  State<_TranscriptBubbleKeepAlive> createState() =>
+      _TranscriptBubbleKeepAliveState();
 }
 
-class _TranscriptHtmlKeepAliveState extends State<_TranscriptHtmlKeepAlive>
-    with AutomaticKeepAliveClientMixin<_TranscriptHtmlKeepAlive> {
+class _TranscriptBubbleKeepAliveState extends State<_TranscriptBubbleKeepAlive>
+    with AutomaticKeepAliveClientMixin<_TranscriptBubbleKeepAlive> {
   @override
   bool get wantKeepAlive => widget.enabled;
 
   @override
-  void didUpdateWidget(covariant _TranscriptHtmlKeepAlive oldWidget) {
+  void didUpdateWidget(covariant _TranscriptBubbleKeepAlive oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.enabled != widget.enabled) {
       updateKeepAlive();
@@ -529,14 +532,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       elapsedFrames += 1;
       final positions = widget.controller.positions.toList(growable: false);
       if (positions.length != 1) {
-        // 首屏故意不挂载列表，避免在占位符下面同步解析整窗卡片。
-        // 没有 ScrollPosition 时不必空等到超时，两帧后直接揭示。
-        if (elapsedFrames >= _transcriptInitialRevealMinimumFrameCount) {
-          reveal();
-          return;
-        }
+        // 等待当前列表接管滚动位置，仍由帧数和时长上限约束。
         stableFrames = 0;
         WidgetsBinding.instance.addPostFrameCallback(settle);
+        WidgetsBinding.instance.scheduleFrame();
         return;
       }
       final position = positions.single;
@@ -564,12 +563,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           stableFrames >= _scrollToBottomSettleStableFrameLimit;
       if (!ready && framesRemaining > 0) {
         WidgetsBinding.instance.addPostFrameCallback(settle);
+        WidgetsBinding.instance.scheduleFrame();
       } else {
         reveal();
       }
     }
 
     WidgetsBinding.instance.addPostFrameCallback(settle);
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   @override
@@ -1708,6 +1709,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   Future<bool>? _activeScrollFuture;
   String? _activeScrollTargetId;
   int _scrollRequestGeneration = 0;
+  int _viewportRestoreGeneration = 0;
 
   void _handleRevealScrollActivityChanged() {
     final activity = _scrollActivity;
@@ -1755,6 +1757,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _cancelPendingViewportRestore() {
+    _viewportRestoreGeneration += 1;
     _pendingRevealRestore = null;
     _pendingPrependAnchor = null;
     _pendingPrependAnchorFrames = 0;
@@ -1925,8 +1928,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     int settleFrameCount = _transcriptPrependAnchorSettleFrameCount,
   }) async {
     if (!mounted || anchor == null) return;
+    final generation = _viewportRestoreGeneration;
+    final sessionId = widget.session.id;
     await _awaitEndOfFrameBounded();
-    if (!mounted) return;
+    if (!mounted ||
+        generation != _viewportRestoreGeneration ||
+        sessionId != widget.session.id) {
+      return;
+    }
     final restored = _restorePrependAnchor(anchor);
     if (restored || stabilizeAlways) {
       _startPrependAnchorStabilization(
@@ -2327,6 +2336,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ? scrollController.position.maxScrollExtent
         : 0.0;
     final anchor = _capturePrependAnchor();
+    final restoreGeneration = _viewportRestoreGeneration;
+    final restoreSessionId = widget.session.id;
     final preserveTriggerOffset = hiddenBefore > 0;
     var revealStarted = false;
     setState(() {
@@ -2358,6 +2369,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       }
       await _awaitEndOfFrameBounded();
       if (!mounted) {
+        return;
+      }
+      // 异步加载期间发生手动滚动或切换会话后，不再恢复旧位置。
+      if (restoreGeneration != _viewportRestoreGeneration ||
+          restoreSessionId != widget.session.id ||
+          _isTranscriptScrollActive(context)) {
         return;
       }
       if (preserveTriggerOffset && hadClients) {
@@ -3061,8 +3078,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         },
       ),
     );
-    final stableBubble = _TranscriptHtmlKeepAlive(
-      enabled: keepHtmlBubbleAlive,
+    final stableBubble = _TranscriptBubbleKeepAlive(
+      enabled:
+          keepHtmlBubbleAlive ||
+          message.kind == AiSessionMessageKind.fileMutationSummary ||
+          message.metadata['round_file_mutation_summary'] == true,
       child: bubble,
     );
     final content = shouldAnimateAppearance
@@ -3079,8 +3099,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         : stableBubble;
     const entrySizeDuration = Duration.zero;
     return RepaintBoundary(
+      key: ValueKey<String>('$_kTranscriptEntryKeyPrefix${message.id}'),
       child: maybeAnimatedSize(
-        key: ValueKey<String>('$_kTranscriptEntryKeyPrefix${message.id}'),
         duration: entrySizeDuration,
         curve: kCardMotionCurve,
         alignment: isSelected ? Alignment.topLeft : Alignment.bottomLeft,
@@ -3340,7 +3360,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     padding: const EdgeInsets.only(bottom: 12),
                     physics: kOpenHandClampingPhysics,
                     primary: false,
-                    addAutomaticKeepAlives: false,
+                    addAutomaticKeepAlives: true,
                     addRepaintBoundaries: false,
                     itemCount: listItemCount,
                     findChildIndexCallback: (key) =>
@@ -3404,9 +3424,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         duration: motionSettings.entranceDuration,
                         curve: motionSettings.curve.curve,
                         onEnd: _handleInitialContentRevealed,
-                        child: contentVisible
-                            ? transcriptList
-                            : const SizedBox.expand(),
+                        child: transcriptList,
                       ),
                     ),
                   ),
