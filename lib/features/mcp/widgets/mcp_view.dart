@@ -438,14 +438,14 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         ),
       ],
       secondaryActions: [
-        FilledButton.tonalIcon(
+        FeaturePageToolbarIconButton(
+          tooltip: _localizedText(context, zh: 'MCP 市场', en: 'MCP Market'),
+          icon: Icons.storefront_rounded,
           onPressed: () => showMcpMarketDialog(
             context,
             onConfigure: (name) =>
                 _showServerDialog(context, initialName: name),
           ),
-          icon: const Icon(Icons.storefront_rounded),
-          label: Text(_localizedText(context, zh: 'MCP 市场', en: 'MCP Market')),
         ),
         FeaturePageToolbarIconButton(
           tooltip: l10n.mcpOpenDirectory,
