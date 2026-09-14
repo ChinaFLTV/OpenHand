@@ -4148,7 +4148,6 @@ class AiSessionController extends ChangeNotifier {
               sessionTitle: deletedSession.title,
               deletedByLabel: deletedByLabel.trim(),
               source: deletionSource,
-              deletedAt: _clock().toUtc(),
               wasCurrentSession: previousCurrentSessionId == sessionId,
             );
       final updatedSessions = _sessions
@@ -4355,7 +4354,7 @@ class AiSessionController extends ChangeNotifier {
     Map<String, McpToolCatalog> mcpToolCatalogsByServerName =
         const <String, McpToolCatalog>{},
   }) {
-    final latestUserMessageId = _latestActiveUserMessageId(session);
+    final latestUserMessageId = session.latestActiveUserMessage?.id;
     final recoveryInspectionRequired = _shouldRequirePlanModeRecoveryInspection(
       session: session,
       latestUserMessageId: latestUserMessageId,
@@ -10899,16 +10898,6 @@ class AiSessionController extends ChangeNotifier {
     return null;
   }
 
-  String? _latestActiveUserMessageId(AiSession session) {
-    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
-      final message = session.messages[index];
-      if (!message.isDeleted && message.kind == AiSessionMessageKind.user) {
-        return message.id;
-      }
-    }
-    return null;
-  }
-
   AiSessionPlanStatus _statusAfterClearingActivePlan(AiSession session) {
     final derivedStatus = _deriveTrackedPlanStatus(session);
     if (derivedStatus == AiSessionPlanStatus.completed ||
@@ -10962,23 +10951,13 @@ class AiSessionController extends ChangeNotifier {
   }
 
   AiSessionMessage? _latestTrackedPlanRecoveryMessage(AiSession session) {
-    final latestUserMessage = _latestTrackedPlanUserMessage(session);
+    final latestUserMessage = session.latestActiveUserMessage;
     if (latestUserMessage == null) {
       return null;
     }
     return _looksLikePlanRecoveryContinuation(latestUserMessage.content)
         ? latestUserMessage
         : null;
-  }
-
-  AiSessionMessage? _latestTrackedPlanUserMessage(AiSession session) {
-    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
-      final message = session.messages[index];
-      if (!message.isDeleted && message.kind == AiSessionMessageKind.user) {
-        return message;
-      }
-    }
-    return null;
   }
 
   AiSession _syncPlanHistory(

@@ -1,7 +1,7 @@
 import '../../../shared/util/input_value_parsing.dart';
 
 enum HarnessAgentRole {
-  /// 探档者 — first run only: scans project structure and writes meta files.
+  /// 首次运行时采集项目结构并生成元数据。
   profiler('profiler'),
   reader('reader'),
   planner('planner'),
@@ -18,14 +18,6 @@ enum HarnessAgentRole {
     HarnessAgentRole.planner => '规划者',
     HarnessAgentRole.implementer => '实施者',
     HarnessAgentRole.reviewer => '验收者',
-  };
-
-  String get displayNameEn => switch (this) {
-    HarnessAgentRole.profiler => 'Profiler',
-    HarnessAgentRole.reader => 'Reader',
-    HarnessAgentRole.planner => 'Planner',
-    HarnessAgentRole.implementer => 'Implementer',
-    HarnessAgentRole.reviewer => 'Reviewer',
   };
 
   static HarnessAgentRole? fromStorageValue(String value) {

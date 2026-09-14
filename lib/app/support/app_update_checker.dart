@@ -64,7 +64,6 @@ class AppReleaseInfo {
     required this.downloadUrl,
     required this.downloadSize,
     this.downloadSha256 = '',
-    this.isPreRelease = false,
   });
 
   final String version;
@@ -75,7 +74,6 @@ class AppReleaseInfo {
   final String downloadUrl;
   final int downloadSize;
   final String downloadSha256;
-  final bool isPreRelease;
 
   /// 比较版本号，返回 true 表示此版本比 [currentVersion] 更新。
   bool isNewerThan(String currentVersion) {
@@ -535,7 +533,6 @@ AppReleaseInfo? _parseGitHubReleaseInfo(
     ),
     downloadSize: nonNegativeIntFromValue(selectedAsset?['size'], fallback: 0),
     downloadSha256: _releaseAssetSha256(selectedAsset),
-    isPreRelease: boolFromValue(json['prerelease']),
   );
 }
 

@@ -88,7 +88,6 @@ final String _kList =
       url: String(ws.url || '').slice(0, __MAX_URL_CHARS__),
       readyState: ws.readyState,
       protocol: String(ws.protocol || '').slice(0, 128),
-      bufferedAmount: ws.bufferedAmount,
     });
   }
   return JSON.stringify(out);
@@ -113,13 +112,11 @@ class _WsRow {
     required this.url,
     required this.readyState,
     required this.protocol,
-    required this.bufferedAmount,
   });
   final int id;
   final String url;
   final int readyState;
   final String protocol;
-  final int bufferedAmount;
 
   String get readyStateLabel {
     switch (readyState) {
@@ -253,10 +250,6 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
               max: 3,
             ),
             protocol: _capWsInjectText('${m['protocol'] ?? ''}', 128),
-            bufferedAmount: nonNegativeIntFromValue(
-              m['bufferedAmount'],
-              fallback: 0,
-            ),
           ),
         );
       }

@@ -445,8 +445,6 @@ class AiReasoningEffortPreset {
   final List<AiReasoningEffortOption> options;
 }
 
-// 枚举
-
 enum AiAuthScheme {
   none('none'),
   bearer('bearer'),
@@ -456,10 +454,6 @@ enum AiAuthScheme {
   const AiAuthScheme(this.storageValue);
 
   final String storageValue;
-
-  static bool isValidStorageValue(String? value) {
-    return AiAuthScheme.values.any((item) => item.storageValue == value);
-  }
 
   static AiAuthScheme fromStorage(String? value) {
     return enumByStorageValueOr(
@@ -516,10 +510,6 @@ enum AiProtocolType {
   const AiProtocolType(this.storageValue);
 
   final String storageValue;
-
-  static bool isValidStorageValue(String? value) {
-    return AiProtocolType.values.any((item) => item.storageValue == value);
-  }
 
   static AiProtocolType fromStorage(String? value) {
     return enumByStorageValueOr(

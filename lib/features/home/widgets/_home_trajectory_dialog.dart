@@ -63,7 +63,6 @@ class _TrajectoryRecord {
     required this.isError,
     required this.usage,
     required this.sourceMessageId,
-    required this.resultMessageId,
     required this.callId,
     required this.toolName,
     required this.metadata,
@@ -85,7 +84,6 @@ class _TrajectoryRecord {
   final bool isError;
   final AiTokenUsage? usage;
   final String? sourceMessageId;
-  final String? resultMessageId;
   final String? callId;
   final String? toolName;
   final Map<String, Object?> metadata;
@@ -195,7 +193,6 @@ class _TrajectorySnapshot {
         isError: false,
         usage: null,
         sourceMessageId: firstRequestMessage?.id,
-        resultMessageId: null,
         callId: null,
         toolName: null,
         metadata: firstRequestMessage?.metadata ?? const <String, Object?>{},
@@ -385,7 +382,6 @@ _TrajectoryRecord _trajectoryRecordFromMessage(
     isError: '${metadata['error'] ?? ''}'.trim().isNotEmpty,
     usage: message.usage,
     sourceMessageId: message.id,
-    resultMessageId: null,
     callId: null,
     toolName: null,
     metadata: metadata,
@@ -438,7 +434,6 @@ _TrajectoryRecord _trajectoryToolRecord(
     isError: error || '${result?.metadata['error'] ?? ''}'.trim().isNotEmpty,
     usage: call.usage,
     sourceMessageId: call.id,
-    resultMessageId: result?.id,
     callId: callId.isEmpty ? null : callId,
     toolName: toolName.isEmpty ? null : toolName,
     metadata: metadata,
@@ -485,7 +480,6 @@ _TrajectoryRecord _trajectoryToolResultRecord(
     }.contains(status),
     usage: message.usage,
     sourceMessageId: message.id,
-    resultMessageId: null,
     callId: callId.isEmpty ? null : callId,
     toolName: toolName.isEmpty ? null : toolName,
     metadata: metadata,

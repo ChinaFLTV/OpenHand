@@ -163,14 +163,12 @@ class AiLspParameterInformation {
     this.labelStart,
     this.labelEnd,
     this.documentationPlainText = '',
-    this.documentationMarkdown,
   });
 
   final String label;
   final int? labelStart;
   final int? labelEnd;
   final String documentationPlainText;
-  final String? documentationMarkdown;
 
   bool get hasExplicitOffsets =>
       labelStart != null && labelEnd != null && labelEnd! > labelStart!;
@@ -180,13 +178,11 @@ class AiLspSignatureInformation {
   const AiLspSignatureInformation({
     required this.label,
     this.documentationPlainText = '',
-    this.documentationMarkdown,
     this.parameters = const <AiLspParameterInformation>[],
   });
 
   final String label;
   final String documentationPlainText;
-  final String? documentationMarkdown;
   final List<AiLspParameterInformation> parameters;
 }
 
@@ -335,7 +331,6 @@ class AiLspCompletionItem {
     this.detail,
     this.insertText,
     this.filterText,
-    this.sortText,
   });
 
   final String label;
@@ -349,7 +344,6 @@ class AiLspCompletionItem {
   final String? detail;
   final String? insertText;
   final String? filterText;
-  final String? sortText;
 
   /// 选中后实际插入的文本。
   String get effectiveInsertText => insertText ?? label;
@@ -1584,7 +1578,6 @@ class AiLspClientService {
           detail: raw['detail']?.toString(),
           insertText: raw['insertText']?.toString(),
           filterText: raw['filterText']?.toString(),
-          sortText: raw['sortText']?.toString(),
         ),
       );
     }
@@ -1609,7 +1602,6 @@ class AiLspClientService {
     return AiLspSignatureInformation(
       label: label,
       documentationPlainText: documentation.plainText,
-      documentationMarkdown: documentation.markdown,
       parameters: List<AiLspParameterInformation>.unmodifiable(parameters),
     );
   }
@@ -1642,7 +1634,6 @@ class AiLspClientService {
       labelStart: labelStart,
       labelEnd: labelEnd,
       documentationPlainText: documentation.plainText,
-      documentationMarkdown: documentation.markdown,
     );
   }
 

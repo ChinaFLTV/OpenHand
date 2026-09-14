@@ -63,7 +63,6 @@ Future<void> _deleteHookTempContextFile(File file) async {
 /// 单个事件的全部 Hook 执行结果。
 class HookExecutionResult {
   const HookExecutionResult({
-    this.executedCount = 0,
     this.successCount = 0,
     this.failedCount = 0,
     this.timedOutCount = 0,
@@ -73,7 +72,6 @@ class HookExecutionResult {
     this.hookResults = const <HookEntryResult>[],
   });
 
-  final int executedCount;
   final int successCount;
   final int failedCount;
   final int timedOutCount;
@@ -284,7 +282,6 @@ class HooksExecutor {
       }
     }
     return HookExecutionResult(
-      executedCount: successCount + failedCount + timedOutCount,
       successCount: successCount,
       failedCount: failedCount,
       timedOutCount: timedOutCount,

@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,14 @@ import 'openhand_anchored_popup_layout.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_table_metric_cells.dart';
 import 'openhand_table_pagination.dart';
+
+Duration openHandOperationalTrendInterval(Duration range) {
+  if (range <= const Duration(hours: 2)) return const Duration(minutes: 1);
+  if (range <= const Duration(hours: 12)) return const Duration(minutes: 5);
+  if (range <= const Duration(days: 2)) return const Duration(minutes: 15);
+  if (range <= const Duration(days: 7)) return const Duration(hours: 1);
+  return const Duration(hours: 6);
+}
 
 /// 图表四周留白与底部标签区高度。
 const double _kChartInset = 8;
@@ -1375,28 +1384,10 @@ class OpenHandDonutChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant OpenHandDonutChartPainter oldDelegate) {
-    return !_sameNumValues(oldDelegate.values, values) ||
-        !_sameColors(oldDelegate.colors, colors) ||
+    return !listEquals(oldDelegate.values, values) ||
+        !listEquals(oldDelegate.colors, colors) ||
         oldDelegate.trackColor != trackColor;
   }
-}
-
-bool _sameNumValues(List<num> left, List<num> right) {
-  if (identical(left, right)) return true;
-  if (left.length != right.length) return false;
-  for (var index = 0; index < left.length; index++) {
-    if (left[index] != right[index]) return false;
-  }
-  return true;
-}
-
-bool _sameColors(List<Color> left, List<Color> right) {
-  if (identical(left, right)) return true;
-  if (left.length != right.length) return false;
-  for (var index = 0; index < left.length; index++) {
-    if (left[index] != right[index]) return false;
-  }
-  return true;
 }
 
 class _DonutGeometry {

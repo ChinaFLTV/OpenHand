@@ -23,6 +23,15 @@ const String workflowResourcesProviderMetadataKey =
     'workflow_resources_provider';
 const String workflowCallSourceMetadataKey = 'workflow_call_source';
 
+String _workflowSource(AiToolExecutionContext context) {
+  final explicit = '${context.metadata[workflowCallSourceMetadataKey] ?? ''}'
+      .trim();
+  if (explicit.isNotEmpty) return explicit;
+  return '${context.metadata['created_via'] ?? ''}' == 'dingtalk_gateway'
+      ? 'dingtalk'
+      : 'thread';
+}
+
 /// 工作流执行记录中心。记录数量和生命周期均有界，避免后台会话长期运行时
 /// 内存无限增长；执行完成后仍保留一段时间供模型查询结果。
 class WorkflowExecutionCoordinator {
@@ -55,7 +64,7 @@ class WorkflowExecutionCoordinator {
       workflowName: workflow.name,
       totalSteps: workflow.nodes.length,
       startedAt: DateTime.now().toUtc(),
-      source: _executionSource(context),
+      source: _workflowSource(context),
       inputs: Map<String, Object?>.unmodifiable(inputs),
       environment: <String, Object?>{
         'model_id': context.model.modelId,
@@ -159,15 +168,6 @@ class WorkflowExecutionCoordinator {
     } finally {
       record.finishedAt = DateTime.now().toUtc();
     }
-  }
-
-  String _executionSource(AiToolExecutionContext context) {
-    final explicit = '${context.metadata[workflowCallSourceMetadataKey] ?? ''}'
-        .trim();
-    if (explicit.isNotEmpty) return explicit;
-    return '${context.metadata['created_via'] ?? ''}' == 'dingtalk_gateway'
-        ? 'dingtalk'
-        : 'thread';
   }
 
   void _prune() {
@@ -301,15 +301,6 @@ abstract class _WorkflowTool extends AiTool {
       }
       return false;
     }).firstOrNull;
-  }
-
-  String _workflowSource(AiToolExecutionContext context) {
-    final explicit = '${context.metadata[workflowCallSourceMetadataKey] ?? ''}'
-        .trim();
-    if (explicit.isNotEmpty) return explicit;
-    return '${context.metadata['created_via'] ?? ''}' == 'dingtalk_gateway'
-        ? 'dingtalk'
-        : 'thread';
   }
 
   AiToolExecutionResult jsonSuccess(

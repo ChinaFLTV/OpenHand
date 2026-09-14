@@ -45,13 +45,6 @@ enum AiWebSearchEngineKind {
       _ => true,
     };
   }
-
-  /// 是否为兜底引擎（即使用户全禁也会启用）。
-  bool get isFallback {
-    return this == AiWebSearchEngineKind.bing ||
-        this == AiWebSearchEngineKind.duckduckgo ||
-        this == AiWebSearchEngineKind.searxng;
-  }
 }
 
 /// summary 详细程度档位。

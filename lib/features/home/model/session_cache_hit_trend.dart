@@ -25,9 +25,7 @@ class SessionCacheHitDisplayData {
     required this.cacheWriteTokens,
     required this.uncachedPromptTokens,
     required this.excludedPointCount,
-    required this.excludedFirstRequestCount,
     required this.excludedExpiredMissCount,
-    required this.averagePointCount,
   });
 
   final SessionCacheHitDisplayMode mode;
@@ -41,9 +39,7 @@ class SessionCacheHitDisplayData {
   final int cacheWriteTokens;
   final int uncachedPromptTokens;
   final int excludedPointCount;
-  final int excludedFirstRequestCount;
   final int excludedExpiredMissCount;
-  final int averagePointCount;
 }
 
 bool shouldShowSessionCacheHitMetrics({
@@ -290,16 +286,11 @@ class SessionCacheHitTrend {
       cacheWriteTokens: cacheWriteTokens,
       uncachedPromptTokens: uncachedPromptTokens,
       excludedPointCount: points.length - chartPoints.length,
-      excludedFirstRequestCount: points.where((point) {
-        return point.isFirstRequest &&
-            !visibleTurnIndexes.contains(point.turnIndex);
-      }).length,
       excludedExpiredMissCount: points.where((point) {
         return !point.isFirstRequest &&
             _isExpiredCacheMiss(point) &&
             !visibleTurnIndexes.contains(point.turnIndex);
       }).length,
-      averagePointCount: averagePoints.length,
     );
   }
 

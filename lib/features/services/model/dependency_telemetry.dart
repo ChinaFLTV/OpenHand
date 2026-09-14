@@ -64,13 +64,6 @@ class DependencyTelemetryHistory {
     }
   }
 
-  List<DependencyTelemetrySample> within(Duration range, {DateTime? now}) {
-    final cutoff = (now ?? DateTime.now()).subtract(range);
-    return List<DependencyTelemetrySample>.unmodifiable(
-      _samples.where((sample) => !sample.capturedAt.isBefore(cutoff)),
-    );
-  }
-
   void clear() => _samples.clear();
 }
 

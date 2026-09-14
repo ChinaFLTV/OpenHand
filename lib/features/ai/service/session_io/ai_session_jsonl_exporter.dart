@@ -61,15 +61,9 @@ class ExportProgress {
 enum ExportResultKind { success, cancelled, failure }
 
 class ExportResult {
-  const ExportResult({
-    required this.kind,
-    this.bytesWritten = 0,
-    this.linesWritten = 0,
-    this.error,
-  });
+  const ExportResult({required this.kind, this.bytesWritten = 0, this.error});
   final ExportResultKind kind;
   final int bytesWritten;
-  final int linesWritten;
   final Object? error;
 }
 
@@ -962,7 +956,6 @@ Future<ExportResult> _writeJsonlExport({
         return ExportResult(
           kind: ExportResultKind.cancelled,
           bytesWritten: bytes,
-          linesWritten: lines,
         );
       }
       emit(source.itemAt(i));
@@ -978,11 +971,7 @@ Future<ExportResult> _writeJsonlExport({
     output = null;
     await _commitExportTempFile(tempFile, targetFile, bytes);
     onProgress?.call(ExportProgress(processed: lines, total: total));
-    return ExportResult(
-      kind: ExportResultKind.success,
-      bytesWritten: bytes,
-      linesWritten: lines,
-    );
+    return ExportResult(kind: ExportResultKind.success, bytesWritten: bytes);
   } catch (error, stack) {
     silentLog('ai_session_jsonl_exporter', '导出 $logLabel', error, stack);
     deleteOnRelease = true;
@@ -992,7 +981,6 @@ Future<ExportResult> _writeJsonlExport({
     return ExportResult(
       kind: ExportResultKind.failure,
       bytesWritten: bytes,
-      linesWritten: lines,
       error: error,
     );
   } finally {

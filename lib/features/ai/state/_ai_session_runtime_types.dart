@@ -61,8 +61,6 @@ class AiRuntimeToolPreviewDetail {
     final labeled = displayName.trim();
     return labeled.isEmpty ? name : labeled;
   }
-
-  bool get hasMoreParameters => parameterTotalCount > parameters.length;
 }
 
 class AiRuntimeToolParameterPreview {
@@ -85,7 +83,6 @@ class AiSessionDeletionNotice {
     required this.sessionTitle,
     required this.deletedByLabel,
     required this.source,
-    required this.deletedAt,
     required this.wasCurrentSession,
   });
 
@@ -93,7 +90,6 @@ class AiSessionDeletionNotice {
   final String sessionTitle;
   final String deletedByLabel;
   final String source;
-  final DateTime deletedAt;
   final bool wasCurrentSession;
 }
 

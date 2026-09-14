@@ -42,7 +42,6 @@ class SkillMarketSummary {
     required this.description,
     required this.descriptionZh,
     required this.downloads,
-    required this.homepage,
     required this.iconUrl,
     required this.installs,
     required this.name,
@@ -64,7 +63,6 @@ class SkillMarketSummary {
       description: _readString(json['description']),
       descriptionZh: _readString(json['description_zh']),
       downloads: _readInt(json['downloads']),
-      homepage: _readString(json['homepage']),
       iconUrl: _readNullableString(json['iconUrl']),
       installs: _readInt(json['installs']),
       name: _readString(json['name']),
@@ -85,7 +83,6 @@ class SkillMarketSummary {
   final String description;
   final String descriptionZh;
   final int downloads;
-  final String homepage;
   final String? iconUrl;
   final int installs;
   final String name;
@@ -214,7 +211,6 @@ class SkillMarketOwner {
 
 class SkillMarketStats {
   const SkillMarketStats({
-    required this.comments,
     required this.downloads,
     required this.installs,
     required this.stars,
@@ -223,7 +219,6 @@ class SkillMarketStats {
 
   factory SkillMarketStats.fromJson(Map<String, Object?> json) {
     return SkillMarketStats(
-      comments: _readInt(json['comments']),
       downloads: _readInt(json['downloads']),
       installs: _readInt(json['installs']),
       stars: _readInt(json['stars']),
@@ -231,7 +226,6 @@ class SkillMarketStats {
     );
   }
 
-  final int comments;
   final int downloads;
   final int installs;
   final int stars;
@@ -242,20 +236,17 @@ class SkillMarketSecurityReport {
   const SkillMarketSecurityReport({
     required this.status,
     required this.statusText,
-    required this.reportUrl,
   });
 
   factory SkillMarketSecurityReport.fromJson(Map<Object?, Object?> json) {
     return SkillMarketSecurityReport(
       status: _readString(json['status']),
       statusText: _readString(json['statusText']),
-      reportUrl: _readString(json['reportUrl']),
     );
   }
 
   final String status;
   final String statusText;
-  final String reportUrl;
 }
 
 class SkillMarketFilesResult {

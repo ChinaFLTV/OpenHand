@@ -107,7 +107,7 @@ mixin _ProxyTrendRangeState<T extends StatefulWidget> on State<T> {
       max: _kProxyTrendMaxRange,
     );
     if (range == null) return;
-    final interval = _trendIntervalFor(range);
+    final interval = openHandOperationalTrendInterval(range);
     if (range == _range && interval == _interval) return;
     setState(() {
       _range = range;
@@ -3520,14 +3520,6 @@ class _ProxyRequestCell extends StatelessWidget {
           ),
     ),
   );
-}
-
-Duration _trendIntervalFor(Duration range) {
-  if (range <= const Duration(hours: 2)) return const Duration(minutes: 1);
-  if (range <= const Duration(hours: 12)) return const Duration(minutes: 5);
-  if (range <= const Duration(days: 2)) return const Duration(minutes: 15);
-  if (range <= const Duration(days: 7)) return const Duration(hours: 1);
-  return const Duration(hours: 6);
 }
 
 String _durationLabel(

@@ -2029,7 +2029,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           onCancel: () => _requestCancel(context),
           onRestart: widget.onRestart,
           fullAccessPermission: widget.fullAccessPermission,
-          onToggleFullAccess: widget.onToggleFullAccessPermission,
         ),
         kOpenHandGap12,
         Expanded(child: _buildFeed(context)),

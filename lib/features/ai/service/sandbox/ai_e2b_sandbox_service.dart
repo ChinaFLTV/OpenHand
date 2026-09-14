@@ -42,7 +42,6 @@ class AiE2bCommandResult {
 
 class AiE2bCommandHandle {
   const AiE2bCommandHandle._({
-    required this.sandboxId,
     required this.pid,
     required this.result,
     required this._write,
@@ -50,7 +49,6 @@ class AiE2bCommandHandle {
     required this._disconnect,
   });
 
-  final String sandboxId;
   final int pid;
   final Future<AiE2bCommandResult> result;
   final Future<void> Function(List<int> bytes) _write;
@@ -253,7 +251,6 @@ class AiE2bSandboxService {
         },
       );
       return AiE2bCommandHandle._(
-        sandboxId: sandbox.id,
         pid: pid,
         result: result.future,
         write: (bytes) => _sendInput(sandbox, pid, bytes),

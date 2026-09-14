@@ -605,7 +605,7 @@ class _TaskTelemetryInsightState extends State<_TaskTelemetryInsight> {
       max: _kTaskTrendMaxRange,
     );
     if (range == null) return;
-    final interval = _taskTrendIntervalFor(range);
+    final interval = openHandOperationalTrendInterval(range);
     if (range == _range && interval == _interval) return;
     setState(() {
       _range = range;
@@ -720,14 +720,6 @@ class _TaskStatusTrendSection extends StatelessWidget {
       ),
     );
   }
-}
-
-Duration _taskTrendIntervalFor(Duration range) {
-  if (range <= const Duration(hours: 2)) return const Duration(minutes: 1);
-  if (range <= const Duration(hours: 12)) return const Duration(minutes: 5);
-  if (range <= const Duration(days: 2)) return const Duration(minutes: 15);
-  if (range <= const Duration(days: 7)) return const Duration(hours: 1);
-  return const Duration(hours: 6);
 }
 
 String _taskTrendDurationLabel(Duration value) {

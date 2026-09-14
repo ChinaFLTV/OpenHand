@@ -110,9 +110,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.recentModelSelections,
     required this.onModelSelected,
     required this.composerFocusNode,
-    required this.composerHeight,
     required this.composerCollapsed,
-    required this.onComposerHeightChanged,
     required this.onComposerCollapsedChanged,
     required this.onComposerLayoutChanged,
     required this.onTranscriptLayoutChanged,
@@ -179,9 +177,7 @@ class _WorkspaceView extends StatelessWidget {
   final List<RecentModelSelection> recentModelSelections;
   final void Function(String providerConfigId, String modelId) onModelSelected;
   final FocusNode composerFocusNode;
-  final double composerHeight;
   final bool composerCollapsed;
-  final ValueChanged<double> onComposerHeightChanged;
   final ValueChanged<bool> onComposerCollapsedChanged;
   final VoidCallback onComposerLayoutChanged;
   final VoidCallback onTranscriptLayoutChanged;
@@ -243,7 +239,7 @@ class _WorkspaceView extends StatelessWidget {
           _composerMinHeight,
           _composerMaxHeight,
         );
-        final effectiveComposerHeight = composerHeight.clamp(
+        final effectiveComposerHeight = _composerDefaultHeight.clamp(
           _composerMinHeight,
           maxComposerHeight,
         );

@@ -151,7 +151,6 @@ class AiSessionRuntimeContext {
     int streamMaxCharsPerSecond = defaultStreamMaxCharsPerSecond,
     int streamMaxMessageCardsPerSecond = defaultStreamMaxMessageCardsPerSecond,
     this.streamThrottleEnabled = true,
-    this.streamThrottleAutoMode = false,
     int streamThrottleDurationSeconds = defaultStreamThrottleDurationSeconds,
     this.autoTitleEnabled = true,
     this.autoTitleFetchMode = AiAutoTitleFetchMode.asynchronous,
@@ -491,9 +490,6 @@ class AiSessionRuntimeContext {
 
   /// 全局节流总开关（false 时上述速率全部强制为 0）。
   final bool streamThrottleEnabled;
-
-  /// 自动模式（true 时按平台预设，覆盖手动配置）。
-  final bool streamThrottleAutoMode;
 
   /// 节流持续时长（秒）。0 = 持续节流；>0 时该时长后剩余流式
   /// 响应直接按真实接收节奏追加。

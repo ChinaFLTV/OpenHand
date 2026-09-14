@@ -2378,7 +2378,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                       idPrefix: 'llm-output',
                       availableReferences: availableReferences,
                       reservedParameterNames: reservedNames,
-                      onChanged: _setLlmOutputFields,
+                      onChanged: _setOutputFields,
                     )
                   : _OutputPreview(fields: node.llmResponseFields()),
             ),
@@ -2430,7 +2430,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                       newFieldValue: r'$',
                       availableReferences: availableReferences,
                       reservedParameterNames: reservedNames,
-                      onChanged: _setHttpOutputFields,
+                      onChanged: _setOutputFields,
                     )
                   : _OutputPreview(fields: node.httpResponseFields()),
             ),
@@ -2540,22 +2540,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     });
   }
 
-  void _setLlmOutputFields(List<WorkflowOutputField> fields) {
-    final strategy = WorkflowErrorStrategy.fromStorage(
-      node.settings[WorkflowSettingKeys.errorStrategy],
-    );
-    _setValues(<String, Object?>{
-      WorkflowSettingKeys.outputFields: fields
-          .map((item) => item.toJson())
-          .toList(growable: false),
-      if (strategy == WorkflowErrorStrategy.defaultValue)
-        WorkflowSettingKeys.errorDefaultValues: _normalizedErrorDefaults(
-          fields,
-        ),
-    });
-  }
-
-  void _setHttpOutputFields(List<WorkflowOutputField> fields) {
+  void _setOutputFields(List<WorkflowOutputField> fields) {
     final strategy = WorkflowErrorStrategy.fromStorage(
       node.settings[WorkflowSettingKeys.errorStrategy],
     );

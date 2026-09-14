@@ -19,14 +19,6 @@ enum HarnessPhase {
     HarnessPhase.reviewing => '验收',
   };
 
-  String get displayNameEn => switch (this) {
-    HarnessPhase.metaCollection => 'Meta Collection',
-    HarnessPhase.reading => 'Reading',
-    HarnessPhase.planning => 'Planning',
-    HarnessPhase.implementing => 'Implementing',
-    HarnessPhase.reviewing => 'Reviewing',
-  };
-
   static HarnessPhase? fromStorageValue(String value) {
     return enumByStorageValue(values, value, (phase) => phase.storageValue);
   }

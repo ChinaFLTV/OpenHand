@@ -128,7 +128,6 @@ AiSessionRuntimeContext buildAiSessionRuntimeContext({
     streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
     streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
     streamThrottleEnabled: settingsController.aiStreamThrottleEnabled,
-    streamThrottleAutoMode: settingsController.aiStreamThrottleAutoMode,
     streamThrottleDurationSeconds:
         settingsController.aiStreamThrottleDurationSeconds,
     streamMaxMessageCardsPerSecond:

@@ -617,7 +617,6 @@ class FileVersionInfo {
     required this.sessionId,
     required this.createdAt,
     this.toolCallId,
-    this.fileSizeBytes,
   });
 
   factory FileVersionInfo.fromJson(Map<String, Object?> json) {
@@ -629,7 +628,6 @@ class FileVersionInfo {
       toolCallId: nullIfBlank(
         json[aiSessionMessageToolCallIdMetadataKey]?.toString(),
       ),
-      fileSizeBytes: optionalNonNegativeIntFromValue(json['file_size_bytes']),
     );
   }
 
@@ -638,7 +636,6 @@ class FileVersionInfo {
   final String sessionId;
   final DateTime createdAt;
   final String? toolCallId;
-  final int? fileSizeBytes;
 }
 
 FileVersionInfo? _decodeVersionInfo(String content) {

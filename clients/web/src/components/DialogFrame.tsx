@@ -41,8 +41,6 @@ export const DIALOG_OVERLAY_CENTER_FLUSH_CLASS =
   'fixed inset-0 flex items-center justify-center';
 export const DIALOG_OVERLAY_CENTER_COMPACT_CLASS =
   'fixed inset-0 flex items-center justify-center px-4';
-export const DIALOG_OVERLAY_EDGE_SHEET_CLASS =
-  'fixed inset-0 flex items-end justify-center';
 
 interface DialogOverlayStyleOptions {
   background?: string;

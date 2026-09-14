@@ -128,17 +128,11 @@ class AdbDevice {
 
 /// APP 进程信息（通过 adb shell ps 获取）。
 class AndroidProcess {
-  const AndroidProcess({
-    required this.pid,
-    required this.name,
-    this.user,
-    this.ppid,
-  });
+  const AndroidProcess({required this.pid, required this.name, this.user});
 
   final int pid;
   final String name;
   final String? user;
-  final int? ppid;
 
   @override
   String toString() => '$name (pid=$pid)';
@@ -154,7 +148,6 @@ List<AndroidProcess> parseAndroidProcessList(String raw, {String? filterName}) {
   final pidIndex = normalizedHeader.indexOf('PID');
   final hasHeader = pidIndex >= 0;
   final userIndex = hasHeader ? normalizedHeader.indexOf('USER') : 0;
-  final ppidIndex = hasHeader ? normalizedHeader.indexOf('PPID') : 2;
   final nameIndex = hasHeader
       ? <String>['NAME', 'CMDLINE', 'CMD', 'COMMAND', 'ARGS']
             .map(normalizedHeader.indexOf)
@@ -185,9 +178,6 @@ List<AndroidProcess> parseAndroidProcessList(String raw, {String? filterName}) {
         name: name,
         user: userIndex >= 0 && userIndex < parts.length
             ? nullIfBlank(parts[userIndex])
-            : null,
-        ppid: ppidIndex >= 0 && ppidIndex < parts.length
-            ? optionalIntFromValue(parts[ppidIndex])
             : null,
       ),
     );

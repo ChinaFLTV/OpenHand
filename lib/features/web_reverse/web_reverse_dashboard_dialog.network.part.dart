@@ -213,7 +213,6 @@ class _NetworkBody extends StatelessWidget {
                     minRight: 360,
                     left: _NetworkList(
                       items: filtered,
-                      listKey: state._networkListKey,
                       selectedId: selected.requestId,
                       onSelect: (e) => state.rebuildFromExternal(
                         () => state._selectedRequest = e,
@@ -235,7 +234,6 @@ class _NetworkBody extends StatelessWidget {
                 : _NetworkList(
                     key: const ValueKey<String>('list-only'),
                     items: filtered,
-                    listKey: state._networkListKey,
                     selectedId: null,
                     onSelect: (e) => state.rebuildFromExternal(
                       () => state._selectedRequest = e,
@@ -302,7 +300,6 @@ class _NetworkList extends StatelessWidget {
   const _NetworkList({
     super.key,
     required this.items,
-    required this.listKey,
     required this.selectedId,
     required this.onSelect,
     required this.onCopyUrl,
@@ -311,7 +308,6 @@ class _NetworkList extends StatelessWidget {
   });
 
   final List<CdpNetworkEntry> items;
-  final GlobalKey<AnimatedListState> listKey;
   final String? selectedId;
   final ValueChanged<CdpNetworkEntry> onSelect;
   final ValueChanged<CdpNetworkEntry> onCopyUrl;

@@ -1,37 +1,7 @@
 import 'dart:io';
 
-/// 扫描跨 feature 深路径 import。违规规则：
-///   1. lib/features/<a>/**/*.dart 中 import 解析后落在 lib/features/<b>/<sub>
-///      （b != a）且 sub 不是 'index.dart'、'<b>_module.dart' 或
-///      '<b>_controller.dart' 三者之一，视为深路径跨 feature import。
-///   2. clients/web/src/features/<a>/**/*.{ts,tsx} 中禁止深路径
-///      '@/features/<b>/<sub>/...' 或 '../<b>/<sub>/...'（b != a，sub 非 index*）。
-///   3. lib/ 业务代码禁止直接调用或构造 Flutter 原生弹窗、菜单、底部面板与
-///      OverlayEntry；统一通过 shared/ui 的全局动画入口展示。
-///   4. lib/ 业务代码禁止直接调用 ScaffoldMessenger 的 SnackBar 方法；统一
-///      通过 shared/ui/openhand_snack_bar.dart，以保证进退场动效与全局
-///      弹窗动画设置一致。
-///   5. lib/ 业务代码禁止直接构造 Timer；统一通过安全计时工具限制时长并处理
-///      异步回调异常。
-///   6. Web 模态弹窗与 Portal 必须经统一框架构建，保持全局动效、焦点
-///      管理、Escape 关闭和全屏投射行为一致。
-///   7. 网络服务绑定必须使用有界入口，确保绑定超时后接管迟到资源。
-///   8. 子进程启动必须使用统一安全入口，确保超时、输出和进程树受控。
-///   9. 临时目录必须使用有界入口，确保创建超时后清理迟到目录。
-///  10. 业务文件读取必须使用有界入口，避免外部替换文件后无界占用内存。
-///  11. 业务目录删除必须使用有界入口，避免递归清理永久占用资源。
-///  12. 业务字节流文件写入必须使用有界入口，确保句柄、容量和超时受控。
-///  13. 系统剪贴板必须使用统一入口，确保超时、兼容回退与结果反馈一致。
-///
-/// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
-///
-/// 解析后落到 lib/shared/、lib/app/、lib/l10n/ 等非 features 的路径，
-/// 以及解析后仍在 owner 自身目录内的 import（含 ../data/、../service/），
-/// 都不算违规。
-///
-/// 仅扫描单行 `import …;`（Dart）/ `… from …`（TS）；多行 import、export
-/// 再导出、`import()`、`require()`、bare side-effect `import 'x'`（TS）
-/// 显式不在范围。
+/// 检查跨模块导入与受限调用，统一弹窗、动效、计时器、网络及资源操作入口。
+/// 跨模块检查仅扫描单行静态导入，不覆盖再导出与动态导入。
 ///
 /// 用法：dart run scripts/check_imports.dart [root]
 ///   root 默认为当前目录；测试时可传 fixture 根。

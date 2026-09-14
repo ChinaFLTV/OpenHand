@@ -2404,13 +2404,8 @@ class WebMessagePlatformService {
     );
   }
 
-  /// shelf 路由表。所有 handler 经过：
-  /// `_corsMiddleware` → `_telemetryAndLimitMiddleware` → router。
-  ///
-  /// 匿名公开路由（不走鉴权）：`GET /`、`GET /login`、`GET /thread`、
-  /// `GET /api/health`、`GET /api/meta`、`POST /api/login`。
-  /// 其余全部经 `_withAuth` 包装：未鉴权返回 401，鉴权后注入
-  /// `_WebGatewayAuthSession` 给 handler。
+  /// 页面与静态资源公开；业务接口通过 `_withAuth` 注入鉴权会话。
+  /// 健康检查、公开元数据和登录入口单独注册，具体边界见各路由。
   Router _buildRouter() {
     final router = Router(notFoundHandler: _shelfNotFound);
     // SPA shell：仅返回 clients/web 构建产物（assets/web/index.html）。

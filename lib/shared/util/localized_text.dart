@@ -642,10 +642,6 @@ String openHandCollapseLabel(BuildContext context) {
   );
 }
 
-String openHandConfirmLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '确认', en: 'Confirm');
-}
-
 String openHandCreatedLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '创建时间', en: 'Created');
 }

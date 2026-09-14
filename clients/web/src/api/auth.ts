@@ -1,6 +1,3 @@
-// 鉴权相关 API：仅承担 /api/login 的请求构造与 token 持久化。
-// 其余「会话/消息/文件」API 后续阶段在自己的模块里复用 apiRequest。
-
 import { apiRequest } from './client';
 import {
   type AuthProfile,

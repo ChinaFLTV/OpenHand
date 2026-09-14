@@ -328,7 +328,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // 切换会话或发送完成后通常重置；UI 上用胶囊条配合 X / + 切换。
   final Set<String> _skippedInstructionIds = <String>{};
   AiCreationOptions _creationOptions = AiCreationOptions.empty;
-  double _composerHeight = _composerDefaultHeight;
   bool _composerCollapsed = false;
 
   /// 最近一次量到的 composer panel 高度，供折叠/展开时反向补偿 transcript scroll。
@@ -10340,13 +10339,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           settingsController.addRecentModelSelection(providerConfigId, modelId);
         },
         composerFocusNode: _composerFocusNode,
-        composerHeight: _composerHeight,
         composerCollapsed: _composerCollapsed,
-        onComposerHeightChanged: (nextHeight) {
-          setState(() {
-            _composerHeight = nextHeight;
-          });
-        },
         onComposerCollapsedChanged: _setComposerCollapsedState,
         onComposerLayoutChanged: _handleComposerLayoutChanged,
         onTranscriptLayoutChanged: _handleTranscriptLayoutChanged,

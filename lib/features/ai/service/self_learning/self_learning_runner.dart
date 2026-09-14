@@ -44,7 +44,6 @@ class SelfLearningContext {
     required this.prompt,
     required this.userProfileSnapshot,
     required this.userProfileTruncated,
-    this.placeholderMessageId,
     this.onProgress,
   });
 
@@ -55,11 +54,6 @@ class SelfLearningContext {
 
   final UserMemoryEntry? userProfileSnapshot;
   final bool userProfileTruncated;
-
-  /// 由运行器预创建的占位 selfLearning 卡片消息 id，派发器可据此自行
-  /// 调用 [AiSessionController.updateSelfLearningMessage] 进行更高级的
-  /// 增量更新；通常派发器只需使用 [onProgress] 即可。
-  final String? placeholderMessageId;
 
   /// 增量进度回调；运行器负责累计、限长并节流写入卡片。
   final SelfLearningProgressCallback? onProgress;
@@ -376,7 +370,6 @@ class SelfLearningRunner {
         prompt: context.prompt,
         userProfileSnapshot: context.userProfileSnapshot,
         userProfileTruncated: context.userProfileTruncated,
-        placeholderMessageId: placeholderId,
         onProgress: placeholderId == null ? null : onProgress,
       );
 

@@ -71,7 +71,6 @@ final class BoundedDeleteResult {
     required this.fileCount,
     required this.directoryCount,
     required this.linkCount,
-    required this.wasMissing,
   });
 
   final int plannedEntries;
@@ -79,7 +78,6 @@ final class BoundedDeleteResult {
   final int fileCount;
   final int directoryCount;
   final int linkCount;
-  final bool wasMissing;
 }
 
 /// 删除一个绝对路径，不跟随符号链接，也不执行无界递归文件操作。
@@ -123,7 +121,6 @@ Future<BoundedDeleteResult> deletePathBounded(
         fileCount: 0,
         directoryCount: 0,
         linkCount: 0,
-        wasMissing: true,
       );
     }
 
@@ -421,7 +418,6 @@ final class _DeleteProgress {
     fileCount: fileCount,
     directoryCount: directoryCount,
     linkCount: linkCount,
-    wasMissing: false,
   );
 }
 

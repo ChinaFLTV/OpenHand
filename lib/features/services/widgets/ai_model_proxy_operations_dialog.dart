@@ -283,9 +283,6 @@ class _ProxyOpsSnapshot {
     required this.ingressErrorBuckets,
     required this.inboundByteBuckets,
     required this.outboundByteBuckets,
-    required this.hourRequestCounts,
-    required this.hourPeerCounts,
-    required this.hourFailureCounts,
     required this.hourStats,
     required this.trendEndAt,
     required this.usesHistoricalTrendWindow,
@@ -429,9 +426,6 @@ class _ProxyOpsSnapshot {
       ingressErrorBuckets: ingressErrors,
       inboundByteBuckets: inboundBytes,
       outboundByteBuckets: outboundBytes,
-      hourRequestCounts: [for (final hour in hourStats) hour.requests],
-      hourPeerCounts: [for (final hour in hourStats) hour.peers.length],
-      hourFailureCounts: [for (final hour in hourStats) hour.failures],
       hourStats: hourStats,
       trendEndAt: trendEndAt,
       usesHistoricalTrendWindow: usesHistoricalTrendWindow,
@@ -458,9 +452,6 @@ class _ProxyOpsSnapshot {
   final List<double> ingressErrorBuckets;
   final List<double> inboundByteBuckets;
   final List<double> outboundByteBuckets;
-  final List<int> hourRequestCounts;
-  final List<int> hourPeerCounts;
-  final List<int> hourFailureCounts;
   final List<_ProxyOpsGroupStat> hourStats;
   final DateTime trendEndAt;
   final bool usesHistoricalTrendWindow;

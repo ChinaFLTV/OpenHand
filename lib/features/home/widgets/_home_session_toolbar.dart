@@ -1225,7 +1225,7 @@ AiSessionPlanRecord? _activePlanRecordForTimeline(AiSession session) {
   if (activePlanRecord == null || _hasTransientPlanState(session)) {
     return activePlanRecord;
   }
-  final latestUserMessage = _latestActiveUserMessage(session);
+  final latestUserMessage = session.latestActiveUserMessage;
   if (latestUserMessage == null) {
     return activePlanRecord;
   }
@@ -1271,7 +1271,7 @@ bool _shouldReflectCurrentPlanStepFailure(
 }
 
 AiSessionMessage? _latestPlanRecoveryTimelineMessage(AiSession session) {
-  final latestUserMessage = _latestActiveUserMessage(session);
+  final latestUserMessage = session.latestActiveUserMessage;
   if (latestUserMessage == null) {
     return null;
   }
@@ -1287,7 +1287,7 @@ bool _shouldReviewCompletedPlan(AiSession session) {
   if (!_hasOnlyCompletedPlanTodoItems(session.todoItems)) {
     return false;
   }
-  final latestUserMessage = _latestActiveUserMessage(session);
+  final latestUserMessage = session.latestActiveUserMessage;
   if (latestUserMessage == null) {
     return false;
   }
@@ -1299,16 +1299,6 @@ bool _hasOnlyCompletedPlanTodoItems(List<AiSessionTodoItem> todoItems) {
       todoItems.every(
         (item) => item.status.trim().toLowerCase() == 'completed',
       );
-}
-
-AiSessionMessage? _latestActiveUserMessage(AiSession session) {
-  for (var index = session.messages.length - 1; index >= 0; index -= 1) {
-    final message = session.messages[index];
-    if (!message.isDeleted && message.kind == AiSessionMessageKind.user) {
-      return message;
-    }
-  }
-  return null;
 }
 
 DateTime _planTimelineMessageActivityAt(AiSessionMessage message) {

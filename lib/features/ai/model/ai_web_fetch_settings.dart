@@ -54,12 +54,6 @@ enum AiWebFetchEngineKind {
       _ => true,
     };
   }
-
-  /// 失败兜底引擎（即使用户全禁也会启用）。
-  bool get isFallback {
-    return this == AiWebFetchEngineKind.bing ||
-        this == AiWebFetchEngineKind.duckduckgo;
-  }
 }
 
 /// 单个数据源的用户配置。

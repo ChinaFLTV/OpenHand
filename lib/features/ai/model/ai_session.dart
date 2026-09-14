@@ -985,6 +985,16 @@ class AiSession {
     return messageWindowStartIndex;
   }
 
+  AiSessionMessage? get latestActiveUserMessage {
+    for (var index = messages.length - 1; index >= 0; index -= 1) {
+      final message = messages[index];
+      if (!message.isDeleted && message.kind == AiSessionMessageKind.user) {
+        return message;
+      }
+    }
+    return null;
+  }
+
   AiSessionMessage? get latestCompressionPoint {
     final index = latestCompressionPointIndex;
     // 缓存可能过期，或消息列表已被并发更新。

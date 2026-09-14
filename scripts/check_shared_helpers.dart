@@ -33,7 +33,7 @@ Future<void> main() async {
   failures += _checkContentLength();
   failures += _checkBackoff();
   failures += _checkDurationBounds();
-  failures += _checkDialogMotionDurationClamp();
+  failures += _checkIntegerValueRange();
   failures += _checkPrettyJsonIfDecodable();
   failures += _checkLoopback();
   failures += _checkStringFromValue();
@@ -571,21 +571,12 @@ int _checkDurationBounds() {
   return 0;
 }
 
-int _checkDialogMotionDurationClamp() {
+int _checkIntegerValueRange() {
   const range = IntValueRange(fallback: 360, min: 80, max: 1200);
   if (range.normalize(40) != 80 ||
       range.normalize(5000) != 1200 ||
       range.normalize(360) != 360) {
-    stderr.writeln('弹窗动效时长夹取未把 40→80、5000→1200、360 保持原值');
-    return 1;
-  }
-  if (clampDuration(
-        const Duration(milliseconds: 40),
-        min: const Duration(milliseconds: 80),
-        max: const Duration(milliseconds: 1200),
-      ) !=
-      const Duration(milliseconds: 80)) {
-    stderr.writeln('clampDuration 未把短于下限的动效时长夹到 80ms');
+    stderr.writeln('整数范围归一化未正确夹取边界或保留合法值');
     return 1;
   }
   return 0;

@@ -230,7 +230,6 @@ class McpKeywordIndexProgress {
     required this.serverIndex,
     required this.serverCount,
     required this.serverName,
-    required this.toolsScanned,
     required this.totalToolsScanned,
     required this.skipped,
   });
@@ -238,7 +237,6 @@ class McpKeywordIndexProgress {
   final int serverIndex; // 1-based
   final int serverCount;
   final String serverName;
-  final int toolsScanned; // 当前服务已扫工具数
   final int totalToolsScanned; // 全局累计扫描工具数
   final int skipped; // 跳过（无可用工具 / 服务禁用 / 异常）的服务数
 }
@@ -384,7 +382,6 @@ class McpKeywordIndexService {
             serverIndex: i + 1,
             serverCount: eligible.length,
             serverName: server.name,
-            toolsScanned: 0,
             totalToolsScanned: total,
             skipped: skipped,
           ),
@@ -398,7 +395,6 @@ class McpKeywordIndexService {
             serverIndex: i + 1,
             serverCount: eligible.length,
             serverName: server.name,
-            toolsScanned: 0,
             totalToolsScanned: total,
             skipped: skipped,
           ),
@@ -408,7 +404,6 @@ class McpKeywordIndexService {
       _removeServerRefs(byName, dedupName, server.name);
       _removeServerRefs(byDescription, dedupDesc, server.name);
       _removeServerRefs(bySearchHint, dedupHint, server.name);
-      var localScanned = 0;
       for (final tool in tools) {
         final ref = McpToolRef(
           serverName: server.name,
@@ -431,7 +426,6 @@ class McpKeywordIndexService {
             ref,
           );
         }
-        localScanned++;
         total++;
       }
       onProgress(
@@ -439,7 +433,6 @@ class McpKeywordIndexService {
           serverIndex: i + 1,
           serverCount: eligible.length,
           serverName: server.name,
-          toolsScanned: localScanned,
           totalToolsScanned: total,
           skipped: skipped,
         ),

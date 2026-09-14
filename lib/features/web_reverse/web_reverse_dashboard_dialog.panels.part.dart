@@ -7101,7 +7101,6 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
                             events: widget.events,
                             totalMs: total,
                             laneH: _kLaneH,
-                            axisH: _kAxisH,
                             laneCount: _kLaneCount,
                             outline: cs.outlineVariant,
                             axisLabel: cs.onSurfaceVariant,
@@ -7247,7 +7246,6 @@ class _TraceLanesPainter extends CustomPainter {
     required this.events,
     required this.totalMs,
     required this.laneH,
-    required this.axisH,
     required this.laneCount,
     required this.outline,
     required this.axisLabel,
@@ -7257,7 +7255,6 @@ class _TraceLanesPainter extends CustomPainter {
   final List<_TraceLaneEvent> events;
   final double totalMs;
   final double laneH;
-  final double axisH;
   final int laneCount;
   final Color outline;
   final Color axisLabel;

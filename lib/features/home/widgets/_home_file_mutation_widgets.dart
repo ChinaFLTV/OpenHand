@@ -1,8 +1,5 @@
 part of '../openhand_home_page.dart';
 
-String _fileMutationKind(AiSessionMessage message) =>
-    '${message.metadata['file_mutation_kind'] ?? ''}'.trim();
-
 const int _kFileMutationUndoConcurrency = 4;
 const int _kFileMutationDiffReadMaxBytes = 16 * kBytesPerMiB;
 const Color _kFileMutationAddedColor = Color(0xFF2E7D32);
@@ -466,7 +463,6 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     ColorScheme cs,
     List<String> paths,
   ) {
-    final mutKind = _fileMutationKind(widget.message);
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
@@ -498,7 +494,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
           for (final p in paths)
             InkWell(
               borderRadius: kOpenHandBorderRadius12,
-              onTap: () => _showLegacyDiff(p, mutKind),
+              onTap: () => _showLegacyDiff(p),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 child: Row(
@@ -729,10 +725,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                         _toggleExpand(views[i].record.recordId),
                     onUndo: () => _undo(views[i]),
                     onRedo: () => _redo(views[i]),
-                    onOpenLegacyDialog: () => _showLegacyDiff(
-                      views[i].record.filePath,
-                      _fileMutationKind(widget.message),
-                    ),
+                    onOpenLegacyDialog: () =>
+                        _showLegacyDiff(views[i].record.filePath),
                     onCopyDiff: () => _copyAllDiff([views[i]]),
                     onOpenInspector: _openHistoryInspector,
                   ),
@@ -787,10 +781,10 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     );
   }
 
-  void _showLegacyDiff(String path, String kind) {
+  void _showLegacyDiff(String path) {
     showAnimatedDialog(
       context: context,
-      builder: (ctx) => _FileDiffDialog(filePath: path, changeKind: kind),
+      builder: (ctx) => _FileDiffDialog(filePath: path),
     );
   }
 }
@@ -2323,10 +2317,9 @@ Future<void> _revealFileMutationPath(
 }
 
 class _FileDiffDialog extends StatefulWidget {
-  const _FileDiffDialog({required this.filePath, required this.changeKind});
+  const _FileDiffDialog({required this.filePath});
 
   final String filePath;
-  final String changeKind;
 
   @override
   State<_FileDiffDialog> createState() => _FileDiffDialogState();

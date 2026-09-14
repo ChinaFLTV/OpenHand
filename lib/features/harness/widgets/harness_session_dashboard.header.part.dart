@@ -20,7 +20,6 @@ class _HePaneHeader extends StatelessWidget {
     required this.onCancel,
     required this.onRestart,
     required this.fullAccessPermission,
-    required this.onToggleFullAccess,
   });
 
   final HarnessSessionConfig config;
@@ -37,7 +36,6 @@ class _HePaneHeader extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onRestart;
   final bool fullAccessPermission;
-  final ValueChanged<bool> onToggleFullAccess;
 
   String _effectiveTitle(BuildContext context) =>
       (sessionTitle?.trim().isNotEmpty == true)

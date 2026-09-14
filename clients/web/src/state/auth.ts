@@ -1,8 +1,3 @@
-// 鉴权状态 hook：把「是否需要登录 / 当前是否已登录 / loading」三种状态
-// 收敛到一个 hook，供 LoginPage / HomePage / RouteGuard 复用。
-// 实现取舍：避免 React Context（Preact 也能用，但会让 children 全量重渲染）；
-// 直接用 module-scoped subscribers 列表做最轻量的发布订阅。
-
 import { useEffect, useState } from 'preact/hooks';
 import { apiRequest } from '../api/client';
 import {
@@ -139,10 +134,7 @@ export function useAuth(): AuthState {
   return state;
 }
 
-/// 登录成功后调用：直接把 service 端 auth_enabled 视为已通过的状态。
-///
-/// 随后补拉一次 /api/meta——登录前那次是匿名的，只拿到公开字段，模型清单、
-/// 模板、用户指令要带上 token 才会下发。
+// 登录后重新读取受鉴权保护的元数据，替换登录前的公开字段。
 export function markLoggedIn(profile: AuthProfile): void {
   emit({
     ...current,
@@ -153,12 +145,12 @@ export function markLoggedIn(profile: AuthProfile): void {
 }
 
 export function logout(): void {
-  const revokeRequest = readToken()
-    ? apiRequest('/api/logout', {
+  if (readToken()) {
+    void apiRequest('/api/logout', {
       method: 'POST',
       timeoutMs: LOGOUT_REQUEST_TIMEOUT_MS,
-    }).catch(ignoreError)
-    : null;
+    }).catch(ignoreError);
+  }
   clearAuthStorage();
   emit({
     ...current,
@@ -168,7 +160,6 @@ export function logout(): void {
   // 内存里的 meta 还留着登录期间拿到的模型清单与用户指令，登出后补拉一次
   // 匿名版把它们换掉。
   if (current.authRequired) void refreshMeta({ force: true }).catch(ignoreError);
-  if (revokeRequest) void revokeRequest;
 }
 
 /// 显式刷新一次 /api/meta（例如桌面端切换了主题色后）。
