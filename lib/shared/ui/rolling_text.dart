@@ -19,7 +19,7 @@ const double kOpenHandDigitRollPeakT = 0.56;
 const double kOpenHandDigitRollPunch = 0.04;
 const double kOpenHandDigitRollFromScale = 0.96;
 
-final Map<int, _GlyphMetrics> _glyphMetricsCache = <int, _GlyphMetrics>{};
+final _glyphMetricsCache = <(TextStyle, TextScaler, Locale?), _GlyphMetrics>{};
 
 class RollingText extends StatelessWidget {
   const RollingText({
@@ -35,17 +35,23 @@ class RollingText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedStyle = DefaultTextStyle.of(context).style
+    var resolvedStyle = DefaultTextStyle.of(context).style
         .merge(style)
         .copyWith(
           leadingDistribution: TextLeadingDistribution.even,
           fontFeatures: const [FontFeature.tabularFigures()],
         );
+    if (MediaQuery.boldTextOf(context)) {
+      resolvedStyle = resolvedStyle.merge(
+        const TextStyle(fontWeight: FontWeight.bold),
+      );
+    }
     final resolvedDuration = openHandMotionDuration(context, duration);
     final segments = _segmentRollingText(text);
     final metrics = _measureRollingGlyphs(
       resolvedStyle,
       MediaQuery.textScalerOf(context),
+      Localizations.maybeLocaleOf(context),
     );
     return Semantics(
       label: text,
@@ -141,16 +147,12 @@ class _GlyphMetrics {
   }
 }
 
-_GlyphMetrics _measureRollingGlyphs(TextStyle style, TextScaler scaler) {
-  final key = Object.hash(
-    style.fontSize,
-    style.fontFamily,
-    style.fontWeight,
-    style.fontStyle,
-    style.height,
-    style.letterSpacing,
-    scaler.scale(100),
-  );
+_GlyphMetrics _measureRollingGlyphs(
+  TextStyle style,
+  TextScaler scaler,
+  Locale? locale,
+) {
+  final key = (style, scaler, locale);
   final cached = _glyphMetricsCache[key];
   if (cached != null) return cached;
   final fallback = style.fontSize ?? 14;
@@ -159,6 +161,7 @@ _GlyphMetrics _measureRollingGlyphs(TextStyle style, TextScaler scaler) {
       text: TextSpan(text: ch, style: style),
       textDirection: TextDirection.ltr,
       textScaler: scaler,
+      locale: locale,
       maxLines: 1,
     )..layout();
     final size = (width: painter.width, height: painter.height);
@@ -183,7 +186,7 @@ _GlyphMetrics _measureRollingGlyphs(TextStyle style, TextScaler scaler) {
           height: zero.height,
         );
   if (_glyphMetricsCache.length >= kOpenHandDigitRollGlyphCacheLimit) {
-    _glyphMetricsCache.clear();
+    _glyphMetricsCache.remove(_glyphMetricsCache.keys.first);
   }
   _glyphMetricsCache[key] = metrics;
   return metrics;
@@ -296,8 +299,9 @@ class _RollingDigitGroupState extends State<_RollingDigitGroup>
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!openHandTickerMotionEnabled(context)) {
+      _current = widget.value;
       _pending = null;
-      _stop(reset: true);
+      _stop();
     }
   }
 
@@ -305,6 +309,14 @@ class _RollingDigitGroupState extends State<_RollingDigitGroup>
   void didUpdateWidget(covariant _RollingDigitGroup oldWidget) {
     super.didUpdateWidget(oldWidget);
     final next = widget.value;
+    if (widget.duration <= Duration.zero ||
+        !openHandTickerMotionEnabled(context) ||
+        next.length > kOpenHandDigitRollMaxSlots) {
+      _current = next;
+      _pending = null;
+      _stop();
+      return;
+    }
     if (next == _current && _pending == null) return;
     if (_rolling) {
       _pending = next;
@@ -334,7 +346,7 @@ class _RollingDigitGroupState extends State<_RollingDigitGroup>
         !openHandTickerMotionEnabled(context) ||
         math.max(_previous.length, _current.length) >
             kOpenHandDigitRollMaxSlots) {
-      _stop(reset: true);
+      _stop();
       return;
     }
     _play();
@@ -349,7 +361,7 @@ class _RollingDigitGroupState extends State<_RollingDigitGroup>
         widget.duration +
         Duration(milliseconds: kOpenHandDigitRollStaggerMs * extraSlots);
     if (duration <= Duration.zero) {
-      _stop(reset: true);
+      _stop();
       return;
     }
     _rolling = true;
@@ -378,24 +390,21 @@ class _RollingDigitGroupState extends State<_RollingDigitGroup>
     final pending = _pending;
     _pending = null;
     if (pending != null && pending != _current) {
-      _previous = _current;
-      _current = pending;
-      _direction = _digitRollDirection(_previous, _current);
-      _play();
+      _commit(pending);
       setState(() {});
       return;
     }
-    _stop(reset: true, notify: true);
+    _stop(notify: true);
   }
 
-  void _stop({required bool reset, bool notify = false}) {
+  void _stop({bool notify = false}) {
     _rolling = false;
     final ctrl = _ctrl;
     if (ctrl != null) {
       ctrl.removeStatusListener(_onStatus);
       if (ctrl.isAnimating) ctrl.stop();
     }
-    if (reset) _previous = _current;
+    _previous = _current;
     if (notify && mounted) setState(() {});
   }
 
@@ -404,8 +413,11 @@ class _RollingDigitGroupState extends State<_RollingDigitGroup>
     final ctrl = _ctrl;
     final motion =
         _rolling && ctrl != null && openHandTickerMotionEnabled(context);
+    if (!motion) {
+      return _RollingStaticRun(value: _current, style: widget.style);
+    }
     final slotCount = math.max(_previous.length, _current.length);
-    final totalMs = ctrl?.duration?.inMilliseconds ?? 0;
+    final totalMs = ctrl.duration?.inMilliseconds ?? 0;
     final rollMs = widget.duration.inMilliseconds;
     return RepaintBoundary(
       child: Row(
@@ -418,7 +430,7 @@ class _RollingDigitGroupState extends State<_RollingDigitGroup>
               style: widget.style,
               metrics: widget.metrics,
               direction: _direction,
-              animation: motion ? ctrl : null,
+              animation: ctrl,
               staggerStart: _staggerStart(fromRight, totalMs, rollMs),
               staggerEnd: _staggerEnd(fromRight, totalMs, rollMs),
             ),
@@ -462,7 +474,7 @@ class _RollingSlot extends StatelessWidget {
   final TextStyle style;
   final _GlyphMetrics metrics;
   final int direction;
-  final Animation<double>? animation;
+  final Animation<double> animation;
   final double staggerStart;
   final double staggerEnd;
 
@@ -471,7 +483,7 @@ class _RollingSlot extends StatelessWidget {
     final display = current.isEmpty ? previous : current;
     final width = metrics.widthOf(display);
     if (width <= 0) return const SizedBox.shrink();
-    if (animation == null || previous == current) {
+    if (previous == current) {
       return SizedBox(
         width: width,
         height: metrics.height,
@@ -490,10 +502,10 @@ class _RollingSlot extends StatelessWidget {
         clipper: _RollingSlotClipper(extra),
         child: IgnorePointer(
           child: AnimatedBuilder(
-            animation: animation!,
+            animation: animation,
             builder: (context, _) {
               final t = _staggerLocalT(
-                animation!.value,
+                animation.value,
                 staggerStart,
                 staggerEnd,
               );
@@ -553,7 +565,7 @@ class _RollingSlot extends StatelessWidget {
         : style.copyWith(color: color.withValues(alpha: color.a * a));
     return Transform(
       alignment: Alignment.center,
-      filterQuality: FilterQuality.low,
+      // 文字直接随矩阵绘制，避免逐字生成图像过滤层并反复采样字形。
       transform: Matrix4.identity()
         ..translateByDouble(0.0, dy, 0.0, 1.0)
         ..scaleByDouble(s, s, 1.0, 1.0),
