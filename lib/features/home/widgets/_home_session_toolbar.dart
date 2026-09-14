@@ -217,6 +217,7 @@ class _SessionToolbar extends StatelessWidget {
     return OpenHandSessionHeaderBar(
       toolbarItems: toolbarItems,
       title: OpenHandAnimatedTitleText(
+        animateOnMount: true,
         text: session.title,
         style: theme.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w800,

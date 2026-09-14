@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'preact/hooks';
 import { normalizeDurationMs } from '../shared/util/number';
 import {
   finiteNumberOrNullFromUnknown,
@@ -67,6 +68,24 @@ const DEFAULT_DIALOG_MOTION_SETTINGS: DialogMotionSettings = {
 };
 
 let currentSettings = { ...DEFAULT_DIALOG_MOTION_SETTINGS };
+const motionListeners = new Set<() => void>();
+
+export function useDialogMotionDurations() {
+  const [durations, setDurations] = useState(() => ({
+    enterMs: getDialogEnterDurationMs(),
+    exitMs: getDialogExitDurationMs(),
+  }));
+  useEffect(() => {
+    const update = () => setDurations({
+      enterMs: getDialogEnterDurationMs(),
+      exitMs: getDialogExitDurationMs(),
+    });
+    motionListeners.add(update);
+    update();
+    return () => { motionListeners.delete(update); };
+  }, []);
+  return durations;
+}
 
 const DIALOG_MOTION_CURVE_CSS: Record<DialogMotionCurve, string> = {
   ease_in_out: 'ease-in-out',
@@ -183,6 +202,7 @@ export function syncRemoteDialogMotionSettings(
 ): void {
   currentSettings = normalizeDialogMotionSettings(raw);
   applyDialogMotionSettingsToDocument();
+  motionListeners.forEach((listener) => listener());
 }
 
 export function getDialogExitDurationMs(): number {

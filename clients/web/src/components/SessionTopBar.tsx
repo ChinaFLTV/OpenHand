@@ -298,6 +298,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
               >
                 <span class="flex items-center gap-1.5 min-w-0">
                   <AnimatedTitleText
+                    animateOnMount
                     text={title}
                     className="block text-sm font-semibold truncate oh-text-body"
                   />

@@ -248,9 +248,45 @@ class _WorkspaceView extends StatelessWidget {
         final shouldShowTranscriptHydrating =
             session != null && !hasLoadedMessages && transcriptHydrating;
 
+        final headerMotion = openHandMotionSettingsOf(
+          context,
+          OpenHandMotionSettingsScope.page,
+        );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            IgnorePointer(
+              ignoring: session == null,
+              child: OpenHandVerticalRevealSwitcher(
+                duration: headerMotion.entranceDuration,
+                reverseDuration: headerMotion.exitDuration,
+                presentKey: const ValueKey('session-toolbar'),
+                child: session == null
+                    ? null
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _SessionToolbar(
+                          session: session,
+                          liveRuntimeToolPreview: liveRuntimeToolPreview,
+                          sendPhase: sendPhase,
+                          planTimelineCollapsed: planTimelineCollapsed,
+                          onPlanTimelineCollapsedChanged:
+                              onPlanTimelineCollapsedChanged,
+                          fileExplorerVisible: fileExplorerVisible,
+                          onFileExplorerToggled: onFileExplorerToggled,
+                          machineTerminalPanelVisible:
+                              machineTerminalPanelVisible,
+                          onMachineTerminalPanelToggled:
+                              onMachineTerminalPanelToggled,
+                          activeProfile: selectedModel
+                              ?.modelProfiles[selectedModel!.modelId],
+                          claudeStyle:
+                              selectedModel?.protocolType ==
+                              AiProtocolType.claude,
+                        ),
+                      ),
+              ),
+            ),
             Expanded(
               child: _WorkspacePrimarySwitcher(
                 key: const ValueKey<String>('workspace-primary-switcher'),
@@ -261,54 +297,24 @@ class _WorkspaceView extends StatelessWidget {
                     : KeyedSubtree(
                         key: ValueKey<String>('session-${session.id}'),
                         child: !hasLoadedMessages
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _SessionToolbar(
-                                    session: session,
-                                    liveRuntimeToolPreview:
-                                        liveRuntimeToolPreview,
-                                    sendPhase: sendPhase,
-                                    planTimelineCollapsed:
-                                        planTimelineCollapsed,
-                                    onPlanTimelineCollapsedChanged:
-                                        onPlanTimelineCollapsedChanged,
-                                    fileExplorerVisible: fileExplorerVisible,
-                                    onFileExplorerToggled:
-                                        onFileExplorerToggled,
-                                    machineTerminalPanelVisible:
-                                        machineTerminalPanelVisible,
-                                    onMachineTerminalPanelToggled:
-                                        onMachineTerminalPanelToggled,
-                                    activeProfile: selectedModel
-                                        ?.modelProfiles[selectedModel!.modelId],
-                                    claudeStyle:
-                                        selectedModel?.protocolType ==
-                                        AiProtocolType.claude,
-                                  ),
-                                  kOpenHandGap14,
-                                  Expanded(
-                                    child: shouldShowTranscriptHydrating
-                                        ? _TranscriptHydratingPlaceholder(
-                                            key: ValueKey<String>(
-                                              'hydrating-${session.id}',
-                                            ),
-                                          )
-                                        : transcriptLoadError != null
-                                        ? _TranscriptLoadFailure(
-                                            key: ValueKey<String>(
-                                              'load-failed-${session.id}',
-                                            ),
-                                            message: transcriptLoadError!,
-                                            onRetry: onRetryTranscriptLoad,
-                                          )
-                                        : _WorkspaceEmptyState(
-                                            key: ValueKey<String>(session.id),
-                                            session: session,
-                                          ),
-                                  ),
-                                ],
-                              )
+                            ? shouldShowTranscriptHydrating
+                                  ? _TranscriptHydratingPlaceholder(
+                                      key: ValueKey<String>(
+                                        'hydrating-${session.id}',
+                                      ),
+                                    )
+                                  : transcriptLoadError != null
+                                  ? _TranscriptLoadFailure(
+                                      key: ValueKey<String>(
+                                        'load-failed-${session.id}',
+                                      ),
+                                      message: transcriptLoadError!,
+                                      onRetry: onRetryTranscriptLoad,
+                                    )
+                                  : _WorkspaceEmptyState(
+                                      key: ValueKey<String>(session.id),
+                                      session: session,
+                                    )
                             : Listener(
                                 behavior: HitTestBehavior.translucent,
                                 onPointerSignal: onMessagePointerSignal,
@@ -323,9 +329,6 @@ class _WorkspaceView extends StatelessWidget {
                                   liveRuntimeToolPreview:
                                       liveRuntimeToolPreview,
                                   sendPhase: sendPhase,
-                                  planTimelineCollapsed: planTimelineCollapsed,
-                                  onPlanTimelineCollapsedChanged:
-                                      onPlanTimelineCollapsedChanged,
                                   onLayoutChanged: onTranscriptLayoutChanged,
                                   onMessageExpansionChanged:
                                       onMessageExpansionChanged,
@@ -339,14 +342,6 @@ class _WorkspaceView extends StatelessWidget {
                                   translationService: translationService,
                                   onDismissError: onDismissError,
                                   jumpToBottomOnInit: jumpToBottomOnInit,
-                                  fileExplorerVisible: fileExplorerVisible,
-                                  onFileExplorerToggled: onFileExplorerToggled,
-                                  machineTerminalPanelVisible:
-                                      machineTerminalPanelVisible,
-                                  onMachineTerminalPanelToggled:
-                                      onMachineTerminalPanelToggled,
-                                  activeProfile: selectedModel
-                                      ?.modelProfiles[selectedModel!.modelId],
                                   claudeStyle:
                                       selectedModel?.protocolType ==
                                       AiProtocolType.claude,
@@ -589,7 +584,12 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
             ),
           ),
           kOpenHandGap20,
-          Text(title, style: theme.textTheme.headlineMedium),
+          OpenHandAnimatedTitleText(
+            text: title,
+            style: theme.textTheme.headlineMedium,
+            maxLines: 2,
+            softWrap: true,
+          ),
           kOpenHandGap10,
           Text(
             subtitle,

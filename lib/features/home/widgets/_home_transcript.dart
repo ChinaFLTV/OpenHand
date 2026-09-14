@@ -278,8 +278,6 @@ class _SessionTranscript extends StatefulWidget {
     required this.session,
     required this.liveRuntimeToolPreview,
     required this.sendPhase,
-    required this.planTimelineCollapsed,
-    required this.onPlanTimelineCollapsedChanged,
     required this.onLayoutChanged,
     required this.onMessageExpansionChanged,
     required this.preserveViewportAfterUserScroll,
@@ -290,11 +288,6 @@ class _SessionTranscript extends StatefulWidget {
     required this.translationService,
     required this.onDismissError,
     this.jumpToBottomOnInit = false,
-    this.fileExplorerVisible = false,
-    this.onFileExplorerToggled,
-    this.machineTerminalPanelVisible = false,
-    this.onMachineTerminalPanelToggled,
-    this.activeProfile,
     this.claudeStyle = true,
   });
 
@@ -303,8 +296,6 @@ class _SessionTranscript extends StatefulWidget {
   final AiSession session;
   final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final AiSendPhase sendPhase;
-  final bool planTimelineCollapsed;
-  final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final VoidCallback onLayoutChanged;
   final ValueChanged<bool> onMessageExpansionChanged;
   final bool preserveViewportAfterUserScroll;
@@ -316,11 +307,6 @@ class _SessionTranscript extends StatefulWidget {
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
   // 首帧直接跳到底部，避免加载会话时出现从顶部滚入的动画。
   final bool jumpToBottomOnInit;
-  final bool fileExplorerVisible;
-  final VoidCallback? onFileExplorerToggled;
-  final bool machineTerminalPanelVisible;
-  final VoidCallback? onMachineTerminalPanelToggled;
-  final AiModelProfile? activeProfile;
   final bool claudeStyle;
 
   @override
@@ -3314,20 +3300,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SessionToolbar(
-          session: session,
-          liveRuntimeToolPreview: widget.liveRuntimeToolPreview,
-          sendPhase: widget.sendPhase,
-          planTimelineCollapsed: widget.planTimelineCollapsed,
-          onPlanTimelineCollapsedChanged: widget.onPlanTimelineCollapsedChanged,
-          fileExplorerVisible: widget.fileExplorerVisible,
-          onFileExplorerToggled: widget.onFileExplorerToggled,
-          machineTerminalPanelVisible: widget.machineTerminalPanelVisible,
-          onMachineTerminalPanelToggled: widget.onMachineTerminalPanelToggled,
-          activeProfile: widget.activeProfile,
-          claudeStyle: widget.claudeStyle,
-        ),
-        kOpenHandGap14,
         Expanded(
           child: ValueListenableBuilder<AiTtsPlaybackSnapshot>(
             valueListenable: widget.ttsPlaybackService.state,

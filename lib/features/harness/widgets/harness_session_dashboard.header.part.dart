@@ -253,6 +253,7 @@ class _HePaneHeader extends StatelessWidget {
       toolbarSpacing: _heToolbarItemSpacing,
       toolbarItems: toolbarItems,
       title: OpenHandAnimatedTitleText(
+        animateOnMount: true,
         text: effectiveTitle,
         style: theme.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w800,

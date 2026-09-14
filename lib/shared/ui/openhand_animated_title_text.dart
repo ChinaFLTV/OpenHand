@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../app/state/settings_controller.dart';
 import 'bounded_animation.dart';
 import 'interaction_timings.dart';
 import 'motion_durations.dart';
@@ -15,6 +17,7 @@ class OpenHandAnimatedTitleText extends StatefulWidget {
     this.overflow = TextOverflow.ellipsis,
     this.softWrap = false,
     this.tooltip = true,
+    this.animateOnMount = false,
   });
 
   final String text;
@@ -23,6 +26,7 @@ class OpenHandAnimatedTitleText extends StatefulWidget {
   final TextOverflow overflow;
   final bool softWrap;
   final bool tooltip;
+  final bool animateOnMount;
 
   @override
   State<OpenHandAnimatedTitleText> createState() =>
@@ -34,16 +38,23 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
   static const Duration _fallbackDuration = kOpenHandMotion360;
   static const Curve _incomingMotionCurve = Cubic(0.22, 1.22, 0.36, 1);
 
-  int _snapshotId = 0;
   late _TitleSnapshot _current = _snapshotFromWidget();
   _TitleSnapshot? _previous;
+  _TitleSnapshot? _pending;
   bool _motionEnabled = true;
   late final AnimationController _controller =
       AnimationController(vsync: this, duration: _fallbackDuration)
         ..addStatusListener((status) {
-          if (status == AnimationStatus.completed &&
-              mounted &&
-              _previous != null) {
+          if (status != AnimationStatus.completed || !mounted) return;
+          final pending = _pending;
+          if (pending != null && pending.text != _current.text) {
+            setState(() {
+              _previous = _current;
+              _current = pending;
+              _pending = null;
+              _controller.forward(from: 0);
+            });
+          } else if (_previous != null) {
             setState(() => _previous = null);
           }
         });
@@ -51,28 +62,39 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
   @override
   void initState() {
     super.initState();
-    _controller.value = 1;
+    _controller.value = widget.animateOnMount ? 0 : 1;
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    context.watch<SettingsController?>();
     _syncMotionSettings();
+    if (_motionEnabled && !_controller.isAnimating && _controller.value < 1) {
+      _controller.forward();
+    }
   }
 
   @override
   void didUpdateWidget(covariant OpenHandAnimatedTitleText oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncMotionSettings();
-    if (oldWidget.text == widget.text) {
-      _current = _snapshotFromWidget(id: _current.id);
-      return;
-    }
     final next = _snapshotFromWidget();
     if (!_motionEnabled) {
       _current = next;
       _previous = null;
+      _pending = null;
       _controller.value = 1;
+      return;
+    }
+    if (next.text == _current.text) {
+      _current = next;
+      _pending = null;
+      return;
+    }
+    // 当前过渡不中断，只保留最后一个待显示标题，避免高频改名闪烁。
+    if (_controller.isAnimating) {
+      _pending = next;
       return;
     }
     _previous = _current;
@@ -80,9 +102,8 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
     _controller.forward(from: 0);
   }
 
-  _TitleSnapshot _snapshotFromWidget({int? id}) {
+  _TitleSnapshot _snapshotFromWidget() {
     return _TitleSnapshot(
-      id: id ?? ++_snapshotId,
       text: widget.text,
       style: widget.style,
       maxLines: widget.maxLines,
@@ -104,7 +125,9 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
       }
       return;
     }
+    _current = _snapshotFromWidget();
     _previous = null;
+    _pending = null;
     _controller.value = 1;
   }
 
@@ -116,22 +139,22 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
 
   @override
   Widget build(BuildContext context) {
-    final trimmed = _current.text.trim();
-    final animatedBody = _buildAnimatedBody();
-    if (trimmed.isEmpty || !widget.tooltip) return animatedBody;
+    final trimmed = widget.text.trim();
+    final body = Semantics(
+      label: trimmed,
+      child: ExcludeSemantics(child: _buildAnimatedBody()),
+    );
+    if (trimmed.isEmpty || !widget.tooltip) return body;
     return Tooltip(
       message: trimmed,
       waitDuration: kOpenHandTooltipWait,
-      child: Semantics(
-        label: trimmed,
-        child: ExcludeSemantics(child: animatedBody),
-      ),
+      child: body,
     );
   }
 
   Widget _titleText(_TitleSnapshot snapshot, _TitleRole role) {
     return Text(
-      key: ValueKey<(int, _TitleRole)>((snapshot.id, role)),
+      key: ValueKey<_TitleRole>(role),
       snapshot.text,
       maxLines: snapshot.maxLines,
       overflow: snapshot.overflow,
@@ -142,10 +165,12 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
 
   Widget _buildAnimatedBody() {
     final previous = _previous;
-    if (!_motionEnabled || previous == null) {
+    if (!_motionEnabled || _controller.isCompleted) {
       return _titleText(_current, _TitleRole.current);
     }
-    final previousTitle = _titleText(previous, _TitleRole.previous);
+    final previousTitle = previous == null
+        ? null
+        : _titleText(previous, _TitleRole.previous);
     final currentTitle = _titleText(_current, _TitleRole.current);
     return ClipRect(
       child: AnimatedBuilder(
@@ -162,17 +187,20 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
           return Stack(
             alignment: AlignmentDirectional.centerStart,
             children: [
-              Opacity(
-                opacity: 1 - outgoing,
-                child: Transform.translate(
-                  offset: Offset(0, -7 * outgoing),
-                  child: Transform.scale(
-                    alignment: AlignmentDirectional.centerStart,
-                    scale: 1 - 0.015 * outgoing,
-                    child: previousTitle,
+              if (previousTitle != null)
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 1 - outgoing,
+                    child: Transform.translate(
+                      offset: Offset(0, -7 * outgoing),
+                      child: Transform.scale(
+                        alignment: AlignmentDirectional.centerStart,
+                        scale: 1 - 0.015 * outgoing,
+                        child: previousTitle,
+                      ),
+                    ),
                   ),
                 ),
-              ),
               Opacity(
                 opacity: incomingOpacity,
                 child: Transform.translate(
@@ -196,7 +224,6 @@ enum _TitleRole { current, previous }
 
 class _TitleSnapshot {
   const _TitleSnapshot({
-    required this.id,
     required this.text,
     required this.style,
     required this.maxLines,
@@ -204,7 +231,6 @@ class _TitleSnapshot {
     required this.softWrap,
   });
 
-  final int id;
   final String text;
   final TextStyle? style;
   final int maxLines;

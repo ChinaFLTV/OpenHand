@@ -61,7 +61,6 @@ class _NavigationPane extends StatefulWidget {
   const _NavigationPane({
     required this.selectedSection,
     required this.sessions,
-    required this.sessionLimit,
     required this.totalSessionCount,
     required this.hasMoreSessions,
     required this.sessionSendPhases,
@@ -85,7 +84,6 @@ class _NavigationPane extends StatefulWidget {
 
   final AppSection selectedSection;
   final List<AiSession> sessions;
-  final int sessionLimit;
   final int totalSessionCount;
   final bool hasMoreSessions;
   final Map<String, AiSendPhase> sessionSendPhases;
@@ -114,7 +112,6 @@ class _NavigationPaneState extends State<_NavigationPane> {
   final Map<String, _ThreadTileCacheEntry> _threadTileCache =
       <String, _ThreadTileCacheEntry>{};
   _HarnessTileCacheEntry? _harnessTileCache;
-  final AppearTracker _threadAppear = AppearTracker();
   final ScrollController _featureScrollController = ScrollController();
   final ScrollController _threadScrollController = ScrollController();
   bool _creatingThread = false;
@@ -124,16 +121,6 @@ class _NavigationPaneState extends State<_NavigationPane> {
     _featureScrollController.dispose();
     _threadScrollController.dispose();
     super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant _NavigationPane oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.sessionLimit > oldWidget.sessionLimit) {
-      for (final session in widget.sessions) {
-        _threadAppear.markSeen('ai-${session.id}');
-      }
-    }
   }
 
   AiSession? _visibleSession(String sessionId) {
@@ -196,16 +183,6 @@ class _NavigationPaneState extends State<_NavigationPane> {
           ),
         ),
       );
-      // 新 Harness 记录按标识播放一次入场动画，后续缓存复用直接返回子组件。
-      final heKey = 'he-${record.id}';
-      final heIsNew = _threadAppear.shouldAnimate(heKey);
-      _threadAppear.markSeen(heKey);
-      final heDisplayed = heIsNew
-          ? SettingsAwareAppearOnce(
-              key: ValueKey<String>('he-thread-appear-${record.id}'),
-              child: built,
-            )
-          : built;
       _harnessTileCache = _HarnessTileCacheEntry(
         recordId: record.id,
         title: record.title,
@@ -213,9 +190,9 @@ class _NavigationPaneState extends State<_NavigationPane> {
         status: status,
         awaitingApproval: heAwaitingApproval,
         isSelected: isSelected,
-        widget: heDisplayed,
+        widget: built,
       );
-      return heDisplayed;
+      return built;
     }
 
     for (final session in widget.sessions) {
@@ -278,24 +255,14 @@ class _NavigationPaneState extends State<_NavigationPane> {
           ),
         ),
       );
-      // 仅首帧后新增的会话播放入场动画，避免启动时整个侧栏同时动画。
-      final aiKey = 'ai-$sessionId';
-      final aiIsNew = _threadAppear.shouldAnimate(aiKey);
-      _threadAppear.markSeen(aiKey);
-      final aiDisplayed = aiIsNew
-          ? SettingsAwareAppearOnce(
-              key: ValueKey<String>('ai-thread-appear-$sessionId'),
-              child: built,
-            )
-          : built;
       _threadTileCache[sessionId] = _ThreadTileCacheEntry(
         title: session.title,
         templateIconName: session.templateIconName,
         sendPhase: sendPhase,
         isSelected: isSelected,
-        widget: aiDisplayed,
+        widget: built,
       );
-      tiles.add(aiDisplayed);
+      tiles.add(built);
     }
 
     // Harness 会话最旧或没有 AI 会话时追加到末尾。
@@ -304,16 +271,10 @@ class _NavigationPaneState extends State<_NavigationPane> {
     }
 
     // 移除已不存在会话的缓存项。
-    if (_threadTileCache.length != activeSessionIds.length) {
-      _threadTileCache.removeWhere(
-        (sessionId, _) => !activeSessionIds.contains(sessionId),
-      );
-    }
-    _threadAppear.retainOnly(<String>{
-      for (final sessionId in activeSessionIds) 'ai-$sessionId',
-      if (heRecord != null) 'he-${heRecord.id}',
-    });
-    _threadAppear.markInitialBuildDone();
+    _threadTileCache.removeWhere(
+      (sessionId, _) => !activeSessionIds.contains(sessionId),
+    );
+    if (heRecord == null) _harnessTileCache = null;
 
     return tiles;
   }
@@ -344,10 +305,15 @@ class _NavigationPaneState extends State<_NavigationPane> {
       heStatus: heStatusForTile,
       heAwaitingApproval: heAwaitingApprovalForTile,
     );
-    final threadTileIndexByKey = <Key, int>{
-      for (var index = 0; index < threadTiles.length; index++)
-        if (threadTiles[index].key case final key?) key: index,
-    };
+    final configuredMotion = context
+        .select<SettingsController, DialogAnimationSettings>(
+          (controller) => controller.listItemAnimationSettings,
+        );
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.listItem,
+      override: configuredMotion,
+    );
 
     return Column(
       children: [
@@ -514,47 +480,51 @@ class _NavigationPaneState extends State<_NavigationPane> {
                     child: CustomScrollView(
                       controller: _threadScrollController,
                       slivers: [
-                        if (!hasThreads)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerLowest
-                                      .withValues(alpha: 0.55),
-                                  borderRadius: kOpenHandBorderRadius18,
-                                  border: Border.all(
-                                    color: colorScheme.outlineVariant
-                                        .withValues(alpha: 0.45),
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Text(
-                                    l10n.threadsEmptyBody,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                      height: 1.45,
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                          sliver: OpenHandAnimatedSliverList(
+                            settings: motion,
+                            children: [
+                              if (!hasThreads)
+                                KeyedSubtree(
+                                  key: const ValueKey('threads-empty'),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      4,
+                                      16,
+                                      20,
+                                    ),
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: colorScheme
+                                            .surfaceContainerLowest
+                                            .withValues(alpha: 0.55),
+                                        borderRadius: kOpenHandBorderRadius18,
+                                        border: Border.all(
+                                          color: colorScheme.outlineVariant
+                                              .withValues(alpha: 0.45),
+                                        ),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(14),
+                                        child: Text(
+                                          l10n.threadsEmptyBody,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: colorScheme
+                                                    .onSurfaceVariant,
+                                                height: 1.45,
+                                              ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
+                              ...threadTiles,
+                            ],
                           ),
-                        if (hasThreads)
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (_, index) => threadTiles[index],
-                                childCount: threadTiles.length,
-                                addAutomaticKeepAlives: false,
-                                addRepaintBoundaries: false,
-                                findChildIndexCallback: (key) =>
-                                    threadTileIndexByKey[key],
-                              ),
-                            ),
-                          ),
+                        ),
                         if (widget.hasMoreSessions)
                           SliverToBoxAdapter(
                             child: Padding(

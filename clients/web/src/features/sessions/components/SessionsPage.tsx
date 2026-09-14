@@ -22,7 +22,7 @@ import { t } from '../../../i18n';
 import { useAuth } from '../../../state/auth';
 import type { ApiMetaTemplate } from '../../../api/meta';
 import { TopBar } from '../../../components/TopBar';
-import { Appear } from '../../../components/Appear';
+import { AnimatedList } from '../../../components/AnimatedList';
 import { PopMenu } from '../../../components/PopMenu';
 import { TemplateConfigDialog, TemplatePickerDialog } from '../../../components/TemplateDialogs';
 import { PullIndicator } from '../../../components/PullIndicator';
@@ -449,11 +449,7 @@ export function SessionsPage() {
           class="flex-1 min-h-0 overflow-y-auto pr-1 pb-24"
         >
           {/* 列表 */}
-        {loading && !data ? (
-          <p class="text-sm oh-text-muted">
-            {t('sessions.loading', '加载中…')}
-          </p>
-        ) : error ? (
+        {error ? (
           <div
             class="rounded-md p-4 text-sm"
             style={{ background: 'var(--m3-surface-container)', color: 'var(--m3-error)' }}
@@ -463,209 +459,216 @@ export function SessionsPage() {
               {t('sessions.retry', '重试')}
             </button>
           </div>
-        ) : items.length === 0 ? (
-          <div class="oh-session-empty-state oh-sessions-empty">
-            <span class="oh-session-empty-icon" aria-hidden>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            </span>
-            <p class="text-sm">
-              {t('sessions.empty', '暂无会话，点击右下角加号创建一个吧。')}
-            </p>
-          </div>
-        ) : (
-          <ul class="oh-sessions-list flex flex-col gap-3 w-full min-w-0">
-            {items.map((item, idx) => {
+        ) : null}
+        {loading && !data ? (
+          <p class="text-sm oh-text-muted">
+            {t('sessions.loading', '加载中…')}
+          </p>
+        ) : data ? (
+          <AnimatedList
+            className="oh-sessions-list w-full min-w-0"
+            items={items}
+            itemKey={(item) => item.id}
+            empty={(
+              <div class="oh-session-empty-state oh-sessions-empty">
+                <span class="oh-session-empty-icon" aria-hidden>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                </span>
+                <p class="text-sm">
+                  {t('sessions.empty', '暂无会话，点击右下角加号创建一个吧。')}
+                </p>
+              </div>
+            )}
+            renderItem={(item) => {
               const row = rowStates[item.id] ?? emptyRow;
               const editing = row.draftTitle !== null;
               return (
-                <Appear as="li" key={item.id} variant="up" index={Math.min(idx + 1, 12)}>
-                  <div
-                    class="oh-sessions-card rounded-m3-md p-4 oh-tap-press"
-                    style={{
-                      background: 'var(--m3-surface-container)',
-                      boxShadow: 'var(--m3-elev-1)',
-                      cursor: editing ? 'default' : 'pointer',
-                    }}
-                    role={editing ? undefined : 'button'}
-                    tabIndex={editing ? undefined : 0}
-                    onClick={(ev) => {
-                      if (editing) return;
-                      // 点击操作菜单 / 输入框等已经 stopPropagation；这里只接管"卡片本体"点击。
-                      const target = ev.target as HTMLElement;
-                      if (target.closest('button,input,textarea,select,a,[role="menu"]')) return;
+                <div
+                  class="oh-sessions-card rounded-m3-md p-4 oh-tap-press"
+                  style={{
+                    background: 'var(--m3-surface-container)',
+                    boxShadow: 'var(--m3-elev-1)',
+                    cursor: editing ? 'default' : 'pointer',
+                  }}
+                  role={editing ? undefined : 'button'}
+                  tabIndex={editing ? undefined : 0}
+                  onClick={(ev) => {
+                    if (editing) return;
+                    // 点击操作菜单 / 输入框等已经 stopPropagation；这里只接管"卡片本体"点击。
+                    const target = ev.target as HTMLElement;
+                    if (target.closest('button,input,textarea,select,a,[role="menu"]')) return;
+                    openSession(item.id);
+                  }}
+                  onKeyDown={(ev) => {
+                    if (editing) return;
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                      ev.preventDefault();
                       openSession(item.id);
-                    }}
-                    onKeyDown={(ev) => {
-                      if (editing) return;
-                      if (ev.key === 'Enter' || ev.key === ' ') {
-                        ev.preventDefault();
-                        openSession(item.id);
-                      }
-                    }}
-                  >
-                    <div class="flex items-start justify-between gap-3">
-                      <div class="flex-1 min-w-0">
-                        <AnimatedTitleText
-                          text={
-                            item.title ||
-                            t('sessions.untitled', '未命名会话')
-                          }
-                          className="text-base font-medium text-left truncate w-full"
-                          style={{
-                            color: 'var(--m3-on-surface)',
-                            display: editing ? 'none' : 'block',
-                          }}
-                        />
-                        {editing ? (
-                          <div class="flex items-center gap-2">
-                            <input
-                              value={row.draftTitle ?? ''}
-                              maxLength={SESSION_TITLE_MAX_CHARACTERS}
-                              onInput={(e) =>
-                                patchRow(item.id, {
-                                  draftTitle: (e.currentTarget as HTMLInputElement).value,
-                                })
+                    }
+                  }}
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="flex-1 min-w-0">
+                      <AnimatedTitleText
+                        text={
+                          item.title ||
+                          t('sessions.untitled', '未命名会话')
+                        }
+                        className="text-base font-medium text-left truncate w-full"
+                        style={{
+                          color: 'var(--m3-on-surface)',
+                          display: editing ? 'none' : 'block',
+                        }}
+                      />
+                      {editing ? (
+                        <div class="flex items-center gap-2">
+                          <input
+                            value={row.draftTitle ?? ''}
+                            maxLength={SESSION_TITLE_MAX_CHARACTERS}
+                            onInput={(e) =>
+                              patchRow(item.id, {
+                                draftTitle: (e.currentTarget as HTMLInputElement).value,
+                              })
+                            }
+                            disabled={row.busy}
+                            class="flex-1 px-2 py-1 rounded-m3-sm text-sm"
+                            style={{
+                              background: 'var(--m3-surface)',
+                              color: 'var(--m3-on-surface)',
+                              border: '1px solid var(--m3-outline)',
+                            }}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                void handleRenameSubmit(item);
+                              } else if (e.key === 'Escape') {
+                                patchRow(item.id, { draftTitle: null, error: undefined });
                               }
-                              disabled={row.busy}
-                              class="flex-1 px-2 py-1 rounded-m3-sm text-sm"
-                              style={{
-                                background: 'var(--m3-surface)',
-                                color: 'var(--m3-on-surface)',
-                                border: '1px solid var(--m3-outline)',
-                              }}
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  void handleRenameSubmit(item);
-                                } else if (e.key === 'Escape') {
-                                  patchRow(item.id, { draftTitle: null, error: undefined });
-                                }
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleRenameSubmit(item)}
-                              disabled={row.busy}
-                              class="text-xs px-2 py-1 rounded-m3-sm"
-                              style={{
-                                background: 'var(--m3-primary)',
-                                color: 'var(--m3-on-primary)',
-                              }}
-                            >
-                              {row.busy
-                                ? t('sessions.rename.saving', '保存中…')
-                                : t('sessions.rename.save', '保存')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                patchRow(item.id, { draftTitle: null, error: undefined })
-                              }
-                              disabled={row.busy}
-                              class="text-xs px-2 py-1 oh-text-muted"
-                            >
-                              {t('common.cancel', '取消')}
-                            </button>
-                          </div>
-                        ) : null}
-                        <p
-                          class="text-xs mt-1 truncate oh-text-muted"
-                        >
-                          {item.last_message_preview ||
-                            t('sessions.previewEmpty', '尚无消息')}
-                        </p>
-                        <div
-                          class="text-xs mt-2 flex flex-wrap gap-x-3 gap-y-1 oh-text-muted"
-                        >
-                          <span>{formatLocalDateTimeMinute(item.updated_at)}</span>
-                          <span>· {modeLabel(item.mode)}</span>
-                          <span>
-                            · {t('sessions.template.label', '模板：')}
-                            {item.template_name || item.template_id}
-                          </span>
-                          <span>
-                            · {item.message_count} {t('sessions.messageUnit', '条消息')}
-                          </span>
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRenameSubmit(item)}
+                            disabled={row.busy}
+                            class="text-xs px-2 py-1 rounded-m3-sm"
+                            style={{
+                              background: 'var(--m3-primary)',
+                              color: 'var(--m3-on-primary)',
+                            }}
+                          >
+                            {row.busy
+                              ? t('sessions.rename.saving', '保存中…')
+                              : t('sessions.rename.save', '保存')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              patchRow(item.id, { draftTitle: null, error: undefined })
+                            }
+                            disabled={row.busy}
+                            class="text-xs px-2 py-1 oh-text-muted"
+                          >
+                            {t('common.cancel', '取消')}
+                          </button>
                         </div>
-                        {row.error ? (
-                          <p class="text-xs mt-2 oh-text-error">
-                            {row.error}
-                          </p>
-                        ) : null}
+                      ) : null}
+                      <p
+                        class="text-xs mt-1 truncate oh-text-muted"
+                      >
+                        {item.last_message_preview ||
+                          t('sessions.previewEmpty', '尚无消息')}
+                      </p>
+                      <div
+                        class="text-xs mt-2 flex flex-wrap gap-x-3 gap-y-1 oh-text-muted"
+                      >
+                        <span>{formatLocalDateTimeMinute(item.updated_at)}</span>
+                        <span>· {modeLabel(item.mode)}</span>
+                        <span>
+                          · {t('sessions.template.label', '模板：')}
+                          {item.template_name || item.template_id}
+                        </span>
+                        <span>
+                          · {item.message_count} {t('sessions.messageUnit', '条消息')}
+                        </span>
                       </div>
-                      {sessionMgmtEnabled && !editing ? (
-                        <PopMenu
-                          align="right"
-                          trigger={({ open, toggle }) => (
-                            <button
-                              type="button"
-                              onMouseDown={(ev) => ev.stopPropagation()}
-                              onClick={(ev) => {
-                                ev.stopPropagation();
-                                ev.preventDefault();
-                                toggle();
-                              }}
-                              class="oh-tap-press w-10 h-10 rounded-full flex items-center justify-center text-base"
-                              style={{
-                                background: open
-                                  ? 'color-mix(in srgb, var(--m3-on-surface) 10%, transparent)'
-                                  : 'transparent',
-                                color: 'var(--m3-on-surface-variant)',
-                                border: open ? '1px solid var(--m3-outline)' : '1px solid transparent',
-                                marginRight: '-8px',
-                                marginTop: '-4px',
-                              }}
-                              aria-haspopup="menu"
-                              aria-label={t('sessions.row.menu', '更多操作')}
-                              title={t('sessions.row.menu', '更多操作')}
-                            >
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                                <circle cx="5" cy="12" r="1.4" />
-                                <circle cx="12" cy="12" r="1.4" />
-                                <circle cx="19" cy="12" r="1.4" />
-                              </svg>
-                            </button>
-                          )}
-                          items={[
-                            {
-                              key: 'rename',
-                              label: t('sessions.rename.action', '重命名'),
-                              onClick: () =>
-                                patchRow(item.id, {
-                                  draftTitle: item.title,
-                                  error: undefined,
-                                }),
-                            },
-                            {
-                              key: 'export',
-                              label: row.exporting
-                                ? t('sessions.export.busy', '正在导出…')
-                                : t('sessions.export.action', '导出会话数据'),
-                              onClick: () => void handleExport(item),
-                              disabled: row.exporting,
-                            },
-                            {
-                              key: 'delete',
-                              label: row.busy
-                                ? t('sessions.delete.deleting', '正在删除…')
-                                : t('sessions.delete.action', '删除'),
-                              onClick: () => setDeleteTarget(item),
-                              variant: 'danger',
-                              disabled: row.busy,
-                            },
-                          ]}
-                        />
+                      {row.error ? (
+                        <p class="text-xs mt-2 oh-text-error">
+                          {row.error}
+                        </p>
                       ) : null}
                     </div>
+                    {sessionMgmtEnabled && !editing ? (
+                      <PopMenu
+                        align="right"
+                        trigger={({ open, toggle }) => (
+                          <button
+                            type="button"
+                            onMouseDown={(ev) => ev.stopPropagation()}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              ev.preventDefault();
+                              toggle();
+                            }}
+                            class="oh-tap-press w-10 h-10 rounded-full flex items-center justify-center text-base"
+                            style={{
+                              background: open
+                                ? 'color-mix(in srgb, var(--m3-on-surface) 10%, transparent)'
+                                : 'transparent',
+                              color: 'var(--m3-on-surface-variant)',
+                              border: open ? '1px solid var(--m3-outline)' : '1px solid transparent',
+                              marginRight: '-8px',
+                              marginTop: '-4px',
+                            }}
+                            aria-haspopup="menu"
+                            aria-label={t('sessions.row.menu', '更多操作')}
+                            title={t('sessions.row.menu', '更多操作')}
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                              <circle cx="5" cy="12" r="1.4" />
+                              <circle cx="12" cy="12" r="1.4" />
+                              <circle cx="19" cy="12" r="1.4" />
+                            </svg>
+                          </button>
+                        )}
+                        items={[
+                          {
+                            key: 'rename',
+                            label: t('sessions.rename.action', '重命名'),
+                            onClick: () =>
+                              patchRow(item.id, {
+                                draftTitle: item.title,
+                                error: undefined,
+                              }),
+                          },
+                          {
+                            key: 'export',
+                            label: row.exporting
+                              ? t('sessions.export.busy', '正在导出…')
+                              : t('sessions.export.action', '导出会话数据'),
+                            onClick: () => void handleExport(item),
+                            disabled: row.exporting,
+                          },
+                          {
+                            key: 'delete',
+                            label: row.busy
+                              ? t('sessions.delete.deleting', '正在删除…')
+                              : t('sessions.delete.action', '删除'),
+                            onClick: () => setDeleteTarget(item),
+                            variant: 'danger',
+                            disabled: row.busy,
+                          },
+                        ]}
+                      />
+                    ) : null}
                   </div>
-                </Appear>
+                </div>
               );
-            })}
-          </ul>
-        )}
+            }}
+          />
+        ) : null}
 
         {/* 分页器 */}
         {data && data.total > pageSize ? (

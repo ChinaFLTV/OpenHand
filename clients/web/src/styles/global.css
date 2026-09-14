@@ -321,6 +321,29 @@ html, body, #root {
 .oh-rolling-digit-fade-in {
   animation: oh-rolling-digit-fade-in var(--oh-digit-roll-duration) var(--oh-motion-emphasized) both;
 }
+/* 保留退场内容并同步收起占位，标题与卡片动效不互相覆盖。 */
+.oh-presence-row {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--oh-presence-duration) var(--oh-motion-emphasized);
+  list-style: none;
+}
+.oh-presence-row[data-visible='true'] { grid-template-rows: 1fr; }
+.oh-presence-clip { min-height: 0; overflow: hidden; }
+.oh-presence-content {
+  padding: 4px 2px 12px;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.96);
+  transform-origin: center top;
+  transition:
+    opacity var(--oh-presence-duration) var(--oh-motion-emphasized),
+    transform var(--oh-presence-duration) var(--oh-motion-spring);
+}
+.oh-presence-row[data-visible='true'] > .oh-presence-clip > .oh-presence-content {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
 .oh-animated-title-text {
   position: relative;
   display: inline-block;

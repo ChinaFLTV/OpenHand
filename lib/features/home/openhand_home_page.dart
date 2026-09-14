@@ -58,7 +58,6 @@ import '../../shared/ui/animated_expandable.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/animated_overlay.dart';
 import '../../shared/ui/appear_once.dart';
-import '../../shared/ui/appear_tracker.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/choice_input_dialog.dart';
@@ -85,6 +84,7 @@ import '../../shared/ui/native_audio_preview.dart';
 import '../../shared/ui/natural_image_size_resolver.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_anchored_popup_layout.dart';
+import '../../shared/ui/openhand_animated_sliver_list.dart';
 import '../../shared/ui/openhand_animated_title_text.dart';
 import '../../shared/ui/openhand_approval_chip.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
@@ -9953,7 +9953,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         builder: (context, snapshot, _) => _NavigationPane(
                           selectedSection: _selectedSection,
                           sessions: snapshot.sessions,
-                          sessionLimit: _navigationSessionLimit,
                           totalSessionCount: snapshot.totalSessionCount,
                           hasMoreSessions:
                               _navigationSessionLimit <
