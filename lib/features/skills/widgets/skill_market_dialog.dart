@@ -20,6 +20,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
@@ -51,6 +52,7 @@ const double _kSkillMarketDetailAvatarSize = 64;
 const double _kSkillMarketConfirmAvatarSize = 52;
 const int _kSkillMarketMaxPreviewVersions = 12;
 const int _kSkillMarketMaxPreviewFiles = 12;
+const double _kSkillMarketFilesExpandedMaxHeight = 420;
 const int _kSkillMarketMaxPreviewSubcategories = 3;
 
 class _SkillMarketDialog extends StatefulWidget {
@@ -1219,8 +1221,6 @@ class _SkillMarketDetailView extends StatelessWidget {
         : summary.subCategories;
     final source = skill.source.isNotEmpty ? skill.source : summary.source;
     final files = bundle.files?.files ?? const <SkillMarketFileEntry>[];
-    final previewFiles = files.take(_kSkillMarketMaxPreviewFiles).toList();
-    final hiddenFileCount = files.length - previewFiles.length;
     final requiresApiKey = skill.requiresApiKey || summary.requiresApiKey;
 
     return ClipRRect(
@@ -1438,7 +1438,7 @@ class _SkillMarketDetailView extends StatelessWidget {
               ),
             ),
           ],
-          if (previewFiles.isNotEmpty) ...[
+          if (files.isNotEmpty) ...[
             kOpenHandGap14,
             OpenHandTintedPanel(
               accent: colorScheme.secondary,
@@ -1452,27 +1452,12 @@ class _SkillMarketDetailView extends StatelessWidget {
                 de: 'Enthaltene Dateien',
                 ja: '含まれるファイル',
               ),
-              child: Column(
-                children: [
-                  for (var i = 0; i < previewFiles.length; i++) ...[
-                    if (i > 0) kOpenHandGap8,
-                    _SkillMarketFileRow(file: previewFiles[i], accent: accent),
-                  ],
-                  if (hiddenFileCount > 0) ...[
-                    kOpenHandGap10,
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: OpenHandFactChip(
-                        icon: Icons.more_horiz_rounded,
-                        label: skillMarketFilesMoreLabel(
-                          context,
-                          hiddenFileCount,
-                        ),
-                        color: colorScheme.secondary,
-                      ),
-                    ),
-                  ],
-                ],
+              child: _SkillMarketIncludedFilesPanel(
+                key: ValueKey<String>(
+                  '${summary.slug}|${bundle.resolvedVersion}|${files.length}',
+                ),
+                files: files,
+                accent: accent,
               ),
             ),
           ],
@@ -1503,6 +1488,143 @@ class _SkillMarketDetailView extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SkillMarketIncludedFilesPanel extends StatefulWidget {
+  const _SkillMarketIncludedFilesPanel({
+    super.key,
+    required this.files,
+    required this.accent,
+  });
+
+  final List<SkillMarketFileEntry> files;
+  final Color accent;
+
+  @override
+  State<_SkillMarketIncludedFilesPanel> createState() =>
+      _SkillMarketIncludedFilesPanelState();
+}
+
+class _SkillMarketIncludedFilesPanelState
+    extends State<_SkillMarketIncludedFilesPanel> {
+  final ScrollController _scrollController = ScrollController();
+  bool _expanded = false;
+
+  int get _previewCount =>
+      math.min(_kSkillMarketMaxPreviewFiles, widget.files.length);
+
+  int get _hiddenCount => widget.files.length - _previewCount;
+
+  bool get _canExpand => _hiddenCount > 0;
+
+  @override
+  void didUpdateWidget(covariant _SkillMarketIncludedFilesPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_filesChanged(oldWidget.files, widget.files)) return;
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+    _expanded = false;
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  bool _filesChanged(
+    List<SkillMarketFileEntry> previous,
+    List<SkillMarketFileEntry> next,
+  ) {
+    if (identical(previous, next)) return false;
+    if (previous.length != next.length) return true;
+    if (previous.isEmpty) return false;
+    return previous.first.path != next.first.path ||
+        previous.last.path != next.last.path;
+  }
+
+  void _toggleExpanded() {
+    if (!_canExpand) return;
+    if (_expanded && _scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+    setState(() => _expanded = !_expanded);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final visibleCount = _expanded ? widget.files.length : _previewCount;
+    final panelMotion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.panel,
+    );
+    final chipMotion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.chip,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedSize(
+          duration: panelMotion.entranceDuration,
+          reverseDuration: panelMotion.exitDuration,
+          curve: panelMotion.curve.curve,
+          alignment: Alignment.topCenter,
+          child: ClipRect(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxHeight: _kSkillMarketFilesExpandedMaxHeight,
+              ),
+              child: OpenHandSafeScrollbar(
+                controller: _scrollController,
+                child: ListView.separated(
+                  controller: _scrollController,
+                  primary: false,
+                  shrinkWrap: !_expanded,
+                  padding: EdgeInsets.zero,
+                  physics: _expanded
+                      ? openHandDialogAwareScrollPhysics(context)
+                      : const NeverScrollableScrollPhysics(),
+                  itemCount: visibleCount,
+                  separatorBuilder: (context, index) => kOpenHandGap8,
+                  itemBuilder: (context, index) {
+                    return _SkillMarketFileRow(
+                      file: widget.files[index],
+                      accent: widget.accent,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (_canExpand) ...[
+          kOpenHandGap10,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: AnimatedSize(
+              duration: chipMotion.entranceDuration,
+              reverseDuration: chipMotion.exitDuration,
+              curve: chipMotion.curve.curve,
+              alignment: AlignmentDirectional.centerStart,
+              child: OpenHandFactChip(
+                icon: _expanded
+                    ? Icons.unfold_less_rounded
+                    : Icons.more_horiz_rounded,
+                label: _expanded
+                    ? openHandCollapseLabel(context)
+                    : skillMarketFilesMoreLabel(context, _hiddenCount),
+                color: colorScheme.secondary,
+                onPressed: _toggleExpanded,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -201,20 +201,23 @@ class OpenHandFactChip extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
+    this.onPressed,
   });
 
   final IconData icon;
   final String label;
   final Color color;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
+    final radius = BorderRadius.circular(kOpenHandRadius10);
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(kOpenHandRadius10),
+        borderRadius: radius,
         border: Border.all(color: color.withValues(alpha: 0.26)),
       ),
       child: Row(
@@ -234,6 +237,18 @@ class OpenHandFactChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+    if (onPressed == null) return chip;
+    return MicroPressFeedback(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: radius,
+          mouseCursor: WidgetStateMouseCursor.clickable,
+          child: chip,
+        ),
       ),
     );
   }
