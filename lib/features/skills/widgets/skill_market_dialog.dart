@@ -14,7 +14,6 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
-import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -22,6 +21,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_file_icons.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
@@ -32,14 +32,12 @@ import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
-import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/user_failure_message.dart';
 import '../data/skill_market_client.dart';
 import '../model/skill_market.dart';
 import '../skills_controller.dart';
-import 'skill_markdown_preview.dart';
 import 'skill_market_labels.dart';
 
 Future<void> showSkillMarketDialog(BuildContext context) {
@@ -75,7 +73,6 @@ class _SkillMarketDialog extends StatefulWidget {
 }
 
 class _SkillMarketDialogState extends State<_SkillMarketDialog> {
-  static const int _maxMarkdownChars = 80000;
   static const Duration _searchDebounceDuration = Duration(milliseconds: 320);
 
   final TextEditingController _searchController = TextEditingController();
@@ -503,7 +500,6 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               return _SkillMarketDetailView(
                 summary: selectedSkill,
                 bundle: snapshot.data!,
-                maxMarkdownChars: _maxMarkdownChars,
                 onVersionSelected: _selectSkillVersion,
                 onFileOpen: (path, size) {
                   final bundle = snapshot.data!;
@@ -1220,14 +1216,12 @@ class _SkillMarketDetailView extends StatelessWidget {
   const _SkillMarketDetailView({
     required this.summary,
     required this.bundle,
-    required this.maxMarkdownChars,
     required this.onVersionSelected,
     required this.onFileOpen,
   });
 
   final SkillMarketSummary summary;
   final SkillMarketBundle bundle;
-  final int maxMarkdownChars;
   final ValueChanged<String> onVersionSelected;
   final void Function(String path, int size) onFileOpen;
 
@@ -1267,12 +1261,6 @@ class _SkillMarketDetailView extends StatelessWidget {
             zh: summary.descriptionZh,
             en: summary.description,
           );
-    final strippedMarkdown = bundle.skillMarkdown == null
-        ? ''
-        : stripOpenHandMarkdownFrontMatter(bundle.skillMarkdown!).trim();
-    final markdown = strippedMarkdown.isEmpty
-        ? null
-        : _truncateMarkdown(strippedMarkdown, maxMarkdownChars, context);
     final version = bundle.resolvedVersion.isEmpty
         ? summary.version
         : bundle.resolvedVersion;
@@ -1534,25 +1522,21 @@ class _SkillMarketDetailView extends StatelessWidget {
             accent: colorScheme.primary,
             icon: Icons.menu_book_rounded,
             title: openHandDetailsLabel(context),
-            child: markdown == null || markdown.trim().isEmpty
-                ? Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '未找到技能说明内容。',
-                      zhHant: '未找到技能說明內容。',
-                      en: 'No skill description was found.',
-                      fr: 'Aucune description de compétence trouvée.',
-                      de: 'Keine Skill-Beschreibung gefunden.',
-                      ja: 'スキル説明が見つかりません。',
-                    ),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  )
-                : OpenHandSkillMarkdownPreview(
-                    data: markdown,
-                    backgroundColor: Colors.transparent,
-                  ),
+            child: OpenHandDocumentMarkdownPreview(
+              data: bundle.skillMarkdown ?? '',
+              backgroundColor: Colors.transparent,
+              maxCharacters: kOpenHandMarketMarkdownMaxCharacters,
+              truncationMessage: _skillMarketTruncationMessage(context),
+              emptyMessage: openHandLocalizedText(
+                context,
+                zh: '未找到技能说明内容。',
+                zhHant: '未找到技能說明內容。',
+                en: 'No skill description was found.',
+                fr: 'Aucune description de compétence trouvée.',
+                de: 'Keine Skill-Beschreibung gefunden.',
+                ja: 'スキル説明が見つかりません。',
+              ),
+            ),
           ),
         ],
       ),
@@ -2431,11 +2415,8 @@ Color _skillMarketCategoryAccent(ColorScheme colorScheme, String category) {
   };
 }
 
-String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
-  if (markdown.length <= maxChars) {
-    return markdown;
-  }
-  final suffix = openHandLocalizedText(
+String _skillMarketTruncationMessage(BuildContext context) {
+  return openHandLocalizedText(
     context,
     zh: '\n\n---\n内容较长，已截断预览。安装后可在本地 SKILL.md 查看完整内容。',
     zhHant: '\n\n---\n內容較長，已截斷預覽。安裝後可在本機 SKILL.md 查看完整內容。',
@@ -2444,7 +2425,6 @@ String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
     de: '\n\n---\nVorschau gekürzt. Installiere den Skill, um die vollständige lokale SKILL.md zu lesen.',
     ja: '\n\n---\nプレビューを切り詰めました。インストール後、ローカルの SKILL.md で全文を確認できます。',
   );
-  return clipTextByCodeUnits(markdown, maxChars, suffix: suffix);
 }
 
 String _skillMarketDiaRetryLabel(BuildContext context) {

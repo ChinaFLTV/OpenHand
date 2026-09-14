@@ -11,6 +11,8 @@ import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_document_markdown_preview.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -29,7 +31,6 @@ Future<void> showMcpMarketDialog(
 
 const double _marketWidth = 1220;
 const double _marketHeight = 840;
-const int _maxPreviewCharacters = 80000;
 const Duration _searchDelay = Duration(milliseconds: 320);
 
 class _McpMarketDialog extends StatefulWidget {
@@ -789,11 +790,11 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                 ),
               ],
               const SizedBox(height: 14),
-              _section(
-                '使用说明',
-                Icons.menu_book_rounded,
-                colors.secondary,
-                Column(
+              OpenHandTintedPanel(
+                title: '使用说明',
+                icon: Icons.menu_book_rounded,
+                accent: colors.primary,
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (_loadingReadme)
@@ -806,24 +807,14 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                         _readmeError!,
                         retry: () => _loadReadme(server.slug, _detailToken),
                       ),
-                    if (_readme != null) ...[
-                      OpenHandThemedMarkdownBody(
-                        data: _readme!.isEmpty
-                            ? '暂无使用说明。'
-                            : _readme!.substring(
-                                0,
-                                math.min(
-                                  _readme!.length,
-                                  _maxPreviewCharacters,
-                                ),
-                              ),
+                    if (_readme != null)
+                      OpenHandDocumentMarkdownPreview(
+                        data: _readme!,
+                        backgroundColor: Colors.transparent,
+                        maxCharacters: kOpenHandMarketMarkdownMaxCharacters,
+                        emptyMessage: '暂无使用说明。',
+                        truncationMessage: '\n\n---\n内容较长，已截断预览。完整内容请查看项目来源。',
                       ),
-                      if (_readme!.length > _maxPreviewCharacters)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 12),
-                          child: Text('说明较长，已展示前 80,000 字符。完整内容请查看项目来源。'),
-                        ),
-                    ],
                   ],
                 ),
               ),

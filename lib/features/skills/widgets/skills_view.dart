@@ -18,6 +18,7 @@ import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_editor_chrome.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -30,7 +31,6 @@ import '../../ai/index.dart'
         showResourceUsageStatisticsDialog;
 import '../model/local_skill.dart';
 import '../skills_controller.dart';
-import 'skill_markdown_preview.dart';
 import 'skill_market_dialog.dart';
 
 enum _SkillCardAction { openDirectory, edit, delete }
@@ -506,7 +506,7 @@ class _SkillsViewState extends State<SkillsView> {
                         child: SizedBox.expand(
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.all(20),
-                            child: OpenHandSkillMarkdownPreview(
+                            child: OpenHandDocumentMarkdownPreview(
                               data: content,
                               backgroundColor: markdownBackground,
                             ),
