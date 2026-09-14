@@ -1261,7 +1261,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     [format, htmlFallback, markdownContent, shouldDeferParse],
   );
   const [parseReady, setParseReady] = useState(
-    () => !shouldDeferParse || (!deferInitialRender && markdownParseReadyCache.has(markdownReadyKey)),
+    () => !shouldDeferParse || markdownParseReadyCache.has(markdownReadyKey),
   );
   const lastSourceRef = useRef<string>(content);
   useEffect(() => {
@@ -1270,7 +1270,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
       lastSourceRef.current = content;
       return;
     }
-    if (!deferInitialRender && markdownParseReadyCache.has(markdownReadyKey)) {
+    if (markdownParseReadyCache.has(markdownReadyKey)) {
       if (!parseReady) setParseReady(true);
       lastSourceRef.current = content;
       return;
@@ -1339,8 +1339,8 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     scheduleStreamFlushTimer,
   ]);
   const renderedContent = useMemo(
-    () => normalizeMarkdownMathDelimiters(renderedMarkdownContent),
-    [renderedMarkdownContent],
+    () => normalizeMarkdownMathDelimiters(streaming ? renderedMarkdownContent : markdownContent),
+    [streaming, renderedMarkdownContent, markdownContent],
   );
 
   // 无 ``` 代码块直接跳过 rehype-highlight，省一次 hast 遍历 + highlight.js

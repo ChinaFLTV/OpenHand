@@ -294,6 +294,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
       child: _MarkdownPreviewBody(
         data: content.isEmpty ? ' ' : content,
         maxHeight: 122,
+        expanded: expanded,
         selectable: selectable,
         styleSheet: styleSheet,
         builders: builders,
@@ -344,23 +345,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
                 ],
               ),
               kOpenHandGap8,
-              ClipRect(
-                child: expanded
-                    ? KeyedSubtree(
-                        key: const ValueKey<String>('compression-expanded'),
-                        child: _SafeMarkdownBody(
-                          data: content.isEmpty ? ' ' : content,
-                          selectable: selectable,
-                          builders: builders,
-                          styleSheet: styleSheet,
-                          inlineSyntaxes: inlineSyntaxes,
-                          pathRoots: pathRoots,
-                          parseKey: parseKey,
-                          deferredPlaceholder: previewBody,
-                        ),
-                      )
-                    : previewBody,
-              ),
+              ClipRect(child: previewBody),
             ],
           ),
         ),
@@ -412,39 +397,20 @@ class _ReasoningBody extends StatelessWidget {
             : '$scrollStateKey|streaming-preview',
       );
     }
-    // 折叠态：展示前 5-6 行预览（maxHeight ≈ 142）并在底部叠渐隐遮罩，
-    // 给用户「开始阅读」的锚点，与 WEB 端 ReasoningCollapsibleBody 对齐。
-    // 高度动画统一由外层消息气泡处理，避免多层尺寸动画竞争。
-    return expanded
-        ? KeyedSubtree(
-            key: const ValueKey<String>('reasoning-expanded'),
-            child: _SafeMarkdownBody(
-              data: content.isEmpty ? ' ' : content,
-              selectable: selectable,
-              builders: builders,
-              styleSheet: styleSheet,
-              inlineSyntaxes: inlineSyntaxes,
-              pathRoots: pathRoots,
-              parseKey: parseKey,
-            ),
-          )
-        : KeyedSubtree(
-            key: const ValueKey<String>('reasoning-preview'),
-            child: _MarkdownPreviewBody(
-              data: content.isEmpty ? ' ' : content,
-              maxHeight: _reasoningPreviewMaxHeight,
-              selectable: selectable,
-              styleSheet: styleSheet,
-              builders: builders,
-              inlineSyntaxes: inlineSyntaxes,
-              pathRoots: pathRoots,
-              parseKey: '$parseKey|reasoning-preview',
-              scrollStateKey: scrollStateKey == null
-                  ? '$parseKey|reasoning-preview'
-                  : '$scrollStateKey|preview',
-              fadeColor: fadeColor,
-            ),
-          );
+    // 展开与折叠共用正文状态，仅调整可视高度和内容范围。
+    return _MarkdownPreviewBody(
+      data: content.isEmpty ? ' ' : content,
+      maxHeight: _reasoningPreviewMaxHeight,
+      expanded: expanded,
+      selectable: selectable,
+      styleSheet: styleSheet,
+      builders: builders,
+      inlineSyntaxes: inlineSyntaxes,
+      pathRoots: pathRoots,
+      parseKey: parseKey,
+      scrollStateKey: scrollStateKey ?? '$parseKey|reasoning-preview',
+      fadeColor: fadeColor,
+    );
   }
 }
 
@@ -528,6 +494,8 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
   /// 预览渲染的字符上限。
   int get _previewCharCap;
 
+  bool get _previewExpanded => false;
+
   /// 滚动位置缓存键；内容标识变化时应随之变化。
   String get _scrollStateKey;
 
@@ -544,6 +512,7 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
   /// CJK 扩展 B），预览尾部会渲染成替换字形，因此统一走窗口化截断。
   String get _effectiveData {
     final data = _previewSource.isEmpty ? ' ' : _previewSource;
+    if (_previewExpanded) return data;
     return TranscriptListWindowing.boundedContentPreview(
       data,
       maxCharacters: _previewDataLength,
@@ -586,7 +555,7 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
+    if (_previewExpanded || !_scrollController.hasClients) return;
     final pos = _scrollController.position;
     _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
     _scrollCoordinator.markUserScrolling();
@@ -608,7 +577,7 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
   }
 
   void _syncAtBottom() {
-    if (!mounted || !_scrollController.hasClients) return;
+    if (!mounted || !_scrollController.hasClients || _previewExpanded) return;
     _applyAtBottom(_scrollController.position);
   }
 
@@ -621,7 +590,7 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
   }
 
   void _handleContentSizeChanged(Size size) {
-    if (!mounted) return;
+    if (!mounted || _previewExpanded) return;
     if (_scrollController.hasClients &&
         _scrollController.position.isScrollingNotifier.value) {
       _scrollCoordinator.markUserScrolling();
@@ -659,10 +628,10 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
     Color fadeColor,
     Widget child,
   ) {
-    final hasOverflow = _hasPreviewOverflow;
+    final hasOverflow = !_previewExpanded && _hasPreviewOverflow;
     return _buildCollapsedPreviewScrollableFrame(
       context: context,
-      maxHeight: _previewMaxHeight,
+      maxHeight: _previewExpanded ? double.infinity : _previewMaxHeight,
       hasOverflow: hasOverflow,
       showFade: hasOverflow && !_atBottom,
       controller: _scrollController,
@@ -865,6 +834,7 @@ class _CollapsibleMessageMarkdownBodyState
       child: _MarkdownPreviewBody(
         data: data,
         maxHeight: widget.previewMaxHeight,
+        expanded: !collapsed,
         selectable: widget.selectable,
         styleSheet: widget.styleSheet,
         builders: widget.builders,
@@ -897,21 +867,7 @@ class _CollapsibleMessageMarkdownBodyState
           context: context,
           collapsed: collapsed,
           animate: widget.animateSize,
-          child: collapsed
-              ? previewBody
-              : KeyedSubtree(
-                  key: const ValueKey<String>('message-markdown-expanded'),
-                  child: _SafeMarkdownBody(
-                    data: data,
-                    selectable: widget.selectable,
-                    builders: widget.builders,
-                    styleSheet: widget.styleSheet,
-                    inlineSyntaxes: widget.inlineSyntaxes,
-                    pathRoots: widget.pathRoots,
-                    parseKey: widget.parseKey,
-                    deferredPlaceholder: previewBody,
-                  ),
-                ),
+          child: previewBody,
         ),
       ],
     );
@@ -1079,8 +1035,10 @@ class _MarkdownPreviewBody extends StatefulWidget {
     required this.parseKey,
     required this.fadeColor,
     this.scrollStateKey,
+    this.expanded = false,
   });
 
+  final bool expanded;
   final String data;
   final double maxHeight;
   final bool selectable;
@@ -1100,6 +1058,9 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody>
     with _CollapsedPreviewBodyState<_MarkdownPreviewBody> {
   @override
   String get _previewSource => widget.data;
+
+  @override
+  bool get _previewExpanded => widget.expanded;
 
   @override
   double get _previewMaxHeight => widget.maxHeight;
@@ -1125,7 +1086,14 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody>
     } else if (oldWidget.data != widget.data && _atBottom) {
       _atBottom = false;
     }
-    _restoreScrollOffset();
+    if (oldWidget.expanded != widget.expanded) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
+      if (_scrollController.hasClients) _scrollController.jumpTo(0);
+      _atBottom = false;
+      _userScrollingPreview = false;
+      _scrollCoordinator.cancelSettleTimer();
+    }
+    if (!widget.expanded) _restoreScrollOffset();
   }
 
   @override
@@ -1195,7 +1163,6 @@ class _SafeMarkdownBody extends StatefulWidget {
     this.inlineSyntaxes = const <md.InlineSyntax>[],
     this.pathRoots = const <String>[],
     this.parseKey = '',
-    this.deferredPlaceholder,
   });
 
   final String data;
@@ -1206,7 +1173,6 @@ class _SafeMarkdownBody extends StatefulWidget {
   final List<md.InlineSyntax> inlineSyntaxes;
   final List<String> pathRoots;
   final String parseKey;
-  final Widget? deferredPlaceholder;
 
   @override
   State<_SafeMarkdownBody> createState() => _SafeMarkdownBodyState();
@@ -1628,7 +1594,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final deferredThreshold = widget.streaming
         ? _markdownStreamingDeferredParseThresholdChars
         : _markdownDeferredParseThresholdChars;
-    final deferHistoricalInitial = initial && !widget.streaming;
+    final deferHistoricalInitial = initial && !widget.streaming && !hasWarmAst;
     final overDeferredThreshold = widget.data.length > deferredThreshold;
     if ((deferHistoricalInitial || (overDeferredThreshold && !hasWarmAst)) &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
@@ -1730,12 +1696,6 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     String normalizedSource, {
     required bool streaming,
   }) {
-    final deferredPlaceholder = widget.deferredPlaceholder;
-    if (!streaming && deferredPlaceholder != null) {
-      _disposeRecognizers();
-      _children = <Widget>[deferredPlaceholder];
-      return;
-    }
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);

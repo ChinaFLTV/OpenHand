@@ -3030,7 +3030,6 @@ function MessageCardImpl({
             />
           ) : (
             <StreamingMarkdownReveal
-              key={badgeBodyCollapsed ? 'collapsed-preview' : 'expanded-body'}
               content={renderedBodyContent}
               streaming={streamingContent && !isUserBubble}
               reduceMotion={reduceMotion}
