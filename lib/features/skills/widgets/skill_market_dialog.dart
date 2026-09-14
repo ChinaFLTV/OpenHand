@@ -302,7 +302,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               ),
               leading: const Icon(Icons.search_rounded),
               trailing: [
-                if (_searchInput.trim().isNotEmpty)
+                if (_searchInput.trim().isNotEmpty) ...[
                   Tooltip(
                     message: openHandClearSearchLabel(context),
                     child: IconButton(
@@ -310,6 +310,8 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                       icon: const Icon(Icons.close_rounded),
                     ),
                   ),
+                  kOpenHandHGap8,
+                ],
                 Tooltip(
                   message: openHandLocalizedText(
                     context,
