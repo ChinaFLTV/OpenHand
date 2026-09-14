@@ -6,6 +6,10 @@ import { useDialogExitMotion } from '../src/hooks/useDialogExitMotion';
 import { syncRemoteDialogMotionSettings } from '../src/hooks/useDialogMotionSettings';
 import { useTimeoutController } from '../src/hooks/useTimeoutController';
 import { useRafScheduler } from '../src/hooks/useRafScheduler';
+import { setRemoteReducedMotion } from '../src/hooks/useReducedMotion';
+import { useControlledDelayedVisibility, useDelayedVisibility } from '../src/hooks/useDelayedVisibility';
+import { LocationProvider } from 'preact-iso';
+import { useAnimatedLocation } from '../src/hooks/useAnimatedLocation';
 import '../src/styles/global.css';
 
 const root = document.getElementById('qa-root')!;
@@ -51,6 +55,21 @@ function SchedulerProbe() {
   frame = useRafScheduler(() => frameCalls++);
   return null;
 }
+let visibility!: ReturnType<typeof useDelayedVisibility>;
+let setControlledOpen!: (open: boolean) => void;
+let controlled!: ReturnType<typeof useControlledDelayedVisibility>;
+function VisibilityProbe() {
+  visibility = useDelayedVisibility();
+  const [open, setOpen] = useState(false);
+  setControlledOpen = setOpen;
+  controlled = useControlledDelayedVisibility(open, { enterDelayMs: 80 });
+  return null;
+}
+let route!: ReturnType<typeof useAnimatedLocation>['route'];
+function RouteProbe() {
+  route = useAnimatedLocation().route;
+  return null;
+}
 try {
   await act(async () => { render(<FocusProbe />, root); });
   document.getElementById('outside')!.focus();
@@ -84,6 +103,57 @@ try {
   verify(closes === 2, '关闭动效禁用时立即完成退出');
   await act(async () => { render(null, root); });
 
+  syncRemoteDialogMotionSettings({ exit_style: 'spring_scale', duration_ms: 600 });
+  await act(async () => { render(<MotionProbe />, root); });
+  await act(async () => { requestClose(); });
+  await act(async () => { syncRemoteDialogMotionSettings({ exit_style: 'none' }); });
+  verify(closes === 3, '退场中禁用全局动画立即完成关闭');
+  await act(async () => { setRemoteReducedMotion(true); });
+  verify(closes === 3, '关闭完成后再次修改动效设置不会重复回调');
+  await act(async () => { render(null, root); });
+  setRemoteReducedMotion(false);
+
+  syncRemoteDialogMotionSettings({ exit_style: 'spring_scale', duration_ms: 600 });
+  await act(async () => { render(<MotionProbe />, root); });
+  await act(async () => { requestClose(); });
+  await act(async () => { setRemoteReducedMotion(true); });
+  verify(closes === 4, '退场中开启减少动态效果立即完成关闭');
+  await act(async () => { render(null, root); });
+  setRemoteReducedMotion(false);
+
+  syncRemoteDialogMotionSettings({ exit_style: 'spring_scale', duration_ms: 120 });
+  await act(async () => { render(<MotionProbe />, root); });
+  await act(async () => { requestClose(); });
+  await act(async () => { syncRemoteDialogMotionSettings({ exit_style: 'spring_scale', duration_ms: 600 }); });
+  await act(async () => { await wait(160); });
+  verify(closes === 4, '退场中延长全局时长不会按旧时限提前移除弹窗');
+  await act(async () => { syncRemoteDialogMotionSettings({ exit_style: 'spring_scale', duration_ms: 120 }); });
+  verify(closes === 5, '缩短退场时长会扣除已播放时间，不重新等待完整时长');
+  await act(async () => { render(null, root); });
+
+  syncRemoteDialogMotionSettings({ exit_style: 'spring_scale', duration_ms: 120 });
+  await act(async () => { render(<VisibilityProbe />, root); });
+  await act(async () => { visibility.show(); visibility.hide(); visibility.show(); });
+  await act(async () => { await wait(160); });
+  verify(visibility.visible && !visibility.closing, '浮层重新打开后旧退场计时器不会将其关闭');
+  await act(async () => { visibility.hide(); });
+  await act(async () => { syncRemoteDialogMotionSettings({ exit_style: 'none' }); });
+  verify(!visibility.visible, '通用浮层复用全局即时关闭行为');
+  await act(async () => { setControlledOpen(true); });
+  verify(!controlled.visible, '受控浮层遵守进场延迟');
+  await act(async () => { setControlledOpen(false); });
+  await act(async () => { await wait(120); });
+  verify(!controlled.visible, '进场前取消不会留下迟到浮层');
+  await act(async () => { setControlledOpen(true); });
+  await act(async () => { await wait(120); });
+  verify(controlled.visible, '延迟结束后受控浮层正常显示');
+  await act(async () => { syncRemoteDialogMotionSettings({ exit_style: 'spring_scale', duration_ms: 120 }); });
+  await act(async () => { setControlledOpen(false); });
+  verify(controlled.closing, '受控浮层保留退场阶段');
+  await act(async () => { setControlledOpen(true); });
+  verify(controlled.visible && !controlled.closing, '退场期间重新打开立即恢复，不再等待进场延迟');
+  await act(async () => { render(null, root); });
+
   await act(async () => { render(<SchedulerProbe />, root); });
   timer.scheduleTimer(() => timerCalls++, 1000);
   frame.schedule();
@@ -94,6 +164,28 @@ try {
   await wait(30);
   verify(timerCalls === 0, '组件卸载后取消计时器并拒绝迟到的调度');
   verify(frameCalls === 0, '组件卸载后取消动画帧并拒绝迟到的刷新');
+
+  const originalTransition = Object.getOwnPropertyDescriptor(document, 'startViewTransition');
+  const updates: Array<() => void> = [];
+  Object.defineProperty(document, 'startViewTransition', {
+    configurable: true,
+    value: (update: () => void) => {
+      updates.push(update);
+      return { finished: Promise.resolve() };
+    },
+  });
+  try {
+    await act(async () => { render(<LocationProvider><RouteProbe /></LocationProvider>, root); });
+    route('/tests/dialog-lifecycle.html?route=old');
+    route('/tests/dialog-lifecycle.html?route=new');
+    await act(async () => { updates[1](); updates[0](); });
+    verify(location.search === '?route=new', '连续导航时迟到的旧过渡不能覆盖最新路由');
+    await act(async () => { render(null, root); });
+  } finally {
+    if (originalTransition) Object.defineProperty(document, 'startViewTransition', originalTransition);
+    else Reflect.deleteProperty(document, 'startViewTransition');
+    history.replaceState(null, '', '/tests/dialog-lifecycle.html');
+  }
   root.textContent = `通过 ${results.length} 项：\n${results.join('\n')}`;
   root.style.whiteSpace = 'pre-wrap';
   root.style.padding = '32px';

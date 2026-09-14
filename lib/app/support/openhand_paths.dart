@@ -84,6 +84,10 @@ abstract final class OpenHandPaths {
     return p.join(defaultRootDirectoryPath(), 'cache');
   }
 
+  static String defaultKnowledgeDirectoryPath() {
+    return p.join(defaultRootDirectoryPath(), 'knowledge');
+  }
+
   /// 远程 AI 图片、视频和音频的持久缓存目录。
   static String defaultMediaCacheDirectoryPath() {
     return p.join(defaultCacheDirectoryPath(), 'media');

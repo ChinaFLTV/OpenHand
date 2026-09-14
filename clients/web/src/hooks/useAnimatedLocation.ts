@@ -1,6 +1,5 @@
 import { useLocation } from 'preact-iso';
 import { ignoreError } from '../shared/util/errors';
-import { normalizeDurationMs } from '../shared/util/number';
 import { isReducedMotion } from './useReducedMotion';
 
 type ViewTransitionDocument = Document & {
@@ -11,18 +10,8 @@ type ViewTransitionDocument = Document & {
   };
 };
 
-const ROUTE_TRANSITION_CLEANUP_FALLBACK_MS = 720;
-const ROUTE_TRANSITION_CLEANUP_MIN_MS = 120;
-const ROUTE_TRANSITION_CLEANUP_MAX_MS = 3_000;
+const ROUTE_TRANSITION_CLEANUP_TIMEOUT_MS = 720;
 let routeTransitionGeneration = 0;
-
-function routeTransitionCleanupDelayMs(): number {
-  return normalizeDurationMs(ROUTE_TRANSITION_CLEANUP_FALLBACK_MS, {
-    fallback: ROUTE_TRANSITION_CLEANUP_FALLBACK_MS,
-    min: ROUTE_TRANSITION_CLEANUP_MIN_MS,
-    max: ROUTE_TRANSITION_CLEANUP_MAX_MS,
-  });
-}
 
 function runWithRouteTransition(update: () => void): void {
   const doc = document as ViewTransitionDocument;
@@ -36,6 +25,11 @@ function runWithRouteTransition(update: () => void): void {
   document.documentElement.dataset.routeTransition = 'active';
   let cleaned = false;
   let updateStarted = false;
+  const commitUpdate = () => {
+    if (updateStarted || generation !== routeTransitionGeneration) return;
+    updateStarted = true;
+    update();
+  };
   let cleanupTimer: number | undefined;
   const cleanup = () => {
     if (cleaned) return;
@@ -45,18 +39,15 @@ function runWithRouteTransition(update: () => void): void {
       delete document.documentElement.dataset.routeTransition;
     }
   };
-  cleanupTimer = window.setTimeout(cleanup, routeTransitionCleanupDelayMs());
+  cleanupTimer = window.setTimeout(cleanup, ROUTE_TRANSITION_CLEANUP_TIMEOUT_MS);
   try {
-    const transition = doc.startViewTransition(() => {
-      updateStarted = true;
-      update();
-    });
+    const transition = doc.startViewTransition(commitUpdate);
     void transition.ready?.catch(ignoreError);
     void transition.updateCallbackDone?.catch(ignoreError);
     void transition.finished.catch(ignoreError).finally(cleanup);
   } catch {
     cleanup();
-    if (!updateStarted) update();
+    commitUpdate();
   }
 }
 

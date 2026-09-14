@@ -6,6 +6,7 @@ import { Appear } from '../components/Appear';
 import { t } from '../i18n';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 import { useControlledDelayedVisibility } from '../hooks/useDelayedVisibility';
+import { runWithTimeout } from '../utils/timed_abort';
 
 const ROUTE_LOAD_TIMEOUT_MS = 15_000;
 const ROUTE_LOADING_ENTER_DELAY_MS = 120;
@@ -48,16 +49,10 @@ function RouteLoadFailure() {
 
 function lazyRoute(load: () => Promise<ComponentType>) {
   return lazy(async () => {
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<ComponentType>((resolve) => {
-      timeoutId = setTimeout(() => resolve(RouteLoadFailure), ROUTE_LOAD_TIMEOUT_MS);
-    });
     try {
-      return await Promise.race([load(), timeout]);
+      return await runWithTimeout(load, { timeoutMs: ROUTE_LOAD_TIMEOUT_MS });
     } catch {
       return RouteLoadFailure;
-    } finally {
-      if (timeoutId != null) clearTimeout(timeoutId);
     }
   });
 }
@@ -216,73 +211,29 @@ function RequireServiceFeature(props: {
     : <FeatureUnavailable title="日志能力未开启" body="请在 OpenHand 桌面端的消息网关配置中开启日志记录后再访问。" />;
 }
 
-const HomeRoute = () => (
-  <RequireAuth>
-    <Appear variant="page"><HomePage /></Appear>
-  </RequireAuth>
-);
+/** 统一组合鉴权、功能开关和页面动效；组件在模块加载时创建，避免重挂载。 */
+function protectedRoute(Page: ComponentType, feature?: 'ops' | 'logs') {
+  return function ProtectedRoute() {
+    const page = <Appear variant="page"><Page /></Appear>;
+    return (
+      <RequireAuth>
+        {feature ? <RequireServiceFeature feature={feature}>{page}</RequireServiceFeature> : page}
+      </RequireAuth>
+    );
+  };
+}
 
-const LoginRoute = () => (
-  <Appear variant="page"><LoginPage /></Appear>
-);
-
-const SessionsRoute = () => (
-  <RequireAuth>
-    <Appear variant="page"><SessionsPage /></Appear>
-  </RequireAuth>
-);
-
-const SessionDetailRoute = () => (
-  <RequireAuth>
-    <Appear variant="page"><SessionDetailPage /></Appear>
-  </RequireAuth>
-);
-
-const FilesRoute = () => (
-  <RequireAuth>
-    <Appear variant="page"><FilesPage /></Appear>
-  </RequireAuth>
-);
-
-const ToolboxRoute = () => (
-  <RequireAuth>
-    <Appear variant="page"><ToolboxPage /></Appear>
-  </RequireAuth>
-);
-
-const HarnessRoute = () => (
-  <RequireAuth>
-    <Appear variant="page"><HarnessPage /></Appear>
-  </RequireAuth>
-);
-
-const SettingsRoute = () => (
-  <RequireAuth>
-    <Appear variant="page"><SettingsPage /></Appear>
-  </RequireAuth>
-);
-
-const PluginsRoute = () => (
-  <RequireAuth>
-    <Appear variant="page"><PluginsPage /></Appear>
-  </RequireAuth>
-);
-
-const OpsRoute = () => (
-  <RequireAuth>
-    <RequireServiceFeature feature="ops">
-      <Appear variant="page"><OpsPage /></Appear>
-    </RequireServiceFeature>
-  </RequireAuth>
-);
-
-const LogsRoute = () => (
-  <RequireAuth>
-    <RequireServiceFeature feature="logs">
-      <Appear variant="page"><LogsPage /></Appear>
-    </RequireServiceFeature>
-  </RequireAuth>
-);
+const HomeRoute = protectedRoute(HomePage);
+const SessionsRoute = protectedRoute(SessionsPage);
+const SessionDetailRoute = protectedRoute(SessionDetailPage);
+const FilesRoute = protectedRoute(FilesPage);
+const ToolboxRoute = protectedRoute(ToolboxPage);
+const HarnessRoute = protectedRoute(HarnessPage);
+const SettingsRoute = protectedRoute(SettingsPage);
+const PluginsRoute = protectedRoute(PluginsPage);
+const OpsRoute = protectedRoute(OpsPage, 'ops');
+const LogsRoute = protectedRoute(LogsPage, 'logs');
+const LoginRoute = () => <Appear variant="page"><LoginPage /></Appear>;
 
 export function AppRouter() {
   const [routeLoading, setRouteLoading] = useState(false);

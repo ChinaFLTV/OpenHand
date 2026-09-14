@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
+import { useDialogExitMotion } from './useDialogExitMotion';
 import { useReducedMotion } from './useReducedMotion';
 import { useTimeoutController } from './useTimeoutController';
 import {
@@ -31,8 +31,6 @@ interface ControlledDelayedVisibilityState {
   closing: boolean;
 }
 
-type VisibilityPhase = 'hidden' | 'visible' | 'closing';
-
 function normalizeEnterDelayMs(value: number | undefined): number {
   return normalizeDurationMs(value, {
     fallback: 0,
@@ -45,42 +43,28 @@ export function useDelayedVisibility({
   exitMs,
   initiallyOpen = false,
 }: DelayedVisibilityOptions = {}): DelayedVisibilityController {
-  const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(initiallyOpen);
-  const [closing, setClosing] = useState(false);
   const openRef = useRef(initiallyOpen);
   const closingRef = useRef(false);
-  const { clearTimer: clearCloseTimer, scheduleTimer: scheduleCloseTimer } =
-    useTimeoutController();
+  const { closing, requestClose, resetClosing } = useDialogExitMotion(() => {
+    openRef.current = false;
+    closingRef.current = false;
+    setOpen(false);
+    resetClosing();
+  }, { exitMs });
 
   const show = useCallback(() => {
-    clearCloseTimer();
+    resetClosing();
     openRef.current = true;
     closingRef.current = false;
-    setClosing(false);
     setOpen(true);
-  }, [clearCloseTimer]);
+  }, [resetClosing]);
 
   const hide = useCallback(() => {
     if (!openRef.current || closingRef.current) return;
-    clearCloseTimer();
-    const closeMs = reduceMotion ? 0 : normalizeDialogExitDurationMs(exitMs);
-    if (closeMs <= 0 || typeof window === 'undefined') {
-      openRef.current = false;
-      closingRef.current = false;
-      setOpen(false);
-      setClosing(false);
-      return;
-    }
     closingRef.current = true;
-    setClosing(true);
-    scheduleCloseTimer(() => {
-      openRef.current = false;
-      closingRef.current = false;
-      setOpen(false);
-      setClosing(false);
-    }, closeMs);
-  }, [clearCloseTimer, exitMs, reduceMotion, scheduleCloseTimer]);
+    requestClose();
+  }, [requestClose]);
 
   const toggle = useCallback(() => {
     if (openRef.current && !closingRef.current) {
@@ -108,54 +92,24 @@ export function useControlledDelayedVisibility(
   }: ControlledDelayedVisibilityOptions = {},
 ): ControlledDelayedVisibilityState {
   const reduceMotion = useReducedMotion();
-  const [phase, setPhase] = useState<VisibilityPhase>(() => {
-    const delayMs = reduceMotion ? 0 : normalizeEnterDelayMs(enterDelayMs);
-    return open && delayMs <= 0 ? 'visible' : 'hidden';
+  const delayMs = reduceMotion ? 0 : normalizeEnterDelayMs(enterDelayMs);
+  const { visible, closing, show, hide } = useDelayedVisibility({
+    initiallyOpen: open && delayMs === 0,
+    exitMs,
   });
-  const phaseRef = useRef<VisibilityPhase>(phase);
   const { clearTimer, scheduleTimer } = useTimeoutController();
 
   useEffect(() => {
     clearTimer();
-    if (open) {
-      if (phaseRef.current !== 'hidden') {
-        phaseRef.current = 'visible';
-        setPhase('visible');
-        return;
-      }
-
-      const reveal = () => {
-        phaseRef.current = 'visible';
-        setPhase('visible');
-      };
-
-      const safeEnterDelayMs = reduceMotion ? 0 : normalizeEnterDelayMs(enterDelayMs);
-      if (safeEnterDelayMs <= 0 || typeof window === 'undefined') {
-        reveal();
-        return;
-      }
-
-      scheduleTimer(reveal, safeEnterDelayMs);
-      return;
+    if (!open) {
+      hide();
+    } else if (visible) {
+      show();
+    } else {
+      scheduleTimer(show, delayMs);
     }
+    return clearTimer;
+  }, [clearTimer, delayMs, hide, open, scheduleTimer, show, visible]);
 
-    if (phaseRef.current === 'hidden') return;
-    phaseRef.current = 'closing';
-    setPhase('closing');
-    const closeMs = reduceMotion ? 0 : normalizeDialogExitDurationMs(exitMs);
-    if (closeMs <= 0 || typeof window === 'undefined') {
-      phaseRef.current = 'hidden';
-      setPhase('hidden');
-      return;
-    }
-    scheduleTimer(() => {
-      phaseRef.current = 'hidden';
-      setPhase('hidden');
-    }, closeMs);
-  }, [clearTimer, enterDelayMs, exitMs, open, reduceMotion, scheduleTimer]);
-
-  return {
-    visible: phase !== 'hidden',
-    closing: phase === 'closing',
-  };
+  return { visible, closing };
 }

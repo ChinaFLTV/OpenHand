@@ -51,6 +51,7 @@ class AnimatedAppearance extends StatefulWidget {
 class _AnimatedAppearanceState extends State<AnimatedAppearance>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
+  late final CurvedAnimation _sizeCurve;
   bool _dismissCallbackQueued = false;
   bool _suppressImmediateDismissCallback = false;
   int _dismissCallbackGeneration = 0;
@@ -63,6 +64,11 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
       duration: widget.settings.entranceDuration,
       reverseDuration: widget.settings.exitDuration,
       value: 0.0,
+    );
+    _sizeCurve = CurvedAnimation(
+      parent: _ctrl,
+      curve: widget.settings.curve.curve,
+      reverseCurve: widget.settings.curve.reverseCurve,
     );
     _ctrl.addStatusListener(_onStatus);
     if (widget.present) {
@@ -96,6 +102,9 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
   @override
   void didUpdateWidget(covariant AnimatedAppearance oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _sizeCurve
+      ..curve = widget.settings.curve.curve
+      ..reverseCurve = widget.settings.curve.reverseCurve;
     final durationsChanged =
         widget.settings.entranceDuration !=
             oldWidget.settings.entranceDuration ||
@@ -130,6 +139,7 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
   @override
   void dispose() {
     _ctrl.removeStatusListener(_onStatus);
+    _sizeCurve.dispose();
     _ctrl.dispose();
     super.dispose();
   }
@@ -221,11 +231,8 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
           );
     if (widget.collapseSize) {
       content = SizeTransition(
-        sizeFactor: openHandBoundedCurveAnimation(
-          parent: _ctrl,
-          curve: widget.settings.curve.curve,
-          reverseCurve: widget.settings.curve.reverseCurve,
-        ),
+        // 保留曲线方向，动画中途反向时从当前尺寸继续。
+        sizeFactor: OpenHandBoundedDoubleAnimation(_sizeCurve),
         axis: widget.collapseAxis,
         alignment: switch (widget.collapseAxis) {
           Axis.horizontal => AlignmentDirectional(

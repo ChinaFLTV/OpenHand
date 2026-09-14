@@ -21,7 +21,6 @@ class DatabaseService {
   BoundedRandomAccessFileLease? _instanceLock;
 
   static const int schemaVersion = 20;
-  static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
   static const String _harnessConfigMetadataKey = 'harness_config';
@@ -172,13 +171,7 @@ class DatabaseService {
   }
 
   /// 数据库文件绝对路径。
-  static String defaultDatabasePath() {
-    return p.join(
-      OpenHandPaths.homeDirectoryPath(),
-      '.openhand',
-      _databaseFileName,
-    );
-  }
+  static String defaultDatabasePath() => OpenHandPaths.defaultDatabasePath();
 
   /// 幂等初始化数据库服务。
   static Future<DatabaseService> initialize({

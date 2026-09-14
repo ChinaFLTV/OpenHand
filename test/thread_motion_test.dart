@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/app/model/dialog_animation_settings.dart';
+import 'package:openhand/shared/ui/animated_appearance.dart';
 import 'package:openhand/shared/ui/openhand_animated_sliver_list.dart';
 import 'package:openhand/shared/ui/openhand_animated_title_text.dart';
 
@@ -54,12 +55,41 @@ void main() {
     final element = find.text('乙').evaluate().single;
     await tester.pumpWidget(list(['甲']));
     await tester.pump(const Duration(milliseconds: 40));
+    final height = tester.getSize(find.byType(SizeTransition).last).height;
     await tester.pumpWidget(list(['甲', '乙']));
+    expect(
+      tester.getSize(find.byType(SizeTransition).last).height,
+      closeTo(height, 0.01),
+    );
     expect(find.text('乙').evaluate().single, same(element));
     await tester.pumpAndSettle();
     await tester.pumpWidget(list(['甲']));
     await tester.pumpAndSettle();
     expect(find.text('乙'), findsNothing);
+  });
+
+  testWidgets('通用展开组件在中途反向时保持布局连续', (tester) async {
+    Widget appearance(bool present) => MaterialApp(
+      home: Center(
+        child: AnimatedAppearance(
+          settings: motion,
+          present: present,
+          child: const SizedBox(width: 100, height: 100),
+        ),
+      ),
+    );
+    await tester.pumpWidget(appearance(true));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(appearance(false));
+    await tester.pump(const Duration(milliseconds: 40));
+    final height = tester.getSize(find.byType(SizeTransition)).height;
+    await tester.pumpWidget(appearance(true));
+    expect(
+      tester.getSize(find.byType(SizeTransition)).height,
+      closeTo(height, 0.01),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(SizeTransition)).height, 100);
   });
 
   testWidgets('重排保留条目状态并连续移动到新位置', (tester) async {
@@ -84,6 +114,27 @@ void main() {
     expect(sliver.delegate.estimatedChildCount, 1);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('系统降低动效或暂停时钟后列表立即收敛', (tester) async {
+    Widget view(List<String> ids, {bool reduced = false, bool ticker = true}) =>
+        MediaQuery(
+          data: MediaQueryData(disableAnimations: reduced),
+          child: TickerMode(enabled: ticker, child: list(ids)),
+        );
+    await tester.pumpWidget(view(['甲', '乙']));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(view(['甲']));
+    await tester.pumpWidget(view(['甲'], reduced: true));
+    expect(find.text('乙'), findsNothing);
+    expect(tester.hasRunningAnimations, isFalse);
+    await tester.pumpWidget(view(['甲', '丙'], ticker: false));
+    expect(find.text('丙'), findsOneWidget);
+    await tester.pumpWidget(view([], ticker: false));
+    expect(find.text('甲'), findsNothing);
+    expect(find.text('丙'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
   });
 

@@ -31,6 +31,20 @@ class _OpenHandAnimatedSliverListState
       _ListEntry(child, entering: true, expand: false),
   ];
   bool _reordering = false;
+  bool _motionEnabled = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _motionEnabled = openHandTickerMotionEnabled(context);
+    if (!_motionEnabled) {
+      for (final entry in _entries) {
+        entry.removal?.cancel();
+        entry.removal = null;
+      }
+      _entries.removeWhere((entry) => !entry.present);
+    }
+  }
 
   @override
   void didUpdateWidget(covariant OpenHandAnimatedSliverList oldWidget) {
@@ -56,7 +70,9 @@ class _OpenHandAnimatedSliverListState
       final entry = _entries[index];
       if (nextKeys.contains(entry.child.key)) continue;
       entry.present = false;
-      final duration = widget.settings.exitDuration;
+      final duration = _motionEnabled
+          ? widget.settings.exitDuration
+          : Duration.zero;
       if (duration == Duration.zero) {
         entry.removal?.cancel();
         continue;
@@ -111,7 +127,9 @@ class _OpenHandAnimatedSliverListState
             expand: entry.expand,
             index: index,
             reordering: _reordering,
-            settings: widget.settings,
+            settings: _motionEnabled
+                ? widget.settings
+                : OpenHandMotionDefaults.disabled,
             child: entry.child,
           );
         },
@@ -164,6 +182,11 @@ class _AnimatedListRowState extends State<_AnimatedListRow>
     value: widget.entering ? 0 : 1,
   );
   late final _move = AnimationController(vsync: this, value: 1);
+  late final _sizeCurve = CurvedAnimation(
+    parent: _presence,
+    curve: kOpenHandSwitchInCurve,
+    reverseCurve: kOpenHandSwitchOutCurve,
+  );
   Animatable<Offset> _offset = Tween(begin: Offset.zero, end: Offset.zero);
 
   @override
@@ -209,6 +232,7 @@ class _AnimatedListRowState extends State<_AnimatedListRow>
 
   @override
   void dispose() {
+    _sizeCurve.dispose();
     _presence.dispose();
     _move.dispose();
     super.dispose();
@@ -228,11 +252,7 @@ class _AnimatedListRowState extends State<_AnimatedListRow>
             child: SizeTransition(
               sizeFactor: !_animateExtent
                   ? const AlwaysStoppedAnimation(1.0)
-                  : openHandBoundedCurveAnimation(
-                      parent: _presence,
-                      curve: kOpenHandSwitchInCurve,
-                      reverseCurve: kOpenHandSwitchOutCurve,
-                    ),
+                  : OpenHandBoundedDoubleAnimation(_sizeCurve),
               alignment: Alignment.topCenter,
               child: buildAnimationStyleTransition(
                 animation: _presence,

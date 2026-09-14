@@ -59,12 +59,13 @@ function declaredResponseBytes(response: Response): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-async function cancelReaderQuietly(
+function cancelReaderQuietly(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   reason?: unknown,
-): Promise<void> {
+): void {
   try {
-    await reader.cancel(reason);
+    // 取消会立即关闭读取端；底层清理可能不结束，不能阻塞原始结果。
+    void reader.cancel(reason).catch(ignoreError);
   } catch {
     // 取消失败不覆盖原始超时或容量错误。
   }
@@ -76,6 +77,11 @@ async function consumeResponseBodyBounded(
   onChunk: (chunk: Uint8Array) => void,
 ): Promise<void> {
   requirePositiveByteLimit(maxBytes);
+  if (signal?.aborted) {
+    const error = abortReason(signal);
+    cancelResponseBodyQuietly(response, error);
+    throw error;
+  }
   const declaredBytes = declaredResponseBytes(response);
   if (declaredBytes != null && declaredBytes > maxBytes) {
     const error = new ResponseBodySizeLimitError(maxBytes);
@@ -94,15 +100,19 @@ async function consumeResponseBodyBounded(
   const reader = body.getReader();
   let receivedBytes = 0;
   let receivedChunks = 0;
+  let cancelled = false;
+  const cancel = (reason: unknown) => {
+    if (cancelled) return;
+    cancelled = true;
+    cancelReaderQuietly(reader, reason);
+  };
   const handleAbort = () => {
-    void cancelReaderQuietly(reader, signal ? abortReason(signal) : undefined);
+    cancel(signal ? abortReason(signal) : undefined);
   };
   signal?.addEventListener('abort', handleAbort, { once: true });
   try {
     if (signal?.aborted) {
-      const error = abortReason(signal);
-      await cancelReaderQuietly(reader, error);
-      throw error;
+      throw abortReason(signal);
     }
     while (true) {
       const part = await reader.read();
@@ -111,21 +121,17 @@ async function consumeResponseBodyBounded(
       const chunk = part.value;
       receivedChunks += 1;
       if (receivedChunks > MAX_RESPONSE_BODY_CHUNKS) {
-        const error = new ResponseBodyFragmentLimitError();
-        await cancelReaderQuietly(reader, error);
-        throw error;
+        throw new ResponseBodyFragmentLimitError();
       }
       if (chunk.byteLength === 0) continue;
       if (chunk.byteLength > maxBytes - receivedBytes) {
-        const error = new ResponseBodySizeLimitError(maxBytes);
-        await cancelReaderQuietly(reader, error);
-        throw error;
+        throw new ResponseBodySizeLimitError(maxBytes);
       }
       receivedBytes += chunk.byteLength;
       onChunk(chunk);
     }
   } catch (error) {
-    await cancelReaderQuietly(reader, error);
+    cancel(error);
     throw error;
   } finally {
     signal?.removeEventListener('abort', handleAbort);

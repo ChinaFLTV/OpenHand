@@ -113,11 +113,49 @@ try {
   assert.equal(auth.readToken(), null, '当前会话认证失败应清除凭据');
 
   const { runWithTimeout, runWithAbortableTimeout } = await server.ssrLoadModule('/src/utils/timed_abort.ts');
+  const { readResponseTextBounded } = await server.ssrLoadModule('/src/utils/bounded_response.ts');
+  let cancelCalls = 0;
+  const blockedCancellation = new Response(new ReadableStream({
+    start(controller) { controller.enqueue(new Uint8Array([1, 2])); },
+    cancel() { cancelCalls++; return new Promise(() => {}); },
+  }));
+  await assert.rejects(runWithTimeout(
+    () => readResponseTextBounded(blockedCancellation, { maxBytes: 1 }),
+    { timeoutMs: 100 },
+  ), { name: 'ResponseBodySizeLimitError' }, '底层取消不结束时仍须及时返回容量错误');
+  assert.equal(cancelCalls, 1, '失败响应只取消一次');
+  assert.equal(blockedCancellation.body.locked, false, '失败后释放响应读取锁');
+
+  const cancelledRead = new AbortController();
+  const stalledBody = new Response(new ReadableStream({
+    cancel() { return new Promise(() => {}); },
+  }));
+  const reading = readResponseTextBounded(stalledBody, {
+    maxBytes: 1, signal: cancelledRead.signal,
+  });
+  const readingCheck = assert.rejects(runWithTimeout(reading, { timeoutMs: 100 }), { name: 'AbortError' });
+  cancelledRead.abort();
+  await readingCheck;
+  assert.equal(stalledBody.body.locked, false, '取消挂起读取后释放读取锁');
+
+  await assert.rejects(readResponseTextBounded(new Response(null), {
+    maxBytes: 1, signal: cancelledRead.signal,
+  }), { name: 'AbortError' }, '空响应也不能吞掉取消信号');
   const timeoutFailure = new Error('模拟超时错误构造失败');
   await assert.rejects(runWithTimeout(new Promise(() => {}), {
     timeoutMs: 1,
     createTimeoutError: () => { throw timeoutFailure; },
   }), (error) => error === timeoutFailure);
+  let timedTaskSignal;
+  await assert.rejects(runWithAbortableTimeout((signal) => {
+    timedTaskSignal = signal;
+    return new Promise(() => {});
+  }, {
+    timeoutMs: 1,
+    createTimeoutError: () => { throw timeoutFailure; },
+  }), (error) => error === timeoutFailure);
+  assert.equal(timedTaskSignal.aborted, true, '超时错误构造失败也必须取消任务');
+  assert.equal(timedTaskSignal.reason, timeoutFailure, '任务与调用方保留同一超时原因');
   const externalAbort = new AbortController();
   const taskFailure = new Error('模拟同步任务失败');
   await assert.rejects(runWithAbortableTimeout(() => {
@@ -207,7 +245,7 @@ try {
   metaRequests[0].resolve(metaResponse(600));
   await oldRefresh;
   assert.equal(getDialogExitDurationMs(), 120, '旧元数据不能覆盖新会话的设置');
-  console.log('[Web 运行时检查] 鉴权隔离、存储兜底、事件订阅与输入法关闭行为通过。');
+  console.log('[Web 运行时检查] 鉴权隔离、存储兜底、有界响应、取消原因、事件订阅与输入法关闭行为通过。');
 } finally {
   for (const [name, descriptor] of savedGlobals) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);

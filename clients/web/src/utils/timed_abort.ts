@@ -222,9 +222,13 @@ export async function runWithAbortableTimeout<T>(
       {
         timeoutMs,
         createTimeoutError: (effectiveTimeoutMs) => {
-          const reason =
-            createTimeoutError?.(effectiveTimeoutMs) ??
-            new OperationTimeoutError(effectiveTimeoutMs);
+          let reason: unknown;
+          try {
+            reason = createTimeoutError?.(effectiveTimeoutMs) ??
+              new OperationTimeoutError(effectiveTimeoutMs);
+          } catch (error) {
+            reason = error;
+          }
           abort(reason);
           return reason;
         },

@@ -38,12 +38,8 @@ final SerialTaskQueue _knowledgeSourceCleanupQueue = SerialTaskQueue(
 );
 Future<void>? _scheduledKnowledgeSourceCleanupRetry;
 
-String get knowledgeManagedSourcesDirectoryPath => p.join(
-  OpenHandPaths.homeDirectoryPath(),
-  '.openhand',
-  'knowledge',
-  'sources',
-);
+String get knowledgeManagedSourcesDirectoryPath =>
+    p.join(OpenHandPaths.defaultKnowledgeDirectoryPath(), 'sources');
 
 Future<void> stageManagedKnowledgeSourceFileCleanup(
   KnowledgeSource source,

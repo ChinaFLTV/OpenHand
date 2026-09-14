@@ -38,6 +38,7 @@ class AiJunglerRuntime {
   StreamSubscription<String>? _stdoutSubscription;
   StreamSubscription<String>? _stderrSubscription;
   AiJunglerClient? _client;
+  AiJunglerClient? _connectingClient;
   Future<AiJunglerClient>? _bundledStart;
   final OpenHandAsyncOnce _disposeOnce = OpenHandAsyncOnce();
   int _generation = 0;
@@ -54,6 +55,7 @@ class AiJunglerRuntime {
     if (active != null) return active;
     final pending = _bundledStart;
     if (pending != null) return pending;
+    _cancelExternalConnection();
     final generation = ++_generation;
     final operation = _startBundled(generation);
     _bundledStart = operation;
@@ -73,6 +75,9 @@ class AiJunglerRuntime {
       dataDirectory,
       timeout: _kAiJunglerFileIoTimeout,
     );
+    if (_disposed || generation != _generation) {
+      throw StateError('扫描引擎启动已取消。');
+    }
     final token = _newSessionToken();
     final ready = Completer<({Uri address, String version})>();
     final stdoutDone = Completer<void>();
@@ -99,7 +104,7 @@ class AiJunglerRuntime {
       final stdoutDecoder = BoundedProcessLineDecoder(
         maxCharacters: _kAiJunglerMaxLogLineCharacters,
         onLine: (line) {
-          if (_disposed || generation != _generation) return;
+          if (_disposed || !identical(_process, process)) return;
           if (!ready.isCompleted) {
             final parsed = _parseReadyLine(line);
             if (parsed != null) {
@@ -116,7 +121,7 @@ class AiJunglerRuntime {
             stdoutDecoder.add,
             onError: (Object error, StackTrace stack) {
               if (!stdoutDone.isCompleted) stdoutDone.complete();
-              if (_disposed || generation != _generation) return;
+              if (_disposed || !identical(_process, process)) return;
               silentLog('ai_jungler_runtime', '读取扫描引擎标准输出', error, stack);
             },
             onDone: () {
@@ -128,7 +133,7 @@ class AiJunglerRuntime {
       final stderrDecoder = BoundedProcessLineDecoder(
         maxCharacters: _kAiJunglerMaxLogLineCharacters,
         onLine: (line) {
-          if (_disposed || generation != _generation) return;
+          if (_disposed || !identical(_process, process)) return;
           if (line.trim().isNotEmpty) _logs.add(line);
         },
       );
@@ -137,7 +142,7 @@ class AiJunglerRuntime {
           .listen(
             stderrDecoder.add,
             onError: (Object error, StackTrace stack) {
-              if (_disposed || generation != _generation) return;
+              if (_disposed || !identical(_process, process)) return;
               silentLog('ai_jungler_runtime', '读取扫描引擎错误输出', error, stack);
             },
             onDone: stderrDecoder.close,
@@ -214,11 +219,14 @@ class AiJunglerRuntime {
       throw const FormatException('访问令牌不能为空。');
     }
     final generation = ++_generation;
+    _bundledStart = null;
     final client = AiJunglerClient(
       baseUri: normalizedAddress,
       accessToken: normalizedToken,
       httpClient: SystemProxyResolver.instance.createRawHttpClient(),
     );
+    _cancelExternalConnection();
+    _connectingClient = client;
     try {
       await client.health();
       if (_disposed || generation != _generation) {
@@ -233,6 +241,8 @@ class AiJunglerRuntime {
     } catch (_) {
       client.close();
       rethrow;
+    } finally {
+      if (identical(_connectingClient, client)) _connectingClient = null;
     }
   }
 
@@ -248,7 +258,14 @@ class AiJunglerRuntime {
 
   Future<void> stop() async {
     _generation++;
+    _bundledStart = null;
+    _cancelExternalConnection();
     await _stopCurrent();
+  }
+
+  void _cancelExternalConnection() {
+    _connectingClient?.close();
+    _connectingClient = null;
   }
 
   Future<void> _stopCurrent() async {
@@ -256,6 +273,8 @@ class AiJunglerRuntime {
     _client = null;
     final process = _process;
     _process = null;
+    // 在首个等待前移交旧订阅，避免停止期间的新进程被迟到清理误伤。
+    final subscriptionsClosed = _cancelSubscriptions();
     try {
       if (process != null) {
         await runAsyncCleanupBounded(
@@ -269,7 +288,7 @@ class AiJunglerRuntime {
         );
       }
     } finally {
-      await _cancelSubscriptions();
+      await subscriptionsClosed;
     }
   }
 
@@ -278,6 +297,7 @@ class AiJunglerRuntime {
   Future<void> _dispose() async {
     _disposed = true;
     _generation++;
+    _cancelExternalConnection();
     final pendingStart = _bundledStart;
     await runAsyncCleanupBounded(
       _stopCurrent,
@@ -319,8 +339,11 @@ class AiJunglerRuntime {
     _process = null;
     _client?.close();
     _client = null;
+    final generation = _generation;
     await _cancelSubscriptions();
-    if (!_exits.isClosed) _exits.add(exitCode);
+    if (!_disposed && generation == _generation && !_exits.isClosed) {
+      _exits.add(exitCode);
+    }
   }
 
   Future<void> _clearProcessState() async {

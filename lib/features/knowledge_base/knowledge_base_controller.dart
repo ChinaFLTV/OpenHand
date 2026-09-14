@@ -304,12 +304,7 @@ class KnowledgeBaseController extends ChangeNotifier {
       throw StateError('笔记内容不能为空。');
     }
     final notesDir = Directory(
-      p.join(
-        OpenHandPaths.homeDirectoryPath(),
-        '.openhand',
-        'knowledge',
-        'notes',
-      ),
+      p.join(OpenHandPaths.defaultKnowledgeDirectoryPath(), 'notes'),
     );
     final safeTitle = collapseRepeatedUnderscores(
       normalizedTitle.replaceAll(RegExp(r'[^a-zA-Z0-9\u4e00-\u9fa5._-]+'), '_'),

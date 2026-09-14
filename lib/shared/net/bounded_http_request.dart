@@ -44,19 +44,14 @@ Future<HttpClientResponse> closeHttpClientRequestBounded(
     'timeout',
   );
   final closeFuture = Future<HttpClientResponse>.sync(request.close);
-  try {
-    return await closeFuture.timeout(
-      timeout,
-      onTimeout: () {
-        final error = TimeoutException(timeoutMessage, timeout);
-        abortHttpClientRequest(request, reason: error);
-        throw error;
-      },
-    );
-  } on TimeoutException {
-    // timeout Future 会继续监听迟到的 close 结果；这里仅确保请求已中止。
-    rethrow;
-  }
+  return closeFuture.timeout(
+    timeout,
+    onTimeout: () {
+      final error = TimeoutException(timeoutMessage, timeout);
+      abortHttpClientRequest(request, reason: error);
+      throw error;
+    },
+  );
 }
 
 /// 尽力中止请求，避免关闭阶段的异常覆盖原始错误。
