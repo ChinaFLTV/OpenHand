@@ -327,8 +327,7 @@ String mimeTypeFromContentType(String? contentType) {
 /// MIME 是否为 JSON 载荷。
 ///
 /// 覆盖 `application/json`、历史遗留的 `text/json` / `application/x-json`，
-/// 以及 `application/problem+json` 一类的 `+json` 结构化后缀。此前传输层与
-/// 媒体生成各维护一份名单，收录范围并不一致。
+/// 以及 `application/problem+json` 一类的 `+json` 结构化后缀。
 bool isJsonMimeType(String? contentType) {
   final mimeType = mimeTypeFromContentType(contentType);
   if (mimeType.isEmpty) return false;

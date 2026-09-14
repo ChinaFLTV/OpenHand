@@ -1,9 +1,4 @@
-// svg_icon —— 线性图标 <svg> 通用属性包。
-//
-// 各图标组件此前各自内联同一份 viewBox/stroke 属性对象（仅 strokeWidth、
-// 尺寸与 class 不同，甚至存在 '1.9' 字符串与 1.9 数字的混写），统一从
-// 这里生成。size / class 缺省时对应属性值为 undefined，Preact 渲染时
-// 自动跳过，与原先不声明该属性完全等价。
+// 线性图标的共享 SVG 属性；未指定的尺寸与 class 由调用方控制。
 
 interface SvgIconPropsOptions {
   /** 同时作为 width 与 height；不传则由使用处自行控制尺寸。 */

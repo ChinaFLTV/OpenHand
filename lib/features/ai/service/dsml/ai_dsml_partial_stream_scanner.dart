@@ -4,7 +4,8 @@ import 'ai_dsml_tool_call_parser.dart'
     show
         canonicalizeDsmlMarkup,
         decodeDsmlParameterValue,
-        dsmlParameterTreatsValueAsString;
+        dsmlParameterTreatsValueAsString,
+        parseDsmlAttributes;
 
 /// 从流式文本缓冲中解析出的未完成 DSML 调用。
 class PartialDsmlInvoke {
@@ -47,19 +48,6 @@ final RegExp _parameterPattern = RegExp(
   r'<DSML:parameter\b([^>]*)>([\s\S]*?)</DSML:parameter>',
   caseSensitive: false,
 );
-final RegExp _attrPattern = RegExp(
-  r'''([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))''',
-);
-
-Map<String, String> _parseAttributes(String raw) {
-  final out = <String, String>{};
-  for (final m in _attrPattern.allMatches(raw)) {
-    final key = m.group(1)!.toLowerCase();
-    final value = m.group(2) ?? m.group(3) ?? m.group(4) ?? '';
-    out[key] = value;
-  }
-  return out;
-}
 
 /// 扫描完整及尾部未完成的 DSML 调用；使用与流结束后相同的规范化规则。
 List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
@@ -75,15 +63,13 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
   var cursor = 0;
   var ordinal = 0;
   while (cursor < canonical.length) {
-    // 用带起始下标的 allMatches 而不是先 substring 再 firstMatch：后者每轮
-    // 都要整尾拷贝一次，在长回复上叠成 O(n²)。allMatches 是惰性的，取 first
-    // 就会在命中后停止扫描。
+    // 从当前位置惰性匹配，避免反复复制剩余文本。
     final openMatch = _firstMatchFrom(_invokeOpenPattern, canonical, cursor);
     if (openMatch == null) {
       break;
     }
     final absoluteOpenEnd = openMatch.end;
-    final attributes = _parseAttributes(openMatch.group(1) ?? '');
+    final attributes = parseDsmlAttributes(openMatch.group(1) ?? '');
     final name = (attributes['name'] ?? '').trim();
     final closeMatch = _firstMatchFrom(
       _invokeClosePattern,
@@ -95,7 +81,7 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
         : canonical.substring(absoluteOpenEnd, closeMatch.start);
     final args = <String, Object?>{};
     for (final pm in _parameterPattern.allMatches(body)) {
-      final pAttrs = _parseAttributes(pm.group(1) ?? '');
+      final pAttrs = parseDsmlAttributes(pm.group(1) ?? '');
       final key = (pAttrs['name'] ?? '').trim();
       if (key.isEmpty) continue;
       args[key] = decodeDsmlParameterValue(
@@ -141,10 +127,7 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
 
 /// 跨 delta 的增量工具调用标记探测器。
 ///
-/// 纯文本流式路径此前每个 delta 都要对**累积缓冲**做一次 `toString()`
-/// 拷贝再全量扫描标记，长回复上叠成 O(N²) 的拷贝与扫描。本探测器只检查
-/// 「上次尾部重叠窗口 + 新 delta」，把纯文本 delta 的探测成本降为
-/// O(delta)；一旦发现候选标记即永久置位，此后交给完整扫描器处理。
+/// 只检查上次尾部重叠窗口与新片段；命中后保持置位，交由完整扫描器处理。
 class DsmlStreamMarkerProbe {
   /// 重叠窗口取最长标记长度减一，保证跨 delta 拆开的标记不会漏检。
   static final int _overlapLength = _longestMarkerNeedleLength - 1;
@@ -192,10 +175,6 @@ bool _mayContainToolCallMarker(String buffer) {
 
 /// 所有标记按首字符分桶。热路径逐字符扫描一次，只在首字符命中时才逐个比对
 /// 同桶内的候选，全程零分配。
-///
-/// 此前的实现是 `buffer.toLowerCase()` 后再跑 30 次 contains——每个 text
-/// delta 都要把**整个累积缓冲**复制一份，长回复上叠成 O(n²) 的分配与拷贝，
-/// 而这个函数正是为了让纯文本 delta「几乎免费」才存在的。
 final Map<int, List<String>> _markerNeedlesByLeadChar = _groupNeedlesByLeadChar(
   const <String>[
     // 标准形式。

@@ -41,7 +41,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
       .toList(growable: false);
   for (var index = 0; index < invokeMatches.length; index += 1) {
     final match = invokeMatches[index];
-    final attributes = _parseDsmlAttributes(match.group(1) ?? '');
+    final attributes = parseDsmlAttributes(match.group(1) ?? '');
     final name = (attributes['name'] ?? '').trim();
     if (name.isEmpty) {
       continue;
@@ -49,7 +49,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
     final arguments = <String, Object?>{};
     final body = match.group(2) ?? '';
     for (final parameterMatch in _dsmlParameterPattern.allMatches(body)) {
-      final parameterAttributes = _parseDsmlAttributes(
+      final parameterAttributes = parseDsmlAttributes(
         parameterMatch.group(1) ?? '',
       );
       final parameterName = (parameterAttributes['name'] ?? '').trim();
@@ -174,9 +174,7 @@ final RegExp _dsmlAttributePattern = RegExp(
 );
 
 /// 将竖线、括号、命名空间及哈希信封等变体统一为标准 DSML，供流式与完整解析复用。
-String canonicalizeDsmlMarkup(String value) => _canonicalizeDsmlMarkup(value);
-
-String _canonicalizeDsmlMarkup(String value) {
+String canonicalizeDsmlMarkup(String value) {
   // 先转换哈希信封，后续解析和清理只处理标准 DSML。
   var normalized = _convertHashTagToolCalls(value);
   normalized = normalized.replaceAllMapped(_directDsmlPrefixPattern, (match) {
@@ -314,13 +312,10 @@ final RegExp _antmlParameterTagPattern = RegExp(
   caseSensitive: false,
 );
 
-Map<String, String> _parseDsmlAttributes(String rawAttributes) {
+Map<String, String> parseDsmlAttributes(String rawAttributes) {
   final attributes = <String, String>{};
   for (final match in _dsmlAttributePattern.allMatches(rawAttributes)) {
-    final key = lowercaseStringFromValue(match.group(1));
-    if (key.isEmpty) {
-      continue;
-    }
+    final key = match.group(1)!.toLowerCase();
     attributes[key] = match.group(2) ?? match.group(3) ?? match.group(4) ?? '';
   }
   return attributes;

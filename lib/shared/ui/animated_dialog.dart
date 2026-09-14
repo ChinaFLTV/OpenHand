@@ -1657,7 +1657,6 @@ double openHandModalSheetWidth(BuildContext context) {
 /// 审批类弹窗的键盘处理：Esc 吞掉，回车即确认。
 ///
 /// 审批必须是显式动作，所以 Esc 只消费不关闭——否则误触一下就等于默默放弃。
-/// 两个审批弹窗此前各写了一份同样的判断，[onConfirm] 是唯一的差异。
 KeyEventResult handleOpenHandApprovalDialogKey(
   KeyEvent event, {
   required VoidCallback onConfirm,
@@ -1677,9 +1676,6 @@ KeyEventResult handleOpenHandApprovalDialogKey(
 }
 
 /// 审批类弹窗顶部的「图标徽章 + 标题 + 说明」。
-///
-/// 写命令确认与 MCP 写调用确认此前各内联了一份完全相同的布局，只有图标与
-/// 文案不同。
 Widget buildOpenHandApprovalDialogHeader(
   BuildContext context, {
   required IconData icon,

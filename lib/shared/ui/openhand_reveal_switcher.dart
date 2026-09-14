@@ -170,8 +170,7 @@ const double kOpenHandCrossFadeSlideOffsetY = 0.05;
 ///
 /// 与 [OpenHandVerticalRevealSwitcher] 的分工：那个负责「有 / 无」的展开收起
 /// 并带尺寸动画；这个负责同一位置上两块内容的互换，高度交给外层的
-/// AnimatedSize 管，自身只做淡入与位移。主会话工具卡片与 Harness 工具轨迹
-/// 此前各写了一份同样的配置。
+/// AnimatedSize 管，自身只做淡入与位移。
 class OpenHandCrossFadeSwitcher extends StatelessWidget {
   const OpenHandCrossFadeSwitcher({
     super.key,

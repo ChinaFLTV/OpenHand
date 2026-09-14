@@ -224,10 +224,7 @@ class _CircularExpansionToggle extends StatelessWidget {
 const double _kCollapsibleInteractiveThreshold = 0.98;
 
 /// 顶部锚定的「高度 + 淡出」折叠动效。
-///
-/// 主会话输入区与 Harness 输入区的展开内容此前各写了一份完全相同的
-/// TweenAnimationBuilder：两处都直接用了原始时长常量，绕过全局动效设置，
-/// 于是关闭动效后相邻的 AnimatedContainer 立刻收起、内容却仍在淡出 260ms。
+/// 遵循全局动效设置，禁用时立即切换。
 class OpenHandCollapsibleFade extends StatelessWidget {
   const OpenHandCollapsibleFade({
     super.key,

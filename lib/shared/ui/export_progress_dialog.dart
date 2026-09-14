@@ -168,9 +168,7 @@ OpenHandDialogSession<void> showExportProgressDialog({
 
 /// 跑一次带进度弹窗的导出：建取消令牌 → 开弹窗 → 执行 → 收弹窗。
 ///
-/// 四处导出流程此前各写一遍这几步。少一步 [ExportProgressController.markFinished]
-/// 就会让弹窗关闭时把一次已完成的导出当成用户取消，回头去 cancel 它；而
-/// dismiss 写在 `try` 外还是里，决定了导出抛异常时弹窗会不会留在屏幕上。
+/// 结束时标记完成并关闭弹窗，避免误触发取消；导出异常继续向调用方传递。
 ///
 /// [run] 拿到令牌与控制器后自行决定超时与失败取值，因此批量导出这类返回值不是
 /// [ExportResult] 的流程也能共用。

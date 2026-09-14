@@ -457,9 +457,6 @@ const double _kFilePathChipIconSize = 14;
 const double _kFilePathChipMaxTextWidth = 340;
 
 /// 消息正文里的文件路径胶囊：悬停出预览、点击打开，未解析时降级为灰态且不可点。
-///
-/// 主会话工具卡片与 Harness 流式视图此前各写了一份逐字节相同的实现，只有
-/// "打开"这一步的落点不同。
 class OpenHandFilePathChip extends StatelessWidget {
   const OpenHandFilePathChip({
     super.key,

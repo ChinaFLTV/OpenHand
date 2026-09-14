@@ -8,9 +8,6 @@
 library;
 
 /// 常规 Tooltip 的悬停停留时长。
-///
-/// 此前各界面在 200~600ms 之间各写各的，同一个文件里相邻的两个按钮都可能
-/// 不一致；统一到一档后，全应用的悬停手感一致，调整也只需改这里。
 const Duration kOpenHandTooltipWait = Duration(milliseconds: 400);
 
 /// 密集可扫视区域（分段条、色带等）的 Tooltip 悬停时长。

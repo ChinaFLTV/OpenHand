@@ -316,38 +316,6 @@ class OpenHandCompactActionChip extends StatelessWidget {
   }
 }
 
-/// 行内计量胶囊：高对比容器底上的一行次级小字，用于超时、条数这类数值标注。
-class OpenHandMetricChip extends StatelessWidget {
-  const OpenHandMetricChip({super.key, required this.label, this.tooltip});
-
-  final String label;
-
-  /// 非空时整体套一层 Tooltip。
-  final String? tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(kOpenHandRadius12),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-    final message = tooltip;
-    if (message == null) return chip;
-    return Tooltip(message: message, child: chip);
-  }
-}
-
 /// 列表行尾的「编辑 + 删除」按钮对。
 class OpenHandRowEditDeleteActions extends StatelessWidget {
   const OpenHandRowEditDeleteActions({

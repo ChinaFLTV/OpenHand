@@ -1,9 +1,4 @@
-// status_palette —— 状态徽章 / 提示横幅统一配色。
-//
-// Harness / Plugins / Toolbox 等状态页此前各自内联相同的 rgba/hex 字面量
-//（且存在 `.1` 与 `0.10` 混写），集中到这里保证同语义同色、改动一处生效。
-// 语义主色（primary / error / on-surface-variant）继续走 M3 CSS 变量，
-// 本文件只收敛无 CSS 变量可用的固定强调色与低透明度背景。
+// 状态徽章与提示横幅的固定强调色及背景；语义主色使用 M3 CSS 变量。
 
 /** 成功 / 已完成状态前景色。 */
 export const STATUS_SUCCESS_COLOR = '#16a34a';

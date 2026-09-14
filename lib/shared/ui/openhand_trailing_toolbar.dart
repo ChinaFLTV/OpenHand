@@ -167,9 +167,6 @@ const BorderRadius kOpenHandSessionHeaderRadius = BorderRadius.all(
 );
 
 /// 会话头部条：左侧标题占两份宽，右侧尾部工具条占三份宽。
-///
-/// 主会话工具条与 Harness 会话头部此前各写了一份同样的外框与栅格比例，
-/// 改一处圆角或内边距就会两边不一致。
 class OpenHandSessionHeaderBar extends StatelessWidget {
   const OpenHandSessionHeaderBar({
     super.key,

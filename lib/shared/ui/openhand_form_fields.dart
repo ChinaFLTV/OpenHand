@@ -376,9 +376,7 @@ class OpenHandSelectTile extends StatelessWidget {
 }
 
 /// 弹窗表单的分组卡片：色点图标 + 标题/说明 + 可选尾部动作 + 内容区。
-///
-/// 长表单此前各自手写一份浅底圆角容器，标题层级和间距容易分叉。
-/// 这里收敛为一份，按 [accent] 给分组上色，保证结构一眼可扫。
+/// 按 [accent] 设置分组强调色。
 class OpenHandDialogSectionCard extends StatelessWidget {
   const OpenHandDialogSectionCard({
     super.key,
@@ -491,11 +489,8 @@ class OpenHandDialogSectionCard extends StatelessWidget {
   }
 }
 
-const double kOpenHandListIdentityExtent = 64;
-const double kOpenHandListIdentityIconSize = 31;
 const double kOpenHandListCardRadius = 22;
 const double kOpenHandListCardHeaderBreakpoint = 820;
-const double kOpenHandIdentityStatusDotSize = 18;
 const EdgeInsets kOpenHandListCardPadding = EdgeInsets.all(18);
 const EdgeInsets kOpenHandMetricsStripPadding = EdgeInsets.symmetric(
   horizontal: 14,
@@ -505,81 +500,6 @@ const double kOpenHandMetricsStripBreakpoint = 720;
 const double kOpenHandMetricsStripTwoColumnMinWidth = 220;
 
 typedef OpenHandMetricItem = ({String label, String value, Color accent});
-
-/// 列表卡身份徽标：与消息网关同族，主题色实心底 + 可选状态点。
-class OpenHandIdentityBadge extends StatelessWidget {
-  const OpenHandIdentityBadge({
-    super.key,
-    required this.icon,
-    this.statusColor,
-    this.extent = kOpenHandListIdentityExtent,
-    this.iconSize = kOpenHandListIdentityIconSize,
-    this.topStart,
-  });
-
-  final IconData icon;
-  final Color? statusColor;
-  final double extent;
-  final double iconSize;
-  final Widget? topStart;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final motionEnabled = openHandTickerMotionEnabled(context);
-    final badge = DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: kOpenHandBorderRadius18,
-      ),
-      child: SizedBox(
-        width: extent,
-        height: extent,
-        child: Center(
-          child: Icon(
-            icon,
-            size: iconSize,
-            color: colorScheme.onPrimaryContainer,
-          ),
-        ),
-      ),
-    );
-    final statusColor = this.statusColor;
-    if (topStart == null && statusColor == null) return badge;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        badge,
-        if (topStart != null) Positioned(left: -4, top: -4, child: topStart!),
-        if (statusColor != null)
-          Positioned(
-            right: -3,
-            bottom: -3,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                shape: BoxShape.circle,
-                boxShadow: motionEnabled
-                    ? [
-                        BoxShadow(
-                          color: statusColor.withValues(alpha: 0.32),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
-                Icons.circle,
-                color: statusColor,
-                size: kOpenHandIdentityStatusDotSize,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
 
 /// 列表卡标题区：标题 + 说明，可选左侧功能控件（如拖拽手柄）。
 class OpenHandListIdentity extends StatelessWidget {

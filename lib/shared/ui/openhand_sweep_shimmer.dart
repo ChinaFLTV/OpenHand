@@ -103,8 +103,7 @@ class _OpenHandSweepShimmerState extends State<OpenHandSweepShimmer>
 /// 骨架屏占位块：在容器底色上左右扫过一道高光。
 ///
 /// 与 [OpenHandSweepShimmer] 的区别在于这里本身就是占位块，而不是给已有内容
-/// 叠一层扫光。审计弹窗的文本骨架与消息气泡的图片骨架此前各写了一份控制器
-/// 生命周期、动效开关判定与渐变计算。
+/// 叠一层扫光。
 class OpenHandSkeletonShimmer extends StatefulWidget {
   const OpenHandSkeletonShimmer({
     super.key,

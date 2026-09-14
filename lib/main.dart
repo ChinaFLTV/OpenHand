@@ -237,12 +237,10 @@ Future<void> _bootstrapRuntime(
   // 系统代理检测与控制器并行启动；内部 HTTP 客户端会按需读取结果。
   final systemProxyFuture = SystemProxyResolver.instance.initialize();
 
-  developer.Timeline.startSync('openhand.boot.await_settings_hooks');
   final settingsController = await settingsControllerFuture;
   runtimeCleanup.register('设置控制器', settingsController.shutdown);
   final hooks = await hooksModuleFuture;
   runtimeCleanup.register('生命周期钩子控制器', hooks.controller.shutdown);
-  developer.Timeline.finishSync();
   // 启动阶段先写入一次；统一监听器会在所有运行时依赖就绪后注册。
   SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
   // 用顶层变量把 stdio MCP 镜像源模式同步给发现服务。
@@ -337,7 +335,6 @@ Future<void> _bootstrapRuntime(
   _runMainBackgroundTask(instructions.controller.refresh(), '刷新指令');
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo);
-  developer.Timeline.startSync('openhand.boot.await_remaining_controllers');
   memoryControllerHandle = memory.controller;
   final ai = await aiModuleFuture;
   final aiSessionController = ai.controller;
@@ -352,7 +349,6 @@ Future<void> _bootstrapRuntime(
       aiSessionController.shutdown,
       timeout: AiSessionController.runtimeCleanupTimeout,
     );
-  developer.Timeline.finishSync();
   // 后台完成系统代理检测，失败时网络客户端继续直连。
   _runMainBackgroundTask(systemProxyFuture, '初始化系统代理');
 

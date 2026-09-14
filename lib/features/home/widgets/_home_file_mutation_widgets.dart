@@ -3381,74 +3381,60 @@ class _RoundFileMutationSummaryCardState
   }
 
   Future<List<_RoundSummaryRow>> _load(BuildContext ctx) async {
-    if (kDebugMode) {
-      developer.Timeline.startSync(
-        'openhand.round_summary.load',
-        arguments: <String, Object?>{'tool_calls': _toolCallIds.length},
-      );
+    final ctrl = ctx.read<AiSessionController>();
+    final sessionId = ctrl.currentSession?.id ?? '';
+    if (sessionId.isEmpty) return const <_RoundSummaryRow>[];
+    final ledger = ctrl.toolRuntimeService.mutationLedger;
+    // 反向索引 toolCallId → 对应 toolCall message.id（用于跳转）。
+    final session = ctrl.currentSession;
+    final toolCallMessageIdByCallId = <String, String>{
+      ..._sourceMessageIdsByToolCallId,
+    };
+    if (session != null) {
+      for (final m in session.messages) {
+        if (m.kind != AiSessionMessageKind.toolCall) continue;
+        final id = '${m.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+            .trim();
+        if (id.isNotEmpty) {
+          toolCallMessageIdByCallId.putIfAbsent(id, () => m.id);
+        }
+      }
     }
+    final ids = _toolCallIds;
+    final rows = <_RoundSummaryRow>[];
+    Map<String, List<FileMutationView>> viewsByToolCall;
     try {
-      final ctrl = ctx.read<AiSessionController>();
-      final sessionId = ctrl.currentSession?.id ?? '';
-      if (sessionId.isEmpty) return const <_RoundSummaryRow>[];
-      final ledger = ctrl.toolRuntimeService.mutationLedger;
-      // 反向索引 toolCallId → 对应 toolCall message.id（用于跳转）。
-      final session = ctrl.currentSession;
-      final toolCallMessageIdByCallId = <String, String>{
-        ..._sourceMessageIdsByToolCallId,
-      };
-      if (session != null) {
-        for (final m in session.messages) {
-          if (m.kind != AiSessionMessageKind.toolCall) continue;
-          final id =
-              '${m.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
-                  .trim();
-          if (id.isNotEmpty) {
-            toolCallMessageIdByCallId.putIfAbsent(id, () => m.id);
-          }
-        }
-      }
-      final ids = _toolCallIds;
-      final rows = <_RoundSummaryRow>[];
-      final seen = <String>{}; // (filePath|toolCallId) dedup
-      Map<String, List<FileMutationView>> viewsByToolCall;
-      try {
-        viewsByToolCall = await ledger.viewsForToolCalls(
-          sessionId: sessionId,
-          toolCallIds: ids,
-        );
-      } catch (error, stack) {
-        silentLog('round_summary_card', '构建工具调用视图', error, stack);
-        return const <_RoundSummaryRow>[];
-      }
-      for (final entry in viewsByToolCall.entries) {
-        final tcId = entry.key;
-        final views = entry.value;
-        // 同 toolCall + 同文件 多次 ⇒ 取最后一条（最终态）。
-        final byPath = <String, FileMutationView>{};
-        for (final v in views) {
-          byPath[v.record.filePath] = v;
-        }
-        for (final entry in byPath.entries) {
-          final key = '${entry.key}|$tcId';
-          if (!seen.add(key)) continue;
-          rows.add(
-            _RoundSummaryRow(
-              view: entry.value,
-              toolCallId: tcId,
-              sourceMessageId: toolCallMessageIdByCallId[tcId],
-            ),
-          );
-        }
-      }
-      // 时间升序排列：早→晚，符合执行轨迹直觉。
-      rows.sort(
-        (a, b) => a.view.record.createdAt.compareTo(b.view.record.createdAt),
+      viewsByToolCall = await ledger.viewsForToolCalls(
+        sessionId: sessionId,
+        toolCallIds: ids,
       );
-      return rows;
-    } finally {
-      if (kDebugMode) developer.Timeline.finishSync();
+    } catch (error, stack) {
+      silentLog('round_summary_card', '构建工具调用视图', error, stack);
+      return const <_RoundSummaryRow>[];
     }
+    for (final entry in viewsByToolCall.entries) {
+      final tcId = entry.key;
+      final views = entry.value;
+      // 同 toolCall + 同文件 多次 ⇒ 取最后一条（最终态）。
+      final byPath = <String, FileMutationView>{};
+      for (final v in views) {
+        byPath[v.record.filePath] = v;
+      }
+      for (final entry in byPath.entries) {
+        rows.add(
+          _RoundSummaryRow(
+            view: entry.value,
+            toolCallId: tcId,
+            sourceMessageId: toolCallMessageIdByCallId[tcId],
+          ),
+        );
+      }
+    }
+    // 时间升序排列：早→晚，符合执行轨迹直觉。
+    rows.sort(
+      (a, b) => a.view.record.createdAt.compareTo(b.view.record.createdAt),
+    );
+    return rows;
   }
 
   void _ensureFutureBound() {
