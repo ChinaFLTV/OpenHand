@@ -26,7 +26,6 @@ linter:
     invalid_case_patterns: true
     matching_super_parameters: true
     combinators_ordering: true
-    unnecessary_await_in_return: true
     unnecessary_getters_setters: true
     unnecessary_brace_in_string_interps: true
     unnecessary_const: true
