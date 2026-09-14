@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/openhand_paths.dart';
@@ -12,16 +13,16 @@ import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
-import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
+import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
-import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
@@ -32,6 +33,7 @@ import '../data/skill_market_client.dart';
 import '../model/skill_market.dart';
 import '../skills_controller.dart';
 import 'skill_markdown_preview.dart';
+import 'skill_market_labels.dart';
 
 Future<void> showSkillMarketDialog(BuildContext context) {
   return showAnimatedDialog<void>(
@@ -44,6 +46,12 @@ Future<void> showSkillMarketDialog(BuildContext context) {
 /// 档位是上限语义，套上去会把这里的固定尺寸一起改掉。
 const double _kSkillMarketDialogWidth = 1220;
 const double _kSkillMarketDialogHeight = 840;
+const double _kSkillMarketListAvatarSize = 46;
+const double _kSkillMarketDetailAvatarSize = 64;
+const double _kSkillMarketConfirmAvatarSize = 52;
+const int _kSkillMarketMaxPreviewVersions = 12;
+const int _kSkillMarketMaxPreviewFiles = 12;
+const int _kSkillMarketMaxPreviewSubcategories = 3;
 
 class _SkillMarketDialog extends StatefulWidget {
   const _SkillMarketDialog();
@@ -153,14 +161,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                               width: leftWidth,
                               child: _buildSearchPane(context),
                             ),
-                            kOpenHandHGap18,
-                            VerticalDivider(
-                              width: 1,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
-                            kOpenHandHGap18,
+                            kOpenHandHGap16,
                             Expanded(child: _buildDetailPane(context)),
                           ],
                         );
@@ -206,16 +207,28 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 48,
-          height: 48,
+        DecoratedBox(
           decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(kOpenHandRadius16),
+            borderRadius: BorderRadius.circular(kOpenHandRadius18),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[
+                colorScheme.primaryContainer,
+                Color.alphaBlend(
+                  colorScheme.tertiaryContainer.withValues(alpha: 0.82),
+                  colorScheme.primaryContainer,
+                ),
+              ],
+            ),
           ),
-          child: Icon(
-            Icons.storefront_rounded,
-            color: colorScheme.onPrimaryContainer,
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: Icon(
+              Icons.storefront_rounded,
+              color: colorScheme.onPrimaryContainer,
+            ),
           ),
         ),
         kOpenHandHGap14,
@@ -225,7 +238,9 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
             children: [
               Text(
                 openHandSkillMarketLabel(context),
-                style: theme.textTheme.headlineSmall,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               kOpenHandGap4,
               Text(
@@ -240,6 +255,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
+                  height: 1.35,
                 ),
               ),
             ],
@@ -256,218 +272,247 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     final result = _searchResult;
     final skills = result?.skills ?? const <SkillMarketSummary>[];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SearchBar(
-          controller: _searchController,
-          hintText: openHandLocalizedText(
-            context,
-            zh: '搜索市场技能',
-            zhHant: '搜尋市場技能',
-            en: 'Search market skills',
-            fr: 'Rechercher des compétences',
-            de: 'Skills suchen',
-            ja: 'マーケットスキルを検索',
-          ),
-          leading: const Icon(Icons.search_rounded),
-          trailing: [
-            if (_searchInput.trim().isNotEmpty)
-              Tooltip(
-                message: openHandClearSearchLabel(context),
-                child: IconButton(
-                  onPressed: _isSearching ? null : _clearSearch,
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ),
-            Tooltip(
-              message: openHandLocalizedText(
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(alpha: 0.04),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: BorderRadius.circular(kOpenHandRadius22),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SearchBar(
+              controller: _searchController,
+              hintText: openHandLocalizedText(
                 context,
-                zh: '刷新搜索',
-                zhHant: '重新整理搜尋',
-                en: 'Refresh search',
-                fr: 'Actualiser la recherche',
-                de: 'Suche aktualisieren',
-                ja: '検索を更新',
+                zh: '搜索市场技能',
+                zhHant: '搜尋市場技能',
+                en: 'Search market skills',
+                fr: 'Rechercher des compétences',
+                de: 'Skills suchen',
+                ja: 'マーケットスキルを検索',
               ),
-              child: IconButton(
-                onPressed: _isSearching ? null : _refreshCurrentSearch,
-                icon: const Icon(Icons.refresh_rounded),
+              leading: const Icon(Icons.search_rounded),
+              trailing: [
+                if (_searchInput.trim().isNotEmpty)
+                  Tooltip(
+                    message: openHandClearSearchLabel(context),
+                    child: IconButton(
+                      onPressed: _isSearching ? null : _clearSearch,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ),
+                Tooltip(
+                  message: openHandLocalizedText(
+                    context,
+                    zh: '刷新搜索',
+                    zhHant: '重新整理搜尋',
+                    en: 'Refresh search',
+                    fr: 'Actualiser la recherche',
+                    de: 'Suche aktualisieren',
+                    ja: '検索を更新',
+                  ),
+                  child: IconButton(
+                    onPressed: _isSearching ? null : _refreshCurrentSearch,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                ),
+              ],
+              onChanged: _handleSearchChanged,
+              onSubmitted: _handleSearchSubmitted,
+            ),
+            kOpenHandGap12,
+            if (_isSearching && result != null)
+              const LinearProgressIndicator(minHeight: 2),
+            if (_isSearching && result != null) kOpenHandGap10,
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                child: _searchError != null
+                    ? _MarketStateMessage(
+                        key: const ValueKey<String>('market-search-error'),
+                        icon: Icons.cloud_off_outlined,
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '加载失败',
+                          zhHant: '載入失敗',
+                          en: 'Unable to Load',
+                          fr: 'Chargement impossible',
+                          de: 'Laden fehlgeschlagen',
+                          ja: '読み込めません',
+                        ),
+                        body: openHandLocalizedText(
+                          context,
+                          zh: '无法连接技能市场，请稍后重试。',
+                          zhHant: '無法連線技能市場，請稍後重試。',
+                          en: 'The skill market could not be reached. Try again later.',
+                          fr: 'Impossible de joindre le marché des compétences. Réessayez plus tard.',
+                          de: 'Der Skill-Markt ist nicht erreichbar. Versuche es später erneut.',
+                          ja: 'スキルマーケットに接続できません。後でもう一度お試しください。',
+                        ),
+                        actionLabel: _skillMarketDiaRetryLabel(context),
+                        onAction: () => _runSearch(keepSelection: false),
+                      )
+                    : _isSearching && result == null
+                    ? const Center(
+                        key: ValueKey<String>('market-search-loading'),
+                        child: CircularProgressIndicator(),
+                      )
+                    : skills.isEmpty
+                    ? _MarketStateMessage(
+                        key: const ValueKey<String>('market-search-empty'),
+                        icon: Icons.search_off_rounded,
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '没有找到结果',
+                          zhHant: '沒有找到結果',
+                          en: 'No Results',
+                          fr: 'Aucun résultat',
+                          de: 'Keine Ergebnisse',
+                          ja: '結果がありません',
+                        ),
+                        body: openHandLocalizedText(
+                          context,
+                          zh: '换个关键词再试试，或清空搜索查看热门技能。',
+                          zhHant: '換個關鍵詞再試試，或清空搜尋查看熱門技能。',
+                          en: 'Try another keyword, or clear the search to browse popular skills.',
+                          fr: 'Essayez un autre mot-clé ou effacez la recherche pour voir les compétences populaires.',
+                          de: 'Versuche ein anderes Stichwort oder leere die Suche, um beliebte Skills zu sehen.',
+                          ja: '別のキーワードを試すか、検索をクリアして人気スキルを表示してください。',
+                        ),
+                      )
+                    : ListView.separated(
+                        key: ValueKey<String>(
+                          'market-results-${result?.page}-$_keyword',
+                        ),
+                        itemCount: skills.length,
+                        separatorBuilder: (context, index) => kOpenHandGap8,
+                        itemBuilder: (context, index) {
+                          final skill = skills[index];
+                          return AppearOnce(
+                            key: ValueKey<String>('skill-market-${skill.slug}'),
+                            child: _SkillMarketResultTile(
+                              skill: skill,
+                              installed: _isMarketSkillInstalled(
+                                skill,
+                                installedSkillKeys,
+                              ),
+                              selected: _selectedSkill?.slug == skill.slug,
+                              onTap: () => _selectSkill(skill),
+                            ),
+                          );
+                        },
+                      ),
               ),
             ),
+            kOpenHandGap12,
+            OpenHandTablePagination(
+              total: result?.total ?? 0,
+              page: result?.page ?? _page,
+              pageSize: result?.pageSize ?? _pageSize,
+              enabled: !_isSearching && result != null,
+              onPageChanged: _goToPage,
+              onPageSizeChanged: (size) {
+                if (_isSearching || size == _pageSize) return;
+                setState(() {
+                  _pageSize = size;
+                  _page = 1;
+                });
+                unawaited(_runSearch(keepSelection: false));
+              },
+            ),
           ],
-          onChanged: _handleSearchChanged,
-          onSubmitted: _handleSearchSubmitted,
         ),
-        kOpenHandGap12,
-        if (_isSearching && result != null)
-          const LinearProgressIndicator(minHeight: 2),
-        if (_isSearching && result != null) kOpenHandGap10,
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion180),
-            child: _searchError != null
-                ? _MarketStateMessage(
-                    key: const ValueKey<String>('market-search-error'),
-                    icon: Icons.cloud_off_outlined,
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '加载失败',
-                      zhHant: '載入失敗',
-                      en: 'Unable to Load',
-                      fr: 'Chargement impossible',
-                      de: 'Laden fehlgeschlagen',
-                      ja: '読み込めません',
-                    ),
-                    body: openHandLocalizedText(
-                      context,
-                      zh: '无法连接技能市场，请稍后重试。',
-                      zhHant: '無法連線技能市場，請稍後重試。',
-                      en: 'The skill market could not be reached. Try again later.',
-                      fr: 'Impossible de joindre le marché des compétences. Réessayez plus tard.',
-                      de: 'Der Skill-Markt ist nicht erreichbar. Versuche es später erneut.',
-                      ja: 'スキルマーケットに接続できません。後でもう一度お試しください。',
-                    ),
-                    actionLabel: _skillMarketDiaRetryLabel(context),
-                    onAction: () => _runSearch(keepSelection: false),
-                  )
-                : _isSearching && result == null
-                ? const Center(
-                    key: ValueKey<String>('market-search-loading'),
-                    child: CircularProgressIndicator(),
-                  )
-                : skills.isEmpty
-                ? _MarketStateMessage(
-                    key: const ValueKey<String>('market-search-empty'),
-                    icon: Icons.search_off_rounded,
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '没有找到结果',
-                      zhHant: '沒有找到結果',
-                      en: 'No Results',
-                      fr: 'Aucun résultat',
-                      de: 'Keine Ergebnisse',
-                      ja: '結果がありません',
-                    ),
-                    body: openHandLocalizedText(
-                      context,
-                      zh: '换个关键词再试试，或清空搜索查看热门技能。',
-                      zhHant: '換個關鍵詞再試試，或清空搜尋查看熱門技能。',
-                      en: 'Try another keyword, or clear the search to browse popular skills.',
-                      fr: 'Essayez un autre mot-clé ou effacez la recherche pour voir les compétences populaires.',
-                      de: 'Versuche ein anderes Stichwort oder leere die Suche, um beliebte Skills zu sehen.',
-                      ja: '別のキーワードを試すか、検索をクリアして人気スキルを表示してください。',
-                    ),
-                  )
-                : ListView.separated(
-                    key: ValueKey<String>(
-                      'market-results-${result?.page}-$_keyword',
-                    ),
-                    itemCount: skills.length,
-                    separatorBuilder: (context, index) => kOpenHandGap10,
-                    itemBuilder: (context, index) {
-                      final skill = skills[index];
-                      return AppearOnce(
-                        key: ValueKey<String>('skill-market-${skill.slug}'),
-                        child: _SkillMarketResultTile(
-                          skill: skill,
-                          installed: _isMarketSkillInstalled(
-                            skill,
-                            installedSkillKeys,
-                          ),
-                          selected: _selectedSkill?.slug == skill.slug,
-                          onTap: () => _selectSkill(skill),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ),
-        kOpenHandGap12,
-        OpenHandTablePagination(
-          total: result?.total ?? 0,
-          page: result?.page ?? _page,
-          pageSize: result?.pageSize ?? _pageSize,
-          enabled: !_isSearching && result != null,
-          onPageChanged: _goToPage,
-          onPageSizeChanged: (size) {
-            if (_isSearching || size == _pageSize) return;
-            setState(() {
-              _pageSize = size;
-              _page = 1;
-            });
-            unawaited(_runSearch(keepSelection: false));
-          },
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildDetailPane(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final selectedSkill = _selectedSkill;
     final bundleFuture = _selectedBundleFuture;
-    if (selectedSkill == null || bundleFuture == null) {
-      return _MarketStateMessage(
-        icon: Icons.touch_app_outlined,
-        title: openHandLocalizedText(
-          context,
-          zh: '选择一个技能',
-          zhHant: '選擇一個技能',
-          en: 'Select a Skill',
-          fr: 'Sélectionner une compétence',
-          de: 'Skill auswählen',
-          ja: 'スキルを選択',
-        ),
-        body: openHandLocalizedText(
-          context,
-          zh: '点击左侧候选项后，这里会展示概述、版本、安全报告和 SKILL.md 详情。',
-          zhHant: '點擊左側候選項後，這裡會展示概述、版本、安全報告和 SKILL.md 詳情。',
-          en: 'Choose a result on the left to view the summary, versions, security reports, and SKILL.md details.',
-          fr: 'Choisissez un résultat à gauche pour voir le résumé, les versions, les rapports de sécurité et SKILL.md.',
-          de: 'Wähle links ein Ergebnis, um Übersicht, Versionen, Sicherheitsberichte und SKILL.md zu sehen.',
-          ja: '左側の候補を選ぶと、概要、バージョン、セキュリティレポート、SKILL.md の詳細を表示します。',
-        ),
-      );
-    }
-
-    return FutureBuilder<SkillMarketBundle>(
-      future: bundleFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError || !snapshot.hasData) {
-          return _MarketStateMessage(
-            icon: Icons.error_outline_rounded,
+    final pane = selectedSkill == null || bundleFuture == null
+        ? _MarketStateMessage(
+            icon: Icons.auto_awesome_rounded,
             title: openHandLocalizedText(
               context,
-              zh: '详情加载失败',
-              zhHant: '詳情載入失敗',
-              en: 'Details Failed',
-              fr: 'Échec des détails',
-              de: 'Details fehlgeschlagen',
-              ja: '詳細の読み込みに失敗',
+              zh: '选择一个技能',
+              zhHant: '選擇一個技能',
+              en: 'Select a skill',
+              fr: 'Sélectionner une compétence',
+              de: 'Skill auswählen',
+              ja: 'スキルを選択',
             ),
             body: openHandLocalizedText(
               context,
-              zh: '无法加载该技能详情，请重试。',
-              zhHant: '無法載入該技能詳情，請重試。',
-              en: 'Unable to load this skill detail. Try again.',
-              fr: 'Impossible de charger les détails de cette compétence. Réessayez.',
-              de: 'Skill-Details konnten nicht geladen werden. Erneut versuchen.',
-              ja: 'このスキルの詳細を読み込めません。再試行してください。',
+              zh: '点击左侧候选项后，这里会展示概述、版本、安全报告和详情。',
+              zhHant: '點擊左側候選項後，這裡會展示概述、版本、安全報告和詳情。',
+              en: 'Choose a result on the left to view the summary, versions, security reports, and details.',
+              fr: 'Choisissez un résultat à gauche pour voir le résumé, les versions, les rapports de sécurité et les détails.',
+              de: 'Wähle links ein Ergebnis, um Übersicht, Versionen, Sicherheitsberichte und Details zu sehen.',
+              ja: '左側の候補を選ぶと、概要、バージョン、セキュリティレポート、詳細を表示します。',
             ),
-            actionLabel: _skillMarketDiaRetryLabel(context),
-            onAction: () => _selectSkill(selectedSkill, forceReload: true),
+          )
+        : FutureBuilder<SkillMarketBundle>(
+            future: bundleFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return _MarketStateMessage(
+                  icon: Icons.error_outline_rounded,
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '详情加载失败',
+                    zhHant: '詳情載入失敗',
+                    en: 'Details failed',
+                    fr: 'Échec des détails',
+                    de: 'Details fehlgeschlagen',
+                    ja: '詳細の読み込みに失敗',
+                  ),
+                  body: openHandLocalizedText(
+                    context,
+                    zh: '无法加载该技能详情，请重试。',
+                    zhHant: '無法載入該技能詳情，請重試。',
+                    en: 'Unable to load this skill detail. Try again.',
+                    fr: 'Impossible de charger les détails de cette compétence. Réessayez.',
+                    de: 'Skill-Details konnten nicht geladen werden. Erneut versuchen.',
+                    ja: 'このスキルの詳細を読み込めません。再試行してください。',
+                  ),
+                  actionLabel: _skillMarketDiaRetryLabel(context),
+                  onAction: () =>
+                      _selectSkill(selectedSkill, forceReload: true),
+                );
+              }
+              return _SkillMarketDetailView(
+                summary: selectedSkill,
+                bundle: snapshot.data!,
+                maxMarkdownChars: _maxMarkdownChars,
+                onVersionSelected: _selectSkillVersion,
+              );
+            },
           );
-        }
-        return _SkillMarketDetailView(
-          summary: selectedSkill,
-          bundle: snapshot.data!,
-          maxMarkdownChars: _maxMarkdownChars,
-          onVersionSelected: _selectSkillVersion,
-        );
-      },
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.tertiary.withValues(alpha: 0.05),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: BorderRadius.circular(kOpenHandRadius22),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: pane,
     );
   }
 
@@ -808,6 +853,12 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final displayName = skillMarketDisplayName(context, skill.displayName);
+    final publisher = skillMarketPublisherLabel(
+      publisherName: skill.publisherName,
+      ownerName: skill.ownerName,
+      slug: skill.slug,
+    );
     final normalizedPreviewVersion = previewVersion?.trim() ?? '';
     return buildOpenHandDialog(
       maxWidth: kOpenHandDialogWidthStandard,
@@ -817,99 +868,82 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SkillMarketAvatar(
-                  name: skill.displayName,
-                  imageUrl: skill.iconUrl,
-                  size: 52,
-                ),
-                kOpenHandHGap14,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '确认安装技能',
-                          zhHant: '確認安裝技能',
-                          en: 'Confirm Install',
-                          fr: 'Confirmer l’installation',
-                          de: 'Installation bestätigen',
-                          ja: 'インストール確認',
-                        ),
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                      kOpenHandGap6,
-                      Text(
-                        skill.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+            OpenHandTintedPanel(
+              accent: colorScheme.primary,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SkillMarketAvatar(
+                    name: displayName,
+                    imageUrl: skill.iconUrl,
+                    size: _kSkillMarketConfirmAvatarSize,
                   ),
-                ),
-              ],
+                  kOpenHandHGap14,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '确认安装技能',
+                            zhHant: '確認安裝技能',
+                            en: 'Confirm install',
+                            fr: 'Confirmer l’installation',
+                            de: 'Installation bestätigen',
+                            ja: 'インストール確認',
+                          ),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        kOpenHandGap6,
+                        Text(
+                          displayName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            kOpenHandGap18,
+            kOpenHandGap16,
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                _InfoChip(
-                  icon: Icons.person_outline_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '作者',
-                    zhHant: '作者',
-                    en: 'Owner',
-                    fr: 'Auteur',
-                    de: 'Autor',
-                    ja: '作者',
+                if (publisher.isNotEmpty)
+                  OpenHandFactChip(
+                    icon: Icons.badge_outlined,
+                    label: publisher,
+                    color: colorScheme.primary,
                   ),
-                  value: skill.ownerName.isEmpty ? '-' : skill.ownerName,
-                ),
                 if (skill.source.isNotEmpty)
-                  _InfoChip(
+                  OpenHandFactChip(
                     icon: Icons.hub_outlined,
-                    label: openHandSourceLabel(context),
-                    value: skill.source,
+                    label: skillMarketSourceValueLabel(context, skill.source),
+                    color: colorScheme.tertiary,
                   ),
-                _InfoChip(
+                OpenHandFactChip(
                   icon: Icons.folder_open_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '目录',
-                    zhHant: '目錄',
-                    en: 'Directory',
-                    fr: 'Dossier',
-                    de: 'Verzeichnis',
-                    ja: 'ディレクトリ',
-                  ),
-                  value: OpenHandPaths.shortenHomePath(storagePath),
+                  label: OpenHandPaths.shortenHomePath(storagePath),
+                  color: OpenHandStatusColors.info,
                 ),
                 if (normalizedPreviewVersion.isNotEmpty)
-                  _InfoChip(
+                  OpenHandFactChip(
                     icon: Icons.sell_outlined,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '预览版本',
-                      zhHant: '預覽版本',
-                      en: 'Preview',
-                      fr: 'Aperçu',
-                      de: 'Vorschau',
-                      ja: 'プレビュー',
-                    ),
-                    value: normalizedPreviewVersion,
+                    label: normalizedPreviewVersion,
+                    color: colorScheme.secondary,
                   ),
               ],
             ),
-            kOpenHandGap18,
+            kOpenHandGap16,
             Text(
               openHandLocalizedText(
                 context,
@@ -922,6 +956,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
               ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
+                height: 1.4,
               ),
             ),
             kOpenHandGap22,
@@ -972,99 +1007,148 @@ class _SkillMarketResultTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final accent = _skillMarketCategoryAccent(colorScheme, skill.category);
+    final displayName = skillMarketDisplayName(context, skill.displayName);
+    final publisher = skillMarketPublisherLabel(
+      publisherName: skill.publisherName,
+      ownerName: skill.ownerName,
+      slug: skill.slug,
+    );
     final summary = _localizedSummary(
       context,
       zh: skill.descriptionZh,
       en: skill.description,
     );
+    final categoryLabel = skill.category.isEmpty
+        ? ''
+        : skillMarketCategoryLabel(context, skill.category);
+    final radius = BorderRadius.circular(kOpenHandRadius18);
 
-    return HoverLift(
+    return MicroPressFeedback(
       child: Material(
-        color: selected
-            ? colorScheme.primaryContainer.withValues(alpha: 0.52)
-            : colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(kOpenHandRadius20),
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(kOpenHandRadius20),
-          child: Container(
-            padding: const EdgeInsets.all(14),
+          borderRadius: radius,
+          hoverColor: Colors.transparent,
+          splashColor: accent.withValues(alpha: 0.10),
+          highlightColor: accent.withValues(alpha: 0.06),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: AnimatedContainer(
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
+            curve: kOpenHandSwitchInCurve,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(kOpenHandRadius20),
+              color: selected
+                  ? Color.alphaBlend(
+                      accent.withValues(alpha: 0.16),
+                      colorScheme.surface,
+                    )
+                  : colorScheme.surface,
+              borderRadius: radius,
               border: Border.all(
                 color: selected
-                    ? colorScheme.primary
-                    : colorScheme.outlineVariant,
+                    ? accent
+                    : colorScheme.outlineVariant.withValues(alpha: 0.78),
               ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SkillMarketAvatar(
-                  name: skill.displayName,
-                  imageUrl: skill.iconUrl,
-                  size: 44,
-                ),
-                kOpenHandHGap12,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        skill.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall,
-                      ),
-                      kOpenHandGap3,
-                      Text(
-                        skill.ownerName.isEmpty
-                            ? skill.slug
-                            : '${skill.ownerName} / ${skill.slug}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+            child: ClipRRect(
+              borderRadius: radius,
+              child: Stack(
+                children: [
+                  PositionedDirectional(
+                    start: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: kOpenHandAccentBarWidth,
+                    child: ColoredBox(color: accent),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SkillMarketAvatar(
+                          name: displayName,
+                          imageUrl: skill.iconUrl,
+                          size: _kSkillMarketListAvatarSize,
                         ),
-                      ),
-                      if (summary.isNotEmpty) ...[
-                        kOpenHandGap8,
-                        Text(
-                          summary,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              if (publisher.isNotEmpty) ...[
+                                kOpenHandGap3,
+                                Text(
+                                  publisher,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                              if (summary.isNotEmpty) ...[
+                                kOpenHandGap8,
+                                Text(
+                                  summary,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                              kOpenHandGap10,
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  OpenHandFactChip(
+                                    icon: Icons.download_rounded,
+                                    label: _formatCount(
+                                      context,
+                                      skill.downloads,
+                                    ),
+                                    color: OpenHandStatusColors.info,
+                                  ),
+                                  OpenHandFactChip(
+                                    icon: Icons.star_rounded,
+                                    label: _formatCount(context, skill.stars),
+                                    color: OpenHandStatusColors.caution,
+                                  ),
+                                  if (installed)
+                                    OpenHandStatusPill(
+                                      icon: Icons.check_circle_rounded,
+                                      label: openHandInstalledLabel(context),
+                                      color: OpenHandStatusColors.success,
+                                    ),
+                                  if (categoryLabel.isNotEmpty)
+                                    OpenHandFactChip(
+                                      icon: Icons.category_outlined,
+                                      label: categoryLabel,
+                                      color: accent,
+                                    ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                      kOpenHandGap10,
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          OpenHandInlineIconLabel(
-                            icon: Icons.download_rounded,
-                            label: _formatCount(skill.downloads),
-                            iconSize: 16,
-                          ),
-                          OpenHandInlineIconLabel(
-                            icon: Icons.star_rounded,
-                            label: _formatCount(skill.stars),
-                            iconSize: 16,
-                          ),
-                          if (installed)
-                            _TinyTextChip(
-                              label: openHandInstalledLabel(context),
-                            ),
-                          if (skill.category.isNotEmpty)
-                            _TinyTextChip(label: skill.category),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1092,9 +1176,24 @@ class _SkillMarketDetailView extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final detail = bundle.detail;
     final skill = detail.skill;
-    final displayName = skill.displayName.isNotEmpty
+    final rawName = skill.displayName.isNotEmpty
         ? skill.displayName
         : summary.displayName;
+    final displayName = skillMarketDisplayName(context, rawName);
+    final publisher = skillMarketPublisherLabel(
+      publisherName: detail.publisherName.isNotEmpty
+          ? detail.publisherName
+          : summary.publisherName,
+      ownerName: detail.owner.displayName.isNotEmpty
+          ? detail.owner.displayName
+          : summary.ownerName,
+      ownerHandle: detail.owner.handle,
+      slug: skill.slug,
+    );
+    final categoryKey = skill.category.isNotEmpty
+        ? skill.category
+        : summary.category;
+    final accent = _skillMarketCategoryAccent(colorScheme, categoryKey);
     final detailOverview = _localizedSummary(
       context,
       zh: skill.summaryZh,
@@ -1113,300 +1212,342 @@ class _SkillMarketDetailView extends StatelessWidget {
     final markdown = strippedMarkdown.isEmpty
         ? null
         : _truncateMarkdown(strippedMarkdown, maxMarkdownChars, context);
+    final version = bundle.resolvedVersion.isEmpty
+        ? summary.version
+        : bundle.resolvedVersion;
+    final downloads = skill.stats.downloads == 0
+        ? summary.downloads
+        : skill.stats.downloads;
+    final installs = skill.stats.installs == 0
+        ? summary.installs
+        : skill.stats.installs;
+    final stars = skill.stats.stars == 0 ? summary.stars : skill.stats.stars;
+    final subCategories = skill.subCategories.isNotEmpty
+        ? skill.subCategories
+        : summary.subCategories;
+    final source = skill.source.isNotEmpty ? skill.source : summary.source;
+    final files = bundle.files?.files ?? const <SkillMarketFileEntry>[];
+    final previewFiles = files.take(_kSkillMarketMaxPreviewFiles).toList();
+    final hiddenFileCount = files.length - previewFiles.length;
+    final requiresApiKey = skill.requiresApiKey || summary.requiresApiKey;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(kOpenHandRadius22),
-      child: ColoredBox(
-        color: colorScheme.surfaceContainerLow,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Row(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          OpenHandTintedPanel(
+            accent: accent,
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _SkillMarketAvatar(
                   name: displayName,
                   imageUrl: skill.iconUrl ?? summary.iconUrl,
-                  size: 58,
+                  size: _kSkillMarketDetailAvatarSize,
                 ),
                 kOpenHandHGap14,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(displayName, style: theme.textTheme.headlineSmall),
-                      kOpenHandGap6,
                       Text(
-                        detail.owner.handle.isEmpty
-                            ? skill.slug
-                            : '${detail.owner.handle} / ${skill.slug}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                        displayName,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
+                      ),
+                      if (publisher.isNotEmpty) ...[
+                        kOpenHandGap6,
+                        Text(
+                          publisher,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                      kOpenHandGap10,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (version.isNotEmpty)
+                            OpenHandStatusPill(
+                              icon: Icons.sell_outlined,
+                              label: version,
+                              color: accent,
+                            ),
+                          if (categoryKey.isNotEmpty)
+                            OpenHandFactChip(
+                              icon: Icons.category_outlined,
+                              label: skillMarketCategoryLabel(
+                                context,
+                                categoryKey,
+                              ),
+                              color: accent,
+                            ),
+                          if (source.isNotEmpty)
+                            OpenHandFactChip(
+                              icon: Icons.hub_outlined,
+                              label: skillMarketSourceValueLabel(
+                                context,
+                                source,
+                              ),
+                              color: colorScheme.tertiary,
+                            ),
+                          OpenHandFactChip(
+                            icon: Icons.key_outlined,
+                            label:
+                                '${skillMarketApiKeyLabel(context)} · ${requiresApiKey ? skillMarketApiKeyRequiredLabel(context) : skillMarketApiKeyOptionalLabel(context)}',
+                            color: requiresApiKey
+                                ? OpenHandStatusColors.warning
+                                : OpenHandStatusColors.success,
+                          ),
+                          for (final sub in subCategories.take(
+                            _kSkillMarketMaxPreviewSubcategories,
+                          ))
+                            OpenHandFactChip(
+                              icon: Icons.local_offer_outlined,
+                              label: skillMarketCategoryLabel(
+                                context,
+                                sub.key,
+                                fallbackName: sub.name,
+                              ),
+                              color: colorScheme.secondary,
+                            ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                kOpenHandHGap12,
-                _TinyTextChip(
-                  label: bundle.resolvedVersion.isEmpty
-                      ? summary.version
-                      : bundle.resolvedVersion,
-                ),
               ],
             ),
-            if (overview.isNotEmpty) ...[
-              kOpenHandGap18,
-              _SectionTitle(
-                text: openHandLocalizedText(
-                  context,
-                  zh: '概述',
-                  zhHant: '概述',
-                  en: 'Overview',
-                  fr: 'Vue d’ensemble',
-                  de: 'Übersicht',
-                  ja: '概要',
-                ),
+          ),
+          if (overview.isNotEmpty) ...[
+            kOpenHandGap14,
+            OpenHandTintedPanel(
+              accent: colorScheme.tertiary,
+              icon: Icons.notes_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '概述',
+                zhHant: '概述',
+                en: 'Overview',
+                fr: 'Vue d’ensemble',
+                de: 'Übersicht',
+                ja: '概要',
               ),
-              kOpenHandGap8,
-              Text(
+              child: Text(
                 overview,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            kOpenHandGap18,
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _InfoChip(
-                  icon: Icons.download_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '下载',
-                    zhHant: '下載',
-                    en: 'Downloads',
-                    fr: 'Téléchargements',
-                    de: 'Downloads',
-                    ja: 'ダウンロード',
-                  ),
-                  value: _formatCount(
-                    skill.stats.downloads == 0
-                        ? summary.downloads
-                        : skill.stats.downloads,
-                  ),
-                ),
-                _InfoChip(
-                  icon: Icons.install_desktop_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '安装',
-                    zhHant: '安裝',
-                    en: 'Installs',
-                    fr: 'Installations',
-                    de: 'Installationen',
-                    ja: 'インストール',
-                  ),
-                  value: _formatCount(
-                    skill.stats.installs == 0
-                        ? summary.installs
-                        : skill.stats.installs,
-                  ),
-                ),
-                _InfoChip(
-                  icon: Icons.star_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '收藏',
-                    zhHant: '收藏',
-                    en: 'Stars',
-                    fr: 'Étoiles',
-                    de: 'Sterne',
-                    ja: 'スター',
-                  ),
-                  value: _formatCount(
-                    skill.stats.stars == 0 ? summary.stars : skill.stats.stars,
-                  ),
-                ),
-                if (skill.category.isNotEmpty)
-                  _InfoChip(
-                    icon: Icons.category_outlined,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '分类',
-                      zhHant: '分類',
-                      en: 'Category',
-                      fr: 'Catégorie',
-                      de: 'Kategorie',
-                      ja: 'カテゴリ',
-                    ),
-                    value: skill.category,
-                  ),
-                if (skill.source.isNotEmpty)
-                  _InfoChip(
-                    icon: Icons.hub_outlined,
-                    label: openHandSourceLabel(context),
-                    value: skill.source,
-                  ),
-                _InfoChip(
-                  icon: Icons.key_outlined,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: 'API Key',
-                    en: 'API Key',
-                  ),
-                  value: skill.requiresApiKey
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '需要',
-                          zhHant: '需要',
-                          en: 'Required',
-                          fr: 'Requise',
-                          de: 'Erforderlich',
-                          ja: '必要',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '无需',
-                          zhHant: '不需要',
-                          en: 'Not required',
-                          fr: 'Non requise',
-                          de: 'Nicht erforderlich',
-                          ja: '不要',
-                        ),
-                ),
-              ],
-            ),
-            if (detail.securityReports.isNotEmpty) ...[
-              kOpenHandGap20,
-              _SectionTitle(
-                text: openHandLocalizedText(
-                  context,
-                  zh: '安全报告',
-                  zhHant: '安全報告',
-                  en: 'Security Reports',
-                  fr: 'Rapports de sécurité',
-                  de: 'Sicherheitsberichte',
-                  ja: 'セキュリティレポート',
-                ),
-              ),
-              kOpenHandGap10,
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: detail.securityReports.entries
-                    .map(
-                      (entry) =>
-                          _SecurityChip(name: entry.key, report: entry.value),
-                    )
-                    .toList(growable: false),
-              ),
-            ],
-            if (bundle.versions.isNotEmpty) ...[
-              kOpenHandGap20,
-              _SectionTitle(
-                text: openHandLocalizedText(
-                  context,
-                  zh: '预览版本',
-                  zhHant: '預覽版本',
-                  en: 'Preview Version',
-                  fr: 'Version d’aperçu',
-                  de: 'Vorschauversion',
-                  ja: 'プレビューバージョン',
-                ),
-              ),
-              kOpenHandGap10,
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: bundle.versions
-                    .where((version) => version.version.isNotEmpty)
-                    .take(12)
-                    .map((version) {
-                      final selected =
-                          version.version == bundle.resolvedVersion;
-                      final tooltip = version.changelog.isEmpty
-                          ? version.version
-                          : version.changelog;
-                      return Tooltip(
-                        message: tooltip,
-                        child: ChoiceChip(
-                          label: Text(version.version),
-                          selected: selected,
-                          onSelected: selected
-                              ? null
-                              : (_) => onVersionSelected(version.version),
-                        ),
-                      );
-                    })
-                    .toList(growable: false),
-              ),
-            ],
-            if (bundle.files != null && bundle.files!.files.isNotEmpty) ...[
-              kOpenHandGap20,
-              _SectionTitle(
-                text: openHandLocalizedText(
-                  context,
-                  zh: '包含文件',
-                  zhHant: '包含檔案',
-                  en: 'Files',
-                  fr: 'Fichiers',
-                  de: 'Dateien',
-                  ja: 'ファイル',
-                ),
-              ),
-              kOpenHandGap10,
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: bundle.files!.files
-                    .take(12)
-                    .map((file) {
-                      return _TinyTextChip(
-                        label: '${file.path} · ${formatByteSize(file.size)}',
-                      );
-                    })
-                    .toList(growable: false),
-              ),
-            ],
-            kOpenHandGap20,
-            _SectionTitle(text: openHandDetailsLabel(context)),
-            kOpenHandGap10,
-            ClipRRect(
-              borderRadius: BorderRadius.circular(kOpenHandRadius24),
-              child: ColoredBox(
-                color: colorScheme.surfaceContainerLow,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: markdown == null || markdown.trim().isEmpty
-                      ? Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '未找到 SKILL.md 内容。',
-                            zhHant: '未找到 SKILL.md 內容。',
-                            en: 'No SKILL.md content was found.',
-                            fr: 'Aucun contenu SKILL.md trouvé.',
-                            de: 'Kein SKILL.md-Inhalt gefunden.',
-                            ja: 'SKILL.md の内容が見つかりません。',
-                          ),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        )
-                      : OpenHandSkillMarkdownPreview(
-                          data: markdown,
-                          backgroundColor: colorScheme.surfaceContainerLow,
-                        ),
+                  height: 1.45,
                 ),
               ),
             ),
           ],
-        ),
+          kOpenHandGap14,
+          OpenHandMetricsStrip(
+            items: <OpenHandMetricItem>[
+              (
+                label: skillMarketDownloadsLabel(context),
+                value: _formatCount(context, downloads),
+                accent: OpenHandStatusColors.info,
+              ),
+              (
+                label: skillMarketInstallsLabel(context),
+                value: _formatCount(context, installs),
+                accent: colorScheme.tertiary,
+              ),
+              (
+                label: skillMarketStarsLabel(context),
+                value: _formatCount(context, stars),
+                accent: OpenHandStatusColors.caution,
+              ),
+            ],
+          ),
+          if (detail.securityReports.isNotEmpty) ...[
+            kOpenHandGap14,
+            OpenHandTintedPanel(
+              accent: OpenHandStatusColors.success,
+              icon: Icons.verified_user_outlined,
+              title: openHandLocalizedText(
+                context,
+                zh: '安全报告',
+                zhHant: '安全報告',
+                en: 'Security reports',
+                fr: 'Rapports de sécurité',
+                de: 'Sicherheitsberichte',
+                ja: 'セキュリティレポート',
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: detail.securityReports.entries
+                    .map((entry) {
+                      final benign =
+                          entry.value.status.toLowerCase() == 'benign';
+                      final color = benign
+                          ? OpenHandStatusColors.success
+                          : OpenHandStatusColors.error;
+                      return OpenHandStatusPill(
+                        icon: benign
+                            ? Icons.verified_user_outlined
+                            : Icons.warning_amber_rounded,
+                        label:
+                            '${skillMarketScannerLabel(context, entry.key)} · ${skillMarketSecurityStatusLabel(context, status: entry.value.status, statusText: entry.value.statusText)}',
+                        color: color,
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+            ),
+          ],
+          if (bundle.versions.isNotEmpty) ...[
+            kOpenHandGap14,
+            OpenHandTintedPanel(
+              accent: colorScheme.primary,
+              icon: Icons.history_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '预览版本',
+                zhHant: '預覽版本',
+                en: 'Preview version',
+                fr: 'Version d’aperçu',
+                de: 'Vorschauversion',
+                ja: 'プレビューバージョン',
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: bundle.versions
+                    .where((version) => version.version.isNotEmpty)
+                    .take(_kSkillMarketMaxPreviewVersions)
+                    .map((item) {
+                      final selected = item.version == bundle.resolvedVersion;
+                      final tooltip = item.changelog.isEmpty
+                          ? item.version
+                          : item.changelog;
+                      return Tooltip(
+                        message: tooltip,
+                        child: OpenHandChoicePill(
+                          selected: selected,
+                          onSelected: selected
+                              ? null
+                              : () => onVersionSelected(item.version),
+                          label: item.version,
+                        ),
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+            ),
+          ],
+          if (previewFiles.isNotEmpty) ...[
+            kOpenHandGap14,
+            OpenHandTintedPanel(
+              accent: colorScheme.secondary,
+              icon: Icons.folder_open_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '包含文件',
+                zhHant: '包含檔案',
+                en: 'Included files',
+                fr: 'Fichiers inclus',
+                de: 'Enthaltene Dateien',
+                ja: '含まれるファイル',
+              ),
+              child: Column(
+                children: [
+                  for (var i = 0; i < previewFiles.length; i++) ...[
+                    if (i > 0) kOpenHandGap8,
+                    _SkillMarketFileRow(file: previewFiles[i], accent: accent),
+                  ],
+                  if (hiddenFileCount > 0) ...[
+                    kOpenHandGap10,
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: OpenHandFactChip(
+                        icon: Icons.more_horiz_rounded,
+                        label: skillMarketFilesMoreLabel(
+                          context,
+                          hiddenFileCount,
+                        ),
+                        color: colorScheme.secondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+          kOpenHandGap14,
+          OpenHandTintedPanel(
+            accent: colorScheme.primary,
+            icon: Icons.menu_book_rounded,
+            title: openHandDetailsLabel(context),
+            child: markdown == null || markdown.trim().isEmpty
+                ? Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '未找到技能说明内容。',
+                      zhHant: '未找到技能說明內容。',
+                      en: 'No skill description was found.',
+                      fr: 'Aucune description de compétence trouvée.',
+                      de: 'Keine Skill-Beschreibung gefunden.',
+                      ja: 'スキル説明が見つかりません。',
+                    ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : OpenHandSkillMarkdownPreview(
+                    data: markdown,
+                    backgroundColor: Colors.transparent,
+                  ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _SkillMarketFileRow extends StatelessWidget {
+  const _SkillMarketFileRow({required this.file, required this.accent});
+
+  final SkillMarketFileEntry file;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Row(
+      children: [
+        Icon(Icons.insert_drive_file_outlined, size: 16, color: accent),
+        kOpenHandHGap8,
+        Expanded(
+          child: Text(
+            file.path,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        kOpenHandHGap8,
+        Text(
+          formatByteSize(file.size),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1495,141 +1636,61 @@ class _MarketStateMessage extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: colorScheme.primary),
-            kOpenHandGap14,
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium,
-            ),
-            kOpenHandGap8,
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+        padding: const EdgeInsets.all(22),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(kOpenHandRadius22),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: <Color>[
+                      colorScheme.primaryContainer,
+                      Color.alphaBlend(
+                        colorScheme.tertiaryContainer.withValues(alpha: 0.78),
+                        colorScheme.secondaryContainer,
+                      ),
+                    ],
+                  ),
+                ),
+                child: SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Icon(icon, size: 34, color: colorScheme.primary),
+                ),
               ),
-            ),
-            if (actionLabel != null && onAction != null) ...[
               kOpenHandGap16,
-              OpenHandDialogActionButton.primary(
-                onPressed: onAction,
-                icon: Icons.refresh_rounded,
-                label: actionLabel!,
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+              kOpenHandGap8,
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+              if (actionLabel != null && onAction != null) ...[
+                kOpenHandGap16,
+                OpenHandDialogActionButton.primary(
+                  onPressed: onAction,
+                  icon: Icons.refresh_rounded,
+                  label: actionLabel!,
+                ),
+              ],
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(text, style: Theme.of(context).textTheme.titleMedium);
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(kOpenHandRadius16),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: colorScheme.primary),
-          kOpenHandHGap8,
-          Text(
-            '$label: ',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
           ),
-          Text(value, style: theme.textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
-}
-
-class _SecurityChip extends StatelessWidget {
-  const _SecurityChip({required this.name, required this.report});
-
-  final String name;
-  final SkillMarketSecurityReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final benign = report.status.toLowerCase() == 'benign';
-    return Chip(
-      avatar: Icon(
-        benign ? Icons.verified_user_outlined : Icons.warning_amber_rounded,
-        size: 18,
-        color: benign ? colorScheme.primary : colorScheme.error,
-      ),
-      label: Text(
-        '${name.toUpperCase()}: ${report.statusText.isEmpty ? report.status : report.statusText}',
-      ),
-      side: BorderSide(
-        color: benign
-            ? colorScheme.primary.withValues(alpha: 0.42)
-            : colorScheme.error.withValues(alpha: 0.42),
-      ),
-    );
-  }
-}
-
-class _TinyTextChip extends StatelessWidget {
-  const _TinyTextChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+        ),
       ),
     );
   }
@@ -1672,16 +1733,34 @@ bool _isMarketSkillInstalled(
       installedSkillKeys.contains(normalizeAsciiSlugKey(skill.name));
 }
 
-String _formatCount(int value) {
-  if (value >= 1000000) {
-    final compact = value / 1000000;
-    return '${compact.toStringAsFixed(compact >= 10 ? 0 : 1)}M';
+String _formatCount(BuildContext context, int value) {
+  final safe = value < 0 ? 0 : value;
+  try {
+    return NumberFormat.compact(
+      locale: Localizations.localeOf(context).toString(),
+    ).format(safe);
+  } catch (_) {
+    return '$safe';
   }
-  if (value >= 1000) {
-    final compact = value / 1000;
-    return '${compact.toStringAsFixed(compact >= 10 ? 0 : 1)}K';
-  }
-  return '$value';
+}
+
+Color _skillMarketCategoryAccent(ColorScheme colorScheme, String category) {
+  return switch (category.trim().toLowerCase()) {
+    'office-efficiency' => colorScheme.primary,
+    'dev-programming' => OpenHandStatusColors.info,
+    'content-creation' => colorScheme.tertiary,
+    'data-analysis' => OpenHandStatusColors.caution,
+    'design-media' => colorScheme.secondary,
+    'ai-agent' => colorScheme.primary,
+    'knowledge-management' => OpenHandStatusColors.info,
+    'business-ops' => OpenHandStatusColors.warning,
+    'education' => colorScheme.tertiary,
+    'professional' => colorScheme.secondary,
+    'it-ops-security' => OpenHandStatusColors.info,
+    'life-service' => OpenHandStatusColors.success,
+    'pay-skill' => OpenHandStatusColors.warning,
+    _ => colorScheme.primary,
+  };
 }
 
 String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {

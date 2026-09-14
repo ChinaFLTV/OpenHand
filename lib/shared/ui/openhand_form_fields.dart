@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import 'animated_dialog.dart';
-import 'hover_lift.dart';
 import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
@@ -686,7 +685,7 @@ class _OpenHandMetricCell extends StatelessWidget {
   }
 }
 
-/// 分区列表卡：悬浮上浮 + 点击，圆角与描边对齐消息网关平台卡。
+/// 分区列表卡：点击按压缩放，圆角与描边对齐消息网关平台卡，悬停不加阴影。
 class OpenHandHoverCard extends StatelessWidget {
   const OpenHandHoverCard({
     super.key,
@@ -710,9 +709,11 @@ class OpenHandHoverCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return HoverLift(
+    return MicroPressFeedback(
+      enabled: onTap != null,
       child: Card(
-        elevation: elevation,
+        elevation: elevation ?? 0,
+        shadowColor: Colors.transparent,
         color: color,
         clipBehavior: Clip.antiAlias,
         shape:
@@ -725,6 +726,7 @@ class OpenHandHoverCard extends StatelessWidget {
             ),
         child: InkWell(
           onTap: onTap,
+          hoverColor: Colors.transparent,
           child: Padding(padding: padding, child: child),
         ),
       ),

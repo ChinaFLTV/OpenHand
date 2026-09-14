@@ -3385,7 +3385,6 @@ class _ReorderableChipWrap<T> extends StatefulWidget {
     required this.onReorder,
     required this.feedbackRadius,
     required this.hoverRadius,
-    required this.hoverGlowBlur,
   });
 
   final List<T> items;
@@ -3400,7 +3399,6 @@ class _ReorderableChipWrap<T> extends StatefulWidget {
   final void Function(int oldIndex, int newIndex) onReorder;
   final double feedbackRadius;
   final double hoverRadius;
-  final double hoverGlowBlur;
 
   @override
   State<_ReorderableChipWrap<T>> createState() =>
@@ -3484,15 +3482,6 @@ class _ReorderableChipWrapState<T> extends State<_ReorderableChipWrap<T>> {
                             ? cs.primary.withValues(alpha: 0.55)
                             : Colors.transparent,
                       ),
-                      boxShadow: isHovering
-                          ? [
-                              BoxShadow(
-                                color: cs.primary.withValues(alpha: 0.18),
-                                blurRadius: widget.hoverGlowBlur,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                          : const [],
                     ),
                     child: Opacity(
                       opacity: isDragging ? 0.3 : 1.0,
@@ -3533,7 +3522,6 @@ class _ReorderableAttachmentWrap extends StatelessWidget {
       spacing: 8,
       feedbackRadius: 16,
       hoverRadius: 18,
-      hoverGlowBlur: 12,
       itemKey: (item) => 'attachment:${item.filePath}',
       onRemoveItem: (item) => onRemove(item.filePath),
       onReorder: onReorder,
@@ -3721,7 +3709,6 @@ class _ReorderableProjectReferenceWrap extends StatelessWidget {
       spacing: 6,
       feedbackRadius: 14,
       hoverRadius: 16,
-      hoverGlowBlur: 10,
       itemKey: (item) => 'projref:${item.path}',
       onRemoveItem: (item) => onRemove(item.path),
       onReorder: onReorder,

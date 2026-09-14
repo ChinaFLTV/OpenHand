@@ -46,11 +46,13 @@ class SkillMarketSummary {
     required this.installs,
     required this.name,
     required this.ownerName,
+    required this.publisherName,
     required this.requiresApiKey,
     required this.score,
     required this.slug,
     required this.source,
     required this.stars,
+    required this.subCategories,
     required this.tags,
     required this.updatedAt,
     required this.version,
@@ -67,11 +69,13 @@ class SkillMarketSummary {
       installs: _readInt(json['installs']),
       name: _readString(json['name']),
       ownerName: _readString(json['ownerName']),
-      requiresApiKey: boolFromValue(json['requires_api_key']),
+      publisherName: _readPublisherName(json['publisher']),
+      requiresApiKey: _readRequiresApiKey(json),
       score: _readDouble(json['score']),
       slug: _readString(json['slug']),
       source: _readString(json['source']),
       stars: _readInt(json['stars']),
+      subCategories: _readSubCategories(json['subCategories']),
       tags: stringListFromValue(json['tags']),
       updatedAt: _readInt(json['updated_at']),
       version: _readString(json['version']),
@@ -87,11 +91,13 @@ class SkillMarketSummary {
   final int installs;
   final String name;
   final String ownerName;
+  final String publisherName;
   final bool requiresApiKey;
   final double score;
   final String slug;
   final String source;
   final int stars;
+  final List<SkillMarketSubCategory> subCategories;
   final List<String> tags;
   final int updatedAt;
   final String version;
@@ -119,6 +125,7 @@ class SkillMarketDetail {
   const SkillMarketDetail({
     required this.skill,
     required this.owner,
+    required this.publisherName,
     required this.latestVersion,
     required this.securityReports,
   });
@@ -127,6 +134,7 @@ class SkillMarketDetail {
     return SkillMarketDetail(
       skill: SkillMarketDetailSkill.fromJson(_readMap(json['skill'])),
       owner: SkillMarketOwner.fromJson(_readMap(json['owner'])),
+      publisherName: _readPublisherName(json['publisher']),
       latestVersion: SkillMarketVersion.fromJsonOrNull(
         optionalStringKeyedMapFromValue(json['latestVersion']),
       ),
@@ -136,6 +144,7 @@ class SkillMarketDetail {
 
   final SkillMarketDetailSkill skill;
   final SkillMarketOwner owner;
+  final String publisherName;
   final SkillMarketVersion? latestVersion;
   final Map<String, SkillMarketSecurityReport> securityReports;
 }
@@ -152,6 +161,7 @@ class SkillMarketDetailSkill {
     required this.stats,
     required this.summary,
     required this.summaryZh,
+    required this.subCategories,
     required this.tags,
     required this.updatedAt,
   });
@@ -162,12 +172,13 @@ class SkillMarketDetailSkill {
       createdAt: _readInt(json['createdAt']),
       displayName: _readString(json['displayName']),
       iconUrl: _readNullableString(json['iconUrl']),
-      requiresApiKey: boolFromValue(json['requiresApiKey']),
+      requiresApiKey: _readRequiresApiKey(json),
       slug: _readString(json['slug']),
       source: _readString(json['source']),
       stats: SkillMarketStats.fromJson(_readMap(json['stats'])),
       summary: _readString(json['summary']),
       summaryZh: _readString(json['summary_zh']),
+      subCategories: _readSubCategories(json['subCategories']),
       tags: _readStringMap(json['tags']),
       updatedAt: _readInt(json['updatedAt']),
     );
@@ -183,10 +194,25 @@ class SkillMarketDetailSkill {
   final SkillMarketStats stats;
   final String summary;
   final String summaryZh;
+  final List<SkillMarketSubCategory> subCategories;
   final Map<String, String> tags;
   final int updatedAt;
 
   String get latestTag => tags['latest'] ?? '';
+}
+
+class SkillMarketSubCategory {
+  const SkillMarketSubCategory({required this.key, required this.name});
+
+  factory SkillMarketSubCategory.fromJson(Map<Object?, Object?> json) {
+    return SkillMarketSubCategory(
+      key: _readString(json['key']),
+      name: _readString(json['name']),
+    );
+  }
+
+  final String key;
+  final String name;
 }
 
 class SkillMarketOwner {
@@ -346,6 +372,29 @@ class SkillMarketVersion {
   final String version;
   final int versionId;
   final Map<String, SkillMarketSecurityReport> securityReports;
+}
+
+String _readPublisherName(Object? value) {
+  return _readString(_readMap(value)['name']);
+}
+
+bool _readRequiresApiKey(Map json) {
+  if (boolFromValue(json['requires_api_key']) ||
+      boolFromValue(json['requiresApiKey'])) {
+    return true;
+  }
+  final labels = json['labels'];
+  if (labels is! Map) {
+    return false;
+  }
+  return boolFromValue(labels['requires_api_key'] ?? labels['requiresApiKey']);
+}
+
+List<SkillMarketSubCategory> _readSubCategories(Object? value) {
+  return stringKeyedMapListFromValue(value)
+      .map(SkillMarketSubCategory.fromJson)
+      .where((item) => item.key.isNotEmpty || item.name.isNotEmpty)
+      .toList(growable: false);
 }
 
 String _readString(Object? value) => _readNullableString(value) ?? '';
