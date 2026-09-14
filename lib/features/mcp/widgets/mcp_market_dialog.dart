@@ -425,14 +425,12 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            TextField(
+            SearchBar(
               controller: _search,
-              onChanged: (_) => _scheduleSearch(),
-              onSubmitted: (_) => _loadList(resetPage: true),
-              decoration: InputDecoration(
-                hintText: '搜索 MCP 服务',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: IconButton(
+              hintText: '搜索 MCP 服务',
+              leading: const Icon(Icons.search_rounded),
+              trailing: [
+                IconButton(
                   tooltip: '刷新市场',
                   onPressed: () {
                     unawaited(_loadCategories());
@@ -440,10 +438,9 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                   },
                   icon: const Icon(Icons.refresh_rounded),
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
+              ],
+              onChanged: (_) => _scheduleSearch(),
+              onSubmitted: (_) => _loadList(resetPage: true),
             ),
             const SizedBox(height: 8),
             SizedBox(
@@ -661,12 +658,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      colors.primaryContainer,
-                      colors.tertiaryContainer.withValues(alpha: .55),
-                    ],
-                  ),
+                  color: colors.primaryContainer,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: colors.primary.withValues(alpha: .2),
