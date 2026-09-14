@@ -727,6 +727,7 @@ class OpenHandHoverCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           hoverColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: Padding(padding: padding, child: child),
         ),
       ),

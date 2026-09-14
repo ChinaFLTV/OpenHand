@@ -2,11 +2,11 @@ class McpMarketServer {
   McpMarketServer.fromJson(Map<String, Object?> json)
     : slug = _text(json['slug']),
       name = _text(json['name']),
+      nameEn = _text(json['nameEn']),
       publisher = _text(json['publisher']),
       category = _text(json['category']),
-      summary = _text(json['summaryZh']).isNotEmpty
-          ? _text(json['summaryZh'])
-          : _text(json['summary']),
+      summary = _text(json['summary']),
+      summaryZh = _text(json['summaryZh']),
       iconUrl = _text(json['iconUrl']),
       repoUrl = _text(json['repoUrl']),
       homepage = _text(json['homepage']),
@@ -21,11 +21,22 @@ class McpMarketServer {
       downloads = _count((json['stats'] as Map?)?['downloads']),
       installs = _count((json['stats'] as Map?)?['installs']);
 
-  final String slug, name, publisher, category, summary, iconUrl;
-  final String repoUrl, homepage, sourceUrl;
-  final bool banned, visible;
+  final String slug;
+  final String name;
+  final String nameEn;
+  final String publisher;
+  final String category;
+  final String summary;
+  final String summaryZh;
+  final String iconUrl;
+  final String repoUrl;
+  final String homepage;
+  final String sourceUrl;
+  final bool banned;
+  final bool visible;
   final List<String> tags;
-  final int downloads, installs;
+  final int downloads;
+  final int installs;
 
   bool get canConfigure => !banned && visible && slug.isNotEmpty;
   String get displayName => name.isEmpty ? slug : name;

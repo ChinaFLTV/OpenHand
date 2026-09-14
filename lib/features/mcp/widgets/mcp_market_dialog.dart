@@ -6,19 +6,26 @@ import 'package:intl/intl.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/user_failure_message.dart';
 import '../data/mcp_market_client.dart';
 import '../model/mcp_market.dart';
+import 'mcp_market_labels.dart';
 
 Future<void> showMcpMarketDialog(
   BuildContext context, {
@@ -29,11 +36,13 @@ Future<void> showMcpMarketDialog(
   builder: (_) => _McpMarketDialog(onConfigure: onConfigure, client: client),
 );
 
-const double _marketWidth = 1220;
-const double _marketHeight = 840;
-const double _categoryMinHeight = 36;
-const double _categoryVerticalPadding = 4;
-const Duration _searchDelay = Duration(milliseconds: 320);
+const double _kMcpMarketDialogWidth = 1220;
+const double _kMcpMarketDialogHeight = 840;
+const double _kMcpMarketListAvatarSize = 46;
+const double _kMcpMarketDetailAvatarSize = 64;
+const double _kMcpMarketCategoryRowMinHeight = 44;
+const double _kMcpMarketCategoryChipMaxWidth = 260;
+const Duration _kMcpMarketSearchDelay = Duration(milliseconds: 320);
 
 class _McpMarketDialog extends StatefulWidget {
   const _McpMarketDialog({required this.onConfigure, this.client});
@@ -49,7 +58,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
   final _search = TextEditingController();
   final _listScroll = ScrollController();
   final _detailScroll = ScrollController();
-  final _debounce = OpenHandDebouncer(delay: _searchDelay);
+  final _debounce = OpenHandDebouncer(delay: _kMcpMarketSearchDelay);
   List<(String, int)> _categories = [];
   McpMarketPage? _result;
   McpMarketServer? _selected;
@@ -89,8 +98,20 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
     try {
       final categories = await _client.categories();
       if (mounted) setState(() => _categories = categories);
-    } catch (error) {
-      if (mounted) setState(() => _categoryError = '分类加载失败');
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _categoryError = openHandLocalizedText(
+            context,
+            zh: '分类加载失败',
+            zhHant: '分類載入失敗',
+            en: 'Categories failed to load',
+            fr: 'Impossible de charger les catégories',
+            de: 'Kategorien konnten nicht geladen werden',
+            ja: '分類を読み込めませんでした',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loadingCategories = false);
     }
@@ -105,6 +126,12 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
       _listError = null;
     });
     _debounce.schedule(() => _loadList(resetPage: true));
+  }
+
+  void _clearSearch() {
+    if (_search.text.isEmpty) return;
+    _search.clear();
+    _scheduleSearch();
   }
 
   Future<void> _loadList({
@@ -126,7 +153,6 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
         category: _category,
       );
       if (!mounted || token != _searchToken) return;
-      // 数据减少导致当前页越界时，只跳转到有效末页。
       final lastPage = math.max(1, (result.total / _pageSize).ceil());
       if (_page > lastPage && !correctedPage) {
         _page = lastPage;
@@ -146,7 +172,18 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
       if (!mounted || token != _searchToken) return;
       setState(() {
         _loading = false;
-        _listError = userFailureMessage(error, fallback: '市场加载失败，请检查网络后重试。');
+        _listError = userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '市场加载失败，请检查网络后重试。',
+            zhHant: '市場載入失敗，請檢查網路後重試。',
+            en: 'The marketplace could not be loaded. Check the network and retry.',
+            fr: 'Impossible de charger le marché. Vérifiez le réseau, puis réessayez.',
+            de: 'Der Markt konnte nicht geladen werden. Prüfe die Verbindung und versuche es erneut.',
+            ja: 'マーケットを読み込めませんでした。ネットワークを確認して再試行してください。',
+          ),
+        );
       });
     }
   }
@@ -173,7 +210,19 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
     try {
       final detail = await _client.detail(slug);
       if (!mounted || token != _detailToken) return;
-      if (detail.slug != slug) throw const FormatException('服务详情与所选条目不一致。');
+      if (detail.slug != slug) {
+        throw FormatException(
+          openHandLocalizedText(
+            context,
+            zh: '服务详情与所选条目不一致。',
+            zhHant: '服務詳情與所選項目不一致。',
+            en: 'The service details do not match the selected item.',
+            fr: 'Les détails du service ne correspondent pas à l’élément sélectionné.',
+            de: 'Die Dienstdetails stimmen nicht mit dem ausgewählten Eintrag überein.',
+            ja: 'サービスの詳細が選択中の項目と一致しません。',
+          ),
+        );
+      }
       setState(() {
         _detail = detail;
         _loadingDetail = false;
@@ -182,7 +231,18 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
       if (!mounted || token != _detailToken) return;
       setState(() {
         _loadingDetail = false;
-        _detailError = userFailureMessage(error, fallback: '服务详情加载失败，请重试。');
+        _detailError = userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '服务详情加载失败，请重试。',
+            zhHant: '服務詳情載入失敗，請重試。',
+            en: 'Service details failed to load. Please retry.',
+            fr: 'Impossible de charger les détails du service. Réessayez.',
+            de: 'Dienstdetails konnten nicht geladen werden. Bitte erneut versuchen.',
+            ja: 'サービスの詳細を読み込めませんでした。再試行してください。',
+          ),
+        );
       });
     }
   }
@@ -203,7 +263,18 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
       if (!mounted || token != _detailToken) return;
       setState(() {
         _loadingReadme = false;
-        _readmeError = userFailureMessage(error, fallback: '使用说明加载失败，请重试。');
+        _readmeError = userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '使用说明加载失败，请重试。',
+            zhHant: '使用說明載入失敗，請重試。',
+            en: 'The usage guide failed to load. Please retry.',
+            fr: 'Impossible de charger le guide d’utilisation. Réessayez.',
+            de: 'Die Anleitung konnte nicht geladen werden. Bitte erneut versuchen.',
+            ja: '利用案内を読み込めませんでした。再試行してください。',
+          ),
+        );
       });
     }
   }
@@ -221,14 +292,15 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final compact = MediaQuery.sizeOf(context).width < 668;
     return PopScope(
       canPop: !_configuring,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: _marketWidth,
-        maxHeight: _marketHeight,
+        maxWidth: _kMcpMarketDialogWidth,
+        maxHeight: _kMcpMarketDialogHeight,
         minAvailableWidth: 320,
         minAvailableHeight: 420,
         horizontalMargin: compact ? 24 : 48,
@@ -241,64 +313,111 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
+                  DecoratedBox(
                     decoration: BoxDecoration(
                       color: colors.primaryContainer,
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius18),
                     ),
-                    child: Icon(
-                      Icons.storefront_rounded,
-                      color: colors.onPrimaryContainer,
-                      size: 30,
+                    child: SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: Icon(
+                        Icons.hub_rounded,
+                        color: colors.onPrimaryContainer,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  kOpenHandHGap14,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'MCP 市场',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          openHandMcpMarketLabel(context),
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                        const SizedBox(height: 4),
+                        kOpenHandGap4,
                         Text(
-                          '发现 SkillHub 服务，连接工具与灵感。',
-                          style: TextStyle(color: colors.onSurfaceVariant),
+                          openHandLocalizedText(
+                            context,
+                            zh: '发现 SkillHub 服务，连接工具与灵感。',
+                            zhHant: '發現 SkillHub 服務，連接工具與靈感。',
+                            en: 'Discover SkillHub services and connect tools with ideas.',
+                            fr: 'Découvrez les services SkillHub et reliez outils et idées.',
+                            de: 'Entdecke SkillHub-Dienste und verbinde Werkzeuge mit Ideen.',
+                            ja: 'SkillHub のサービスを見つけ、ツールと発想をつなぎます。',
+                          ),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colors.onSurfaceVariant,
+                            height: 1.35,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     if (constraints.maxWidth < 760) {
+                      final browseLabel = openHandLocalizedText(
+                        context,
+                        zh: '浏览服务',
+                        zhHant: '瀏覽服務',
+                        en: 'Browse',
+                        fr: 'Parcourir',
+                        de: 'Durchsuchen',
+                        ja: 'サービスを見る',
+                      );
+                      final detailLabel = openHandLocalizedText(
+                        context,
+                        zh: '服务详情',
+                        zhHant: '服務詳情',
+                        en: 'Details',
+                        fr: 'Détails',
+                        de: 'Details',
+                        ja: 'サービス詳細',
+                      );
                       return Column(
                         children: [
-                          SegmentedButton<bool>(
-                            segments: const [
-                              ButtonSegment(
-                                value: false,
-                                label: Text('浏览服务'),
-                                icon: Icon(Icons.grid_view_rounded),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Center(
+                                  child: OpenHandChoicePill(
+                                    selected: !_compactDetail,
+                                    onSelected: _compactDetail
+                                        ? () => setState(
+                                            () => _compactDetail = false,
+                                          )
+                                        : null,
+                                    label: browseLabel,
+                                  ),
+                                ),
                               ),
-                              ButtonSegment(
-                                value: true,
-                                label: Text('服务详情'),
-                                icon: Icon(Icons.article_outlined),
+                              kOpenHandHGap8,
+                              Expanded(
+                                child: Center(
+                                  child: OpenHandChoicePill(
+                                    selected: _compactDetail,
+                                    onSelected: _compactDetail
+                                        ? null
+                                        : () => setState(
+                                            () => _compactDetail = true,
+                                          ),
+                                    label: detailLabel,
+                                  ),
+                                ),
                               ),
                             ],
-                            selected: {_compactDetail},
-                            onSelectionChanged: (value) =>
-                                setState(() => _compactDetail = value.single),
                           ),
-                          const SizedBox(height: 12),
+                          kOpenHandGap12,
                           Expanded(
                             child: _switchContent(
                               KeyedSubtree(
@@ -319,14 +438,14 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                           width: constraints.maxWidth < 980 ? 340 : 392,
                           child: _listPane(),
                         ),
-                        const SizedBox(width: 16),
+                        kOpenHandHGap16,
                         Expanded(child: _detailPane()),
                       ],
                     );
                   },
                 ),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               _actions(),
             ],
           ),
@@ -338,51 +457,69 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
   Widget _actions() => LayoutBuilder(
     builder: (context, constraints) {
       final hint = Text(
-        '查看使用说明后，填写连接参数。',
-        style: TextStyle(
+        openHandLocalizedText(
+          context,
+          zh: '查看使用说明后，填写连接参数。',
+          zhHant: '查看使用說明後，填寫連線參數。',
+          en: 'Read the usage guide, then fill in the connection parameters.',
+          fr: 'Lisez le guide, puis renseignez les paramètres de connexion.',
+          de: 'Lies die Anleitung und fülle danach die Verbindungsparameter aus.',
+          ja: '利用案内を確認してから接続パラメータを入力します。',
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
-          fontSize: 12,
         ),
       );
       final buttons = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
-            child: OpenHandDialogActionButton.secondary(
-              label: '关闭',
-              onPressed: _configuring
-                  ? null
-                  : () => Navigator.of(context).pop(),
-            ),
+          OpenHandDialogActionButton.secondary(
+            label: openHandCloseLabel(context),
+            onPressed: _configuring ? null : () => Navigator.of(context).pop(),
           ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: OpenHandDialogActionButton.primary(
-              label: '添加配置',
-              icon: Icons.add_link_rounded,
-              busy: _configuring,
-              onPressed:
-                  !_configuring &&
-                      !_loading &&
-                      _listError == null &&
-                      _detail?.canConfigure == true
-                  ? _configure
-                  : null,
+          kOpenHandHGap12,
+          OpenHandDialogActionButton.primary(
+            label: openHandLocalizedText(
+              context,
+              zh: '添加配置',
+              zhHant: '新增設定',
+              en: 'Add configuration',
+              fr: 'Ajouter une configuration',
+              de: 'Konfiguration hinzufügen',
+              ja: '設定を追加',
             ),
+            icon: Icons.add_link_rounded,
+            busy: _configuring,
+            onPressed:
+                !_configuring &&
+                    !_loading &&
+                    _listError == null &&
+                    _detail?.canConfigure == true
+                ? _configure
+                : null,
           ),
         ],
       );
       if (constraints.maxWidth < 640) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [hint, const SizedBox(height: 12), buttons],
+          children: [
+            hint,
+            kOpenHandGap12,
+            Align(
+              alignment: Alignment.centerRight,
+              child: FittedBox(fit: BoxFit.scaleDown, child: buttons),
+            ),
+          ],
         );
       }
       return Row(
         children: [
           Expanded(child: hint),
-          const SizedBox(width: 16),
-          buttons,
+          kOpenHandHGap16,
+          FittedBox(fit: BoxFit.scaleDown, child: buttons),
         ],
       );
     },
@@ -409,14 +546,18 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
     );
   }
 
-  Widget _panel({required Widget child}) {
+  Widget _paneSurface({required Widget child}) {
     final colors = Theme.of(context).colorScheme;
-    return Container(
-      clipBehavior: Clip.antiAlias,
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: colors.outlineVariant),
+        color: Color.alphaBlend(
+          colors.primary.withValues(alpha: 0.04),
+          colors.surfaceContainerLow,
+        ),
+        borderRadius: BorderRadius.circular(kOpenHandRadius22),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.72),
+        ),
       ),
       child: child,
     );
@@ -426,75 +567,194 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
     final labelFontSize =
         Theme.of(context).textTheme.labelLarge?.fontSize ?? 14;
     final categoryHeight = math.max(
-      _categoryMinHeight,
-      MediaQuery.textScalerOf(context).scale(labelFontSize) +
-          _categoryVerticalPadding * 2,
+      _kMcpMarketCategoryRowMinHeight,
+      MediaQuery.textScalerOf(context).scale(labelFontSize) + 24,
     );
-    return _panel(
+    final items = _result?.items ?? const <McpMarketServer>[];
+    return _paneSurface(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
         child: Column(
           children: [
             SearchBar(
               controller: _search,
-              hintText: '搜索 MCP 服务',
+              elevation: const WidgetStatePropertyAll(0),
+              shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+              hintText: openHandLocalizedText(
+                context,
+                zh: '搜索 MCP 服务',
+                zhHant: '搜尋 MCP 服務',
+                en: 'Search MCP services',
+                fr: 'Rechercher des services MCP',
+                de: 'MCP-Dienste suchen',
+                ja: 'MCPサービスを検索',
+              ),
               leading: const Icon(Icons.search_rounded),
               trailing: [
-                IconButton(
-                  tooltip: '刷新市场',
-                  onPressed: () {
-                    unawaited(_loadCategories());
-                    unawaited(_loadList());
-                  },
-                  icon: const Icon(Icons.refresh_rounded),
+                if (_search.text.trim().isNotEmpty) ...[
+                  Tooltip(
+                    message: openHandClearSearchLabel(context),
+                    child: IconButton(
+                      onPressed: _loading ? null : _clearSearch,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ),
+                  kOpenHandHGap8,
+                ],
+                Tooltip(
+                  message: openHandLocalizedText(
+                    context,
+                    zh: '刷新市场',
+                    zhHant: '重新整理市場',
+                    en: 'Refresh marketplace',
+                    fr: 'Actualiser le marché',
+                    de: 'Markt aktualisieren',
+                    ja: 'マーケットを更新',
+                  ),
+                  child: IconButton(
+                    onPressed: () {
+                      unawaited(_loadCategories());
+                      unawaited(_loadList());
+                    },
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
                 ),
               ],
               onChanged: (_) => _scheduleSearch(),
               onSubmitted: (_) => _loadList(resetPage: true),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap12,
             SizedBox(
               height: categoryHeight,
               child: ListView(
                 scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 2),
                 children: [
-                  _categoryChip('', '全部'),
+                  _categoryChip('', openHandAllLabel(context)),
                   for (final category in _categories)
                     _categoryChip(
                       category.$1,
-                      '${category.$1} · ${category.$2}',
+                      '${mcpMarketCategoryLabel(context, category.$1)} · ${category.$2}',
                     ),
                   if (_categoryError != null)
-                    TextButton(
-                      onPressed: _loadCategories,
-                      child: Text('$_categoryError · 重试'),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, right: 8),
+                      child: Center(
+                        child: OpenHandCompactActionChip(
+                          icon: Icons.refresh_rounded,
+                          label: '$_categoryError · ${_retryLabel(context)}',
+                          onPressed: _loadCategories,
+                        ),
+                      ),
                     ),
                   if (_loadingCategories)
                     const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: SizedBox(
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
             OpenHandDialogBusyBar(busy: _loading, topGap: 8),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Expanded(
-              child: _listError != null
-                  ? _notice(_listError!, retry: _loadList)
-                  : _result?.items.isEmpty == true
-                  ? _notice('没有找到匹配的服务，试试其他关键词或分类。')
-                  : ListView.builder(
-                      controller: _listScroll,
-                      itemCount: _result?.items.length ?? 0,
-                      itemBuilder: (context, index) =>
-                          _serverCard(_result!.items[index]),
-                    ),
+              child: AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                child: _listError != null
+                    ? _McpMarketStateMessage(
+                        key: const ValueKey<String>('mcp-market-list-error'),
+                        icon: Icons.cloud_off_outlined,
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '加载失败',
+                          zhHant: '載入失敗',
+                          en: 'Unable to Load',
+                          fr: 'Chargement impossible',
+                          de: 'Laden fehlgeschlagen',
+                          ja: '読み込めません',
+                        ),
+                        body: _listError!,
+                        actionLabel: _retryLabel(context),
+                        onAction: _loadList,
+                      )
+                    : _loading && _result == null
+                    ? const Center(
+                        key: ValueKey<String>('mcp-market-list-loading'),
+                        child: CircularProgressIndicator(),
+                      )
+                    : items.isEmpty
+                    ? _McpMarketStateMessage(
+                        key: const ValueKey<String>('mcp-market-list-empty'),
+                        icon: Icons.search_off_rounded,
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '没有找到结果',
+                          zhHant: '沒有找到結果',
+                          en: 'No Results',
+                          fr: 'Aucun résultat',
+                          de: 'Keine Ergebnisse',
+                          ja: '結果がありません',
+                        ),
+                        body: openHandLocalizedText(
+                          context,
+                          zh: '没有找到匹配的服务，试试其他关键词或分类。',
+                          zhHant: '沒有找到符合的服務，試試其他關鍵詞或分類。',
+                          en: 'No matching services. Try another keyword or category.',
+                          fr: 'Aucun service correspondant. Essayez un autre mot-clé ou une autre catégorie.',
+                          de: 'Keine passenden Dienste. Versuche ein anderes Stichwort oder eine andere Kategorie.',
+                          ja: '一致するサービスがありません。別のキーワードや分類を試してください。',
+                        ),
+                      )
+                    : OpenHandSafeScrollbar(
+                        key: ValueKey<String>(
+                          'mcp-market-results-$_page-$_category',
+                        ),
+                        controller: _listScroll,
+                        child: ListView.separated(
+                          controller: _listScroll,
+                          itemCount: items.length,
+                          separatorBuilder: (context, index) => kOpenHandGap8,
+                          itemBuilder: (context, index) {
+                            final server = items[index];
+                            final tile = _McpMarketResultTile(
+                              server: server,
+                              selected: server.slug == _selected?.slug,
+                              onTap: _loading
+                                  ? null
+                                  : () {
+                                      if (server.slug != _selected?.slug) {
+                                        _select(server);
+                                      }
+                                      setState(() => _compactDetail = true);
+                                    },
+                            );
+                            final motion = openHandMotionDuration(
+                              context,
+                              kOpenHandMotion180,
+                            );
+                            final key = ValueKey<String>(
+                              'mcp-market-${server.slug}',
+                            );
+                            if (motion == Duration.zero) {
+                              return KeyedSubtree(key: key, child: tile);
+                            }
+                            return AppearOnce(
+                              key: key,
+                              duration: motion,
+                              child: tile,
+                            );
+                          },
+                        ),
+                      ),
+              ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap12,
             OpenHandTablePagination(
               total: _result?.total ?? 0,
               page: _page,
@@ -519,141 +779,23 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
     );
   }
 
-  Widget _categoryChip(String value, String label) => Padding(
-    padding: const EdgeInsets.only(right: 6),
-    // 横向列表会拉伸子项，先居中以保留胶囊自身的自然高度。
-    child: Center(
-      child: ChoiceChip(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: _categoryVerticalPadding,
-        ),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.standard,
-        label: Text(label, maxLines: 1, style: const TextStyle(height: 1)),
-        selected: _category == value,
-        onSelected: (_) {
-          if (_category == value) return;
-          setState(() => _category = value);
-          unawaited(_loadList(resetPage: true));
-        },
-      ),
-    ),
-  );
-
-  Widget _avatar(McpMarketServer server, {double size = 46}) {
-    final colors = Theme.of(context).colorScheme;
-    final fallback = Icon(
-      Icons.hub_rounded,
-      color: colors.primary,
-      size: size * .55,
-    );
-    final uri = Uri.tryParse(server.iconUrl);
-    return Container(
-      width: size,
-      height: size,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: colors.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: uri?.scheme == 'https' && uri!.host.isNotEmpty
-          ? Image.network(
-              server.iconUrl,
-              fit: BoxFit.cover,
-              cacheWidth: (size * 2).round(),
-              errorBuilder: (_, _, _) => fallback,
-            )
-          : fallback,
-    );
-  }
-
-  Widget _serverCard(McpMarketServer server) {
-    final colors = Theme.of(context).colorScheme;
-    final selected = server.slug == _selected?.slug;
-    final motion = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
+  Widget _categoryChip(String value, String label) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: MicroPressFeedback(
-        child: AnimatedContainer(
-          duration: motion.disablesAnimation
-              ? Duration.zero
-              : Duration(milliseconds: motion.durationMs),
-          curve: kOpenHandSwitchInCurve,
-          decoration: BoxDecoration(
-            color: selected
-                ? OpenHandStatusColors.info.withValues(alpha: .14)
-                : colors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: selected
-                  ? OpenHandStatusColors.info
-                  : colors.outlineVariant,
-            ),
+      padding: const EdgeInsets.only(right: 8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: _kMcpMarketCategoryChipMaxWidth,
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: _loading
-                  ? null
-                  : () {
-                      if (!selected) _select(server);
-                      setState(() => _compactDetail = true);
-                    },
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _avatar(server),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            server.displayName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          Text(
-                            server.publisher,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            server.summary,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            server.category,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          child: OpenHandChoicePill(
+            selected: _category == value,
+            onSelected: _category == value
+                ? null
+                : () {
+                    setState(() => _category = value);
+                    unawaited(_loadList(resetPage: true));
+                  },
+            label: label,
           ),
         ),
       ),
@@ -662,188 +804,311 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
 
   Widget _detailPane() {
     final server = _detail ?? _selected;
-    final colors = Theme.of(context).colorScheme;
     if (server == null) {
-      return _panel(child: _notice(_loading ? '正在发现 MCP 服务…' : '选择服务，探索更多可能。'));
-    }
-    return _panel(
-      child: SingleChildScrollView(
-        controller: _detailScroll,
-        padding: const EdgeInsets.all(16),
-        child: _switchContent(
-          Column(
-            key: ValueKey(server.slug),
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: colors.primary.withValues(alpha: .2),
-                  ),
+      return _paneSurface(
+        child: _McpMarketStateMessage(
+          icon: Icons.auto_awesome_rounded,
+          title: openHandLocalizedText(
+            context,
+            zh: '选择一个服务',
+            zhHant: '選擇一個服務',
+            en: 'Select a service',
+            fr: 'Sélectionner un service',
+            de: 'Dienst auswählen',
+            ja: 'サービスを選択',
+          ),
+          body: _loading
+              ? openHandLocalizedText(
+                  context,
+                  zh: '正在发现 MCP 服务…',
+                  zhHant: '正在發現 MCP 服務…',
+                  en: 'Discovering MCP services…',
+                  fr: 'Découverte des services MCP…',
+                  de: 'MCP-Dienste werden gesucht…',
+                  ja: 'MCPサービスを探しています…',
+                )
+              : openHandLocalizedText(
+                  context,
+                  zh: '点击左侧候选项后，这里会展示概述、市场数据、项目来源和使用说明。',
+                  zhHant: '點擊左側候選項後，這裡會展示概述、市場資料、專案來源和使用說明。',
+                  en: 'Choose a result on the left to view the overview, marketplace stats, project links, and usage guide.',
+                  fr: 'Choisissez un résultat à gauche pour voir l’aperçu, les statistiques, les liens du projet et le guide.',
+                  de: 'Wähle links ein Ergebnis, um Übersicht, Marktdaten, Projektlinks und die Anleitung zu sehen.',
+                  ja: '左側の候補を選ぶと、概要、マーケットデータ、プロジェクトの出典、利用案内を表示します。',
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _avatar(server, size: 64),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                server.displayName,
-                                style: Theme.of(context).textTheme.titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w800),
+        ),
+      );
+    }
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final accent = _mcpMarketCategoryAccent(colors, server.category);
+    final displayName = server.displayName;
+    final summary = mcpMarketSummary(context, server);
+    final categoryLabel = server.category.isEmpty
+        ? ''
+        : mcpMarketCategoryLabel(context, server.category);
+    return _paneSurface(
+      child: OpenHandSafeScrollbar(
+        controller: _detailScroll,
+        child: SingleChildScrollView(
+          controller: _detailScroll,
+          padding: const EdgeInsets.all(16),
+          child: _switchContent(
+            Column(
+              key: ValueKey(server.slug),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OpenHandTintedPanel(
+                  accent: accent,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _McpMarketAvatar(
+                        name: displayName,
+                        imageUrl: server.iconUrl,
+                        size: _kMcpMarketDetailAvatarSize,
+                      ),
+                      kOpenHandHGap14,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
                               ),
-                              const SizedBox(height: 4),
+                            ),
+                            if (server.publisher.isNotEmpty) ...[
+                              kOpenHandGap6,
                               Text(
                                 server.publisher,
-                                style: TextStyle(
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium?.copyWith(
                                   color: colors.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
-                          ),
+                            kOpenHandGap10,
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (categoryLabel.isNotEmpty)
+                                  OpenHandFactChip(
+                                    icon: Icons.category_outlined,
+                                    label: categoryLabel,
+                                    color: accent,
+                                  ),
+                                OpenHandFactChip(
+                                  icon: Icons.hub_outlined,
+                                  label: mcpMarketTypeLabel(context),
+                                  color: colors.tertiary,
+                                ),
+                                if (server.banned || !server.visible)
+                                  OpenHandStatusPill(
+                                    icon: Icons.block_rounded,
+                                    label: mcpMarketUnavailableLabel(context),
+                                    color: colors.error,
+                                  ),
+                                for (final tag in server.tags)
+                                  OpenHandFactChip(
+                                    icon: Icons.local_offer_outlined,
+                                    label: tag,
+                                    color: colors.secondary,
+                                  ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+                OpenHandDialogBusyBar(busy: _loadingDetail),
+                if (_detailError != null)
+                  _inlineError(_detailError!, () => _select(_selected)),
+                kOpenHandGap14,
+                OpenHandTintedPanel(
+                  accent: OpenHandStatusColors.info,
+                  icon: Icons.notes_rounded,
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '概述',
+                    zhHant: '概述',
+                    en: 'Overview',
+                    fr: 'Vue d’ensemble',
+                    de: 'Übersicht',
+                    ja: '概要',
+                  ),
+                  child: Text(
+                    summary.isEmpty
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '暂无服务介绍。',
+                            zhHant: '暫無服務介紹。',
+                            en: 'No service overview is available.',
+                            fr: 'Aucune présentation du service.',
+                            de: 'Keine Dienstübersicht vorhanden.',
+                            ja: 'サービスの紹介はありません。',
+                          )
+                        : summary,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      height: 1.45,
                     ),
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (server.category.isNotEmpty)
-                          OhPill(
-                            icon: Icons.category_rounded,
-                            label: server.category,
-                            foregroundColor: colors.primary,
-                          ),
-                        OhPill(
-                          icon: Icons.hub_rounded,
-                          label: 'MCP',
-                          foregroundColor: colors.tertiary,
-                        ),
-                        if (server.banned || !server.visible)
-                          OhPill(
-                            icon: Icons.block_rounded,
-                            label: '暂不可添加',
-                            foregroundColor: colors.error,
-                          ),
-                        for (final tag in server.tags)
-                          OhPill(icon: Icons.sell_outlined, label: tag),
-                      ],
+                  ),
+                ),
+                kOpenHandGap14,
+                OpenHandMetricsStrip(
+                  items: <OpenHandMetricItem>[
+                    (
+                      label: mcpMarketDownloadsLabel(context),
+                      value: _mcpMarketFormatCount(context, server.downloads),
+                      accent: OpenHandStatusColors.info,
+                    ),
+                    (
+                      label: mcpMarketInstallsLabel(context),
+                      value: _mcpMarketFormatCount(context, server.installs),
+                      accent: colors.tertiary,
                     ),
                   ],
                 ),
-              ),
-              OpenHandDialogBusyBar(busy: _loadingDetail),
-              if (_detailError != null)
-                _notice(_detailError!, retry: () => _select(_selected)),
-              const SizedBox(height: 14),
-              _section(
-                '概述',
-                Icons.notes_rounded,
-                OpenHandStatusColors.info,
-                Text(
-                  server.summary.isEmpty ? '暂无服务介绍。' : server.summary,
-                  style: const TextStyle(height: 1.65),
-                ),
-              ),
-              const SizedBox(height: 14),
-              _section(
-                '市场数据',
-                Icons.insights_rounded,
-                colors.tertiary,
-                Wrap(
-                  spacing: 20,
-                  runSpacing: 10,
-                  children: [
-                    OhPill(
-                      icon: Icons.download_rounded,
-                      label:
-                          '下载 ${NumberFormat.compact(locale: 'zh').format(server.downloads)}',
-                      foregroundColor: colors.primary,
+                if (_detail != null) ...[
+                  kOpenHandGap14,
+                  OpenHandTintedPanel(
+                    accent: colors.primary,
+                    icon: Icons.open_in_new_rounded,
+                    title: openHandLocalizedText(
+                      context,
+                      zh: '项目来源',
+                      zhHant: '專案來源',
+                      en: 'Project sources',
+                      fr: 'Sources du projet',
+                      de: 'Projektquellen',
+                      ja: 'プロジェクトの出典',
                     ),
-                    OhPill(
-                      icon: Icons.extension_rounded,
-                      label:
-                          '安装 ${NumberFormat.compact(locale: 'zh').format(server.installs)}',
-                      foregroundColor: colors.tertiary,
-                    ),
-                  ],
-                ),
-              ),
-              if (_detail != null) ...[
-                const SizedBox(height: 14),
-                _section(
-                  '项目来源',
-                  Icons.open_in_new_rounded,
-                  colors.primary,
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 8,
+                    child: _projectLinks(server),
+                  ),
+                ],
+                kOpenHandGap14,
+                OpenHandTintedPanel(
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '使用说明',
+                    zhHant: '使用說明',
+                    en: 'Usage guide',
+                    fr: 'Guide d’utilisation',
+                    de: 'Anleitung',
+                    ja: '利用案内',
+                  ),
+                  icon: Icons.menu_book_rounded,
+                  accent: colors.primary,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      for (final entry in [
-                        ('代码仓库', server.repoUrl),
-                        ('项目主页', server.homepage),
-                        ('服务来源', server.sourceUrl),
-                      ])
-                        if (_webLink(entry.$2) != null)
-                          OpenHandThemedMarkdownBody(
-                            data: '[${entry.$1}](<${_webLink(entry.$2)}>)',
+                      if (_loadingReadme)
+                        const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      if (_readmeError != null)
+                        _inlineError(
+                          _readmeError!,
+                          () => _loadReadme(server.slug, _detailToken),
+                        ),
+                      if (_readme != null)
+                        OpenHandDocumentMarkdownPreview(
+                          data: _readme!,
+                          backgroundColor: Colors.transparent,
+                          maxCharacters: kOpenHandMarketMarkdownMaxCharacters,
+                          emptyMessage: openHandLocalizedText(
+                            context,
+                            zh: '暂无使用说明。',
+                            zhHant: '暫無使用說明。',
+                            en: 'No usage guide is available.',
+                            fr: 'Aucun guide d’utilisation.',
+                            de: 'Keine Anleitung vorhanden.',
+                            ja: '利用案内はありません。',
                           ),
-                      if ([
-                        server.repoUrl,
-                        server.homepage,
-                        server.sourceUrl,
-                      ].every((url) => _webLink(url) == null))
-                        const Text('暂无项目链接。'),
+                          truncationMessage: _mcpMarketTruncationMessage(
+                            context,
+                          ),
+                        ),
                     ],
                   ),
                 ),
               ],
-              const SizedBox(height: 14),
-              OpenHandTintedPanel(
-                title: '使用说明',
-                icon: Icons.menu_book_rounded,
-                accent: colors.primary,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_loadingReadme)
-                      const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                    if (_readmeError != null)
-                      _notice(
-                        _readmeError!,
-                        retry: () => _loadReadme(server.slug, _detailToken),
-                      ),
-                    if (_readme != null)
-                      OpenHandDocumentMarkdownPreview(
-                        data: _readme!,
-                        backgroundColor: Colors.transparent,
-                        maxCharacters: kOpenHandMarketMarkdownMaxCharacters,
-                        emptyMessage: '暂无使用说明。',
-                        truncationMessage: '\n\n---\n内容较长，已截断预览。完整内容请查看项目来源。',
-                      ),
-                  ],
-                ),
-              ),
-            ],
+            ),
+            sizeToCurrentChild: true,
           ),
-          // 旧文档自然布局，新文档决定滚动范围，避免长文档退场时被压缩。
-          sizeToCurrentChild: true,
         ),
       ),
     );
+  }
+
+  Widget _projectLinks(McpMarketServer server) {
+    final entries = <(String, String)>[
+      (
+        openHandLocalizedText(
+          context,
+          zh: '代码仓库',
+          zhHant: '程式碼倉庫',
+          en: 'Repository',
+          fr: 'Dépôt',
+          de: 'Repository',
+          ja: 'リポジトリ',
+        ),
+        server.repoUrl,
+      ),
+      (
+        openHandLocalizedText(
+          context,
+          zh: '项目主页',
+          zhHant: '專案首頁',
+          en: 'Homepage',
+          fr: 'Page d’accueil',
+          de: 'Startseite',
+          ja: 'プロジェクトページ',
+        ),
+        server.homepage,
+      ),
+      (
+        openHandLocalizedText(
+          context,
+          zh: '服务来源',
+          zhHant: '服務來源',
+          en: 'Service source',
+          fr: 'Source du service',
+          de: 'Dienstquelle',
+          ja: 'サービス出典',
+        ),
+        server.sourceUrl,
+      ),
+    ];
+    final links = [
+      for (final entry in entries)
+        if (_webLink(entry.$2) != null)
+          OpenHandThemedMarkdownBody(
+            data: '[${entry.$1}](<${_webLink(entry.$2)}>)',
+          ),
+    ];
+    if (links.isEmpty) {
+      return OpenHandInlineEmptyState.compact(
+        message: openHandLocalizedText(
+          context,
+          zh: '暂无项目链接。',
+          zhHant: '暫無專案連結。',
+          en: 'No project links are available.',
+          fr: 'Aucun lien de projet.',
+          de: 'Keine Projektlinks vorhanden.',
+          ja: 'プロジェクトのリンクはありません。',
+        ),
+      );
+    }
+    return Wrap(spacing: 10, runSpacing: 8, children: links);
   }
 
   String? _webLink(String value) {
@@ -855,56 +1120,369 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
         : null;
   }
 
-  Widget _section(String title, IconData icon, Color accent, Widget child) =>
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: .07),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: accent.withValues(alpha: .2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 19, color: accent),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: TextStyle(color: accent, fontWeight: FontWeight.w800),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            child,
-          ],
-        ),
-      );
+  Widget _inlineError(String message, VoidCallback retry) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: colors.error),
+          ),
+          kOpenHandGap8,
+          OpenHandCompactActionChip(
+            icon: Icons.refresh_rounded,
+            label: _retryLabel(context),
+            onPressed: retry,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-  Widget _notice(String message, {VoidCallback? retry}) => Center(
-    child: SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              retry == null ? Icons.explore_outlined : Icons.cloud_off_rounded,
-              color: Theme.of(context).colorScheme.primary,
-              size: 28,
-            ),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            if (retry != null)
-              TextButton.icon(
-                onPressed: retry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('重试'),
+class _McpMarketResultTile extends StatelessWidget {
+  const _McpMarketResultTile({
+    required this.server,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final McpMarketServer server;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final accent = _mcpMarketCategoryAccent(colorScheme, server.category);
+    final displayName = server.displayName;
+    final summary = mcpMarketSummary(context, server);
+    final categoryLabel = server.category.isEmpty
+        ? ''
+        : mcpMarketCategoryLabel(context, server.category);
+    final radius = BorderRadius.circular(kOpenHandRadius18);
+
+    return MicroPressFeedback(
+      enabled: onTap != null,
+      child: Material(
+        color: Colors.transparent,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          hoverColor: Colors.transparent,
+          splashColor: accent.withValues(alpha: 0.10),
+          highlightColor: accent.withValues(alpha: 0.06),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: AnimatedContainer(
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
+            curve: kOpenHandSwitchInCurve,
+            decoration: BoxDecoration(
+              color: selected
+                  ? Color.alphaBlend(
+                      accent.withValues(alpha: 0.16),
+                      colorScheme.surface,
+                    )
+                  : colorScheme.surface,
+              borderRadius: radius,
+              border: Border.all(
+                color: selected
+                    ? accent
+                    : colorScheme.outlineVariant.withValues(alpha: 0.78),
               ),
-          ],
+            ),
+            child: ClipRRect(
+              borderRadius: radius,
+              child: Stack(
+                children: [
+                  PositionedDirectional(
+                    start: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: kOpenHandAccentBarWidth,
+                    child: ColoredBox(color: accent),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _McpMarketAvatar(
+                          name: displayName,
+                          imageUrl: server.iconUrl,
+                          size: _kMcpMarketListAvatarSize,
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              if (server.publisher.isNotEmpty) ...[
+                                kOpenHandGap3,
+                                Text(
+                                  server.publisher,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                              if (summary.isNotEmpty) ...[
+                                kOpenHandGap8,
+                                Text(
+                                  summary,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                              kOpenHandGap10,
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  OpenHandFactChip(
+                                    icon: Icons.download_rounded,
+                                    label: _mcpMarketFormatCount(
+                                      context,
+                                      server.downloads,
+                                    ),
+                                    color: OpenHandStatusColors.info,
+                                  ),
+                                  OpenHandFactChip(
+                                    icon: Icons.extension_rounded,
+                                    label: _mcpMarketFormatCount(
+                                      context,
+                                      server.installs,
+                                    ),
+                                    color: colorScheme.tertiary,
+                                  ),
+                                  if (categoryLabel.isNotEmpty)
+                                    OpenHandFactChip(
+                                      icon: Icons.category_outlined,
+                                      label: categoryLabel,
+                                      color: accent,
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
-    ),
+    );
+  }
+}
+
+class _McpMarketAvatar extends StatelessWidget {
+  const _McpMarketAvatar({
+    required this.name,
+    required this.imageUrl,
+    required this.size,
+  });
+
+  final String name;
+  final String imageUrl;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fallback = _McpMarketAvatarFallback(name: name);
+    final uri = Uri.tryParse(imageUrl);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(math.min(18, size / 3)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      alignment: Alignment.center,
+      child: uri?.scheme == 'https' && uri!.host.isNotEmpty
+          ? Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              width: size,
+              height: size,
+              cacheWidth: (size * 3).round(),
+              cacheHeight: (size * 3).round(),
+              errorBuilder: (context, error, stackTrace) => fallback,
+            )
+          : fallback,
+    );
+  }
+}
+
+class _McpMarketAvatarFallback extends StatelessWidget {
+  const _McpMarketAvatarFallback({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final trimmed = name.trim();
+    final initial = trimmed.isEmpty
+        ? 'M'
+        : trimmed.characters.first.toUpperCase();
+    return Text(
+      initial,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+        color: colorScheme.onPrimaryContainer,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _McpMarketStateMessage extends StatelessWidget {
+  const _McpMarketStateMessage({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(kOpenHandRadius22),
+                ),
+                child: SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Icon(icon, size: 34, color: colorScheme.primary),
+                ),
+              ),
+              kOpenHandGap16,
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              kOpenHandGap8,
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+              if (actionLabel != null && onAction != null) ...[
+                kOpenHandGap16,
+                OpenHandDialogActionButton.primary(
+                  onPressed: onAction,
+                  icon: Icons.refresh_rounded,
+                  label: actionLabel!,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _retryLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '重试',
+    zhHant: '重試',
+    en: 'Retry',
+    fr: 'Réessayer',
+    de: 'Erneut versuchen',
+    ja: '再試行',
   );
+}
+
+String _mcpMarketFormatCount(BuildContext context, int value) {
+  final safe = value < 0 ? 0 : value;
+  try {
+    return NumberFormat.compact(
+      locale: Localizations.localeOf(context).toString(),
+    ).format(safe);
+  } catch (_) {
+    return '$safe';
+  }
+}
+
+String _mcpMarketTruncationMessage(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '\n\n---\n内容较长，已截断预览。完整内容请查看项目来源。',
+    zhHant: '\n\n---\n內容較長，已截斷預覽。完整內容請查看專案來源。',
+    en: '\n\n---\nPreview truncated. See the project sources for the full document.',
+    fr: '\n\n---\nAperçu tronqué. Consultez les sources du projet pour le document complet.',
+    de: '\n\n---\nVorschau gekürzt. Die vollständige Datei findest du in den Projektquellen.',
+    ja: '\n\n---\nプレビューを切り詰めました。全文はプロジェクトの出典をご覧ください。',
+  );
+}
+
+Color _mcpMarketCategoryAccent(ColorScheme colorScheme, String category) {
+  return switch (category.trim().toLowerCase()) {
+    '腾讯产品mcp' => colorScheme.primary,
+    '搜索与信息检索' => OpenHandStatusColors.info,
+    '开发者工具' => colorScheme.secondary,
+    '文档工具' => colorScheme.tertiary,
+    '支付与交易' => OpenHandStatusColors.warning,
+    '数据库与文件' => OpenHandStatusColors.info,
+    '位置服务' => OpenHandStatusColors.success,
+    '内容抓取' => OpenHandStatusColors.caution,
+    '浏览器自动化' => colorScheme.secondary,
+    '社交媒体' => colorScheme.tertiary,
+    '设计与创意' => colorScheme.primary,
+    _ => colorScheme.primary,
+  };
 }

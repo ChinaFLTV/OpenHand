@@ -95,6 +95,8 @@ class OpenHandChoicePill extends StatelessWidget {
     return MicroPressFeedback(
       enabled: onSelected != null,
       child: Material(
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         color: selected
             ? colorScheme.primary
             : colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
@@ -108,12 +110,17 @@ class OpenHandChoicePill extends StatelessWidget {
         child: InkWell(
           customBorder: const StadiumBorder(),
           onTap: onSelected,
+          hoverColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          splashColor: colorScheme.primary.withValues(alpha: 0.12),
+          highlightColor: colorScheme.primary.withValues(alpha: 0.08),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             child: DefaultTextStyle.merge(
               style: theme.textTheme.labelLarge?.copyWith(
                 color: foreground,
                 fontWeight: FontWeight.w700,
+                height: 1,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -122,12 +129,15 @@ class OpenHandChoicePill extends StatelessWidget {
                     Icon(Icons.check_rounded, size: 16, color: foreground),
                     kOpenHandHGap6,
                   ],
-                  child ??
-                      Text(
-                        label!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  Flexible(
+                    child:
+                        child ??
+                        Text(
+                          label!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                  ),
                 ],
               ),
             ),
@@ -272,9 +282,13 @@ class OpenHandCompactActionChip extends StatelessWidget {
       enabled: enabled,
       child: Material(
         color: Colors.transparent,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
           borderRadius: kOpenHandPillBorderRadius,
+          hoverColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: AnimatedOpacity(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
             opacity: enabled ? 1 : 0.48,

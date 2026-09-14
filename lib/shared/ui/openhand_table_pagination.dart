@@ -388,7 +388,14 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
           const SizedBox(width: kOpenHandTablePagerClusterGap),
         ],
         _PagerIconButton(
-          tooltip: text(zh: '上一页', en: 'Previous'),
+          tooltip: text(
+            zh: '上一页',
+            zhHant: '上一頁',
+            en: 'Previous',
+            fr: 'Précédent',
+            de: 'Zurück',
+            ja: '前へ',
+          ),
           icon: Icons.chevron_left_rounded,
           enabled: canPrevious,
           onPressed: () {
@@ -433,7 +440,14 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
         ],
         const SizedBox(width: kOpenHandTablePagerGap),
         _PagerIconButton(
-          tooltip: text(zh: '下一页', en: 'Next'),
+          tooltip: text(
+            zh: '下一页',
+            zhHant: '下一頁',
+            en: 'Next',
+            fr: 'Suivant',
+            de: 'Weiter',
+            ja: '次へ',
+          ),
           icon: Icons.chevron_right_rounded,
           enabled: canNext,
           onPressed: () {
@@ -452,7 +466,14 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
           value: window.pageSize,
           sizes: sizes,
           enabled: widget.enabled,
-          labelBuilder: (size) => text(zh: '$size 条/页', en: '$size / page'),
+          labelBuilder: (size) => text(
+            zh: '$size 条/页',
+            zhHant: '$size 條/頁',
+            en: '$size / page',
+            fr: '$size / page',
+            de: '$size / Seite',
+            ja: '$size / ページ',
+          ),
           onChanged: (size) {
             if (size == window.pageSize) return;
             widget.onPageSizeChanged!(size);
@@ -460,7 +481,14 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
         ),
       if (widget.showJumper) ...[
         Text(
-          text(zh: '前往', en: 'Go to'),
+          text(
+            zh: '前往',
+            zhHant: '前往',
+            en: 'Go to',
+            fr: 'Aller à',
+            de: 'Gehe zu',
+            ja: '移動',
+          ),
           style: labelStyle,
         ),
         AnimatedContainer(
@@ -509,13 +537,27 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
           ),
         ),
         Text(
-          text(zh: '页', en: 'page'),
+          text(
+            zh: '页',
+            zhHant: '頁',
+            en: 'page',
+            fr: 'page',
+            de: 'Seite',
+            ja: 'ページ',
+          ),
           style: labelStyle,
         ),
       ],
       if (widget.showTotal)
         Text(
-          text(zh: '共 ${window.total} 条', en: '${window.total} total'),
+          text(
+            zh: '共 ${window.total} 条',
+            zhHant: '共 ${window.total} 條',
+            en: '${window.total} total',
+            fr: '${window.total} au total',
+            de: '${window.total} gesamt',
+            ja: '全 ${window.total} 件',
+          ),
           style: labelStyle?.copyWith(
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
@@ -672,6 +714,8 @@ class _PageSizeSelectState extends State<_PageSizeSelect> {
             child: InkWell(
               onTap: widget.enabled ? _pick : null,
               borderRadius: kOpenHandBorderRadius8,
+              hoverColor: Colors.transparent,
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
               child: AnimatedContainer(
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
                 curve: kOpenHandSwitchInCurve,
@@ -820,6 +864,8 @@ class _PagerChrome extends StatelessWidget {
       child: InkWell(
         onTap: enabled ? onPressed : null,
         borderRadius: kOpenHandBorderRadius8,
+        hoverColor: Colors.transparent,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: AnimatedContainer(
           duration: motion,
           curve: kOpenHandSwitchInCurve,

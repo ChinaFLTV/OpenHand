@@ -996,7 +996,15 @@ String openHandRequestsLabel(BuildContext context) {
 }
 
 String openHandRetryLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '重新加载', en: 'Retry');
+  return openHandLocalizedText(
+    context,
+    zh: '重新加载',
+    zhHant: '重新載入',
+    en: 'Retry',
+    fr: 'Réessayer',
+    de: 'Erneut laden',
+    ja: '再読み込み',
+  );
 }
 
 String openHandRunLabel(BuildContext context) {
@@ -1713,6 +1721,18 @@ String openHandSkillMarketLabel(BuildContext context) {
     fr: 'Marché des compétences',
     de: 'Skill-Markt',
     ja: 'スキルマーケット',
+  );
+}
+
+String openHandMcpMarketLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'MCP 市场',
+    zhHant: 'MCP 市場',
+    en: 'MCP Market',
+    fr: 'Marché MCP',
+    de: 'MCP-Markt',
+    ja: 'MCPマーケット',
   );
 }
 

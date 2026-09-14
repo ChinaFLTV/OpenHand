@@ -9,6 +9,7 @@ import 'package:openhand/app/theme/openhand_theme_preset.dart';
 import 'package:openhand/features/mcp/data/mcp_market_client.dart';
 import 'package:openhand/features/mcp/widgets/mcp_market_dialog.dart';
 import 'package:openhand/l10n/app_localizations.dart';
+import 'package:openhand/shared/ui/oh_pill.dart';
 
 void main() {
   for (final (size, textScale) in [
@@ -86,7 +87,10 @@ void main() {
       expect(find.text('MCP 市场'), findsOneWidget);
       for (final label in ['全部', '搜索与信息检索 · 1']) {
         final text = find.text(label);
-        final chip = find.ancestor(of: text, matching: find.byType(ChoiceChip));
+        final chip = find.ancestor(
+          of: text,
+          matching: find.byType(OpenHandChoicePill),
+        );
         expect(
           (tester.getCenter(text).dy - tester.getCenter(chip).dy).abs(),
           lessThan(1),
@@ -194,6 +198,75 @@ void main() {
     expect(scroll.offset, 0);
     expect(scroll.position.maxScrollExtent, lessThan(1000));
     await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('英文界面展示市场弹窗的当前语言文案，而不是写死中文', (tester) async {
+    tester.view.physicalSize = const Size(1280, 960);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final client = McpMarketClient(
+      httpClient: MockClient((request) async {
+        final server = {
+          'slug': 'graphlit',
+          'name': '图灵知识桥',
+          'publisher': 'Graphlit',
+          'category': '搜索与信息检索',
+          'summary': '连接知识与工具。',
+          'status': 'visible',
+        };
+        final path = request.url.path;
+        if (path.endsWith('/readme')) {
+          return _response('# Getting started', 200);
+        }
+        final body = path.endsWith('/categories')
+            ? {
+                'items': [
+                  {'key': '搜索与信息检索', 'count': 1},
+                ],
+              }
+            : path.endsWith('/servers')
+            ? {
+                'items': [server],
+                'total': 1,
+              }
+            : server;
+        return _response(jsonEncode(body), 200);
+      }),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showMcpMarketDialog(
+                context,
+                client: client,
+                onConfigure: (_) async {},
+              ),
+              child: const Text('Open market'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open market'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('MCP Market'), findsOneWidget);
+    expect(find.text('All'), findsOneWidget);
+    expect(find.text('Search & retrieval · 1'), findsOneWidget);
+    expect(find.text('MCP service'), findsWidgets);
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.text('Add configuration'), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
+    expect(find.text('MCP 市场'), findsNothing);
+    await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
   });
 }
