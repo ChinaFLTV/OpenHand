@@ -96,6 +96,7 @@ import '../service/mcp_stdio_io_utils.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
 import 'mcp_keyword_index_progress_dialog.dart';
+import 'mcp_market_dialog.dart';
 import 'mcp_payload_format.dart';
 import 'mcp_stdio_dialogs.dart';
 
@@ -437,6 +438,15 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         ),
       ],
       secondaryActions: [
+        FilledButton.tonalIcon(
+          onPressed: () => showMcpMarketDialog(
+            context,
+            onConfigure: (name) =>
+                _showServerDialog(context, initialName: name),
+          ),
+          icon: const Icon(Icons.storefront_rounded),
+          label: Text(_localizedText(context, zh: 'MCP 市场', en: 'MCP Market')),
+        ),
         FeaturePageToolbarIconButton(
           tooltip: l10n.mcpOpenDirectory,
           icon: Icons.folder_open_rounded,
@@ -701,6 +711,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   Future<void> _showServerDialog(
     BuildContext context, {
     McpServer? initialServer,
+    String? initialName,
   }) async {
     final l10n = AppLocalizations.of(context)!;
     final controller = context.read<McpController>();
@@ -714,6 +725,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       builder: (dialogContext) {
         return _McpServerEditorDialog(
           initialServer: initialServer,
+          initialName: initialName,
           existingNames: existingNames,
         );
       },
@@ -1392,9 +1404,11 @@ class _McpServerEditorDialog extends StatefulWidget {
   const _McpServerEditorDialog({
     required this.existingNames,
     this.initialServer,
+    this.initialName,
   });
 
   final McpServer? initialServer;
+  final String? initialName;
   final Set<String> existingNames;
 
   @override
@@ -1419,7 +1433,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
   void initState() {
     super.initState();
     _nameController = TextEditingController(
-      text: widget.initialServer?.name ?? '',
+      text: widget.initialServer?.name ?? widget.initialName ?? '',
     );
     _urlController = TextEditingController(
       text: widget.initialServer?.url ?? '',
