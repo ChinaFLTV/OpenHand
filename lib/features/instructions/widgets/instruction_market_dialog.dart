@@ -751,7 +751,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                                   ],
                                 ),
                                 kOpenHandGap14,
-                                Text(entry.description),
+                                SelectionArea(child: Text(entry.description)),
                               ],
                             );
                           },
