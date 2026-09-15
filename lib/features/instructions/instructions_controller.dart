@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/localized_text.dart';
 import '../../shared/util/user_failure_message.dart';
 import 'data/instructions_store.dart';
 import 'model/user_instruction_entry.dart';
@@ -99,7 +100,14 @@ class InstructionsController extends ManagedChangeNotifier {
     );
     return _enqueueMutation(() async {
       if (_entries.length >= UserInstructionEntry.maxEntries) {
-        _errorMessage = '用户指令不能超过 ${UserInstructionEntry.maxEntries} 条。';
+        _errorMessage = openHandAmbientText(
+          zh: '用户指令不能超过 ${UserInstructionEntry.maxEntries} 条。',
+          zhHant: '使用者指令不能超過 ${UserInstructionEntry.maxEntries} 條。',
+          en: 'User instructions cannot exceed ${UserInstructionEntry.maxEntries}.',
+          fr: 'Les instructions utilisateur ne peuvent pas dépasser ${UserInstructionEntry.maxEntries}.',
+          de: 'Benutzeranweisungen dürfen ${UserInstructionEntry.maxEntries} nicht überschreiten.',
+          ja: 'ユーザー指令は ${UserInstructionEntry.maxEntries} 件を超えられません。',
+        );
         notifyListeners();
         return false;
       }
@@ -277,7 +285,17 @@ class InstructionsController extends ManagedChangeNotifier {
     } catch (error, stack) {
       silentLog('instructions_controller', '加载用户指令', error, stack);
       _hasTrustedSnapshot = false;
-      _errorMessage = userFailureMessage(error, fallback: '用户指令加载失败，请稍后重试。');
+      _errorMessage = userFailureMessage(
+        error,
+        fallback: openHandAmbientText(
+          zh: '用户指令加载失败，请稍后重试。',
+          zhHant: '使用者指令載入失敗，請稍後再試。',
+          en: 'Failed to load user instructions. Please try again.',
+          fr: 'Impossible de charger les instructions. Réessayez.',
+          de: 'Benutzeranweisungen konnten nicht geladen werden. Bitte erneut versuchen.',
+          ja: 'ユーザー指令の読み込みに失敗しました。再試行してください。',
+        ),
+      );
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -304,16 +322,31 @@ class InstructionsController extends ManagedChangeNotifier {
       return true;
     } catch (error, stack) {
       silentLog('instructions_controller', '保存用户指令', error, stack);
-      final saveError = userFailureMessage(error, fallback: '用户指令保存失败，请稍后重试。');
+      final saveFallback = openHandAmbientText(
+        zh: '用户指令保存失败，请稍后重试。',
+        zhHant: '使用者指令儲存失敗，請稍後再試。',
+        en: 'Failed to save user instructions. Please try again.',
+        fr: 'Impossible d’enregistrer les instructions. Réessayez.',
+        de: 'Benutzeranweisungen konnten nicht gespeichert werden. Bitte erneut versuchen.',
+        ja: 'ユーザー指令の保存に失敗しました。再試行してください。',
+      );
+      final saveError = userFailureMessage(error, fallback: saveFallback);
       // 保存失败后立即回读磁盘，尽快恢复可信快照。
       await _loadLocked();
       final reloadError = _hasTrustedSnapshot ? null : _errorMessage;
       final message = reloadError == null
           ? saveError
-          : '$saveError；重新加载指令失败：$reloadError';
+          : openHandAmbientText(
+              zh: '$saveError；重新加载指令失败：$reloadError',
+              zhHant: '$saveError；重新載入指令失敗：$reloadError',
+              en: '$saveError; failed to reload instructions: $reloadError',
+              fr: '$saveError ; impossible de recharger les instructions : $reloadError',
+              de: '$saveError; Anweisungen konnten nicht erneut geladen werden: $reloadError',
+              ja: '$saveError。指令の再読み込みに失敗しました：$reloadError',
+            );
       _errorMessage = userFailureMessage(
         StateError(message),
-        fallback: '用户指令保存失败，请稍后重试。',
+        fallback: saveFallback,
       );
       notifyListeners();
       return false;

@@ -815,6 +815,18 @@ String openHandInstalledLabel(BuildContext context) {
   );
 }
 
+String openHandAddedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已添加',
+    zhHant: '已新增',
+    en: 'Added',
+    fr: 'Ajouté',
+    de: 'Hinzugefügt',
+    ja: '追加済み',
+  );
+}
+
 String openHandKeywordsLabel(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -1561,6 +1573,35 @@ String openHandPlainTextLabel(BuildContext context) {
   );
 }
 
+String openHandCodeFenceLanguageLabel(BuildContext context, String? language) {
+  final normalized = language?.trim().toLowerCase() ?? '';
+  if (normalized.isEmpty || normalized == 'plaintext') {
+    return openHandPlainTextLabel(context);
+  }
+  return switch (normalized) {
+    'yaml' || 'yml' => 'YAML',
+    'json' => 'JSON',
+    'javascript' || 'js' => 'JavaScript',
+    'typescript' || 'ts' => 'TypeScript',
+    'python' || 'py' => 'Python',
+    'markdown' || 'md' => 'Markdown',
+    'html' => 'HTML',
+    'css' => 'CSS',
+    'sql' => 'SQL',
+    'dart' => 'Dart',
+    'shell' || 'bash' || 'sh' || 'zsh' => openHandLocalizedText(
+      context,
+      zh: '终端',
+      zhHant: '終端',
+      en: 'Shell',
+      fr: 'Terminal',
+      de: 'Shell',
+      ja: 'シェル',
+    ),
+    _ => language!.trim(),
+  };
+}
+
 String openHandPluginsLabel(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -1721,6 +1762,18 @@ String openHandSkillMarketLabel(BuildContext context) {
     fr: 'Marché des compétences',
     de: 'Skill-Markt',
     ja: 'スキルマーケット',
+  );
+}
+
+String openHandInstructionMarketLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '指令市场',
+    zhHant: '指令市場',
+    en: 'Instruction Market',
+    fr: 'Marché des instructions',
+    de: 'Anweisungsmarkt',
+    ja: '指令マーケット',
   );
 }
 

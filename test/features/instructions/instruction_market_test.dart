@@ -7,6 +7,7 @@ import 'package:openhand/features/instructions/data/instructions_store.dart';
 import 'package:openhand/features/instructions/instructions_controller.dart';
 import 'package:openhand/features/instructions/model/user_instruction_entry.dart';
 import 'package:openhand/features/instructions/widgets/instruction_market_dialog.dart';
+import 'package:openhand/features/instructions/widgets/instruction_market_labels.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/shared/ui/openhand_safe_scrollbar.dart';
 import 'package:openhand/shared/ui/openhand_table_pagination.dart';
@@ -28,12 +29,19 @@ void main() {
     expect(instructionMarketCatalog.length, 16);
     expect(instructionMarketCatalog.map((e) => e.id).toSet().length, 16);
     expect(instructionMarketCatalog.map((e) => e.sourceKey).toSet().length, 16);
+    expect(instructionMarketCatalog.map((e) => e.category).toSet(), {
+      kInstructionMarketCategoryAction,
+      kInstructionMarketCategoryVitality,
+      kInstructionMarketCategoryInsight,
+      kInstructionMarketCategoryCompanion,
+    });
     for (final entry in instructionMarketCatalog) {
       expect(entry.body.split('\n').length, 5);
       expect(entry.body, contains('\nrole: ${entry.role}\n'));
       expect(entry.body.length, lessThan(500));
       expect(entry.interpretation, isNotEmpty);
       expect(entry.matches(entry.id.toLowerCase()), isTrue);
+      expect(kInstructionMarketCategoryOrder, contains(entry.category));
     }
     expect(
       instructionMarketCatalog.firstWhere((e) => e.id == 'HHHH').role,
@@ -47,6 +55,16 @@ void main() {
       instructionMarketCatalog.firstWhere((e) => e.id == 'GOOD').role,
       'good',
     );
+  });
+
+  test('跨语言关键词与分类名称都能命中角色', () {
+    final yyds = instructionMarketCatalog.firstWhere((e) => e.id == 'YYDS');
+    expect(instructionMarketMatches(yyds, 'Ace'), isTrue);
+    expect(instructionMarketMatches(yyds, '神人'), isTrue);
+    expect(instructionMarketMatches(yyds, '行动与决策'), isTrue);
+    expect(instructionMarketMatches(yyds, 'Action & decisions'), isTrue);
+    expect(instructionMarketMatches(yyds, 'soul preset'), isTrue);
+    expect(instructionMarketMatches(yyds, '不存在的角色'), isFalse);
   });
 
   for (final (width, scale, dark) in [
@@ -93,6 +111,10 @@ void main() {
       await tester.tap(find.text('打开市场'));
       await tester.pumpAndSettle();
       expect(find.text('指令市场'), findsOneWidget);
+      expect(find.text('SkillHub'), findsNothing);
+      expect(find.text('SOUL'), findsNothing);
+      expect(find.text('灵魂设定'), findsWidgets);
+      expect(find.text('角色库'), findsWidgets);
       expect(tester.takeException(), isNull);
       expect(
         find.byKey(ValueKey(instructionMarketCatalog.first.avatarUrl)),
@@ -119,6 +141,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(pager().total, 0);
       expect(pager().page, 1);
+      await tester.enterText(find.byType(TextField).first, 'Ace');
+      await tester.pumpAndSettle();
+      expect(pager().total, 1);
       await tester.enterText(find.byType(TextField).first, 'hhhh');
       await tester.pumpAndSettle();
       expect(pager().total, 1);
@@ -171,4 +196,55 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('英文界面展示本地化标签，不出现 SkillHub / SOUL', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final store = _Store();
+    final controller = InstructionsController.uninitialized(store: store);
+    addTearDown(controller.dispose);
+    await controller.refresh();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () =>
+                  showInstructionMarketDialog(context, controller: controller),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Instruction Market'), findsOneWidget);
+    expect(find.text('Add instruction'), findsOneWidget);
+    expect(find.text('Soul preset'), findsWidgets);
+    expect(find.text('Character library'), findsWidgets);
+    expect(find.text('Action & decisions'), findsWidgets);
+    expect(find.text('YYDS · Ace'), findsWidgets);
+    expect(find.text('SkillHub'), findsNothing);
+    expect(find.text('SOUL'), findsNothing);
+    expect(find.text('指令市场'), findsNothing);
+    expect(find.textContaining('YAML'), findsWidgets);
+    await tester.enterText(find.byType(TextField).first, 'Ace');
+    await tester.pumpAndSettle();
+    OpenHandTablePagination pager() => tester.widget<OpenHandTablePagination>(
+      find.byType(OpenHandTablePagination),
+    );
+    expect(pager().total, 1);
+    await tester.tap(find.text('Add instruction'));
+    await tester.pumpAndSettle();
+    expect(controller.entries.single.name, 'YYDS · Ace');
+    expect(controller.entries.single.body, instructionMarketCatalog.first.body);
+    expect(find.text('Added'), findsWidgets);
+  });
 }

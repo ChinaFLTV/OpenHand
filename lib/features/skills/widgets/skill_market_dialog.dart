@@ -293,6 +293,12 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           children: [
             SearchBar(
               controller: _searchController,
+              elevation: const WidgetStatePropertyAll(0),
+              shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              surfaceTintColor: const WidgetStatePropertyAll(
+                Colors.transparent,
+              ),
               hintText: openHandLocalizedText(
                 context,
                 zh: '搜索市场技能',

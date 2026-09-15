@@ -1124,10 +1124,10 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   @override
   Widget build(BuildContext context) {
     final effectiveLanguage = normalizeOpenHandCodeLanguage(widget.language);
-    final displayLanguage =
-        effectiveLanguage == null || effectiveLanguage == 'plaintext'
-        ? openHandPlainTextLabel(context)
-        : effectiveLanguage;
+    final displayLanguage = openHandCodeFenceLanguageLabel(
+      context,
+      effectiveLanguage,
+    );
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
     final paletteSignature = Object.hash(

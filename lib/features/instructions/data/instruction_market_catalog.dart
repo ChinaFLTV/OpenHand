@@ -28,11 +28,23 @@ class InstructionMarketEntry {
   bool matches(String query) {
     final keyword = query.trim().toLowerCase();
     return keyword.isEmpty ||
-        '$id $name $description $category $style $approach $interpretation'
+        '$id $role $name $description $category $style $approach $tone $interpretation'
             .toLowerCase()
             .contains(keyword);
   }
 }
+
+const kInstructionMarketCategoryAction = 'action';
+const kInstructionMarketCategoryVitality = 'vitality';
+const kInstructionMarketCategoryInsight = 'insight';
+const kInstructionMarketCategoryCompanion = 'companion';
+
+const kInstructionMarketCategoryOrder = <String>[
+  kInstructionMarketCategoryAction,
+  kInstructionMarketCategoryVitality,
+  kInstructionMarketCategoryInsight,
+  kInstructionMarketCategoryCompanion,
+];
 
 const _orange = 0xFFB76A00;
 const _green = 0xFF438734;
@@ -44,7 +56,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'YYDS',
     name: 'YYDS・神人',
-    category: '行动与决策',
+    category: kInstructionMarketCategoryAction,
     accent: _orange,
     description: '狂拽自信天花板，主打一个“局势越乱，我越神”！',
     avatarId: 'c3cdd954-645d-4c9e-996f-8a8d8672a9ca',
@@ -59,7 +71,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'HHHH',
     name: 'HHHH・幽默者',
-    category: '灵感与活力',
+    category: kInstructionMarketCategoryVitality,
     accent: _blue,
     description: '行走的段子手，专治各种尴尬和压力，笑就完事了！',
     avatarId: '2ade6af1-5bc1-4ca4-b7a2-aecd79dc761a',
@@ -73,7 +85,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'MIAO',
     name: 'MIAO・喵之人',
-    category: '灵感与活力',
+    category: kInstructionMarketCategoryVitality,
     accent: _red,
     description: '可爱又跳脱的喵星人，下一秒行为永远是个谜～',
     avatarId: '5d88fc18-328a-4a3e-b625-5af4e3038b4e',
@@ -87,7 +99,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'OH-NO',
     name: 'OH-NO・哦不人',
-    category: '思考与洞察',
+    category: kInstructionMarketCategoryInsight,
     accent: _purple,
     description: '行走的风险雷达，日常“OH-NO！”但超级靠谱。',
     avatarId: '42a9a89f-7717-4905-bffd-fdce4a83cad5',
@@ -102,7 +114,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'WHY',
     name: 'WHY？・疑问者',
-    category: '思考与洞察',
+    category: kInstructionMarketCategoryInsight,
     accent: _purple,
     description: '低调的“十万个为什么”，执着于追问到底。',
     avatarId: '306c9126-44fb-4370-8c94-f0f5020abe9d',
@@ -117,7 +129,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'GRASS',
     name: 'GRASS・草人',
-    category: '行动与决策',
+    category: kInstructionMarketCategoryAction,
     accent: _orange,
     description: '暴躁老哥在线怼人，但话糙理不糙，一针见血。',
     avatarId: '1f1881ca-8076-4d65-85b3-2716c94bb16f',
@@ -132,7 +144,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'MONK',
     name: 'MONK・僧侣',
-    category: '思考与洞察',
+    category: kInstructionMarketCategoryInsight,
     accent: _blue,
     description: '看破红尘的世外高人，言谈自带古风 BGM。',
     avatarId: '8dd87793-270a-46b9-9576-867c0d48ca71',
@@ -146,7 +158,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'MUM',
     name: 'MUM・妈妈',
-    category: '陪伴与协作',
+    category: kInstructionMarketCategoryCompanion,
     accent: _red,
     description: '温柔体贴的“人间充电宝”，永远给你稳稳的依靠。',
     avatarId: '20834ac8-008d-439a-b7ab-9712a0415a55',
@@ -160,7 +172,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'SOLO',
     name: 'SOLO・独行者',
-    category: '思考与洞察',
+    category: kInstructionMarketCategoryInsight,
     accent: _blue,
     description: '敏感慢热的 i 人，需要很多很多安全感才能靠近。',
     avatarId: '45438cc6-2edd-4ef3-92d6-378ce811cc0d',
@@ -174,7 +186,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'GOOD',
     name: 'GOOD・好人',
-    category: '陪伴与协作',
+    category: kInstructionMarketCategoryCompanion,
     accent: _green,
     description: '温吞隐忍的老实人，团队的“万能补位”选手。',
     avatarId: 'b2824aaf-1267-40d0-9188-844b122f4494',
@@ -189,7 +201,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'MALO',
     name: 'MALO・吗喽',
-    category: '灵感与活力',
+    category: kInstructionMarketCategoryVitality,
     accent: _orange,
     description: '快乐修狗（吗喽版），社交悍匪，能量永远满格！',
     avatarId: 'f9f77646-a9cd-401d-a2ab-ed25d68dd58f',
@@ -203,7 +215,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'FAKE',
     name: 'FAKE・假面人',
-    category: '陪伴与协作',
+    category: kInstructionMarketCategoryCompanion,
     accent: _green,
     description: '顶级“读空气”大师，一秒切换最适合你的人设。',
     avatarId: '1f190e38-029d-4d72-bf25-434a189ec7b6',
@@ -218,7 +230,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'LOVE-R',
     name: 'LOVE-R・情种',
-    category: '陪伴与协作',
+    category: kInstructionMarketCategoryCompanion,
     accent: _purple,
     description: '内心戏超多的浪漫批，爱意都藏在括号备注里。',
     avatarId: '357b580c-3116-4279-9017-643b031074a2',
@@ -233,7 +245,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'ZZZZ',
     name: 'ZZZZ・装睡者',
-    category: '思考与洞察',
+    category: kInstructionMarketCategoryInsight,
     accent: _green,
     description: '日常“装睡”的隐形大佬，关键时候一击必中。',
     avatarId: 'e56b5b9e-a5c1-44e0-8771-3d1f50a7fa62',
@@ -247,7 +259,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'WORK-er',
     name: 'WORK-er・工作者',
-    category: '行动与决策',
+    category: kInstructionMarketCategoryAction,
     accent: _blue,
     description: '一边自嘲“牛马”一边狠干的打工人，悲壮但可靠。',
     avatarId: 'cf14b2eb-50d6-4a3a-861e-427db90c2615',
@@ -261,7 +273,7 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
   InstructionMarketEntry(
     id: 'GOGO',
     name: 'GOGO・行人',
-    category: '行动与决策',
+    category: kInstructionMarketCategoryAction,
     accent: _orange,
     description: '永远在路上的矛盾体，一边冲冲冲，一边嘤嘤嘤。',
     avatarId: 'beec9fcb-e3ae-47dd-8d2d-f255810e8d49',

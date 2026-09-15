@@ -591,6 +591,10 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
               controller: _search,
               elevation: const WidgetStatePropertyAll(0),
               shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              surfaceTintColor: const WidgetStatePropertyAll(
+                Colors.transparent,
+              ),
               hintText: openHandLocalizedText(
                 context,
                 zh: '搜索 MCP 服务',

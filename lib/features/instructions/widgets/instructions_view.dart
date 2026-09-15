@@ -89,7 +89,7 @@ class InstructionsView extends StatelessWidget {
           actions,
           kOpenHandGap8,
           IconButton.outlined(
-            tooltip: '指令市场',
+            tooltip: openHandInstructionMarketLabel(context),
             icon: const Icon(Icons.storefront_rounded),
             onPressed: snapshot.isLoading
                 ? null
@@ -431,8 +431,12 @@ class _InstructionToggleCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return Material(
       color: Colors.transparent,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(kOpenHandRadius20),
+        hoverColor: Colors.transparent,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         onTap: onChanged == null ? null : () => onChanged!(!value),
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion180),

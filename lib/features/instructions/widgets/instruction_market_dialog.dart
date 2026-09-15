@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
@@ -9,12 +10,26 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
+import '../../../shared/util/localized_text.dart';
 import '../data/instruction_market_catalog.dart';
 import '../instructions_controller.dart';
 import '../model/user_instruction_entry.dart';
+import 'instruction_market_labels.dart';
+
+const double _kInstructionMarketDialogMaxWidth = 1400;
+const double _kInstructionMarketDialogMaxHeight = 920;
+const double _kInstructionMarketListAvatarSize = 46;
+const double _kInstructionMarketDetailAvatarSize = 64;
+const double _kInstructionMarketHeaderIconSize = 52;
+const double _kInstructionMarketSplitBreakpoint = 800;
+const double _kInstructionMarketWideListWidth = 392;
+const double _kInstructionMarketNarrowListWidth = 320;
+const double _kInstructionMarketWideListBreakpoint = 980;
+const List<int> _kInstructionMarketPageSizes = <int>[12, 24, 48, 96];
 
 Future<void> showInstructionMarketDialog(
   BuildContext context, {
@@ -37,14 +52,9 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
   final _search = TextEditingController();
   final _listScroll = ScrollController();
   final _detailScroll = ScrollController();
-  static final _categories = instructionMarketCatalog
-      .map((e) => e.category)
-      .toSet()
-      .toList(growable: false);
   List<InstructionMarketEntry> _items = instructionMarketCatalog;
   InstructionMarketEntry? _selected = instructionMarketCatalog.first;
   String _category = '';
-  static const _pageSizes = [12, 24, 48, 96];
   int _page = 1, _pageSize = 24;
 
   List<InstructionMarketEntry> get _visibleItems =>
@@ -76,7 +86,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
         .where(
           (e) =>
               (_category.isEmpty || e.category == _category) &&
-              e.matches(_search.text),
+              instructionMarketMatches(e, _search.text),
         )
         .toList(growable: false);
     setState(() {
@@ -116,15 +126,17 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
     });
     try {
       final saved = await widget.controller.createEntry(
-        name: entry.name,
-        description: entry.description,
+        name: instructionMarketEntryName(context, entry),
+        description: instructionMarketEntryDescription(context, entry),
         body: entry.body,
         keywords: [entry.sourceKey],
         enabled: false,
       );
       if (mounted && !saved) {
         setState(
-          () => _error = widget.controller.errorMessage ?? '添加失败，请稍后重试。',
+          () => _error =
+              widget.controller.errorMessage ??
+              instructionMarketAddFailed(context),
         );
       }
     } finally {
@@ -145,8 +157,8 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
         canPop: !_adding,
         child: buildOpenHandResponsiveDialogShell(
           context: context,
-          maxWidth: 1400,
-          maxHeight: 920,
+          maxWidth: _kInstructionMarketDialogMaxWidth,
+          maxHeight: _kInstructionMarketDialogMaxHeight,
           minAvailableWidth: 320,
           minAvailableHeight: 420,
           horizontalMargin: small ? 24 : 48,
@@ -160,16 +172,18 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 52,
-                      height: 52,
+                    DecoratedBox(
                       decoration: BoxDecoration(
                         color: colors.primaryContainer,
                         borderRadius: BorderRadius.circular(kOpenHandRadius18),
                       ),
-                      child: Icon(
-                        Icons.auto_awesome_rounded,
-                        color: colors.onPrimaryContainer,
+                      child: SizedBox(
+                        width: _kInstructionMarketHeaderIconSize,
+                        height: _kInstructionMarketHeaderIconSize,
+                        child: Icon(
+                          Icons.storefront_rounded,
+                          color: colors.onPrimaryContainer,
+                        ),
                       ),
                     ),
                     kOpenHandHGap14,
@@ -178,16 +192,17 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '指令市场',
+                            openHandInstructionMarketLabel(context),
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          kOpenHandGap4,
                           Text(
-                            '发现适合你的 AI 搭子，预览后添加到指令。',
+                            instructionMarketSubtitle(context),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colors.onSurfaceVariant,
+                              height: 1.35,
                             ),
                           ),
                         ],
@@ -201,12 +216,17 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                     builder: (context, constraints) {
                       final list = _listPane();
                       final detail = _detailPane();
-                      if (constraints.maxWidth >= 800) {
+                      if (constraints.maxWidth >=
+                          _kInstructionMarketSplitBreakpoint) {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             SizedBox(
-                              width: constraints.maxWidth < 980 ? 320 : 392,
+                              width:
+                                  constraints.maxWidth <
+                                      _kInstructionMarketWideListBreakpoint
+                                  ? _kInstructionMarketNarrowListWidth
+                                  : _kInstructionMarketWideListWidth,
                               child: list,
                             ),
                             kOpenHandHGap16,
@@ -218,13 +238,15 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                         context,
                         kOpenHandMotion180,
                       );
+                      final browseLabel = instructionMarketBrowseTab(context);
+                      final detailLabel = instructionMarketDetailTab(context);
                       return Column(
                         children: [
                           Row(
                             children: [
                               Expanded(
                                 child: OpenHandChoicePill(
-                                  label: '浏览指令',
+                                  label: browseLabel,
                                   selected: !_showDetail,
                                   onSelected: () =>
                                       setState(() => _showDetail = false),
@@ -233,7 +255,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                               kOpenHandHGap12,
                               Expanded(
                                 child: OpenHandChoicePill(
-                                  label: '指令详情',
+                                  label: detailLabel,
                                   selected: _showDetail,
                                   onSelected: () =>
                                       setState(() => _showDetail = true),
@@ -287,7 +309,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                       _error ??
                       (widget.controller.entries.length >=
                               UserInstructionEntry.maxEntries
-                          ? '指令数量已达上限，请先移除不再使用的指令。'
+                          ? instructionMarketLimitReached(context)
                           : null),
                 ),
                 OpenHandDialogBusyBar(busy: _adding),
@@ -295,7 +317,10 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final hint = Text(
-                      '本地内置 · ${instructionMarketCatalog.length} 个角色',
+                      instructionMarketFooter(
+                        context,
+                        instructionMarketCatalog.length,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -316,7 +341,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                             onPressed: _adding
                                 ? null
                                 : () => Navigator.of(context).pop(),
-                            label: '关闭',
+                            label: openHandCloseLabel(context),
                           ),
                         ),
                         kOpenHandHGap12,
@@ -335,7 +360,9 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                             icon: installed
                                 ? Icons.check_rounded
                                 : Icons.add_rounded,
-                            label: installed ? '已添加' : '添加指令',
+                            label: installed
+                                ? openHandAddedLabel(context)
+                                : instructionMarketAddAction(context),
                           ),
                         ),
                       ],
@@ -377,8 +404,11 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: Color.alphaBlend(
-            colors.primary.withValues(alpha: .025),
-            colors.surfaceContainerLow,
+            colors.tertiary.withValues(alpha: 0.045),
+            Color.alphaBlend(
+              colors.primary.withValues(alpha: 0.035),
+              colors.surfaceContainerLow,
+            ),
           ),
           borderRadius: BorderRadius.circular(kOpenHandRadius22),
           border: Border.all(
@@ -394,20 +424,25 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
     final visibleItems = _visibleItems;
     return _pane(
       Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
         child: Column(
           children: [
             SearchBar(
               enabled: !_adding,
               controller: _search,
-              hintText: '搜索指令',
+              hintText: instructionMarketSearchHint(context),
               leading: const Icon(Icons.search_rounded),
               elevation: const WidgetStatePropertyAll(0),
+              shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              surfaceTintColor: const WidgetStatePropertyAll(
+                Colors.transparent,
+              ),
               onChanged: (_) => _filter(),
               trailing: [
                 if (_search.text.isNotEmpty) ...[
                   IconButton(
-                    tooltip: '清空搜索',
+                    tooltip: openHandClearSearchLabel(context),
                     icon: const Icon(Icons.close_rounded),
                     onPressed: () {
                       _search.clear();
@@ -417,7 +452,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                   kOpenHandHGap8,
                 ],
                 IconButton(
-                  tooltip: '刷新市场',
+                  tooltip: instructionMarketRefreshTooltip(context),
                   onPressed: _adding ? null : _filter,
                   icon: const Icon(Icons.refresh_rounded),
                 ),
@@ -428,13 +463,16 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  for (final category in ['', ..._categories])
+                  for (final category in [
+                    '',
+                    ...kInstructionMarketCategoryOrder,
+                  ])
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: OpenHandChoicePill(
                         label: category.isEmpty
-                            ? '全部'
-                            : '$category · ${instructionMarketCatalog.where((entry) => entry.category == category).length}',
+                            ? openHandAllLabel(context)
+                            : '${instructionMarketCategoryLabel(context, category)} · ${instructionMarketCatalog.where((entry) => entry.category == category).length}',
                         selected: _category == category,
                         onSelected: _adding
                             ? null
@@ -452,10 +490,10 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
               child: OpenHandSafeScrollbar(
                 controller: _listScroll,
                 child: _items.isEmpty
-                    ? const Center(
-                        child: Text(
-                          '没有匹配的指令，试试其他关键词。',
-                          textAlign: TextAlign.center,
+                    ? Center(
+                        child: OpenHandInlineEmptyState(
+                          icon: Icons.search_off_rounded,
+                          message: instructionMarketEmptySearch(context),
                         ),
                       )
                     : ListView.separated(
@@ -464,132 +502,22 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                         separatorBuilder: (_, _) => kOpenHandGap8,
                         itemBuilder: (context, index) {
                           final item = visibleItems[index];
-                          final colors = Theme.of(context).colorScheme;
-                          final selected = _selected == item;
-                          final accent = Color(item.accent);
-                          final radius = BorderRadius.circular(
-                            kOpenHandRadius18,
-                          );
-                          return MicroPressFeedback(
-                            child: Material(
-                              color: selected
-                                  ? Color.alphaBlend(
-                                      accent.withValues(alpha: .13),
-                                      colors.surface,
-                                    )
-                                  : colors.surface,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: radius,
-                                side: BorderSide(
-                                  color: selected
-                                      ? accent
-                                      : colors.outlineVariant,
-                                ),
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                onTap: _adding
-                                    ? null
-                                    : () {
-                                        setState(() {
-                                          _selected = item;
-                                          _showDetail = true;
-                                          _error = null;
-                                        });
-                                        if (_detailScroll.hasClients) {
-                                          _detailScroll.jumpTo(0);
-                                        }
-                                      },
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      left: BorderSide(
-                                        color: accent,
-                                        width: kOpenHandAccentBarWidth,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      12,
-                                      12,
-                                      12,
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        _avatar(item),
-                                        kOpenHandHGap12,
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                item.name,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleSmall
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 3),
-                                              Text(
-                                                'SkillHub',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: colors
-                                                          .onSurfaceVariant,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                              ),
-                                              kOpenHandGap8,
-                                              Text(
-                                                item.description,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              kOpenHandGap8,
-                                              Wrap(
-                                                spacing: 6,
-                                                runSpacing: 6,
-                                                children: [
-                                                  OpenHandFactChip(
-                                                    icon: Icons
-                                                        .description_outlined,
-                                                    label: 'SOUL',
-                                                    color: colors.secondary,
-                                                  ),
-                                                  if (_installed(item))
-                                                    OpenHandFactChip(
-                                                      icon: Icons.check_rounded,
-                                                      label: '已添加',
-                                                      color: colors.primary,
-                                                    ),
-                                                  OpenHandFactChip(
-                                                    icon:
-                                                        Icons.category_outlined,
-                                                    label: item.category,
-                                                    color: accent,
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                          return _InstructionMarketTile(
+                            item: item,
+                            selected: _selected == item,
+                            installed: _installed(item),
+                            onTap: _adding
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _selected = item;
+                                      _showDetail = true;
+                                      _error = null;
+                                    });
+                                    if (_detailScroll.hasClients) {
+                                      _detailScroll.jumpTo(0);
+                                    }
+                                  },
                           );
                         },
                       ),
@@ -600,7 +528,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
               total: _items.length,
               page: _page,
               pageSize: _pageSize,
-              pageSizes: _pageSizes,
+              pageSizes: _kInstructionMarketPageSizes,
               enabled: !_adding,
               onPageChanged: _changePage,
               onPageSizeChanged: (size) => _changePage(1, pageSize: size),
@@ -610,35 +538,6 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
       ),
     );
   }
-
-  Widget _avatar(InstructionMarketEntry item, {double size = 44}) => ClipRRect(
-    borderRadius: BorderRadius.circular(kOpenHandRadius14),
-    child: Image.network(
-      item.avatarUrl,
-      key: ValueKey(item.avatarUrl),
-      width: size,
-      height: size,
-      cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
-      fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => Container(
-        width: size,
-        height: size,
-        padding: const EdgeInsets.all(6),
-        color: Color(item.accent).withValues(alpha: .15),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            item.id,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.w900,
-              fontSize: 15,
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
 
   Widget _detailPane() {
     final entry = _selected;
@@ -663,10 +562,13 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                   sizeToCurrentChild: true,
                 ),
             child: entry == null
-                ? const Padding(
-                    key: ValueKey('empty'),
-                    padding: EdgeInsets.all(24),
-                    child: Text('选择左侧指令，查看角色解读与提示词。'),
+                ? Padding(
+                    key: const ValueKey('empty'),
+                    padding: const EdgeInsets.all(24),
+                    child: OpenHandInlineEmptyState(
+                      icon: Icons.auto_awesome_rounded,
+                      message: instructionMarketEmptyDetail(context),
+                    ),
                   )
                 : Column(
                     key: ValueKey(entry.id),
@@ -678,8 +580,26 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _avatar(entry, size: 64),
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(
+                                      kOpenHandRadius16,
+                                    ),
+                                    border: Border.all(
+                                      color: accent.withValues(alpha: 0.42),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(2),
+                                    child: _InstructionMarketAvatar(
+                                      item: entry,
+                                      size: _kInstructionMarketDetailAvatarSize,
+                                    ),
+                                  ),
+                                ),
                                 kOpenHandHGap14,
                                 Expanded(
                                   child: Column(
@@ -687,39 +607,54 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        entry.name,
+                                        instructionMarketEntryName(
+                                          context,
+                                          entry,
+                                        ),
                                         style: Theme.of(context)
                                             .textTheme
-                                            .titleLarge
+                                            .headlineSmall
                                             ?.copyWith(
                                               fontWeight: FontWeight.w800,
                                             ),
                                       ),
-                                      kOpenHandGap8,
-                                      Text(
-                                        'SkillHub',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: colors.onSurfaceVariant,
-                                            ),
-                                      ),
-                                      kOpenHandGap8,
+                                      kOpenHandGap10,
                                       Wrap(
                                         spacing: 6,
                                         runSpacing: 6,
                                         children: [
                                           OpenHandFactChip(
-                                            icon: Icons.category_outlined,
-                                            label: entry.category,
-                                            color: accent,
+                                            icon: Icons.library_books_outlined,
+                                            label: instructionMarketSourceLabel(
+                                              context,
+                                            ),
+                                            color: OpenHandStatusColors.info,
                                           ),
                                           OpenHandFactChip(
-                                            icon: Icons.description_outlined,
-                                            label: 'SOUL',
-                                            color: colors.secondary,
+                                            icon: Icons.auto_awesome_rounded,
+                                            label: instructionMarketSoulLabel(
+                                              context,
+                                            ),
+                                            color: colors.tertiary,
                                           ),
+                                          OpenHandFactChip(
+                                            icon: Icons.category_outlined,
+                                            label:
+                                                instructionMarketCategoryLabel(
+                                                  context,
+                                                  entry.category,
+                                                ),
+                                            color: accent,
+                                          ),
+                                          if (_installed(entry))
+                                            OpenHandStatusPill(
+                                              icon: Icons.check_circle_rounded,
+                                              label: openHandAddedLabel(
+                                                context,
+                                              ),
+                                              color:
+                                                  OpenHandStatusColors.success,
+                                            ),
                                         ],
                                       ),
                                     ],
@@ -728,7 +663,19 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                               ],
                             ),
                             kOpenHandGap14,
-                            SelectionArea(child: Text(entry.description)),
+                            SelectionArea(
+                              child: Text(
+                                instructionMarketEntryDescription(
+                                  context,
+                                  entry,
+                                ),
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(
+                                      height: 1.45,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -736,22 +683,205 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                       OpenHandTintedPanel(
                         accent: accent,
                         icon: Icons.auto_awesome_rounded,
-                        title: '角色解读',
+                        title: instructionMarketRoleReadingTitle(context),
                         child: OpenHandDocumentMarkdownPreview(
-                          data: entry.interpretation,
+                          data: instructionMarketEntryInterpretation(
+                            context,
+                            entry,
+                          ),
                         ),
                       ),
                       kOpenHandGap14,
                       OpenHandTintedPanel(
                         accent: colors.primary,
                         icon: Icons.menu_book_rounded,
-                        title: '指令内容',
+                        title: instructionMarketPromptTitle(context),
                         child: OpenHandDocumentMarkdownPreview(
                           data: '```yaml\n${entry.body}\n```',
                         ),
                       ),
                     ],
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InstructionMarketTile extends StatelessWidget {
+  const _InstructionMarketTile({
+    required this.item,
+    required this.selected,
+    required this.installed,
+    required this.onTap,
+  });
+
+  final InstructionMarketEntry item;
+  final bool selected;
+  final bool installed;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final accent = Color(item.accent);
+    final radius = BorderRadius.circular(kOpenHandRadius18);
+    return MicroPressFeedback(
+      enabled: onTap != null,
+      child: Material(
+        color: Colors.transparent,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          hoverColor: Colors.transparent,
+          splashColor: accent.withValues(alpha: 0.10),
+          highlightColor: accent.withValues(alpha: 0.06),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: AnimatedContainer(
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
+            curve: kOpenHandSwitchInCurve,
+            decoration: BoxDecoration(
+              color: selected
+                  ? Color.alphaBlend(
+                      accent.withValues(alpha: 0.16),
+                      colors.surface,
+                    )
+                  : colors.surface,
+              borderRadius: radius,
+              border: Border.all(
+                color: selected
+                    ? accent
+                    : colors.outlineVariant.withValues(alpha: 0.78),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: radius,
+              child: Stack(
+                children: [
+                  PositionedDirectional(
+                    start: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: kOpenHandAccentBarWidth,
+                    child: ColoredBox(color: accent),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _InstructionMarketAvatar(
+                          item: item,
+                          size: _kInstructionMarketListAvatarSize,
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                instructionMarketEntryName(context, item),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              kOpenHandGap8,
+                              Text(
+                                instructionMarketEntryDescription(
+                                  context,
+                                  item,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                  height: 1.35,
+                                ),
+                              ),
+                              kOpenHandGap10,
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  OpenHandFactChip(
+                                    icon: Icons.auto_awesome_rounded,
+                                    label: instructionMarketSoulLabel(context),
+                                    color: colors.tertiary,
+                                  ),
+                                  OpenHandFactChip(
+                                    icon: Icons.category_outlined,
+                                    label: instructionMarketCategoryLabel(
+                                      context,
+                                      item.category,
+                                    ),
+                                    color: accent,
+                                  ),
+                                  if (installed)
+                                    OpenHandStatusPill(
+                                      icon: Icons.check_circle_rounded,
+                                      label: openHandAddedLabel(context),
+                                      color: OpenHandStatusColors.success,
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InstructionMarketAvatar extends StatelessWidget {
+  const _InstructionMarketAvatar({required this.item, required this.size});
+
+  final InstructionMarketEntry item;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(kOpenHandRadius14),
+      child: Image.network(
+        item.avatarUrl,
+        key: ValueKey(item.avatarUrl),
+        width: size,
+        height: size,
+        cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => ColoredBox(
+          color: Color(item.accent).withValues(alpha: .15),
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  item.id,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
