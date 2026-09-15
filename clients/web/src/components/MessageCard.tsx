@@ -2557,18 +2557,7 @@ function MessageCardImpl({
   const supportsRenderedSourceToggle =
     !goalMessageView &&
     (effectiveFormat === 'html' || effectiveFormat === 'markdown');
-  const contentLooksHtml = badgeBodyCollapsed
-    ? looksLikeRenderableHtml(visibleContent)
-    : false;
-  const renderedBodyContent = useMemo(() => {
-    if (!badgeBodyCollapsed || activelyStreaming || contentLooksHtml) {
-      return visibleContent;
-    }
-    return truncateEndText(
-      visibleContent,
-      COLLAPSED_RICH_BODY_PREVIEW_MAX_CHARS,
-    );
-  }, [activelyStreaming, badgeBodyCollapsed, contentLooksHtml, visibleContent]);
+  const contentLooksHtml = looksLikeRenderableHtml(visibleContent);
   const htmlRenderableMessage =
     !isUserBubble &&
     !useToolBody &&
@@ -3024,14 +3013,14 @@ function MessageCardImpl({
           responseCollapsedWhileStreaming ||
           (activelyStreaming && effectiveFormat === 'plain_text') ? (
             <StreamingPlainTextReveal
-              content={renderedBodyContent}
+              content={visibleContent}
               streaming={!isContentPreview && !reasoningPreviewCollapsed}
               reduceMotion={reduceMotion}
               mono={style.mono === true}
             />
           ) : (
             <StreamingMarkdownReveal
-              content={renderedBodyContent}
+              content={visibleContent}
               streaming={streamingContent && !isUserBubble}
               reduceMotion={reduceMotion}
               raw={
