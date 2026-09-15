@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../shared/util/localized_text.dart';
-import '../data/instruction_market_catalog.dart';
+import '../model/instruction_market.dart';
 
 typedef _Copy = ({
   String zh,
@@ -34,7 +34,7 @@ _Copy _lookupProfile(
   InstructionMarketEntry entry,
   _Copy Function(_Profile profile) pick,
 ) {
-  final profile = _profiles[entry.id];
+  final profile = _profiles[entry.localizationKey];
   if (profile == null) {
     return (
       zh: entry.name,
@@ -138,12 +138,12 @@ String instructionMarketLimitReached(BuildContext context) {
 
 String instructionMarketFooter(BuildContext context, int count) {
   return _copy(context, (
-    zh: '本地内置 · $count 个角色',
-    zhHant: '本地內建 · $count 個角色',
-    en: 'Built-in · $count characters',
-    fr: 'Intégré · $count personnages',
-    de: 'Lokal · $count Charaktere',
-    ja: '内蔵 · $count 人のキャラクター',
+    zh: '$count 个角色',
+    zhHant: '$count 個角色',
+    en: '$count characters',
+    fr: '$count personnages',
+    de: '$count Charaktere',
+    ja: '$count 人のキャラクター',
   ));
 }
 
@@ -216,7 +216,7 @@ String instructionMarketEntryDescription(
   BuildContext context,
   InstructionMarketEntry entry,
 ) {
-  final profile = _profiles[entry.id];
+  final profile = _profiles[entry.localizationKey];
   if (profile == null) return entry.description;
   return _copy(context, profile.description);
 }
@@ -225,7 +225,7 @@ String instructionMarketEntryInterpretation(
   BuildContext context,
   InstructionMarketEntry entry,
 ) {
-  final profile = _profiles[entry.id];
+  final profile = _profiles[entry.localizationKey];
   if (profile == null) return entry.interpretation;
   return _copy(context, profile.interpretation);
 }
@@ -249,7 +249,7 @@ bool _isLatinKeyword(String keyword) {
 }
 
 String _searchBlob(InstructionMarketEntry entry) {
-  final profile = _profiles[entry.id];
+  final profile = _profiles[entry.localizationKey];
   final category = _categories[entry.category];
   final haystack = StringBuffer()
     ..write(entry.id.toLowerCase())

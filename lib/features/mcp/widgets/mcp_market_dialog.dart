@@ -8,9 +8,11 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/market/market_provider.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
+import '../../../shared/ui/market_provider_selector.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -27,20 +29,21 @@ import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/user_failure_message.dart';
-import '../data/mcp_market_client.dart';
+import '../data/mcp_market_providers.dart';
 import '../model/mcp_market.dart';
+import '../model/mcp_market_provider.dart';
 import 'mcp_market_labels.dart';
 
 Future<void> showMcpMarketDialog(
   BuildContext context, {
   required Future<void> Function(String name) onConfigure,
-  McpMarketClient? client,
+  MarketProviderRegistry<McpMarketProvider>? providers,
   Future<bool> Function(String url)? openHttpUrl,
 }) => showAnimatedDialog<void>(
   context: context,
   builder: (_) => _McpMarketDialog(
     onConfigure: onConfigure,
-    client: client,
+    providers: providers ?? mcpMarketProviders,
     openHttpUrl: openHttpUrl,
   ),
 );
@@ -58,10 +61,10 @@ const Duration _kMcpMarketSearchDelay = Duration(milliseconds: 320);
 class _McpMarketDialog extends StatefulWidget {
   const _McpMarketDialog({
     required this.onConfigure,
-    this.client,
+    required this.providers,
     this.openHttpUrl,
   });
-  final McpMarketClient? client;
+  final MarketProviderRegistry<McpMarketProvider> providers;
   final Future<void> Function(String name) onConfigure;
   final Future<bool> Function(String url)? openHttpUrl;
 
@@ -70,7 +73,8 @@ class _McpMarketDialog extends StatefulWidget {
 }
 
 class _McpMarketDialogState extends State<_McpMarketDialog> {
-  late final McpMarketClient _client;
+  late final MarketProviderSession<McpMarketProvider> _session;
+  McpMarketProvider get _client => _session.provider!;
   final _search = TextEditingController();
   final _debounce = OpenHandDebouncer(delay: _kMcpMarketSearchDelay);
   List<(String, int)> _categories = [];
@@ -79,7 +83,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
   McpMarketServer? _detail;
   String _category = '';
   String? _listError, _categoryError, _detailError, _readmeError, _readme;
-  int _page = 1, _pageSize = McpMarketClient.defaultPageSize;
+  int _page = 1, _pageSize = McpMarketProvider.defaultPageSize;
   int _searchToken = 0, _detailToken = 0;
   bool _loading = true, _loadingDetail = false, _loadingReadme = false;
   bool _configuring = false, _loadingCategories = false;
@@ -89,30 +93,37 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
   @override
   void initState() {
     super.initState();
-    _client = widget.client ?? McpMarketClient();
-    unawaited(_loadCategories());
-    unawaited(_loadList());
+    _session = MarketProviderSession(widget.providers);
+    if (_session.provider != null) {
+      unawaited(_loadCategories());
+      unawaited(_loadList());
+    } else {
+      _loading = false;
+    }
   }
 
   @override
   void dispose() {
     _debounce.dispose();
-    _client.close();
+    _session.close();
     _search.dispose();
     super.dispose();
   }
 
   Future<void> _loadCategories() async {
-    if (_loadingCategories) return;
+    if (_loadingCategories || _session.provider == null) return;
+    final provider = _client;
     setState(() {
       _loadingCategories = true;
       _categoryError = null;
     });
     try {
-      final categories = await _client.categories();
-      if (mounted) setState(() => _categories = categories);
+      final categories = await provider.categories();
+      if (mounted && identical(provider, _session.provider)) {
+        setState(() => _categories = categories);
+      }
     } catch (_) {
-      if (mounted) {
+      if (mounted && identical(provider, _session.provider)) {
         setState(
           () => _categoryError = openHandLocalizedText(
             context,
@@ -126,14 +137,37 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
         );
       }
     } finally {
-      if (mounted) setState(() => _loadingCategories = false);
+      if (mounted && identical(provider, _session.provider)) {
+        setState(() => _loadingCategories = false);
+      }
     }
+  }
+
+  void _switchProvider(String id) {
+    if (_configuring || !_session.select(id)) return;
+    _debounce.cancel();
+    ++_searchToken;
+    ++_detailToken;
+    setState(() {
+      _page = 1;
+      _category = '';
+      _categories = [];
+      _result = null;
+      _selected = _detail = null;
+      _readme = null;
+      _listError = _categoryError = _detailError = _readmeError = null;
+      _loadingCategories = _loadingDetail = _loadingReadme = false;
+      _compactDetail = false;
+      _openingSourceUrl = null;
+    });
+    unawaited(_loadCategories());
+    unawaited(_loadList());
   }
 
   void _scheduleSearch() {
     _debounce.cancel();
     ++_searchToken;
-    _client.cancel('search');
+    _session.provider?.cancel('search');
     setState(() {
       _loading = true;
       _listError = null;
@@ -152,6 +186,13 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
     bool correctedPage = false,
   }) async {
     _debounce.cancel();
+    if (_session.provider == null) {
+      setState(() {
+        _loading = false;
+        _listError = marketProviderUnavailable(context);
+      });
+      return;
+    }
     final token = ++_searchToken;
     setState(() {
       if (resetPage) _page = 1;
@@ -201,6 +242,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
   }
 
   void _select(McpMarketServer? server) {
+    if (server != null && !(_result?.items.contains(server) ?? false)) return;
     final token = ++_detailToken;
     _client.cancel('detail');
     _client.cancel('readme');
@@ -356,12 +398,12 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                         Text(
                           openHandLocalizedText(
                             context,
-                            zh: '发现 SkillHub 服务，连接工具与灵感。',
-                            zhHant: '發現 SkillHub 服務，連接工具與靈感。',
-                            en: 'Discover SkillHub services and connect tools with ideas.',
-                            fr: 'Découvrez les services SkillHub et reliez outils et idées.',
-                            de: 'Entdecke SkillHub-Dienste und verbinde Werkzeuge mit Ideen.',
-                            ja: 'SkillHub のサービスを見つけ、ツールと発想をつなぎます。',
+                            zh: '发现 MCP 服务，连接工具与灵感。',
+                            zhHant: '發現 MCP 服務，連接工具與靈感。',
+                            en: 'Discover MCP services and connect tools with ideas.',
+                            fr: 'Découvrez les services MCP et reliez outils et idées.',
+                            de: 'Entdecke MCP-Dienste und verbinde Werkzeuge mit Ideen.',
+                            ja: 'MCP のサービスを見つけ、ツールと発想をつなぎます。',
                           ),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colors.onSurfaceVariant,
@@ -370,6 +412,15 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                         ),
                       ],
                     ),
+                  ),
+                  kOpenHandHGap12,
+                  MarketProviderSelector(
+                    providers: widget.providers.providers
+                        .map((entry) => entry.info)
+                        .toList(growable: false),
+                    selected: _session.info,
+                    enabled: !_configuring,
+                    onSelected: _switchProvider,
                   ),
                 ],
               ),
@@ -682,7 +733,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
             Expanded(
               child: AnimatedSwitcher(
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
-                child: _listError != null
+                child: _listError != null || _session.provider == null
                     ? _McpMarketStateMessage(
                         key: const ValueKey<String>('mcp-market-list-error'),
                         icon: Icons.cloud_off_outlined,
@@ -695,7 +746,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                           de: 'Laden fehlgeschlagen',
                           ja: '読み込めません',
                         ),
-                        body: _listError!,
+                        body: _listError ?? marketProviderUnavailable(context),
                         actionLabel: _retryLabel(context),
                         onAction: _loadList,
                       )

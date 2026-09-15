@@ -9,11 +9,13 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/market/market_provider.dart';
 import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/market_provider_selector.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -36,15 +38,20 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/user_failure_message.dart';
-import '../data/skill_market_client.dart';
+import '../data/skill_market_providers.dart';
 import '../model/skill_market.dart';
+import '../model/skill_market_provider.dart';
 import '../skills_controller.dart';
 import 'skill_market_labels.dart';
 
-Future<void> showSkillMarketDialog(BuildContext context) {
+Future<void> showSkillMarketDialog(
+  BuildContext context, {
+  MarketProviderRegistry<SkillMarketProvider>? providers,
+}) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (dialogContext) => const _SkillMarketDialog(),
+    builder: (dialogContext) =>
+        _SkillMarketDialog(providers: providers ?? skillMarketProviders),
   );
 }
 
@@ -67,7 +74,8 @@ const double _kSkillMarketFilePreviewEditorHeight = 560;
 const int _kSkillMarketFilePreviewMaxBytes = 4 * kBytesPerMiB;
 
 class _SkillMarketDialog extends StatefulWidget {
-  const _SkillMarketDialog();
+  const _SkillMarketDialog({required this.providers});
+  final MarketProviderRegistry<SkillMarketProvider> providers;
 
   @override
   State<_SkillMarketDialog> createState() => _SkillMarketDialogState();
@@ -80,7 +88,8 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   final OpenHandDebouncer _searchDebounce = OpenHandDebouncer(
     delay: _searchDebounceDuration,
   );
-  late final SkillMarketClient _marketClient;
+  late final MarketProviderSession<SkillMarketProvider> _session;
+  SkillMarketProvider get _marketClient => _session.provider!;
 
   int _page = 1;
   int _pageSize = kOpenHandTableDefaultPageSize;
@@ -102,14 +111,14 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   @override
   void initState() {
     super.initState();
-    _marketClient = SkillMarketClient();
-    unawaited(_runSearch(keepSelection: false));
+    _session = MarketProviderSession(widget.providers);
+    if (_session.provider != null) unawaited(_runSearch(keepSelection: false));
   }
 
   @override
   void dispose() {
     _searchDebounce.dispose();
-    _marketClient.close();
+    _session.close();
     _searchController.dispose();
     _installSuccessSignal.dispose();
     _installErrorSignal.dispose();
@@ -159,7 +168,12 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                                 child: _buildSearchPane(context),
                               ),
                               kOpenHandGap16,
-                              Expanded(child: _buildDetailPane(context)),
+                              Expanded(
+                                child: KeyedSubtree(
+                                  key: ValueKey(_session.info?.id),
+                                  child: _buildDetailPane(context),
+                                ),
+                              ),
                             ],
                           );
                         }
@@ -175,7 +189,12 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                               child: _buildSearchPane(context),
                             ),
                             kOpenHandHGap16,
-                            Expanded(child: _buildDetailPane(context)),
+                            Expanded(
+                              child: KeyedSubtree(
+                                key: ValueKey(_session.info?.id),
+                                child: _buildDetailPane(context),
+                              ),
+                            ),
                           ],
                         );
                       },
@@ -249,12 +268,12 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               Text(
                 openHandLocalizedText(
                   context,
-                  zh: '搜索 SkillHub 技能，查看详情后安装到当前全局技能目录。',
-                  zhHant: '搜尋 SkillHub 技能，查看詳情後安裝到目前全域技能目錄。',
-                  en: 'Search SkillHub skills, inspect details, and install into the current global skills directory.',
-                  fr: 'Recherchez des compétences SkillHub, consultez les détails, puis installez-les dans le dossier global actuel.',
-                  de: 'Suche SkillHub-Skills, prüfe Details und installiere sie in das aktuelle globale Skill-Verzeichnis.',
-                  ja: 'SkillHub のスキルを検索し、詳細を確認して現在のグローバルスキルディレクトリへインストールします。',
+                  zh: '搜索市场技能，查看详情后安装到当前全局技能目录。',
+                  zhHant: '搜尋市場技能，查看詳情後安裝到目前全域技能目錄。',
+                  en: 'Search marketplace skills, inspect details, and install into the current global skills directory.',
+                  fr: 'Recherchez des compétences du marché, consultez les détails, puis installez-les dans le dossier global actuel.',
+                  de: 'Suche Skills im Marktplatz, prüfe Details und installiere sie in das aktuelle globale Skill-Verzeichnis.',
+                  ja: 'マーケットのスキルを検索し、詳細を確認して現在のグローバルスキルディレクトリへインストールします。',
                 ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -263,6 +282,15 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               ),
             ],
           ),
+        ),
+        kOpenHandHGap12,
+        MarketProviderSelector(
+          providers: widget.providers.providers
+              .map((entry) => entry.info)
+              .toList(growable: false),
+          selected: _session.info,
+          enabled: !_isInstalling && !_filePreviewOpen,
+          onSelected: _switchProvider,
         ),
       ],
     );
@@ -347,7 +375,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
             Expanded(
               child: AnimatedSwitcher(
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
-                child: _searchError != null
+                child: _searchError != null || _session.provider == null
                     ? _MarketStateMessage(
                         key: const ValueKey<String>('market-search-error'),
                         icon: Icons.cloud_off_outlined,
@@ -360,15 +388,8 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                           de: 'Laden fehlgeschlagen',
                           ja: '読み込めません',
                         ),
-                        body: openHandLocalizedText(
-                          context,
-                          zh: '无法连接技能市场，请稍后重试。',
-                          zhHant: '無法連線技能市場，請稍後重試。',
-                          en: 'The skill market could not be reached. Try again later.',
-                          fr: 'Impossible de joindre le marché des compétences. Réessayez plus tard.',
-                          de: 'Der Skill-Markt ist nicht erreichbar. Versuche es später erneut.',
-                          ja: 'スキルマーケットに接続できません。後でもう一度お試しください。',
-                        ),
+                        body:
+                            _searchError ?? marketProviderUnavailable(context),
                         actionLabel: _skillMarketDiaRetryLabel(context),
                         onAction: () => _runSearch(keepSelection: false),
                       )
@@ -647,6 +668,22 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     unawaited(_runSearch(keepSelection: false));
   }
 
+  void _switchProvider(String id) {
+    if (_isInstalling || _filePreviewOpen || !_session.select(id)) return;
+    _searchDebounce.cancel();
+    ++_searchToken;
+    setState(() {
+      _page = 1;
+      _selectedPreviewVersions.clear();
+      _searchResult = null;
+      _selectedSkill = null;
+      _selectedBundleFuture = null;
+      _searchError = _installError = null;
+      _keyword = _searchInput.trim();
+    });
+    unawaited(_runSearch(keepSelection: false));
+  }
+
   void _clearSearch() {
     _searchDebounce.cancel();
     _searchController.clear();
@@ -660,12 +697,16 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
 
   void _refreshCurrentSearch() {
     _searchDebounce.cancel();
-    _marketClient.clearSearchCache();
+    _session.provider?.clearSearchCache();
     unawaited(_runSearch(keepSelection: true));
   }
 
   Future<void> _runSearch({required bool keepSelection}) async {
     final token = ++_searchToken;
+    if (_session.provider == null) {
+      setState(() => _searchError = marketProviderUnavailable(context));
+      return;
+    }
     setState(() {
       _isSearching = true;
       _searchError = null;
@@ -743,6 +784,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   }
 
   void _selectSkill(SkillMarketSummary skill, {bool forceReload = false}) {
+    if (!(_searchResult?.skills.contains(skill) ?? false)) return;
     if (!forceReload &&
         _selectedSkill?.slug == skill.slug &&
         _selectedBundleFuture != null) {
@@ -817,6 +859,8 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       return;
     }
     final skillsController = context.read<SkillsController>();
+    final provider = _marketClient;
+    final providerInfo = _session.info!;
     final previewVersion = _selectedPreviewVersions[skill.slug];
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
@@ -825,10 +869,13 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           skill: skill,
           storagePath: skillsController.storagePath,
           previewVersion: previewVersion,
+          providerInfo: providerInfo,
         );
       },
     );
-    if (!mounted || confirmed != true) {
+    if (!mounted ||
+        confirmed != true ||
+        !identical(provider, _session.provider)) {
       return;
     }
 
@@ -839,7 +886,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     });
 
     try {
-      final archiveBytes = await _marketClient.downloadSkillArchive(skill.slug);
+      final archiveBytes = await provider.downloadSkillArchive(skill.slug);
       final installedSkill = await skillsController.installSkillArchive(
         preferredSlug: skill.slug,
         archiveBytes: archiveBytes,
@@ -901,11 +948,13 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
   const _SkillMarketInstallConfirmDialog({
     required this.skill,
     required this.storagePath,
+    required this.providerInfo,
     this.previewVersion,
   });
 
   final SkillMarketSummary skill;
   final String storagePath;
+  final MarketProviderInfo providerInfo;
   final String? previewVersion;
 
   @override
@@ -1007,12 +1056,13 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
             Text(
               openHandLocalizedText(
                 context,
-                zh: '将从 SkillHub 下载技能压缩包，并解压到当前全局技能目录。',
-                zhHant: '將從 SkillHub 下載技能壓縮包，並解壓到目前全域技能目錄。',
-                en: 'OpenHand will download the skill archive from SkillHub and extract it into the current global skills directory.',
-                fr: 'OpenHand téléchargera l’archive depuis SkillHub et l’extraira dans le dossier global actuel.',
-                de: 'OpenHand lädt das Skill-Archiv von SkillHub und entpackt es in das aktuelle globale Skill-Verzeichnis.',
-                ja: 'OpenHand は SkillHub からスキルアーカイブをダウンロードし、現在のグローバルスキルディレクトリへ展開します。',
+                zh: '将从 ${marketProviderName(context, providerInfo)} 下载技能压缩包，并解压到当前全局技能目录。',
+                zhHant:
+                    '將從 ${marketProviderName(context, providerInfo)} 下載技能壓縮包，並解壓到目前全域技能目錄。',
+                en: 'OpenHand will download the skill archive from ${marketProviderName(context, providerInfo)} and extract it into the current global skills directory.',
+                fr: 'OpenHand téléchargera l’archive depuis ${marketProviderName(context, providerInfo)} et l’extraira dans le dossier global actuel.',
+                de: 'OpenHand lädt das Skill-Archiv von ${marketProviderName(context, providerInfo)} und entpackt es in das aktuelle globale Skill-Verzeichnis.',
+                ja: 'OpenHand は ${marketProviderName(context, providerInfo)} からスキルアーカイブをダウンロードし、現在のグローバルスキルディレクトリへ展開します。',
               ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
@@ -1979,7 +2029,7 @@ class _SkillMarketFilePreviewDialog extends StatefulWidget {
     required this.size,
   });
 
-  final SkillMarketClient client;
+  final SkillMarketProvider client;
   final String slug;
   final String version;
   final String path;

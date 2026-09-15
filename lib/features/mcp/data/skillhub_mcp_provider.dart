@@ -9,14 +9,17 @@ import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/mcp_market.dart';
+import '../model/mcp_market_provider.dart';
+import 'skillhub_mcp_mapper.dart';
 
 /// 每类请求只保留最新一次；关闭市场时终止所有在途请求。
-class McpMarketClient {
-  McpMarketClient({http.Client? httpClient})
+/// 腾讯 SkillHub 适配器，负责协议转换与有界网络请求。
+class SkillHubMcpProvider implements McpMarketProvider {
+  SkillHubMcpProvider({http.Client? httpClient})
     : _client = httpClient ?? SystemProxyResolver.instance.createHttpClient(),
       _ownsClient = httpClient == null;
 
-  static const int defaultPageSize = 24;
+  static const int defaultPageSize = McpMarketProvider.defaultPageSize;
   static const int maxResponseBytes = 2 * kBytesPerMiB;
   static const Duration _timeout = Duration(seconds: 15);
   static const String _host = 'api.skillhub.cn';
@@ -27,6 +30,7 @@ class McpMarketClient {
   final Map<String, Completer<void>> _requests = {};
   bool _closed = false;
 
+  @override
   Future<List<(String, int)>> categories() async {
     final json = await _json('categories', ['categories']);
     return (json['items'] as List)
@@ -38,12 +42,13 @@ class McpMarketClient {
         .toList(growable: false);
   }
 
+  @override
   Future<McpMarketPage> search({
     required int page,
     required int pageSize,
     required String keyword,
     required String category,
-  }) async => McpMarketPage.fromJson(
+  }) async => SkillHubMcpMapper.page(
     await _json(
       'search',
       ['servers'],
@@ -58,17 +63,21 @@ class McpMarketClient {
     ),
   );
 
+  @override
   Future<McpMarketServer> detail(String slug) async =>
-      McpMarketServer.fromJson(await _json('detail', ['servers', slug]));
+      SkillHubMcpMapper.server(await _json('detail', ['servers', slug]));
 
+  @override
   Future<String> readme(String slug) =>
       _get('readme', ['servers', slug, 'readme']);
 
+  @override
   void cancel(String scope) {
     final previous = _requests.remove(scope);
     if (previous != null && !previous.isCompleted) previous.complete();
   }
 
+  @override
   void close() {
     if (_closed) return;
     _closed = true;

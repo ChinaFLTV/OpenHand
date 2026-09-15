@@ -17,24 +17,18 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
 import '../model/skill_market.dart';
+import '../model/skill_market_provider.dart';
+import 'skillhub_skill_mapper.dart';
 
-class SkillMarketException implements Exception {
-  const SkillMarketException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
-class SkillMarketClient {
-  SkillMarketClient({http.Client? httpClient})
+/// 腾讯 SkillHub 适配器，负责协议转换与有界网络请求。
+class SkillHubSkillProvider implements SkillMarketProvider {
+  SkillHubSkillProvider({http.Client? httpClient})
     : _client = httpClient ?? SystemProxyResolver.instance.createHttpClient(),
       _ownsClient = httpClient == null;
 
   static const String _host = 'api.skillhub.cn';
-  static const int defaultPageSize = 24;
-  static const int maxPageSize = 200;
+  static const int defaultPageSize = SkillMarketProvider.defaultPageSize;
+  static const int maxPageSize = SkillMarketProvider.maxPageSize;
   static const int _maxDownloadBytes = 48 * kBytesPerMiB;
   static const int _maxJsonResponseBytes = 4 * kBytesPerMiB;
   static const BoundedJsonConversionConfig _jsonConversionConfig =
@@ -94,6 +88,7 @@ class SkillMarketClient {
         maxCost: _maxBundleCacheCharacters,
       );
 
+  @override
   void close() {
     if (_closed) return;
     _closed = true;
@@ -108,10 +103,12 @@ class SkillMarketClient {
     }
   }
 
+  @override
   void clearSearchCache() {
     _searchCache.clear();
   }
 
+  @override
   Future<SkillMarketSearchResult> searchSkills({
     required String keyword,
     required int page,
@@ -136,6 +133,7 @@ class SkillMarketClient {
     );
   }
 
+  @override
   Future<SkillMarketBundle> loadSkillBundle(String slug, {String? version}) {
     final normalizedSlug = nullIfBlank(slug);
     if (normalizedSlug == null) {
@@ -156,6 +154,7 @@ class SkillMarketClient {
     );
   }
 
+  @override
   Future<Uint8List> downloadSkillArchive(String slug) async {
     final normalizedSlug = nullIfBlank(slug);
     if (normalizedSlug == null) {
@@ -229,7 +228,7 @@ class SkillMarketClient {
       Uri.https(_host, '/api/skills', queryParameters),
     );
     _ensureEnvelopeSucceeded(json);
-    return SkillMarketSearchResult.fromJson(
+    return SkillHubSkillMapper.skillMarketSearchResult(
       json,
       page: page,
       pageSize: pageSize,
@@ -292,7 +291,7 @@ class SkillMarketClient {
       final json = await _getJson(
         Uri.https(_host, '/api/v1/skills/$normalizedSlug'),
       );
-      return SkillMarketDetail.fromJson(json);
+      return SkillHubSkillMapper.skillMarketDetail(json);
     });
   }
 
@@ -316,10 +315,11 @@ class SkillMarketClient {
           <String, String>{'version': normalizedVersion},
         ),
       );
-      return SkillMarketFilesResult.fromJson(json);
+      return SkillHubSkillMapper.skillMarketFilesResult(json);
     });
   }
 
+  @override
   Future<String> fetchSkillFileContent({
     required String slug,
     required String path,
@@ -390,7 +390,7 @@ class SkillMarketClient {
       final json = await _getJson(
         Uri.https(_host, '/api/v1/skills/$normalizedSlug/versions'),
       );
-      return SkillMarketVersionsResult.fromJson(json);
+      return SkillHubSkillMapper.skillMarketVersionsResult(json);
     });
   }
 

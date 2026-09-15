@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:openhand/features/mcp/data/mcp_market_client.dart';
+import 'package:openhand/features/mcp/data/skillhub_mcp_provider.dart';
 
 void main() {
   test('分类、搜索分页和中文筛选使用正确接口', () async {
     final requests = <Uri>[];
-    final client = McpMarketClient(
+    final client = SkillHubMcpProvider(
       httpClient: MockClient((request) async {
         requests.add(request.url);
         return _response(
@@ -51,7 +51,7 @@ void main() {
   });
 
   test('说明按纯文本读取，服务状态控制添加能力', () async {
-    final client = McpMarketClient(
+    final client = SkillHubMcpProvider(
       httpClient: MockClient(
         (request) async => request.url.path.endsWith('/readme')
             ? _response('# 使用说明\n配置参数', 200)
@@ -72,12 +72,12 @@ void main() {
 
   test('异常响应和超限内容可失败，失败后允许重试', () async {
     var attempt = 0;
-    final client = McpMarketClient(
+    final client = SkillHubMcpProvider(
       httpClient: MockClient((_) async {
         attempt++;
         return switch (attempt) {
           1 => _response('失败', 503),
-          2 => _response('x' * (McpMarketClient.maxResponseBytes + 1), 200),
+          2 => _response('x' * (SkillHubMcpProvider.maxResponseBytes + 1), 200),
           _ => _response('说明', 200),
         };
       }),
@@ -92,7 +92,7 @@ void main() {
 
   test('切换服务和关闭市场会取消旧请求', () async {
     final transport = _PendingClient();
-    final client = McpMarketClient(httpClient: transport);
+    final client = SkillHubMcpProvider(httpClient: transport);
     final first = client.readme('first');
     final firstFailure = expectLater(
       first,

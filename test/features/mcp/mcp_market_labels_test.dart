@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openhand/features/mcp/model/mcp_market.dart';
+import 'package:openhand/features/mcp/data/skillhub_mcp_mapper.dart';
 import 'package:openhand/features/mcp/widgets/mcp_market_labels.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 
@@ -61,17 +61,13 @@ void main() {
       '自定义分类',
     );
     expect(
-      await pumpLabel(
-        tester,
-        const Locale('fr'),
-        mcpMarketTypeLabel,
-      ),
+      await pumpLabel(tester, const Locale('fr'), mcpMarketTypeLabel),
       'Service MCP',
     );
   });
 
   testWidgets('概述优先使用接口原文，不把中文介绍硬译成英文', (tester) async {
-    final server = McpMarketServer.fromJson({
+    final server = SkillHubMcpMapper.server({
       'slug': 'demo',
       'name': '图灵知识桥',
       'summary': '连接知识与工具。',

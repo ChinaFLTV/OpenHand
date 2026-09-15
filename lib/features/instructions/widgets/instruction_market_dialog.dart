@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/market/market_provider.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
+import '../../../shared/ui/market_provider_selector.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -16,8 +20,11 @@ import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/localized_text.dart';
-import '../data/instruction_market_catalog.dart';
+import '../../../shared/util/user_failure_message.dart';
+import '../data/instruction_market_providers.dart';
 import '../instructions_controller.dart';
+import '../model/instruction_market.dart';
+import '../model/instruction_market_provider.dart';
 import '../model/user_instruction_entry.dart';
 import 'instruction_market_labels.dart';
 
@@ -35,14 +42,22 @@ const List<int> _kInstructionMarketPageSizes = <int>[12, 24, 48, 96];
 Future<void> showInstructionMarketDialog(
   BuildContext context, {
   required InstructionsController controller,
+  MarketProviderRegistry<InstructionMarketProvider>? providers,
 }) => showAnimatedDialog<void>(
   context: context,
   barrierDismissible: false,
-  builder: (_) => _InstructionMarketDialog(controller: controller),
+  builder: (_) => _InstructionMarketDialog(
+    controller: controller,
+    providers: providers ?? instructionMarketProviders,
+  ),
 );
 
 class _InstructionMarketDialog extends StatefulWidget {
-  const _InstructionMarketDialog({required this.controller});
+  const _InstructionMarketDialog({
+    required this.controller,
+    required this.providers,
+  });
+  final MarketProviderRegistry<InstructionMarketProvider> providers;
   final InstructionsController controller;
   @override
   State<_InstructionMarketDialog> createState() =>
@@ -53,8 +68,13 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
   final _search = TextEditingController();
   final _listScroll = ScrollController();
   final _detailScroll = ScrollController();
-  List<InstructionMarketEntry> _items = instructionMarketCatalog;
-  InstructionMarketEntry? _selected = instructionMarketCatalog.first;
+  late final MarketProviderSession<InstructionMarketProvider> _session;
+  List<InstructionMarketEntry> _catalog = const [];
+  List<InstructionMarketEntry> _items = const [];
+  bool _loading = false;
+  int _catalogToken = 0;
+  String? _loadError;
+  InstructionMarketEntry? _selected;
   String _category = '';
   int _page = 1, _pageSize = 24;
 
@@ -68,7 +88,63 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _session = MarketProviderSession(widget.providers);
+    unawaited(_loadCatalog());
+  }
+
+  Future<void> _loadCatalog() async {
+    final provider = _session.provider;
+    if (provider == null) return;
+    final token = ++_catalogToken;
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final catalog = await provider.loadCatalog();
+      if (!mounted || token != _catalogToken) return;
+      _catalog = List.unmodifiable(catalog);
+      _filter();
+    } catch (error) {
+      if (!mounted || token != _catalogToken) return;
+      setState(
+        () => _loadError = userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '指令市场加载失败，请重试。',
+            zhHant: '指令市場載入失敗，請重試。',
+            en: 'Instructions failed to load. Please retry.',
+            fr: 'Impossible de charger les instructions. Réessayez.',
+            de: 'Anweisungen konnten nicht geladen werden. Bitte erneut versuchen.',
+            ja: '指令を読み込めませんでした。再試行してください。',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted && token == _catalogToken) setState(() => _loading = false);
+    }
+  }
+
+  void _switchProvider(String id) {
+    if (_adding || !_session.select(id)) return;
+    ++_catalogToken;
+    setState(() {
+      _catalog = _items = const [];
+      _selected = null;
+      _page = 1;
+      _category = '';
+      _showDetail = false;
+      _error = _loadError = null;
+    });
+    unawaited(_loadCatalog());
+  }
+
+  @override
   void dispose() {
+    _session.close();
     _search.dispose();
     _listScroll.dispose();
     _detailScroll.dispose();
@@ -83,7 +159,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
       );
 
   void _filter() {
-    final items = instructionMarketCatalog
+    final items = _catalog
         .where(
           (e) =>
               (_category.isEmpty || e.category == _category) &&
@@ -209,6 +285,15 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                         ],
                       ),
                     ),
+                    kOpenHandHGap12,
+                    MarketProviderSelector(
+                      providers: widget.providers.providers
+                          .map((entry) => entry.info)
+                          .toList(growable: false),
+                      selected: _session.info,
+                      enabled: !_adding,
+                      onSelected: _switchProvider,
+                    ),
                   ],
                 ),
                 kOpenHandGap18,
@@ -318,10 +403,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final hint = Text(
-                      instructionMarketFooter(
-                        context,
-                        instructionMarketCatalog.length,
-                      ),
+                      instructionMarketFooter(context, _catalog.length),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -454,7 +536,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                 ],
                 IconButton(
                   tooltip: instructionMarketRefreshTooltip(context),
-                  onPressed: _adding ? null : _filter,
+                  onPressed: _adding || _loading ? null : _loadCatalog,
                   icon: const Icon(Icons.refresh_rounded),
                 ),
               ],
@@ -466,14 +548,17 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                 children: [
                   for (final category in [
                     '',
-                    ...kInstructionMarketCategoryOrder,
+                    ..._catalog
+                        .map((entry) => entry.category)
+                        .where((category) => category.isNotEmpty)
+                        .toSet(),
                   ])
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: OpenHandChoicePill(
                         label: category.isEmpty
                             ? openHandAllLabel(context)
-                            : '${instructionMarketCategoryLabel(context, category)} · ${instructionMarketCatalog.where((entry) => entry.category == category).length}',
+                            : '${instructionMarketCategoryLabel(context, category)} · ${_catalog.where((entry) => entry.category == category).length}',
                         selected: _category == category,
                         onSelected: _adding
                             ? null
@@ -490,11 +575,17 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
             Expanded(
               child: OpenHandSafeScrollbar(
                 controller: _listScroll,
-                child: _items.isEmpty
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _items.isEmpty || _loadError != null
                     ? Center(
                         child: OpenHandInlineEmptyState(
                           icon: Icons.search_off_rounded,
-                          message: instructionMarketEmptySearch(context),
+                          message:
+                              _loadError ??
+                              (_session.provider == null
+                                  ? marketProviderUnavailable(context)
+                                  : instructionMarketEmptySearch(context)),
                         ),
                       )
                     : ListView.separated(

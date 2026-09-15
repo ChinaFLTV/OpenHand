@@ -6,9 +6,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:openhand/app/theme/openhand_theme.dart';
 import 'package:openhand/app/theme/openhand_theme_preset.dart';
-import 'package:openhand/features/mcp/data/mcp_market_client.dart';
+import 'package:openhand/features/mcp/data/skillhub_mcp_provider.dart';
+import 'package:openhand/features/mcp/model/mcp_market_provider.dart';
 import 'package:openhand/features/mcp/widgets/mcp_market_dialog.dart';
 import 'package:openhand/l10n/app_localizations.dart';
+import 'package:openhand/shared/market/market_provider.dart';
+import 'package:openhand/shared/market/skillhub_provider_info.dart';
 import 'package:openhand/shared/ui/oh_pill.dart';
 import 'package:openhand/shared/ui/openhand_safe_scrollbar.dart';
 
@@ -25,7 +28,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       String? configuredName;
-      final client = McpMarketClient(
+      final client = SkillHubMcpProvider(
         httpClient: MockClient((request) async {
           final server = {
             'slug': 'graphlit',
@@ -71,7 +74,12 @@ void main() {
               builder: (context) => TextButton(
                 onPressed: () => showMcpMarketDialog(
                   context,
-                  client: client,
+                  providers: MarketProviderRegistry<McpMarketProvider>([
+                    MarketProviderRegistration(
+                      info: skillHubProviderInfo,
+                      create: () => client,
+                    ),
+                  ]),
                   onConfigure: (name) async {
                     configuredName = name;
                   },
@@ -153,7 +161,7 @@ void main() {
       {'slug': 'long', 'name': '长说明服务', 'status': 'visible'},
       {'slug': 'short', 'name': '短说明服务', 'status': 'visible'},
     ];
-    final client = McpMarketClient(
+    final client = SkillHubMcpProvider(
       httpClient: MockClient((request) async {
         final path = request.url.path;
         if (path.endsWith('/readme')) {
@@ -184,7 +192,12 @@ void main() {
             builder: (context) => TextButton(
               onPressed: () => showMcpMarketDialog(
                 context,
-                client: client,
+                providers: MarketProviderRegistry<McpMarketProvider>([
+                  MarketProviderRegistration(
+                    info: skillHubProviderInfo,
+                    create: () => client,
+                  ),
+                ]),
                 onConfigure: (_) async {},
               ),
               child: const Text('打开市场'),
@@ -229,7 +242,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final client = McpMarketClient(
+    final client = SkillHubMcpProvider(
       httpClient: MockClient((request) async {
         final server = {
           'slug': 'graphlit',
@@ -269,7 +282,12 @@ void main() {
             builder: (context) => TextButton(
               onPressed: () => showMcpMarketDialog(
                 context,
-                client: client,
+                providers: MarketProviderRegistry<McpMarketProvider>([
+                  MarketProviderRegistration(
+                    info: skillHubProviderInfo,
+                    create: () => client,
+                  ),
+                ]),
                 onConfigure: (_) async {},
               ),
               child: const Text('Open market'),
@@ -299,7 +317,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final opened = <String>[];
-    final client = McpMarketClient(
+    final client = SkillHubMcpProvider(
       httpClient: MockClient((request) async {
         final server = {
           'slug': 'tapd',
@@ -338,7 +356,12 @@ void main() {
             builder: (context) => TextButton(
               onPressed: () => showMcpMarketDialog(
                 context,
-                client: client,
+                providers: MarketProviderRegistry<McpMarketProvider>([
+                  MarketProviderRegistration(
+                    info: skillHubProviderInfo,
+                    create: () => client,
+                  ),
+                ]),
                 onConfigure: (_) async {},
                 openHttpUrl: (url) async {
                   opened.add(url);
