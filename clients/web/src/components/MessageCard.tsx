@@ -91,7 +91,10 @@ import { messageBubbleMaxWidth } from '../shared/ui/layout';
 import { registerOverlayEscapeLayer } from '../shared/ui/overlay_escape_stack';
 import { MediaKindIcon } from './MediaKindIcon';
 import { svgIconProps } from '../shared/ui/svg_icon';
-import { formatLocalDateTimeMinute } from '../shared/util/date_time';
+import {
+  formatCompactDurationMs,
+  formatLocalDateTimeMinute,
+} from '../shared/util/date_time';
 
 const TOOL_LIVE_ELAPSED_TICK_MS = 1000;
 
@@ -105,17 +108,6 @@ function timestampMsFromUnknown(value: unknown): number | null {
   if (!raw) return null;
   const parsed = Date.parse(raw);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function formatCompactDurationMs(milliseconds: number): string {
-  const safeMs = Math.max(0, Math.round(milliseconds));
-  const totalSeconds = Math.floor(safeMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
 }
 
 function useToolLiveElapsedMs(
