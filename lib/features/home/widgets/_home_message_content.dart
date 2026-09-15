@@ -1574,7 +1574,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final deferredThreshold = widget.streaming
         ? _markdownStreamingDeferredParseThresholdChars
         : _markdownDeferredParseThresholdChars;
-    final deferHistoricalInitial = initial && !widget.streaming;
+    // 已有 AST 时直接构建渲染树，避免历史消息在每次重新挂载时先短暂显示
+    // 原文占位，再切回 Markdown，展开/折叠期间尤其容易形成闪烁。
+    final deferHistoricalInitial =
+        initial && !widget.streaming && !_hasWarmMarkdownAst();
     final overDeferredThreshold = widget.data.length > deferredThreshold;
     if ((deferHistoricalInitial || overDeferredThreshold) &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
@@ -1592,7 +1595,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         return;
       }
       if (initial || !hadChildren) {
-        _renderDeferredPlaceholder(widget.data, streaming: widget.streaming);
+        _renderDeferredPlaceholder(widget.data);
       }
       if (_scrollActivity?.value ?? false) {
         _deferredParsePendingAfterScroll = true;
@@ -1669,29 +1672,11 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     );
   }
 
-  void _renderDeferredPlaceholder(String source, {required bool streaming}) {
+  void _renderDeferredPlaceholder(String source) {
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
     _disposeRecognizers();
-    if (!streaming) {
-      final preview = normalizeOpenHandMarkdownSource(
-        TranscriptListWindowing.boundedContentPreview(
-          source,
-          maxCharacters: _markdownDeferredParseThresholdChars,
-        ),
-        stripMessageScaffolding: true,
-      );
-      _children = <Widget>[
-        Text(
-          preview,
-          style: effectiveStyleSheet.p,
-          maxLines: _markdownStreamingPlaceholderMaxLines,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ];
-      return;
-    }
     _children = <Widget>[
       _MarkdownStabilizingPlaceholder(
         source: source,
@@ -1701,6 +1686,15 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         maxHeight: _markdownStreamingPlaceholderMaxHeight,
       ),
     ];
+  }
+
+  bool _hasWarmMarkdownAst() {
+    final normalizedSource = normalizeOpenHandMarkdownSource(
+      widget.data.isEmpty ? ' ' : widget.data,
+      stripMessageScaffolding: true,
+    );
+    final astKey = _markdownAstCacheKeyFor(normalizedSource, widget);
+    return _markdownAstCache.get(astKey) != null;
   }
 
   void _parseMarkdown() {

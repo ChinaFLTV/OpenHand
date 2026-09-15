@@ -1527,19 +1527,8 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
     );
   }
 
-  // 流式收尾或历史卡片重新进入视窗时保留可读正文，
-  // 禁止已显示的内容在 deferred parse 期间回退成骨架屏。
+  // 延迟解析期间保持稳定占位，禁止正文在原文与渲染树之间来回切换。
   if (!parseReady) {
-    if (deferInitialRender && markdownContent.length <= MARKDOWN_DEFERRED_PARSE_THRESHOLD) {
-      return (
-        <pre
-          class="oh-markdown whitespace-pre-wrap break-words text-sm"
-          style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily }}
-        >
-          {markdownContent}
-        </pre>
-      );
-    }
     return (
       <div class="oh-markdown text-sm" style={{ fontFamily }}>
         <MarkdownRenderPlaceholder source={markdownContent} />
