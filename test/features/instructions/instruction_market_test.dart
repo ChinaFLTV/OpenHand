@@ -9,6 +9,7 @@ import 'package:openhand/features/instructions/model/user_instruction_entry.dart
 import 'package:openhand/features/instructions/widgets/instruction_market_dialog.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/shared/ui/openhand_safe_scrollbar.dart';
+import 'package:openhand/shared/ui/openhand_table_pagination.dart';
 
 class _Store implements InstructionsStore {
   List<UserInstructionEntry> entries = [];
@@ -93,12 +94,38 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('指令市场'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(ValueKey(instructionMarketCatalog.first.avatarUrl)),
+        findsWidgets,
+      );
+      expect(
+        find.byKey(ValueKey(instructionMarketCatalog.first.backgroundUrl)),
+        findsOneWidget,
+      );
+      OpenHandTablePagination pager() => tester.widget<OpenHandTablePagination>(
+        find.byType(OpenHandTablePagination),
+      );
+      expect(pager().total, 16);
+      pager().onPageSizeChanged!(12);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('下一页'));
+      await tester.pumpAndSettle();
+      expect(pager().page, 2);
+      expect(
+        find.byKey(ValueKey(instructionMarketCatalog[12].avatarUrl)),
+        findsWidgets,
+      );
+      await tester.tap(find.byTooltip('刷新市场'));
+      await tester.pumpAndSettle();
+      expect(pager().page, 1);
+      expect(pager().pageSize, 12);
       await tester.enterText(find.byType(TextField).first, '不存在的角色');
       await tester.pumpAndSettle();
-      expect(find.text('共 0 条'), findsOneWidget);
+      expect(pager().total, 0);
+      expect(pager().page, 1);
       await tester.enterText(find.byType(TextField).first, 'hhhh');
       await tester.pumpAndSettle();
-      expect(find.text('共 1 条'), findsOneWidget);
+      expect(pager().total, 1);
       if (width < 800) {
         for (final tab in ['指令详情', '浏览指令', '指令详情']) {
           await tester.tap(find.text(tab));
@@ -122,7 +149,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.entries.single.body, instructionMarketCatalog[1].body);
       expect(controller.entries.single.enabled, isFalse);
-      expect(find.text('已添加'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '已添加'), findsOneWidget);
       final button = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, '已添加'),
       );
@@ -133,7 +160,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'hhhh');
       await tester.pumpAndSettle();
-      expect(find.text('已添加'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '已添加'), findsOneWidget);
       expect(controller.entries.length, 1);
       await tester.enterText(find.byType(TextField).first, 'MUM');
       await tester.pumpAndSettle();

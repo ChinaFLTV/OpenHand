@@ -11,6 +11,7 @@ import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../data/instruction_market_catalog.dart';
 import '../instructions_controller.dart';
 import '../model/user_instruction_entry.dart';
@@ -43,6 +44,15 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
   List<InstructionMarketEntry> _items = instructionMarketCatalog;
   InstructionMarketEntry? _selected = instructionMarketCatalog.first;
   String _category = '';
+  static const _pageSizes = [12, 24, 48, 96];
+  int _page = 1, _pageSize = 24;
+
+  List<InstructionMarketEntry> get _visibleItems =>
+      OpenHandPageWindow.normalize(
+        page: _page,
+        pageSize: _pageSize,
+        total: _items.length,
+      ).slice(_items);
   bool _showDetail = false, _adding = false;
   String? _error;
 
@@ -71,7 +81,26 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
         .toList(growable: false);
     setState(() {
       _items = items;
-      if (!items.contains(_selected)) _selected = items.firstOrNull;
+      _page = 1;
+      if (!_visibleItems.contains(_selected)) {
+        _selected = _visibleItems.firstOrNull;
+      }
+      _error = null;
+    });
+    if (_listScroll.hasClients) _listScroll.jumpTo(0);
+    if (_detailScroll.hasClients) _detailScroll.jumpTo(0);
+  }
+
+  void _changePage(int page, {int? pageSize}) {
+    final window = OpenHandPageWindow.normalize(
+      page: page,
+      pageSize: pageSize ?? _pageSize,
+      total: _items.length,
+    );
+    setState(() {
+      _page = window.page;
+      _pageSize = window.pageSize;
+      _selected = _visibleItems.firstOrNull;
       _error = null;
     });
     if (_listScroll.hasClients) _listScroll.jumpTo(0);
@@ -339,179 +368,251 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
     );
   }
 
-  Widget _listPane() => _pane(
-    Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          SearchBar(
-            enabled: !_adding,
-            controller: _search,
-            hintText: '搜索指令',
-            leading: const Icon(Icons.search_rounded),
-            elevation: const WidgetStatePropertyAll(0),
-            onChanged: (_) => _filter(),
-            trailing: [
-              if (_search.text.isNotEmpty)
-                IconButton(
-                  tooltip: '清空搜索',
-                  icon: const Icon(Icons.close_rounded),
-                  onPressed: () {
-                    _search.clear();
-                    _filter();
-                  },
-                ),
-            ],
-          ),
-          kOpenHandGap12,
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final category in ['', ..._categories])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: OpenHandChoicePill(
-                      label: category.isEmpty ? '全部' : category,
-                      selected: _category == category,
-                      onSelected: _adding
-                          ? null
-                          : () {
-                              _category = category;
-                              _filter();
-                            },
-                    ),
+  Widget _listPane() {
+    final visibleItems = _visibleItems;
+    return _pane(
+      Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            SearchBar(
+              enabled: !_adding,
+              controller: _search,
+              hintText: '搜索指令',
+              leading: const Icon(Icons.search_rounded),
+              elevation: const WidgetStatePropertyAll(0),
+              onChanged: (_) => _filter(),
+              trailing: [
+                if (_search.text.isNotEmpty) ...[
+                  IconButton(
+                    tooltip: '清空搜索',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () {
+                      _search.clear();
+                      _filter();
+                    },
                   ),
+                  kOpenHandHGap8,
+                ],
+                IconButton(
+                  tooltip: '刷新市场',
+                  onPressed: _adding ? null : _filter,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
               ],
             ),
-          ),
-          kOpenHandGap12,
-          Expanded(
-            child: OpenHandSafeScrollbar(
-              controller: _listScroll,
-              child: _items.isEmpty
-                  ? const Center(
-                      child: Text(
-                        '没有匹配的指令，试试其他关键词。',
-                        textAlign: TextAlign.center,
+            kOpenHandGap12,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final category in ['', ..._categories])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: OpenHandChoicePill(
+                        label: category.isEmpty
+                            ? '全部'
+                            : '$category · ${instructionMarketCatalog.where((entry) => entry.category == category).length}',
+                        selected: _category == category,
+                        onSelected: _adding
+                            ? null
+                            : () {
+                                _category = category;
+                                _filter();
+                              },
                       ),
-                    )
-                  : ListView.separated(
-                      controller: _listScroll,
-                      itemCount: _items.length,
-                      separatorBuilder: (_, _) => kOpenHandGap8,
-                      itemBuilder: (context, index) {
-                        final item = _items[index];
-                        final colors = Theme.of(context).colorScheme;
-                        final selected = _selected == item;
-                        final accent = Color(item.accent);
-                        final radius = BorderRadius.circular(kOpenHandRadius18);
-                        return MicroPressFeedback(
-                          child: Material(
-                            color: selected
-                                ? Color.alphaBlend(
-                                    accent.withValues(alpha: .13),
-                                    colors.surface,
-                                  )
-                                : colors.surface,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: radius,
-                              side: BorderSide(
-                                color: selected
-                                    ? accent
-                                    : colors.outlineVariant,
+                    ),
+                ],
+              ),
+            ),
+            kOpenHandGap12,
+            Expanded(
+              child: OpenHandSafeScrollbar(
+                controller: _listScroll,
+                child: _items.isEmpty
+                    ? const Center(
+                        child: Text(
+                          '没有匹配的指令，试试其他关键词。',
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : ListView.separated(
+                        controller: _listScroll,
+                        itemCount: visibleItems.length,
+                        separatorBuilder: (_, _) => kOpenHandGap8,
+                        itemBuilder: (context, index) {
+                          final item = visibleItems[index];
+                          final colors = Theme.of(context).colorScheme;
+                          final selected = _selected == item;
+                          final accent = Color(item.accent);
+                          final radius = BorderRadius.circular(
+                            kOpenHandRadius18,
+                          );
+                          return MicroPressFeedback(
+                            child: Material(
+                              color: selected
+                                  ? Color.alphaBlend(
+                                      accent.withValues(alpha: .13),
+                                      colors.surface,
+                                    )
+                                  : colors.surface,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: radius,
+                                side: BorderSide(
+                                  color: selected
+                                      ? accent
+                                      : colors.outlineVariant,
+                                ),
                               ),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: InkWell(
-                              onTap: _adding
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _selected = item;
-                                        _showDetail = true;
-                                        _error = null;
-                                      });
-                                      if (_detailScroll.hasClients) {
-                                        _detailScroll.jumpTo(0);
-                                      }
-                                    },
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _avatar(item),
-                                    kOpenHandHGap12,
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.name,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleSmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                          ),
-                                          kOpenHandGap8,
-                                          Text(
-                                            item.description,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          kOpenHandGap8,
-                                          Text(
-                                            _installed(item)
-                                                ? '${item.category} · 已添加'
-                                                : item.category,
-                                            style: TextStyle(
-                                              color: colors.primary,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                onTap: _adding
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          _selected = item;
+                                          _showDetail = true;
+                                          _error = null;
+                                        });
+                                        if (_detailScroll.hasClients) {
+                                          _detailScroll.jumpTo(0);
+                                        }
+                                      },
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: accent,
+                                        width: kOpenHandAccentBarWidth,
                                       ),
                                     ),
-                                  ],
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      12,
+                                      12,
+                                      12,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _avatar(item),
+                                        kOpenHandHGap12,
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                item.name,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleSmall
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 3),
+                                              Text(
+                                                'SkillHub',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: colors
+                                                          .onSurfaceVariant,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              ),
+                                              kOpenHandGap8,
+                                              Text(
+                                                item.description,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              kOpenHandGap8,
+                                              Wrap(
+                                                spacing: 6,
+                                                runSpacing: 6,
+                                                children: [
+                                                  OpenHandFactChip(
+                                                    icon: Icons
+                                                        .description_outlined,
+                                                    label: 'SOUL',
+                                                    color: colors.secondary,
+                                                  ),
+                                                  if (_installed(item))
+                                                    OpenHandFactChip(
+                                                      icon: Icons.check_rounded,
+                                                      label: '已添加',
+                                                      color: colors.primary,
+                                                    ),
+                                                  OpenHandFactChip(
+                                                    icon:
+                                                        Icons.category_outlined,
+                                                    label: item.category,
+                                                    color: accent,
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+            kOpenHandGap8,
+            OpenHandTablePagination(
+              total: _items.length,
+              page: _page,
+              pageSize: _pageSize,
+              pageSizes: _pageSizes,
+              enabled: !_adding,
+              onPageChanged: _changePage,
+              onPageSizeChanged: (size) => _changePage(1, pageSize: size),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _avatar(InstructionMarketEntry item, {double size = 44}) => ClipRRect(
+    borderRadius: BorderRadius.circular(kOpenHandRadius14),
+    child: Image.network(
+      item.avatarUrl,
+      key: ValueKey(item.avatarUrl),
+      width: size,
+      height: size,
+      cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => Container(
+        width: size,
+        height: size,
+        padding: const EdgeInsets.all(6),
+        color: Color(item.accent).withValues(alpha: .15),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            item.id,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+              fontSize: 15,
             ),
           ),
-          kOpenHandGap8,
-          Text(
-            '共 ${_items.length} 条',
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _avatar(InstructionMarketEntry item, {double size = 44}) => Container(
-    width: size,
-    height: size,
-    padding: const EdgeInsets.all(6),
-    decoration: BoxDecoration(
-      color: Color(item.accent).withValues(alpha: .15),
-      borderRadius: BorderRadius.circular(kOpenHandRadius14),
-    ),
-    child: FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        item.id,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface,
-          fontWeight: FontWeight.w900,
-          fontSize: 15,
         ),
       ),
     ),
@@ -572,6 +673,30 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                      kOpenHandGap14,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                        child: ColoredBox(
+                          color: accent.withValues(alpha: .08),
+                          child: SizedBox(
+                            height: 180,
+                            width: double.infinity,
+                            child: Image.network(
+                              entry.backgroundUrl,
+                              key: ValueKey(entry.backgroundUrl),
+                              cacheWidth: 1280,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => Center(
+                                child: Icon(
+                                  Icons.image_outlined,
+                                  size: 48,
+                                  color: accent,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       kOpenHandGap14,

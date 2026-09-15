@@ -1,4 +1,4 @@
-/// 内置角色目录：清洗自用户提供的 SkillHub 数据，不发起网络请求。
+/// 内置角色目录：清洗自用户提供的 SkillHub 数据，目录无需远程接口。
 class InstructionMarketEntry {
   const InstructionMarketEntry({
     required this.id,
@@ -21,7 +21,7 @@ class InstructionMarketEntry {
   final String role, style, approach, tone, interpretation;
   static const _sourceImageBase =
       'https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/';
-  // 保留原始素材引用供后续资源管理使用；离线市场使用本地角色标识。
+  // 原始素材用于列表头像与详情角色画幅。
   String get avatarUrl => '$_sourceImageBase$avatarId.png';
   String get backgroundUrl => '$_sourceImageBase$backgroundId.png';
   String get sourceKey => 'skillhub:soul:$id';
