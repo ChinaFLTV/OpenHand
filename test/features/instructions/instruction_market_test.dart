@@ -137,11 +137,10 @@ void main() {
       expect(controller.entries.length, 1);
       await tester.enterText(find.byType(TextField).first, 'MUM');
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(Switch));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('添加指令'));
       await tester.pumpAndSettle();
-      expect(controller.enabledEntries.single.name, 'MUM・妈妈');
+      expect(controller.enabledEntries, isEmpty);
+      expect(controller.entries.every((entry) => !entry.enabled), isTrue);
       expect(controller.entries.length, 2);
 
       await tester.tap(find.text('关闭'));

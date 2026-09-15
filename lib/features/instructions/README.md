@@ -20,5 +20,5 @@
 ## 本地指令市场
 - `data/instruction_market_catalog.dart` 内置 16 个角色，保留来源 ID、素材引用、简介与解读；不请求远程目录或图片。
 - 角色提示词由角色、风格、方式、语气四个字段统一生成；角色解读仅用于展示，不注入提示词。
-- 添加复用 `InstructionsController.createEntry`，默认停用，可选择添加后启用；以来源关键字和正文识别已添加条目。
+- 添加复用 `InstructionsController.createEntry`，添加后统一停用，由用户在指令板块选择性启用；以来源关键字和正文识别已添加条目。
 - 市场沿用共享弹窗、纯色面板与 Markdown 组件，列表和详情各自持有滚动控制器。

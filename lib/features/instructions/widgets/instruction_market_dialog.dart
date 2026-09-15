@@ -43,7 +43,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
   List<InstructionMarketEntry> _items = instructionMarketCatalog;
   InstructionMarketEntry? _selected = instructionMarketCatalog.first;
   String _category = '';
-  bool _showDetail = false, _adding = false, _enableOnAdd = false;
+  bool _showDetail = false, _adding = false;
   String? _error;
 
   @override
@@ -91,7 +91,7 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
         description: entry.description,
         body: entry.body,
         keywords: [entry.sourceKey],
-        enabled: _enableOnAdd,
+        enabled: false,
       );
       if (mounted && !saved) {
         setState(
@@ -263,30 +263,13 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                 ),
                 OpenHandDialogBusyBar(busy: _adding),
                 kOpenHandGap12,
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      '本地内置 · ${instructionMarketCatalog.length} 个角色',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('添加后启用'),
-                        Switch(
-                          value: _enableOnAdd,
-                          onChanged: _adding || installed
-                              ? null
-                              : (value) => setState(() => _enableOnAdd = value),
-                        ),
-                      ],
-                    ),
-                  ],
+                Text(
+                  '本地内置 · ${instructionMarketCatalog.length} 个角色',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
+                kOpenHandGap12,
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final width = ((constraints.maxWidth - 12) / 2).clamp(
