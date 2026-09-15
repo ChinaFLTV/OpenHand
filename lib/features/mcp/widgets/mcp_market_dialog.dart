@@ -56,8 +56,6 @@ class _McpMarketDialog extends StatefulWidget {
 class _McpMarketDialogState extends State<_McpMarketDialog> {
   late final McpMarketClient _client;
   final _search = TextEditingController();
-  final _listScroll = ScrollController();
-  final _detailScroll = ScrollController();
   final _debounce = OpenHandDebouncer(delay: _kMcpMarketSearchDelay);
   List<(String, int)> _categories = [];
   McpMarketPage? _result;
@@ -84,8 +82,6 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
     _debounce.dispose();
     _client.close();
     _search.dispose();
-    _listScroll.dispose();
-    _detailScroll.dispose();
     super.dispose();
   }
 
@@ -163,7 +159,6 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
         _result = result;
         _loading = false;
       });
-      if (_listScroll.hasClients) _listScroll.jumpTo(0);
       final selected = result.items
           .where((item) => item.slug == _selected?.slug)
           .firstOrNull;
@@ -199,7 +194,6 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
       _detailError = _readmeError = null;
       _loadingDetail = _loadingReadme = server != null;
     });
-    if (_detailScroll.hasClients) _detailScroll.jumpTo(0);
     if (server != null) {
       unawaited(_loadDetail(server.slug, token));
       unawaited(_loadReadme(server.slug, token));
@@ -711,13 +705,13 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                           ja: '一致するサービスがありません。別のキーワードや分類を試してください。',
                         ),
                       )
-                    : OpenHandSafeScrollbar(
+                    : _McpMarketScrollRegion(
                         key: ValueKey<String>(
                           'mcp-market-results-$_page-$_category',
                         ),
-                        controller: _listScroll,
-                        child: ListView.separated(
-                          controller: _listScroll,
+                        resetKey: _result,
+                        builder: (controller) => ListView.separated(
+                          controller: controller,
                           itemCount: items.length,
                           separatorBuilder: (context, index) => kOpenHandGap8,
                           itemBuilder: (context, index) {
@@ -848,10 +842,10 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
         ? ''
         : mcpMarketCategoryLabel(context, server.category);
     return _paneSurface(
-      child: OpenHandSafeScrollbar(
-        controller: _detailScroll,
-        child: SingleChildScrollView(
-          controller: _detailScroll,
+      child: _McpMarketScrollRegion(
+        resetKey: server.slug,
+        builder: (controller) => SingleChildScrollView(
+          controller: controller,
           padding: const EdgeInsets.all(16),
           child: _switchContent(
             Column(
@@ -1143,6 +1137,45 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
       ),
     );
   }
+}
+
+/// 退场面板仍挂载时，控制器随各自滚动区域独立存活。
+class _McpMarketScrollRegion extends StatefulWidget {
+  const _McpMarketScrollRegion({
+    super.key,
+    required this.resetKey,
+    required this.builder,
+  });
+
+  final Object? resetKey;
+  final Widget Function(ScrollController controller) builder;
+
+  @override
+  State<_McpMarketScrollRegion> createState() => _McpMarketScrollRegionState();
+}
+
+class _McpMarketScrollRegionState extends State<_McpMarketScrollRegion> {
+  final _controller = ScrollController(keepScrollOffset: false);
+
+  @override
+  void didUpdateWidget(_McpMarketScrollRegion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.resetKey != widget.resetKey && _controller.hasClients) {
+      _controller.jumpTo(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => OpenHandSafeScrollbar(
+    controller: _controller,
+    child: widget.builder(_controller),
+  );
 }
 
 class _McpMarketResultTile extends StatelessWidget {

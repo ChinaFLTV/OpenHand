@@ -10,6 +10,7 @@ import 'package:openhand/features/mcp/data/mcp_market_client.dart';
 import 'package:openhand/features/mcp/widgets/mcp_market_dialog.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/shared/ui/oh_pill.dart';
+import 'package:openhand/shared/ui/openhand_safe_scrollbar.dart';
 
 void main() {
   for (final (size, textScale) in [
@@ -97,6 +98,19 @@ void main() {
           reason: '分类胶囊的选中态与未选中态文字均应垂直居中',
         );
       }
+      await tester.tap(find.text('搜索与信息检索 · 1'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      for (final bar in tester.widgetList<OpenHandSafeScrollbar>(
+        find.byType(OpenHandSafeScrollbar, skipOffstage: false),
+      )) {
+        expect(
+          bar.controller?.positions.length ?? 0,
+          lessThanOrEqualTo(1),
+          reason: '分类切换的新旧列表不能共享控制器',
+        );
+      }
+      await tester.pumpAndSettle();
       expect(find.text('图灵知识桥'), findsWidgets);
       if (size.width < 800) {
         await tester.tap(find.text('服务详情'));
@@ -107,6 +121,15 @@ void main() {
           await tester.tap(find.text(tab));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 40));
+          for (final bar in tester.widgetList<OpenHandSafeScrollbar>(
+            find.byType(OpenHandSafeScrollbar, skipOffstage: false),
+          )) {
+            expect(
+              bar.controller?.positions.length ?? 0,
+              lessThanOrEqualTo(1),
+              reason: '切换动画的新旧面板必须独立持有滚动位置',
+            );
+          }
           expect(tester.takeException(), isNull);
         }
         await tester.pumpAndSettle();
