@@ -1107,6 +1107,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody>
         inlineSyntaxes: widget.inlineSyntaxes,
         pathRoots: widget.pathRoots,
         parseKey: widget.parseKey,
+        deferInitialParse: !widget.expanded,
       ),
     );
   }
@@ -1161,6 +1162,7 @@ class _SafeMarkdownBody extends StatefulWidget {
     this.inlineSyntaxes = const <md.InlineSyntax>[],
     this.pathRoots = const <String>[],
     this.parseKey = '',
+    this.deferInitialParse = true,
   });
 
   final String data;
@@ -1171,6 +1173,7 @@ class _SafeMarkdownBody extends StatefulWidget {
   final List<md.InlineSyntax> inlineSyntaxes;
   final List<String> pathRoots;
   final String parseKey;
+  final bool deferInitialParse;
 
   @override
   State<_SafeMarkdownBody> createState() => _SafeMarkdownBodyState();
@@ -1584,9 +1587,14 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     // 已有 AST 时直接构建渲染树，避免历史消息在每次重新挂载时先短暂显示
     // 原文占位，再切回 Markdown，展开/折叠期间尤其容易形成闪烁。
     final deferHistoricalInitial =
-        initial && !widget.streaming && !_hasWarmMarkdownAst();
+        initial &&
+        widget.deferInitialParse &&
+        !widget.streaming &&
+        !_hasWarmMarkdownAst();
     final overDeferredThreshold = widget.data.length > deferredThreshold;
-    if ((deferHistoricalInitial || overDeferredThreshold) &&
+    final shouldDeferParse =
+        deferHistoricalInitial || (widget.streaming && overDeferredThreshold);
+    if (shouldDeferParse &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
         (overDeferredThreshold ||
             !_canRenderMarkdownAsPlainText(widget.data))) {
