@@ -1419,7 +1419,7 @@ export function MediaPreviewDialog({ item: initialItem, url: initialUrl, onClose
       <header ref={headerRef} class="px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>
         <div class="min-w-0 mb-2">
           <p class="text-sm font-semibold truncate">{item.name}</p>
-          <p class="text-xs oh-text-muted">{mediaKindLabel(item.kind)}{gallery ? ` · ${index + 1} / ${gallery.length}` : ''}</p>
+          <p class="text-xs oh-text-muted">{mediaKindLabel(item.kind)}</p>
         </div>
         <div class="flex flex-wrap justify-end gap-2">
           {onLocate ? <button type="button" class="oh-image-gallery-action oh-tap-press" title="定位到消息" aria-label="定位到消息"
@@ -1449,15 +1449,21 @@ export function MediaPreviewDialog({ item: initialItem, url: initialUrl, onClose
             <svg {...svgIconProps({ size: 20 })}><path d="m6 6 12 12M6 18 18 6" /></svg>
           </button>
         </div>
+        {gallery ? <div class="oh-image-gallery-navigation">
+          {gallery.length > 1 ? <button type="button" class="oh-image-gallery-action oh-tap-press"
+            aria-label="上一张" title="上一张" disabled={index === 0 || saving || copying || closing}
+            onClick={() => setIndex(index - 1)}><svg {...svgIconProps({ size: 22 })}><path d="m15 6-6 6 6 6" /></svg></button> : <span />}
+          <span class="text-sm text-center" aria-live="polite">{index + 1} / {gallery.length}</span>
+          {gallery.length > 1 ? <button type="button" class="oh-image-gallery-action oh-tap-press"
+            aria-label="下一张" title="下一张" disabled={index === gallery.length - 1 || saving || copying || closing}
+            onClick={() => setIndex(index + 1)}><svg {...svgIconProps({ size: 22 })}><path d="m9 6 6 6-6 6" /></svg></button> : <span />}
+        </div> : null}
       </header>
         <div
           ref={stageRef}
-          class="min-h-0 flex items-center justify-center oh-image-gallery-stage"
+          class="min-h-0 flex items-center justify-center"
           style={stageStyle}
         >
-          {gallery && gallery.length > 1 ? <button type="button" class="oh-image-gallery-action oh-image-gallery-previous oh-tap-press"
-            aria-label="上一张" title="上一张" disabled={index === 0 || saving || copying || closing}
-            onClick={() => setIndex(index - 1)}><svg {...svgIconProps({ size: 22 })}><path d="m15 6-6 6 6 6" /></svg></button> : null}
           {item.kind === 'image' ? (
             <InteractiveImagePreview key={url}
               item={item}
@@ -1517,9 +1523,6 @@ export function MediaPreviewDialog({ item: initialItem, url: initialUrl, onClose
               </div>
             </div>
           )}
-          {gallery && gallery.length > 1 ? <button type="button" class="oh-image-gallery-action oh-image-gallery-next oh-tap-press"
-            aria-label="下一张" title="下一张" disabled={index === gallery.length - 1 || saving || copying || closing}
-            onClick={() => setIndex(index + 1)}><svg {...svgIconProps({ size: 22 })}><path d="m9 6 6 6-6 6" /></svg></button> : null}
         </div>
     </DialogFrame>
   );

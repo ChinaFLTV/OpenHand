@@ -11587,8 +11587,14 @@ button.oh-json-tree-row { cursor: pointer; }
   .oh-resource-usage-event:hover { transform: none; }
 }
 
-/* 图片组预览：按钮不参与图片尺寸计算，沿用全局纯色与按压动效。 */
-.oh-image-gallery-stage { position: relative; }
+/* 图片组导航：页码居中，左右按钮与页码位于同一行。 */
+.oh-image-gallery-navigation {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  align-items: center;
+  min-height: 48px;
+  margin-top: 8px;
+}
 .oh-image-gallery-action {
   display: inline-flex;
   align-items: center;
@@ -11606,11 +11612,3 @@ button.oh-json-tree-row { cursor: pointer; }
   cursor: pointer;
 }
 .oh-image-gallery-action:disabled { opacity: .4; cursor: default; }
-.oh-image-gallery-previous, .oh-image-gallery-next {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
-}
-.oh-image-gallery-previous { left: 16px; }
-.oh-image-gallery-next { right: 16px; }

@@ -3224,29 +3224,16 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                       ],
                     ),
                   ),
-                  SizedBox(
-                    height: 48,
-                    child: Center(
-                      child: Text('${_index + 1} / ${widget.images.length}'),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
-                  // SizedBox 尺寸等于媒体实际显示尺寸, Image 内部不会再产生
-                  // 固定容器导致的左右或上下 letterbox 留白。
                   Padding(
-                    padding: const EdgeInsets.all(_kPadding),
+                    padding: const EdgeInsets.symmetric(horizontal: _kPadding),
                     child: SizedBox(
-                      width: metrics.contentWidth,
-                      height: metrics.contentHeight,
+                      height: 48,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          OpenHandInteractiveImagePreview(
-                            key: ValueKey(_imageSourceSignature),
-                            child: _buildPreviewImage(
-                              context,
-                              Size(metrics.contentWidth, metrics.contentHeight),
+                          Center(
+                            child: Text(
+                              '${_index + 1} / ${widget.images.length}',
                             ),
                           ),
                           if (widget.images.length > 1)
@@ -3273,6 +3260,24 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                               ),
                             ),
                         ],
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
+                  // SizedBox 尺寸等于媒体实际显示尺寸, Image 内部不会再产生
+                  // 固定容器导致的左右或上下 letterbox 留白。
+                  Padding(
+                    padding: const EdgeInsets.all(_kPadding),
+                    child: SizedBox(
+                      width: metrics.contentWidth,
+                      height: metrics.contentHeight,
+                      child: OpenHandInteractiveImagePreview(
+                        key: ValueKey(_imageSourceSignature),
+                        child: _buildPreviewImage(
+                          context,
+                          Size(metrics.contentWidth, metrics.contentHeight),
+                        ),
                       ),
                     ),
                   ),
