@@ -4702,7 +4702,7 @@ function ReasoningCollapsibleBody({
           class={`oh-reasoning-collapsible-fade${atBottom ? ' is-hidden' : ''}${scrollingCollapsedBody ? ' is-scroll-sync' : ''}`}
           aria-hidden="true"
           style={{
-            background: fadeBackground,
+            background: `linear-gradient(to bottom, transparent 0%, ${fadeBackground} 88%)`,
           }}
         />
       ) : null}
