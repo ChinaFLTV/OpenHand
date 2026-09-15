@@ -17,6 +17,7 @@ class OpenHandDocumentMarkdownPreview extends StatelessWidget {
     this.maxCharacters,
     this.truncationMessage = '',
     this.emptyMessage = '',
+    this.onTapLink,
   });
 
   final String data;
@@ -24,6 +25,7 @@ class OpenHandDocumentMarkdownPreview extends StatelessWidget {
   final int? maxCharacters;
   final String truncationMessage;
   final String emptyMessage;
+  final void Function(String text, String? href, String title)? onTapLink;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +54,7 @@ class OpenHandDocumentMarkdownPreview extends StatelessWidget {
       data: markdown,
       backgroundColor: markdownBackground,
       textColor: colorScheme.onSurface,
+      onTapLink: onTapLink,
       builders: {
         'pre': OpenHandHighlightedCodeBlockBuilder(
           theme: theme,

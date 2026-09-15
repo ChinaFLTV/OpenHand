@@ -292,6 +292,86 @@ void main() {
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
   });
+
+  testWidgets('项目来源展示可点击卡片，并用系统浏览器打开合法链接', (tester) async {
+    tester.view.physicalSize = const Size(1280, 960);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final opened = <String>[];
+    final client = McpMarketClient(
+      httpClient: MockClient((request) async {
+        final server = {
+          'slug': 'tapd',
+          'name': '腾讯云TAPD MCP Server',
+          'publisher': '腾讯云TAPD团队',
+          'category': '腾讯产品MCP',
+          'summary': '与 TAPD API 无缝集成。',
+          'status': 'visible',
+          'repoUrl': 'javascript:alert(1)',
+          'homepage': 'https://example.com/home',
+          'sourceUrl': 'https://skillhub.example/mcp/tapd',
+        };
+        final path = request.url.path;
+        if (path.endsWith('/readme')) {
+          return _response('# TAPD MCP Server\n\n查看说明。', 200);
+        }
+        final body = path.endsWith('/categories')
+            ? {'items': []}
+            : path.endsWith('/servers')
+            ? {
+                'items': [server],
+                'total': 1,
+              }
+            : server;
+        return _response(jsonEncode(body), 200);
+      }),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showMcpMarketDialog(
+                context,
+                client: client,
+                onConfigure: (_) async {},
+                openHttpUrl: (url) async {
+                  opened.add(url);
+                  return true;
+                },
+              ),
+              child: const Text('打开市场'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('打开市场'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('项目来源'), findsOneWidget);
+    expect(find.text('代码仓库'), findsNothing);
+    expect(find.text('项目主页'), findsOneWidget);
+    expect(find.text('服务来源'), findsOneWidget);
+    expect(find.text('example.com/home'), findsOneWidget);
+    expect(find.text('skillhub.example/mcp/tapd'), findsOneWidget);
+    await tester.tap(find.text('项目主页'));
+    await tester.pumpAndSettle();
+    expect(opened, ['https://example.com/home']);
+    await tester.tap(find.text('服务来源'));
+    await tester.pumpAndSettle();
+    expect(opened, [
+      'https://example.com/home',
+      'https://skillhub.example/mcp/tapd',
+    ]);
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+  });
 }
 
 http.Response _response(String body, int status) =>

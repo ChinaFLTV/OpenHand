@@ -4,6 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
+import '../../../app/support/url_validation.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
@@ -16,8 +19,8 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
-import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/localized_text.dart';
@@ -31,9 +34,14 @@ Future<void> showMcpMarketDialog(
   BuildContext context, {
   required Future<void> Function(String name) onConfigure,
   McpMarketClient? client,
+  Future<bool> Function(String url)? openHttpUrl,
 }) => showAnimatedDialog<void>(
   context: context,
-  builder: (_) => _McpMarketDialog(onConfigure: onConfigure, client: client),
+  builder: (_) => _McpMarketDialog(
+    onConfigure: onConfigure,
+    client: client,
+    openHttpUrl: openHttpUrl,
+  ),
 );
 
 const double _kMcpMarketDialogWidth = 1220;
@@ -42,12 +50,19 @@ const double _kMcpMarketListAvatarSize = 46;
 const double _kMcpMarketDetailAvatarSize = 64;
 const double _kMcpMarketCategoryRowMinHeight = 44;
 const double _kMcpMarketCategoryChipMaxWidth = 260;
+const double _kMcpMarketSourceIconBox = 40;
+const double _kMcpMarketSourceIconGlyph = 20;
 const Duration _kMcpMarketSearchDelay = Duration(milliseconds: 320);
 
 class _McpMarketDialog extends StatefulWidget {
-  const _McpMarketDialog({required this.onConfigure, this.client});
+  const _McpMarketDialog({
+    required this.onConfigure,
+    this.client,
+    this.openHttpUrl,
+  });
   final McpMarketClient? client;
   final Future<void> Function(String name) onConfigure;
+  final Future<bool> Function(String url)? openHttpUrl;
 
   @override
   State<_McpMarketDialog> createState() => _McpMarketDialogState();
@@ -68,6 +83,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
   bool _loading = true, _loadingDetail = false, _loadingReadme = false;
   bool _configuring = false, _loadingCategories = false;
   bool _compactDetail = false;
+  String? _openingSourceUrl;
 
   @override
   void initState() {
@@ -193,6 +209,7 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
       _readme = null;
       _detailError = _readmeError = null;
       _loadingDetail = _loadingReadme = server != null;
+      _openingSourceUrl = null;
     });
     if (server != null) {
       unawaited(_loadDetail(server.slug, token));
@@ -1030,6 +1047,9 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                           truncationMessage: _mcpMarketTruncationMessage(
                             context,
                           ),
+                          onTapLink: (text, href, title) {
+                            unawaited(_openProjectSource(href ?? text));
+                          },
                         ),
                     ],
                   ),
@@ -1044,52 +1064,20 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
   }
 
   Widget _projectLinks(McpMarketServer server) {
-    final entries = <(String, String)>[
-      (
-        openHandLocalizedText(
-          context,
-          zh: '代码仓库',
-          zhHant: '程式碼倉庫',
-          en: 'Repository',
-          fr: 'Dépôt',
-          de: 'Repository',
-          ja: 'リポジトリ',
+    final tiles = <Widget>[
+      for (final item in _mcpMarketSourceItems(context, server))
+        _McpMarketSourceTile(
+          title: item.title,
+          uri: item.uri,
+          icon: item.icon,
+          accent: item.accent,
+          busy: _openingSourceUrl == item.uri.toString(),
+          onOpen: _openingSourceUrl == null
+              ? () => unawaited(_openProjectSource(item.uri.toString()))
+              : null,
         ),
-        server.repoUrl,
-      ),
-      (
-        openHandLocalizedText(
-          context,
-          zh: '项目主页',
-          zhHant: '專案首頁',
-          en: 'Homepage',
-          fr: 'Page d’accueil',
-          de: 'Startseite',
-          ja: 'プロジェクトページ',
-        ),
-        server.homepage,
-      ),
-      (
-        openHandLocalizedText(
-          context,
-          zh: '服务来源',
-          zhHant: '服務來源',
-          en: 'Service source',
-          fr: 'Source du service',
-          de: 'Dienstquelle',
-          ja: 'サービス出典',
-        ),
-        server.sourceUrl,
-      ),
     ];
-    final links = [
-      for (final entry in entries)
-        if (_webLink(entry.$2) != null)
-          OpenHandThemedMarkdownBody(
-            data: '[${entry.$1}](<${_webLink(entry.$2)}>)',
-          ),
-    ];
-    if (links.isEmpty) {
+    if (tiles.isEmpty) {
       return OpenHandInlineEmptyState.compact(
         message: openHandLocalizedText(
           context,
@@ -1102,16 +1090,47 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
         ),
       );
     }
-    return Wrap(spacing: 10, runSpacing: 8, children: links);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < tiles.length; i++) ...[
+          if (i > 0) kOpenHandGap8,
+          tiles[i],
+        ],
+      ],
+    );
   }
 
-  String? _webLink(String value) {
-    final uri = Uri.tryParse(value);
-    return uri != null &&
-            (uri.scheme == 'https' || uri.scheme == 'http') &&
-            uri.host.isNotEmpty
-        ? uri.toString().replaceAll('>', '%3E').replaceAll('<', '%3C')
-        : null;
+  Future<void> _openProjectSource(String url) async {
+    if (_openingSourceUrl != null) return;
+    final uri = tryParseValidHttpUrl(url);
+    if (uri == null) {
+      if (!mounted) return;
+      showOpenHandErrorSnack(context, _mcpMarketOpenLinkFailedLabel(context));
+      return;
+    }
+    final target = uri.toString();
+    _openingSourceUrl = target;
+    if (mounted) setState(() {});
+    try {
+      final opener = widget.openHttpUrl;
+      final opened = opener != null
+          ? await opener(target)
+          : await openHttpUrlWithSystemBrowser(
+              target,
+              tag: 'mcp_market.open_url',
+            );
+      if (!mounted || opened) return;
+      showOpenHandErrorSnack(context, _mcpMarketOpenLinkFailedLabel(context));
+    } catch (error, stack) {
+      silentLog('mcp_market', '打开项目来源', error, stack);
+      if (mounted) {
+        showOpenHandErrorSnack(context, _mcpMarketOpenLinkFailedLabel(context));
+      }
+    } finally {
+      if (_openingSourceUrl == target) _openingSourceUrl = null;
+      if (mounted) setState(() {});
+    }
   }
 
   Widget _inlineError(String message, VoidCallback retry) {
@@ -1176,6 +1195,141 @@ class _McpMarketScrollRegionState extends State<_McpMarketScrollRegion> {
     controller: _controller,
     child: widget.builder(_controller),
   );
+}
+
+class _McpMarketSourceTile extends StatelessWidget {
+  const _McpMarketSourceTile({
+    required this.title,
+    required this.uri,
+    required this.icon,
+    required this.accent,
+    required this.busy,
+    required this.onOpen,
+  });
+
+  final String title;
+  final Uri uri;
+  final IconData icon;
+  final Color accent;
+  final bool busy;
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final radius = BorderRadius.circular(kOpenHandRadius14);
+    final caption = _mcpMarketSourceCaption(uri);
+    final tooltip = openHandLocalizedText(
+      context,
+      zh: '在系统浏览器中打开',
+      zhHant: '在系統瀏覽器中開啟',
+      en: 'Open in the system browser',
+      fr: 'Ouvrir dans le navigateur système',
+      de: 'Im Systembrowser öffnen',
+      ja: 'システムのブラウザで開く',
+    );
+    return Tooltip(
+      message: '$tooltip\n$caption',
+      child: MouseRegion(
+        cursor: onOpen == null
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        child: MicroPressFeedback(
+          enabled: onOpen != null,
+          child: Material(
+            color: Colors.transparent,
+            shadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            child: InkWell(
+              onTap: onOpen,
+              borderRadius: radius,
+              hoverColor: Colors.transparent,
+              splashColor: accent.withValues(alpha: 0.10),
+              highlightColor: accent.withValues(alpha: 0.06),
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              child: AnimatedContainer(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                curve: kOpenHandSwitchInCurve,
+                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                decoration: BoxDecoration(
+                  color: Color.alphaBlend(
+                    accent.withValues(alpha: 0.10),
+                    colorScheme.surface,
+                  ),
+                  borderRadius: radius,
+                  border: Border.all(color: accent.withValues(alpha: 0.22)),
+                ),
+                child: Row(
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Color.alphaBlend(
+                          accent.withValues(alpha: 0.18),
+                          colorScheme.surface,
+                        ),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                      ),
+                      child: SizedBox(
+                        width: _kMcpMarketSourceIconBox,
+                        height: _kMcpMarketSourceIconBox,
+                        child: Icon(
+                          icon,
+                          size: _kMcpMarketSourceIconGlyph,
+                          color: accent,
+                        ),
+                      ),
+                    ),
+                    kOpenHandHGap12,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          kOpenHandGap3,
+                          Text(
+                            caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    kOpenHandHGap8,
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: busy
+                          ? const Padding(
+                              padding: EdgeInsets.all(3),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              Icons.open_in_new_rounded,
+                              size: 18,
+                              color: accent,
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _McpMarketResultTile extends StatelessWidget {
@@ -1466,6 +1620,80 @@ class _McpMarketStateMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+String _mcpMarketOpenLinkFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '无法用系统浏览器打开该链接。',
+    zhHant: '無法用系統瀏覽器開啟該連結。',
+    en: 'Could not open this link in the system browser.',
+    fr: 'Impossible d’ouvrir ce lien dans le navigateur système.',
+    de: 'Der Link konnte nicht im Systembrowser geöffnet werden.',
+    ja: 'システムのブラウザでこのリンクを開けませんでした。',
+  );
+}
+
+String _mcpMarketSourceCaption(Uri uri) {
+  final path = uri.path;
+  if (path.isEmpty || path == '/') {
+    return uri.host;
+  }
+  return '${uri.host}$path';
+}
+
+List<({String title, Uri uri, IconData icon, Color accent})>
+_mcpMarketSourceItems(BuildContext context, McpMarketServer server) {
+  final colors = Theme.of(context).colorScheme;
+  final specs = <({String title, String raw, IconData icon, Color accent})>[
+    (
+      title: openHandLocalizedText(
+        context,
+        zh: '代码仓库',
+        zhHant: '程式碼倉庫',
+        en: 'Repository',
+        fr: 'Dépôt',
+        de: 'Repository',
+        ja: 'リポジトリ',
+      ),
+      raw: server.repoUrl,
+      icon: Icons.account_tree_rounded,
+      accent: OpenHandStatusColors.info,
+    ),
+    (
+      title: openHandLocalizedText(
+        context,
+        zh: '项目主页',
+        zhHant: '專案首頁',
+        en: 'Homepage',
+        fr: 'Page d’accueil',
+        de: 'Startseite',
+        ja: 'プロジェクトページ',
+      ),
+      raw: server.homepage,
+      icon: Icons.language_rounded,
+      accent: colors.primary,
+    ),
+    (
+      title: openHandLocalizedText(
+        context,
+        zh: '服务来源',
+        zhHant: '服務來源',
+        en: 'Service source',
+        fr: 'Source du service',
+        de: 'Dienstquelle',
+        ja: 'サービス出典',
+      ),
+      raw: server.sourceUrl,
+      icon: Icons.travel_explore_rounded,
+      accent: colors.tertiary,
+    ),
+  ];
+  return [
+    for (final spec in specs)
+      if (tryParseValidHttpUrl(spec.raw) case final uri?)
+        (title: spec.title, uri: uri, icon: spec.icon, accent: spec.accent),
+  ];
 }
 
 String _retryLabel(BuildContext context) {
