@@ -35,6 +35,7 @@ import 'motion_preference.dart';
 import 'native_audio_preview.dart';
 import 'natural_image_size_resolver.dart';
 import 'openhand_clipboard.dart';
+import 'openhand_image_reveal.dart';
 import 'openhand_snack_bar.dart';
 import 'openhand_video_player_web_styles.dart';
 
@@ -376,8 +377,9 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                       width: bodyW,
                       height: bodyH,
                       child: isImage
-                          ? OpenHandInteractiveImagePreview(
-                              child: KeyedSubtree(
+                          ? OpenHandImageRevealSwitcher(
+                              stateKey: _imageSourceSignature,
+                              child: OpenHandInteractiveImagePreview(
                                 key: ValueKey<String>(_imageSourceSignature),
                                 child: _buildImage(context, Size(bodyW, bodyH)),
                               ),
@@ -819,7 +821,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
 
   Widget _buildImage(BuildContext context, Size displaySize) {
     if (_isSvgImage) {
-      final placeholder = _imageLoadingBox(context);
+      const placeholder = OpenHandImageShimmerPlaceholder();
       final bytes = widget.bytes;
       if (bytes != null) {
         return SvgPicture.memory(
@@ -858,6 +860,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         width: displaySize.width,
         height: displaySize.height,
         fit: BoxFit.contain,
+        frameBuilder: openHandImageRevealFrameBuilder,
         errorBuilder: _buildImageError,
       );
     }
@@ -867,6 +870,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         width: displaySize.width,
         height: displaySize.height,
         fit: BoxFit.contain,
+        frameBuilder: openHandImageRevealFrameBuilder,
         errorBuilder: _buildImageError,
       );
     }
@@ -876,6 +880,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         width: displaySize.width,
         height: displaySize.height,
         fit: BoxFit.contain,
+        frameBuilder: openHandImageRevealFrameBuilder,
         errorBuilder: _buildImageError,
       );
     }
@@ -902,16 +907,6 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         context,
         zh: '无法加载此图片。',
         en: 'Unable to load this image.',
-      ),
-    );
-  }
-
-  Widget _imageLoadingBox(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return SizedBox.expand(
-      child: ColoredBox(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.28),
-        child: Center(child: CircularProgressIndicator(color: cs.primary)),
       ),
     );
   }

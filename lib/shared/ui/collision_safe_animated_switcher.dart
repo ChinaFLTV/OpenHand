@@ -9,6 +9,7 @@ Widget buildCollisionSafeAnimatedSwitcherLayout(
   AlignmentGeometry alignment = Alignment.center,
   bool sizeToCurrentChild = false,
   StackFit fit = StackFit.loose,
+  Clip? clipBehavior,
 }) {
   final usedKeys = <Key>{};
   final currentKey = currentChild?.key;
@@ -25,7 +26,8 @@ Widget buildCollisionSafeAnimatedSwitcherLayout(
   return Stack(
     alignment: alignment,
     fit: fit,
-    clipBehavior: sizeToCurrentChild ? Clip.none : Clip.hardEdge,
+    clipBehavior:
+        clipBehavior ?? (sizeToCurrentChild ? Clip.none : Clip.hardEdge),
     children: <Widget>[
       if (sizeToCurrentChild)
         for (final child in uniquePreviousReversed.reversed)

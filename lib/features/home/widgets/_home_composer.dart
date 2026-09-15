@@ -3641,6 +3641,7 @@ class _ComposerImageThumbChip extends StatelessWidget {
                     fit: BoxFit.cover,
                     cacheWidth: 192,
                     gaplessPlayback: true,
+                    frameBuilder: openHandCompactImageRevealFrameBuilder,
                     errorBuilder: (context, error, stackTrace) {
                       return Center(
                         child: Icon(

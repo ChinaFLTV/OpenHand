@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../features/home/index.dart' show showOpenHandImageGallery;
+import 'openhand_image_reveal.dart';
 
 const int kOpenHandImageGalleryLimit = 256;
 
@@ -118,9 +119,16 @@ Widget buildOpenHandGalleryImage(
   final content =
       (image.isSvg
           ? (image.filePath != null
-                ? SvgPicture.file(File(image.filePath!), errorBuilder: failed)
+                ? SvgPicture.file(
+                    File(image.filePath!),
+                    placeholderBuilder: (_) =>
+                        const OpenHandImageShimmerPlaceholder(),
+                    errorBuilder: failed,
+                  )
                 : SvgPicture.network(
                     image.uri.toString(),
+                    placeholderBuilder: (_) =>
+                        const OpenHandImageShimmerPlaceholder(),
                     errorBuilder: failed,
                   ))
           : child) ??
@@ -129,12 +137,14 @@ Widget buildOpenHandGalleryImage(
               File(image.filePath!),
               fit: BoxFit.contain,
               cacheWidth: 1280,
+              frameBuilder: openHandImageRevealFrameBuilder,
               errorBuilder: failed,
             )
           : Image.network(
               image.uri.toString(),
               fit: BoxFit.contain,
               cacheWidth: 1280,
+              frameBuilder: openHandImageRevealFrameBuilder,
               errorBuilder: failed,
             ));
   return Builder(

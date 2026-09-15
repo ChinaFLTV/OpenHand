@@ -12,6 +12,7 @@ import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'native_audio_preview.dart';
+import 'openhand_image_reveal.dart';
 import 'openhand_spacing.dart';
 import 'openhand_video_thumbnail.dart';
 
@@ -333,28 +334,31 @@ class _GeneratedVideoResultCard extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (thumbnailPath != null)
-                          Image.file(
-                            File(thumbnailPath!),
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
-                            cacheWidth: 840,
-                            errorBuilder: (_, _, _) =>
-                                Container(color: Colors.black87),
-                          )
-                        else
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.78),
-                                  Colors.black.withValues(alpha: 0.92),
-                                ],
-                              ),
-                            ),
-                          ),
+                        OpenHandImageRevealSwitcher(
+                          stateKey: thumbnailPath ?? 'pending',
+                          child: thumbnailPath != null
+                              ? Image.file(
+                                  File(thumbnailPath!),
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                  cacheWidth: 840,
+                                  frameBuilder: openHandImageRevealFrameBuilder,
+                                  errorBuilder: (_, _, _) =>
+                                      const ColoredBox(color: Colors.black87),
+                                )
+                              : const DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xC7000000),
+                                        Color(0xEB000000),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                        ),
                         DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(

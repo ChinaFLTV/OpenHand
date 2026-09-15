@@ -52,6 +52,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_image_reveal.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_live_value.dart';
@@ -15982,6 +15983,7 @@ class _DingTalkPendingAttachmentChip extends StatelessWidget {
                         fit: BoxFit.cover,
                         cacheWidth: 192,
                         gaplessPlayback: true,
+                        frameBuilder: openHandCompactImageRevealFrameBuilder,
                         errorBuilder: (_, _, _) => Center(
                           child: Icon(
                             Icons.broken_image_outlined,
@@ -20625,30 +20627,7 @@ class _DingTalkMediaTile extends StatelessWidget {
         onTap: () => unawaited(_open(context)),
       );
     }
-    if (available && media.kind == DingTalkMediaKind.image) {
-      return Tooltip(
-        message: media.displayName,
-        child: Material(
-          color: colors.surfaceContainerHighest,
-          borderRadius: kOpenHandBorderRadius14,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => unawaited(_open(context)),
-            child: SizedBox(
-              width: 190,
-              height: 142,
-              child: Image.file(
-                File(path),
-                fit: BoxFit.cover,
-                cacheWidth: 380,
-                errorBuilder: (_, _, _) => _missingContent(context),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    return Material(
+    final pending = Material(
       color: available
           ? colors.surfaceContainerHighest
           : colors.surfaceContainerLow,
@@ -20707,6 +20686,43 @@ class _DingTalkMediaTile extends StatelessWidget {
         ),
       ),
     );
+    if (media.kind == DingTalkMediaKind.image) {
+      return OpenHandImageRevealSwitcher(
+        stateKey: available
+            ? 'image:$path'
+            : 'pending:${loading
+                  ? 'l'
+                  : failed
+                  ? 'f'
+                  : 'w'}',
+        child: available
+            ? Tooltip(
+                message: media.displayName,
+                child: Material(
+                  color: colors.surfaceContainerHighest,
+                  borderRadius: kOpenHandBorderRadius14,
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => unawaited(_open(context)),
+                    child: SizedBox(
+                      width: 190,
+                      height: 142,
+                      child: Image.file(
+                        File(path),
+                        fit: BoxFit.cover,
+                        cacheWidth: 380,
+                        gaplessPlayback: true,
+                        frameBuilder: openHandImageRevealFrameBuilder,
+                        errorBuilder: (_, _, _) => _missingContent(context),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : pending,
+      );
+    }
+    return pending;
   }
 
   Widget _missingContent(BuildContext context) {

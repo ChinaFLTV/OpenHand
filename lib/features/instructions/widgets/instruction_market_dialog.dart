@@ -10,6 +10,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_image_reveal.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -854,30 +855,40 @@ class _InstructionMarketAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(kOpenHandRadius14),
-      child: Image.network(
-        item.avatarUrl,
-        key: ValueKey(item.avatarUrl),
-        width: size,
-        height: size,
-        cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => ColoredBox(
-          color: Color(item.accent).withValues(alpha: .15),
-          child: SizedBox(
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+        child: OpenHandImageRevealSwitcher(
+          compact: true,
+          stateKey: item.avatarUrl,
+          child: Image.network(
+            item.avatarUrl,
+            key: ValueKey<String>(item.avatarUrl),
             width: size,
             height: size,
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  item.id,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
+            cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            frameBuilder: openHandCompactImageRevealFrameBuilder,
+            errorBuilder: (_, _, _) => ColoredBox(
+              color: Color(item.accent).withValues(alpha: .15),
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      item.id,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                 ),
               ),

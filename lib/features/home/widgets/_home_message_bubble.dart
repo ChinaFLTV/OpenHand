@@ -2789,33 +2789,6 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
   }
 }
 
-const BorderRadius _imageShimmerRadius = BorderRadius.all(
-  Radius.circular(kOpenHandRadius12),
-);
-const double _imageShimmerIconSize = 48;
-
-/// 图片帧解码期间的骨架占位。
-class _ImageShimmerPlaceholder extends StatelessWidget {
-  const _ImageShimmerPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return OpenHandSkeletonShimmer(
-      expand: true,
-      borderRadius: _imageShimmerRadius,
-      period: kOpenHandMotion1200,
-      child: Center(
-        child: Icon(
-          Icons.image_outlined,
-          size: _imageShimmerIconSize,
-          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-        ),
-      ),
-    );
-  }
-}
-
 class _AdaptivePreviewDialogMetrics {
   const _AdaptivePreviewDialogMetrics({
     required this.maxDialogWidth,
@@ -3274,11 +3247,14 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                     child: SizedBox(
                       width: metrics.contentWidth,
                       height: metrics.contentHeight,
-                      child: OpenHandInteractiveImagePreview(
-                        key: ValueKey(_imageSourceSignature),
-                        child: _buildPreviewImage(
-                          context,
-                          Size(metrics.contentWidth, metrics.contentHeight),
+                      child: OpenHandImageRevealSwitcher(
+                        stateKey: _imageSourceSignature,
+                        child: OpenHandInteractiveImagePreview(
+                          key: ValueKey(_imageSourceSignature),
+                          child: _buildPreviewImage(
+                            context,
+                            Size(metrics.contentWidth, metrics.contentHeight),
+                          ),
                         ),
                       ),
                     ),
@@ -3409,11 +3385,13 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
 
   Widget _buildPreviewImage(BuildContext context, Size displaySize) {
     if (_isSvg) {
+      const placeholder = OpenHandImageShimmerPlaceholder();
       return _filePath != null
           ? SvgPicture.file(
               File(_filePath!),
               width: displaySize.width,
               height: displaySize.height,
+              placeholderBuilder: (_) => placeholder,
               errorBuilder: (context, error, stack) =>
                   _buildImageLoadError(context),
             )
@@ -3421,6 +3399,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
               _imageUri.toString(),
               width: displaySize.width,
               height: displaySize.height,
+              placeholderBuilder: (_) => placeholder,
               errorBuilder: (context, error, stack) =>
                   _buildImageLoadError(context),
             );
@@ -3437,7 +3416,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         height: displaySize.height,
         cacheWidth: decodeWidth,
         fit: BoxFit.contain,
-        frameBuilder: _SafeMarkdownBodyState._fadeInImageFrameBuilder,
+        frameBuilder: openHandImageRevealFrameBuilder,
         errorBuilder: (context, error, stackTrace) =>
             _buildImageLoadError(context),
       );
@@ -3463,57 +3442,11 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
             kind: MediaCacheKind.image,
           );
         }
-        return _SafeMarkdownBodyState._fadeInImageFrameBuilder(
+        return openHandImageRevealFrameBuilder(
           context,
           child,
           frame,
           wasSynchronouslyLoaded,
-        );
-      },
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) {
-          return child;
-        }
-        final expected = loadingProgress.expectedTotalBytes;
-        final progress = expected != null && expected > 0
-            ? loadingProgress.cumulativeBytesLoaded / expected
-            : null;
-        final colorScheme = Theme.of(context).colorScheme;
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return SizedBox.expand(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: isDark
-                  ? colorScheme.surfaceContainer
-                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: kOpenHandBorderRadius12,
-            ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 3,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                  if (progress != null) ...[
-                    kOpenHandGap12,
-                    Text(
-                      '${(progress * 100).toStringAsFixed(0)}%',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
         );
       },
       errorBuilder: (context, error, stackTrace) =>
@@ -7196,6 +7129,7 @@ class _UserMessageAttachmentTile extends StatelessWidget {
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
                   excludeFromSemantics: true,
+                  frameBuilder: openHandCompactImageRevealFrameBuilder,
                   errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
                 Material(

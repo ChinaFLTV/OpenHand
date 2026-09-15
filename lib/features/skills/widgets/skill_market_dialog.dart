@@ -24,6 +24,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_file_icons.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_image_reveal.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -2223,6 +2224,7 @@ class _SkillMarketAvatar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final fallback = _SkillMarketAvatarFallback(name: name);
     final imageUrl = this.imageUrl;
+    final hasImage = imageUrl != null && imageUrl.trim().isNotEmpty;
     return Container(
       width: size,
       height: size,
@@ -2232,18 +2234,23 @@ class _SkillMarketAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
-      child: imageUrl == null || imageUrl.trim().isEmpty
-          ? fallback
-          : Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-              width: size,
-              height: size,
-              // 按约 3 倍像素比解码，兼顾高分屏清晰度与内存占用。
-              cacheWidth: (size * 3).round(),
-              cacheHeight: (size * 3).round(),
-              errorBuilder: (context, error, stackTrace) => fallback,
-            ),
+      child: OpenHandImageRevealSwitcher(
+        compact: true,
+        stateKey: hasImage ? imageUrl : 'fallback',
+        child: hasImage
+            ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                width: size,
+                height: size,
+                cacheWidth: (size * 3).round(),
+                cacheHeight: (size * 3).round(),
+                gaplessPlayback: true,
+                frameBuilder: openHandCompactImageRevealFrameBuilder,
+                errorBuilder: (context, error, stackTrace) => fallback,
+              )
+            : fallback,
+      ),
     );
   }
 }

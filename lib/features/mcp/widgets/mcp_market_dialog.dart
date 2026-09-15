@@ -18,6 +18,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_image_reveal.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -1508,6 +1509,7 @@ class _McpMarketAvatar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final fallback = _McpMarketAvatarFallback(name: name);
     final uri = Uri.tryParse(imageUrl);
+    final hasImage = uri?.scheme == 'https' && uri!.host.isNotEmpty;
     return Container(
       width: size,
       height: size,
@@ -1517,17 +1519,23 @@ class _McpMarketAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
-      child: uri?.scheme == 'https' && uri!.host.isNotEmpty
-          ? Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-              width: size,
-              height: size,
-              cacheWidth: (size * 3).round(),
-              cacheHeight: (size * 3).round(),
-              errorBuilder: (context, error, stackTrace) => fallback,
-            )
-          : fallback,
+      child: OpenHandImageRevealSwitcher(
+        compact: true,
+        stateKey: hasImage ? imageUrl : 'fallback',
+        child: hasImage
+            ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                width: size,
+                height: size,
+                cacheWidth: (size * 3).round(),
+                cacheHeight: (size * 3).round(),
+                gaplessPlayback: true,
+                frameBuilder: openHandCompactImageRevealFrameBuilder,
+                errorBuilder: (context, error, stackTrace) => fallback,
+              )
+            : fallback,
+      ),
     );
   }
 }

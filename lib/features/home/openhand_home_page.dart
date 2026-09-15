@@ -101,6 +101,7 @@ import '../../shared/ui/openhand_file_hover_popup.dart';
 import '../../shared/ui/openhand_file_icons.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_hover_overlay.dart';
+import '../../shared/ui/openhand_image_reveal.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_json_tree.dart';
 import '../../shared/ui/openhand_message_action_chip.dart';

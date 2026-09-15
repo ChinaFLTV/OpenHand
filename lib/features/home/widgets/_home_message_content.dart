@@ -99,9 +99,6 @@ bool _isCollapsedPreviewAtBottom(
   return position.pixels >= maxExtent - epsilon;
 }
 
-/// 图片首帧解码完成后的淡入上移时长。
-const Duration _kImageFirstFrameRevealDuration = kOpenHandMotion400;
-
 class _CollapsedPreviewScrollCoordinator {
   _CollapsedPreviewScrollCoordinator({
     required this.controller,
@@ -1886,7 +1883,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             fit: BoxFit.contain,
             // 内联缩略图按 1280 逻辑像素解码，点击后在专用弹窗展示原图。
             cacheWidth: 1280,
-            frameBuilder: _fadeInImageFrameBuilder,
+            frameBuilder: openHandImageRevealFrameBuilder,
             errorBuilder: (_, _, _) =>
                 _brokenImagePlaceholder(context, previewTitle),
           ),
@@ -1922,7 +1919,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
               File(cachedPath),
               fit: BoxFit.contain,
               cacheWidth: 1280,
-              frameBuilder: _fadeInImageFrameBuilder,
+              frameBuilder: openHandImageRevealFrameBuilder,
               errorBuilder: (_, _, _) {
                 MediaCacheService.instance.invalidate(
                   urlString,
@@ -1939,7 +1936,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
                         kind: MediaCacheKind.image,
                       );
                     }
-                    return _fadeInImageFrameBuilder(
+                    return openHandImageRevealFrameBuilder(
                       context,
                       child,
                       frame,
@@ -1980,28 +1977,11 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
                   kind: MediaCacheKind.image,
                 );
               }
-              return _fadeInImageFrameBuilder(
+              return openHandImageRevealFrameBuilder(
                 context,
                 child,
                 frame,
                 wasSynchronouslyLoaded,
-              );
-            },
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              final total = loadingProgress.expectedTotalBytes;
-              final progress = total != null && total > 0
-                  ? loadingProgress.cumulativeBytesLoaded / total
-                  : null;
-              return SizedBox(
-                width: 200,
-                height: 200,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 2.4,
-                  ),
-                ),
               );
             },
             errorBuilder: (_, _, _) =>
@@ -2093,46 +2073,6 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           ),
         ),
       ),
-    );
-  }
-
-  /// 使用平滑淡入的共享图片框架。
-  static Widget _fadeInImageFrameBuilder(
-    BuildContext context,
-    Widget child,
-    int? frame,
-    bool wasSynchronouslyLoaded,
-  ) {
-    if (wasSynchronouslyLoaded) return child;
-    if (frame == null) {
-      // 首帧尚未解码时展示微光占位。
-      return const _ImageShimmerPlaceholder();
-    }
-    // 首帧解码后播放一次淡入。
-    final revealDuration = openHandMotionDuration(
-      context,
-      _kImageFirstFrameRevealDuration,
-    );
-    if (revealDuration == Duration.zero) return child;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: revealDuration,
-      curve: kOpenHandEntranceCurve,
-      builder: (context, value, child) {
-        final t = value.clamp(0.0, 1.0);
-        return Opacity(
-          opacity: t,
-          child: Transform.translate(
-            offset: Offset(0, (1 - t) * 8),
-            child: Transform.scale(
-              alignment: Alignment.centerLeft,
-              scale: 0.97 + 0.03 * value,
-              child: child,
-            ),
-          ),
-        );
-      },
-      child: child,
     );
   }
 
