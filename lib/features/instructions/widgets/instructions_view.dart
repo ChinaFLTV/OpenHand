@@ -27,6 +27,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 import '../instructions_controller.dart';
 import '../model/user_instruction_entry.dart';
+import 'instruction_market_dialog.dart';
 
 enum _InstructionCardAction { edit, delete }
 
@@ -81,7 +82,24 @@ class InstructionsView extends StatelessWidget {
     return FeaturePageShell(
       title: l10n.instructionPageTitle,
       subtitle: l10n.instructionPageSubtitle,
-      actions: actions,
+      actions: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          actions,
+          kOpenHandGap8,
+          IconButton.outlined(
+            tooltip: '指令市场',
+            icon: const Icon(Icons.storefront_rounded),
+            onPressed: snapshot.isLoading
+                ? null
+                : () => showInstructionMarketDialog(
+                    context,
+                    controller: controller,
+                  ),
+          ),
+        ],
+      ),
       successSignal: controller.saveSuccessSignal,
       notices: [
         if (snapshot.errorMessage != null && snapshot.entries.isNotEmpty)
