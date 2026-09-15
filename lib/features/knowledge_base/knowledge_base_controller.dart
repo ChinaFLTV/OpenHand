@@ -485,6 +485,13 @@ class KnowledgeBaseController extends ChangeNotifier {
       );
       await _store.deleteSource(source.id);
       sourceDeleted = true;
+      // 删除已提交；废弃旧搜索结果，避免后续重读失败时恢复卡片。
+      _sourceSearchDebouncer.cancel();
+      _sourceLoadGeneration++;
+      _sources = List<KnowledgeSource>.unmodifiable(
+        _sources.where((item) => item.id != source.id),
+      );
+      notifyListeners();
       try {
         await completeManagedKnowledgeSourceFileCleanup(source);
       } catch (error, stack) {
@@ -508,11 +515,16 @@ class KnowledgeBaseController extends ChangeNotifier {
         }
       }
       if (!_isStopping) {
-        _error = _reportKnowledgeBaseFailure('删除知识源', error, stack);
+        final failure = _reportKnowledgeBaseFailure(
+          sourceDeleted ? '刷新知识源列表' : '删除知识源',
+          error,
+          stack,
+        );
+        _error = sourceDeleted ? '知识源已删除，但列表刷新失败：$failure' : failure;
       } else {
         silentLog('knowledge_base_controller', '删除知识源', error, stack);
       }
-      return false;
+      return sourceDeleted;
     }
   }
 

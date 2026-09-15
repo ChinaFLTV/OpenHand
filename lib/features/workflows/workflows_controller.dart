@@ -58,9 +58,18 @@ class WorkflowsController extends ManagedChangeNotifier {
 
   Future<void> refresh() => enqueueOperation(_loadLocked);
 
-  Future<bool> save(WorkflowDefinition workflow) {
+  Future<bool> save(
+    WorkflowDefinition workflow, {
+    bool requireExisting = false,
+  }) {
     return enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
+      if (requireExisting &&
+          !_workflows.any((item) => item.id == workflow.id)) {
+        _errorMessage = '该工作流已删除，请刷新后重试。';
+        notifyListeners();
+        return false;
+      }
       final normalizedName = workflow.name.trim();
       if (workflow.id.trim().isEmpty || normalizedName.isEmpty) {
         _errorMessage = '工作流名称不能为空。';
@@ -122,7 +131,8 @@ class WorkflowsController extends ManagedChangeNotifier {
       final current = _workflows
           .where((item) => item.id == normalizedId)
           .firstOrNull;
-      if (current == null || current.enabled == enabled) return true;
+      if (current == null) return false;
+      if (current.enabled == enabled) return true;
       final nextWorkflow = current.copyWith(
         enabled: enabled,
         updatedAt: DateTime.now().toUtc(),

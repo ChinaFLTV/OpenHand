@@ -225,15 +225,16 @@ class MemoryController extends ManagedChangeNotifier {
           content: content,
           tags: tags,
         );
+        final nextEntries = <UserMemoryEntry>[
+          entry,
+          ..._entries.where(
+            (item) => item.type != UserMemoryEntry.userProfileType,
+          ),
+        ];
         if (_isQuotaRecoveryMode) {
-          await _reloadAfterRecoveryMutation();
+          await _reloadAfterRecoveryMutation(nextEntries);
         } else {
-          _publishSuccessfulMutation(<UserMemoryEntry>[
-            entry,
-            ..._entries.where(
-              (item) => item.type != UserMemoryEntry.userProfileType,
-            ),
-          ]);
+          _publishSuccessfulMutation(nextEntries);
         }
         return entry;
       } catch (_) {
@@ -310,14 +311,16 @@ class MemoryController extends ManagedChangeNotifier {
       return false;
     }
     if (_isQuotaRecoveryMode) {
-      await _reloadAfterRecoveryMutation();
+      await _reloadAfterRecoveryMutation(nextEntries);
     } else {
       _publishSuccessfulMutation(nextEntries);
     }
     return true;
   }
 
-  Future<void> _reloadAfterRecoveryMutation() async {
+  Future<void> _reloadAfterRecoveryMutation(
+    List<UserMemoryEntry> nextEntries,
+  ) async {
     try {
       final loadResult = await _store.load();
       _publishSuccessfulMutation(
@@ -326,6 +329,7 @@ class MemoryController extends ManagedChangeNotifier {
       );
     } catch (error, stack) {
       silentLog('memory_controller', '重新加载记忆', error, stack);
+      _setEntries(nextEntries);
       _hasTrustedSnapshot = false;
       _isQuotaRecoveryMode = false;
       _errorMessage = userFailureMessage(error, fallback: '记忆重新加载失败，请稍后重试。');

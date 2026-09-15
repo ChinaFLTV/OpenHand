@@ -514,10 +514,15 @@ class _WorkflowsViewState extends State<WorkflowsView> {
     final result = await showWorkflowEditorDialog(
       context,
       workflow: workflow,
-      onMetadataSave: workflow == null ? null : controller.save,
+      onMetadataSave: workflow == null
+          ? null
+          : (updated) => controller.save(updated, requireExisting: true),
     );
     if (result == null || !context.mounted) return;
-    final saved = await controller.save(result);
+    final saved = await controller.save(
+      result,
+      requireExisting: workflow != null,
+    );
     if (!context.mounted) return;
     if (saved) {
       showOpenHandInfoSnack(context, workflow == null ? '工作流已创建。' : '工作流已更新。');

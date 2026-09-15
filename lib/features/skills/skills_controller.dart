@@ -63,7 +63,7 @@ class SkillsController extends ManagedChangeNotifier {
   Future<LocalSkill> createSkillTemplate() async {
     return _enqueueOperation(() async {
       final skill = await _repository.createSkillTemplate(_storagePath);
-      await _refreshLocked();
+      await _refreshLocked(savedSkill: skill);
       return _findSkillByManifestPath(skill.manifestPath) ?? skill;
     });
   }
@@ -84,7 +84,7 @@ class SkillsController extends ManagedChangeNotifier {
         shortDescription: shortDescription,
         manifestContent: manifestContent,
       );
-      await _refreshLocked();
+      await _refreshLocked(savedSkill: skill);
       return _findSkillByManifestPath(skill.manifestPath) ?? skill;
     });
   }
@@ -95,7 +95,7 @@ class SkillsController extends ManagedChangeNotifier {
         _storagePath,
         sourceDirectoryPath,
       );
-      await _refreshLocked();
+      await _refreshLocked(savedSkill: skill);
       return _findSkillByManifestPath(skill.manifestPath) ?? skill;
     });
   }
@@ -110,7 +110,7 @@ class SkillsController extends ManagedChangeNotifier {
         preferredSlug: preferredSlug,
         archiveBytes: archiveBytes,
       );
-      await _refreshLocked();
+      await _refreshLocked(savedSkill: skill);
       return _findSkillByManifestPath(skill.manifestPath) ?? skill;
     });
   }
@@ -129,7 +129,7 @@ class SkillsController extends ManagedChangeNotifier {
         _storagePath,
         content,
       );
-      await _refreshLocked();
+      await _refreshLocked(savedSkill: updatedSkill);
       return _findSkillByManifestPath(updatedSkill.manifestPath) ??
           updatedSkill;
     });
@@ -155,7 +155,7 @@ class SkillsController extends ManagedChangeNotifier {
         manifestContent: manifestContent,
         preserveExistingIcon: preserveExistingIcon,
       );
-      await _refreshLocked();
+      await _refreshLocked(savedSkill: updatedSkill);
       return _findSkillByManifestPath(updatedSkill.manifestPath) ??
           updatedSkill;
     });
@@ -164,11 +164,29 @@ class SkillsController extends ManagedChangeNotifier {
   Future<void> deleteSkill(LocalSkill skill) async {
     await _enqueueOperation(() async {
       await _repository.deleteSkill(skill, _storagePath);
-      await _refreshLocked();
+      await _refreshLocked(deletedManifestPath: skill.manifestPath);
     });
   }
 
-  Future<void> _refreshLocked() async {
+  Future<void> _refreshLocked({
+    LocalSkill? savedSkill,
+    String? deletedManifestPath,
+  }) async {
+    // 先发布已经落盘的变更，目录重扫失败也不恢复旧卡片。
+    if (savedSkill != null || deletedManifestPath != null) {
+      final next =
+          <LocalSkill>[
+            for (final skill in _skills)
+              if (skill.manifestPath != deletedManifestPath &&
+                  skill.manifestPath != savedSkill?.manifestPath)
+                skill,
+            if (savedSkill != null) savedSkill,
+          ]..sort(
+            (left, right) =>
+                left.name.toLowerCase().compareTo(right.name.toLowerCase()),
+          );
+      _setSkills(next);
+    }
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();

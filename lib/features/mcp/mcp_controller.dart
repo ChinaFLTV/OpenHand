@@ -1648,6 +1648,11 @@ class McpController extends ChangeNotifier {
                 .where((item) => item.name == normalizedPreviousName)
                 .firstOrNull;
       if (normalizedPreviousName != null && normalizedPreviousName.isNotEmpty) {
+        if (previousServer == null) {
+          _errorMessage = '该 MCP 服务器已删除或重命名，请刷新后重试。';
+          notifyListeners();
+          return false;
+        }
         updatedServers.removeWhere(
           (item) => item.name == normalizedPreviousName,
         );

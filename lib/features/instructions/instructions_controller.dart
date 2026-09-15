@@ -293,13 +293,13 @@ class InstructionsController extends ManagedChangeNotifier {
         if (cmp != 0) return cmp;
         return a.createdAt.compareTo(b.createdAt);
       });
-    _hasTrustedSnapshot = false;
-    _errorMessage = null;
-    notifyListeners();
+    // 写入期间保留上次已提交快照，成功后一次性发布，避免指令胶囊闪烁。
     try {
       await _store.saveAll(sorted);
       _setEntries(sorted);
       _hasTrustedSnapshot = true;
+      _errorMessage = null;
+      notifyListeners();
       _saveSuccessPulse.emit();
       return true;
     } catch (error, stack) {
