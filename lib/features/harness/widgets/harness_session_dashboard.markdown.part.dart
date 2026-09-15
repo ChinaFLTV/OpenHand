@@ -247,7 +247,6 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
         theme: widget.theme,
         baseColor: widget.textColor ?? widget.colorScheme.onSurface,
         darkSurface: darkSurface,
-        selectable: true,
       ),
       if (widget.filePathRoots.isNotEmpty) ...{
         messageResolvedPathElementTag: _HeFilePathBuilder(

@@ -8184,7 +8184,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_lspResultBarVisible) {
       return const SizedBox.shrink();
     }
-    final theme = Theme.of(context);
     final hasLocations = _lspResultLocations.isNotEmpty;
     final hasCodeActions = _lspResultCodeActions.isNotEmpty;
     final hover = _lspHoverResult;
