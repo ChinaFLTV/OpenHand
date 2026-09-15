@@ -11,10 +11,15 @@ import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_studio_cutout_portrait.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../data/instruction_market_catalog.dart';
 import '../instructions_controller.dart';
 import '../model/user_instruction_entry.dart';
+
+const double _kMarketPortraitWidthFromHeight = 1.08;
+const double _kMarketPortraitMaxWidthFraction = 0.48;
+const EdgeInsets _kMarketPortraitPadding = EdgeInsets.fromLTRB(0, 6, 8, 6);
 
 Future<void> showInstructionMarketDialog(
   BuildContext context, {
@@ -683,100 +688,39 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                                 child: IgnorePointer(
                                   child: ExcludeSemantics(
                                     child: Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        0,
-                                        8,
-                                        20,
-                                        8,
-                                      ),
+                                      padding: _kMarketPortraitPadding,
                                       child: LayoutBuilder(
                                         builder: (context, constraints) {
                                           final width =
-                                              (constraints.maxHeight * 1.15)
+                                              (constraints.maxHeight *
+                                                      _kMarketPortraitWidthFromHeight)
                                                   .clamp(
                                                     0.0,
-                                                    constraints.maxWidth * .4,
+                                                    constraints.maxWidth *
+                                                        _kMarketPortraitMaxWidthFraction,
                                                   );
-                                          final dark =
-                                              Theme.of(context).brightness ==
-                                              Brightness.dark;
-                                          final background = Color.alphaBlend(
-                                            accent.withValues(alpha: .12),
-                                            colors.surfaceContainerLow,
-                                          );
+                                          if (width <= 0 ||
+                                              constraints.maxHeight <= 0) {
+                                            return const SizedBox.shrink();
+                                          }
                                           return Align(
                                             alignment: Alignment.centerRight,
                                             child: SizedBox(
                                               width: width,
                                               height: constraints.maxHeight,
-                                              child: ShaderMask(
-                                                blendMode: BlendMode.dstIn,
-                                                shaderCallback: (bounds) =>
-                                                    const LinearGradient(
-                                                      colors: [
-                                                        Colors.transparent,
-                                                        Colors.white,
-                                                        Colors.white,
-                                                        Colors.transparent,
-                                                      ],
-                                                      stops: [0, .25, .75, 1],
-                                                    ).createShader(bounds),
-                                                child: ShaderMask(
-                                                  blendMode: BlendMode.dstIn,
-                                                  shaderCallback: (bounds) =>
-                                                      const LinearGradient(
-                                                        begin:
-                                                            Alignment.topCenter,
-                                                        end: Alignment
-                                                            .bottomCenter,
-                                                        colors: [
-                                                          Colors.transparent,
-                                                          Colors.white,
-                                                          Colors.white,
-                                                          Colors.transparent,
-                                                        ],
-                                                        stops: [0, .12, .72, 1],
-                                                      ).createShader(bounds),
-                                                  child: Image.network(
-                                                    entry.backgroundUrl,
-                                                    key: ValueKey(
-                                                      entry.backgroundUrl,
-                                                    ),
-                                                    cacheWidth:
-                                                        (width *
-                                                                MediaQuery.devicePixelRatioOf(
-                                                                  context,
-                                                                ))
-                                                            .ceil()
-                                                            .clamp(1, 768),
-                                                    color: background,
-                                                    colorBlendMode:
-                                                        BlendMode.modulate,
-                                                    fit: BoxFit.cover,
-                                                    alignment:
-                                                        Alignment.topCenter,
-                                                    errorBuilder: (_, _, _) =>
-                                                        const SizedBox.shrink(),
-                                                    frameBuilder:
-                                                        (
-                                                          context,
-                                                          child,
-                                                          frame,
-                                                          synchronous,
-                                                        ) => AnimatedOpacity(
-                                                          opacity:
-                                                              synchronous ||
-                                                                  frame != null
-                                                              ? (dark
-                                                                    ? .32
-                                                                    : .52)
-                                                              : 0,
-                                                          duration: duration,
-                                                          curve: Curves.easeOut,
-                                                          child: child,
-                                                        ),
-                                                  ),
+                                              child: OpenHandStudioCutoutPortrait(
+                                                key: ValueKey(
+                                                  entry.backgroundUrl,
                                                 ),
+                                                url: entry.backgroundUrl,
+                                                duration: duration,
+                                                cacheWidth:
+                                                    (width *
+                                                            MediaQuery.devicePixelRatioOf(
+                                                              context,
+                                                            ))
+                                                        .ceil()
+                                                        .clamp(1, 768),
                                               ),
                                             ),
                                           );

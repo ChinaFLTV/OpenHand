@@ -9,6 +9,7 @@ import 'package:openhand/features/instructions/model/user_instruction_entry.dart
 import 'package:openhand/features/instructions/widgets/instruction_market_dialog.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/shared/ui/openhand_safe_scrollbar.dart';
+import 'package:openhand/shared/ui/openhand_studio_cutout_portrait.dart';
 import 'package:openhand/shared/ui/openhand_table_pagination.dart';
 
 class _Store implements InstructionsStore {
@@ -106,15 +107,21 @@ void main() {
         ValueKey(instructionMarketCatalog.first.backgroundUrl),
       );
       expect(
-        find.ancestor(of: portrait, matching: find.byType(ShaderMask)),
-        findsNWidgets(2),
+        find.descendant(of: portrait, matching: find.byType(ShaderMask)),
+        findsOneWidget,
       );
       expect(
         find.ancestor(of: portrait, matching: find.byType(IgnorePointer)),
         findsWidgets,
       );
-      expect(tester.widget<Image>(portrait).fit, BoxFit.cover);
-      expect(tester.widget<Image>(portrait).colorBlendMode, BlendMode.modulate);
+      expect(
+        tester.widget<OpenHandStudioCutoutPortrait>(portrait).url,
+        instructionMarketCatalog.first.backgroundUrl,
+      );
+      expect(
+        tester.widget<OpenHandStudioCutoutPortrait>(portrait).cacheWidth,
+        isNotNull,
+      );
       final backgroundSize = tester.getSize(portrait);
       expect(
         backgroundSize.width,
