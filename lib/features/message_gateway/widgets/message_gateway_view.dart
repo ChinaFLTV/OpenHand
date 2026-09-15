@@ -21373,6 +21373,7 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
     return AppearOnce(
       child: OpenHandAccentPanel(
         accent: accent,
+        barWidth: 0,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -21663,6 +21664,7 @@ class _DingTalkMemberCard extends StatelessWidget {
       fill: colorScheme.surface,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       borderRadius: kOpenHandBorderRadius16,
+      barWidth: 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -21744,6 +21746,7 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
       child: OpenHandAccentPanel(
         accent: accent,
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        barWidth: 0,
         child: Row(
           children: [
             DecoratedBox(
@@ -21882,6 +21885,7 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
       fill: colorScheme.surface,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       borderRadius: kOpenHandBorderRadius16,
+      barWidth: 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
