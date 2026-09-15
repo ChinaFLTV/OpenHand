@@ -292,20 +292,22 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                 ),
                 OpenHandDialogBusyBar(busy: _adding),
                 kOpenHandGap12,
-                Text(
-                  '本地内置 · ${instructionMarketCatalog.length} 个角色',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                kOpenHandGap12,
                 LayoutBuilder(
                   builder: (context, constraints) {
+                    final hint = Text(
+                      '本地内置 · ${instructionMarketCatalog.length} 个角色',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    );
                     final width = ((constraints.maxWidth - 12) / 2).clamp(
                       0.0,
                       kOpenHandDialogActionButtonWidth,
                     );
-                    return Row(
+                    final buttons = Row(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         SizedBox(
@@ -336,6 +338,26 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                             label: installed ? '已添加' : '添加指令',
                           ),
                         ),
+                      ],
+                    );
+                    if (constraints.maxWidth < 640) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          hint,
+                          kOpenHandGap12,
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: buttons,
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: hint),
+                        kOpenHandHGap16,
+                        buttons,
                       ],
                     );
                   },
