@@ -153,46 +153,54 @@ class OpenHandImageRevealSwitcher extends StatelessWidget {
     final scaleFrom = compact
         ? kOpenHandImageRevealCompactScaleFrom
         : kOpenHandImageRevealScaleFrom;
-    return AnimatedSwitcher(
-      duration: inDuration,
-      reverseDuration: outDuration,
-      layoutBuilder: (currentChild, previousChildren) =>
-          buildCollisionSafeAnimatedSwitcherLayout(
-            currentChild,
-            previousChildren,
-            clipBehavior: Clip.none,
-          ),
-      transitionBuilder: (transitionChild, animation) {
-        final fade = CurvedAnimation(
-          parent: animation,
-          curve: kOpenHandSwitchInCurve,
-          reverseCurve: kOpenHandSwitchOutCurve,
-        );
-        final spring = CurvedAnimation(
-          parent: animation,
-          curve: kOpenHandEntranceCurve,
-          reverseCurve: kOpenHandSpringExitCurve,
-        );
-        return FadeTransition(
-          opacity: fade,
-          child: AnimatedBuilder(
-            animation: Listenable.merge(<Listenable>[fade, spring]),
-            builder: (context, child) {
-              final fadeT = fade.value.clamp(0.0, 1.0);
-              final springT = spring.value.clamp(0.0, 1.25);
-              return Transform.translate(
-                offset: Offset(0, (1 - fadeT) * slide),
-                child: Transform.scale(
-                  scale: scaleFrom + (1 - scaleFrom) * springT,
-                  child: child,
-                ),
-              );
-            },
-            child: transitionChild,
-          ),
+    // 封面卡片父级是紧约束：expand 才能让 BoxFit.cover 铺满。内联图只有
+    // max 约束，继续 loose，避免被撑到占位上限。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fillParent = constraints.isTight;
+        return AnimatedSwitcher(
+          duration: inDuration,
+          reverseDuration: outDuration,
+          layoutBuilder: (currentChild, previousChildren) =>
+              buildCollisionSafeAnimatedSwitcherLayout(
+                currentChild,
+                previousChildren,
+                fit: fillParent ? StackFit.expand : StackFit.loose,
+                clipBehavior: Clip.none,
+              ),
+          transitionBuilder: (transitionChild, animation) {
+            final fade = CurvedAnimation(
+              parent: animation,
+              curve: kOpenHandSwitchInCurve,
+              reverseCurve: kOpenHandSwitchOutCurve,
+            );
+            final spring = CurvedAnimation(
+              parent: animation,
+              curve: kOpenHandEntranceCurve,
+              reverseCurve: kOpenHandSpringExitCurve,
+            );
+            return FadeTransition(
+              opacity: fade,
+              child: AnimatedBuilder(
+                animation: Listenable.merge(<Listenable>[fade, spring]),
+                builder: (context, child) {
+                  final fadeT = fade.value.clamp(0.0, 1.0);
+                  final springT = spring.value.clamp(0.0, 1.25);
+                  return Transform.translate(
+                    offset: Offset(0, (1 - fadeT) * slide),
+                    child: Transform.scale(
+                      scale: scaleFrom + (1 - scaleFrom) * springT,
+                      child: child,
+                    ),
+                  );
+                },
+                child: transitionChild,
+              ),
+            );
+          },
+          child: KeyedSubtree(key: ValueKey<String>(stateKey), child: child),
         );
       },
-      child: KeyedSubtree(key: ValueKey<String>(stateKey), child: child),
     );
   }
 }

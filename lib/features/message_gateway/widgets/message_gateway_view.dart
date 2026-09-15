@@ -16682,6 +16682,8 @@ typedef _DingTalkMediaSaveCallback =
 
 const double _dingtalkTextBubbleBottomSpacing = 6;
 const double _dingtalkMediaRailBottomSpacing = 4;
+const double _kDingTalkImageTileWidth = 190;
+const double _kDingTalkImageTileHeight = 142;
 const double _dingtalkActionToggleMaxDistance = 8;
 const Duration _dingtalkActionToggleMaxDuration = Duration(milliseconds: 350);
 const Duration _dingtalkActionToggleDelay = Duration(milliseconds: 80);
@@ -20705,10 +20707,12 @@ class _DingTalkMediaTile extends StatelessWidget {
                   child: InkWell(
                     onTap: () => unawaited(_open(context)),
                     child: SizedBox(
-                      width: 190,
-                      height: 142,
+                      width: _kDingTalkImageTileWidth,
+                      height: _kDingTalkImageTileHeight,
                       child: Image.file(
                         File(path),
+                        width: _kDingTalkImageTileWidth,
+                        height: _kDingTalkImageTileHeight,
                         fit: BoxFit.cover,
                         cacheWidth: 380,
                         gaplessPlayback: true,

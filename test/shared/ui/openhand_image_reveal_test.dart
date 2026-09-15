@@ -78,6 +78,50 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('紧约束下首帧显现铺满父级，避免按原图比例留边', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 190,
+            height: 142,
+            child: Builder(
+              builder: (context) => openHandImageRevealFrameBuilder(
+                context,
+                const ColoredBox(
+                  key: ValueKey<String>('cover-fill'),
+                  color: Color(0xFFFF0000),
+                ),
+                0,
+                false,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(kOpenHandImageRevealDuration);
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('cover-fill'))),
+      const Size(190, 142),
+    );
+  });
+
+  testWidgets('横向无界时切换器按内容收缩，不撑破布局', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Row(
+          children: [
+            OpenHandImageRevealSwitcher(stateKey: 'row', child: Text('chip')),
+          ],
+        ),
+      ),
+    );
+    expect(find.text('chip'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('紧凑模式骨架使用更小的占位图标', (tester) async {
     await tester.pumpWidget(
       _host(
