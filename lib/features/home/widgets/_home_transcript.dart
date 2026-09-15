@@ -458,8 +458,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   ThemeData? _warmupTheme;
   SettingsController? _warmupSettings;
   bool _warmupDependenciesReady = false;
-  final _FrameTaskScheduler _warmupScheduler = _FrameTaskScheduler(
-    maxPerFrame: _transcriptWarmupMaxPerFrame,
+  final RichContentFrameScheduler _warmupScheduler = RichContentFrameScheduler(
+    isPaused: _transcriptRenderPaused,
   );
   int _warmupGeneration = 0;
   int _staggerFillGeneration = 0;

@@ -1,0 +1,107 @@
+import 'dart:collection';
+
+import 'package:flutter/widgets.dart';
+
+/// 各渲染队列共用每帧一个任务的额度，同优先级队列轮流执行。
+/// 单条任务仍需自行限制输入规模，分帧不能中断正在执行的同步解析。
+class RichContentFrameScheduler {
+  RichContentFrameScheduler({this.isPaused, int maxPending = 2048})
+    : maxPending = maxPending.clamp(1, 8192);
+
+  static const int _maxInvalidTasksPerFrame = 64;
+  static final _active = <RichContentFrameScheduler>{};
+  static bool _frameScheduled = false;
+
+  final bool Function()? isPaused;
+  final int maxPending;
+  final _priorityPending = Queue<_FrameTask>();
+  final _pending = Queue<_FrameTask>();
+
+  bool schedule(
+    VoidCallback task, {
+    bool priority = false,
+    bool Function()? isValid,
+    VoidCallback? onDropped,
+  }) {
+    if (_priorityPending.length + _pending.length >= maxPending) {
+      if (_pending.isNotEmpty) {
+        _pending.removeFirst().onDropped?.call();
+      } else if (priority) {
+        _priorityPending.removeLast().onDropped?.call();
+      } else {
+        onDropped?.call();
+        return false;
+      }
+    }
+    final entry = _FrameTask(task, isValid, onDropped);
+    if (priority) {
+      _priorityPending.addFirst(entry);
+    } else {
+      _pending.addLast(entry);
+    }
+    _active.add(this);
+    _scheduleFrame();
+    return true;
+  }
+
+  void clear() {
+    final dropped = <_FrameTask>[..._priorityPending, ..._pending];
+    _priorityPending.clear();
+    _pending.clear();
+    _active.remove(this);
+    for (final entry in dropped) {
+      entry.onDropped?.call();
+    }
+  }
+
+  static void _scheduleFrame() {
+    if (_frameScheduled || _active.isEmpty) return;
+    _frameScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _drain());
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  static void _drain() {
+    // 执行期间保留标记，任务内新增工作也只能进入下一帧。
+    try {
+      for (var invalid = 0; invalid < _maxInvalidTasksPerFrame; invalid++) {
+        RichContentFrameScheduler? selected;
+        for (final scheduler in _active) {
+          if (scheduler.isPaused?.call() ?? false) continue;
+          selected ??= scheduler;
+          if (scheduler._priorityPending.isNotEmpty) {
+            selected = scheduler;
+            break;
+          }
+        }
+        if (selected == null) return;
+        final queue = selected._priorityPending.isNotEmpty
+            ? selected._priorityPending
+            : selected._pending;
+        final entry = queue.removeFirst();
+        _active.remove(selected);
+        if (selected._priorityPending.isNotEmpty ||
+            selected._pending.isNotEmpty) {
+          _active.add(selected);
+        }
+        if (!(entry.isValid?.call() ?? true)) {
+          entry.onDropped?.call();
+          continue;
+        }
+        entry.task();
+        return;
+      }
+    } finally {
+      _frameScheduled = false;
+      _scheduleFrame();
+    }
+  }
+}
+
+class _FrameTask {
+  const _FrameTask(this.task, this.isValid, this.onDropped);
+
+  final VoidCallback task;
+  final bool Function()? isValid;
+  final VoidCallback? onDropped;
+}

@@ -1288,11 +1288,15 @@ void _warmMarkdownAst({
   }
   void warmup() {
     try {
-      final astNodes = parseOpenHandMarkdown(
-        normalizedSource,
-        inlineSyntaxes: effectiveInlineSyntaxes,
-      );
-      _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
+      // 可见卡片可能已在优先队列完成解析，预热执行时再次检查缓存。
+      var astNodes = _markdownAstCache.get(astCacheKey);
+      if (astNodes == null) {
+        astNodes = parseOpenHandMarkdown(
+          normalizedSource,
+          inlineSyntaxes: effectiveInlineSyntaxes,
+        );
+        _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
+      }
       onReady?.call(astNodes);
     } finally {
       _pendingMarkdownWarmups.remove(astCacheKey);
@@ -1372,20 +1376,9 @@ void _warmMarkdownRenderPath({
   );
 }
 
-/// 全局帧节流的 markdown 解析调度器。
-///
-/// 在打开存量会话或快速切换会话时，多张消息卡片会在「同一帧」内同时
-/// 调用 `addPostFrameCallback` 注册 deferred 解析，结果下一帧仍要在
-/// 主线程串行跑 N 次 `_parseMarkdown()`，单帧时间常常突破 16ms 预算
-/// 直接触发 ANR。本调度器把 N 个解析任务拆分到 ceil(N/_maxPerFrame)
-/// 帧里执行，与 [_highlightFrameScheduler] 思路一致 —— 牺牲数十毫秒的
-/// 完整渲染时间换取主线程持续 60 FPS 的丝滑感。
-/// 每帧最多执行一个 markdown 解析任务。1 条足以让首屏视觉焦点（最新消息）
-/// 第一时间从轻量占位升级到完整 markdown 渲染，剩余卡片按帧节奏陆续到位；
-/// 1/帧 严格守住 16 ms 单帧预算，避免单条带多代码块的长消息触发 jank/ANR。
-final _FrameTaskScheduler _markdownFrameScheduler = _FrameTaskScheduler(
-  maxPerFrame: 1,
-);
+/// Markdown 解析与高亮、HTML 挂载共用帧额度。
+final RichContentFrameScheduler _markdownFrameScheduler =
+    RichContentFrameScheduler(isPaused: _transcriptRenderPaused);
 
 class _MarkdownStabilizingPlaceholder extends StatelessWidget {
   const _MarkdownStabilizingPlaceholder({
@@ -1403,6 +1396,9 @@ class _MarkdownStabilizingPlaceholder extends StatelessWidget {
   final double maxHeight;
 
   int get _lineCount {
+    if (source.length >= maxLines * _markdownPlaceholderCharsPerLine) {
+      return maxLines;
+    }
     final trimmed = source.trimRight();
     if (trimmed.isEmpty) return 1;
     var explicitLines = 1;
@@ -1596,13 +1592,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         return;
       }
       if (initial || !hadChildren) {
-        _renderDeferredPlaceholder(
-          normalizeOpenHandMarkdownSource(
-            widget.data.isEmpty ? ' ' : widget.data,
-            stripMessageScaffolding: true,
-          ),
-          streaming: widget.streaming,
-        );
+        _renderDeferredPlaceholder(widget.data, streaming: widget.streaming);
       }
       if (_scrollActivity?.value ?? false) {
         _deferredParsePendingAfterScroll = true;
@@ -1679,25 +1669,32 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     );
   }
 
-  void _renderDeferredPlaceholder(
-    String normalizedSource, {
-    required bool streaming,
-  }) {
+  void _renderDeferredPlaceholder(String source, {required bool streaming}) {
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
     _disposeRecognizers();
     if (!streaming) {
+      final preview = normalizeOpenHandMarkdownSource(
+        TranscriptListWindowing.boundedContentPreview(
+          source,
+          maxCharacters: _markdownDeferredParseThresholdChars,
+        ),
+        stripMessageScaffolding: true,
+      );
       _children = <Widget>[
-        widget.selectable
-            ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
-            : Text(normalizedSource, style: effectiveStyleSheet.p),
+        Text(
+          preview,
+          style: effectiveStyleSheet.p,
+          maxLines: _markdownStreamingPlaceholderMaxLines,
+          overflow: TextOverflow.ellipsis,
+        ),
       ];
       return;
     }
     _children = <Widget>[
       _MarkdownStabilizingPlaceholder(
-        source: normalizedSource,
+        source: source,
         style: effectiveStyleSheet.p,
         maxLines: _markdownStreamingPlaceholderMaxLines,
         minHeight: _markdownStreamingPlaceholderMinHeight,
@@ -3973,9 +3970,8 @@ int _htmlBubbleHeightCacheKey(String data, TextStyle? baseTextStyle) {
 }
 
 /// 平台视图挂载同样限制为 1/帧：WebView 创建会同步阻塞 UI 线程。
-final _FrameTaskScheduler _htmlWebViewFrameScheduler = _FrameTaskScheduler(
-  maxPerFrame: 1,
-);
+final RichContentFrameScheduler _htmlWebViewFrameScheduler =
+    RichContentFrameScheduler(isPaused: _transcriptRenderPaused);
 
 void _scheduleHtmlWebViewPermitGrant(void Function() task) {
   WidgetsBinding.instance.addPostFrameCallback((_) => task());

@@ -3054,7 +3054,7 @@ function MeasuredMessageRow({
   );
 }
 
-function VirtualMessageList({
+export function VirtualMessageList({
   messages,
   membershipKey,
   scrollContainerRef,

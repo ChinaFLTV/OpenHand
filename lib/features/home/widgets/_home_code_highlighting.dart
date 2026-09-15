@@ -31,9 +31,8 @@ final Set<int> _pendingHighlightWarmups = <int>{};
 
 /// 全局帧分散调度器，将同时展开的代码块高亮任务拆分到多个帧执行。
 /// 每帧仅执行一个任务，避免大段输出分词阻塞界面；缓存命中时可直接复用结果。
-final _FrameTaskScheduler _highlightFrameScheduler = _FrameTaskScheduler(
-  maxPerFrame: 1,
-);
+final RichContentFrameScheduler _highlightFrameScheduler =
+    RichContentFrameScheduler(isPaused: _transcriptRenderPaused);
 
 class _HighlightSpanCache {
   _HighlightSpanCache({required this.maxEntries});

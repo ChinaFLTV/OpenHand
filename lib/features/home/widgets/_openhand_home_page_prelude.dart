@@ -32,7 +32,6 @@ const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // 长会话先显示最新窗口，按需展开旧记录，保持当前滚动范围稳定。
 const int _transcriptWindowIncrement =
     TranscriptListWindowing.defaultWindowIncrement;
-const int _transcriptWarmupMaxPerFrame = 1;
 const int _transcriptWarmupSignatureCacheLimit = 256;
 const int _transcriptWarmupCharacterBudget = 12000;
 const int _transcriptHtmlWarmupMaxPerPass =
@@ -170,132 +169,9 @@ const BorderRadius _markdownCodeBlockRadius = BorderRadius.all(
   Radius.circular(kOpenHandRadius14),
 );
 
-/// 会话渲染预热使用的逐帧有界任务队列。
-///
-/// Markdown 解析、语法高亮和平台视图挂载均占用 UI 线程，统一调度可防止单帧
-/// 执行过多任务；等待量超限时优先淘汰普通旧任务。
-class _FrameTaskScheduler {
-  _FrameTaskScheduler({required int maxPerFrame, int maxPending = 2048})
-    : maxPerFrame = maxPerFrame.clamp(1, 64),
-      maxPending = maxPending.clamp(1, 8192);
-
-  static const int _maxInvalidTasksPerFrame = 64;
-
-  final int maxPerFrame;
-  final int maxPending;
-  final Queue<_FrameTask> _priorityPending = Queue<_FrameTask>();
-  final Queue<_FrameTask> _pending = Queue<_FrameTask>();
-  bool _draining = false;
-  int _generation = 0;
-
-  bool schedule(
-    VoidCallback task, {
-    bool priority = false,
-    bool Function()? isValid,
-    VoidCallback? onDropped,
-  }) {
-    final entry = _FrameTask(task, isValid, onDropped);
-    if (_priorityPending.length + _pending.length >= maxPending) {
-      if (_pending.isNotEmpty) {
-        _pending.removeFirst().onDropped?.call();
-      } else if (priority && _priorityPending.isNotEmpty) {
-        _priorityPending.removeLast().onDropped?.call();
-      } else {
-        onDropped?.call();
-        return false;
-      }
-    }
-    // 可见卡片的新任务插到优先队首。快速切换会话时，仍在退场动画中的旧卡片
-    // 不会挡住新会话首屏；队列满载时也由最新可见任务替换最旧优先任务。
-    if (priority) {
-      _priorityPending.addFirst(entry);
-    } else {
-      _pending.addLast(entry);
-    }
-    if (_draining) {
-      return true;
-    }
-    _draining = true;
-    final generation = _generation;
-    _scheduleDrain(generation);
-    return true;
-  }
-
-  void _scheduleDrain(int generation) {
-    WidgetsBinding.instance.addPostFrameCallback(
-      (timestamp) => _drain(timestamp, generation),
-    );
-    WidgetsBinding.instance.ensureVisualUpdate();
-  }
-
-  void clear() {
-    final dropped = <_FrameTask>[..._priorityPending, ..._pending];
-    _priorityPending.clear();
-    _pending.clear();
-    _draining = false;
-    _generation += 1;
-    for (final entry in dropped) {
-      entry.onDropped?.call();
-    }
-  }
-
-  void _drain(Duration _, int generation) {
-    if (generation != _generation) {
-      return;
-    }
-    if (_priorityPending.isEmpty && _pending.isEmpty) {
-      _draining = false;
-      return;
-    }
-    if (_transcriptScrollActive()) {
-      _scheduleDrain(generation);
-      return;
-    }
-    var processed = 0;
-    var invalid = 0;
-    final batchSize = maxPerFrame;
-    try {
-      while (processed < batchSize &&
-          invalid < _maxInvalidTasksPerFrame &&
-          (_priorityPending.isNotEmpty || _pending.isNotEmpty)) {
-        final entry = _priorityPending.isNotEmpty
-            ? _priorityPending.removeFirst()
-            : _pending.removeFirst();
-        if (!(entry.isValid?.call() ?? true)) {
-          invalid += 1;
-          entry.onDropped?.call();
-          continue;
-        }
-        processed += 1;
-        entry.task();
-      }
-    } finally {
-      if (generation == _generation) {
-        if (_priorityPending.isEmpty && _pending.isEmpty) {
-          _draining = false;
-        } else {
-          _scheduleDrain(generation);
-        }
-      }
-    }
-  }
-
-  bool _transcriptScrollActive() {
-    return _OpenHandHomePageState
-            ._activeHomeState
-            ?._transcriptScrollActivity
-            .value ??
-        false;
-  }
-}
-
-class _FrameTask {
-  const _FrameTask(this.task, this.isValid, this.onDropped);
-
-  final VoidCallback task;
-  final bool Function()? isValid;
-  final VoidCallback? onDropped;
-}
+bool _transcriptRenderPaused() =>
+    _OpenHandHomePageState._activeHomeState?._transcriptScrollActivity.value ??
+    false;
 
 Widget _buildWorkspaceSidebarTransition({
   required Widget child,

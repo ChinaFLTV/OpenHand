@@ -594,6 +594,44 @@ function HtmlBodyPlaceholder({ source }: { source: string }) {
   );
 }
 
+/** 离开视口时撤销尚未开始的解析，避免快速滚动把历史卡片排满队列。 */
+function useRichContentMount(deferred: boolean) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [ready, setReady] = useState(() => !deferred);
+  useEffect(() => {
+    if (ready) return;
+    if (!deferred) {
+      setReady(true);
+      return;
+    }
+    const element = hostRef.current;
+    if (!element) return;
+    let cancelRender: (() => void) | null = null;
+    const schedule = () => {
+      cancelRender ??= richContentFrameScheduler.schedule(() => setReady(true));
+    };
+    if (typeof IntersectionObserver !== 'function') {
+      schedule();
+      return () => cancelRender?.();
+    }
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[entries.length - 1];
+      if (entry?.isIntersecting) {
+        schedule();
+      } else {
+        cancelRender?.();
+        cancelRender = null;
+      }
+    }, { rootMargin: HTML_DEFERRED_RENDER_ROOT_MARGIN, threshold: 0 });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      cancelRender?.();
+    };
+  }, [deferred, ready]);
+  return { hostRef, ready: ready || !deferred };
+}
+
 const DeferredHtmlBody = memo(function DeferredHtmlBody({
   source,
   mono,
@@ -601,50 +639,10 @@ const DeferredHtmlBody = memo(function DeferredHtmlBody({
   source: string;
   mono: boolean;
 }) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const [nearViewport, setNearViewport] = useState(false);
-  const [renderReady, setRenderReady] = useState(false);
-
-  useEffect(() => {
-    if (nearViewport) return;
-    const element = hostRef.current;
-    if (element == null) return;
-    if (typeof IntersectionObserver !== 'function') {
-      setNearViewport(true);
-      return;
-    }
-    let cancelled = false;
-    let cancelScrollWait: (() => void) | null = null;
-    const observer = new IntersectionObserver((entries) => {
-      if (cancelled) return;
-      const visible = entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0);
-      if (!visible) return;
-      cancelScrollWait = scheduleAfterTranscriptScrollSettles(() => {
-        if (cancelled) return;
-        setNearViewport(true);
-      });
-      observer.disconnect();
-    }, {
-      root: null,
-      rootMargin: HTML_DEFERRED_RENDER_ROOT_MARGIN,
-      threshold: 0,
-    });
-    observer.observe(element);
-    return () => {
-      cancelled = true;
-      cancelScrollWait?.();
-      observer.disconnect();
-    };
-  }, [nearViewport]);
-
-  useEffect(() => {
-    if (!nearViewport || renderReady) return;
-    return richContentFrameScheduler.schedule(() => setRenderReady(true));
-  }, [nearViewport, renderReady]);
-
+  const { hostRef, ready } = useRichContentMount(true);
   return (
     <div ref={hostRef} class="oh-html-body-deferred">
-      {renderReady ? <HtmlBody source={source} mono={mono} /> : <HtmlBodyPlaceholder source={source} />}
+      {ready ? <HtmlBody source={source} mono={mono} /> : <HtmlBodyPlaceholder source={source} />}
     </div>
   );
 });
@@ -1120,17 +1118,16 @@ function extractMarkdownCodeText(nodes: unknown): string {
 }
 
 function estimateMarkdownPlaceholderLineCount(source: string): number {
+  const scanLimit = MARKDOWN_PLACEHOLDER_MAX_LINES * MARKDOWN_PLACEHOLDER_CHARS_PER_LINE;
+  if (source.length >= scanLimit) return MARKDOWN_PLACEHOLDER_MAX_LINES;
   const trimmed = source.trimEnd();
   if (!trimmed) return 1;
-  const explicitLines = Math.min(
-    MARKDOWN_PLACEHOLDER_MAX_LINES,
-    trimmed.split(/\r?\n/).length,
-  );
+  let explicitLines = 1;
+  for (let index = 0; index < trimmed.length && explicitLines < MARKDOWN_PLACEHOLDER_MAX_LINES; index++) {
+    if (trimmed.charCodeAt(index) === 10) explicitLines++;
+  }
   const wrappedLines = Math.ceil(trimmed.length / MARKDOWN_PLACEHOLDER_CHARS_PER_LINE);
-  return Math.max(
-    1,
-    Math.min(MARKDOWN_PLACEHOLDER_MAX_LINES, Math.max(explicitLines, wrappedLines)),
-  );
+  return Math.min(MARKDOWN_PLACEHOLDER_MAX_LINES, Math.max(explicitLines, wrappedLines));
 }
 
 function estimateMarkdownPlaceholderHeight(lineCount: number): number {
@@ -1166,7 +1163,7 @@ function MarkdownRenderPlaceholder({ source }: { source: string }) {
 /// memo 是长会话的关键护栏：react-markdown 内部不缓存 AST，组件体每执行
 /// 一次就是一整条 remark → rehype → highlight/katex 管线。父级（会话页）
 /// 任意 state 变更都会波及窗口内全部卡片，未 memo 时等于每次都全量重解析。
-export const Markdown = memo(function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false, deferInitialRender = false }: MarkdownProps) {
+const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false, deferInitialRender = false }: MarkdownProps) {
   const [imageGallery, setImageGallery] = useState<{ images: ImageGalleryEntry[]; index: number } | null>(null);
   const openImage = (event: MouseEvent) => {
     if (!(event.target instanceof HTMLImageElement) || !(event.currentTarget instanceof HTMLElement)) return;
@@ -1556,6 +1553,17 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
       {imageGallery && imageGallery.images[imageGallery.index] ? <MediaPreviewDialog
         item={imageGallery.images[imageGallery.index].item} url={imageGallery.images[imageGallery.index].url}
         gallery={imageGallery.images} initialIndex={imageGallery.index} onClose={() => setImageGallery(null)} /> : null}
+    </div>
+  );
+});
+
+/** 历史正文先进入视口再做格式检测、预处理和插件加载。 */
+export const Markdown = memo(function Markdown(props: MarkdownProps) {
+  const deferred = Boolean(props.deferInitialRender && !props.streaming && !props.raw);
+  const { hostRef, ready } = useRichContentMount(deferred);
+  return (
+    <div ref={hostRef} class="oh-rich-content-host">
+      {ready ? <MarkdownBody {...props} /> : <MarkdownRenderPlaceholder source={props.source ?? ''} />}
     </div>
   );
 });
