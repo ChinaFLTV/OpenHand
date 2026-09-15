@@ -2731,7 +2731,9 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
-  const sizeMotionSignal = `${messageSizeMotionSignal(message)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|translated:${showingTranslation ? 1 : 0}:${visibleContent.length}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
+  // 折叠容器自身负责 max-height 过渡；不要再把展开状态交给外层尺寸动画，
+  // 否则内外两套动画会同时改写高度，产生闪烁和抽搐。
+  const sizeMotionSignal = `${messageSizeMotionSignal(message)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|translated:${showingTranslation ? 1 : 0}:${visibleContent.length}|streaming:${streamingContent ? 1 : 0}`;
   // 仅对语义级尺寸变化应用动画，流式正文保持布局稳定。
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
