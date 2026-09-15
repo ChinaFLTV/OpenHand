@@ -107,13 +107,18 @@ void main() {
       );
       expect(
         find.ancestor(of: portrait, matching: find.byType(ShaderMask)),
-        findsOneWidget,
+        findsNWidgets(2),
       );
       expect(
         find.ancestor(of: portrait, matching: find.byType(IgnorePointer)),
         findsWidgets,
       );
       expect(tester.widget<Image>(portrait).fit, BoxFit.cover);
+      final backgroundSize = tester.getSize(portrait);
+      expect(
+        backgroundSize.width,
+        lessThanOrEqualTo(backgroundSize.height * .9 + .01),
+      );
       OpenHandTablePagination pager() => tester.widget<OpenHandTablePagination>(
         find.byType(OpenHandTablePagination),
       );

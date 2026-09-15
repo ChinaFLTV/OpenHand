@@ -682,53 +682,87 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                               Positioned.fill(
                                 child: IgnorePointer(
                                   child: ExcludeSemantics(
-                                    child: Align(
-                                      alignment: Alignment.centerRight,
-                                      child: FractionallySizedBox(
-                                        widthFactor: .45,
-                                        heightFactor: 1,
-                                        child: ShaderMask(
-                                          blendMode: BlendMode.dstIn,
-                                          shaderCallback: (bounds) =>
-                                              const LinearGradient(
-                                                colors: [
-                                                  Colors.transparent,
-                                                  Colors.white,
-                                                ],
-                                                stops: [0, .85],
-                                              ).createShader(bounds),
-                                          child: Image.network(
-                                            entry.backgroundUrl,
-                                            key: ValueKey(entry.backgroundUrl),
-                                            cacheWidth: 768,
-                                            fit: BoxFit.cover,
-                                            alignment: Alignment.topCenter,
-                                            errorBuilder: (_, _, _) =>
-                                                const SizedBox.shrink(),
-                                            frameBuilder:
-                                                (
-                                                  context,
-                                                  child,
-                                                  frame,
-                                                  synchronous,
-                                                ) => AnimatedOpacity(
-                                                  opacity:
-                                                      synchronous ||
-                                                          frame != null
-                                                      ? (Theme.of(
-                                                                  context,
-                                                                ).brightness ==
-                                                                Brightness.dark
-                                                            ? .16
-                                                            : .28)
-                                                      : 0,
-                                                  duration: duration,
-                                                  curve: Curves.easeOut,
-                                                  child: child,
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final width =
+                                            (constraints.maxHeight * .9).clamp(
+                                              0.0,
+                                              constraints.maxWidth * .42,
+                                            );
+                                        return Align(
+                                          alignment: Alignment.centerRight,
+                                          child: SizedBox(
+                                            width: width,
+                                            height: constraints.maxHeight,
+                                            child: ShaderMask(
+                                              blendMode: BlendMode.dstIn,
+                                              shaderCallback: (bounds) =>
+                                                  const LinearGradient(
+                                                    colors: [
+                                                      Colors.transparent,
+                                                      Colors.white,
+                                                    ],
+                                                    stops: [0, .4],
+                                                  ).createShader(bounds),
+                                              child: ShaderMask(
+                                                blendMode: BlendMode.dstIn,
+                                                shaderCallback: (bounds) =>
+                                                    const LinearGradient(
+                                                      begin:
+                                                          Alignment.topCenter,
+                                                      end: Alignment
+                                                          .bottomCenter,
+                                                      colors: [
+                                                        Colors.white,
+                                                        Colors.transparent,
+                                                      ],
+                                                      stops: [.65, 1],
+                                                    ).createShader(bounds),
+                                                child: Image.network(
+                                                  entry.backgroundUrl,
+                                                  key: ValueKey(
+                                                    entry.backgroundUrl,
+                                                  ),
+                                                  cacheWidth:
+                                                      (width *
+                                                              MediaQuery.devicePixelRatioOf(
+                                                                context,
+                                                              ))
+                                                          .ceil()
+                                                          .clamp(1, 768),
+                                                  fit: BoxFit.cover,
+                                                  alignment:
+                                                      Alignment.topCenter,
+                                                  errorBuilder: (_, _, _) =>
+                                                      const SizedBox.shrink(),
+                                                  frameBuilder:
+                                                      (
+                                                        context,
+                                                        child,
+                                                        frame,
+                                                        synchronous,
+                                                      ) => AnimatedOpacity(
+                                                        opacity:
+                                                            synchronous ||
+                                                                frame != null
+                                                            ? (Theme.of(
+                                                                        context,
+                                                                      ).brightness ==
+                                                                      Brightness
+                                                                          .dark
+                                                                  ? .16
+                                                                  : .28)
+                                                            : 0,
+                                                        duration: duration,
+                                                        curve: Curves.easeOut,
+                                                        child: child,
+                                                      ),
                                                 ),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),
