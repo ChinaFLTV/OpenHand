@@ -674,109 +674,134 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                     children: [
                       OpenHandTintedPanel(
                         accent: accent,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final portraitSize = constraints.maxWidth < 460
-                                ? 88.0
-                                : 120.0;
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(
-                                        kOpenHandRadius14,
-                                      ),
-                                      child: SizedBox.square(
-                                        dimension: portraitSize,
-                                        child: Image.network(
-                                          entry.backgroundUrl,
-                                          key: ValueKey(entry.backgroundUrl),
-                                          cacheWidth:
-                                              (portraitSize *
-                                                      MediaQuery.devicePixelRatioOf(
-                                                        context,
-                                                      ))
-                                                  .ceil(),
-                                          fit: BoxFit.cover,
-                                          alignment: Alignment.topCenter,
-                                          errorBuilder: (_, _, _) => _avatar(
-                                            entry,
-                                            size: portraitSize,
+                        padding: EdgeInsets.zero,
+                        child: ClipRRect(
+                          borderRadius: kOpenHandBorderRadius16,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: ExcludeSemantics(
+                                    child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: FractionallySizedBox(
+                                        widthFactor: .45,
+                                        heightFactor: 1,
+                                        child: ShaderMask(
+                                          blendMode: BlendMode.dstIn,
+                                          shaderCallback: (bounds) =>
+                                              const LinearGradient(
+                                                colors: [
+                                                  Colors.transparent,
+                                                  Colors.white,
+                                                ],
+                                                stops: [0, .85],
+                                              ).createShader(bounds),
+                                          child: Image.network(
+                                            entry.backgroundUrl,
+                                            key: ValueKey(entry.backgroundUrl),
+                                            cacheWidth: 768,
+                                            fit: BoxFit.cover,
+                                            alignment: Alignment.topCenter,
+                                            errorBuilder: (_, _, _) =>
+                                                const SizedBox.shrink(),
+                                            frameBuilder:
+                                                (
+                                                  context,
+                                                  child,
+                                                  frame,
+                                                  synchronous,
+                                                ) => AnimatedOpacity(
+                                                  opacity:
+                                                      synchronous ||
+                                                          frame != null
+                                                      ? (Theme.of(
+                                                                  context,
+                                                                ).brightness ==
+                                                                Brightness.dark
+                                                            ? .16
+                                                            : .28)
+                                                      : 0,
+                                                  duration: duration,
+                                                  curve: Curves.easeOut,
+                                                  child: child,
+                                                ),
                                           ),
-                                          frameBuilder:
-                                              (
-                                                context,
-                                                child,
-                                                frame,
-                                                synchronous,
-                                              ) => AnimatedOpacity(
-                                                opacity:
-                                                    synchronous || frame != null
-                                                    ? 1
-                                                    : 0,
-                                                duration: duration,
-                                                curve: Curves.easeOut,
-                                                child: child,
-                                              ),
                                         ),
                                       ),
                                     ),
-                                    kOpenHandHGap14,
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            entry.name,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleLarge
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                          ),
-                                          kOpenHandGap8,
-                                          Text(
-                                            'SkillHub',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  color:
-                                                      colors.onSurfaceVariant,
-                                                ),
-                                          ),
-                                          kOpenHandGap8,
-                                          Wrap(
-                                            spacing: 6,
-                                            runSpacing: 6,
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: kOpenHandTintedPanelPadding,
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        _avatar(entry, size: 64),
+                                        kOpenHandHGap14,
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
-                                              OpenHandFactChip(
-                                                icon: Icons.category_outlined,
-                                                label: entry.category,
-                                                color: accent,
+                                              Text(
+                                                entry.name,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleLarge
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                    ),
                                               ),
-                                              OpenHandFactChip(
-                                                icon:
-                                                    Icons.description_outlined,
-                                                label: 'SOUL',
-                                                color: colors.secondary,
+                                              kOpenHandGap8,
+                                              Text(
+                                                'SkillHub',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: colors
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                              kOpenHandGap8,
+                                              Wrap(
+                                                spacing: 6,
+                                                runSpacing: 6,
+                                                children: [
+                                                  OpenHandFactChip(
+                                                    icon:
+                                                        Icons.category_outlined,
+                                                    label: entry.category,
+                                                    color: accent,
+                                                  ),
+                                                  OpenHandFactChip(
+                                                    icon: Icons
+                                                        .description_outlined,
+                                                    label: 'SOUL',
+                                                    color: colors.secondary,
+                                                  ),
+                                                ],
                                               ),
                                             ],
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
+                                    ),
+                                    kOpenHandGap14,
+                                    SelectionArea(
+                                      child: Text(entry.description),
                                     ),
                                   ],
                                 ),
-                                kOpenHandGap14,
-                                SelectionArea(child: Text(entry.description)),
-                              ],
-                            );
-                          },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       kOpenHandGap14,

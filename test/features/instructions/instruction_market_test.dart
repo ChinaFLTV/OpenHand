@@ -105,10 +105,15 @@ void main() {
       final portrait = find.byKey(
         ValueKey(instructionMarketCatalog.first.backgroundUrl),
       );
-      final portraitSize = tester.getSize(portrait);
-      expect(portraitSize.width, lessThanOrEqualTo(120));
-      expect(portraitSize.height, portraitSize.width);
-      expect(tester.widget<Image>(portrait).alignment, Alignment.topCenter);
+      expect(
+        find.ancestor(of: portrait, matching: find.byType(ShaderMask)),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(of: portrait, matching: find.byType(IgnorePointer)),
+        findsWidgets,
+      );
+      expect(tester.widget<Image>(portrait).fit, BoxFit.cover);
       OpenHandTablePagination pager() => tester.widget<OpenHandTablePagination>(
         find.byType(OpenHandTablePagination),
       );
