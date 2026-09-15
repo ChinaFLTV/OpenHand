@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { Markdown } from '../src/components/Markdown';
+import { MessageCard, markMessagesAsAppeared } from '../src/components/MessageCard';
 import { VirtualMessageList } from '../src/features/sessions/components/SessionDetailPage';
 import type { SessionMessage } from '../src/api/sessions';
 import { MESSAGE_LIST_MAX_VISIBLE_ROWS } from '../src/shared/util/virtual_message_list_math';
@@ -50,6 +51,21 @@ try {
   render(null, root);
   window.scrollTo(0, 0);
 
+  // 使用实际消息卡验证默认展开的短消息与默认折叠的思考消息都经过视口门控。
+  const reasoning: SessionMessage = { ...messages[1]!, id: '屏外思考', kind: 'reasoning', content: table.repeat(10) };
+  markMessagesAsAppeared([messages[1]!.id, reasoning.id]);
+  render(<div style={{ height: '200px', overflow: 'auto' }}>
+    <div style={{ height: '1000px' }}>前一张长卡片</div>
+    <div id="屏外卡片"><MessageCard message={messages[1]!} /><MessageCard message={reasoning} /></div>
+  </div>, root);
+  await new Promise<void>((resolve) => setTimeout(resolve, 300));
+  verify(root.querySelector('#屏外卡片 table') == null, '真实历史卡片与思考卡片在屏外不提前解析');
+  root.querySelector('#屏外卡片')!.scrollIntoView({ block: 'start' });
+  await until(() => root.querySelector('#屏外卡片 td') != null);
+  verify(root.querySelector('#屏外卡片 td')?.textContent === '历史记录', '真实消息卡进入视口后显示富文本');
+  render(null, root);
+  window.scrollTo(0, 0);
+
   const streamProbe = (streaming: boolean) => <div style={{ marginTop: '2000px' }}>
     <Markdown source={table} deferInitialRender streaming={streaming} />
   </div>;
@@ -71,6 +87,41 @@ try {
   scrollRef.current!.dispatchEvent(new Event('scroll'));
   await until(() => root.querySelector('[data-message-id="消息-0"] strong') != null);
   verify(root.querySelectorAll('[data-message-id]').length <= MESSAGE_LIST_MAX_VISIBLE_ROWS, '翻到最早记录仍保持有界挂载');
+
+  // 前插历史消息时沿用当前组件，不能先退回两条再重新解析已显示的卡片。
+  const retainedRows = Array.from(root.querySelectorAll('[data-message-id]'));
+  verify(retainedRows.length > 2, '前插检查前已完成首屏分帧');
+  const earlier: SessionMessage = { ...messages[0]!, id: '更早消息' };
+  render(<div ref={scrollRef} style={{ height: '480px', overflowY: 'auto', width: '600px', maxWidth: '100%' }}>
+    <VirtualMessageList key="首个会话" messages={[earlier, ...messages]} membershipKey="前插历史"
+      scrollContainerRef={scrollRef} revealTarget={null} highlightedMessageId={null}
+      onInitialLayoutSettled={() => { settled = true; }}
+      renderMessage={(message) => <Markdown source={message.content} deferInitialRender />} />
+  </div>, root);
+  verify(retainedRows.every((row) => row.isConnected), '前插历史不卸载当前已显示的消息节点');
+
+  render(null, root);
+  // 无限装饰动画不影响真实高度提交；正文展开后数帧内修正虚拟高度。
+  const animatedItems = messages.slice(0, 10);
+  const mountAnimated = (height: number) => render(<div ref={scrollRef}
+    style={{ height: '480px', overflowY: 'auto', width: '600px', maxWidth: '100%' }}>
+    <VirtualMessageList key="动画测高" messages={animatedItems} membershipKey="动画测高"
+      scrollContainerRef={scrollRef} revealTarget={null} highlightedMessageId={null}
+      onInitialLayoutSettled={() => { settled = true; }}
+      renderMessage={() => <div style={{ height: `${height}px` }}><span style={{ animation: 'oh-placeholder-pulse 1s infinite' }}>加载中</span></div>} />
+  </div>, root);
+  mountAnimated(300);
+  await until(() => root.querySelectorAll('[data-message-id]').length > 2);
+  await new Promise<void>((resolve) => setTimeout(resolve, 200));
+  const listBeforeResize = root.querySelector<HTMLElement>('[data-virtualized]')!;
+  const heightBeforeResize = Number.parseFloat(listBeforeResize.style.height);
+  mountAnimated(700);
+  for (let frame = 0; frame < 10; frame++) {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+  verify(Number.parseFloat(listBeforeResize.style.height) > heightBeforeResize + 300,
+    '持续微光动画下正文展开仍在十帧内更新虚拟高度');
+  render(null, root);
 
   for (let index = 0; index < 20; index++) mount(`切换-${index}`);
   settled = false;

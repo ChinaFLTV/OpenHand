@@ -3038,9 +3038,11 @@ function MessageCardImpl({
                     : effectiveFormat
               }
               htmlFallback={contentHtmlFallback}
-              // 折叠态首次进入视口允许延迟解析；用户展开后同步构建，
-              // 避免再次挂载时短暂显示骨架并造成占位↔渲染闪烁。
-              deferInitialRender={!activelyStreaming && !expanded && !badgeCollapsed}
+              // 历史卡片统一按视口分帧；仅用户主动展开或实时输出可以跳过等待。
+              deferInitialRender={
+                !activelyStreaming && !forceExpanded &&
+                expandedOverride !== true && badgeCollapsedOverride !== false
+              }
             />
           )
         )}

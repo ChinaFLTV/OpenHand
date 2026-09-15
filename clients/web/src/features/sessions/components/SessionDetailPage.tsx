@@ -2981,20 +2981,6 @@ interface VirtualMessageListProps {
   renderMessage: (message: SessionMessage) => ComponentChildren;
 }
 
-/// 卡片高度动画（WAAPI）期间每帧都会改变 offsetHeight。若照单全收地提交，
-/// 一次 300ms 的展开动画就等于 18 帧「测量 → 前缀和重建 → 锚点写 scrollTop」，
-/// 主线程被自激循环占满。这里让位给动画，收敛后只提交一次终值；超过上限
-/// 仍强制提交，避免无限动画把行高永久钉住。
-const MESSAGE_ROW_ANIMATION_DEFER_MAX_FRAMES = 48;
-
-function isMessageRowAnimating(element: HTMLElement): boolean {
-  const getAnimations = (element as Element & {
-    getAnimations?: (options?: { subtree?: boolean }) => unknown[];
-  }).getAnimations;
-  if (typeof getAnimations !== 'function') return false;
-  return getAnimations.call(element, { subtree: true }).length > 0;
-}
-
 function MeasuredMessageRow({
   message,
   onHeightChange,
@@ -3011,36 +2997,21 @@ function MeasuredMessageRow({
   useLayoutEffect(() => {
     const element = rowRef.current;
     if (!element) return undefined;
-    let frame: number | null = null;
-    let deferredFrames = 0;
-    const measure = () => {
-      frame = null;
-      if (
-        deferredFrames < MESSAGE_ROW_ANIMATION_DEFER_MAX_FRAMES &&
-        isMessageRowAnimating(element)
-      ) {
-        deferredFrames += 1;
-        frame = window.requestAnimationFrame(measure);
-        return;
-      }
-      deferredFrames = 0;
-      onHeightChange(message.id, element.offsetHeight);
-    };
-    frame = window.requestAnimationFrame(measure);
+    // 直接使用布局引擎的测量结果，微光、透明度与位移动画不参与测高。
     if (typeof ResizeObserver === 'undefined') {
-      return () => {
-        if (frame != null) window.cancelAnimationFrame(frame);
-      };
+      const frame = window.requestAnimationFrame(() => {
+        onHeightChange(message.id, element.offsetHeight);
+      });
+      return () => window.cancelAnimationFrame(frame);
     }
-    const observer = new ResizeObserver(() => {
-      if (frame != null) return;
-      frame = window.requestAnimationFrame(measure);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const height = entry.borderBoxSize?.[0]?.blockSize ?? element.offsetHeight;
+      onHeightChange(message.id, height);
     });
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-      if (frame != null) window.cancelAnimationFrame(frame);
-    };
+    observer.observe(element, { box: 'border-box' });
+    return () => observer.disconnect();
   }, [message.id, onHeightChange]);
 
   return (
@@ -3151,14 +3122,11 @@ export function VirtualMessageList({
   ) {
     renderRange = initialRange;
   }
-  const renderRowBudget = membershipChanged
-    ? Math.min(MESSAGE_LIST_MAX_VISIBLE_ROWS, MESSAGE_LIST_INITIAL_VISIBLE_ROWS)
-    : visibleRowBudget;
   if (virtualized) {
     renderRange = clampVirtualMessageRange(
       renderRange,
       messages.length,
-      renderRowBudget,
+      visibleRowBudget,
     );
   }
 
@@ -3309,16 +3277,6 @@ export function VirtualMessageList({
     rangeFrameRef.current = window.requestAnimationFrame(updateRange);
   }, [updateRange]);
 
-  useLayoutEffect(() => {
-    const initialBudget = Math.min(
-      MESSAGE_LIST_MAX_VISIBLE_ROWS,
-      MESSAGE_LIST_INITIAL_VISIBLE_ROWS,
-    );
-    setVisibleRowBudget((current) =>
-      current === initialBudget ? current : initialBudget,
-    );
-  }, [membershipKey]);
-
   useEffect(() => {
     if (!virtualized) return undefined;
     let budget = Math.min(
@@ -3342,7 +3300,7 @@ export function VirtualMessageList({
     return () => {
       if (frame != null) window.cancelAnimationFrame(frame);
     };
-  }, [membershipKey, virtualized]);
+  }, [virtualized]);
 
   useLayoutEffect(() => {
     scheduleRangeUpdate();
@@ -3428,13 +3386,6 @@ export function VirtualMessageList({
       if (frame != null) window.cancelAnimationFrame(frame);
     };
   }, [membershipKey, onInitialLayoutSettled, scrollContainerRef]);
-
-  useEffect(() => {
-    const liveIds = new Set(messageIds);
-    for (const id of measuredHeightsRef.current.keys()) {
-      if (!liveIds.has(id)) measuredHeightsRef.current.delete(id);
-    }
-  }, [messageIds]);
 
   if (!virtualized) {
     return (

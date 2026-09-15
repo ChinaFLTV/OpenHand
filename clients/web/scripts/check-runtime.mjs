@@ -22,6 +22,31 @@ function deferred() {
 }
 
 try {
+  const { buildHeightPrefix, resolveVirtualMessageRange } = await server.ssrLoadModule('/src/shared/util/virtual_message_list_math.ts');
+  const shortHeights = Array(1000).fill(44);
+  const shortPrefix = buildHeightPrefix(shortHeights);
+  for (const maxVisibleRows of [2, 8]) {
+    const range = resolveVirtualMessageRange({
+      messageCount: shortHeights.length, heights: shortHeights, prefix: shortPrefix,
+      viewportTop: 5600, viewportBottom: 5800, maxVisibleRows,
+    });
+    assert.ok(range.start <= 100 && range.end > 100, '短消息的屏外预加载不能挤走视口起始行');
+    assert.ok(range.end - range.start <= maxVisibleRows, '视口优先仍须遵守挂载预算');
+    if (maxVisibleRows === 8) assert.ok(range.end >= 104, '额度足够时必须覆盖整个视口');
+  }
+  const tailRange = resolveVirtualMessageRange({
+    messageCount: shortHeights.length, heights: shortHeights, prefix: shortPrefix,
+    viewportTop: 55488, viewportBottom: 55988, maxVisibleRows: 2,
+  });
+  assert.deepEqual(tailRange, { start: 998, end: 1000 }, '首屏预算不足时贴底仍须保留最新消息');
+  const mixedHeights = [...shortHeights];
+  mixedHeights[100] = 4000;
+  const mixedRange = resolveVirtualMessageRange({
+    messageCount: mixedHeights.length, heights: mixedHeights, prefix: buildHeightPrefix(mixedHeights),
+    viewportTop: 6000, viewportBottom: 6480,
+  });
+  assert.ok(mixedRange.start <= 100 && mixedRange.end > 100, '高卡片中部滚动必须保留当前卡片');
+
   const { resolveImageGallery, collectImageGallery } = await server.ssrLoadModule('/src/components/image_gallery.ts');
   const galleryEntries = Array.from({ length: 600 }, (_, index) => ({
     item: { path: `/图片/${index % 2}.png`, name: `图片 ${index}`, kind: 'image' },

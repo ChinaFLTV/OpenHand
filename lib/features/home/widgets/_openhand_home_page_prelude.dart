@@ -32,10 +32,6 @@ const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // 长会话先显示最新窗口，按需展开旧记录，保持当前滚动范围稳定。
 const int _transcriptWindowIncrement =
     TranscriptListWindowing.defaultWindowIncrement;
-const int _transcriptWarmupSignatureCacheLimit = 256;
-const int _transcriptWarmupCharacterBudget = 12000;
-const int _transcriptHtmlWarmupMaxPerPass =
-    TranscriptListWindowing.defaultHtmlWarmupMaxPerPass;
 const Duration _htmlWebViewColdMountDelay = Duration(milliseconds: 220);
 const Duration _htmlWebViewPermitWaitTimeout = Duration(seconds: 3);
 const Duration _htmlWebViewPermitRetryDelay = Duration(milliseconds: 480);

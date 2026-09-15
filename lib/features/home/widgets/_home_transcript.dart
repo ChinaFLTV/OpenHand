@@ -455,26 +455,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   _TranscriptInitialRevealPhase _initialRevealPhase =
       _TranscriptInitialRevealPhase.preparing;
 
-  ThemeData? _warmupTheme;
-  SettingsController? _warmupSettings;
-  bool _warmupDependenciesReady = false;
-  final RichContentFrameScheduler _warmupScheduler = RichContentFrameScheduler(
-    isPaused: _transcriptRenderPaused,
-  );
-  int _warmupGeneration = 0;
+  final RichContentFrameScheduler _windowFillScheduler =
+      RichContentFrameScheduler(isPaused: _transcriptRenderPaused);
   int _staggerFillGeneration = 0;
   bool _staggerFillActive = false;
-  int? _warmupContextSignature;
-  final Set<int> _warmupSignatures = <int>{};
-  final Queue<int> _warmupSignatureOrder = Queue<int>();
 
   @override
   void initState() {
     super.initState();
     _syncWindowStartIndex(forceReset: true);
     _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
-    // 初始窗口最多 8 条消息，直接完整物化并在不可见阶段完成贴底，避免正文
-    // 淡入后再向列表顶部插入消息，引发滚动条和卡片短暂跳动。
+    // 首帧只挂最新两条；其余消息按帧补齐，正文由可见卡片申请渲染额度。
     _materializeOpenWindow();
     _syncVisibleError();
     _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
@@ -576,28 +567,20 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _warmupTheme = Theme.of(context);
-    _warmupSettings ??= context.read<SettingsController>();
-    _warmupDependenciesReady = _warmupSettings != null;
     final activity = _maybeTranscriptScrollActivityOf(context);
     if (identical(activity, _scrollActivity)) {
-      _warmCurrentRenderEntriesIfReady();
       return;
     }
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = activity;
     activity?.addListener(_handleRevealScrollActivityChanged);
-    _warmCurrentRenderEntriesIfReady();
   }
 
   @override
   void didUpdateWidget(covariant _SessionTranscript oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.session.id != widget.session.id) {
-      _warmupGeneration += 1;
-      _warmupContextSignature = null;
-      _warmupScheduler.clear();
-      _clearWarmupSignatures();
+      _windowFillScheduler.clear();
       _resetSessionScopedState();
       _messageActionPanelMotionKey += 1;
       _consumedMessageActionPanelMotionKey = _messageActionPanelMotionKey;
@@ -836,7 +819,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void _scheduleStaggeredWindowFill() {
     if (!_staggerFillActive) return;
     final generation = ++_staggerFillGeneration;
-    _warmupScheduler.schedule(
+    _windowFillScheduler.schedule(
       () => _staggerFillNext(generation),
       priority: true,
       isValid: () =>
@@ -883,7 +866,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       ];
       _syncRenderEntryIndex();
     });
-    _scheduleWarmRichRenderEntries(<AiSessionMessage>[message]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || generation != _staggerFillGeneration) return;
       if (anchor != null) {
@@ -893,7 +875,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       }
     });
     if (firstPaintedIndex - 1 > 0) {
-      _warmupScheduler.schedule(
+      _windowFillScheduler.schedule(
         () => _staggerFillNext(generation),
         priority: true,
         isValid: () =>
@@ -946,9 +928,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     _renderEntries = retained;
     _syncRenderEntryIndex();
-    _scheduleWarmRichRenderEntries(
-      retained.map((entry) => entry.message).toList(growable: false),
-    );
   }
 
   void _pinTranscriptToLatestIfOpening() {
@@ -970,7 +949,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }) {
     _staggerFillGeneration += 1;
     _staggerFillActive = false;
-    _scheduleWarmRichRenderEntries(visibleMessages);
     if (!animate) {
       _animatedMessageIds.addAll(visibleMessages.map((message) => message.id));
     }
@@ -995,7 +973,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (!entry.exiting) entry.id: entry,
     };
     final nextEntries = <_TranscriptRenderEntry>[];
-    final addedMessages = <AiSessionMessage>[];
     var sawExistingEntry = false;
     var nonPrefixAddition = false;
 
@@ -1015,7 +992,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         break;
       }
       _animatedMessageIds.add(message.id);
-      addedMessages.add(message);
       nextEntries.add(_TranscriptRenderEntry(message: message));
     }
 
@@ -1024,7 +1000,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
 
-    _scheduleWarmRichRenderEntries(addedMessages);
     _renderEntries = nextEntries;
     _syncRenderEntryIndex();
   }
@@ -1034,327 +1009,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       for (var index = 0; index < _renderEntries.length; index += 1)
         _renderEntries[index].id: index,
     };
-  }
-
-  void _warmCurrentRenderEntriesIfReady() {
-    if (!_warmupDependenciesReady || _renderEntries.isEmpty) {
-      return;
-    }
-    _scheduleWarmRichRenderEntries(
-      _renderEntries.map((entry) => entry.message).toList(growable: false),
-    );
-  }
-
-  void _scheduleWarmRichRenderEntries(List<AiSessionMessage> visibleMessages) {
-    final theme = _warmupTheme;
-    final settings = _warmupSettings;
-    if (!_warmupDependenciesReady ||
-        theme == null ||
-        settings == null ||
-        visibleMessages.isEmpty) {
-      return;
-    }
-    final session = widget.session;
-    // 只有预热上下文（会话 / 主题 / HTML 降级策略）真的变了才作废已排队任务。
-    // 渐进首屏会先排尾部、两帧后再排整窗；此前无条件 clear 会把尚未跑完的
-    // 尾部预热直接丢掉，而签名去重又保证它们不会被重新排队——用户正在看的
-    // 那几条反而永远失去预热，落到滚动时同步解析。
-    // 判定必须在去重之前：否则「签名全部命中 → warmMessages 为空 → 早退」
-    // 会让主题切换后的上下文签名永远更新不了，队列继续用旧主题预热。
-    // 作废队列时必须一并清空签名集合，否则被丢弃的那批消息因签名仍在，
-    // 永远不会被重新排队。
-    final warmContext = Object.hash(
-      session.id,
-      theme.hashCode,
-      settings.aiHtmlRenderFallback,
-    );
-    if (warmContext != _warmupContextSignature) {
-      _warmupContextSignature = warmContext;
-      _warmupGeneration += 1;
-      _warmupScheduler.clear();
-      _clearWarmupSignatures();
-    }
-    final generation = _warmupGeneration;
-    final staged = visibleMessages;
-    final warmCount = math.min(
-      staged.length,
-      TranscriptListWindowing.warmupMessageBudget(),
-    );
-    final warmMessages = <(AiSessionMessage, int)>[];
-    var warmCharacters = 0;
-    var htmlWarmups = 0;
-    for (
-      var index = staged.length - 1;
-      index >= 0 && warmMessages.length < warmCount;
-      index -= 1
-    ) {
-      final message = staged[index];
-      if (message.metadata[aiSessionMessageContentPreviewMetadataKey] == true) {
-        continue;
-      }
-      final usesHtml = _messageUsesHtmlRenderer(message, settings);
-      if (usesHtml && htmlWarmups >= _transcriptHtmlWarmupMaxPerPass) {
-        continue;
-      }
-      if (warmMessages.isNotEmpty &&
-          warmCharacters >= _transcriptWarmupCharacterBudget) {
-        break;
-      }
-      final signature = _warmupSignatureFor(message, settings);
-      if (!_rememberWarmupSignature(signature)) {
-        continue;
-      }
-      warmMessages.add((message, signature));
-      warmCharacters += math.min(
-        math.max(1, message.content.length),
-        _transcriptWarmupCharacterBudget,
-      );
-      if (usesHtml) {
-        htmlWarmups += 1;
-      }
-    }
-    if (warmMessages.isEmpty) {
-      return;
-    }
-    final orderedWarmMessages = warmMessages.reversed.toList(growable: false);
-    for (final (message, signature) in orderedWarmMessages) {
-      _warmupScheduler.schedule(() {
-        if (!mounted ||
-            generation != _warmupGeneration ||
-            widget.session.id != session.id) {
-          return;
-        }
-        // 队列不再被无条件裁剪，改为在执行时校验消息仍在当前物化窗口内，
-        // 避免翻页/快速滚动后陈旧任务挤占帧预算、把刚进入视口的消息排到后面。
-        // 丢弃时必须撤销签名，否则消息滚回视口后会被去重挡住，永远失去预热。
-        if (!_renderEntryIndexById.containsKey(message.id)) {
-          _forgetWarmupSignature(signature);
-          return;
-        }
-        _warmRichRenderForMessage(
-          session: session,
-          message: message,
-          theme: theme,
-          settings: settings,
-        );
-      }, onDropped: () => _forgetWarmupSignature(signature));
-    }
-  }
-
-  int _warmupSignatureFor(
-    AiSessionMessage message,
-    SettingsController settings,
-  ) {
-    return Object.hash(
-      message.id,
-      message.kind,
-      message.content.length,
-      boundedTextFingerprint(message.content),
-      _messageContentFormat(message, settings),
-      settings.aiHtmlRenderFallback,
-    );
-  }
-
-  bool _rememberWarmupSignature(int signature) {
-    if (_warmupSignatures.contains(signature)) {
-      return false;
-    }
-    _warmupSignatures.add(signature);
-    _warmupSignatureOrder.add(signature);
-    while (_warmupSignatureOrder.length >
-        _transcriptWarmupSignatureCacheLimit) {
-      final oldest = _warmupSignatureOrder.removeFirst();
-      _warmupSignatures.remove(oldest);
-    }
-    return true;
-  }
-
-  void _forgetWarmupSignature(int signature) {
-    if (!_warmupSignatures.remove(signature)) return;
-    _warmupSignatureOrder.remove(signature);
-  }
-
-  void _clearWarmupSignatures() {
-    _warmupSignatures.clear();
-    _warmupSignatureOrder.clear();
-  }
-
-  void _warmRichRenderForMessage({
-    required AiSession session,
-    required AiSessionMessage message,
-    required ThemeData theme,
-    required SettingsController settings,
-  }) {
-    final kind = message.kind;
-    final isUser = kind == AiSessionMessageKind.user;
-    final isCompressionPoint = kind == AiSessionMessageKind.compressionPoint;
-    final isReasoning = kind == AiSessionMessageKind.reasoning;
-    final isStreamingReasoning = _isStreamingReasoningMessage(message);
-    final isStreamingAssistant =
-        kind == AiSessionMessageKind.assistant &&
-        message.metadata[aiSessionMessageMetadataStreamingKey] == true;
-    final isToolCall =
-        kind == AiSessionMessageKind.toolCall ||
-        kind == AiSessionMessageKind.hook;
-    final isToolResult =
-        kind == AiSessionMessageKind.tool ||
-        kind == AiSessionMessageKind.mcp ||
-        kind == AiSessionMessageKind.skill;
-    final isStatus = kind == AiSessionMessageKind.status;
-    final isSelfLearning = kind == AiSessionMessageKind.selfLearning;
-    final isRoundFileMutationSummary =
-        kind == AiSessionMessageKind.fileMutationSummary ||
-        (isStatus && message.metadata['round_file_mutation_summary'] == true);
-    if (isUser || isToolCall || isSelfLearning || isRoundFileMutationSummary) {
-      return;
-    }
-
-    final colorScheme = theme.colorScheme;
-    final textColor = isCompressionPoint
-        ? colorScheme.onTertiaryContainer
-        : isReasoning
-        ? Colors.white
-        : colorScheme.onSurface;
-    final useDarkCodeSurface = isReasoning || isToolCall;
-    final pathRoots = messageFilePathRoots(
-      session.environment,
-      workingDirectory: _toolExecutionWorkingDirectory(message),
-    );
-    final parseKey = pathRoots.join('|');
-    final inlineSyntaxes = <md.InlineSyntax>[
-      _GeneratedMediaLinkSyntax.byExtension(pathRoots: pathRoots),
-      _GeneratedMediaLinkSyntax.byGeneratedLabel(pathRoots: pathRoots),
-      MessagePathCodeSyntax(candidateRoots: pathRoots),
-      MessageFilePathSyntax(candidateRoots: pathRoots),
-    ];
-    final resolvedFormat = () {
-      final storedKey = message.metadata[aiSessionMessageContentFormatKey];
-      if (storedKey is String && storedKey.isNotEmpty) {
-        return AiMessageContentFormat.fromStorageKey(storedKey);
-      }
-      return settings.aiMessageContentFormat;
-    }();
-    final heAnnotation = (!isCompressionPoint && !isToolResult && !isStatus)
-        ? _parseHeAnnotation(message.content)
-        : null;
-    final effectiveContent = heAnnotation?.strippedContent ?? message.content;
-    final normalizedContent = effectiveContent.isEmpty ? ' ' : effectiveContent;
-
-    if (isCompressionPoint) {
-      if (_messageShouldCollapse(
-        normalizedContent,
-        charThreshold: _messageMarkdownCollapseCharThreshold,
-        lineThreshold: _messageMarkdownCollapseLineThreshold,
-      )) {
-        _warmMarkdownRenderPath(
-          data: TranscriptListWindowing.boundedContentPreview(
-            normalizedContent,
-            maxCharacters: _markdownCollapsedPreviewMaxChars,
-          ),
-          parseKey: '$parseKey|compression-preview',
-          inlineSyntaxes: inlineSyntaxes,
-          theme: theme,
-          textColor: textColor,
-          useDarkCodeSurface: useDarkCodeSurface,
-        );
-      } else {
-        _warmMarkdownRenderPath(
-          data: normalizedContent,
-          parseKey: parseKey,
-          inlineSyntaxes: inlineSyntaxes,
-          theme: theme,
-          textColor: textColor,
-          useDarkCodeSurface: useDarkCodeSurface,
-        );
-      }
-      return;
-    }
-
-    if (isReasoning) {
-      if (isStreamingReasoning) {
-        return;
-      }
-      if (_shouldDefaultExpandReasoning(message)) {
-        _warmMarkdownRenderPath(
-          data: normalizedContent,
-          parseKey: parseKey,
-          inlineSyntaxes: inlineSyntaxes,
-          theme: theme,
-          textColor: textColor,
-          useDarkCodeSurface: true,
-        );
-      } else {
-        _warmMarkdownRenderPath(
-          data: TranscriptListWindowing.boundedContentPreview(
-            normalizedContent,
-            maxCharacters: _markdownCollapsedPreviewMaxChars,
-          ),
-          parseKey: '$parseKey|reasoning-preview',
-          inlineSyntaxes: inlineSyntaxes,
-          theme: theme,
-          textColor: textColor,
-          useDarkCodeSurface: true,
-        );
-      }
-      return;
-    }
-
-    if (isStreamingAssistant) {
-      return;
-    }
-
-    final hasHtmlLikeTags = _looksLikeHtml(normalizedContent);
-    final hasTagStructure =
-        !hasHtmlLikeTags && _hasHtmlTagStructure(normalizedContent);
-    final containsMarkdownFence =
-        _startsWithFencedMermaidBlock(normalizedContent.trim()) ||
-        _containsMarkdownCodeFence(normalizedContent.trim());
-
-    void warmMarkdownBody() {
-      final shouldWarmPreview = _messageShouldCollapse(
-        normalizedContent,
-        charThreshold: isToolResult
-            ? _toolResultMarkdownCollapseCharThreshold
-            : _messageMarkdownCollapseCharThreshold,
-        lineThreshold: isToolResult
-            ? _toolResultMarkdownCollapseLineThreshold
-            : _messageMarkdownCollapseLineThreshold,
-      );
-      _warmMarkdownRenderPath(
-        data: shouldWarmPreview
-            ? TranscriptListWindowing.boundedContentPreview(
-                normalizedContent,
-                maxCharacters: _markdownCollapsedPreviewMaxChars,
-              )
-            : normalizedContent,
-        parseKey: shouldWarmPreview ? '$parseKey|message-preview' : parseKey,
-        inlineSyntaxes: inlineSyntaxes,
-        theme: theme,
-        textColor: textColor,
-        useDarkCodeSurface: useDarkCodeSurface,
-      );
-    }
-
-    switch (resolvedFormat) {
-      case AiMessageContentFormat.plainText:
-        return;
-      case AiMessageContentFormat.html:
-        if (hasHtmlLikeTags || hasTagStructure) {
-          // HTML 自愈与 WebView 挂载改由卡片分帧路径负责，避免打开会话时
-          // 在占位符阶段同步扫描整段正文。
-          return;
-        }
-        if (settings.aiHtmlRenderFallback == AiHtmlRenderFallback.markdown) {
-          warmMarkdownBody();
-        }
-        return;
-      case AiMessageContentFormat.markdown:
-        if (!containsMarkdownFence && (hasHtmlLikeTags || hasTagStructure)) {
-          return;
-        }
-        warmMarkdownBody();
-        return;
-    }
   }
 
   void _syncRenderEntries({bool forceReset = false}) {
@@ -1477,11 +1131,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _targetHighlightTimer?.cancel();
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = null;
-    _warmupGeneration += 1;
     _staggerFillGeneration += 1;
     _staggerFillActive = false;
     _activeRevealOlderFuture = null;
-    _warmupScheduler.clear();
+    _windowFillScheduler.clear();
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
     _bubbleRegistry.clear();
     super.dispose();

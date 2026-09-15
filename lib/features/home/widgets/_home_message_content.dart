@@ -1508,6 +1508,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   String? _lastBuilderSignature;
   String? _lastParseKey;
   bool _deferredParseScheduled = false;
+  int _deferredParseGeneration = 0;
   Timer? _deferredParseThrottleTimer;
   final Stopwatch _markdownParseStopwatch = Stopwatch()..start();
   int _lastMarkdownParseAtMs = -1;
@@ -1584,13 +1585,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final deferredThreshold = widget.streaming
         ? _markdownStreamingDeferredParseThresholdChars
         : _markdownDeferredParseThresholdChars;
-    // 已有 AST 时直接构建渲染树，避免历史消息在每次重新挂载时先短暂显示
-    // 原文占位，再切回 Markdown，展开/折叠期间尤其容易形成闪烁。
+    // 缓存只省去语法解析，首屏组件树构建仍须分帧；等待中的占位不算已完成。
     final deferHistoricalInitial =
-        initial &&
-        widget.deferInitialParse &&
-        !widget.streaming &&
-        !_hasWarmMarkdownAst();
+        widget.deferInitialParse && !widget.streaming && _lastData == null;
     final overDeferredThreshold = widget.data.length > deferredThreshold;
     final shouldDeferParse =
         deferHistoricalInitial || (widget.streaming && overDeferredThreshold);
@@ -1663,6 +1660,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       }
     }
     _deferredParseScheduled = true;
+    final generation = ++_deferredParseGeneration;
     _markdownFrameScheduler.schedule(
       () {
         if (!mounted) {
@@ -1679,8 +1677,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         setState(_parseMarkdown);
       },
       priority: true,
-      isValid: () => mounted,
+      isValid: () => mounted && generation == _deferredParseGeneration,
       onDropped: () {
+        if (generation != _deferredParseGeneration) return;
         _deferredParseScheduled = false;
         _deferredParsePendingAfterScroll = false;
       },
@@ -1703,16 +1702,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     ];
   }
 
-  bool _hasWarmMarkdownAst() {
-    final normalizedSource = normalizeOpenHandMarkdownSource(
-      widget.data.isEmpty ? ' ' : widget.data,
-      stripMessageScaffolding: true,
-    );
-    final astKey = _markdownAstCacheKeyFor(normalizedSource, widget);
-    return _markdownAstCache.get(astKey) != null;
-  }
-
   void _parseMarkdown() {
+    _deferredParseGeneration += 1;
+    _deferredParseScheduled = false;
     if (kDebugMode) {
       developer.Timeline.startSync(
         'openhand.markdown.parse',

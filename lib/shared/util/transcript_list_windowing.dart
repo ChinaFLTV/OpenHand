@@ -12,8 +12,6 @@ abstract final class TranscriptListWindowing {
   /// 首屏再按 [defaultInitialPaintRows] 切开，避免一次挂满整窗富文本卡。
   static const int defaultMaxMaterializedWindow = 12;
   static const int defaultInitialPaintRows = 2;
-  static const int defaultWarmupMaxMessages = 4;
-  static const int defaultHtmlWarmupMaxPerPass = 1;
 
   /// 计算最近消息窗口的起始索引。
   static int initialWindowStartIndex(
@@ -127,15 +125,6 @@ abstract final class TranscriptListWindowing {
       return math.max(0, nextCount - previousWindowLength);
     }
     return clampWindowStart(previousWindowStart, nextCount);
-  }
-
-  static int warmupMessageBudget({
-    int initialWindowSize = defaultInitialWindowSize,
-    int windowIncrement = defaultWindowIncrement,
-    int maxWarmup = defaultWarmupMaxMessages,
-  }) {
-    final desired = math.max(initialWindowSize, windowIncrement);
-    return math.max(1, math.min(desired, maxWarmup));
   }
 
   /// 首帧只挂最新尾部，其余窗口消息按帧补齐。

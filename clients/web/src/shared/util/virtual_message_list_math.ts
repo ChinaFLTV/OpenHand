@@ -294,11 +294,26 @@ export function resolveVirtualMessageRange(params: {
       firstVirtualMessageAfter(params.prefix, params.heights, bottom) + 1,
     ),
   );
-  return clampVirtualMessageRange(
-    { start: nextStart, end: nextEnd },
-    count,
-    params.maxVisibleRows ?? MESSAGE_LIST_MAX_VISIBLE_ROWS,
-  );
+  const maxRows = Math.max(1, Math.floor(params.maxVisibleRows ?? MESSAGE_LIST_MAX_VISIBLE_ROWS));
+  if (nextEnd - nextStart <= maxRows) return { start: nextStart, end: nextEnd };
+
+  // 先保住视口内的行，再将剩余额度分给两侧预加载，避免名额全被屏外行占用。
+  const visibleStart = Math.min(count - 1, firstVirtualMessageIntersecting(
+    params.prefix, params.heights, Math.max(0, params.viewportTop),
+  ));
+  const visibleEnd = Math.max(visibleStart + 1, Math.min(count, firstVirtualMessageAfter(
+    params.prefix, params.heights, params.viewportBottom,
+  )));
+  // 首屏贴底时优先保留最新消息，尤其是分帧预算尚未补齐的阶段。
+  if (visibleEnd === count && params.viewportBottom >= virtualMessageTotalHeight(params.prefix, count)) {
+    return { start: Math.max(0, count - maxRows), end: count };
+  }
+  const spare = Math.max(0, maxRows - (visibleEnd - visibleStart));
+  const start = Math.max(nextStart, Math.min(
+    visibleStart - Math.floor(spare / 2),
+    nextEnd - maxRows,
+  ));
+  return { start, end: Math.min(count, start + maxRows) };
 }
 
 export function shouldVirtualizeMessageList(
