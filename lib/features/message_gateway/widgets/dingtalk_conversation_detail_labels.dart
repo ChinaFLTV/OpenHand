@@ -9,7 +9,24 @@ const String kDingTalkDetailValueKey = '值';
 const String kDingTalkDetailItemUnit = '项';
 const String kDingTalkDetailPeopleUnit = '人';
 const String kDingTalkDetailExtendedFieldPrefix = '扩展字段 · ';
+const String kDingTalkDetailExtensionKey = '扩展属性';
+const String kDingTalkDetailDepartmentProfileKey = '部门详情';
+const String kDingTalkDetailNameKey = '姓名';
+const String kDingTalkDetailTitleNameKey = '名称';
+const String kDingTalkDetailRoleKey = '群内角色';
+const String kDingTalkDetailRoleTypeKey = '角色类型';
+const String kDingTalkDetailOwnerRole = '群主';
+const String kDingTalkDetailAdminRole = '管理员';
+const String kDingTalkDetailMemberRole = '普通成员';
 const int kDingTalkDetailFlattenMaxDepth = 12;
+
+const Set<String> kDingTalkDetailHoistLabelStems = <String>{
+  kDingTalkDetailSettingsKey,
+  kDingTalkDetailExtensionKey,
+  kDingTalkDetailDepartmentProfileKey,
+};
+
+const Set<String> kDingTalkDetailHiddenLabelStems = <String>{'头像媒体标识', '是否单聊'};
 
 final RegExp _dingtalkDetailDuplicateSuffixPattern = RegExp(r'^(.*) (\d+)$');
 final RegExp _dingtalkDetailCjkPattern = RegExp(r'[\u4e00-\u9fff]');
@@ -36,6 +53,27 @@ bool dingTalkDetailLabelHasCjk(String value) =>
 bool dingTalkDetailIsFlagLabel(String canonicalZh) {
   final stem = dingTalkDetailLabelParts(canonicalZh).stem;
   return stem.startsWith('是否') || kDingTalkDetailFlagLabels.contains(stem);
+}
+
+bool dingTalkDetailIsHiddenLabel(String raw) {
+  return kDingTalkDetailHiddenLabelStems.contains(
+    dingTalkDetailLabelParts(raw).stem,
+  );
+}
+
+String? dingTalkDetailRoleTypeZh(Object? value) {
+  final code = switch (value) {
+    final int number => number,
+    final num number => number.toInt(),
+    final String text => int.tryParse(text.trim()),
+    _ => null,
+  };
+  return switch (code) {
+    1 => kDingTalkDetailOwnerRole,
+    2 => kDingTalkDetailAdminRole,
+    3 => kDingTalkDetailMemberRole,
+    _ => null,
+  };
 }
 
 bool dingTalkDetailHasContent(Object? value) {
@@ -119,6 +157,17 @@ String dingTalkDetailExtendedFieldLabel(BuildContext context, String suffix) {
   return trimmed.isEmpty ? prefix : '$prefix · $trimmed';
 }
 
+int dingTalkDetailVisibleCount(Object? value) {
+  final flattened = dingTalkFlattenDetailValue(value);
+  if (flattened is Map) {
+    return flattened.keys
+        .where((key) => !dingTalkDetailIsHiddenLabel(key))
+        .length;
+  }
+  if (flattened is List) return flattened.length;
+  return dingTalkDetailHasContent(flattened) ? 1 : 0;
+}
+
 Object? dingTalkFlattenDetailValue(Object? value, [int depth = 0]) {
   if (depth >= kDingTalkDetailFlattenMaxDepth) return value;
   if (value is List) {
@@ -134,18 +183,49 @@ Object? dingTalkFlattenDetailValue(Object? value, [int depth = 0]) {
   if (value is Map) {
     final cleaned = <String, Object?>{};
     for (final entry in stringKeyedMapFromValue(value).entries) {
+      if (dingTalkDetailIsHiddenLabel(entry.key)) continue;
       final nested = dingTalkFlattenDetailValue(entry.value, depth + 1);
       if (!dingTalkDetailHasContent(nested)) continue;
       cleaned[entry.key] = nested;
     }
-    if (cleaned.length == 1) {
-      final only = cleaned.entries.first;
-      if (dingTalkDetailLabelParts(only.key).stem ==
-          kDingTalkDetailSettingsKey) {
-        return dingTalkFlattenDetailValue(only.value, depth + 1);
+    final merged = <String, Object?>{};
+    void put(String key, Object? nested) {
+      if (dingTalkDetailIsHiddenLabel(key) ||
+          !dingTalkDetailHasContent(nested)) {
+        return;
+      }
+      if (!merged.containsKey(key)) merged[key] = nested;
+    }
+
+    String? promotedRole;
+    for (final entry in cleaned.entries) {
+      final stem = dingTalkDetailLabelParts(entry.key).stem;
+      final nested = entry.value;
+      if (stem == kDingTalkDetailRoleTypeKey) {
+        promotedRole ??= dingTalkDetailRoleTypeZh(nested);
+        continue;
+      }
+      if (kDingTalkDetailHoistLabelStems.contains(stem) && nested is Map) {
+        for (final inner in stringKeyedMapFromValue(nested).entries) {
+          put(inner.key, inner.value);
+        }
+      } else {
+        put(entry.key, nested);
       }
     }
-    return cleaned;
+    final hasRole = merged.keys.any(
+      (key) => dingTalkDetailLabelParts(key).stem == kDingTalkDetailRoleKey,
+    );
+    if (promotedRole != null && !hasRole) {
+      merged[kDingTalkDetailRoleKey] = promotedRole;
+    }
+    return merged;
   }
   return value;
+}
+
+Map<String, Object?> dingTalkDetailAsMap(Object? value) {
+  final flattened = dingTalkFlattenDetailValue(value);
+  if (flattened is Map) return stringKeyedMapFromValue(flattened);
+  return const <String, Object?>{};
 }
