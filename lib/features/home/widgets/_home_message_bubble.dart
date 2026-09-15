@@ -3161,12 +3161,14 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                             style: theme.textTheme.titleMedium,
                           ),
                         ),
-                        if (widget.canLocate)
+                        if (widget.canLocate) ...[
                           IconButton(
                             tooltip: '定位到消息',
                             icon: const Icon(Icons.my_location_rounded),
                             onPressed: () => Navigator.of(context).pop(true),
                           ),
+                          kOpenHandHGap4,
+                        ],
                         MicroPressFeedback(
                           child: IconButton(
                             icon: Icon(
