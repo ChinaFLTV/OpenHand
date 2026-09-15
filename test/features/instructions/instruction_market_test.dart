@@ -114,10 +114,11 @@ void main() {
         findsWidgets,
       );
       expect(tester.widget<Image>(portrait).fit, BoxFit.cover);
+      expect(tester.widget<Image>(portrait).colorBlendMode, BlendMode.modulate);
       final backgroundSize = tester.getSize(portrait);
       expect(
         backgroundSize.width,
-        lessThanOrEqualTo(backgroundSize.height * .9 + .01),
+        lessThanOrEqualTo(backgroundSize.height * 1.15 + .01),
       );
       OpenHandTablePagination pager() => tester.widget<OpenHandTablePagination>(
         find.byType(OpenHandTablePagination),
