@@ -12,6 +12,7 @@ import '../../../shared/market/market_provider.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
+import '../../../shared/ui/market_dialog_actions.dart';
 import '../../../shared/ui/market_provider_selector.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -413,15 +414,6 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                       ],
                     ),
                   ),
-                  kOpenHandHGap12,
-                  MarketProviderSelector(
-                    providers: widget.providers.providers
-                        .map((entry) => entry.info)
-                        .toList(growable: false),
-                    selected: _session.info,
-                    enabled: !_configuring,
-                    onSelected: _switchProvider,
-                  ),
                 ],
               ),
               kOpenHandGap18,
@@ -517,75 +509,54 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
     );
   }
 
-  Widget _actions() => LayoutBuilder(
-    builder: (context, constraints) {
-      final hint = Text(
-        openHandLocalizedText(
-          context,
-          zh: '查看使用说明后，填写连接参数。',
-          zhHant: '查看使用說明後，填寫連線參數。',
-          en: 'Read the usage guide, then fill in the connection parameters.',
-          fr: 'Lisez le guide, puis renseignez les paramètres de connexion.',
-          de: 'Lies die Anleitung und fülle danach die Verbindungsparameter aus.',
-          ja: '利用案内を確認してから接続パラメータを入力します。',
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      );
-      final buttons = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          OpenHandDialogActionButton.secondary(
-            label: openHandCloseLabel(context),
-            onPressed: _configuring ? null : () => Navigator.of(context).pop(),
-          ),
-          kOpenHandHGap12,
-          OpenHandDialogActionButton.primary(
-            label: openHandLocalizedText(
-              context,
-              zh: '添加配置',
-              zhHant: '新增設定',
-              en: 'Add configuration',
-              fr: 'Ajouter une configuration',
-              de: 'Konfiguration hinzufügen',
-              ja: '設定を追加',
-            ),
-            icon: Icons.add_link_rounded,
-            busy: _configuring,
-            onPressed:
-                !_configuring &&
-                    !_loading &&
-                    _listError == null &&
-                    _detail?.canConfigure == true
-                ? _configure
-                : null,
-          ),
-        ],
-      );
-      if (constraints.maxWidth < 640) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            hint,
-            kOpenHandGap12,
-            Align(
-              alignment: Alignment.centerRight,
-              child: FittedBox(fit: BoxFit.scaleDown, child: buttons),
-            ),
-          ],
-        );
-      }
-      return Row(
-        children: [
-          Expanded(child: hint),
-          kOpenHandHGap16,
-          FittedBox(fit: BoxFit.scaleDown, child: buttons),
-        ],
-      );
-    },
+  Widget _actions() => MarketDialogActions(
+    hint: Text(
+      openHandLocalizedText(
+        context,
+        zh: '查看使用说明后，填写连接参数。',
+        zhHant: '查看使用說明後，填寫連線參數。',
+        en: 'Read the usage guide, then fill in the connection parameters.',
+        fr: 'Lisez le guide, puis renseignez les paramètres de connexion.',
+        de: 'Lies die Anleitung und fülle danach die Verbindungsparameter aus.',
+        ja: '利用案内を確認してから接続パラメータを入力します。',
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+    closeButton: OpenHandDialogActionButton.secondary(
+      label: openHandCloseLabel(context),
+      onPressed: _configuring ? null : () => Navigator.of(context).pop(),
+    ),
+    providerButton: MarketProviderSelector(
+      providers: widget.providers.providers
+          .map((entry) => entry.info)
+          .toList(growable: false),
+      selected: _session.info,
+      enabled: !_configuring,
+      onSelected: _switchProvider,
+    ),
+    actionButton: OpenHandDialogActionButton.primary(
+      label: openHandLocalizedText(
+        context,
+        zh: '添加配置',
+        zhHant: '新增設定',
+        en: 'Add configuration',
+        fr: 'Ajouter une configuration',
+        de: 'Konfiguration hinzufügen',
+        ja: '設定を追加',
+      ),
+      busy: _configuring,
+      onPressed:
+          !_configuring &&
+              !_loading &&
+              _listError == null &&
+              _detail?.canConfigure == true
+          ? _configure
+          : null,
+    ),
   );
 
   Widget _switchContent(Widget child, {bool sizeToCurrentChild = false}) {

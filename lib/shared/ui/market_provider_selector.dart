@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../market/market_provider.dart';
 import '../util/localized_text.dart';
 import 'animated_menu.dart';
+import 'openhand_dialog_action_button.dart';
 import 'openhand_spacing.dart';
 
 String marketProviderName(BuildContext context, MarketProviderInfo info) =>
@@ -20,7 +21,7 @@ String marketProviderUnavailable(BuildContext context) => openHandLocalizedText(
   ja: '利用可能なプロバイダーがありません',
 );
 
-class MarketProviderSelector extends StatelessWidget {
+class MarketProviderSelector extends StatefulWidget {
   const MarketProviderSelector({
     super.key,
     required this.providers,
@@ -35,14 +36,18 @@ class MarketProviderSelector extends StatelessWidget {
   final bool enabled;
 
   @override
+  State<MarketProviderSelector> createState() => _MarketProviderSelectorState();
+}
+
+class _MarketProviderSelectorState extends State<MarketProviderSelector> {
+  bool _menuOpen = false;
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final compact =
-        MediaQuery.sizeOf(context).width < 668 ||
-        MediaQuery.textScalerOf(context).scale(14) > 20;
-    final label = selected == null
+    final label = widget.selected == null
         ? marketProviderUnavailable(context)
-        : marketProviderName(context, selected!);
+        : marketProviderName(context, widget.selected!);
     final title = openHandLocalizedText(
       context,
       zh: '数据提供商',
@@ -52,66 +57,54 @@ class MarketProviderSelector extends StatelessWidget {
       de: 'Datenanbieter',
       ja: 'データ提供元',
     );
-    return AnimatedPopupMenuButton<String>(
-      tooltip: '$title：$label',
-      enabled: enabled && providers.isNotEmpty,
-      initialValue: selected?.id,
-      position: PopupMenuPosition.under,
-      offset: const Offset(0, 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(kOpenHandRadius18),
-      ),
-      constraints: const BoxConstraints(minWidth: 220, maxWidth: 320),
-      onSelected: onSelected,
-      itemBuilder: (context) => [
-        for (final info in providers)
-          PopupMenuItem<String>(
-            value: info.id,
-            child: Row(
-              children: [
-                Icon(Icons.cloud_outlined, color: colors.primary),
-                kOpenHandHGap12,
-                Expanded(child: Text(marketProviderName(context, info))),
-                if (info.id == selected?.id) ...[
-                  kOpenHandHGap8,
-                  Icon(Icons.check_circle_rounded, color: colors.primary),
-                ],
-              ],
-            ),
-          ),
-      ],
-      style: TextButton.styleFrom(
-        foregroundColor: colors.primary,
-        minimumSize: const Size(48, 48),
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 10 : 14,
-          vertical: 12,
-        ),
-        backgroundColor: colors.primaryContainer.withValues(alpha: 0.55),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(kOpenHandRadius18),
-          side: BorderSide(color: colors.primary.withValues(alpha: 0.24)),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!compact) ...[
-            const Icon(Icons.cloud_outlined, size: 20),
-            kOpenHandHGap8,
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 180),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-            kOpenHandHGap8,
-          ],
-          const Icon(Icons.expand_more_rounded, size: 22),
-        ],
+    return Tooltip(
+      message: '$title：$label',
+      child: OpenHandDialogActionButton.primary(
+        label: label,
+        onPressed: !widget.enabled || widget.providers.isEmpty
+            ? null
+            : () async {
+                if (_menuOpen) return;
+                _menuOpen = true;
+                try {
+                  final value = await showAnimatedAnchoredPopupMenu<String>(
+                    context: context,
+                    initialValue: widget.selected?.id,
+                    position: PopupMenuPosition.under,
+                    offset: const Offset(0, 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 220,
+                      maxWidth: 320,
+                    ),
+                    items: [
+                      for (final info in widget.providers)
+                        PopupMenuItem<String>(
+                          value: info.id,
+                          child: Semantics(
+                            selected: info.id == widget.selected?.id,
+                            child: Text(
+                              marketProviderName(context, info),
+                              style: info.id == widget.selected?.id
+                                  ? TextStyle(
+                                      color: colors.primary,
+                                      fontWeight: FontWeight.w700,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                  if (mounted && widget.enabled && value != null) {
+                    widget.onSelected(value);
+                  }
+                } finally {
+                  _menuOpen = false;
+                }
+              },
       ),
     );
   }

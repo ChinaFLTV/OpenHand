@@ -15,6 +15,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/market_dialog_actions.dart';
 import '../../../shared/ui/market_provider_selector.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -282,15 +283,6 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               ),
             ],
           ),
-        ),
-        kOpenHandHGap12,
-        MarketProviderSelector(
-          providers: widget.providers.providers
-              .map((entry) => entry.info)
-              .toList(growable: false),
-          selected: _session.info,
-          enabled: !_isInstalling && !_filePreviewOpen,
-          onSelected: _switchProvider,
         ),
       ],
     );
@@ -574,73 +566,72 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     final selectedSkillInstalled =
         selectedSkill != null &&
         _isMarketSkillInstalled(selectedSkill, installedSkillKeys);
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '安装目录：${OpenHandPaths.shortenHomePath(storagePath)}',
-                  zhHant: '安裝目錄：${OpenHandPaths.shortenHomePath(storagePath)}',
-                  en: 'Install path: ${OpenHandPaths.shortenHomePath(storagePath)}',
-                  fr: 'Chemin d’installation : ${OpenHandPaths.shortenHomePath(storagePath)}',
-                  de: 'Installationspfad: ${OpenHandPaths.shortenHomePath(storagePath)}',
-                  ja: 'インストール先：${OpenHandPaths.shortenHomePath(storagePath)}',
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              if (_installError != null) ...[
-                kOpenHandGap4,
-                Text(
-                  _installError!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ],
-            ],
+    return MarketDialogActions(
+      hint: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            openHandLocalizedText(
+              context,
+              zh: '安装目录：${OpenHandPaths.shortenHomePath(storagePath)}',
+              zhHant: '安裝目錄：${OpenHandPaths.shortenHomePath(storagePath)}',
+              en: 'Install path: ${OpenHandPaths.shortenHomePath(storagePath)}',
+              fr: 'Chemin d’installation : ${OpenHandPaths.shortenHomePath(storagePath)}',
+              de: 'Installationspfad: ${OpenHandPaths.shortenHomePath(storagePath)}',
+              ja: 'インストール先：${OpenHandPaths.shortenHomePath(storagePath)}',
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
-        kOpenHandHGap16,
-        OpenHandDialogActionButton.secondary(
-          onPressed: _isInstalling ? null : () => Navigator.of(context).pop(),
-          label: l10n.commonCancel,
-        ),
-        kOpenHandHGap12,
-        OpenHandDialogActionButton.primary(
-          onPressed:
-              selectedSkill == null || selectedSkillInstalled || _isInstalling
-              ? null
-              : _installSelectedSkill,
-          icon: selectedSkillInstalled
-              ? Icons.check_rounded
-              : Icons.download_rounded,
-          busy: _isInstalling,
-          label: _isInstalling
-              ? openHandLocalizedText(
-                  context,
-                  zh: '安装中',
-                  zhHant: '安裝中',
-                  en: 'Installing',
-                  fr: 'Installation',
-                  de: 'Wird installiert',
-                  ja: 'インストール中',
-                )
-              : selectedSkillInstalled
-              ? openHandInstalledLabel(context)
-              : openHandInstallLabel(context),
-        ),
-      ],
+          if (_installError != null) ...[
+            kOpenHandGap4,
+            Text(
+              _installError!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ],
+        ],
+      ),
+      closeButton: OpenHandDialogActionButton.secondary(
+        onPressed: _isInstalling ? null : () => Navigator.of(context).pop(),
+        label: l10n.commonCancel,
+      ),
+      providerButton: MarketProviderSelector(
+        providers: widget.providers.providers
+            .map((entry) => entry.info)
+            .toList(growable: false),
+        selected: _session.info,
+        enabled: !_isInstalling && !_filePreviewOpen,
+        onSelected: _switchProvider,
+      ),
+      actionButton: OpenHandDialogActionButton.primary(
+        onPressed:
+            selectedSkill == null || selectedSkillInstalled || _isInstalling
+            ? null
+            : _installSelectedSkill,
+        busy: _isInstalling,
+        label: _isInstalling
+            ? openHandLocalizedText(
+                context,
+                zh: '安装中',
+                zhHant: '安裝中',
+                en: 'Installing',
+                fr: 'Installation',
+                de: 'Wird installiert',
+                ja: 'インストール中',
+              )
+            : selectedSkillInstalled
+            ? openHandInstalledLabel(context)
+            : openHandInstallLabel(context),
+      ),
     );
   }
 
@@ -1080,7 +1071,6 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                 kOpenHandHGap12,
                 OpenHandDialogActionButton.primary(
                   onPressed: () => Navigator.of(context).pop(true),
-                  icon: Icons.download_rounded,
                   label: openHandLocalizedText(
                     context,
                     zh: '确认安装',

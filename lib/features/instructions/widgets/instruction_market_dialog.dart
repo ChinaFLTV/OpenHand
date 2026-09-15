@@ -6,6 +6,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/market/market_provider.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
+import '../../../shared/ui/market_dialog_actions.dart';
 import '../../../shared/ui/market_provider_selector.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -285,15 +286,6 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                         ],
                       ),
                     ),
-                    kOpenHandHGap12,
-                    MarketProviderSelector(
-                      providers: widget.providers.providers
-                          .map((entry) => entry.info)
-                          .toList(growable: false),
-                      selected: _session.info,
-                      enabled: !_adding,
-                      onSelected: _switchProvider,
-                    ),
                   ],
                 ),
                 kOpenHandGap18,
@@ -400,77 +392,43 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                 ),
                 OpenHandDialogBusyBar(busy: _adding),
                 kOpenHandGap12,
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final hint = Text(
-                      instructionMarketFooter(context, _catalog.length),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    );
-                    final width = ((constraints.maxWidth - 12) / 2).clamp(
-                      0.0,
-                      kOpenHandDialogActionButtonWidth,
-                    );
-                    final buttons = Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        SizedBox(
-                          width: width,
-                          child: OpenHandDialogActionButton.secondary(
-                            onPressed: _adding
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                            label: openHandCloseLabel(context),
-                          ),
-                        ),
-                        kOpenHandHGap12,
-                        SizedBox(
-                          width: width,
-                          child: OpenHandDialogActionButton.primary(
-                            onPressed:
-                                _adding ||
-                                    widget.controller.isLoading ||
-                                    installed ||
-                                    entry == null ||
-                                    widget.controller.entries.length >=
-                                        UserInstructionEntry.maxEntries
-                                ? null
-                                : _add,
-                            icon: installed
-                                ? Icons.check_rounded
-                                : Icons.add_rounded,
-                            label: installed
-                                ? openHandAddedLabel(context)
-                                : instructionMarketAddAction(context),
-                          ),
-                        ),
-                      ],
-                    );
-                    if (constraints.maxWidth < 640) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          hint,
-                          kOpenHandGap12,
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: buttons,
-                          ),
-                        ],
-                      );
-                    }
-                    return Row(
-                      children: [
-                        Expanded(child: hint),
-                        kOpenHandHGap16,
-                        buttons,
-                      ],
-                    );
-                  },
+                MarketDialogActions(
+                  hint: Text(
+                    instructionMarketFooter(context, _catalog.length),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                  closeButton: OpenHandDialogActionButton.secondary(
+                    onPressed: _adding
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    label: openHandCloseLabel(context),
+                  ),
+                  providerButton: MarketProviderSelector(
+                    providers: widget.providers.providers
+                        .map((entry) => entry.info)
+                        .toList(growable: false),
+                    selected: _session.info,
+                    enabled: !_adding,
+                    onSelected: _switchProvider,
+                  ),
+                  actionButton: OpenHandDialogActionButton.primary(
+                    onPressed:
+                        _adding ||
+                            widget.controller.isLoading ||
+                            installed ||
+                            entry == null ||
+                            widget.controller.entries.length >=
+                                UserInstructionEntry.maxEntries
+                        ? null
+                        : _add,
+                    label: installed
+                        ? openHandAddedLabel(context)
+                        : instructionMarketAddAction(context),
+                  ),
                 ),
               ],
             ),
