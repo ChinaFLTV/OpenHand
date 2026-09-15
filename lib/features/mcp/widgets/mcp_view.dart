@@ -1185,6 +1185,9 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
     final canRegister = onRegister != null && !hasPlaceholder;
     return Card(
       clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
@@ -9520,6 +9523,9 @@ class _McpServerCardState extends State<_McpServerCard> {
         key: ValueKey<String>('mcp-server-${server.name}'),
         child: Card(
           clipBehavior: Clip.antiAlias,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
           child: InkWell(
             onTap: onTap,
             customBorder: theme.cardTheme.shape,

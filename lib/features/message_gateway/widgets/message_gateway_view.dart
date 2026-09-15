@@ -96,6 +96,7 @@ import '../message_gateway_errors.dart';
 import '../model/dingtalk_message_gateway.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
+import 'dingtalk_conversation_detail_labels.dart';
 
 const int _dingtalkTranslationCacheMaxEntries = 64;
 const int _dingtalkClipboardImageMaxBytes = 64 * kBytesPerMiB;
@@ -858,6 +859,8 @@ class _WebPlatformServiceCard extends StatelessWidget {
     return Card(
       key: const ValueKey<String>('web-message-platform-card'),
       elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_kGatewayCardRadius),
@@ -11920,6 +11923,8 @@ class _DingTalkGatewayCard extends StatelessWidget {
         return Card(
           key: const ValueKey<String>('dingtalk-message-platform-card'),
           elevation: 0,
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(_kGatewayCardRadius),
@@ -21105,46 +21110,77 @@ class _DingTalkConversationDetailsDialog extends StatelessWidget {
     return FutureBuilder<Object?>(
       future: controller.loadConversationDetails(conversation.id),
       builder: (context, snapshot) {
-        final content = snapshot.connectionState != ConnectionState.done
-            ? const SizedBox(
-                height: 240,
-                child: Center(child: CircularProgressIndicator()),
-              )
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+        final stateKey = snapshot.connectionState != ConnectionState.done
+            ? 'loading'
             : snapshot.hasError
-            ? KnowledgeDialogNotice(
-                icon: Icons.error_outline_rounded,
-                message: openHandLocalizedText(
-                  context,
-                  zh: '读取详情失败，请稍后重试。',
-                  zhHant: '讀取詳情失敗，請稍後重試。',
-                  en: 'Unable to load details. Try again later.',
-                  fr: 'Impossible de charger les détails. Réessayez plus tard.',
-                  de: 'Details konnten nicht geladen werden. Bitte später erneut versuchen.',
-                  ja: '詳細を読み込めません。後でもう一度お試しください。',
-                ),
-                tone: KnowledgeDialogNoticeTone.error,
-              )
+            ? 'error'
             : snapshot.data == null
-            ? KnowledgeDialogNotice(
-                icon: Icons.info_outline_rounded,
-                message: openHandLocalizedText(
-                  context,
-                  zh: '暂无可用详情',
-                  zhHant: '暫無可用詳情',
-                  en: 'No details are available.',
-                  fr: 'Aucun détail disponible.',
-                  de: 'Keine Details verfügbar.',
-                  ja: '利用できる詳細はありません。',
-                ),
-              )
-            : _DingTalkDetailsView(
-                value: snapshot.data!,
-                conversation: conversation,
-              );
+            ? 'empty'
+            : 'ready';
+        final content = switch (stateKey) {
+          'loading' => SizedBox(
+            height: 240,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: colorScheme.primary),
+                  kOpenHandGap14,
+                  Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '正在读取详情…',
+                      zhHant: '正在讀取詳情…',
+                      en: 'Loading details…',
+                      fr: 'Chargement des détails…',
+                      de: 'Details werden geladen…',
+                      ja: '詳細を読み込み中…',
+                    ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          'error' => KnowledgeDialogNotice(
+            icon: Icons.error_outline_rounded,
+            message: openHandLocalizedText(
+              context,
+              zh: '读取详情失败，请稍后重试。',
+              zhHant: '讀取詳情失敗，請稍後重試。',
+              en: 'Unable to load details. Try again later.',
+              fr: 'Impossible de charger les détails. Réessayez plus tard.',
+              de: 'Details konnten nicht geladen werden. Bitte später erneut versuchen.',
+              ja: '詳細を読み込めません。後でもう一度お試しください。',
+            ),
+            tone: KnowledgeDialogNoticeTone.error,
+          ),
+          'empty' => KnowledgeDialogNotice(
+            icon: Icons.info_outline_rounded,
+            message: openHandLocalizedText(
+              context,
+              zh: '暂无可用详情',
+              zhHant: '暫無可用詳情',
+              en: 'No details are available.',
+              fr: 'Aucun détail disponible.',
+              de: 'Keine Details verfügbar.',
+              ja: '利用できる詳細はありません。',
+            ),
+          ),
+          _ => _DingTalkDetailsView(
+            value: snapshot.data!,
+            conversation: conversation,
+          ),
+        };
         return buildOpenHandAlertDialog(
           icon: Icon(
             isGroup ? Icons.groups_rounded : Icons.person_rounded,
-            color: Theme.of(context).colorScheme.primary,
+            color: colorScheme.primary,
           ),
           title: Text(
             '${conversation.title} · $title',
@@ -21154,10 +21190,8 @@ class _DingTalkConversationDetailsDialog extends StatelessWidget {
           content: buildOpenHandDialogConstrainedContent(
             width: 760,
             maxHeight: MediaQuery.sizeOf(context).height * 0.78,
-            child: AnimatedSwitcher(
-              duration: openHandMotionDurationMs(context, 240),
-              switchInCurve: kOpenHandSwitchInCurve,
-              switchOutCurve: kOpenHandSwitchOutCurve,
+            child: OpenHandContentStateSwitcher(
+              stateKey: stateKey,
               child: content,
             ),
           ),
@@ -21304,92 +21338,68 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainer.withValues(alpha: 0.86),
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.84),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
+    final accent = _dingtalkDetailSectionAccent(context, title);
+    final body = maxContentHeight == null
+        ? child
+        : ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxContentHeight!),
+            child: NotificationListener<OverscrollNotification>(
+              onNotification: (notification) {
+                final parent = parentScrollController;
+                if (parent == null || !parent.hasClients) return false;
+                final position = parent.position;
+                final target = (position.pixels + notification.overscroll)
+                    .clamp(position.minScrollExtent, position.maxScrollExtent);
+                if ((target - position.pixels).abs() < 0.5) return false;
+                parent.jumpTo(target);
+                return true;
+              },
+              child: SingleChildScrollView(
+                primary: false,
+                physics: kOpenHandClampingPhysics,
+                padding: const EdgeInsets.only(right: 4),
+                child: child,
+              ),
+            ),
+          );
+    return AppearOnce(
+      child: OpenHandTintedPanel(
+        accent: accent,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
+                DecoratedBox(
                   decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest.withValues(
-                      alpha: 0.78,
-                    ),
-                    borderRadius: BorderRadius.circular(kOpenHandRadius9),
+                    color: accent.withValues(alpha: 0.16),
+                    borderRadius: kOpenHandBorderRadius12,
                   ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, size: 18, color: colors.primary),
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Center(child: Icon(icon, size: 18, color: accent)),
+                  ),
                 ),
                 kOpenHandHGap10,
                 Expanded(
                   child: Text(
                     _displayDingTalkDetailLabel(context, title),
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest.withValues(
-                      alpha: 0.7,
-                    ),
-                    borderRadius: BorderRadius.circular(kOpenHandRadius10),
-                  ),
-                  child: Text(
-                    badge,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                OpenHandFactChip(
+                  icon: Icons.layers_rounded,
+                  label: badge,
+                  color: accent,
                 ),
               ],
             ),
             kOpenHandGap12,
-            if (maxContentHeight != null)
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: maxContentHeight!),
-                child: NotificationListener<OverscrollNotification>(
-                  onNotification: (notification) {
-                    final parent = parentScrollController;
-                    if (parent == null || !parent.hasClients) return false;
-                    final position = parent.position;
-                    final target = (position.pixels + notification.overscroll)
-                        .clamp(
-                          position.minScrollExtent,
-                          position.maxScrollExtent,
-                        );
-                    if ((target - position.pixels).abs() < 0.5) return false;
-                    parent.jumpTo(target);
-                    return true;
-                  },
-                  child: SingleChildScrollView(
-                    primary: false,
-                    physics: kOpenHandClampingPhysics,
-                    padding: const EdgeInsets.only(right: 4),
-                    child: child,
-                  ),
-                ),
-              )
-            else
-              child,
+            body,
           ],
         ),
       ),
@@ -21404,7 +21414,13 @@ class _DingTalkDetailGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = data.entries.toList(growable: false);
+    final flattened = <String, Object?>{};
+    for (final entry in data.entries) {
+      final value = dingTalkFlattenDetailValue(entry.value);
+      if (!dingTalkDetailHasContent(value)) continue;
+      flattened[entry.key] = value;
+    }
+    final entries = flattened.entries.toList(growable: false);
     final simpleEntries = entries
         .where((e) => !_dingtalkIsCompound(e.value))
         .toList();
@@ -21416,26 +21432,26 @@ class _DingTalkDetailGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (simpleEntries.isNotEmpty)
-          KnowledgeDialogKeyValueList(
-            rows: Map<String, Object?>.fromEntries(
-              simpleEntries.map(
-                (entry) => MapEntry(
-                  entry.key,
-                  _formatDingTalkDetailValue(
-                    context,
-                    entry.value,
-                    label: entry.key,
-                  ),
+          Column(
+            children: [
+              for (var index = 0; index < simpleEntries.length; index++) ...[
+                if (index > 0) kOpenHandGap8,
+                _dingtalkDetailFactRow(
+                  context,
+                  simpleEntries[index].key,
+                  simpleEntries[index].value,
                 ),
-              ),
-            ),
-            labelWidth: openHandIsChineseLocale(context) ? 118 : 138,
+              ],
+            ],
           ),
         if (compoundEntries.isNotEmpty) ...[
-          if (simpleEntries.isNotEmpty) kOpenHandGap8,
-          for (final entry in compoundEntries) ...[
-            _DingTalkDetailNestedSection(label: entry.key, value: entry.value),
-            kOpenHandGap8,
+          if (simpleEntries.isNotEmpty) kOpenHandGap10,
+          for (var index = 0; index < compoundEntries.length; index++) ...[
+            if (index > 0) kOpenHandGap8,
+            _DingTalkDetailNestedSection(
+              label: compoundEntries[index].key,
+              value: compoundEntries[index].value,
+            ),
           ],
         ],
       ],
@@ -21598,82 +21614,62 @@ class _DingTalkMemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final name = '${details['姓名'] ?? ''}'.trim();
     final role = '${details['群内角色'] ?? ''}'.trim();
     final fields = Map<String, Object?>.from(details)
       ..remove('姓名')
       ..remove('群内角色');
-    final accent = colors.primary;
+    final accent = _dingtalkDetailSectionAccent(context, '群成员');
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.64),
-        borderRadius: kOpenHandBorderRadius12,
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.68),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: accent.withValues(alpha: 0.18),
-                  child: Icon(Icons.person_rounded, size: 16, color: accent),
-                ),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Text(
-                    name.isEmpty
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '未命名成员',
-                            zhHant: '未命名成員',
-                            en: 'Unnamed member',
-                            fr: 'Membre sans nom',
-                            de: 'Unbenanntes Mitglied',
-                            ja: '名前なしのメンバー',
-                          )
-                        : name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+    return OpenHandTintedPanel(
+      accent: accent,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: accent.withValues(alpha: 0.18),
+                child: Icon(Icons.person_rounded, size: 18, color: accent),
+              ),
+              kOpenHandHGap10,
+              Expanded(
+                child: Text(
+                  name.isEmpty
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '未命名成员',
+                          zhHant: '未命名成員',
+                          en: 'Unnamed member',
+                          fr: 'Membre sans nom',
+                          de: 'Unbenanntes Mitglied',
+                          ja: '名前なしのメンバー',
+                        )
+                      : name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                if (role.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.14),
-                      borderRadius: kOpenHandBorderRadius8,
-                    ),
-                    child: Text(
-                      _dingtalkRoleLabel(context, role),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: accent,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                      ),
-                    ),
+              ),
+              if (role.isNotEmpty)
+                Flexible(
+                  child: OpenHandFactChip(
+                    icon: Icons.workspace_premium_rounded,
+                    label: _dingtalkRoleLabel(context, role),
+                    color: accent,
                   ),
-              ],
-            ),
-            if (fields.isNotEmpty) ...[
-              kOpenHandGap12,
-              _DingTalkDetailGrid(data: fields),
+                ),
             ],
+          ),
+          if (fields.isNotEmpty) ...[
+            kOpenHandGap12,
+            _DingTalkDetailGrid(data: fields),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -21689,82 +21685,89 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final isGroup = conversation.type == DingTalkConversationType.group;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.primaryContainer.withValues(alpha: 0.74),
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+    final accent = isGroup
+        ? OpenHandStatusColors.success
+        : OpenHandStatusColors.info;
+    final typeLabel = isGroup
+        ? openHandLocalizedText(
+            context,
+            zh: '群聊',
+            zhHant: '群聊',
+            en: 'Group',
+            fr: 'Groupe',
+            de: 'Gruppe',
+            ja: 'グループ',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '联系人',
+            zhHant: '聯絡人',
+            en: 'Contact',
+            fr: 'Contact',
+            de: 'Kontakt',
+            ja: '連絡先',
+          );
+    return AppearOnce(
+      child: OpenHandAccentPanel(
+        accent: accent,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         child: Row(
           children: [
-            Container(
-              width: 38,
-              height: 38,
+            DecoratedBox(
               decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                borderRadius: BorderRadius.circular(kOpenHandRadius11),
+                color: accent.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(kOpenHandRadius14),
               ),
-              alignment: Alignment.center,
-              child: Icon(
-                isGroup ? Icons.groups_rounded : Icons.person_rounded,
-                size: 20,
-                color: colors.onPrimaryContainer,
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Center(
+                  child: Icon(
+                    isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                    size: 24,
+                    color: accent,
+                  ),
+                ),
               ),
             ),
-            kOpenHandHGap11,
+            kOpenHandHGap12,
             Expanded(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainerHighest.withValues(
-                        alpha: 0.58,
-                      ),
-                      borderRadius: kOpenHandBorderRadius8,
-                    ),
-                    child: Text(
-                      isGroup
-                          ? openHandLocalizedText(
-                              context,
-                              zh: '群聊',
-                              zhHant: '群聊',
-                              en: 'Group',
-                              fr: 'Groupe',
-                              de: 'Gruppe',
-                              ja: 'グループ',
-                            )
-                          : openHandLocalizedText(
-                              context,
-                              zh: '联系人',
-                              zhHant: '聯絡人',
-                              en: 'Contact',
-                              fr: 'Contact',
-                              de: 'Kontakt',
-                              ja: '連絡先',
-                            ),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  Text(
+                    conversation.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: colors.onSurface,
                     ),
                   ),
-                  kOpenHandHGap9,
-                  Expanded(
-                    child: SelectableText(
-                      _dingtalkConversationIdLabel(context, conversation.id),
-                      maxLines: 1,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontFamily: 'monospace',
-                        fontSize: 12,
+                  kOpenHandGap8,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      OpenHandFactChip(
+                        icon: isGroup
+                            ? Icons.groups_rounded
+                            : Icons.person_rounded,
+                        label: typeLabel,
+                        color: accent,
                       ),
-                    ),
+                      SelectableText(
+                        _dingtalkConversationIdLabel(context, conversation.id),
+                        maxLines: 1,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -21783,11 +21786,12 @@ class _DingTalkDetailValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (value is Map) {
-      return _DingTalkDetailGrid(data: stringKeyedMapFromValue(value));
+    final flattened = dingTalkFlattenDetailValue(value);
+    if (flattened is Map) {
+      return _DingTalkDetailGrid(data: stringKeyedMapFromValue(flattened));
     }
-    if (value is List) {
-      final list = value as List;
+    if (flattened is List) {
+      final list = flattened;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -21801,7 +21805,10 @@ class _DingTalkDetailValue extends StatelessWidget {
         ],
       );
     }
-    return _DingTalkDetailField(label: '值', value: value);
+    return _DingTalkDetailField(
+      label: kDingTalkDetailValueKey,
+      value: flattened,
+    );
   }
 }
 
@@ -21817,34 +21824,31 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final accent = _dingtalkDetailSectionAccent(context, label);
     final content = _DingTalkDetailValue(value: value);
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: kOpenHandBorderRadius12,
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.68),
-        ),
-      ),
+    return OpenHandTintedPanel(
+      accent: accent,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 28,
-                height: 28,
+              DecoratedBox(
                 decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest.withValues(alpha: 0.76),
-                  borderRadius: kOpenHandBorderRadius8,
+                  color: accent.withValues(alpha: 0.16),
+                  borderRadius: kOpenHandBorderRadius10,
                 ),
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.account_tree_rounded,
-                  size: 16,
-                  color: colors.primary,
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: Center(
+                    child: Icon(
+                      Icons.account_tree_rounded,
+                      size: 16,
+                      color: accent,
+                    ),
+                  ),
                 ),
               ),
               kOpenHandHGap8,
@@ -21852,31 +21856,17 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
                 child: Text(
                   _displayDingTalkDetailLabel(context, label),
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colors.onSurface.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 2.5,
+              OpenHandFactChip(
+                icon: Icons.layers_rounded,
+                label: _dingtalkDetailCountLabel(
+                  context,
+                  _dingtalkDetailItemCount(value),
                 ),
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
-                  borderRadius: kOpenHandBorderRadius12,
-                ),
-                child: Text(
-                  _dingtalkDetailCountLabel(
-                    context,
-                    _dingtalkDetailItemCount(value),
-                  ),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                color: accent,
               ),
             ],
           ),
@@ -21901,16 +21891,7 @@ class _DingTalkDetailField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KnowledgeDialogKeyValueList(
-      rows: <String, Object?>{
-        _displayDingTalkDetailLabel(context, label): _formatDingTalkDetailValue(
-          context,
-          value,
-          label: label,
-        ),
-      },
-      labelWidth: openHandIsChineseLocale(context) ? 118 : 138,
-    );
+    return _dingtalkDetailFactRow(context, label, value);
   }
 }
 
@@ -22053,8 +22034,7 @@ Map<String, Object?> _humanizeDingTalkMap(
     }
     final label = _canonicalDingTalkDetailLabel(normalizedKey);
     final valueToShow = _sanitizeDingTalkDetailValue(entry.value);
-    if (valueToShow is Map && valueToShow.isEmpty) continue;
-    if (valueToShow is String && valueToShow.trim().isEmpty) continue;
+    if (!dingTalkDetailHasContent(valueToShow)) continue;
     var displayLabel = label;
     if (result.containsKey(displayLabel)) {
       extraIndex += 1;
@@ -22073,7 +22053,7 @@ Object? _sanitizeDingTalkDetailValue(Object? value) {
   if (value is List) {
     return value
         .map(_sanitizeDingTalkDetailValue)
-        .where((item) => item != null)
+        .where(dingTalkDetailHasContent)
         .toList(growable: false);
   }
   return value;
@@ -22091,16 +22071,98 @@ Object? _humanizeDingTalkValue(Object? value) {
   return unwrapped;
 }
 
-bool _dingtalkDetailHasContent(Object? value) {
-  if (value == null) return false;
-  if (value is String) return value.trim().isNotEmpty;
-  if (value is Map) return value.isNotEmpty;
-  if (value is List) return value.isNotEmpty;
-  return true;
+bool _dingtalkDetailHasContent(Object? value) =>
+    dingTalkDetailHasContent(value);
+
+const Color _kDingTalkDetailViolet = Color(0xFF8B5CF6);
+const Color _kDingTalkDetailTeal = Color(0xFF14B8A6);
+const Color _kDingTalkDetailRose = Color(0xFFEC4899);
+
+Color _dingtalkDetailSectionAccent(BuildContext context, String title) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return switch (dingTalkDetailLabelParts(title).stem) {
+    '会话概览' => OpenHandStatusColors.info,
+    '联系人资料' => colorScheme.primary,
+    '员工档案' => colorScheme.tertiary,
+    '群聊设置' => OpenHandStatusColors.warning,
+    '禁言配置' => OpenHandStatusColors.error,
+    '群机器人' => OpenHandStatusColors.success,
+    '群身份' || '群成员身份' => _kDingTalkDetailViolet,
+    '可见花名册字段' => _kDingTalkDetailTeal,
+    '部门资料' || '部门详情' || '组织资料' => _kDingTalkDetailViolet,
+    '关注状态' => OpenHandStatusColors.caution,
+    '群成员' => colorScheme.primary,
+    '扩展属性' => _kDingTalkDetailRose,
+    '其他资料' => colorScheme.outline,
+    _ => colorScheme.primary,
+  };
+}
+
+Widget _dingtalkDetailFactRow(
+  BuildContext context,
+  String rawLabel,
+  Object? value,
+) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final stem = dingTalkDetailLabelParts(rawLabel).stem;
+  final label = _displayDingTalkDetailLabel(context, rawLabel);
+  final formatted = _formatDingTalkDetailValue(context, value, label: stem);
+  final isFlag = dingTalkDetailIsFlagLabel(stem);
+  final flag = isFlag ? dingTalkDetailBinaryFlag(value) : null;
+  final labelWidth = openHandIsChineseLocale(context) ? 118.0 : 158.0;
+  final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+    color: colorScheme.onSurface,
+    height: 1.35,
+  );
+  final Widget valueChild;
+  if (flag != null) {
+    final on = flag;
+    final tone = on
+        ? OpenHandStatusColors.success
+        : colorScheme.onSurfaceVariant;
+    valueChild = OpenHandFactChip(
+      icon: on ? Icons.check_rounded : Icons.close_rounded,
+      label: formatted,
+      color: tone,
+    );
+  } else {
+    valueChild = SelectableText(formatted, style: valueStyle);
+  }
+  return DecoratedBox(
+    decoration: BoxDecoration(
+      border: Border(
+        bottom: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.42),
+        ),
+      ),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: labelWidth,
+            child: Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                height: 1.28,
+              ),
+            ),
+          ),
+          kOpenHandHGap12,
+          Expanded(child: valueChild),
+        ],
+      ),
+    ),
+  );
 }
 
 IconData _dingtalkDetailSectionIcon(String title) {
-  return switch (title) {
+  return switch (dingTalkDetailLabelParts(title).stem) {
     '群聊设置' => Icons.tune_rounded,
     '禁言配置' => Icons.volume_off_rounded,
     '群机器人' => Icons.smart_toy_rounded,
@@ -22108,12 +22170,13 @@ IconData _dingtalkDetailSectionIcon(String title) {
     '可见花名册字段' || '员工档案' => Icons.badge_rounded,
     '部门资料' => Icons.account_tree_rounded,
     '关注状态' => Icons.star_rounded,
+    '扩展属性' => Icons.extension_rounded,
     _ => Icons.info_outline_rounded,
   };
 }
 
 double? _dingtalkDetailSectionMaxHeight(String title) {
-  return switch (title) {
+  return switch (dingTalkDetailLabelParts(title).stem) {
     '群机器人' || '群身份' || '可见花名册字段' || '部门资料' => 440,
     _ => null,
   };
@@ -22189,7 +22252,7 @@ String _canonicalDingTalkDetailLabel(String key) {
     'parentDeptId': '上级部门标识',
     'position': '职位',
     'remark': '备注',
-    'singleChat': '聊天类型',
+    'singleChat': '是否单聊',
     'status': '状态',
     'type': '类型',
     'id': '标识',
@@ -22236,7 +22299,7 @@ String _canonicalDingTalkDetailLabel(String key) {
   if (compact.startsWith('department') || compact.startsWith('dept')) {
     return '部门资料';
   }
-  return '其他资料';
+  return '$kDingTalkDetailExtendedFieldPrefix$key';
 }
 
 List<Map<String, Object?>> _collectDingTalkMembers(Object? value) {
@@ -22858,27 +22921,264 @@ _dingtalkExtendedDetailLabels =
         de: 'Ruhestand',
         ja: '退職済み',
       ),
+      '设置': (
+        zhHant: '設定',
+        en: 'Settings',
+        fr: 'Paramètres',
+        de: 'Einstellungen',
+        ja: '設定',
+      ),
+      '通知': (
+        zhHant: '通知',
+        en: 'Notifications',
+        fr: 'Notifications',
+        de: 'Benachrichtigungen',
+        ja: '通知',
+      ),
+      '类型': (zhHant: '類型', en: 'Type', fr: 'Type', de: 'Typ', ja: '種類'),
+      '标识': (
+        zhHant: '標識',
+        en: 'Identifier',
+        fr: 'Identifiant',
+        de: 'Kennung',
+        ja: '識別子',
+      ),
+      '成员资料': (
+        zhHant: '成員資料',
+        en: 'Member profile',
+        fr: 'Profil du membre',
+        de: 'Mitgliederprofil',
+        ja: 'メンバープロフィール',
+      ),
+      '会话概览': (
+        zhHant: '會話概覽',
+        en: 'Conversation overview',
+        fr: 'Aperçu de la conversation',
+        de: 'Gesprächsübersicht',
+        ja: '会話の概要',
+      ),
+      '联系人资料': (
+        zhHant: '聯絡人資料',
+        en: 'Contact profile',
+        fr: 'Profil du contact',
+        de: 'Kontaktprofil',
+        ja: '連絡先プロフィール',
+      ),
+      '群成员': (
+        zhHant: '群成員',
+        en: 'Group members',
+        fr: 'Membres du groupe',
+        de: 'Gruppenmitglieder',
+        ja: 'グループメンバー',
+      ),
+      '人': (
+        zhHant: '人',
+        en: 'people',
+        fr: 'personnes',
+        de: 'Personen',
+        ja: '人',
+      ),
+      '项': (zhHant: '項', en: 'items', fr: 'éléments', de: 'Einträge', ja: '項目'),
+      '企业标识': (
+        zhHant: '企業標識',
+        en: 'Organization ID',
+        fr: 'Identifiant de l’organisation',
+        de: 'Organisations-ID',
+        ja: '組織 ID',
+      ),
+      '企业名称': (
+        zhHant: '企業名稱',
+        en: 'Organization name',
+        fr: 'Nom de l’organisation',
+        de: 'Organisationsname',
+        ja: '組織名',
+      ),
+      '创建时间': (
+        zhHant: '建立時間',
+        en: 'Created',
+        fr: 'Créé le',
+        de: 'Erstellt',
+        ja: '作成日時',
+      ),
+      '钉盘空间标识': (
+        zhHant: '釘盤空間標識',
+        en: 'DingDrive space ID',
+        fr: 'Identifiant d’espace DingDrive',
+        de: 'DingDrive-Space-ID',
+        ja: 'DingDrive スペース ID',
+      ),
+      '成员数量': (
+        zhHant: '成員數量',
+        en: 'Member count',
+        fr: 'Nombre de membres',
+        de: 'Mitgliederzahl',
+        ja: 'メンバー数',
+      ),
+      '会话标识': (
+        zhHant: '會話標識',
+        en: 'Conversation ID',
+        fr: 'Identifiant de conversation',
+        de: 'Gesprächs-ID',
+        ja: '会話 ID',
+      ),
+      '群主': (
+        zhHant: '群主',
+        en: 'Owner',
+        fr: 'Propriétaire',
+        de: 'Eigentümer',
+        ja: 'オーナー',
+      ),
+      '群聊名称': (
+        zhHant: '群聊名稱',
+        en: 'Group name',
+        fr: 'Nom du groupe',
+        de: 'Gruppenname',
+        ja: 'グループ名',
+      ),
+      '聊天类型': (
+        zhHant: '聊天類型',
+        en: 'Direct chat',
+        fr: 'Conversation directe',
+        de: 'Direktchat',
+        ja: 'ダイレクトチャット',
+      ),
+      '是否单聊': (
+        zhHant: '是否單聊',
+        en: 'Direct chat',
+        fr: 'Conversation directe',
+        de: 'Direktchat',
+        ja: 'ダイレクトチャット',
+      ),
+      '姓名': (zhHant: '姓名', en: 'Name', fr: 'Nom', de: 'Name', ja: '名前'),
+      '群内昵称': (
+        zhHant: '群內暱稱',
+        en: 'Group nickname',
+        fr: 'Surnom dans le groupe',
+        de: 'Gruppenname',
+        ja: 'グループ内のニックネーム',
+      ),
+      '群内角色': (
+        zhHant: '群內角色',
+        en: 'Group role',
+        fr: 'Rôle dans le groupe',
+        de: 'Gruppenrolle',
+        ja: 'グループ内の役割',
+      ),
+      '角色类型': (
+        zhHant: '角色類型',
+        en: 'Role type',
+        fr: 'Type de rôle',
+        de: 'Rollentyp',
+        ja: '役割タイプ',
+      ),
+      '钉钉账号': (
+        zhHant: '釘釘帳號',
+        en: 'DingTalk account',
+        fr: 'Compte DingTalk',
+        de: 'DingTalk-Konto',
+        ja: 'DingTalk アカウント',
+      ),
+      '钉钉用户标识': (
+        zhHant: '釘釘使用者標識',
+        en: 'DingTalk user ID',
+        fr: 'Identifiant utilisateur DingTalk',
+        de: 'DingTalk-Benutzer-ID',
+        ja: 'DingTalk ユーザー ID',
+      ),
+      '组织': (
+        zhHant: '組織',
+        en: 'Organization',
+        fr: 'Organisation',
+        de: 'Organisation',
+        ja: '組織',
+      ),
+      '部门': (
+        zhHant: '部門',
+        en: 'Department',
+        fr: 'Département',
+        de: 'Abteilung',
+        ja: '部署',
+      ),
+      '职位': (
+        zhHant: '職位',
+        en: 'Position',
+        fr: 'Poste',
+        de: 'Position',
+        ja: '役職',
+      ),
+      '手机号': (
+        zhHant: '手機號碼',
+        en: 'Phone',
+        fr: 'Téléphone',
+        de: 'Telefon',
+        ja: '電話番号',
+      ),
+      '邮箱': (
+        zhHant: '電子郵件',
+        en: 'Email',
+        fr: 'E-mail',
+        de: 'E-Mail',
+        ja: 'メール',
+      ),
+      '备注': (zhHant: '備註', en: 'Note', fr: 'Note', de: 'Notiz', ja: 'メモ'),
+      '状态': (
+        zhHant: '狀態',
+        en: 'Status',
+        fr: 'Statut',
+        de: 'Status',
+        ja: 'ステータス',
+      ),
+      '其他资料': (
+        zhHant: '其他資料',
+        en: 'Additional details',
+        fr: 'Informations complémentaires',
+        de: 'Zusätzliche Angaben',
+        ja: 'その他の詳細',
+      ),
+      '值': (zhHant: '值', en: 'Value', fr: 'Valeur', de: 'Wert', ja: '値'),
     };
 
 String _displayDingTalkDetailLabel(BuildContext context, String value) {
-  final extended = _dingtalkExtendedDetailLabels[value];
-  if (extended != null) {
-    return openHandLocalizedText(
-      context,
-      zh: value,
-      zhHant: extended.zhHant,
-      en: extended.en,
-      fr: extended.fr,
-      de: extended.de,
-      ja: extended.ja,
+  final parts = dingTalkDetailLabelParts(value);
+  var stem = parts.stem;
+  String withSuffix(String translated) {
+    return parts.suffix == null ? translated : '$translated ${parts.suffix}';
+  }
+
+  if (stem.startsWith(kDingTalkDetailExtendedFieldPrefix)) {
+    return withSuffix(
+      dingTalkDetailExtendedFieldLabel(
+        context,
+        stem.substring(kDingTalkDetailExtendedFieldPrefix.length),
+      ),
     );
   }
-  const dynamicPrefix = '扩展字段 · ';
-  if (value.startsWith(dynamicPrefix)) {
-    final suffix = value.substring(dynamicPrefix.length);
-    return '${openHandLocalizedText(context, zh: '扩展字段', zhHant: '擴展欄位', en: 'Extended field', fr: 'Champ étendu', de: 'Erweitertes Feld', ja: '拡張フィールド')} · $suffix';
+  if (!dingTalkDetailLabelHasCjk(stem)) {
+    stem = _canonicalDingTalkDetailLabel(stem);
+    if (stem.startsWith(kDingTalkDetailExtendedFieldPrefix)) {
+      return withSuffix(
+        dingTalkDetailExtendedFieldLabel(
+          context,
+          stem.substring(kDingTalkDetailExtendedFieldPrefix.length),
+        ),
+      );
+    }
   }
-  switch (value) {
+  final extended = _dingtalkExtendedDetailLabels[stem];
+  if (extended != null) {
+    return withSuffix(
+      openHandLocalizedText(
+        context,
+        zh: stem,
+        zhHant: extended.zhHant,
+        en: extended.en,
+        fr: extended.fr,
+        de: extended.de,
+        ja: extended.ja,
+      ),
+    );
+  }
+  switch (stem) {
     case '设置':
       return openHandLocalizedText(
         context,
@@ -23220,7 +23520,11 @@ String _displayDingTalkDetailLabel(BuildContext context, String value) {
         ja: '値',
       );
     default:
-      return value;
+      return withSuffix(
+        dingTalkDetailLabelHasCjk(stem)
+            ? stem
+            : dingTalkDetailExtendedFieldLabel(context, stem),
+      );
   }
 }
 
@@ -23293,24 +23597,22 @@ String _formatDingTalkDetailValue(
   }
   if (value is bool) {
     return value
-        ? openHandLocalizedText(
-            context,
-            zh: '是',
-            zhHant: '是',
-            en: 'Yes',
-            fr: 'Oui',
-            de: 'Ja',
-            ja: 'はい',
-          )
-        : openHandLocalizedText(
-            context,
-            zh: '否',
-            zhHant: '否',
-            en: 'No',
-            fr: 'Non',
-            de: 'Nein',
-            ja: 'いいえ',
-          );
+        ? dingTalkDetailYesLabel(context)
+        : dingTalkDetailNoLabel(context);
+  }
+  if (label != null && dingTalkDetailIsFlagLabel(label)) {
+    final flag = dingTalkDetailBinaryFlag(value);
+    if (flag != null) {
+      final stem = dingTalkDetailLabelParts(label).stem;
+      if (stem == kDingTalkDetailNotificationKey) {
+        return flag
+            ? dingTalkDetailOnLabel(context)
+            : dingTalkDetailOffLabel(context);
+      }
+      return flag
+          ? dingTalkDetailYesLabel(context)
+          : dingTalkDetailNoLabel(context);
+    }
   }
   if (value is num && label != null) {
     if (label == '员工类型' || label == 'Employee type') {
@@ -23848,7 +24150,14 @@ class _DingTalkAllowlistPickerDialogState
                       return HoverLift(
                         child: Material(
                           color: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          surfaceTintColor: Colors.transparent,
                           child: InkWell(
+                            hoverColor: Colors.transparent,
+                            splashColor: tone.withValues(alpha: 0.10),
+                            overlayColor: WidgetStatePropertyAll(
+                              tone.withValues(alpha: 0.06),
+                            ),
                             onTap: () => setState(() {
                               if (selected) {
                                 _selected.remove(target.id);
@@ -25128,7 +25437,16 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
             child: HoverLift(
               child: Material(
                 color: Colors.transparent,
+                shadowColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
                 child: InkWell(
+                  hoverColor: Colors.transparent,
+                  splashColor: OpenHandStatusColors.info.withValues(
+                    alpha: 0.10,
+                  ),
+                  overlayColor: WidgetStatePropertyAll(
+                    OpenHandStatusColors.info.withValues(alpha: 0.06),
+                  ),
                   onTap: _saving ? null : _selectModel,
                   borderRadius: kOpenHandBorderRadius16,
                   child: OpenHandTintedPanel(
@@ -25864,9 +26182,14 @@ class _DingTalkResourceField extends StatelessWidget {
     return HoverLift(
       child: Material(
         color: Colors.transparent,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: kOpenHandBorderRadius16,
+          hoverColor: Colors.transparent,
+          splashColor: accent.withValues(alpha: 0.10),
+          overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.06)),
           child: OpenHandTintedPanel(
             accent: accent,
             padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
@@ -26837,9 +27160,14 @@ class _DingTalkResourcePickerDialogState
     return HoverLift(
       child: Material(
         color: Colors.transparent,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         child: InkWell(
           onTap: () => toggleSelected(!isSelected),
           borderRadius: kOpenHandBorderRadius16,
+          hoverColor: Colors.transparent,
+          splashColor: tone.withValues(alpha: 0.10),
+          overlayColor: WidgetStatePropertyAll(tone.withValues(alpha: 0.06)),
           child: OpenHandTintedPanel(
             accent: tone,
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
