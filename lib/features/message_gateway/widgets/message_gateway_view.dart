@@ -21748,6 +21748,7 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         barWidth: 0,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             DecoratedBox(
               decoration: BoxDecoration(
@@ -21781,29 +21782,16 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
                     ),
                   ),
                   kOpenHandGap8,
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      OpenHandFactChip(
-                        icon: isGroup
-                            ? Icons.groups_rounded
-                            : Icons.person_rounded,
-                        label: typeLabel,
-                        color: accent,
-                      ),
-                      SelectableText(
-                        _dingtalkConversationIdLabel(context, conversation.id),
-                        maxLines: 1,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
+                  OpenHandFactChip(
+                    icon: isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                    label: typeLabel,
+                    color: accent,
+                  ),
+                  kOpenHandGap8,
+                  _dingtalkDetailIdentityIdBadge(
+                    context,
+                    id: conversation.id,
+                    accent: accent,
                   ),
                 ],
               ),
@@ -22206,25 +22194,67 @@ Widget _dingtalkDetailFactMosaic(
   BuildContext context,
   List<MapEntry<String, Object?>> entries,
 ) {
+  if (entries.isEmpty) return const SizedBox.shrink();
   return LayoutBuilder(
     builder: (context, constraints) {
       final maxWidth = constraints.maxWidth.isFinite
           ? constraints.maxWidth
           : _kDingTalkDetailFactMosaicBreakpoint;
       final twoColumns = maxWidth >= _kDingTalkDetailFactMosaicBreakpoint;
-      final tileWidth = twoColumns
-          ? (maxWidth - _kDingTalkDetailFactMosaicGap) / 2
-          : maxWidth;
-      return Wrap(
-        spacing: _kDingTalkDetailFactMosaicGap,
-        runSpacing: _kDingTalkDetailFactMosaicGap,
-        children: [
-          for (final entry in entries)
-            SizedBox(
-              width: tileWidth,
-              child: _dingtalkDetailFactTile(context, entry.key, entry.value),
+      if (!twoColumns) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var index = 0; index < entries.length; index++) ...[
+              if (index > 0)
+                const SizedBox(height: _kDingTalkDetailFactMosaicGap),
+              _dingtalkDetailFactTile(
+                context,
+                entries[index].key,
+                entries[index].value,
+              ),
+            ],
+          ],
+        );
+      }
+      final rows = <Widget>[];
+      for (var index = 0; index < entries.length; index += 2) {
+        final trailing = index + 1 < entries.length ? entries[index + 1] : null;
+        rows.add(
+          Padding(
+            padding: EdgeInsets.only(
+              top: index == 0 ? 0 : _kDingTalkDetailFactMosaicGap,
             ),
-        ],
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _dingtalkDetailFactTile(
+                      context,
+                      entries[index].key,
+                      entries[index].value,
+                    ),
+                  ),
+                  const SizedBox(width: _kDingTalkDetailFactMosaicGap),
+                  Expanded(
+                    child: trailing == null
+                        ? const SizedBox.shrink()
+                        : _dingtalkDetailFactTile(
+                            context,
+                            trailing.key,
+                            trailing.value,
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: rows,
       );
     },
   );
@@ -22252,6 +22282,8 @@ Widget _dingtalkDetailFactTile(
         children: [
           Text(
             _displayDingTalkDetailLabel(context, rawLabel),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelMedium?.copyWith(
               color: accent,
               fontWeight: FontWeight.w800,
@@ -22265,6 +22297,75 @@ Widget _dingtalkDetailFactTile(
               color: colorScheme.onSurface,
               fontWeight: FontWeight.w600,
               height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _dingtalkDetailIdentityIdBadge(
+  BuildContext context, {
+  required String id,
+  required Color accent,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  return DecoratedBox(
+    decoration: BoxDecoration(
+      color: Color.alphaBlend(
+        accent.withValues(alpha: 0.10),
+        colorScheme.surface,
+      ),
+      borderRadius: kOpenHandBorderRadius12,
+      border: Border.all(color: accent.withValues(alpha: 0.22)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+      child: Row(
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.16),
+              borderRadius: kOpenHandBorderRadius8,
+            ),
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: Center(
+                child: Icon(Icons.fingerprint_rounded, size: 16, color: accent),
+              ),
+            ),
+          ),
+          kOpenHandHGap8,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _displayDingTalkDetailLabel(context, '会话标识'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                  ),
+                ),
+                kOpenHandGap2,
+                SelectableText(
+                  id,
+                  maxLines: 2,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -22584,19 +22685,6 @@ Set<String> _dingtalkMemberIdentities(Map<String, Object?> details) {
 }
 
 bool _dingtalkIsCompound(Object? value) => value is Map || value is List;
-
-String _dingtalkConversationIdLabel(BuildContext context, String id) {
-  final label = openHandLocalizedText(
-    context,
-    zh: '会话标识',
-    zhHant: '會話標識',
-    en: 'Conversation ID',
-    fr: 'Identifiant de conversation',
-    de: 'Gesprächs-ID',
-    ja: '会話 ID',
-  );
-  return '$label: $id';
-}
 
 const Map<String, ({String zhHant, String en, String fr, String de, String ja})>
 _dingtalkExtendedDetailLabels =
