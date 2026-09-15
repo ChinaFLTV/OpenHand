@@ -6250,8 +6250,8 @@ button.oh-message-context-capsule {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 32px;
-  opacity: 0.96;
+  height: 14px;
+  opacity: 0.82;
   pointer-events: none;
   transition: opacity 160ms var(--oh-motion-emphasized);
 }
