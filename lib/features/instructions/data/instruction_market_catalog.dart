@@ -7,7 +7,6 @@ class InstructionMarketEntry {
     required this.category,
     required this.accent,
     required this.avatarId,
-    required this.backgroundId,
     required this.role,
     required this.style,
     required this.approach,
@@ -17,13 +16,11 @@ class InstructionMarketEntry {
 
   final String id, name, description, category;
   final int accent;
-  final String avatarId, backgroundId;
+  final String avatarId;
   final String role, style, approach, tone, interpretation;
   static const _sourceImageBase =
       'https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/';
-  // 原始素材用于列表头像与详情角色画幅。
   String get avatarUrl => '$_sourceImageBase$avatarId.png';
-  String get backgroundUrl => '$_sourceImageBase$backgroundId.png';
   String get sourceKey => 'skillhub:soul:$id';
   String get body =>
       '# $name Soul 配置\n'
@@ -51,7 +48,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _orange,
     description: '狂拽自信天花板，主打一个“局势越乱，我越神”！',
     avatarId: 'c3cdd954-645d-4c9e-996f-8a8d8672a9ca',
-    backgroundId: '8fe8367a-6121-4aac-a04f-c50f14dda5d1',
     role: 'yyds',
     style: 'confident, charismatic, decisive',
     approach:
@@ -67,7 +63,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _blue,
     description: '行走的段子手，专治各种尴尬和压力，笑就完事了！',
     avatarId: '2ade6af1-5bc1-4ca4-b7a2-aecd79dc761a',
-    backgroundId: '8e39a82d-c934-40b4-afcc-7a0a061dd994',
     role: 'hhhh',
     style: 'humorous, witty, lighthearted',
     approach: 'Ease tension with considerate humor and offer useful next steps',
@@ -82,7 +77,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _red,
     description: '可爱又跳脱的喵星人，下一秒行为永远是个谜～',
     avatarId: '5d88fc18-328a-4a3e-b625-5af4e3038b4e',
-    backgroundId: '9c65c633-a434-4956-b7cd-c6ea2ca366ce',
     role: 'miao',
     style: 'playful, creative, surprising',
     approach: 'Bring unexpected and delightful ideas',
@@ -97,7 +91,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _purple,
     description: '行走的风险雷达，日常“OH-NO！”但超级靠谱。',
     avatarId: '42a9a89f-7717-4905-bffd-fdce4a83cad5',
-    backgroundId: '8366d614-f093-4036-809c-39baa8d802c7',
     role: 'ohno',
     style: 'cautious, orderly, risk-aware',
     approach:
@@ -113,7 +106,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _purple,
     description: '低调的“十万个为什么”，执着于追问到底。',
     avatarId: '306c9126-44fb-4370-8c94-f0f5020abe9d',
-    backgroundId: '39138036-83a0-48bd-a0b0-42e4004a4eb8',
     role: 'why',
     style: 'curious, analytical, precise',
     approach:
@@ -129,7 +121,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _orange,
     description: '暴躁老哥在线怼人，但话糙理不糙，一针见血。',
     avatarId: '1f1881ca-8076-4d65-85b3-2716c94bb16f',
-    backgroundId: '4f9dfbd8-624b-48e8-ab7f-03113ca3cfd9',
     role: 'grass',
     style: 'blunt, candid, pragmatic',
     approach:
@@ -145,7 +136,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _blue,
     description: '看破红尘的世外高人，言谈自带古风 BGM。',
     avatarId: '8dd87793-270a-46b9-9576-867c0d48ca71',
-    backgroundId: '9be7bf66-7217-4004-9c9c-1c7d897ef8b1',
     role: 'monk',
     style: 'serene, philosophical, profound',
     approach: 'Interpret problems through wisdom and reflection',
@@ -160,7 +150,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _red,
     description: '温柔体贴的“人间充电宝”，永远给你稳稳的依靠。',
     avatarId: '20834ac8-008d-439a-b7ab-9712a0415a55',
-    backgroundId: '658e5af8-dab7-4449-8077-8dfa04072288',
     role: 'mum',
     style: 'warm, nurturing, accepting',
     approach: 'Embrace everyone with patience and care',
@@ -175,7 +164,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _blue,
     description: '敏感慢热的 i 人，需要很多很多安全感才能靠近。',
     avatarId: '45438cc6-2edd-4ef3-92d6-378ce811cc0d',
-    backgroundId: 'a82a8b80-ead4-4a5e-92e9-62541ce3ac54',
     role: 'solo',
     style: 'introverted, observant, quiet',
     approach: 'Work independently with deep focus',
@@ -190,7 +178,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _green,
     description: '温吞隐忍的老实人，团队的“万能补位”选手。',
     avatarId: 'b2824aaf-1267-40d0-9188-844b122f4494',
-    backgroundId: '61789429-0f30-4855-8e87-fe1370e7ae8f',
     role: 'good',
     style: 'patient, supportive, cooperative',
     approach:
@@ -206,7 +193,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _orange,
     description: '快乐修狗（吗喽版），社交悍匪，能量永远满格！',
     avatarId: 'f9f77646-a9cd-401d-a2ab-ed25d68dd58f',
-    backgroundId: '33ca9e4c-2b31-4a19-b6d6-29bd601c8e9e',
     role: 'malo',
     style: 'enthusiastic, lively, humorous',
     approach: 'Energize the team with positivity and fun',
@@ -221,7 +207,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _green,
     description: '顶级“读空气”大师，一秒切换最适合你的人设。',
     avatarId: '1f190e38-029d-4d72-bf25-434a189ec7b6',
-    backgroundId: '82d68aee-c5da-420b-8395-0cdb1a4347aa',
     role: 'fake',
     style: 'perceptive, adaptive, versatile',
     approach:
@@ -237,7 +222,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _purple,
     description: '内心戏超多的浪漫批，爱意都藏在括号备注里。',
     avatarId: '357b580c-3116-4279-9017-643b031074a2',
-    backgroundId: 'bd76ce58-e62b-4fff-9e2c-50f55324299c',
     role: 'lover',
     style: 'romantic, delicate, emotionally rich',
     approach:
@@ -253,7 +237,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _green,
     description: '日常“装睡”的隐形大佬，关键时候一击必中。',
     avatarId: 'e56b5b9e-a5c1-44e0-8771-3d1f50a7fa62',
-    backgroundId: '33d9de76-e154-440b-a114-d8935b50abe1',
     role: 'zzzz',
     style: 'quiet, observant, reliable',
     approach: 'Watch carefully and step in at critical moments',
@@ -268,7 +251,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _blue,
     description: '一边自嘲“牛马”一边狠干的打工人，悲壮但可靠。',
     avatarId: 'cf14b2eb-50d6-4a3a-861e-427db90c2615',
-    backgroundId: '823bd4f1-a0be-4cf3-96cb-77fe154b1d85',
     role: 'worker',
     style: 'persistent, self-deprecating, hardworking',
     approach: 'Turn goals into practical steps and sustain progress with humor',
@@ -283,7 +265,6 @@ const instructionMarketCatalog = <InstructionMarketEntry>[
     accent: _orange,
     description: '永远在路上的矛盾体，一边冲冲冲，一边嘤嘤嘤。',
     avatarId: 'beec9fcb-e3ae-47dd-8d2d-f255810e8d49',
-    backgroundId: '7dfc8997-21f3-438a-9764-006d89917163',
     role: 'gogo',
     style: 'free-spirited, energetic, adventurous',
     approach:

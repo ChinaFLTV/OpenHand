@@ -9,7 +9,6 @@ import 'package:openhand/features/instructions/model/user_instruction_entry.dart
 import 'package:openhand/features/instructions/widgets/instruction_market_dialog.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/shared/ui/openhand_safe_scrollbar.dart';
-import 'package:openhand/shared/ui/openhand_studio_cutout_portrait.dart';
 import 'package:openhand/shared/ui/openhand_table_pagination.dart';
 
 class _Store implements InstructionsStore {
@@ -98,34 +97,6 @@ void main() {
       expect(
         find.byKey(ValueKey(instructionMarketCatalog.first.avatarUrl)),
         findsWidgets,
-      );
-      expect(
-        find.byKey(ValueKey(instructionMarketCatalog.first.backgroundUrl)),
-        findsOneWidget,
-      );
-      final portrait = find.byKey(
-        ValueKey(instructionMarketCatalog.first.backgroundUrl),
-      );
-      expect(
-        find.descendant(of: portrait, matching: find.byType(ShaderMask)),
-        findsOneWidget,
-      );
-      expect(
-        find.ancestor(of: portrait, matching: find.byType(IgnorePointer)),
-        findsWidgets,
-      );
-      expect(
-        tester.widget<OpenHandStudioCutoutPortrait>(portrait).url,
-        instructionMarketCatalog.first.backgroundUrl,
-      );
-      expect(
-        tester.widget<OpenHandStudioCutoutPortrait>(portrait).cacheWidth,
-        isNotNull,
-      );
-      final backgroundSize = tester.getSize(portrait);
-      expect(
-        backgroundSize.width,
-        lessThanOrEqualTo(backgroundSize.height * 1.15 + .01),
       );
       OpenHandTablePagination pager() => tester.widget<OpenHandTablePagination>(
         find.byType(OpenHandTablePagination),

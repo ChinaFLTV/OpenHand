@@ -11,15 +11,10 @@ import '../../../shared/ui/openhand_document_markdown_preview.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
-import '../../../shared/ui/openhand_studio_cutout_portrait.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../data/instruction_market_catalog.dart';
 import '../instructions_controller.dart';
 import '../model/user_instruction_entry.dart';
-
-const double _kMarketPortraitWidthFromHeight = 1.08;
-const double _kMarketPortraitMaxWidthFraction = 0.48;
-const EdgeInsets _kMarketPortraitPadding = EdgeInsets.fromLTRB(0, 6, 8, 6);
 
 Future<void> showInstructionMarketDialog(
   BuildContext context, {
@@ -679,126 +674,62 @@ class _InstructionMarketDialogState extends State<_InstructionMarketDialog> {
                     children: [
                       OpenHandTintedPanel(
                         accent: accent,
-                        padding: EdgeInsets.zero,
-                        child: ClipRRect(
-                          borderRadius: kOpenHandBorderRadius16,
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  child: ExcludeSemantics(
-                                    child: Padding(
-                                      padding: _kMarketPortraitPadding,
-                                      child: LayoutBuilder(
-                                        builder: (context, constraints) {
-                                          final width =
-                                              (constraints.maxHeight *
-                                                      _kMarketPortraitWidthFromHeight)
-                                                  .clamp(
-                                                    0.0,
-                                                    constraints.maxWidth *
-                                                        _kMarketPortraitMaxWidthFraction,
-                                                  );
-                                          if (width <= 0 ||
-                                              constraints.maxHeight <= 0) {
-                                            return const SizedBox.shrink();
-                                          }
-                                          return Align(
-                                            alignment: Alignment.centerRight,
-                                            child: SizedBox(
-                                              width: width,
-                                              height: constraints.maxHeight,
-                                              child: OpenHandStudioCutoutPortrait(
-                                                key: ValueKey(
-                                                  entry.backgroundUrl,
-                                                ),
-                                                url: entry.backgroundUrl,
-                                                duration: duration,
-                                                cacheWidth:
-                                                    (width *
-                                                            MediaQuery.devicePixelRatioOf(
-                                                              context,
-                                                            ))
-                                                        .ceil()
-                                                        .clamp(1, 768),
-                                              ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                _avatar(entry, size: 64),
+                                kOpenHandHGap14,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        entry.name,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
                                             ),
-                                          );
-                                        },
                                       ),
-                                    ),
+                                      kOpenHandGap8,
+                                      Text(
+                                        'SkillHub',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: colors.onSurfaceVariant,
+                                            ),
+                                      ),
+                                      kOpenHandGap8,
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          OpenHandFactChip(
+                                            icon: Icons.category_outlined,
+                                            label: entry.category,
+                                            color: accent,
+                                          ),
+                                          OpenHandFactChip(
+                                            icon: Icons.description_outlined,
+                                            label: 'SOUL',
+                                            color: colors.secondary,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                              Padding(
-                                padding: kOpenHandTintedPanelPadding,
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        _avatar(entry, size: 64),
-                                        kOpenHandHGap14,
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                entry.name,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleLarge
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                    ),
-                                              ),
-                                              kOpenHandGap8,
-                                              Text(
-                                                'SkillHub',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: colors
-                                                          .onSurfaceVariant,
-                                                    ),
-                                              ),
-                                              kOpenHandGap8,
-                                              Wrap(
-                                                spacing: 6,
-                                                runSpacing: 6,
-                                                children: [
-                                                  OpenHandFactChip(
-                                                    icon:
-                                                        Icons.category_outlined,
-                                                    label: entry.category,
-                                                    color: accent,
-                                                  ),
-                                                  OpenHandFactChip(
-                                                    icon: Icons
-                                                        .description_outlined,
-                                                    label: 'SOUL',
-                                                    color: colors.secondary,
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    kOpenHandGap14,
-                                    SelectionArea(
-                                      child: Text(entry.description),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                            kOpenHandGap14,
+                            SelectionArea(child: Text(entry.description)),
+                          ],
                         ),
                       ),
                       kOpenHandGap14,
