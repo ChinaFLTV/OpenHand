@@ -5,9 +5,10 @@
 // 由 service 端基于 session 消息 metadata 白名单放行。
 
 import type { JSX } from 'preact';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
+import { ImageMessageContext, type ImageGalleryEntry } from './image_gallery';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { rollingHash31Base36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
@@ -1193,12 +1194,17 @@ interface MessageMediaProps {
 }
 
 interface MediaPreviewDialogProps {
+  gallery?: ImageGalleryEntry[];
+  initialIndex?: number;
   item: MediaItem;
   url: string;
   onClose: () => void;
 }
 
-export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogProps) {
+export function MediaPreviewDialog({ item: initialItem, url: initialUrl, onClose, gallery, initialIndex = 0 }: MediaPreviewDialogProps) {
+  const onLocate = useContext(ImageMessageContext);
+  const [index, setIndex] = useState(() => Math.max(0, Math.min(initialIndex, (gallery?.length ?? 1) - 1)));
+  const { item, url } = gallery?.[index] ?? { item: initialItem, url: initialUrl };
   const headerRef = useRef<HTMLElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const saveAbortRef = useRef<AbortController | null>(null);
@@ -1231,11 +1237,24 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
     abortSave();
     abortCopy();
   }, [abortCopy, abortSave]);
-  const { closing, requestClose } = useDialogExitMotion(onClose, {
+  const { closing, requestClose, requestCloseWithReason } = useDialogExitMotion((reason?: string) => {
+    onClose();
+    if (reason === 'locate') onLocate?.();
+  }, {
     onBeforeClose: abortTransfers,
   });
   useEffect(() => () => abortTransfers(), [abortTransfers]);
   useEffect(() => setNaturalSize(null), [item.kind, item.path, url]);
+  useEffect(() => {
+    if (!gallery || closing) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (saving || copying || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      setIndex((current) => Math.max(0, Math.min(gallery.length - 1, current + (event.key === 'ArrowLeft' ? -1 : 1))));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [gallery, closing, saving, copying]);
   useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
@@ -1397,57 +1416,50 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
       })}
       ariaLabel={item.name}
     >
-      <header ref={headerRef} class="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold truncate">{item.name}</p>
-            <p class="text-xs oh-text-muted">
-              {mediaKindLabel(item.kind)}
-            </p>
-          </div>
-          {item.kind !== 'file' ? (
-            <button
-              type="button"
-              onClick={requestFullscreen}
-              class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
-              style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)' }}
-            >
-              {t('detail.media.fullscreen', '全屏')}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => void handleCopy()}
-            disabled={copying}
-            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm disabled:opacity-50"
-            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
-          >
-            {copying ? t('detail.media.copying', '复制中…') : t('common.copy', '复制')}
+      <header ref={headerRef} class="px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>
+        <div class="min-w-0 mb-2">
+          <p class="text-sm font-semibold truncate">{item.name}</p>
+          <p class="text-xs oh-text-muted">{mediaKindLabel(item.kind)}{gallery ? ` · ${index + 1} / ${gallery.length}` : ''}</p>
+        </div>
+        <div class="flex flex-wrap justify-end gap-2">
+          {onLocate ? <button type="button" class="oh-image-gallery-action oh-tap-press" title="定位到消息" aria-label="定位到消息"
+            onClick={() => requestCloseWithReason('locate')}>
+            <svg {...svgIconProps({ size: 20 })}><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3" /></svg>
+          </button> : null}
+          <button type="button" class="oh-image-gallery-action oh-tap-press" title="在新窗口打开" aria-label="在新窗口打开"
+            onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>
+            <svg {...svgIconProps({ size: 20 })}><path d="M14 3h7v7m0-7L10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" /></svg>
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm disabled:opacity-50"
-            style={{ background: 'var(--m3-primary)', color: 'var(--m3-on-primary)' }}
-          >
-            {saving ? t('detail.media.saving', '保存中…') : t('detail.media.save', '保存')}
+          {item.kind !== 'file' ? <button type="button" onClick={requestFullscreen} class="oh-image-gallery-action oh-tap-press"
+            title={t('detail.media.fullscreen', '全屏')} aria-label={t('detail.media.fullscreen', '全屏')}>
+            <svg {...svgIconProps({ size: 20 })}><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" /></svg>
+          </button> : null}
+          <button type="button" onClick={() => void handleCopy()} disabled={copying} class="oh-image-gallery-action oh-tap-press"
+            title={copying ? t('detail.media.copying', '复制中…') : t('common.copy', '复制')}
+            aria-label={copying ? t('detail.media.copying', '复制中…') : t('common.copy', '复制')}>
+            <svg {...svgIconProps({ size: 20 })}><rect x="8" y="8" width="13" height="13" rx="2" /><path d="M16 3H5a2 2 0 0 0-2 2v11" /></svg>
           </button>
-          <button
-            type="button"
-            onClick={requestClose}
-            class="oh-tap-press text-xs px-3 py-1.5 rounded-m3-sm"
-            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
-          >
-            {t('common.close', '关闭')}
+          <button type="button" onClick={handleSave} disabled={saving} class="oh-image-gallery-action oh-tap-press"
+            title={saving ? t('detail.media.saving', '保存中…') : t('detail.media.save', '保存')}
+            aria-label={saving ? t('detail.media.saving', '保存中…') : t('detail.media.save', '保存')}>
+            <svg {...svgIconProps({ size: 20 })}><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4" /></svg>
           </button>
-        </header>
+          <button type="button" onClick={requestClose} class="oh-image-gallery-action oh-tap-press"
+            title={t('common.close', '关闭')} aria-label={t('common.close', '关闭')}>
+            <svg {...svgIconProps({ size: 20 })}><path d="m6 6 12 12M6 18 18 6" /></svg>
+          </button>
+        </div>
+      </header>
         <div
           ref={stageRef}
-          class="min-h-0 flex items-center justify-center"
+          class="min-h-0 flex items-center justify-center oh-image-gallery-stage"
           style={stageStyle}
         >
+          {gallery && gallery.length > 1 ? <button type="button" class="oh-image-gallery-action oh-image-gallery-previous oh-tap-press"
+            aria-label="上一张" title="上一张" disabled={index === 0 || saving || copying || closing}
+            onClick={() => setIndex(index - 1)}><svg {...svgIconProps({ size: 22 })}><path d="m15 6-6 6 6 6" /></svg></button> : null}
           {item.kind === 'image' ? (
-            <InteractiveImagePreview
+            <InteractiveImagePreview key={url}
               item={item}
               url={url}
               style={mediaBoxStyle}
@@ -1505,6 +1517,9 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
               </div>
             </div>
           )}
+          {gallery && gallery.length > 1 ? <button type="button" class="oh-image-gallery-action oh-image-gallery-next oh-tap-press"
+            aria-label="下一张" title="下一张" disabled={index === gallery.length - 1 || saving || copying || closing}
+            onClick={() => setIndex(index + 1)}><svg {...svgIconProps({ size: 22 })}><path d="m9 6 6 6-6 6" /></svg></button> : null}
         </div>
     </DialogFrame>
   );
@@ -1677,6 +1692,8 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
           <MediaPreviewDialog
             item={preview.item}
             url={preview.url}
+            gallery={preview.item.kind === 'image' ? effectiveEntries.filter((entry) => entry.item.kind === 'image') : undefined}
+            initialIndex={effectiveEntries.filter((entry) => entry.item.kind === 'image').findIndex((entry) => entry.url === preview.url)}
             onClose={() => setPreview(null)}
           />
         ) : null}
@@ -1810,6 +1827,8 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
       <MediaPreviewDialog
         item={preview.item}
         url={preview.url}
+        gallery={preview.item.kind === 'image' ? effectiveEntries.filter((entry) => entry.item.kind === 'image') : undefined}
+        initialIndex={effectiveEntries.filter((entry) => entry.item.kind === 'image').findIndex((entry) => entry.url === preview.url)}
         onClose={() => setPreview(null)}
       />
     ) : null}

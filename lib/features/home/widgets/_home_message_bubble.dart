@@ -1782,7 +1782,28 @@ class _MessageBubbleState extends State<_MessageBubble>
       ],
     );
 
-    return _BubbleHtmlInteractiveScope(state: this, child: messageLayout);
+    return OpenHandImageMessageScope(
+      onInteractiveTap: markInteractiveTap,
+      images: attachments
+          .where((item) => item.isImage && item.storagePath.trim().isNotEmpty)
+          .take(kOpenHandImageGalleryLimit)
+          .map(
+            (item) => OpenHandGalleryImage(
+              uri: Uri.file(item.storagePath),
+              title: item.name,
+            ),
+          )
+          .toList(growable: false),
+      onLocate: () async {
+        if (!mounted) return;
+        await _TranscriptScrollDispatcher.instance.scrollToMessage(
+          widget.sessionId,
+          widget.message.id,
+          highlight: true,
+        );
+      },
+      child: _BubbleHtmlInteractiveScope(state: this, child: messageLayout),
+    );
   }
 }
 
@@ -2384,12 +2405,9 @@ Future<void> _openAttachment(
 
   if (attachment.isImage) {
     if (!context.mounted) return;
-    await showAnimatedDialog<void>(
-      context: context,
-      builder: (dialogContext) => _ImagePreviewDialog.file(
-        filePath: storagePath,
-        title: attachment.name,
-      ),
+    await showOpenHandMessageImage(
+      context,
+      OpenHandGalleryImage(uri: Uri.file(storagePath), title: attachment.name),
     );
     return;
   }
@@ -2921,18 +2939,40 @@ Size _adaptivePreviewDialogViewport(BuildContext context) {
 /// 弹窗体积根据图片自身的宽高比动态贴合, 四周保留统一的 [_kPadding]
 /// 留白, 与 WEB 端 `MediaPreviewDialog` (clients/web/.../MessageMedia.tsx)
 /// 视觉对齐: 不再因 `BoxFit.contain` 在固定容器中产生不均的上下/左右白边。
+Future<void> showOpenHandImageGallery(
+  BuildContext context, {
+  required List<OpenHandGalleryImage> images,
+  int initialIndex = 0,
+  Future<void> Function()? onLocate,
+}) async {
+  if (images.isEmpty) return;
+  Future<bool?>? dismissed;
+  final locate = await showAnimatedDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      dismissed = ModalRoute.of<bool>(dialogContext)?.completed;
+      return _ImagePreviewDialog.gallery(
+        images: images,
+        initialIndex: initialIndex,
+        canLocate: onLocate != null,
+      );
+    },
+  );
+  if (locate == true) {
+    await dismissed;
+    if (context.mounted) await onLocate?.call();
+  }
+}
+
 class _ImagePreviewDialog extends StatefulWidget {
-  const _ImagePreviewDialog.file({required this.filePath, required this.title})
-    : imageUri = null;
-
-  const _ImagePreviewDialog.network({
-    required this.imageUri,
-    required this.title,
-  }) : filePath = null;
-
-  final String? filePath;
-  final Uri? imageUri;
-  final String title;
+  const _ImagePreviewDialog.gallery({
+    required this.images,
+    required this.initialIndex,
+    required this.canLocate,
+  });
+  final List<OpenHandGalleryImage> images;
+  final int initialIndex;
+  final bool canLocate;
 
   @override
   State<_ImagePreviewDialog> createState() => _ImagePreviewDialogState();
@@ -2981,7 +3021,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   static const double _kDividerH = 1.0;
 
   /// 弹窗最小宽度, 确保头部图标按钮 + 标题省略号始终能够放下。
-  static const double _kMinDialogW = 324.0;
+  static const double _kMinDialogW = 380.0;
 
   /// 加载中 / 解析失败 / 来源缺失时的方形占位边长。
   static const double _kFallbackSide = 320.0;
@@ -2997,13 +3037,38 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   bool _isSaving = false;
   bool _isOpeningExternal = false;
 
+  late int _index;
+  OpenHandGalleryImage get _current => widget.images[_index];
+  String? get _filePath => _current.filePath;
+  Uri? get _imageUri => _filePath == null ? _current.uri : null;
+  String get _title => _current.title;
+  bool get _isSvg =>
+      (_filePath ?? _imageUri?.path ?? '').toLowerCase().endsWith('.svg');
+  bool get _busy => _isCopying || _isSaving || _isOpeningExternal;
+
+  void _navigate(int delta) {
+    final next = _index + delta;
+    if (_busy || next < 0 || next >= widget.images.length) return;
+    setState(() => _index = next);
+    _imageSize.resolve(
+      _isSvg
+          ? null
+          : _filePath != null
+          ? FileImage(File(_filePath!))
+          : NetworkImage(_imageUri.toString()),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
-    final filePath = widget.filePath;
-    final imageUri = widget.imageUri;
+    _index = widget.initialIndex.clamp(0, widget.images.length - 1);
+    final filePath = _filePath;
+    final imageUri = _imageUri;
     _imageSize.resolve(
-      filePath != null
+      _isSvg
+          ? null
+          : filePath != null
           ? FileImage(File(filePath))
           : imageUri != null
           ? NetworkImage(imageUri.toString())
@@ -3033,7 +3098,9 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
       viewport: viewport,
       insetPadding: _kInsetPadding,
       chromeHeight:
-          math.max(_kHeaderEstimate, measuredHeaderHeight ?? 0) + _kDividerH,
+          math.max(_kHeaderEstimate, measuredHeaderHeight ?? 0) +
+          _kDividerH +
+          48,
       contentPadding: _kPadding,
       minDialogWidth: _kMinDialogW,
       fallbackContentSize: const Size.square(_kFallbackSide),
@@ -3048,6 +3115,12 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
           Navigator.of(context).pop();
+          return KeyEventResult.handled;
+        }
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+          _navigate(event.logicalKey == LogicalKeyboardKey.arrowLeft ? -1 : 1);
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -3082,12 +3155,18 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                       children: [
                         Expanded(
                           child: Text(
-                            widget.title,
+                            _title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium,
                           ),
                         ),
+                        if (widget.canLocate)
+                          IconButton(
+                            tooltip: '定位到消息',
+                            icon: const Icon(Icons.my_location_rounded),
+                            onPressed: () => Navigator.of(context).pop(true),
+                          ),
                         MicroPressFeedback(
                           child: IconButton(
                             icon: Icon(
@@ -3145,6 +3224,12 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                       ],
                     ),
                   ),
+                  SizedBox(
+                    height: 48,
+                    child: Center(
+                      child: Text('${_index + 1} / ${widget.images.length}'),
+                    ),
+                  ),
                   const Divider(height: 1),
                   // 图片主体: 四周统一 _kPadding 留白, 与 WEB 端一致。
                   // SizedBox 尺寸等于媒体实际显示尺寸, Image 内部不会再产生
@@ -3154,14 +3239,40 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                     child: SizedBox(
                       width: metrics.contentWidth,
                       height: metrics.contentHeight,
-                      child: OpenHandInteractiveImagePreview(
-                        child: KeyedSubtree(
-                          key: ValueKey<String>(_imageSourceSignature),
-                          child: _buildPreviewImage(
-                            context,
-                            Size(metrics.contentWidth, metrics.contentHeight),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          OpenHandInteractiveImagePreview(
+                            key: ValueKey(_imageSourceSignature),
+                            child: _buildPreviewImage(
+                              context,
+                              Size(metrics.contentWidth, metrics.contentHeight),
+                            ),
                           ),
-                        ),
+                          if (widget.images.length > 1)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: IconButton.filledTonal(
+                                tooltip: '上一张',
+                                onPressed: !_busy && _index > 0
+                                    ? () => _navigate(-1)
+                                    : null,
+                                icon: const Icon(Icons.chevron_left_rounded),
+                              ),
+                            ),
+                          if (widget.images.length > 1)
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: IconButton.filledTonal(
+                                tooltip: '下一张',
+                                onPressed:
+                                    !_busy && _index + 1 < widget.images.length
+                                    ? () => _navigate(1)
+                                    : null,
+                                icon: const Icon(Icons.chevron_right_rounded),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -3175,18 +3286,18 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   }
 
   String get _imageSourceSignature {
-    final filePath = widget.filePath;
+    final filePath = _filePath;
     if (filePath != null) return 'file:$filePath';
-    final imageUri = widget.imageUri;
+    final imageUri = _imageUri;
     if (imageUri != null) return 'network:$imageUri';
-    return 'empty:${widget.title}';
+    return 'empty:${_title}';
   }
 
   Future<void> _copyImageToClipboard(BuildContext context) async {
     if (_isCopying) return;
     setState(() => _isCopying = true);
     try {
-      final sourceFilePath = widget.filePath;
+      final sourceFilePath = _filePath;
       if (sourceFilePath != null) {
         final bytes = await _readLocalClipboardBytes(
           sourceFilePath,
@@ -3217,7 +3328,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         }
       }
 
-      final sourceUri = widget.imageUri;
+      final sourceUri = _imageUri;
       if (sourceUri == null) {
         throw const FileSystemException('Image source is unavailable.');
       }
@@ -3290,11 +3401,28 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   }
 
   Widget _buildPreviewImage(BuildContext context, Size displaySize) {
+    if (_isSvg) {
+      return _filePath != null
+          ? SvgPicture.file(
+              File(_filePath!),
+              width: displaySize.width,
+              height: displaySize.height,
+              errorBuilder: (context, error, stack) =>
+                  _buildImageLoadError(context),
+            )
+          : SvgPicture.network(
+              _imageUri.toString(),
+              width: displaySize.width,
+              height: displaySize.height,
+              errorBuilder: (context, error, stack) =>
+                  _buildImageLoadError(context),
+            );
+    }
     // 原图尺寸已知且明显大于展示区时按比例降采样。不限制时，一张 8000×6000
     // 的生成图会解出 ~192MB 位图，直接把 ImageCache 打爆甚至 OOM。
     // 只给 cacheWidth：同时指定宽高会按精确尺寸缩放，破坏原图宽高比。
     final decodeWidth = _previewDecodeWidth(context, displaySize);
-    final sourceFilePath = widget.filePath;
+    final sourceFilePath = _filePath;
     if (sourceFilePath != null) {
       return Image.file(
         File(sourceFilePath),
@@ -3308,7 +3436,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
       );
     }
 
-    final sourceUri = widget.imageUri;
+    final sourceUri = _imageUri;
     if (sourceUri == null) {
       return _buildImageLoadError(context);
     }
@@ -3426,12 +3554,12 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
     if (_isOpeningExternal) return;
     _isOpeningExternal = true;
     try {
-      final sourceFilePath = widget.filePath;
+      final sourceFilePath = _filePath;
       if (sourceFilePath != null) {
         await _openLocalPathWithSystemApp(context, sourceFilePath);
         return;
       }
-      final sourceUri = widget.imageUri;
+      final sourceUri = _imageUri;
       if (sourceUri == null) {
         return;
       }
@@ -3460,7 +3588,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         ],
       );
       if (location == null) return;
-      final sourceFilePath = widget.filePath;
+      final sourceFilePath = _filePath;
       if (sourceFilePath != null) {
         if (!await isRegularFilePath(sourceFilePath)) {
           throw FileSystemException(
@@ -3476,7 +3604,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         return;
       }
 
-      final sourceUri = widget.imageUri;
+      final sourceUri = _imageUri;
       if (sourceUri == null) {
         throw const FileSystemException('Image source is unavailable.');
       }
@@ -3494,7 +3622,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   }
 
   String _suggestedSaveName() {
-    final sourceFilePath = widget.filePath;
+    final sourceFilePath = _filePath;
     if (sourceFilePath != null) {
       final basename = p.basename(sourceFilePath).trim();
       if (basename.isNotEmpty) {
@@ -3502,7 +3630,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
       }
     }
 
-    final sourceUri = widget.imageUri;
+    final sourceUri = _imageUri;
     if (sourceUri != null) {
       final decodedPath = decodeUriFullOrOriginal(sourceUri.path);
       final basename = p.basename(decodedPath).trim();
@@ -3517,7 +3645,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
     if (extension.isNotEmpty) {
       return extension;
     }
-    final sourceUri = widget.imageUri;
+    final sourceUri = _imageUri;
     if (sourceUri != null) {
       final format = sourceUri.queryParameters['format']?.trim().toLowerCase();
       if (format != null &&

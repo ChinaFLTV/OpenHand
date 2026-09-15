@@ -1,3 +1,4 @@
+import { ImageMessageContext, collectImageGallery, type ImageGalleryEntry } from './image_gallery';
 import {
   KNOWLEDGE_BASE_MESSAGE_METADATA_KEY,
   messageHasDeferredContent,
@@ -2263,6 +2264,7 @@ function GoalMessageBulletList({
 }
 
 interface MessageCardProps {
+  onLocateMessage?: (message: SessionMessage) => void;
   message: SessionMessage;
   /// 由详情页受控的点击选中态；只有选中的卡片显示操作栏。
   active?: boolean;
@@ -2311,6 +2313,7 @@ interface MessageCardProps {
 }
 
 function MessageCardImpl({
+  onLocateMessage,
   message,
   active = false,
   forceExpanded = false,
@@ -2434,7 +2437,7 @@ function MessageCardImpl({
       ? responseExpandedOverridesByMessageId.get(message.id)!
       : null
   ));
-  const [inlineImagePreview, setInlineImagePreview] = useState<{ item: MediaItem; url: string } | null>(null);
+  const [inlineImagePreview, setInlineImagePreview] = useState<{ item: MediaItem; url: string; images: ImageGalleryEntry[]; index: number } | null>(null);
   useEffect(() => {
     setExpandedOverride(
       responseExpandedOverridesByMessageId.has(message.id)
@@ -2789,7 +2792,7 @@ function MessageCardImpl({
   }, [collapsedBodyScrollStateKey, expanded, message.id]);
 
   return (
-    <>
+    <ImageMessageContext.Provider value={onLocateMessage ? () => onLocateMessage(message) : undefined}>
       <div class={`oh-message-card-frame ${isUserBubble ? 'is-user' : 'is-other'}`}>
         <div
           ref={cardRef}
@@ -2863,7 +2866,9 @@ function MessageCardImpl({
                       name = 'image';
                     }
                   }
+                  const gallery = collectImageGallery(ev.currentTarget, img);
                   setInlineImagePreview({
+                    ...gallery,
                     item: { path: src, name, kind: 'image' },
                     url: src,
                   });
@@ -3275,6 +3280,8 @@ function MessageCardImpl({
       </div>
     {inlineImagePreview ? (
       <MediaPreviewDialog
+        gallery={inlineImagePreview.images}
+        initialIndex={inlineImagePreview.index}
         item={inlineImagePreview.item}
         url={inlineImagePreview.url}
         onClose={() => setInlineImagePreview(null)}
@@ -3286,7 +3293,7 @@ function MessageCardImpl({
         onClose={() => setKnowledgeBaseDialogOpen(false)}
       />
     ) : null}
-    </>
+    </ImageMessageContext.Provider>
   );
 }
 

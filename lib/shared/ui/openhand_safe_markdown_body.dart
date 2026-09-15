@@ -8,11 +8,14 @@ import 'package:markdown/markdown.dart' as md;
 
 import '../util/timer_safety.dart';
 import 'markdown_ast_sanitizer.dart';
+import 'markdown_image_gallery.dart';
 import 'markdown_math.dart';
 import 'openhand_message_markdown_theme.dart';
 
 List<Widget> buildOpenHandMarkdownWidgets({
+  required BuildContext context,
   required List<md.Node> nodes,
+  String? Function(Uri)? resolveImageFilePath,
   required MarkdownBuilderDelegate delegate,
   required bool selectable,
   required MarkdownStyleSheet styleSheet,
@@ -20,12 +23,24 @@ List<Widget> buildOpenHandMarkdownWidgets({
   Map<String, MarkdownElementBuilder> builders =
       const <String, MarkdownElementBuilder>{},
 }) {
+  final images = collectOpenHandMarkdownImages(
+    nodes,
+    resolveFilePath: resolveImageFilePath,
+  );
   return MarkdownBuilder(
     delegate: delegate,
     selectable: selectable,
     styleSheet: styleSheet,
     imageDirectory: null,
-    imageBuilder: imageBuilder,
+    imageBuilder: (uri, title, alt) => buildOpenHandGalleryImage(
+      context,
+      uri: uri,
+      title: title,
+      alt: alt,
+      images: images,
+      resolveFilePath: resolveImageFilePath,
+      child: imageBuilder?.call(uri, title, alt),
+    ),
     checkboxBuilder: null,
     bulletBuilder: null,
     builders: withOpenHandMarkdownMathBuilders(
@@ -191,6 +206,7 @@ class _OpenHandSafeMarkdownBodyState extends State<OpenHandSafeMarkdownBody>
         inlineSyntaxes: withOpenHandMarkdownMathInlineSyntaxes(const []),
       );
       _children = buildOpenHandMarkdownWidgets(
+        context: context,
         nodes: nodes,
         delegate: this,
         selectable: false,

@@ -1800,6 +1800,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         }
       }
       _children = buildOpenHandMarkdownWidgets(
+        context: context,
+        resolveImageFilePath: _resolveMarkdownImageFilePath,
         nodes: astNodes,
         delegate: this,
         selectable: widget.selectable,
@@ -1904,11 +1906,13 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           semanticsLabel: previewTitle,
           onTap: () {
             if (!mounted) return;
-            showAnimatedDialog<void>(
-              context: context,
-              builder: (ctx) => _ImagePreviewDialog.file(
-                filePath: cachedPath,
-                title: previewTitle,
+            unawaited(
+              showOpenHandMessageImage(
+                context,
+                OpenHandGalleryImage(
+                  uri: Uri.file(cachedPath),
+                  title: previewTitle,
+                ),
               ),
             );
           },
@@ -1955,10 +1959,11 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         semanticsLabel: previewTitle,
         onTap: () {
           if (!mounted) return;
-          showAnimatedDialog<void>(
-            context: context,
-            builder: (ctx) =>
-                _ImagePreviewDialog.network(imageUri: uri, title: previewTitle),
+          unawaited(
+            showOpenHandMessageImage(
+              context,
+              OpenHandGalleryImage(uri: uri, title: previewTitle),
+            ),
           );
         },
         child: _buildMarkdownImageFrame(
@@ -2022,9 +2027,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       return;
     }
     if (!mounted) return;
-    await showAnimatedDialog<void>(
-      context: context,
-      builder: (ctx) => _ImagePreviewDialog.file(filePath: path, title: title),
+    await showOpenHandMessageImage(
+      context,
+      OpenHandGalleryImage(uri: Uri.file(path), title: title),
     );
   }
 

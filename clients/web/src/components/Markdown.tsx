@@ -1,6 +1,8 @@
 // Markdown 渲染组件：按需加载插件，限制长内容解析，并为批量挂载分帧调度。
 
 import { memo } from 'preact/compat';
+import { MediaPreviewDialog } from './MessageMedia';
+import { collectImageGallery, type ImageGalleryEntry } from './image_gallery';
 import { richContentFrameScheduler } from '../shared/ui/rich_content_frame_scheduler';
 import { BoundedTextCache } from '../shared/util/bounded_text_cache';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -1165,6 +1167,14 @@ function MarkdownRenderPlaceholder({ source }: { source: string }) {
 /// 一次就是一整条 remark → rehype → highlight/katex 管线。父级（会话页）
 /// 任意 state 变更都会波及窗口内全部卡片，未 memo 时等于每次都全量重解析。
 export const Markdown = memo(function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false, deferInitialRender = false }: MarkdownProps) {
+  const [imageGallery, setImageGallery] = useState<{ images: ImageGalleryEntry[]; index: number } | null>(null);
+  const openImage = (event: MouseEvent) => {
+    if (!(event.target instanceof HTMLImageElement) || !(event.currentTarget instanceof HTMLElement)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const gallery = collectImageGallery(event.currentTarget, event.target);
+    if (gallery.index >= 0) setImageGallery(gallery);
+  };
   const content = source ?? '';
   const tooBig = content.length > CONTENT_TOO_BIG_CHARS;
   const markdownContent = useMemo(
@@ -1345,7 +1355,16 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
         <img
           {...props}
           loading="lazy"
+          tabIndex={0}
+          role="button"
+          onKeyDown={(event: KeyboardEvent) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              (event.currentTarget as HTMLImageElement).click();
+            }
+          }}
           style={{
+            cursor: 'zoom-in',
             maxWidth: '100%',
             borderRadius: '6px',
             margin: '0.5rem 0',
@@ -1532,8 +1551,11 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
   }
 
   return (
-    <div class="oh-markdown text-sm" style={{ fontFamily }}>
+    <div class="oh-markdown text-sm" style={{ fontFamily }} onClick={openImage}>
       {markdownTree}
+      {imageGallery && imageGallery.images[imageGallery.index] ? <MediaPreviewDialog
+        item={imageGallery.images[imageGallery.index].item} url={imageGallery.images[imageGallery.index].url}
+        gallery={imageGallery.images} initialIndex={imageGallery.index} onClose={() => setImageGallery(null)} /> : null}
     </div>
   );
 });

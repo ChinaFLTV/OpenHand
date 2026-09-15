@@ -11586,3 +11586,31 @@ button.oh-json-tree-row { cursor: pointer; }
   .oh-resource-usage-detail-card:hover,
   .oh-resource-usage-event:hover { transform: none; }
 }
+
+/* 图片组预览：按钮不参与图片尺寸计算，沿用全局纯色与按压动效。 */
+.oh-image-gallery-stage { position: relative; }
+.oh-image-gallery-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--m3-outline-variant);
+  background: var(--m3-surface-container-high);
+  color: var(--m3-on-surface);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.oh-image-gallery-action:disabled { opacity: .4; cursor: default; }
+.oh-image-gallery-previous, .oh-image-gallery-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+.oh-image-gallery-previous { left: 16px; }
+.oh-image-gallery-next { right: 16px; }

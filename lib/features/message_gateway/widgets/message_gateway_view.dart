@@ -40,6 +40,7 @@ import '../../../shared/ui/generated_media_result_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/interaction_timings.dart';
+import '../../../shared/ui/markdown_image_gallery.dart';
 import '../../../shared/ui/media_preview_dialog.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
@@ -13488,6 +13489,25 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                                       message,
                                                                     )
                                                               : null,
+                                                          onLocateMessage: () async {
+                                                            _disableAutoFollow();
+                                                            final version =
+                                                                ++_messageNavigationVersion;
+                                                            final located =
+                                                                await _scrollToMessage(
+                                                                  selected,
+                                                                  message.id,
+                                                                  version,
+                                                                );
+                                                            if (mounted &&
+                                                                version ==
+                                                                    _messageNavigationVersion &&
+                                                                located) {
+                                                              _highlightMessage(
+                                                                message.id,
+                                                              );
+                                                            }
+                                                          },
                                                           onOpenQuotedMessage:
                                                               message
                                                                       .quotedMessage
@@ -16725,6 +16745,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
     this.onAudit,
     this.onOpenForwardedChat,
     this.onOpenQuotedMessage,
+    this.onLocateMessage,
     this.onReturnToQuotedSource,
     this.highlighted = false,
     this.showRawAction = false,
@@ -16758,6 +16779,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final VoidCallback? onAudit;
   final VoidCallback? onOpenForwardedChat;
   final VoidCallback? onOpenQuotedMessage;
+  final Future<void> Function()? onLocateMessage;
   final VoidCallback? onReturnToQuotedSource;
   final bool highlighted;
   final bool showRawAction;
@@ -16949,124 +16971,145 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final contentExpanded =
         !widget.message.isContentHidden || _showExcludedContent;
     final status = _messageStatus();
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        textDirection: TextDirection.ltr,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (showSenderName)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  senderName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+    return OpenHandImageMessageScope(
+      onInteractiveTap: _cancelPendingActionToggle,
+      onLocate: widget.onLocateMessage,
+      images: widget.message.media
+          .where(
+            (item) =>
+                item.kind == DingTalkMediaKind.image &&
+                item.localPath.trim().isNotEmpty,
+          )
+          .take(kOpenHandImageGalleryLimit)
+          .map(
+            (item) => OpenHandGalleryImage(
+              uri: Uri.file(item.localPath),
+              title: item.displayName,
+            ),
+          )
+          .toList(growable: false),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          textDirection: TextDirection.ltr,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showSenderName)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    senderName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
-            ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final widthFactor = widget.mine
-                  ? _mineBubbleWidthFactor
-                  : _peerBubbleWidthFactor;
-              final absoluteMaxWidth = widget.mine
-                  ? _mineBubbleMaxWidth
-                  : _peerBubbleMaxWidth;
-              final maxBubbleWidth = math.min(
-                constraints.maxWidth,
-                math.min(
-                  absoluteMaxWidth,
-                  math.max(
-                    _baseBubbleMaxWidth,
-                    constraints.maxWidth * widthFactor,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final widthFactor = widget.mine
+                    ? _mineBubbleWidthFactor
+                    : _peerBubbleWidthFactor;
+                final absoluteMaxWidth = widget.mine
+                    ? _mineBubbleMaxWidth
+                    : _peerBubbleMaxWidth;
+                final maxBubbleWidth = math.min(
+                  constraints.maxWidth,
+                  math.min(
+                    absoluteMaxWidth,
+                    math.max(
+                      _baseBubbleMaxWidth,
+                      constraints.maxWidth * widthFactor,
+                    ),
                   ),
-                ),
-              );
-              final bubbleAlignment = widget.mine
-                  ? Alignment.topRight
-                  : Alignment.topLeft;
-              final resizeDuration = widget.streaming
-                  ? Duration.zero
-                  : openHandMotionDuration(context, kOpenHandMotion220);
-              final contentTransitionDuration = widget.streaming
-                  ? Duration.zero
-                  : kOpenHandMotion180;
-              final messageContent = OpenHandFadeSizeSwitcher(
-                duration: contentTransitionDuration,
-                layoutAlignment: bubbleAlignment,
-                fixedCrossAxisSizeFactor: 1,
-                child: !contentExpanded
-                    ? _buildCollapsedMessageContent(
-                        context,
-                        bubbleColor: bubbleColor,
-                        foreground: foreground,
-                      )
-                    : IntrinsicWidth(
-                        key: const ValueKey<String>(
-                          'dingtalk-message-content-expanded',
-                        ),
-                        child: _buildMessageContent(
+                );
+                final bubbleAlignment = widget.mine
+                    ? Alignment.topRight
+                    : Alignment.topLeft;
+                final resizeDuration = widget.streaming
+                    ? Duration.zero
+                    : openHandMotionDuration(context, kOpenHandMotion220);
+                final contentTransitionDuration = widget.streaming
+                    ? Duration.zero
+                    : kOpenHandMotion180;
+                final messageContent = OpenHandFadeSizeSwitcher(
+                  duration: contentTransitionDuration,
+                  layoutAlignment: bubbleAlignment,
+                  fixedCrossAxisSizeFactor: 1,
+                  child: !contentExpanded
+                      ? _buildCollapsedMessageContent(
                           context,
                           bubbleColor: bubbleColor,
                           foreground: foreground,
-                          effectiveContent: effectiveContent,
-                          crossAxis: crossAxis,
-                          media: messageMedia,
+                        )
+                      : IntrinsicWidth(
+                          key: const ValueKey<String>(
+                            'dingtalk-message-content-expanded',
+                          ),
+                          child: _buildMessageContent(
+                            context,
+                            bubbleColor: bubbleColor,
+                            foreground: foreground,
+                            effectiveContent: effectiveContent,
+                            crossAxis: crossAxis,
+                            media: messageMedia,
+                          ),
                         ),
-                      ),
-              );
-              final bubbleContent = resizeDuration == Duration.zero
-                  ? messageContent
-                  : AnimatedSize(
-                      duration: resizeDuration,
-                      curve: kOpenHandSwitchInCurve,
-                      alignment: bubbleAlignment,
-                      child: messageContent,
-                    );
-              final highlightedContent = AnimatedScale(
-                scale: widget.highlighted ? 1.012 : 1,
-                duration: openHandMotionDuration(context, kOpenHandMotion260),
-                curve: kOpenHandEntranceCurve,
-                alignment: bubbleAlignment,
-                child: contentExpanded
-                    ? bubbleContent
-                    : _buildNavigationHighlight(context, child: bubbleContent),
-              );
-              return Align(
-                alignment: alignment,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                  child: Listener(
-                    onPointerDown: _handlePointerDown,
-                    onPointerCancel: _handlePointerCancel,
-                    onPointerUp: _handlePointerUp,
-                    child: highlightedContent,
+                );
+                final bubbleContent = resizeDuration == Duration.zero
+                    ? messageContent
+                    : AnimatedSize(
+                        duration: resizeDuration,
+                        curve: kOpenHandSwitchInCurve,
+                        alignment: bubbleAlignment,
+                        child: messageContent,
+                      );
+                final highlightedContent = AnimatedScale(
+                  scale: widget.highlighted ? 1.012 : 1,
+                  duration: openHandMotionDuration(context, kOpenHandMotion260),
+                  curve: kOpenHandEntranceCurve,
+                  alignment: bubbleAlignment,
+                  child: contentExpanded
+                      ? bubbleContent
+                      : _buildNavigationHighlight(
+                          context,
+                          child: bubbleContent,
+                        ),
+                );
+                return Align(
+                  alignment: alignment,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                    child: Listener(
+                      onPointerDown: _handlePointerDown,
+                      onPointerCancel: _handlePointerCancel,
+                      onPointerUp: _handlePointerUp,
+                      child: highlightedContent,
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-          _DingTalkMessageActionsPanel(
-            visible: contentExpanded && widget.actionsVisible,
-            mine: widget.mine,
-            actions: _buildMessageActions(context, widget.message.media),
-            meta: _DingTalkMessageMetaRow(
-              createdAt: widget.message.createdAt,
-              statusIcon: status.icon,
-              statusLabel: status.label,
-              onReturnToQuotedSource: widget.onReturnToQuotedSource,
+                );
+              },
             ),
-          ),
-          kOpenHandGap7,
-        ],
+            _DingTalkMessageActionsPanel(
+              visible: contentExpanded && widget.actionsVisible,
+              mine: widget.mine,
+              actions: _buildMessageActions(context, widget.message.media),
+              meta: _DingTalkMessageMetaRow(
+                createdAt: widget.message.createdAt,
+                statusIcon: status.icon,
+                statusLabel: status.label,
+                onReturnToQuotedSource: widget.onReturnToQuotedSource,
+              ),
+            ),
+            kOpenHandGap7,
+          ],
+        ),
       ),
     );
   }
@@ -18139,10 +18182,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         _cancelPendingActionToggle();
         unawaited(_openDingTalkMessageLink(context, href ?? text));
       },
-      imageBuilder: (uri, title, alt) => Text(
-        alt?.trim().isNotEmpty == true ? '[${alt!.trim()}]' : '[图片]',
-        style: bodyStyle?.copyWith(fontStyle: FontStyle.italic),
-      ),
       builders: <String, MarkdownElementBuilder>{
         'pre': OpenHandHighlightedCodeBlockBuilder(
           theme: theme,
@@ -20522,6 +20561,13 @@ class _DingTalkMediaTile extends StatelessWidget {
       return;
     }
     if (!context.mounted) return;
+    if (media.kind == DingTalkMediaKind.image) {
+      await showOpenHandMessageImage(
+        context,
+        OpenHandGalleryImage(uri: Uri.file(path), title: media.displayName),
+      );
+      return;
+    }
     final kind = switch (media.kind) {
       DingTalkMediaKind.image => MediaPreviewKind.image,
       DingTalkMediaKind.video => MediaPreviewKind.video,

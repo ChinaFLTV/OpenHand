@@ -6187,7 +6187,11 @@ export function SessionDetailPage() {
     }
   }
 
-  async function revealCacheHitTurn(point: CacheHitTrendPoint): Promise<void> {
+  const locateImageMessage = useEventCallback((message: SessionMessage) => {
+    void revealCacheHitTurn({ anchorMessageId: message.id });
+  });
+
+  async function revealCacheHitTurn(point: Pick<CacheHitTrendPoint, 'anchorMessageId' | 'starterMessageId'>): Promise<void> {
     const anchorMessageId = point.anchorMessageId?.trim() ?? '';
     const starterMessageId = point.starterMessageId?.trim() ?? '';
     let targetMessageId = anchorMessageId || starterMessageId;
@@ -8263,6 +8267,7 @@ export function SessionDetailPage() {
     const streaming = m.id === latestStreamingTextMessageId || messageMetadataStreaming(m);
     return (
       <MessageCard
+        onLocateMessage={locateImageMessage}
         message={m}
         active={activeMessageId === m.id}
         streaming={streaming}
