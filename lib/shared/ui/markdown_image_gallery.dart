@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -11,9 +12,16 @@ import 'openhand_image_reveal.dart';
 const int kOpenHandImageGalleryLimit = 256;
 
 class OpenHandGalleryImage {
-  const OpenHandGalleryImage({required this.uri, required this.title});
+  const OpenHandGalleryImage({
+    required this.uri,
+    required this.title,
+    this.messageId,
+    this.onLocate,
+  });
   final Uri uri;
   final String title;
+  final String? messageId;
+  final Future<void> Function()? onLocate;
   bool get isSvg => uri.path.toLowerCase().endsWith('.svg');
   String? get filePath => uri.scheme == 'file' ? uri.toFilePath() : null;
 }
@@ -25,34 +33,112 @@ class OpenHandImageMessageScope extends InheritedWidget {
     this.onLocate,
     this.onInteractiveTap,
     this.images = const [],
+    this.messageId,
+    this.galleryImages,
     required super.child,
   });
   final Future<void> Function()? onLocate;
   final VoidCallback? onInteractiveTap;
   final List<OpenHandGalleryImage> images;
+  final String? messageId;
+  final Iterable<OpenHandGalleryImage> Function()? galleryImages;
   static OpenHandImageMessageScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<OpenHandImageMessageScope>();
   @override
   bool updateShouldNotify(OpenHandImageMessageScope oldWidget) =>
       onLocate != oldWidget.onLocate ||
       onInteractiveTap != oldWidget.onInteractiveTap ||
-      images != oldWidget.images;
+      images != oldWidget.images ||
+      messageId != oldWidget.messageId ||
+      galleryImages != oldWidget.galleryImages;
+}
+
+/// 仅在打开预览时取有界快照，保留所点图片前后的消息顺序。
+({List<OpenHandGalleryImage> images, int index, bool found})
+resolveOpenHandImageGallery(
+  Iterable<OpenHandGalleryImage> images,
+  OpenHandGalleryImage selected, {
+  String? messageId,
+}) {
+  final window = ListQueue<OpenHandGalleryImage>();
+  var index = -1;
+  for (final image in images) {
+    if (index < 0 &&
+        image.uri == selected.uri &&
+        (messageId == null || image.messageId == messageId)) {
+      index = window.length;
+    }
+    window.addLast(image);
+    if (window.length > kOpenHandImageGalleryLimit) {
+      window.removeFirst();
+      if (index >= 0) index--;
+    }
+    if (index >= 0 &&
+        index <= kOpenHandImageGalleryLimit ~/ 2 &&
+        window.length == kOpenHandImageGalleryLimit) {
+      break;
+    }
+  }
+  return index < 0
+      ? (images: [selected], index: 0, found: false)
+      : (images: List.unmodifiable(window), index: index, found: true);
 }
 
 Future<void> showOpenHandMessageImage(
   BuildContext context,
-  OpenHandGalleryImage image,
-) {
+  OpenHandGalleryImage image, {
+  List<OpenHandGalleryImage> fallbackImages = const [],
+}) {
   final scope = OpenHandImageMessageScope.maybeOf(context);
   scope?.onInteractiveTap?.call();
-  final index =
-      scope?.images.indexWhere((entry) => entry.uri == image.uri) ?? -1;
+  final local = collectOpenHandMessageImages(
+    content: '',
+    attachments: [...?scope?.images, ...fallbackImages],
+  );
+  var gallery = resolveOpenHandImageGallery(
+    scope?.galleryImages?.call() ?? local,
+    image,
+    messageId: scope?.galleryImages == null ? null : scope?.messageId,
+  );
+  if (!gallery.found) {
+    gallery = resolveOpenHandImageGallery(local, image);
+  }
   return showOpenHandImageGallery(
     context,
-    images: index < 0 ? [image] : scope!.images,
-    initialIndex: index < 0 ? 0 : index,
-    onLocate: scope?.onLocate,
+    images: gallery.images,
+    initialIndex: gallery.index,
+    onLocate: gallery.images[gallery.index].onLocate == null
+        ? scope?.onLocate
+        : null,
   );
+}
+
+/// 合并同一消息的附件和正文图片，跨消息保留各自的定位信息。
+Iterable<OpenHandGalleryImage> collectOpenHandMessageImages({
+  required String content,
+  Iterable<OpenHandGalleryImage> attachments = const [],
+  String? messageId,
+  Future<void> Function()? onLocate,
+  String? Function(Uri)? resolveFilePath,
+}) sync* {
+  final seen = <Uri>{};
+  final markdownImages = content.contains('!')
+      ? collectOpenHandMarkdownImages(
+          md.Document(
+            extensionSet: md.ExtensionSet.gitHubWeb,
+          ).parseLines(content.split('\n')),
+          resolveFilePath: resolveFilePath,
+        )
+      : const <OpenHandGalleryImage>[];
+  for (final image in attachments.followedBy(markdownImages)) {
+    if (!seen.add(image.uri)) continue;
+    yield OpenHandGalleryImage(
+      uri: image.uri,
+      title: image.title,
+      messageId: messageId,
+      onLocate: onLocate,
+    );
+  }
 }
 
 List<OpenHandGalleryImage> collectOpenHandMarkdownImages(
@@ -156,15 +242,8 @@ Widget buildOpenHandGalleryImage(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
-            final scope = OpenHandImageMessageScope.maybeOf(context);
-            scope?.onInteractiveTap?.call();
             unawaited(
-              showOpenHandImageGallery(
-                context,
-                images: gallery,
-                initialIndex: selectedIndex,
-                onLocate: scope?.onLocate,
-              ),
+              showOpenHandMessageImage(context, image, fallbackImages: gallery),
             );
           },
           child: IgnorePointer(child: content),

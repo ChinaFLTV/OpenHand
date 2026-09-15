@@ -2971,6 +2971,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       child: _MessageBubble(
         key: ValueKey<String>(message.id),
         message: message,
+        galleryImages: _galleryImages,
         sessionId: session.id,
         sessionTitle: session.title,
         sessionEnvironment: session.environment,
@@ -3188,6 +3189,44 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _cachedVisibleMessages = sublist;
     _cachedVisibleMessagesWindowStart = rangeStart;
     return sublist;
+  }
+
+  Iterable<OpenHandGalleryImage> _galleryImages() sync* {
+    final session = widget.session;
+    final showSelfLearning = context
+        .read<SettingsController>()
+        .showSelfLearningMessages;
+    for (final message in session.displayMessages) {
+      if (!showSelfLearning &&
+          message.kind == AiSessionMessageKind.selfLearning) {
+        continue;
+      }
+      final roots = messageFilePathRoots(
+        session.environment,
+        workingDirectory: _toolExecutionWorkingDirectory(message),
+      );
+      yield* collectOpenHandMessageImages(
+        content: stripImageSummaryMarkup(message.content),
+        messageId: message.id,
+        onLocate: () async {
+          if (!mounted || widget.session.id != session.id) return;
+          await _TranscriptScrollDispatcher.instance.scrollToMessage(
+            session.id,
+            message.id,
+            highlight: true,
+          );
+        },
+        resolveFilePath: (uri) => _resolveGalleryImageFilePath(uri, roots),
+        attachments: _cachedMessageAttachments(message)
+            .where((item) => item.isImage && item.storagePath.trim().isNotEmpty)
+            .map(
+              (item) => OpenHandGalleryImage(
+                uri: Uri.file(item.storagePath.trim()),
+                title: item.name,
+              ),
+            ),
+      );
+    }
   }
 
   @override

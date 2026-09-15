@@ -13296,6 +13296,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                         ),
                                                         child: _DingTalkMessageBubble(
                                                           message: message,
+                                                          galleryImages: () =>
+                                                              _conversationImages(
+                                                                selected,
+                                                              ),
                                                           renderIdentity:
                                                               renderIdentity,
                                                           anchorRegistry:
@@ -13490,25 +13494,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                                       message,
                                                                     )
                                                               : null,
-                                                          onLocateMessage: () async {
-                                                            _disableAutoFollow();
-                                                            final version =
-                                                                ++_messageNavigationVersion;
-                                                            final located =
-                                                                await _scrollToMessage(
-                                                                  selected,
-                                                                  message.id,
-                                                                  version,
-                                                                );
-                                                            if (mounted &&
-                                                                version ==
-                                                                    _messageNavigationVersion &&
-                                                                located) {
-                                                              _highlightMessage(
+                                                          onLocateMessage: () =>
+                                                              _locateGalleryMessage(
+                                                                selected,
                                                                 message.id,
-                                                              );
-                                                            }
-                                                          },
+                                                              ),
                                                           onOpenQuotedMessage:
                                                               message
                                                                       .quotedMessage
@@ -13729,6 +13719,44 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
   }
 
+  Future<void> _locateGalleryMessage(
+    DingTalkConversation conversation,
+    String messageId,
+  ) async {
+    if (!mounted || _selectedId != conversation.id) return;
+    _disableAutoFollow();
+    final version = ++_messageNavigationVersion;
+    final located = await _scrollToMessage(conversation, messageId, version);
+    if (mounted && version == _messageNavigationVersion && located) {
+      _highlightMessage(messageId);
+    }
+  }
+
+  Iterable<OpenHandGalleryImage> _conversationImages(
+    DingTalkConversation conversation,
+  ) sync* {
+    for (final message in conversation.messages) {
+      if (message.isContentHidden) continue;
+      yield* collectOpenHandMessageImages(
+        content: stripImageSummaryMarkup(message.content),
+        messageId: message.id,
+        onLocate: () => _locateGalleryMessage(conversation, message.id),
+        attachments: message.media
+            .where(
+              (media) =>
+                  media.kind == DingTalkMediaKind.image &&
+                  media.localPath.trim().isNotEmpty,
+            )
+            .map(
+              (media) => OpenHandGalleryImage(
+                uri: Uri.file(media.localPath.trim()),
+                title: media.displayName,
+              ),
+            ),
+      );
+    }
+  }
+
   Future<void> _openPendingAttachment(
     _DingTalkPendingAttachment attachment,
   ) async {
@@ -13748,6 +13776,26 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       return;
     }
     if (!mounted) return;
+    if (kind == DingTalkMediaKind.image) {
+      await showOpenHandMessageImage(
+        context,
+        OpenHandGalleryImage(uri: Uri.file(path), title: attachment.name),
+        fallbackImages: _pendingAttachments
+            .where(
+              (item) =>
+                  DingTalkMediaKindX.fromFileName(item.name) ==
+                  DingTalkMediaKind.image,
+            )
+            .map(
+              (item) => OpenHandGalleryImage(
+                uri: Uri.file(item.path.trim()),
+                title: item.name,
+              ),
+            )
+            .toList(growable: false),
+      );
+      return;
+    }
     final previewKind = switch (kind) {
       DingTalkMediaKind.image => MediaPreviewKind.image,
       DingTalkMediaKind.video => MediaPreviewKind.video,
@@ -16750,6 +16798,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
     this.onOpenForwardedChat,
     this.onOpenQuotedMessage,
     this.onLocateMessage,
+    this.galleryImages,
     this.onReturnToQuotedSource,
     this.highlighted = false,
     this.showRawAction = false,
@@ -16784,6 +16833,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final VoidCallback? onOpenForwardedChat;
   final VoidCallback? onOpenQuotedMessage;
   final Future<void> Function()? onLocateMessage;
+  final Iterable<OpenHandGalleryImage> Function()? galleryImages;
   final VoidCallback? onReturnToQuotedSource;
   final bool highlighted;
   final bool showRawAction;
@@ -16976,6 +17026,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         !widget.message.isContentHidden || _showExcludedContent;
     final status = _messageStatus();
     return OpenHandImageMessageScope(
+      messageId: widget.message.id,
+      galleryImages: widget.galleryImages,
       onInteractiveTap: _cancelPendingActionToggle,
       onLocate: widget.onLocateMessage,
       images: widget.message.media
@@ -16987,7 +17039,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           .take(kOpenHandImageGalleryLimit)
           .map(
             (item) => OpenHandGalleryImage(
-              uri: Uri.file(item.localPath),
+              uri: Uri.file(item.localPath.trim()),
               title: item.displayName,
             ),
           )
@@ -18300,13 +18352,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                                 containerColors[index % containerColors.length]
                                     .withValues(alpha: 0.48),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colors.shadow.withValues(alpha: 0.08),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
                         ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 9),
@@ -19672,30 +19717,62 @@ class _DingTalkForwardedChatDialogState
                     _expandedIgnoredMessageIds.contains(itemKey);
                 return RepaintBoundary(
                   key: ValueKey<String>('forwarded:$itemKey'),
-                  child: _buildMessageRow(
-                    context,
-                    message: currentMessage,
-                    item: item,
-                    itemKey: itemKey,
-                    media: resolvedMedia,
-                    actionsVisible:
-                        contentExpanded && _expandedMessageId == itemKey,
-                    contentExpanded: contentExpanded,
-                    translatedContent: translation?.translatedText,
-                    speechEnabled: textActionEnabled && ttsSettings.enabled,
-                    speechPlaying:
-                        textActionEnabled &&
-                        ttsSettings.enabled &&
-                        _ttsPlaybackService.state.value.playing &&
-                        _ttsPlaybackService.state.value.messageId == itemKey,
-                    translationEnabled:
-                        textActionEnabled && translationSettings.enabled,
-                    translationLoading: _translationManager.isLoading(itemKey),
-                    translationVisible: translation != null,
-                    telemetryDebugEnabled: telemetryDebugEnabled,
-                    fallbackModel: fallbackModel,
-                    ttsSettings: ttsSettings,
-                    translationSettings: translationSettings,
+                  child: OpenHandImageMessageScope(
+                    messageId: itemKey,
+                    onInteractiveTap: _cancelPendingActionToggle,
+                    galleryImages: () sync* {
+                      for (var i = 0; i < forwarded.length; i++) {
+                        final entry = forwarded[i];
+                        final key = _messageKey(entry, i);
+                        if (entry.ignoredForAiContext &&
+                            !_expandedIgnoredMessageIds.contains(key)) {
+                          continue;
+                        }
+                        yield* collectOpenHandMessageImages(
+                          content: stripImageSummaryMarkup(entry.content),
+                          messageId: key,
+                          attachments: _resolvedMedia(currentMessage, entry)
+                              .where(
+                                (media) =>
+                                    media.kind == DingTalkMediaKind.image &&
+                                    media.localPath.trim().isNotEmpty,
+                              )
+                              .map(
+                                (media) => OpenHandGalleryImage(
+                                  uri: Uri.file(media.localPath.trim()),
+                                  title: media.displayName,
+                                ),
+                              ),
+                        );
+                      }
+                    },
+                    child: _buildMessageRow(
+                      context,
+                      message: currentMessage,
+                      item: item,
+                      itemKey: itemKey,
+                      media: resolvedMedia,
+                      actionsVisible:
+                          contentExpanded && _expandedMessageId == itemKey,
+                      contentExpanded: contentExpanded,
+                      translatedContent: translation?.translatedText,
+                      speechEnabled: textActionEnabled && ttsSettings.enabled,
+                      speechPlaying:
+                          textActionEnabled &&
+                          ttsSettings.enabled &&
+                          _ttsPlaybackService.state.value.playing &&
+                          _ttsPlaybackService.state.value.messageId == itemKey,
+                      translationEnabled:
+                          textActionEnabled && translationSettings.enabled,
+                      translationLoading: _translationManager.isLoading(
+                        itemKey,
+                      ),
+                      translationVisible: translation != null,
+                      telemetryDebugEnabled: telemetryDebugEnabled,
+                      fallbackModel: fallbackModel,
+                      ttsSettings: ttsSettings,
+                      translationSettings: translationSettings,
+                    ),
                   ),
                 );
               },

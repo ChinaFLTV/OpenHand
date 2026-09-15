@@ -155,6 +155,7 @@ class _MessageBubble extends StatefulWidget {
     required this.onDelete,
     required this.onFork,
     required this.onUserExpansionChanged,
+    this.galleryImages,
     this.associatedKnowledgeBaseMetadata,
     this.onDeleteFromHere,
     this.onEdit,
@@ -174,6 +175,7 @@ class _MessageBubble extends StatefulWidget {
     this.onShowRawContentChanged,
   });
 
+  final Iterable<OpenHandGalleryImage> Function()? galleryImages;
   final AiSessionMessage message;
   final String sessionId;
   final String sessionTitle;
@@ -1783,13 +1785,15 @@ class _MessageBubbleState extends State<_MessageBubble>
     );
 
     return OpenHandImageMessageScope(
+      messageId: message.id,
+      galleryImages: widget.galleryImages,
       onInteractiveTap: markInteractiveTap,
       images: attachments
           .where((item) => item.isImage && item.storagePath.trim().isNotEmpty)
           .take(kOpenHandImageGalleryLimit)
           .map(
             (item) => OpenHandGalleryImage(
-              uri: Uri.file(item.storagePath),
+              uri: Uri.file(item.storagePath.trim()),
               title: item.name,
             ),
           )
@@ -2919,11 +2923,11 @@ Future<void> showOpenHandImageGallery(
   Future<void> Function()? onLocate,
 }) async {
   if (images.isEmpty) return;
-  Future<bool?>? dismissed;
-  final locate = await showAnimatedDialog<bool>(
+  Future<int?>? dismissed;
+  final locateIndex = await showAnimatedDialog<int>(
     context: context,
     builder: (dialogContext) {
-      dismissed = ModalRoute.of<bool>(dialogContext)?.completed;
+      dismissed = ModalRoute.of<int>(dialogContext)?.completed;
       return _ImagePreviewDialog.gallery(
         images: images,
         initialIndex: initialIndex,
@@ -2931,9 +2935,9 @@ Future<void> showOpenHandImageGallery(
       );
     },
   );
-  if (locate == true) {
+  if (locateIndex != null) {
     await dismissed;
-    if (context.mounted) await onLocate?.call();
+    await (images[locateIndex].onLocate ?? onLocate)?.call();
   }
 }
 
@@ -3134,11 +3138,11 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                             style: theme.textTheme.titleMedium,
                           ),
                         ),
-                        if (widget.canLocate) ...[
+                        if (_current.onLocate != null || widget.canLocate) ...[
                           IconButton(
                             tooltip: '定位到消息',
                             icon: const Icon(Icons.my_location_rounded),
-                            onPressed: () => Navigator.of(context).pop(true),
+                            onPressed: () => Navigator.of(context).pop(_index),
                           ),
                           kOpenHandHGap4,
                         ],
@@ -3273,7 +3277,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
     if (filePath != null) return 'file:$filePath';
     final imageUri = _imageUri;
     if (imageUri != null) return 'network:$imageUri';
-    return 'empty:${_title}';
+    return 'empty:$_title';
   }
 
   Future<void> _copyImageToClipboard(BuildContext context) async {

@@ -2013,31 +2013,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     );
   }
 
-  String? _resolveMarkdownImageFilePath(Uri uri) {
-    if (uri.scheme == 'file') {
-      try {
-        return uri.toFilePath();
-      } catch (_) {
-        return null;
-      }
-    }
-    if (uri.scheme.isEmpty && uri.path.startsWith('/')) {
-      return decodeUriFullOrOriginal(uri.path);
-    }
-    if (uri.scheme.isEmpty) {
-      final href = _decodeMarkdownImageHref(uri);
-      final resolved = resolveMarkdownMessageLinkPath(href, widget.pathRoots);
-      if (resolved != null && !resolved.isDirectory) {
-        return resolved.resolvedPath;
-      }
-      return firstMessagePathCandidate(href, widget.pathRoots);
-    }
-    return null;
-  }
-
-  String _decodeMarkdownImageHref(Uri uri) {
-    return decodeUriFullOrOriginal(uri.toString());
-  }
+  String? _resolveMarkdownImageFilePath(Uri uri) =>
+      _resolveGalleryImageFilePath(uri, widget.pathRoots);
 
   Widget _buildMarkdownImageFrame(BuildContext context, Widget image) {
     return ClipRRect(
@@ -6147,4 +6124,26 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 
 String _homeMessageConCharsLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: ' 字符', en: ' chars');
+}
+
+String? _resolveGalleryImageFilePath(Uri uri, List<String> pathRoots) {
+  if (uri.scheme == 'file') {
+    try {
+      return uri.toFilePath();
+    } catch (_) {
+      return null;
+    }
+  }
+  if (uri.scheme.isEmpty && uri.path.startsWith('/')) {
+    return decodeUriFullOrOriginal(uri.path);
+  }
+  if (uri.scheme.isEmpty) {
+    final href = decodeUriFullOrOriginal(uri.toString());
+    final resolved = resolveMarkdownMessageLinkPath(href, pathRoots);
+    if (resolved != null && !resolved.isDirectory) {
+      return resolved.resolvedPath;
+    }
+    return firstMessagePathCandidate(href, pathRoots);
+  }
+  return null;
 }

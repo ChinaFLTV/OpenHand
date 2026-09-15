@@ -22,6 +22,27 @@ function deferred() {
 }
 
 try {
+  const { resolveImageGallery, collectImageGallery } = await server.ssrLoadModule('/src/components/image_gallery.ts');
+  const galleryEntries = Array.from({ length: 600 }, (_, index) => ({
+    item: { path: `/图片/${index % 2}.png`, name: `图片 ${index}`, kind: 'image' },
+    url: `https://example.com/${index % 2}.png`,
+    messageId: `${index}`,
+  }));
+  const gallery = resolveImageGallery(galleryEntries, galleryEntries[400], '400');
+  assert.equal(gallery.images.length, 256);
+  assert.equal(gallery.images[gallery.index].messageId, '400');
+  assert.equal(gallery.images[gallery.index - 1].messageId, '399');
+  assert.equal(gallery.images[gallery.index + 1].messageId, '401');
+  const shortGallery = resolveImageGallery(galleryEntries.slice(0, 200), galleryEntries[190], '190');
+  assert.equal(shortGallery.images.length, 200);
+  assert.equal(shortGallery.index, 190);
+  const cachedGallery = resolveImageGallery(galleryEntries, { ...galleryEntries[400], url: 'blob:缓存' }, '400');
+  assert.equal(cachedGallery.images[cachedGallery.index].messageId, '400');
+  const domImages = Array.from({ length: 600 }, (_, index) => ({ src: `https://example.com/${index}.png` }));
+  const documentGallery = collectImageGallery({ querySelectorAll: () => domImages }, domImages[500]);
+  assert.equal(documentGallery.images[documentGallery.index].url, domImages[500].src);
+  assert.ok(documentGallery.index > 0);
+
   const entries = new Map();
   let readFails = false;
   let writeFails = false;

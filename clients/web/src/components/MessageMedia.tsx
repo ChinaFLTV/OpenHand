@@ -8,7 +8,7 @@ import type { JSX } from 'preact';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
-import { ImageMessageContext, type ImageGalleryEntry } from './image_gallery';
+import { ImageMessageContext, resolveImageGallery, type ImageGalleryEntry } from './image_gallery';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { rollingHash31Base36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
@@ -348,7 +348,7 @@ function collectMarkdownMedia(message: SessionMessage, out: MediaItem[]): void {
   }
 }
 
-function collectMedia(message: SessionMessage): MediaItem[] {
+export function collectMedia(message: SessionMessage): MediaItem[] {
   const meta = message.metadata as Record<string, unknown> | undefined;
   const out: MediaItem[] = [];
   if (meta) {
@@ -1201,10 +1201,18 @@ interface MediaPreviewDialogProps {
   onClose: () => void;
 }
 
-export function MediaPreviewDialog({ item: initialItem, url: initialUrl, onClose, gallery, initialIndex = 0 }: MediaPreviewDialogProps) {
-  const onLocate = useContext(ImageMessageContext);
-  const [index, setIndex] = useState(() => Math.max(0, Math.min(initialIndex, (gallery?.length ?? 1) - 1)));
+export function MediaPreviewDialog({ item: initialItem, url: initialUrl, onClose, gallery: localGallery, initialIndex = 0 }: MediaPreviewDialogProps) {
+  const messageScope = useContext(ImageMessageContext);
+  const [snapshot] = useState(() => {
+    const selected = { item: initialItem, url: initialUrl };
+    return initialItem.kind === 'image' && messageScope?.images
+      ? resolveImageGallery(messageScope.images(), selected, messageScope.messageId)
+      : undefined;
+  });
+  const gallery = snapshot?.images ?? localGallery;
+  const [index, setIndex] = useState(() => Math.max(0, Math.min(snapshot?.index ?? initialIndex, (gallery?.length ?? 1) - 1)));
   const { item, url } = gallery?.[index] ?? { item: initialItem, url: initialUrl };
+  const onLocate = gallery?.[index]?.onLocate ?? messageScope?.onLocate;
   const headerRef = useRef<HTMLElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const saveAbortRef = useRef<AbortController | null>(null);

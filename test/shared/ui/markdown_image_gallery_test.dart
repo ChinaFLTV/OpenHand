@@ -34,6 +34,63 @@ void main() {
     );
   });
 
+  test('跨消息图片保留顺序、重复图片的归属和有界窗口', () {
+    final images = List.generate(
+      600,
+      (index) => OpenHandGalleryImage(
+        uri: Uri.file('/图片/${index % 2}.png'),
+        title: '图片 $index',
+        messageId: '$index',
+      ),
+    );
+    final gallery = resolveOpenHandImageGallery(
+      images,
+      images[400],
+      messageId: '400',
+    );
+    expect(gallery.images.length, kOpenHandImageGalleryLimit);
+    expect(gallery.images[gallery.index].messageId, '400');
+    expect(gallery.images[gallery.index - 1].messageId, '399');
+    expect(gallery.images[gallery.index + 1].messageId, '401');
+    final shortGallery = resolveOpenHandImageGallery(
+      images.take(200),
+      images[190],
+      messageId: '190',
+    );
+    expect(shortGallery.images.length, 200);
+    expect(shortGallery.index, 190);
+    final last = resolveOpenHandImageGallery(
+      images,
+      images.last,
+      messageId: '599',
+    );
+    expect(last.images[last.index], same(images.last));
+    expect(last.index, greaterThan(0));
+    final missing = OpenHandGalleryImage(uri: Uri.file('/缺失.png'), title: '缺失');
+    final fallback = resolveOpenHandImageGallery(images, missing);
+    expect(fallback.images, [missing]);
+    expect(fallback.found, isFalse);
+  });
+
+  test('合并附件和正文图片，排除代码图片并保留定位', () async {
+    var located = false;
+    final images = collectOpenHandMessageImages(
+      content:
+          '![重复](file:///图片/1.png)\n![正文](https://example.com/2.png)\n```\n![代码](https://example.com/code.png)\n```',
+      attachments: [
+        OpenHandGalleryImage(uri: Uri.file('/图片/1.png'), title: '附件'),
+      ],
+      messageId: '消息',
+      onLocate: () async {
+        located = true;
+      },
+    ).toList();
+    expect(images.map((image) => image.title), ['附件', '正文']);
+    expect(images.every((image) => image.messageId == '消息'), isTrue);
+    await images.last.onLocate!();
+    expect(located, isTrue);
+  });
+
   testWidgets('点击图片打开图片组，按钮与键盘切换，定位时关闭预览', (tester) async {
     tester.view.physicalSize = const Size(1280, 960);
     tester.view.devicePixelRatio = 1;
@@ -102,6 +159,81 @@ void main() {
     await tester.tap(find.byTooltip('定位到消息'));
     await tester.pumpAndSettle();
     expect(located, isTrue);
+    expect(find.text('1 / 2'), findsNothing);
+    expect(tester.takeException(), isNull);
+    String? locatedMessage;
+    var collections = 0;
+    final conversation = [
+      OpenHandGalleryImage(
+        uri: first.uri,
+        title: '消息一',
+        messageId: '一',
+        onLocate: () async {
+          locatedMessage = '一';
+        },
+      ),
+      OpenHandGalleryImage(
+        uri: second.uri,
+        title: '消息二',
+        messageId: '二',
+        onLocate: () async {
+          locatedMessage = '二';
+        },
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: OpenHandImageMessageScope(
+            messageId: '二',
+            images: [conversation.last],
+            galleryImages: () {
+              collections++;
+              return conversation;
+            },
+            onLocate: () async {
+              locatedMessage = '错误的原消息';
+            },
+            child: Column(
+              children: [
+                Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () =>
+                        showOpenHandMessageImage(context, conversation.last),
+                    child: const Text('打开第二条消息'),
+                  ),
+                ),
+                OpenHandThemedMarkdownBody(data: '![消息二](${second.uri})'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(collections, 0);
+    await tester.tap(find.text('打开第二条消息'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 2'), findsOneWidget);
+    expect(collections, 1);
+    await tester.tap(find.byTooltip('上一张'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 / 2'), findsOneWidget);
+    await tester.tap(find.byTooltip('定位到消息'));
+    await tester.pumpAndSettle();
+    expect(locatedMessage, '一');
+    expect(find.text('1 / 2'), findsNothing);
+    await tester.tap(find.bySemanticsLabel('预览图片：消息二'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 2'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('1 / 2'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
     expect(find.text('1 / 2'), findsNothing);
     expect(tester.takeException(), isNull);
   });

@@ -2264,6 +2264,7 @@ function GoalMessageBulletList({
 }
 
 interface MessageCardProps {
+  galleryImages?: () => Iterable<ImageGalleryEntry>;
   onLocateMessage?: (message: SessionMessage) => void;
   message: SessionMessage;
   /// 由详情页受控的点击选中态；只有选中的卡片显示操作栏。
@@ -2313,6 +2314,7 @@ interface MessageCardProps {
 }
 
 function MessageCardImpl({
+  galleryImages,
   onLocateMessage,
   message,
   active = false,
@@ -2792,7 +2794,7 @@ function MessageCardImpl({
   }, [collapsedBodyScrollStateKey, expanded, message.id]);
 
   return (
-    <ImageMessageContext.Provider value={onLocateMessage ? () => onLocateMessage(message) : undefined}>
+    <ImageMessageContext.Provider value={{ messageId: message.id, onLocate: onLocateMessage ? () => onLocateMessage(message) : undefined, images: galleryImages }}>
       <div class={`oh-message-card-frame ${isUserBubble ? 'is-user' : 'is-other'}`}>
         <div
           ref={cardRef}

@@ -1,3 +1,5 @@
+import { collectMedia } from '../../../components/MessageMedia';
+import type { ImageGalleryEntry } from '../../../components/image_gallery';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren, JSX } from 'preact';
 import { useRoute } from 'preact-iso';
@@ -8234,6 +8236,20 @@ export function SessionDetailPage() {
   }, [applyTtsPlayback, readAloudEnabled, ttsPlayback.playing]);
 
   const visibleSortedMessages = sortedMessages;
+  const galleryImages = useEventCallback(function* (): Iterable<ImageGalleryEntry> {
+    for (const message of sortedMessages) {
+      for (const item of collectMedia(message)) {
+        if (item.kind !== 'image') continue;
+        yield {
+          item,
+          url: item.isDirectUrl ? item.path : buildSessionAssetUrl(sessionId, item.path),
+          messageId: message.id,
+          onLocate: () => locateImageMessage(message),
+        };
+      }
+    }
+  });
+
   const associatedKnowledgeBaseByMessageId = useMemo(
     () => stabilizeAssociatedKnowledgeBaseMetadataByMessageId(
       buildAssociatedKnowledgeBaseMetadataByMessageId(
@@ -8268,6 +8284,7 @@ export function SessionDetailPage() {
     return (
       <MessageCard
         onLocateMessage={locateImageMessage}
+        galleryImages={galleryImages}
         message={m}
         active={activeMessageId === m.id}
         streaming={streaming}
