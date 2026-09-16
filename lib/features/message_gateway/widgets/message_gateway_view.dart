@@ -11971,8 +11971,13 @@ class _DingTalkGatewayCard extends StatelessWidget {
                           icon: ding.isAuthenticating
                               ? Icons.close_rounded
                               : ding.isAuthorized
-                              ? Icons.person_remove_rounded
-                              : Icons.verified_user_rounded,
+                              ? Icons.logout_rounded
+                              : Icons.login_rounded,
+                          accent: ding.isAuthorized || ding.isLoggingOut
+                              ? OpenHandStatusColors.error
+                              : ding.isAuthenticating
+                              ? OpenHandStatusColors.warning
+                              : OpenHandStatusColors.info,
                           onPressed: ding.isLoggingOut
                               ? null
                               : ding.isAuthenticating
@@ -12171,6 +12176,7 @@ class _DingTalkActionButton extends StatelessWidget {
     required this.onPressed,
     this.filled = false,
     this.loading = false,
+    this.accent,
   });
 
   final String tooltip;
@@ -12178,23 +12184,35 @@ class _DingTalkActionButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool filled;
   final bool loading;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
     final disabled = onPressed == null;
     final resolvedTooltip = disabled && !loading ? '$tooltip（当前不可用）' : tooltip;
-    final child = OpenHandBusyStatusIcon(busy: loading, icon: icon, size: 22);
+    final child = OpenHandBusyStatusIcon(
+      busy: loading,
+      icon: icon,
+      size: 22,
+      color: accent,
+    );
+    final tint = accent;
+    final ButtonStyle base;
+    if (tint == OpenHandStatusColors.error) {
+      base = OpenHandStatusColors.destructiveIconButtonStyle();
+    } else if (tint != null) {
+      base = OpenHandStatusColors.tintedIconButtonStyle(tint);
+    } else if (filled) {
+      base = OpenHandStatusColors.runningStopButtonStyle();
+    } else {
+      base = IconButton.styleFrom();
+    }
     final style = _dingtalkDisabledActionStyle(
       context,
-      base:
-          (filled
-                  ? OpenHandStatusColors.runningStopButtonStyle()
-                  : IconButton.styleFrom())
-              .copyWith(
-                shape: const WidgetStatePropertyAll<OutlinedBorder>(
-                  CircleBorder(),
-                ),
-              ),
+      base: base.copyWith(
+        shape: const WidgetStatePropertyAll<OutlinedBorder>(CircleBorder()),
+      ),
+      keepTintWhenBusy: loading,
     );
     return Tooltip(
       message: resolvedTooltip,
@@ -12211,17 +12229,18 @@ class _DingTalkActionButton extends StatelessWidget {
 ButtonStyle _dingtalkDisabledActionStyle(
   BuildContext context, {
   ButtonStyle? base,
+  bool keepTintWhenBusy = false,
 }) {
   final colors = Theme.of(context).colorScheme;
   return (base ?? const ButtonStyle()).copyWith(
     backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-      if (states.contains(WidgetState.disabled)) {
+      if (states.contains(WidgetState.disabled) && !keepTintWhenBusy) {
         return colors.surfaceContainerHighest.withValues(alpha: 0.2);
       }
       return base?.backgroundColor?.resolve(states);
     }),
     foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-      if (states.contains(WidgetState.disabled)) {
+      if (states.contains(WidgetState.disabled) && !keepTintWhenBusy) {
         return colors.onSurface.withValues(alpha: 0.3);
       }
       return base?.foregroundColor?.resolve(states);
@@ -12241,7 +12260,7 @@ Future<void> _toggleDingTalkAuth(
       message: '将退出当前钉钉账号并停止消息监听。',
       confirmLabel: '确认取消授权',
       destructive: true,
-      icon: const Icon(Icons.logout_rounded),
+      icon: const Icon(Icons.logout_rounded, color: OpenHandStatusColors.error),
     );
     if (confirmed && context.mounted) await controller.logout();
     return;
