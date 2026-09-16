@@ -13,6 +13,10 @@ const String kDingTalkDetailExtensionKey = '扩展属性';
 const String kDingTalkDetailDepartmentProfileKey = '部门详情';
 const String kDingTalkDetailNameKey = '姓名';
 const String kDingTalkDetailTitleNameKey = '名称';
+const String kDingTalkDetailGroupNameKey = '群聊名称';
+const String kDingTalkDetailConversationIdKey = '会话标识';
+const String kDingTalkDetailIdentifierKey = '标识';
+const String kDingTalkDetailStatusKey = '状态';
 const String kDingTalkDetailRoleKey = '群内角色';
 const String kDingTalkDetailRoleTypeKey = '角色类型';
 const String kDingTalkDetailOwnerRole = '群主';
@@ -24,6 +28,13 @@ const Set<String> kDingTalkDetailHoistLabelStems = <String>{
   kDingTalkDetailSettingsKey,
   kDingTalkDetailExtensionKey,
   kDingTalkDetailDepartmentProfileKey,
+};
+
+const Set<String> kDingTalkDetailUnwrapListStems = <String>{
+  'bots',
+  '群机器人',
+  'pages',
+  'items',
 };
 
 const Set<String> kDingTalkDetailHiddenLabelStems = <String>{'头像媒体标识', '是否单聊'};
@@ -38,6 +49,7 @@ const Set<String> kDingTalkDetailFlagLabels = <String>{
   '企业负责人',
   '聊天类型',
   '是否单聊',
+  '可管理',
 };
 
 ({String stem, String? suffix}) dingTalkDetailLabelParts(String raw) {
@@ -143,6 +155,30 @@ String dingTalkDetailOffLabel(BuildContext context) {
   );
 }
 
+String dingTalkDetailEnabledLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '启用',
+    zhHant: '啟用',
+    en: 'Enabled',
+    fr: 'Activé',
+    de: 'Aktiviert',
+    ja: '有効',
+  );
+}
+
+String dingTalkDetailDisabledLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '停用',
+    zhHant: '停用',
+    en: 'Disabled',
+    fr: 'Désactivé',
+    de: 'Deaktiviert',
+    ja: '無効',
+  );
+}
+
 String dingTalkDetailExtendedFieldLabel(BuildContext context, String suffix) {
   final prefix = openHandLocalizedText(
     context,
@@ -219,6 +255,16 @@ Object? dingTalkFlattenDetailValue(Object? value, [int depth = 0]) {
     if (promotedRole != null && !hasRole) {
       merged[kDingTalkDetailRoleKey] = promotedRole;
     }
+    if (merged.length == 1) {
+      final only = merged.entries.first;
+      final stem = dingTalkDetailLabelParts(only.key).stem;
+      final nested = only.value;
+      if ((kDingTalkDetailHoistLabelStems.contains(stem) ||
+              kDingTalkDetailUnwrapListStems.contains(stem)) &&
+          (nested is Map || nested is List)) {
+        return nested;
+      }
+    }
     return merged;
   }
   return value;
@@ -228,4 +274,32 @@ Map<String, Object?> dingTalkDetailAsMap(Object? value) {
   final flattened = dingTalkFlattenDetailValue(value);
   if (flattened is Map) return stringKeyedMapFromValue(flattened);
   return const <String, Object?>{};
+}
+
+Map<String, Object?> dingTalkDetailOmitIdentityEcho(
+  Object? value, {
+  String title = '',
+  String conversationId = '',
+}) {
+  final map = dingTalkDetailAsMap(value);
+  if (title.isEmpty && conversationId.isEmpty) return map;
+  final result = <String, Object?>{};
+  for (final entry in map.entries) {
+    final stem = dingTalkDetailLabelParts(entry.key).stem;
+    final text = '${entry.value ?? ''}'.trim();
+    if (conversationId.isNotEmpty &&
+        (stem == kDingTalkDetailConversationIdKey ||
+            stem == kDingTalkDetailIdentifierKey) &&
+        text == conversationId) {
+      continue;
+    }
+    if (title.isNotEmpty &&
+        (stem == kDingTalkDetailTitleNameKey ||
+            stem == kDingTalkDetailGroupNameKey) &&
+        text == title) {
+      continue;
+    }
+    result[entry.key] = entry.value;
+  }
+  return result;
 }

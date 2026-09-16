@@ -75,11 +75,42 @@ void main() {
     expect(flattened, <String, Object?>{'群内角色': '群主'});
   });
 
-  test('drops empty nested maps and lists', () {
+  test('unwraps a lone bots list wrapper', () {
     final flattened = dingTalkFlattenDetailValue(<String, Object?>{
-      '部门标识': 142720783,
-      '部门资料': const <Object?>[],
+      'bots': <Object?>[
+        <String, Object?>{'botName': '助手', 'openBotId': 'bot-1'},
+        <String, Object?>{'botName': '值班', 'openBotId': 'bot-2'},
+      ],
     });
-    expect(flattened, <String, Object?>{'部门标识': 142720783});
+    expect(flattened, isA<List<Object?>>());
+    expect((flattened as List<Object?>).length, 2);
+  });
+
+  test('omits identity echo that already appears in the header', () {
+    final omitted = dingTalkDetailOmitIdentityEcho(
+      <String, Object?>{
+        '会话标识': 'cid-same',
+        '名称': '阿Kei',
+        '成员数量': 3,
+        '钉盘空间标识': 12,
+      },
+      title: '阿Kei',
+      conversationId: 'cid-same',
+    );
+    expect(omitted, <String, Object?>{'成员数量': 3, '钉盘空间标识': 12});
+  });
+
+  test('keeps a different conversation id in the overview', () {
+    final omitted = dingTalkDetailOmitIdentityEcho(
+      <String, Object?>{'会话标识': 'cid-open', '名称': '王秀杰', '成员数量': 2},
+      title: '王秀杰',
+      conversationId: '251548560029418107',
+    );
+    expect(omitted, <String, Object?>{'会话标识': 'cid-open', '成员数量': 2});
+  });
+
+  test('treats 可管理 as a flag label', () {
+    expect(dingTalkDetailIsFlagLabel('可管理'), isTrue);
+    expect(dingTalkDetailIsFlagLabel('是否创建者'), isTrue);
   });
 }
