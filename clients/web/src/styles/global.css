@@ -6205,44 +6205,27 @@ button.oh-message-context-capsule {
   opacity: 0.7;
 }
 
-/* 思考/工具调用类型消息卡片的折叠正文容器。展开时无附加样式，折叠时
-   JSX 通过 inline style 设置 max-height + 底部渐隐层；data-collapsed 属性
-   用作状态 hook 以便未来扩展（如深色主题调色）。 */
+/* 正文只裁剪可见范围，尺寸过渡由卡片统一控制。 */
 .oh-reasoning-collapsible-body {
   position: relative;
   display: block;
-  /* 给底部渐隐层留一个微妙的透出缓冲，避免最后一行紧贴底部。 */
-  padding-bottom: 2px;
-  /* 折叠 / 展开过渡：max-height 平滑变化，避免回合结束后或手动收起时生硬跳变。 */
-  transition: max-height 360ms cubic-bezier(0.2, 0, 0, 1);
-}
-[data-transcript-scroll-active='true'] .oh-reasoning-collapsible-body {
-  transition: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .oh-reasoning-collapsible-body {
-    transition: none;
-  }
-}
-.oh-reasoning-collapsible-body[data-collapsed='true'] {
-  /* 固定 box-sizing，防止 box 继承 border-box 计算偏离。 */
   box-sizing: border-box;
+  padding: 0 4px 2px 0;
+  scrollbar-color: color-mix(in srgb, currentColor 26%, transparent) transparent;
+  scrollbar-width: thin;
 }
 .oh-reasoning-collapsible-body.is-scrollable-collapsed {
   overflow-anchor: none;
   overscroll-behavior: contain;
-  padding-right: 4px;
-  scrollbar-color: color-mix(in srgb, currentColor 26%, transparent) transparent;
-  scrollbar-width: thin;
 }
-.oh-reasoning-collapsible-body.is-scrollable-collapsed::-webkit-scrollbar {
+.oh-reasoning-collapsible-body::-webkit-scrollbar {
   width: 6px;
 }
-.oh-reasoning-collapsible-body.is-scrollable-collapsed::-webkit-scrollbar-thumb {
+.oh-reasoning-collapsible-body::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 24%, transparent);
 }
-.oh-reasoning-collapsible-body.is-scrollable-collapsed::-webkit-scrollbar-track {
+.oh-reasoning-collapsible-body::-webkit-scrollbar-track {
   background: transparent;
 }
 .oh-reasoning-collapsible-fade {

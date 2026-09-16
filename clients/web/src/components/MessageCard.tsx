@@ -47,9 +47,8 @@ import {
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { useEventCallback } from '../hooks/useEventCallback';
 import {
-  getDialogEnterDurationMs,
-  getDialogExitDurationMs,
   getDialogMotionCurve,
+  useDialogMotionDurations,
   getDialogMotionExitCurve,
 } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
@@ -82,10 +81,7 @@ import {
   stringListFromUnknown,
   tryPrettyJsonText,
 } from '../shared/util/value';
-import {
-  isTranscriptScrollActive,
-  scheduleAfterTranscriptScrollSettles,
-} from '../shared/ui/transcript_scroll_activity';
+import { isTranscriptScrollActive } from '../shared/ui/transcript_scroll_activity';
 import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../shared/ui/streaming_turn_timing';
 import { messageBubbleMaxWidth } from '../shared/ui/layout';
 import { registerOverlayEscapeLayer } from '../shared/ui/overlay_escape_stack';
@@ -1823,9 +1819,11 @@ function numberLayoutMotionSignal(value: number | undefined): string {
   return value == null ? '' : String(Math.floor(value / SIZE_MOTION_TEXT_BUCKET_CHARS));
 }
 
-function useMessageSizeMotion(signal: string, enabled: boolean) {
+function useMessageSizeMotion(signal: string, enabled: boolean, collapsed: boolean) {
   const ref = useRef<HTMLDivElement | null>(null);
   const lastHeightRef = useRef<number | null>(null);
+  const previousCollapsedRef = useRef(collapsed);
+  const { enterMs, exitMs } = useDialogMotionDurations();
   const animationRef = useRef<Animation | null>(null);
   const overflowBeforeAnimationRef = useRef<string | null>(null);
   // IntersectionObserver gate：长会话首屏 N 张卡片同时 mount 时，offscreen
@@ -1857,14 +1855,11 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
       setEverVisible(true);
       return;
     }
-    let cancelRevealAfterScroll: (() => void) | null = null;
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
           if (e.isIntersecting) {
-            cancelRevealAfterScroll = scheduleAfterTranscriptScrollSettles(() => {
-              setEverVisible(true);
-            });
+            setEverVisible(true);
             io.disconnect();
             return;
           }
@@ -1874,23 +1869,38 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
     );
     io.observe(element);
     return () => {
-      cancelRevealAfterScroll?.();
       io.disconnect();
     };
   }, [everVisible]);
 
   useLayoutEffect(() => {
+    const element = ref.current;
+    if (!everVisible || !element || typeof ResizeObserver === 'undefined') return;
+    // 延迟解析完成后同步静止高度，下一次折叠不能沿用占位阶段的尺寸。
+    const observer = new ResizeObserver(() => {
+      if (!animationRef.current) lastHeightRef.current = element.getBoundingClientRect().height;
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [everVisible]);
+
+  useLayoutEffect(() => {
+    const collapseChanged = previousCollapsedRef.current !== collapsed;
+    previousCollapsedRef.current = collapsed;
     if (!everVisible) return;
     const element = ref.current;
     if (!element) return;
 
-    if (!enabled || isTranscriptScrollActive()) {
+    if (!enabled || (isTranscriptScrollActive() && !collapseChanged)) {
       restoreOverflow(element);
-      lastHeightRef.current = null;
+      lastHeightRef.current = element.getBoundingClientRect().height;
       return;
     }
 
     const activeAnimation = animationRef.current;
+    const collapsibleBody = element.querySelector<HTMLElement>('.oh-reasoning-collapsible-body');
+    const animateCollapse = collapsibleBody != null && (collapseChanged ||
+      (activeAnimation?.effect as KeyframeEffect | null)?.target === collapsibleBody);
     const currentVisualHeight = activeAnimation
       ? element.getBoundingClientRect().height
       : null;
@@ -1910,22 +1920,27 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
     const growing = delta > 0;
     const overshoot = growing ? clampNumber(delta * 0.12, 2, 10) : 0;
     // 展开与折叠分别服从全局弹窗的方向时长与曲线。
-    const baseDuration = growing
-      ? getDialogEnterDurationMs()
-      : getDialogExitDurationMs();
+    const baseDuration = growing ? enterMs : exitMs;
     if (baseDuration <= 0) return;
-    overflowBeforeAnimationRef.current = element.style.overflow;
-    element.style.overflow = 'clip';
-    const animation = element.animate(
+    // 折叠时直接插值正文的裁剪高度，让文字随边界收起，不先消失再收缩空白。
+    const target = animateCollapse ? collapsibleBody : element;
+    const property = animateCollapse ? 'maxHeight' : 'height';
+    const targetHeight = animateCollapse ? collapsibleBody.getBoundingClientRect().height : nextHeight;
+    const startHeight = targetHeight - delta;
+    if (!animateCollapse) {
+      overflowBeforeAnimationRef.current = element.style.overflow;
+      element.style.overflow = 'clip';
+    }
+    const animation = target.animate(
       growing
         ? [
-            { height: `${fromHeight}px`, offset: 0 },
-            { height: `${nextHeight + overshoot}px`, offset: 0.72 },
-            { height: `${nextHeight}px`, offset: 1 },
+            { [property]: `${startHeight}px`, offset: 0 },
+            { [property]: `${targetHeight + overshoot}px`, offset: 0.72 },
+            { [property]: `${targetHeight}px`, offset: 1 },
           ]
         : [
-            { height: `${fromHeight}px`, offset: 0 },
-            { height: `${nextHeight}px`, offset: 1 },
+            { [property]: `${startHeight}px`, offset: 0 },
+            { [property]: `${targetHeight}px`, offset: 1 },
           ],
       {
         duration: baseDuration,
@@ -1940,7 +1955,7 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
       overflowBeforeAnimationRef.current = null;
     };
     void animation.finished.then(restore, restore);
-  }, [enabled, restoreOverflow, signal, everVisible]);
+  }, [collapsed, enabled, enterMs, exitMs, restoreOverflow, signal, everVisible]);
 
   return ref;
 }
@@ -2731,8 +2746,7 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
-  // 折叠容器自身负责 max-height 过渡；不要再把展开状态交给外层尺寸动画，
-  // 否则内外两套动画会同时改写高度，产生闪烁和抽搐。
+  // 正文始终挂载，尺寸变化由同一控制器驱动，避免内外层争抢高度。
   const sizeMotionSignal = `${messageSizeMotionSignal(message)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|translated:${showingTranslation ? 1 : 0}:${visibleContent.length}|streaming:${streamingContent ? 1 : 0}`;
   // 仅对语义级尺寸变化应用动画，流式正文保持布局稳定。
   const cardRef = useMessageSizeMotion(
@@ -2740,7 +2754,8 @@ function MessageCardImpl({
     !reduceMotion &&
       !streamingContent &&
       !keepExpandedDuringTurn &&
-      !isHtmlAssistantCard,
+      (!isHtmlAssistantCard || scrollableCollapsedBody),
+    badgeBodyCollapsed,
   );
   const cardPointerDownRef = useRef<{ x: number; y: number; at: number } | null>(
     null,
@@ -4617,7 +4632,6 @@ function ReasoningCollapsibleBody({
   } = useTimeoutController();
   const [atBottom, setAtBottom] = useState(false);
   const [scrollingCollapsedBody, setScrollingCollapsedBody] = useState(false);
-  const expandedMaxHeight = scrollableCollapsed ? 'none' : '4000px';
 
   const syncAtBottom = useCallback((element: HTMLDivElement | null = bodyRef.current) => {
     if (!element || !useCollapsedScroll) {
@@ -4694,11 +4708,12 @@ function ReasoningCollapsibleBody({
       onTouchMove={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
       onScroll={useCollapsedScroll ? handleScroll : undefined}
       style={{
-        maxHeight: collapsed ? `${previewMaxHeight}px` : expandedMaxHeight,
+        maxHeight: collapsed ? `${previewMaxHeight}px` : 'none',
         overflowX: 'hidden',
         overflowY: collapsed
           ? (useCollapsedScroll ? 'auto' : 'hidden')
-          : (scrollableCollapsed ? 'visible' : 'hidden'),
+          : (scrollableCollapsed ? 'auto' : 'hidden'),
+        scrollbarGutter: scrollableCollapsed ? 'stable' : undefined,
         overscrollBehavior: useCollapsedScroll ? 'contain' : undefined,
       }}
     >

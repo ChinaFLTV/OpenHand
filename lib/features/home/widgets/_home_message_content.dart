@@ -588,7 +588,11 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
   }
 
   void _handleContentSizeChanged(Size size) {
-    if (!mounted || _previewExpanded) return;
+    if (!mounted) return;
+    if (_previewExpanded) {
+      _contentHeight = size.height;
+      return;
+    }
     if (_scrollController.hasClients &&
         _scrollController.position.isScrollingNotifier.value) {
       _scrollCoordinator.markUserScrolling();
@@ -1054,6 +1058,8 @@ class _MarkdownPreviewBody extends StatefulWidget {
 
 class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody>
     with _CollapsedPreviewBodyState<_MarkdownPreviewBody> {
+  late bool _fullContentRevealed = widget.expanded;
+
   @override
   String get _previewSource => widget.data;
 
@@ -1081,9 +1087,11 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody>
         oldWidget.parseKey != widget.parseKey ||
         !appendOnlyDataUpdate) {
       _resetPreviewState();
+      _fullContentRevealed = widget.expanded;
     } else if (oldWidget.data != widget.data && _atBottom) {
       _atBottom = false;
     }
+    _fullContentRevealed = _fullContentRevealed || widget.expanded;
     if (oldWidget.expanded != widget.expanded) {
       _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
@@ -1100,7 +1108,8 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody>
       context,
       widget.fadeColor,
       _SafeMarkdownBody(
-        data: _effectiveData,
+        // 首次展开后只裁剪高度，避免反复截断正文并重新解析。
+        data: _fullContentRevealed ? widget.data : _effectiveData,
         selectable: widget.selectable,
         builders: widget.builders,
         styleSheet: widget.styleSheet,
@@ -5582,11 +5591,29 @@ class _ProgressiveHtmlMessageBody extends StatefulWidget {
 }
 
 class _ProgressiveHtmlMessageBodyState
-    extends State<_ProgressiveHtmlMessageBody> {
+    extends State<_ProgressiveHtmlMessageBody>
+    with _CollapsedPreviewBodyState<_ProgressiveHtmlMessageBody> {
   late bool _collapsed = widget.prepared.shouldUseProgressiveHighFidelity;
+  late bool _fullBodyMounted = !_effectiveCollapsed;
 
   bool get _effectiveCollapsed => widget.collapsedOverride ?? _collapsed;
 
+  @override
+  String get _previewSource => widget.prepared.previewText.isEmpty
+      ? widget.prepared.healedHtml
+      : widget.prepared.previewText;
+
+  @override
+  double get _previewMaxHeight =>
+      math.min(widget.previewMaxHeight, _htmlProgressiveRenderPreviewMaxHeight);
+
+  @override
+  int get _previewCharCap => _plainTextCollapsedPreviewMaxChars;
+
+  @override
+  bool get _previewExpanded => !_effectiveCollapsed;
+
+  @override
   String get _scrollStateKey =>
       widget.scrollStateKey ??
       'html-progressive|${widget.prepared.sourceLength}|${widget.prepared.sourceFingerprint}';
@@ -5594,19 +5621,23 @@ class _ProgressiveHtmlMessageBodyState
   @override
   void didUpdateWidget(covariant _ProgressiveHtmlMessageBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.collapsedOverride == false &&
-        widget.collapsedOverride == true) {
-      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
-    }
     final contentChanged =
         oldWidget.prepared.sourceLength != widget.prepared.sourceLength ||
         oldWidget.prepared.sourceFingerprint !=
             widget.prepared.sourceFingerprint;
-    if (!contentChanged) {
-      return;
+    if (contentChanged) {
+      _resetPreviewState();
+      _collapsed = widget.prepared.shouldUseProgressiveHighFidelity;
+      _fullBodyMounted = !_effectiveCollapsed;
     }
-    _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
-    _collapsed = widget.prepared.shouldUseProgressiveHighFidelity;
+    _fullBodyMounted = _fullBodyMounted || !_effectiveCollapsed;
+    if (oldWidget.collapsedOverride != widget.collapsedOverride) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
+      if (_scrollController.hasClients) _scrollController.jumpTo(0);
+      _atBottom = false;
+      _userScrollingPreview = false;
+      _scrollCoordinator.cancelSettleTimer();
+    }
   }
 
   void _setCollapsed(bool value) {
@@ -5617,7 +5648,12 @@ class _ProgressiveHtmlMessageBodyState
       widget.onCollapsedChanged?.call(value);
       return;
     }
-    setState(() => _collapsed = value);
+    setState(() {
+      _collapsed = value;
+      _fullBodyMounted = _fullBodyMounted || !value;
+      if (_scrollController.hasClients) _scrollController.jumpTo(0);
+      _atBottom = false;
+    });
     widget.onCollapsedChanged?.call(value);
   }
 
@@ -5647,9 +5683,6 @@ class _ProgressiveHtmlMessageBodyState
       return _buildHtmlBody();
     }
 
-    final previewText = widget.prepared.previewText.isEmpty
-        ? widget.prepared.healedHtml
-        : widget.prepared.previewText;
     final collapsed = _effectiveCollapsed;
     final previewStyle =
         widget.baseTextStyle?.copyWith(color: widget.textColor) ??
@@ -5672,29 +5705,42 @@ class _ProgressiveHtmlMessageBodyState
           context: context,
           collapsed: collapsed,
           animate: widget.animateSize,
-          child: collapsed
-              ? KeyedSubtree(
-                  key: const ValueKey<String>('html-progressive-preview'),
-                  child: _PlainTextPreviewBody(
-                    data: previewText,
-                    maxHeight: math.min(
-                      widget.previewMaxHeight,
-                      _htmlProgressiveRenderPreviewMaxHeight,
-                    ),
-                    textColor: widget.textColor,
-                    fadeColor: widget.backgroundColor,
-                    style: previewStyle,
-                    scrollStateKey: '$_scrollStateKey|preview',
-                  ),
-                )
-              : KeyedSubtree(
-                  key: const ValueKey<String>('html-progressive-full'),
-                  child: _buildHtmlBody(),
-                ),
+          child: _buildPreviewFrame(
+            context,
+            widget.backgroundColor,
+            // 首次展开才创建平台视图，后续折叠保留实例，随消息离屏回收。
+            _fullBodyMounted
+                ? _buildHtmlBody()
+                : SelectableText(_effectiveData, style: previewStyle),
+          ),
         ),
       ],
     );
   }
+}
+
+@visibleForTesting
+Widget buildCollapsibleMessageBodyForTesting(
+  BuildContext context, {
+  required String data,
+  required bool collapsed,
+}) {
+  return _AssistantMessageBodyDispatcher(
+    data: data,
+    format: AiMessageContentFormat.markdown,
+    htmlFallback: AiHtmlRenderFallback.markdown,
+    textColor: Colors.black,
+    backgroundColor: Colors.white,
+    markdownBuilders: const {},
+    markdownStyleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
+    inlineSyntaxes: const [],
+    filePathRoots: const [],
+    filePathParseKey: 'collapse-test',
+    collapseCharThreshold: _messageMarkdownCollapseCharThreshold,
+    collapseLineThreshold: _messageMarkdownCollapseLineThreshold,
+    previewMaxHeight: _messageResponsePreviewMaxHeight,
+    collapsedOverride: collapsed,
+  );
 }
 
 /// 助手消息正文按"消息内容格式"设置分派：

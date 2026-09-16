@@ -40,15 +40,46 @@ Widget maybeAnimatedSize({
   required AlignmentGeometry alignment,
   required Widget child,
 }) {
-  // RenderAnimatedSize 可能在布局期间同步重启零时长动画，因此直接跳过渲染对象。
-  if (duration <= Duration.zero) {
-    return key == null ? child : KeyedSubtree(key: key, child: child);
-  }
-  return AnimatedSize(
+  return _OptionalAnimatedSize(
     key: key,
     duration: duration,
     curve: curve,
     alignment: alignment,
     child: child,
   );
+}
+
+class _OptionalAnimatedSize extends StatefulWidget {
+  const _OptionalAnimatedSize({
+    super.key,
+    required this.duration,
+    required this.curve,
+    required this.alignment,
+    required this.child,
+  });
+
+  final Duration duration;
+  final Curve curve;
+  final AlignmentGeometry alignment;
+  final Widget child;
+
+  @override
+  State<_OptionalAnimatedSize> createState() => _OptionalAnimatedSizeState();
+}
+
+class _OptionalAnimatedSizeState extends State<_OptionalAnimatedSize> {
+  final _bodyKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    // 零时长 AnimatedSize 会在布局中同步重启；切换外壳时迁移原正文，保留解析和平台视图状态。
+    final body = KeyedSubtree(key: _bodyKey, child: widget.child);
+    if (widget.duration <= Duration.zero) return body;
+    return AnimatedSize(
+      duration: widget.duration,
+      curve: widget.curve,
+      alignment: widget.alignment,
+      child: body,
+    );
+  }
 }
