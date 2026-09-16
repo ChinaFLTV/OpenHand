@@ -11,6 +11,7 @@ const double _kTranscriptScrollbarThickness = 6;
 const Radius _kTranscriptScrollbarRadius = kOpenHandPillRadius;
 const double _kTranscriptEstimatedMessageSpacing = 14;
 const int _kScrollToMessageMaterializeFrameLimit = 8;
+const int _kAnimatedMessageIdCacheLimit = 256;
 const Duration _kTranscriptTargetScrollDuration = kOpenHandMotion520;
 const Duration _kTranscriptTargetHighlightDuration = Duration(
   milliseconds: 1400,
@@ -454,6 +455,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   _TranscriptInitialRevealPhase _initialRevealPhase =
       _TranscriptInitialRevealPhase.preparing;
 
+  /// 动画标记只服务于当前窗口的首次入场。历史消息不断前插时若无限累积，
+  /// 会把整条会话的 ID 长期留在 State 中，增加内存和集合查找成本。
+  void _markMessageAnimated(String messageId) {
+    if (messageId.isEmpty) return;
+    _animatedMessageIds
+      ..remove(messageId)
+      ..add(messageId);
+    while (_animatedMessageIds.length > _kAnimatedMessageIdCacheLimit) {
+      _animatedMessageIds.remove(_animatedMessageIds.first);
+    }
+  }
+
   final RichContentFrameScheduler _windowFillScheduler =
       RichContentFrameScheduler(isPaused: _transcriptRenderPaused);
   int _staggerFillGeneration = 0;
@@ -858,7 +871,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         _initialRevealPhase != _TranscriptInitialRevealPhase.ready;
     final anchor = pinToBottom ? null : _capturePrependAnchor();
     setState(() {
-      _animatedMessageIds.add(message.id);
+      _markMessageAnimated(message.id);
       _renderEntries = <_TranscriptRenderEntry>[
         _TranscriptRenderEntry(message: message),
         ..._renderEntries,
@@ -921,7 +934,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         index += 1
       ) {
         final message = visibleMessages[index];
-        _animatedMessageIds.add(message.id);
+        _markMessageAnimated(message.id);
         retained.add(_TranscriptRenderEntry(message: message));
       }
     }
@@ -949,7 +962,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _staggerFillGeneration += 1;
     _staggerFillActive = false;
     if (!animate) {
-      _animatedMessageIds.addAll(visibleMessages.map((message) => message.id));
+      for (final message in visibleMessages) {
+        _markMessageAnimated(message.id);
+      }
     }
     _renderEntries = <_TranscriptRenderEntry>[
       for (final message in visibleMessages)
@@ -990,7 +1005,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         nonPrefixAddition = true;
         break;
       }
-      _animatedMessageIds.add(message.id);
+      _markMessageAnimated(message.id);
       nextEntries.add(_TranscriptRenderEntry(message: message));
     }
 
@@ -2709,7 +2724,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             child: Builder(
               builder: (context) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _animatedMessageIds.add(message.id);
+                  _markMessageAnimated(message.id);
                 });
                 return stableBubble;
               },
