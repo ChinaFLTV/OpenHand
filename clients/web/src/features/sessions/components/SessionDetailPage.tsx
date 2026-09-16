@@ -8457,19 +8457,6 @@ export function SessionDetailPage() {
                       onInitialLayoutSettled={handleTranscriptInitialLayoutSettled}
                       renderMessage={renderSessionMessage}
                     />
-                    {remainingNewer > 0 ? (
-                      <div class="text-center mt-3">
-                        <button
-                          type="button"
-                          onClick={() => void returnToLatest()}
-                          disabled={refreshing}
-                          class="oh-session-load-older-button oh-tap-press disabled:opacity-50"
-                        >
-                          <ComposerIcon name="follow" size={13} />
-                          {t('detail.returnToLatest', '回到最新消息') + ` (${remainingNewer})`}
-                        </button>
-                      </div>
-                    ) : null}
                     <MediaGeneratingPlaceholderTransition
                       mode={responseRunning ? messageWindowView.lastCreationModeAwaitingAssistant : null}
                       className="mt-3"

@@ -9551,23 +9551,13 @@ button.oh-composer-pill:not(:disabled):hover {
   opacity: 0.45;
 }
 .oh-markdown input[type='checkbox'] { margin-right: 0.4rem; }
-.oh-markdown-render-placeholder {
-  position: relative;
-  display: grid;
-  align-content: start;
-  gap: 9px;
-  width: min(100%, 620px);
-  padding: 4px 0;
-  contain: paint;
-}
-.oh-markdown-render-placeholder span {
-  position: relative;
-  display: block;
-  height: 12px;
-  max-width: 100%;
+.oh-markdown-pending-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+  max-height: 9.9em;
   overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, currentColor 12%, transparent);
+  mask-image: linear-gradient(to bottom, #000 80%, transparent);
 }
 
 /* oh-html-body: 原生 HTML 渲染容器（format=html 时由 HtmlBody 组件使用）。
@@ -9653,7 +9643,6 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-html-body-placeholder span:nth-child(2) { width: 92%; }
 .oh-html-body-placeholder span:nth-child(3) { width: 68%; }
 .oh-html-body-placeholder span:nth-child(4) { width: 42%; }
-.oh-markdown-render-placeholder span::after,
 .oh-html-body-placeholder span::after {
   content: '';
   position: absolute;
@@ -9666,12 +9655,10 @@ button.oh-composer-pill:not(:disabled):hover {
   50% { opacity: 0.35; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .oh-markdown-render-placeholder span::after,
   .oh-html-body-placeholder span::after {
     display: none;
   }
 }
-[data-motion='reduced'] .oh-markdown-render-placeholder span::after,
 [data-motion='reduced'] .oh-html-body-placeholder span::after {
   display: none;
 }

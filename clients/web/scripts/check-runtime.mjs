@@ -356,34 +356,34 @@ try {
   idleCallbacks.shift()();
   assert.equal(renderedCards, 3, '单条任务失败不能堵塞后续卡片');
 
-  let clockMs = 0;
-  let timerId = 0;
-  const timers = new Map();
-  replaceGlobal('performance', { now: () => clockMs });
   replaceGlobal('document', { documentElement: { getAttribute: () => 'true' } });
+  let scheduledTimers = 0;
   replaceGlobal('window', {
-    setTimeout(callback, delay) { const id = ++timerId; timers.set(id, { callback, at: clockMs + delay }); return id; },
-    clearTimeout(id) { timers.delete(id); },
+    setTimeout() { scheduledTimers++; return scheduledTimers; },
+    clearTimeout() {},
   });
   const cancelWhileScrolling = scheduler.schedule(() => { renderedCards += 1; });
   frames.shift()();
   cancelWhileScrolling();
-  assert.equal(timers.size, 0, '滚动等待中的任务全部取消后必须清除计时器');
+  idleCallbacks.shift()();
+  assert.equal(renderedCards, 3, '已排入空闲帧的离屏任务也必须能取消');
+  assert.equal(frames.length, 0, '取消最后一个任务后不能继续空转');
+  for (let index = 0; index < 3; index++) scheduler.schedule(() => { renderedCards += 1; });
+  for (let index = 0; index < 3; index++) {
+    assert.equal(frames.length, 1, '持续滚动也只能保留一个调度链');
+    frames.shift()();
+    assert.equal(idleCallbacks.length, 1, '持续滚动必须直接取得空闲帧预算');
+    idleCallbacks.shift()();
+    assert.equal(renderedCards, 4 + index, '滚动不能让后续卡片逐张等待数秒');
+  }
+  assert.equal(scheduledTimers, 0, '正文渲染不能再依赖滚动结束计时器');
+  assert.equal(frames.length, 0, '滚动期间队列清空后必须停止调度');
+
+  replaceGlobal('requestIdleCallback', undefined);
   scheduler.schedule(() => { renderedCards += 1; });
   frames.shift()();
-  for (let step = 0; timers.size > 0 && step < 100; step += 1) {
-    const [id, timer] = timers.entries().next().value;
-    timers.delete(id);
-    clockMs = timer.at;
-    timer.callback();
-  }
-  assert.equal(timers.size, 0, '持续滚动等待必须有界');
-  assert.ok(clockMs <= 3000, '持续滚动不能无限推迟卡片渲染');
-  assert.equal(frames.length, 1, '达到等待上限后重新申请一帧预算');
-  frames.shift()();
-  idleCallbacks.shift()();
-  assert.equal(renderedCards, 4, '持续滚动达到上限后也须让任务取得进展');
-  assert.equal(frames.length, 0, '滚动兜底完成后不能持续空转');
+  assert.equal(renderedCards, 7, '不支持空闲回调的浏览器仍须逐帧渲染');
+  assert.equal(frames.length, 0);
 
   console.log('[Web 运行时检查] 鉴权隔离、存储兜底、有界响应、取消原因、事件订阅、输入法关闭、富文本帧预算与缓存边界检查通过。');
 } finally {

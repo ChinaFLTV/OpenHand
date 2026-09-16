@@ -1188,10 +1188,7 @@ const int _markdownStreamingDeferredParseThresholdChars = 160;
 const int _markdownStreamingInitialSyncParseThresholdChars = 8 * kBytesPerKiB;
 const int _markdownStreamingParseMinIntervalMs = 96;
 const int _markdownStreamingPlaceholderMaxLines = 6;
-const int _markdownPlaceholderCharsPerLine = 72;
-const double _markdownStreamingPlaceholderMinHeight = 28;
 const double _markdownStreamingPlaceholderMaxHeight = 132;
-const double _markdownPlaceholderMaxWidth = 560;
 
 /// 进程级 AST LRU 缓存，同时限制条目数和源文本总量，避免长会话挤占内存。
 class _MarkdownAstCache {
@@ -1313,7 +1310,7 @@ void _warmMarkdownAst({
     }
   }
 
-  _markdownFrameScheduler.schedule(
+  _markdownWarmupScheduler.schedule(
     warmup,
     onDropped: () => _pendingMarkdownWarmups.remove(astCacheKey),
   );
@@ -1386,112 +1383,33 @@ void _warmMarkdownRenderPath({
   );
 }
 
-/// Markdown 解析与高亮、HTML 挂载共用帧额度。
+/// 正文在滚动期间也逐帧推进，后台预热等待滚动间歇。
 final RichContentFrameScheduler _markdownFrameScheduler =
+    RichContentFrameScheduler();
+final RichContentFrameScheduler _markdownWarmupScheduler =
     RichContentFrameScheduler(isPaused: _transcriptRenderPaused);
 
-class _MarkdownStabilizingPlaceholder extends StatelessWidget {
-  const _MarkdownStabilizingPlaceholder({
-    required this.source,
-    required this.style,
-    required this.maxLines,
-    required this.minHeight,
-    required this.maxHeight,
-  });
+/// 富文本就绪前展示有界正文，避免历史消息只剩加载骨架。
+class _RichContentPendingPreview extends StatelessWidget {
+  const _RichContentPendingPreview({required this.source, required this.style});
 
   final String source;
   final TextStyle? style;
-  final int maxLines;
-  final double minHeight;
-  final double maxHeight;
-
-  int get _lineCount {
-    if (source.length >= maxLines * _markdownPlaceholderCharsPerLine) {
-      return maxLines;
-    }
-    final trimmed = source.trimRight();
-    if (trimmed.isEmpty) return 1;
-    var explicitLines = 1;
-    for (var i = 0; i < source.length; i += 1) {
-      if (source.codeUnitAt(i) == 0x0A) {
-        explicitLines += 1;
-        if (explicitLines >= maxLines) {
-          break;
-        }
-      }
-    }
-    final wrappedLines = (trimmed.length / _markdownPlaceholderCharsPerLine)
-        .ceil();
-    return math.max(explicitLines, wrappedLines).clamp(1, maxLines);
-  }
-
-  double get _lineHeight {
-    final fontSize = style?.fontSize ?? 14;
-    return fontSize * (style?.height ?? 1.48);
-  }
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        style?.color ?? Theme.of(context).colorScheme.onSurfaceVariant;
-    final lines = _lineCount;
-    final lineHeight = _lineHeight;
-    final barHeight = math.max(8.0, lineHeight * 0.42);
-    final gap = math.min(8.0, lineHeight * 0.32);
-    final height = (lines * barHeight + math.max(0, lines - 1) * gap).clamp(
-      minHeight,
-      maxHeight,
-    );
-    const widths = <double>[0.72, 0.9, 0.64, 0.82, 0.58, 0.46];
-    final fillColor = color.withValues(alpha: 0.12);
-    return Semantics(
-      label: openHandLocalizedText(
-        context,
-        zh: '消息内容正在渲染',
-        en: 'Rendering message content',
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxHeight: _markdownStreamingPlaceholderMaxHeight,
       ),
-      child: ClipRRect(
-        borderRadius: kOpenHandBorderRadius18,
-        child: OpenHandSweepShimmer(
-          sweepColor: color.withValues(alpha: 0.10),
-          maskToChildAlpha: true,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth.isFinite
-                  ? math.max(
-                      1.0,
-                      math.min(
-                        constraints.maxWidth,
-                        _markdownPlaceholderMaxWidth,
-                      ),
-                    )
-                  : _markdownPlaceholderMaxWidth;
-              return SizedBox(
-                width: width,
-                height: height,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: List<Widget>.generate(lines, (index) {
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == lines - 1 ? 0 : gap,
-                      ),
-                      child: Container(
-                        width: width * widths[index % widths.length],
-                        height: barHeight,
-                        decoration: BoxDecoration(
-                          color: fillColor,
-                          borderRadius: kOpenHandPillBorderRadius,
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              );
-            },
-          ),
+      child: Text(
+        TranscriptListWindowing.boundedContentPreview(
+          source,
+          maxCharacters: _markdownCollapsedPreviewMaxChars,
         ),
+        style: style,
+        maxLines: _markdownStreamingPlaceholderMaxLines,
+        overflow: TextOverflow.fade,
       ),
     );
   }
@@ -1512,13 +1430,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   Timer? _deferredParseThrottleTimer;
   final Stopwatch _markdownParseStopwatch = Stopwatch()..start();
   int _lastMarkdownParseAtMs = -1;
-  TranscriptScrollActivity? _scrollActivity;
-  bool _deferredParsePendingAfterScroll = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _bindScrollActivity();
     final themeSignature = _computeThemeSignature();
     if (_children == null || _lastThemeSignature != themeSignature) {
       _lastThemeSignature = themeSignature;
@@ -1549,34 +1464,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   void dispose() {
     _cancelDeferredParseThrottle();
     _markdownParseStopwatch.stop();
-    _scrollActivity?.removeListener(_handleScrollActivityChanged);
-    _scrollActivity = null;
     _disposeRecognizers();
     super.dispose();
-  }
-
-  void _bindScrollActivity() {
-    final activity = _maybeTranscriptScrollActivityOf(context);
-    if (identical(activity, _scrollActivity)) {
-      return;
-    }
-    _scrollActivity?.removeListener(_handleScrollActivityChanged);
-    _scrollActivity = activity;
-    activity?.addListener(_handleScrollActivityChanged);
-  }
-
-  void _handleScrollActivityChanged() {
-    final activity = _scrollActivity;
-    if (activity == null || !mounted || activity.value) {
-      return;
-    }
-    if (!_deferredParsePendingAfterScroll ||
-        _deferredParseScheduled ||
-        _deferredParseThrottleTimer != null) {
-      return;
-    }
-    _deferredParsePendingAfterScroll = false;
-    _scheduleDeferredParse(throttle: widget.streaming && _children != null);
   }
 
   /// 富文本构建使用共享帧预算；AST 命中仅省去解析，不豁免组件树构建。
@@ -1601,7 +1490,6 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           !hadChildren &&
           widget.data.length <=
               _markdownStreamingInitialSyncParseThresholdChars) {
-        _deferredParsePendingAfterScroll = false;
         _cancelDeferredParseThrottle();
         _parseMarkdown();
         return;
@@ -1609,15 +1497,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       if (initial || !hadChildren) {
         _renderDeferredPlaceholder(widget.data);
       }
-      if (_scrollActivity?.value ?? false) {
-        _deferredParsePendingAfterScroll = true;
-      } else {
-        _deferredParsePendingAfterScroll = false;
-        _scheduleDeferredParse(throttle: widget.streaming && hadChildren);
-      }
+      _scheduleDeferredParse(throttle: widget.streaming && hadChildren);
       return;
     }
-    _deferredParsePendingAfterScroll = false;
     _cancelDeferredParseThrottle();
     _parseMarkdown();
   }
@@ -1667,13 +1549,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           _deferredParseScheduled = false;
           return;
         }
-        if (_scrollActivity?.value ?? false) {
-          _deferredParseScheduled = false;
-          _deferredParsePendingAfterScroll = true;
-          return;
-        }
         _deferredParseScheduled = false;
-        _deferredParsePendingAfterScroll = false;
         setState(_parseMarkdown);
       },
       priority: true,
@@ -1681,7 +1557,6 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       onDropped: () {
         if (generation != _deferredParseGeneration) return;
         _deferredParseScheduled = false;
-        _deferredParsePendingAfterScroll = false;
       },
     );
   }
@@ -1692,13 +1567,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     ).merge(widget.styleSheet);
     _disposeRecognizers();
     _children = <Widget>[
-      _MarkdownStabilizingPlaceholder(
-        source: source,
-        style: effectiveStyleSheet.p,
-        maxLines: _markdownStreamingPlaceholderMaxLines,
-        minHeight: _markdownStreamingPlaceholderMinHeight,
-        maxHeight: _markdownStreamingPlaceholderMaxHeight,
-      ),
+      _RichContentPendingPreview(source: source, style: effectiveStyleSheet.p),
     ];
   }
 
@@ -1810,12 +1679,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           return true;
         }
         _children = <Widget>[
-          _MarkdownStabilizingPlaceholder(
+          _RichContentPendingPreview(
             source: normalizedSource,
             style: effectiveStyleSheet.p,
-            maxLines: _markdownStreamingPlaceholderMaxLines,
-            minHeight: _markdownStreamingPlaceholderMinHeight,
-            maxHeight: _markdownStreamingPlaceholderMaxHeight,
           ),
         ];
         return false;
@@ -4152,7 +4018,7 @@ class _DeferredHtmlBubbleWebViewState
       return;
     }
     final generation = ++_generation;
-    final scheduled = _htmlWebViewFrameScheduler.schedule(
+    _htmlWebViewFrameScheduler.schedule(
       () {
         if (!mounted || generation != _generation || _mountWebView) {
           return;
@@ -4165,8 +4031,12 @@ class _DeferredHtmlBubbleWebViewState
       },
       priority: true,
       isValid: () => mounted && generation == _generation && !_mountWebView,
+      onDropped: () {
+        if (mounted && generation == _generation && !_mountWebView) {
+          _handleWebViewFallback(retryOnCapacity: true);
+        }
+      },
     );
-    if (!scheduled) _handleWebViewFallback(retryOnCapacity: true);
   }
 
   void _tryMountWebView(int generation) {
@@ -4381,7 +4251,15 @@ class _DeferredHtmlBubbleWebViewState
     }
     return SizedBox(
       height: _estimateHtmlBubbleHeight(widget.data),
-      child: const _HtmlBubbleShimmer(),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: _RichContentPendingPreview(
+          source: _htmlPlainTextPreview(widget.data),
+          style:
+              widget.baseTextStyle?.copyWith(color: widget.textColor) ??
+              TextStyle(color: widget.textColor),
+        ),
+      ),
     );
   }
 }
@@ -5661,7 +5539,13 @@ class _DeferredPreparedHtmlBodyState extends State<_DeferredPreparedHtmlBody> {
         height: _estimateHtmlBubbleHeight(widget.data),
         child: ColoredBox(
           color: widget.backgroundColor,
-          child: const _HtmlBubbleShimmer(),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: _RichContentPendingPreview(
+              source: _htmlPlainTextPreview(widget.data),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
         ),
       );
     }

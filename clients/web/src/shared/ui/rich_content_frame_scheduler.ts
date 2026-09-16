@@ -1,8 +1,3 @@
-import {
-  isTranscriptScrollActive,
-  scheduleAfterTranscriptScrollSettles,
-} from './transcript_scroll_activity';
-
 const IDLE_TIMEOUT_MS = 100;
 const FRAME_FALLBACK_MS = 16;
 
@@ -10,7 +5,6 @@ const FRAME_FALLBACK_MS = 16;
 export class RichContentFrameScheduler {
   private readonly pending = new Set<{ task: () => void }>();
   private draining = false;
-  private cancelScrollWait: (() => void) | null = null;
 
   schedule(task: () => void): () => void {
     const entry = { task };
@@ -21,31 +15,20 @@ export class RichContentFrameScheduler {
     }
     return () => {
       this.pending.delete(entry);
-      if (this.pending.size === 0 && this.cancelScrollWait != null) {
-        this.cancelScrollWait();
-        this.cancelScrollWait = null;
-        this.draining = false;
-      }
     };
   }
 
-  private scheduleFrame(allowDuringScroll = false): void {
+  private scheduleFrame(): void {
     const afterFrame = () => {
       if (this.pending.size === 0) {
         this.draining = false;
         return;
       }
-      if (!allowDuringScroll && isTranscriptScrollActive()) {
-        this.cancelScrollWait = scheduleAfterTranscriptScrollSettles(() => {
-          this.cancelScrollWait = null;
-          this.scheduleFrame(true);
-        });
-        return;
-      }
+      // 滚动期间也按空闲预算逐帧推进，避免可见卡片逐张等待滚动结束。
       if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(() => this.drain(allowDuringScroll), { timeout: IDLE_TIMEOUT_MS });
+        requestIdleCallback(() => this.drain(), { timeout: IDLE_TIMEOUT_MS });
       } else {
-        this.drain(allowDuringScroll);
+        this.drain();
       }
     };
     // 仅用空闲回调不能保证逐帧执行：同一帧可能连续触发多个空闲回调。
@@ -53,11 +36,7 @@ export class RichContentFrameScheduler {
     else setTimeout(afterFrame, FRAME_FALLBACK_MS);
   }
 
-  private drain(allowDuringScroll: boolean): void {
-    if (!allowDuringScroll && isTranscriptScrollActive()) {
-      this.scheduleFrame();
-      return;
-    }
+  private drain(): void {
     const entry = this.pending.values().next().value;
     if (entry) this.pending.delete(entry);
     try {

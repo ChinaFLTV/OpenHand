@@ -35,7 +35,8 @@ class RichContentFrameScheduler {
     }
     final entry = _FrameTask(task, isValid, onDropped);
     if (priority) {
-      _priorityPending.addFirst(entry);
+      // 同级任务先进先出，持续进入的新卡片不能饿死已在等待的正文。
+      _priorityPending.addLast(entry);
     } else {
       _pending.addLast(entry);
     }

@@ -216,21 +216,30 @@ part 'widgets/_openhand_home_page_prelude.dart';
 const String _localSubmissionPreviewMetadataKey =
     'openhand_local_submission_preview';
 
-/// HTML WebView 抽搐 bug 真凶的关键协调信号。
-/// 外层 ListView 检测到"用户正在主动滚动"时标记 active，滚动结束（含
-/// 宽限期）后标记 inactive。`_HtmlBubbleWebView` 订阅此信号：
-/// active 期间只缓存最新高度、不调用 setState，避免平台视图异步测高
-/// 反复修改 `maxScrollExtent` 把视口拽回底部；inactive 后才一次性应用
-/// 滚动期间累积的最新高度。
+/// 渲染只等待短暂的滚动间歇，自动追底的保护窗口独立保留。
+/// 活跃期间 HTML 暂存测量高度，避免平台视图回流干扰手势。
 class TranscriptScrollActivity extends ValueNotifier<bool> {
   TranscriptScrollActivity() : super(false);
 
+  static const settleDelay = Duration(milliseconds: 120);
+  Timer? _settleTimer;
+
   void markActive() {
+    _settleTimer?.cancel();
+    _settleTimer = startSafeTimer(settleDelay, markInactive);
     if (!value) value = true;
   }
 
   void markInactive() {
+    _settleTimer?.cancel();
+    _settleTimer = null;
     if (value) value = false;
+  }
+
+  @override
+  void dispose() {
+    _settleTimer?.cancel();
+    super.dispose();
   }
 }
 
@@ -1432,9 +1441,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       _userScrollInProgress = false;
-      // 同步通知订阅者：宽限期结束，HTML WebView 可应用滚动期间累积的
-      // 最新高度，触发一次性 setState。
-      _transcriptScrollActivity.markInactive();
       if (_autoFollowEnabled &&
           _shouldAutoFollowMessages &&
           (_pendingForcedScrollToBottom || _queuedForcedScrollToBottom)) {

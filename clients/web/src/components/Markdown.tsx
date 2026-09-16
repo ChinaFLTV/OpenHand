@@ -97,13 +97,7 @@ const OVERSIZED_MARKDOWN_PREVIEW_MAX_CHARS = 12 * 1024;
 /// 超过该阈值的 Markdown 首次挂载走分帧解析；历史卡片无论长短都走延迟路径。
 const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 8 * 1024;
 const HTML_SNIFF_SCAN_CHARS = 8 * 1024;
-const MARKDOWN_PLACEHOLDER_MIN_HEIGHT_PX = 44;
-const MARKDOWN_PLACEHOLDER_MAX_HEIGHT_PX = 520;
-const MARKDOWN_PLACEHOLDER_CHARS_PER_LINE = 92;
-const MARKDOWN_PLACEHOLDER_LINE_HEIGHT_PX = 24;
-const MARKDOWN_PLACEHOLDER_GAP_PX = 9;
-const MARKDOWN_PLACEHOLDER_MAX_LINES = 24;
-const MARKDOWN_PLACEHOLDER_WIDTHS = [72, 90, 64, 82, 58, 46] as const;
+const MARKDOWN_PENDING_PREVIEW_MAX_CHARS = 1200;
 // 小增量流式更新合并到固定间隔，避免重复解析整棵 Markdown 树。
 const MARKDOWN_STREAM_FLUSH_MS = 80;
 const MARKDOWN_STREAM_FLUSH_DELTA = 64;
@@ -560,7 +554,7 @@ const HtmlBody = memo(function HtmlBody({ source, mono }: { source: string; mono
   // HTML 模式必须尽量忠实呈现模型给出的界面结构。布局类声明（flex/grid）
   // 交给浏览器原生排版，外层只负责安全净化和溢出约束。
   if (purify == null) {
-    return <HtmlBodyPlaceholder source={source} />;
+    return <MarkdownPendingPreview source={source} />;
   }
   return (
     <div
@@ -642,7 +636,7 @@ const DeferredHtmlBody = memo(function DeferredHtmlBody({
   const { hostRef, ready } = useRichContentMount(true);
   return (
     <div ref={hostRef} class="oh-html-body-deferred">
-      {ready ? <HtmlBody source={source} mono={mono} /> : <HtmlBodyPlaceholder source={source} />}
+      {ready ? <HtmlBody source={source} mono={mono} /> : <MarkdownPendingPreview source={source} />}
     </div>
   );
 });
@@ -658,39 +652,17 @@ function HtmlPreviewIcon({ name, size = 14 }: { name: 'render' | 'external'; siz
 const ProgressiveHtmlBody = memo(function ProgressiveHtmlBody({
   source,
   mono,
-  deferInitialRender,
 }: {
   source: string;
   mono: boolean;
-  deferInitialRender: boolean;
 }) {
   const profileKey = useMemo(() => contentCacheKey('html-profile', source), [source]);
-  const [profileState, setProfileState] = useState<{
-    key: string;
-    profile: HtmlRenderProfile;
-  } | null>(() => {
-    if (deferInitialRender && !htmlRenderProfileCache.has(profileKey)) return null;
-    return { key: profileKey, profile: htmlRenderProfile(source) };
-  });
-  const profile = profileState?.key === profileKey ? profileState.profile : null;
+  const profile = useMemo(() => htmlRenderProfile(source), [source]);
   const [expandedProfileKey, setExpandedProfileKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (profile != null) return;
-    if (!deferInitialRender || htmlRenderProfileCache.has(profileKey)) {
-      setProfileState({ key: profileKey, profile: htmlRenderProfile(source) });
-      return;
-    }
-    return richContentFrameScheduler.schedule(() => {
-      setProfileState({ key: profileKey, profile: htmlRenderProfile(source) });
-    });
-  }, [deferInitialRender, profile, profileKey, source]);
+  if (!profile.complex) return <HtmlBody source={source} mono={mono} />;
 
-  if (profile == null) {
-    return <HtmlBodyPlaceholder source={source} />;
-  }
-
-  if (!profile.complex || expandedProfileKey === profileKey) {
+  if (expandedProfileKey === profileKey) {
     return (
       <DeferredHtmlBody
         source={source}
@@ -1117,45 +1089,14 @@ function extractMarkdownCodeText(nodes: unknown): string {
   return '';
 }
 
-function estimateMarkdownPlaceholderLineCount(source: string): number {
-  const scanLimit = MARKDOWN_PLACEHOLDER_MAX_LINES * MARKDOWN_PLACEHOLDER_CHARS_PER_LINE;
-  if (source.length >= scanLimit) return MARKDOWN_PLACEHOLDER_MAX_LINES;
-  const trimmed = source.trimEnd();
-  if (!trimmed) return 1;
-  let explicitLines = 1;
-  for (let index = 0; index < trimmed.length && explicitLines < MARKDOWN_PLACEHOLDER_MAX_LINES; index++) {
-    if (trimmed.charCodeAt(index) === 10) explicitLines++;
-  }
-  const wrappedLines = Math.ceil(trimmed.length / MARKDOWN_PLACEHOLDER_CHARS_PER_LINE);
-  return Math.min(MARKDOWN_PLACEHOLDER_MAX_LINES, Math.max(explicitLines, wrappedLines));
-}
-
-function estimateMarkdownPlaceholderHeight(lineCount: number): number {
-  const height = lineCount * MARKDOWN_PLACEHOLDER_LINE_HEIGHT_PX +
-    Math.max(0, lineCount - 1) * MARKDOWN_PLACEHOLDER_GAP_PX;
-  return Math.max(
-    MARKDOWN_PLACEHOLDER_MIN_HEIGHT_PX,
-    Math.min(MARKDOWN_PLACEHOLDER_MAX_HEIGHT_PX, height),
-  );
-}
-
-function MarkdownRenderPlaceholder({ source }: { source: string }) {
-  const lineCount = estimateMarkdownPlaceholderLineCount(source);
-  const height = estimateMarkdownPlaceholderHeight(lineCount);
+/** 等待帧预算时先显示正文，预览长度与布局开销均有上限。 */
+function MarkdownPendingPreview({ source }: { source: string }) {
+  const preview = looksLikeRenderableHtml(source)
+    ? extractHtmlPreviewText(source)
+    : source;
   return (
-    <div
-      class="oh-markdown-render-placeholder"
-      aria-hidden="true"
-      style={{ minHeight: `${height}px` }}
-    >
-      {Array.from({ length: lineCount }, (_, index) => (
-        <span
-          key={index}
-          style={{
-            width: `${MARKDOWN_PLACEHOLDER_WIDTHS[index % MARKDOWN_PLACEHOLDER_WIDTHS.length]}%`,
-          }}
-        />
-      ))}
+    <div class="oh-markdown-pending-preview text-sm">
+      {truncateEndText(preview, MARKDOWN_PENDING_PREVIEW_MAX_CHARS, { ellipsis: '' })}
     </div>
   );
 }
@@ -1163,7 +1104,7 @@ function MarkdownRenderPlaceholder({ source }: { source: string }) {
 /// memo 是长会话的关键护栏：react-markdown 内部不缓存 AST，组件体每执行
 /// 一次就是一整条 remark → rehype → highlight/katex 管线。父级（会话页）
 /// 任意 state 变更都会波及窗口内全部卡片，未 memo 时等于每次都全量重解析。
-const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false, deferInitialRender = false }: MarkdownProps) {
+const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false }: MarkdownProps) {
   const [imageGallery, setImageGallery] = useState<{ images: ImageGalleryEntry[]; index: number } | null>(null);
   const openImage = (event: MouseEvent) => {
     if (!(event.target instanceof HTMLImageElement) || !(event.currentTarget instanceof HTMLElement)) return;
@@ -1191,41 +1132,10 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
   // 流式 HTML 渲染稳态：必须在所有 hook 入口前调用，避免条件 hook。
   const stickyLooksHtml = useStickyLooksLikeHtml(content);
 
-  // 帧节流 deferred 路径。raw / tooBig 已经走 plain text 路径，无需
-  // 帧节流。中等以上内容 (> MARKDOWN_DEFERRED_PARSE_THRESHOLD) 首次挂载时
-  // 先骨架占位, 把 react-markdown / rehype 解析推迟到下一空闲帧
-  // (帧节流调度器), 避免长会话首屏多卡片同步 parse 撑爆主线程。
-  const shouldDeferParse = !streaming && !raw && format !== 'plain_text' && !stickyLooksHtml && !tooBig
-    && (
-      deferInitialRender
-      || content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD
-      || FENCED_CODE_RE.test(content)
-      || MATH_DELIMITER_RE.test(content)
-    );
-  // 已显示过不代表解析树仍存在；每次重新挂载都重新申请帧预算。
-  const [parseReady, setParseReady] = useState(() => !shouldDeferParse);
-  useEffect(() => {
-    if (parseReady) return;
-    if (!shouldDeferParse) {
-      setParseReady(true);
-      return;
-    }
-    return richContentFrameScheduler.schedule(() => setParseReady(true));
-  }, [shouldDeferParse, parseReady]);
-
-  // 流式节流：parseReady=true 之后的内容变更走 coalesce —— 增量较小
-  // 且距上次 flush 不到 80ms 时延迟到本批结束再 setState，避免 SSE 每 tick
-  // 触发整棵 react-markdown re-parse。增量大 / 内容回退 / 距离够久立即 flush，
-  // 保证视觉响应不延迟。非流式（不变更）路径完全无影响。
+  // 挂载已取得帧预算；流式更新只合并内容，避免重复排队与解析。
   const [renderedMarkdownContent, setRenderedMarkdownContent] = useState(markdownContent);
   const lastFlushAtRef = useRef<number>(0);
   useEffect(() => {
-    if (!parseReady) {
-      // 首次 parse 完成前由 deferred 占位托管，等 parseReady 切换时一次性同步。
-      setRenderedMarkdownContent(markdownContent);
-      lastFlushAtRef.current = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-      return;
-    }
     if (markdownContent === renderedMarkdownContent) return;
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const ageMs = now - lastFlushAtRef.current;
@@ -1260,7 +1170,6 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
     };
   }, [
     clearStreamFlushTimer,
-    parseReady,
     markdownContent,
     renderedMarkdownContent,
     scheduleStreamFlushTimer,
@@ -1496,7 +1405,7 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
       return <HtmlBodyPlaceholder source={content || ' '} />;
     }
     if (stickyLooksHtml) {
-      return <ProgressiveHtmlBody source={content} mono={mono} deferInitialRender={deferInitialRender} />;
+      return <ProgressiveHtmlBody source={content} mono={mono} />;
     }
     // 继续按 Markdown 渲染。
   }
@@ -1511,7 +1420,7 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
     if (streaming) {
       return <HtmlBodyPlaceholder source={content || ' '} />;
     }
-    return <ProgressiveHtmlBody source={content} mono={mono} deferInitialRender={deferInitialRender} />;
+    return <ProgressiveHtmlBody source={content} mono={mono} />;
   }
 
   // tooBig 守卫仅针对 markdown（解析开销大）；plain_text/html 已在上方提前返回。
@@ -1527,15 +1436,6 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
     );
   }
 
-  // 延迟解析期间保持稳定占位，禁止正文在原文与渲染树之间来回切换。
-  if (!parseReady) {
-    return (
-      <div class="oh-markdown text-sm" style={{ fontFamily }}>
-        <MarkdownRenderPlaceholder source={markdownContent} />
-      </div>
-    );
-  }
-
   return (
     <div class="oh-markdown text-sm" style={{ fontFamily }} onClick={openImage}>
       {markdownTree}
@@ -1548,11 +1448,16 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
 
 /** 历史正文先进入视口再做格式检测、预处理和插件加载。 */
 export const Markdown = memo(function Markdown(props: MarkdownProps) {
-  const deferred = Boolean(props.deferInitialRender && !props.streaming && !props.raw);
+  const source = props.source ?? '';
+  const deferred = !props.streaming && !props.raw && props.format !== 'plain_text'
+    && (Boolean(props.deferInitialRender)
+      || source.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD
+      || FENCED_CODE_RE.test(source)
+      || MATH_DELIMITER_RE.test(source));
   const { hostRef, ready } = useRichContentMount(deferred);
   return (
     <div ref={hostRef} class="oh-rich-content-host">
-      {ready ? <MarkdownBody {...props} /> : <MarkdownRenderPlaceholder source={props.source ?? ''} />}
+      {ready ? <MarkdownBody {...props} /> : <MarkdownPendingPreview source={source} />}
     </div>
   );
 });
