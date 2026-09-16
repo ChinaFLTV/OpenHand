@@ -7,6 +7,7 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/platform_shell.dart';
+import '../../shared/util/xml_escape.dart';
 import 'safe_subprocess.dart';
 
 enum OpenHandNotificationLevel { info, success, warning, error, critical }
@@ -157,8 +158,12 @@ abstract final class OpenHandNotificationService {
     required String title,
     required String body,
   }) async {
-    final safeTitle = _escapeForSingleQuotedPowerShell(title);
-    final safeBody = _escapeForSingleQuotedPowerShell(body);
+    final safeTitle = escapeXmlAttribute(
+      _escapeForSingleQuotedPowerShell(title),
+    );
+    final safeBody = escapeXmlAttribute(
+      _escapeForSingleQuotedPowerShell(body),
+    );
 
     final script =
         r'''

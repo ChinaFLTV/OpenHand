@@ -1,10 +1,11 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import { loginWithCredentials } from '../../../api/auth';
 import { ApiError, UnauthorizedError } from '../../../api/client';
 import { markLoggedIn, useAuth } from '../../../state/auth';
 import { t } from '../../../i18n';
 import { BusyWaitDialog } from '../../../components/BusyWaitDialog';
+import { isAbortError } from '../../../shared/util/errors';
 
 export function LoginPage() {
   const auth = useAuth();
@@ -13,6 +14,12 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    requestRef.current?.abort();
+    requestRef.current = null;
+  }, []);
 
   // 鉴权未开启时直接放行，避免用户被困在登录页。
   if (!auth.loading && !auth.authRequired) {
@@ -40,18 +47,24 @@ export function LoginPage() {
 
   const onSubmit = async (e: Event) => {
     e.preventDefault();
-    if (submitting) return;
+    if (requestRef.current) return;
     if (!username.trim() || !password) {
       setError(t('login.error.empty'));
       return;
     }
     setSubmitting(true);
     setError(null);
+    const controller = new AbortController();
+    requestRef.current = controller;
     try {
-      const res = await loginWithCredentials(username.trim(), password);
+      const res = await loginWithCredentials(username.trim(), password, {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
       markLoggedIn(res.profile);
       location.route('/threads', true);
     } catch (err: unknown) {
+      if (controller.signal.aborted || isAbortError(err)) return;
       if (err instanceof UnauthorizedError) {
         setError(t('login.error.invalid'));
       } else if (err instanceof ApiError) {
@@ -60,7 +73,10 @@ export function LoginPage() {
         setError(t('login.error.network'));
       }
     } finally {
-      setSubmitting(false);
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        setSubmitting(false);
+      }
     }
   };
 

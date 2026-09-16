@@ -121,10 +121,23 @@ function dispatchParsedEvent<T>(
     if (!validate(parsed)) throw new TypeError('SSE 事件结构或会话标识无效。');
     data = parsed;
   } catch (error) {
-    onError(new ErrorEvent('parse_error', { error }));
+    reportEventError(onError, 'parse_error', error);
     return;
   }
-  onParsed(data);
+  try {
+    onParsed(data);
+  } catch (error) {
+    reportEventError(onError, 'handler_error', error);
+  }
+}
+
+function reportEventError(
+  onError: (err: Event) => void,
+  type: string,
+  error: unknown,
+): void {
+  // 业务回调属于外部代码，异常不能打断 EventSource 的事件分发循环。
+  runIgnoringErrors(() => onError(new ErrorEvent(type, { error })));
 }
 
 /// 打开 SSE 连接。返回 `close` 句柄；调用方在 unmount/会话切换时务必调用。
@@ -133,13 +146,28 @@ export function subscribeSessionEvents(
   handlers: SessionEventsHandlers,
 ): () => void {
   let closed = false;
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) {
+    queueMicrotask(() => {
+      if (!closed) {
+        reportEventError(
+          handlers.onError,
+          'invalid_session_id',
+          new TypeError('SSE 会话标识不能为空。'),
+        );
+      }
+    });
+    return () => {
+      closed = true;
+    };
+  }
   const params = new URLSearchParams();
   const env = collectClientEnvironment();
   params.set('device_id', ensureDeviceId());
   params.set('source', env.source);
   const token = readToken();
   if (token) params.set('token', token);
-  const url = `/api/sessions/${encodeURIComponent(sessionId)}/events?${params.toString()}`;
+  const url = `/api/sessions/${encodeURIComponent(normalizedSessionId)}/events?${params.toString()}`;
   let es: EventSource;
   try {
     es = new EventSource(url, { withCredentials: false });
@@ -154,19 +182,28 @@ export function subscribeSessionEvents(
   const handleSnapshot = (ev: Event) => !closed && dispatchParsedEvent(
     ev,
     (data): data is SessionEventSnapshot =>
-      isSessionEventSnapshot(data) && data.session.id === sessionId,
+      isSessionEventSnapshot(data) && data.session.id === normalizedSessionId,
     handlers.onSnapshot,
     handlers.onError,
   );
   const handleDeleted = (ev: Event) => !closed && dispatchParsedEvent(
     ev,
     (data): data is SessionDeletedEvent =>
-      isSessionDeletedEvent(data) && data.session_id === sessionId,
+      isSessionDeletedEvent(data) && data.session_id === normalizedSessionId,
     (data) => handlers.onDeleted?.(data),
     handlers.onError,
   );
-  const handleOpen = () => { if (!closed) handlers.onOpen?.(); };
-  const handleError = (ev: Event) => { if (!closed) handlers.onError(ev); };
+  const handleOpen = () => {
+    if (closed) return;
+    try {
+      handlers.onOpen?.();
+    } catch (error) {
+      reportEventError(handlers.onError, 'handler_error', error);
+    }
+  };
+  const handleError = (ev: Event) => {
+    if (!closed) runIgnoringErrors(() => handlers.onError(ev));
+  };
 
   es.addEventListener('snapshot', handleSnapshot);
   es.addEventListener('session_deleted', handleDeleted);

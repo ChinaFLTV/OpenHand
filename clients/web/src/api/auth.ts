@@ -1,10 +1,12 @@
-import { apiRequest } from './client';
+import { apiRequest, type ApiRequestSignalOptions } from './client';
 import {
   type AuthProfile,
+  captureAuthSession,
   ensureDeviceId,
   writeToken,
 } from '../state/storage';
 import { collectClientEnvironment } from '../utils/client_env';
+import { recordOrNullFromUnknown } from '../shared/util/value';
 
 interface LoginRequestBody {
   username: string;
@@ -33,7 +35,9 @@ interface LoginResponse {
 export async function loginWithCredentials(
   username: string,
   password: string,
+  options: ApiRequestSignalOptions = {},
 ): Promise<LoginResponse> {
+  const isCurrentSession = captureAuthSession();
   const env = collectClientEnvironment();
   const body: LoginRequestBody = {
     username,
@@ -53,10 +57,17 @@ export async function loginWithCredentials(
     user_agent: env.userAgent,
   };
   const res = await apiRequest<LoginResponse>('/api/login', {
+    ...options,
     method: 'POST',
     body,
     anonymous: true,
   });
-  writeToken(res.token, res.profile);
-  return res;
+  options.signal?.throwIfAborted();
+  if (!isCurrentSession()) {
+    throw new DOMException('登录状态已变更，忽略旧登录响应。', 'AbortError');
+  }
+  const profile = recordOrNullFromUnknown(res?.profile);
+  if (!profile) throw new TypeError('登录响应缺少有效用户资料。');
+  const token = writeToken(res.token, profile);
+  return { ...res, token, profile };
 }

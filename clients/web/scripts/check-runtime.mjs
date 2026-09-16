@@ -196,6 +196,8 @@ try {
   const { apiRequest, UnauthorizedError } = await server.ssrLoadModule('/src/api/client.ts');
   const { STORAGE_KEY_TOKEN, STORAGE_KEY_PROFILE } = await server.ssrLoadModule('/src/shared/util/storage_keys.ts');
 
+  assert.throws(() => auth.writeToken('  ', null), TypeError, '空令牌不能进入登录态');
+
   entries.set('合法空值', 'null');
   assert.equal(readBrowserJsonStorage('合法空值'), null, '合法 JSON null 必须按空值读取');
   assert.equal(entries.has('合法空值'), true, '合法 JSON null 不能被误删');
@@ -364,6 +366,24 @@ try {
   send({ ...snapshot, messages: [null] });
   assert.equal(snapshots.length, 1, '仅接收结构有效且属于当前会话的快照');
   assert.equal(errors.length, 2);
+  const handlerErrors = [];
+  const stopHandlerFailure = subscribeSessionEvents('当前会话', {
+    onSnapshot: () => { throw new Error('模拟快照回调失败'); },
+    onError: (error) => handlerErrors.push(error),
+  });
+  send(snapshot);
+  assert.equal(handlerErrors.length, 1, '业务回调异常必须转交错误处理');
+  stopHandlerFailure();
+
+  const invalidSessionErrors = [];
+  const stopInvalidSession = subscribeSessionEvents('  ', {
+    onSnapshot: () => assert.fail('空会话标识不能创建订阅'),
+    onError: (error) => invalidSessionErrors.push(error),
+  });
+  await Promise.resolve();
+  assert.equal(invalidSessionErrors.length, 1, '空会话标识必须异步报告错误');
+  stopInvalidSession();
+
   stop();
   stop();
   send(snapshot);

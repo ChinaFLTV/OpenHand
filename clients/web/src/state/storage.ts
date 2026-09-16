@@ -11,7 +11,7 @@ import {
   writeBrowserStorage,
 } from '../shared/util/browser_storage';
 import { STORAGE_KEY_DEVICE_ID, STORAGE_KEY_PROFILE, STORAGE_KEY_TOKEN } from '../shared/util/storage_keys';
-import { recordOrNullFromUnknown } from '../shared/util/value';
+import { recordOrNullFromUnknown, strictStringFromUnknown } from '../shared/util/value';
 
 let fallbackDeviceId = '';
 let fallbackToken: string | null = null;
@@ -57,9 +57,13 @@ export function captureAuthSession(): () => boolean {
   return () => revision === authRevision && token === readToken();
 }
 
-export function writeToken(token: string, profile: AuthProfile | null): void {
+export function writeToken(token: unknown, profile: AuthProfile | null): string {
+  const normalizedToken = strictStringFromUnknown(token);
+  if (!normalizedToken) {
+    throw new TypeError('登录响应缺少有效令牌。');
+  }
   authRevision += 1;
-  fallbackToken = token.trim();
+  fallbackToken = normalizedToken;
   fallbackProfile = profile;
   tokenStorageOverridden = !writeBrowserStorage(STORAGE_KEY_TOKEN, fallbackToken);
   if (profile) {
@@ -67,6 +71,7 @@ export function writeToken(token: string, profile: AuthProfile | null): void {
   } else {
     profileStorageOverridden = !removeBrowserStorage(STORAGE_KEY_PROFILE);
   }
+  return normalizedToken;
 }
 
 export function readProfile(): AuthProfile | null {
