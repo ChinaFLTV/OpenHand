@@ -2,15 +2,13 @@ import 'dart:math' as math;
 
 import 'text_clip.dart';
 
-/// 长会话列表窗口算法，限制首帧和滚动路径的物化规模。
+/// 按需展开历史消息；已展开区间始终包含最新尾部，组件由列表懒构建。
 abstract final class TranscriptListWindowing {
   static const int defaultInitialWindowSize = 4;
   static const int defaultWindowIncrement = 6;
   static const int defaultWindowingThreshold = 8;
 
-  /// UI 同时物化的消息软上限，超出部分仍保留在数据层。
-  /// 首屏再按 [defaultInitialPaintRows] 切开，避免一次挂满整窗富文本卡。
-  static const int defaultMaxMaterializedWindow = 12;
+  /// 首帧只构建尾部，避免同时解析多张富文本卡片。
   static const int defaultInitialPaintRows = 2;
 
   /// 计算最近消息窗口的起始索引。
@@ -59,73 +57,20 @@ abstract final class TranscriptListWindowing {
     return math.max(0, windowStart - increment);
   }
 
-  /// 限制重复加载历史消息后的物化窗口规模。
-  static int cappedWindowStart({
-    required int preferredWindowStart,
-    required int messageCount,
-    int maxMaterialized = defaultMaxMaterializedWindow,
-  }) {
-    final count = messageCount < 0 ? 0 : messageCount;
-    final preferred = clampWindowStart(preferredWindowStart, count);
-    final maxRows = math.max(1, maxMaterialized);
-    if (count <= maxRows) {
-      return preferred;
-    }
-    final minStartForCap = count - maxRows;
-    return math.max(preferred, minStartForCap);
-  }
-
-  /// 从 [preferredStart] 计算有界物化区间。
-  static ({int start, int end}) boundedRange({
+  /// 逻辑范围保留整个尾部，不用消息数量截断可滚动内容。
+  static ({int start, int end}) visibleRange({
     required int preferredStart,
     required int messageCount,
-    int maxMaterialized = defaultMaxMaterializedWindow,
-  }) {
-    final count = messageCount < 0 ? 0 : messageCount;
-    if (count == 0) return (start: 0, end: 0);
-    final start = clampWindowStart(preferredStart, count);
-    final maxRows = math.max(1, maxMaterialized);
-    return (start: start, end: math.min(count, start + maxRows));
-  }
-
-  static int latestWindowStart(
-    int messageCount, {
-    int maxMaterialized = defaultMaxMaterializedWindow,
   }) {
     final count = math.max(0, messageCount);
-    return math.max(0, count - math.max(1, maxMaterialized));
+    return (start: clampWindowStart(preferredStart, count), end: count);
   }
 
+  /// 追加消息不能收回用户已展开的历史。
   static int windowStartAfterAppend({
     required int previousWindowStart,
-    required int previousMessageCount,
     required int messageCount,
-    int maxMaterialized = defaultMaxMaterializedWindow,
-  }) {
-    final previousCount = math.max(0, previousMessageCount);
-    final nextCount = math.max(0, messageCount);
-    final maxRows = math.max(1, maxMaterialized);
-    final shortWindowLimit = math.min(defaultWindowingThreshold, maxRows);
-    if (nextCount <= shortWindowLimit) {
-      return 0;
-    }
-    if (previousWindowStart <= 0 && previousCount <= maxRows) {
-      return math.max(0, nextCount - maxRows);
-    }
-    final previousRange = boundedRange(
-      preferredStart: previousWindowStart,
-      messageCount: previousCount,
-      maxMaterialized: maxRows,
-    );
-    if (nextCount > previousCount && previousRange.end >= previousCount) {
-      final previousWindowLength = math.max(
-        1,
-        previousRange.end - previousRange.start,
-      );
-      return math.max(0, nextCount - previousWindowLength);
-    }
-    return clampWindowStart(previousWindowStart, nextCount);
-  }
+  }) => clampWindowStart(previousWindowStart, messageCount);
 
   /// 首帧只挂最新尾部，其余窗口消息按帧补齐。
   static List<T> initialPaintSlice<T>(

@@ -248,3 +248,21 @@ export function displayableTranscriptMessages(
     suppressUnpairedToolResults,
   ));
 }
+
+/** 历史页必须与当前记录相接；重叠部分保留实时版本，不能覆盖最新尾部。 */
+export function prependTranscriptHistory(
+  current: SessionMessage[],
+  earlier: SessionMessage[],
+): SessionMessage[] | null {
+  if (current.length === 0) return earlier;
+  const boundary = earlier.findIndex((message) => message.id === current[0]!.id);
+  if (boundary < 0) return null;
+  if (boundary === 0) return current;
+  const seen = new Set(current.map((message) => message.id));
+  const prefix = earlier.slice(0, boundary).filter((message) => {
+    if (seen.has(message.id)) return false;
+    seen.add(message.id);
+    return true;
+  });
+  return prefix.length === 0 ? current : [...prefix, ...current];
+}

@@ -393,6 +393,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   String? _pendingPresentedErrorId;
   final Set<String> _dismissedErrorIds = <String>{};
   int _windowStartIndex = 0;
+  String? _listCenterMessageId;
   bool _loadingOlderMessages = false;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
@@ -449,7 +450,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int _pendingPrependAnchorStableFrames = 0;
   bool _prependAnchorCorrectionQueued = false;
   TranscriptScrollActivity? _scrollActivity;
-  _PendingRevealRestore? _pendingRevealRestore;
   Future<void>? _activeRevealOlderFuture;
   int _initialLayoutSettleGeneration = 0;
   _TranscriptInitialRevealPhase _initialRevealPhase =
@@ -638,7 +638,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           0,
           newDisplayLength - oldDisplayLength,
         );
-        // 展示更早切片时保留原尾部，并滑动有界实体化窗口以限制组件数量。
+        // 只向前展开历史，已展示的尾部始终保留。
         _windowStartIndex = TranscriptListWindowing.clampWindowStart(
           TranscriptListWindowing.windowStartAfterHistoryPrepend(
             previousWindowStart: _windowStartIndex,
@@ -650,7 +650,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         final oldDisplayLength = oldWidget.session.displayMessages.length;
         final newDisplayLength = widget.session.displayMessages.length;
         if (newDisplayLength < oldDisplayLength) {
-          final previousRange = TranscriptListWindowing.boundedRange(
+          final previousRange = TranscriptListWindowing.visibleRange(
             preferredStart: previousWindowStartIndex,
             messageCount: oldDisplayLength,
           );
@@ -665,7 +665,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         } else {
           _windowStartIndex = TranscriptListWindowing.windowStartAfterAppend(
             previousWindowStart: previousWindowStartIndex,
-            previousMessageCount: oldDisplayLength,
             messageCount: newDisplayLength,
           );
         }
@@ -686,6 +685,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void _resetSessionScopedState() {
     _initialLayoutSettleGeneration += 1;
     _selectedMessageId = null;
+    _listCenterMessageId = null;
     _highlightedMessageId = null;
     _targetHighlightTimer?.cancel();
     _targetHighlightTimer = null;
@@ -778,7 +778,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   void _syncWindowStartIndex({bool forceReset = false}) {
     final displayMessages = widget.session.displayMessages;
-    final preferred = forceReset
+    final nextWindowStartIndex = forceReset
         ? TranscriptListWindowing.initialWindowStartIndex(
             displayMessages.length,
           )
@@ -786,13 +786,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             _windowStartIndex,
             displayMessages.length,
           );
-    // 每次构建均限制实体化范围，使富文本渲染成本不随会话总消息数增长。
-    final nextWindowStartIndex = forceReset
-        ? TranscriptListWindowing.cappedWindowStart(
-            preferredWindowStart: preferred,
-            messageCount: displayMessages.length,
-          )
-        : preferred;
     if (forceReset) {
       _loadingOlderMessages = false;
     }
@@ -804,7 +797,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   List<AiSessionMessage> _visibleMessagesForWindow() {
     final displayMessages = widget.session.displayMessages;
-    final range = TranscriptListWindowing.boundedRange(
+    final range = TranscriptListWindowing.visibleRange(
       preferredStart: _windowStartIndex,
       messageCount: displayMessages.length,
     );
@@ -820,6 +813,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       visibleMessages,
     );
     _replaceRenderEntries(firstPaint, animate: false);
+    _listCenterMessageId ??= firstPaint.firstOrNull?.id;
     final needsFill = firstPaint.length < visibleMessages.length;
     _staggerFillActive = needsFill;
     if (needsFill &&
@@ -1247,30 +1241,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           8,
     );
     while (requestIsCurrent() && safety-- > 0) {
-      final currentRange = TranscriptListWindowing.boundedRange(
+      final currentRange = TranscriptListWindowing.visibleRange(
         preferredStart: _windowStartIndex,
         messageCount: display.length,
       );
       final targetNeedsOlderWindow =
           targetDisplayIndex >= 0 && targetDisplayIndex < currentRange.start;
-      final targetNeedsNewerWindow =
-          targetDisplayIndex >= currentRange.end &&
-          targetDisplayIndex < display.length;
       final targetNeedsHydration =
           targetDisplayIndex < 0 && widget.session.hasMoreHistoricalMessages;
-      if (targetNeedsNewerWindow) {
-        final nextStart = math.min(
-          targetDisplayIndex,
-          TranscriptListWindowing.latestWindowStart(display.length),
-        );
-        if (nextStart != _windowStartIndex) {
-          setState(() {
-            _windowStartIndex = nextStart;
-            _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
-          });
-        }
-        await _awaitEndOfFrameBounded();
-      } else if (targetNeedsOlderWindow || targetNeedsHydration) {
+      if (targetNeedsOlderWindow || targetNeedsHydration) {
         await _revealOlderMessages();
         await _awaitEndOfFrameBounded();
       } else {
@@ -1329,15 +1308,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     final position = widget.controller.position;
     final maxExtent = position.maxScrollExtent;
-    if (maxExtent <= 0) return false;
+    final scrollExtent = maxExtent - position.minScrollExtent;
+    if (scrollExtent <= 0) return false;
 
     double? bestTarget;
     var bestDistance = 1 << 30;
-    for (var index = 0; index < _renderEntries.length; index += 1) {
-      final entry = _renderEntries[index];
-      if (entry.exiting) continue;
-      final viewportOffset = _viewportOffsetForMessage(entry.id);
-      final ctx = _bubbleRegistry.contextOf(entry.id);
+    for (final messageId in _bubbleRegistry._contexts.keys.toList(
+      growable: false,
+    )) {
+      final index = _renderEntryIndexById[messageId];
+      if (index == null) continue;
+      final viewportOffset = _viewportOffsetForMessage(messageId);
+      final ctx = _bubbleRegistry.contextOf(messageId);
       final box = ctx?.findRenderObject() as RenderBox?;
       if (viewportOffset == null ||
           box == null ||
@@ -1360,8 +1342,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
 
     bestTarget ??=
-        maxExtent *
-        (targetIndex / math.max(1, _renderEntries.length - 1)).clamp(0.0, 1.0);
+        position.minScrollExtent +
+        scrollExtent *
+            (targetIndex / math.max(1, _renderEntries.length - 1)).clamp(
+              0.0,
+              1.0,
+            );
     final target = bestTarget.clamp(position.minScrollExtent, maxExtent);
     if ((target - position.pixels).abs() < 1) {
       return false;
@@ -1399,33 +1385,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       });
       return;
     }
-    final pending = _pendingRevealRestore;
-    if (pending == null) {
-      if (!widget.preserveViewportAfterUserScroll) return;
-      final anchor = _capturePrependAnchor();
-      if (anchor != null) {
-        _startPrependAnchorStabilization(
-          anchor,
-          settleFrameCount: _postScrollContentAnchorSettleFrameCount,
-        );
-      }
-      return;
+    if (!widget.preserveViewportAfterUserScroll) return;
+    final anchor = _capturePrependAnchor();
+    if (anchor != null) {
+      _startPrependAnchorStabilization(
+        anchor,
+        settleFrameCount: _postScrollContentAnchorSettleFrameCount,
+      );
     }
-    final target = pending.targetPixels.clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    _pendingRevealRestore = null;
-    if ((target - position.pixels).abs() <
-        _transcriptPrependAnchorMinCorrection) {
-      return;
-    }
-    widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
   }
 
   void _cancelPendingViewportRestore() {
     _viewportRestoreGeneration += 1;
-    _pendingRevealRestore = null;
     _pendingPrependAnchor = null;
     _pendingPrependAnchorFrames = 0;
     _pendingPrependAnchorStableFrames = 0;
@@ -1979,28 +1950,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     widget.onRevealOlderMessages();
 
-    // 保存滚动指标以便恢复视觉位置。
-    final scrollController = widget.controller;
-    final hadClients = scrollController.hasClients;
-    final hiddenBefore =
-        widget.session.hiddenHistoricalMessageCount + _windowStartIndex;
-    final previousPixels = hadClients ? scrollController.position.pixels : 0.0;
-    final currentMaxExtent = hadClients
-        ? scrollController.position.maxScrollExtent
-        : 0.0;
     final anchor = _capturePrependAnchor();
     final restoreGeneration = _viewportRestoreGeneration;
     final restoreSessionId = widget.session.id;
-    final preserveTriggerOffset = hiddenBefore > 0;
-    var revealStarted = false;
     setState(() {
       _loadingOlderMessages = true;
     });
-    revealStarted = true;
 
     try {
       await Future<void>.delayed(kOpenHandFramePeriodicTimerInterval);
-      if (!mounted) {
+      if (!mounted || widget.session.id != restoreSessionId) {
         return;
       }
 
@@ -2016,12 +1975,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         await context.read<AiSessionController>().loadOlderSessionMessages(
           widget.session.id,
         );
-        if (!mounted) {
+        if (!mounted || widget.session.id != restoreSessionId) {
           return;
         }
       }
       await _awaitEndOfFrameBounded();
-      if (!mounted) {
+      if (!mounted || widget.session.id != restoreSessionId) {
         return;
       }
       // 异步加载期间发生手动滚动或切换会话后，不再恢复旧位置。
@@ -2030,70 +1989,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _isTranscriptScrollActive(context)) {
         return;
       }
-      if (preserveTriggerOffset && hadClients) {
-        final position = scrollController.positions.isNotEmpty
-            ? scrollController.positions.last
-            : null;
-        final scrollActive = _isTranscriptScrollActive(context);
-        if (position != null &&
-            !scrollActive &&
-            !position.isScrollingNotifier.value) {
-          final target = previousPixels.clamp(
-            position.minScrollExtent,
-            position.maxScrollExtent,
-          );
-          if ((target - position.pixels).abs() >=
-              _transcriptPrependAnchorMinCorrection) {
-            widget.onProgrammaticScrollCorrection(
-              () => position.jumpTo(target),
-            );
-          }
-        } else {
-          _pendingRevealRestore = position == null
-              ? null
-              : _PendingRevealRestore(targetPixels: previousPixels);
-          if (_pendingRevealRestore != null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _handleRevealScrollActivityChanged();
-              }
-            });
-          }
-        }
-        return;
-      }
-
-      final restoredByAnchor = anchor != null && _restorePrependAnchor(anchor);
       if (anchor != null) {
+        _restorePrependAnchor(anchor);
         _startPrependAnchorStabilization(anchor);
-      }
-
-      // 锚点不可用时，用 maxScrollExtent 差值兜底保持旧视觉位置。
-      if (!restoredByAnchor && hadClients) {
-        final position = scrollController.positions.isNotEmpty
-            ? scrollController.positions.last
-            : null;
-        if (position != null) {
-          final newMaxExtent = position.maxScrollExtent;
-          final delta = newMaxExtent - currentMaxExtent;
-          if (delta > 0) {
-            final target = (position.pixels + delta).clamp(
-              position.minScrollExtent,
-              newMaxExtent,
-            );
-            widget.onProgrammaticScrollCorrection(
-              () => position.jumpTo(target),
-            );
-          }
-        }
       }
     } catch (error, stack) {
       silentLog('home_transcript', '显示更早消息', error, stack);
     } finally {
-      if (revealStarted && mounted) {
+      if (mounted && widget.session.id == restoreSessionId) {
         await _awaitEndOfFrameBounded();
         await Future<void>.delayed(_transcriptHistoryRevealCooldown);
-        if (mounted) {
+        if (mounted && widget.session.id == restoreSessionId) {
           setState(() {
             _loadingOlderMessages = false;
           });
@@ -2107,29 +2013,22 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final viewportExtent = widget.controller.position.viewportDimension;
     _TranscriptViewportAnchor? best;
     var bestRank = double.infinity;
-    for (final entry in _renderEntries) {
-      if (entry.exiting) continue;
-      final offset = _viewportOffsetForMessage(entry.id);
+    for (final messageId in _bubbleRegistry._contexts.keys.toList(
+      growable: false,
+    )) {
+      final offset = _viewportOffsetForMessage(messageId);
       if (offset == null) continue;
-      final ctx = _bubbleRegistry.contextOf(entry.id);
+      final ctx = _bubbleRegistry.contextOf(messageId);
       final box = ctx?.findRenderObject() as RenderBox?;
       if (box == null || !box.attached || !box.hasSize) continue;
       final bottom = offset + box.size.height;
       if (bottom <= 0 || offset >= viewportExtent) continue;
-      if (offset >= 0) {
-        // 条目按视觉顺序排列：首个顶部落在视口内的气泡即最优锚点，
-        // 其后偏移只会更大，无需继续对剩余窗口做 localToGlobal 测量。
-        return _TranscriptViewportAnchor(
-          messageId: entry.id,
-          viewportOffset: offset,
-        );
-      }
-      // 负偏移（顶部在视口上方）作兜底，取最靠近视口顶的一个。
-      final rank = viewportExtent + offset.abs();
+      // 仅测量已挂载卡片，优先选择视口内最靠上的完整消息。
+      final rank = offset >= 0 ? offset : viewportExtent + offset.abs();
       if (rank < bestRank) {
         bestRank = rank;
         best = _TranscriptViewportAnchor(
-          messageId: entry.id,
+          messageId: messageId,
           viewportOffset: offset,
         );
       }
@@ -2423,7 +2322,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     required int listItemCount,
     required int hiddenLoadMoreCount,
     required int hiddenMessageCount,
-    required bool hasNewerMessages,
     required int pendingPlaceholderCount,
     required int retiringPlaceholderCount,
     required int failureCardCount,
@@ -2551,7 +2449,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         visibleMessageIndex == visibleMessages.length - 1;
     final hasLaterDisplayMessages =
         visibleMessageIndex != null &&
-        (visibleMessageIndex < visibleMessages.length - 1 || hasNewerMessages);
+        visibleMessageIndex < visibleMessages.length - 1;
     final shouldAnimateAppearance =
         !entry.exiting &&
         widget.sendPhase != AiSendPhase.idle &&
@@ -2588,10 +2486,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         translationSettings.enabled &&
         !hasMultimediaContent &&
         _isMessageTranslatable(message, settingsController);
-    final usesHtmlRenderer = _messageUsesHtmlRenderer(
-      message,
-      settingsController,
-    );
     final isLocalSubmissionPreview =
         message.metadata[_localSubmissionPreviewMetadataKey] == true;
     final bubble = _TranscriptBubbleRegistrar(
@@ -2711,12 +2605,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         },
       ),
     );
-    // 有界消息窗口内复用已构建正文；平台视图仍按需释放。
+    // 仅交互中的卡片保活，历史正文离开缓存区后交给列表回收。
     final stableBubble = _TranscriptBubbleKeepAlive(
-      enabled:
-          (!entry.exiting && (!usesHtmlRenderer || isSelected)) ||
-          message.kind == AiSessionMessageKind.fileMutationSummary ||
-          message.metadata['round_file_mutation_summary'] == true,
+      enabled: isSelected || speechPlaying || translationLoading,
       child: bubble,
     );
     final content = shouldAnimateAppearance
@@ -2874,7 +2765,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         );
     final aiSessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
-    final range = TranscriptListWindowing.boundedRange(
+    final range = TranscriptListWindowing.visibleRange(
       preferredStart: _windowStartIndex,
       messageCount: displayMessages.length,
     );
@@ -2940,21 +2831,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       );
     }
     final hiddenLoadMoreCount = hiddenMessageCount > 0 ? 1 : 0;
-    final hasNewerMessages = range.end < displayMessages.length;
     // 等待媒体生成结果时在用户消息下方展示微光占位卡片。
-    final pendingCreationRequest = !hasNewerMessages
-        ? _resolvePendingCreationPlaceholderCached(
-            session: session,
-            displayMessages: displayMessages,
-            windowStart: clampedWindowStartIndex,
-            sendPhase: widget.sendPhase,
-            allowWhenIdle: false,
-          )
-        : null;
+    final pendingCreationRequest = _resolvePendingCreationPlaceholderCached(
+      session: session,
+      displayMessages: displayMessages,
+      windowStart: clampedWindowStartIndex,
+      sendPhase: widget.sendPhase,
+      allowWhenIdle: false,
+    );
     // 媒体生成未产出内容时用失败卡片替换微光占位，并紧邻原请求展示。
     final failedCreationRequest =
-        (!hasNewerMessages &&
-            pendingCreationRequest == null &&
+        (pendingCreationRequest == null &&
             userVisibleError != null &&
             widget.sendPhase == AiSendPhase.idle)
         ? _resolvePendingCreationPlaceholderCached(
@@ -3008,6 +2895,44 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   unawaited(widget.ttsPlaybackService.stop());
                 });
               }
+              final centerIndex =
+                  _renderEntryIndexById[_listCenterMessageId] ?? 0;
+              _listCenterMessageId = _renderEntries[centerIndex].id;
+              final beforeCenterCount = hiddenLoadMoreCount + centerIndex;
+              const centerKey = ValueKey<String>('transcript-center');
+              int? findIndex(Key key) => _findTranscriptListChildIndex(
+                key,
+                hiddenLoadMoreCount: hiddenLoadMoreCount,
+                pendingPlaceholderCount: pendingPlaceholderCount,
+                retiringPlaceholderCount: retiringPlaceholderCount,
+                failureCardCount: failureCardCount,
+                errorBannerCount: errorBannerCount,
+              );
+              Widget buildItem(BuildContext context, int index) =>
+                  _buildTranscriptListItem(
+                    context: context,
+                    index: index,
+                    session: session,
+                    listItemCount: listItemCount,
+                    hiddenLoadMoreCount: hiddenLoadMoreCount,
+                    hiddenMessageCount: hiddenMessageCount,
+                    pendingPlaceholderCount: pendingPlaceholderCount,
+                    retiringPlaceholderCount: retiringPlaceholderCount,
+                    failureCardCount: failureCardCount,
+                    pendingCreationRequest: pendingCreationRequest,
+                    retiringCreationRequest: retiringCreationRequest,
+                    failedCreationRequest: failedCreationRequest,
+                    userVisibleError: userVisibleError,
+                    showSelfLearningMessages: showSelfLearningMessages,
+                    visibleMessages: visibleMessages,
+                    visibleMessageIndexById: visibleMessageIndexById,
+                    ttsSnapshot: ttsSnapshot,
+                    ttsSettings: ttsSettings,
+                    translationSettings: translationSettings,
+                    settingsController: settingsController,
+                    telemetryDebugEnabled: telemetryDebugEnabled,
+                    aiSessionController: aiSessionController,
+                  );
               final transcriptList = OpenHandSafeScrollbar(
                 controller: widget.controller,
                 thickness: _kTranscriptScrollbarThickness,
@@ -3015,7 +2940,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                 stabilizeMetrics: true,
                 child: NotificationListener<ScrollNotification>(
                   onNotification: widget.onScrollNotification,
-                  child: ListView.builder(
+                  child: CustomScrollView(
                     scrollCacheExtent: const ScrollCacheExtent.pixels(
                       _kTranscriptListCacheExtent,
                     ),
@@ -3023,45 +2948,48 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     controller: widget.controller,
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.only(bottom: 12),
                     physics: kOpenHandClampingPhysics,
                     primary: false,
-                    addRepaintBoundaries: false,
-                    itemCount: listItemCount,
-                    findChildIndexCallback: (key) =>
-                        _findTranscriptListChildIndex(
-                          key,
-                          hiddenLoadMoreCount: hiddenLoadMoreCount,
-                          pendingPlaceholderCount: pendingPlaceholderCount,
-                          retiringPlaceholderCount: retiringPlaceholderCount,
-                          failureCardCount: failureCardCount,
-                          errorBannerCount: errorBannerCount,
+                    center: centerKey,
+                    anchor: 1,
+                    slivers: [
+                      // 历史向负方向增长，不改动当前消息的布局坐标。
+                      if (beforeCenterCount > 0)
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) => buildItem(
+                              context,
+                              beforeCenterCount - index - 1,
+                            ),
+                            childCount: beforeCenterCount,
+                            addRepaintBoundaries: false,
+                            findChildIndexCallback: (key) {
+                              final index = findIndex(key);
+                              return index != null && index < beforeCenterCount
+                                  ? beforeCenterCount - index - 1
+                                  : null;
+                            },
+                          ),
                         ),
-                    itemBuilder: (context, index) => _buildTranscriptListItem(
-                      context: context,
-                      index: index,
-                      session: session,
-                      listItemCount: listItemCount,
-                      hiddenLoadMoreCount: hiddenLoadMoreCount,
-                      hiddenMessageCount: hiddenMessageCount,
-                      hasNewerMessages: hasNewerMessages,
-                      pendingPlaceholderCount: pendingPlaceholderCount,
-                      retiringPlaceholderCount: retiringPlaceholderCount,
-                      failureCardCount: failureCardCount,
-                      pendingCreationRequest: pendingCreationRequest,
-                      retiringCreationRequest: retiringCreationRequest,
-                      failedCreationRequest: failedCreationRequest,
-                      userVisibleError: userVisibleError,
-                      showSelfLearningMessages: showSelfLearningMessages,
-                      visibleMessages: visibleMessages,
-                      visibleMessageIndexById: visibleMessageIndexById,
-                      ttsSnapshot: ttsSnapshot,
-                      ttsSettings: ttsSettings,
-                      translationSettings: translationSettings,
-                      settingsController: settingsController,
-                      telemetryDebugEnabled: telemetryDebugEnabled,
-                      aiSessionController: aiSessionController,
-                    ),
+                      SliverPadding(
+                        key: centerKey,
+                        padding: const EdgeInsets.only(bottom: 12),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) =>
+                                buildItem(context, beforeCenterCount + index),
+                            childCount: listItemCount - beforeCenterCount,
+                            addRepaintBoundaries: false,
+                            findChildIndexCallback: (key) {
+                              final index = findIndex(key);
+                              return index != null && index >= beforeCenterCount
+                                  ? index - beforeCenterCount
+                                  : null;
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -3121,12 +3049,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       ],
     );
   }
-}
-
-class _PendingRevealRestore {
-  const _PendingRevealRestore({required this.targetPixels});
-
-  final double targetPixels;
 }
 
 class _TranscriptLoadEarlierButton extends StatefulWidget {

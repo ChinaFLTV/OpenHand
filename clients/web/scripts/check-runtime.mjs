@@ -31,14 +31,27 @@ try {
       viewportTop: 5600, viewportBottom: 5800, maxVisibleRows,
     });
     assert.ok(range.start <= 100 && range.end > 100, '短消息的屏外预加载不能挤走视口起始行');
-    assert.ok(range.end - range.start <= maxVisibleRows, '视口优先仍须遵守挂载预算');
-    if (maxVisibleRows === 8) assert.ok(range.end >= 104, '额度足够时必须覆盖整个视口');
+    assert.ok(range.end >= 104, '短消息必须完整覆盖视口，不能因预算较小被隐藏');
+    assert.ok(range.end - range.start <= Math.max(maxVisibleRows, 4), '只为视口必需的消息放开预算');
   }
   const tailRange = resolveVirtualMessageRange({
     messageCount: shortHeights.length, heights: shortHeights, prefix: shortPrefix,
     viewportTop: 55488, viewportBottom: 55988, maxVisibleRows: 2,
   });
-  assert.deepEqual(tailRange, { start: 998, end: 1000 }, '首屏预算不足时贴底仍须保留最新消息');
+  assert.deepEqual(tailRange, { start: 991, end: 1000 }, '贴底时须覆盖整个视口并保留最新消息');
+  for (const viewportTop of [0, 560, 5600, 55000]) {
+    const range = resolveVirtualMessageRange({
+      messageCount: shortHeights.length, heights: shortHeights, prefix: shortPrefix,
+      viewportTop, viewportBottom: viewportTop + 900, maxVisibleRows: 8,
+    });
+    for (let index = 0; index < shortHeights.length; index++) {
+      const top = index * 56;
+      if (top < viewportTop + 900 && top + 44 > viewportTop) {
+        assert.ok(index >= range.start && index < range.end, '大视口往返滚动不能遗漏可见短消息');
+      }
+    }
+    assert.ok(range.end - range.start <= 18, '大视口仍只挂载附近消息');
+  }
   const mixedHeights = [...shortHeights];
   mixedHeights[100] = 4000;
   const mixedRange = resolveVirtualMessageRange({
@@ -46,6 +59,26 @@ try {
     viewportTop: 6000, viewportBottom: 6480,
   });
   assert.ok(mixedRange.start <= 100 && mixedRange.end > 100, '高卡片中部滚动必须保留当前卡片');
+
+  const { prependTranscriptHistory } = await server.ssrLoadModule('/src/shared/util/session_transcript_messages.ts');
+  const history = Array.from({ length: 600 }, (_, index) => ({ id: `${index}`, content: `历史消息 ${index}` }));
+  let loaded = history.slice(-10);
+  for (let offset = 590; offset > 0;) {
+    const start = Math.max(0, offset - 20);
+    loaded = prependTranscriptHistory(loaded, history.slice(start, offset + 1));
+    assert.ok(loaded, '连续历史页必须可合并');
+    assert.deepEqual(loaded, history.slice(start), '上翻超过旧的 200 条上限仍须保留每条消息和最终回复');
+    offset = start;
+  }
+  const liveBoundary = { ...history[590], content: '实时更新后的完整正文' };
+  const liveTail = { id: '600', content: '加载历史期间新增的回复' };
+  const live = [liveBoundary, ...history.slice(591), liveTail];
+  const mergedHistory = prependTranscriptHistory(live, history.slice(570, 595));
+  assert.equal(mergedHistory.at(-1), liveTail, '历史响应不能删除加载期间的新消息');
+  assert.equal(mergedHistory[20], liveBoundary, '历史预览不能覆盖实时正文');
+  assert.equal(new Set(mergedHistory.map(message => message.id)).size, mergedHistory.length, '分页重叠不能重复消息');
+  assert.equal(prependTranscriptHistory(live, history.slice(0, 20)), null, '不相接的分页不能伪装成连续历史');
+  assert.equal(prependTranscriptHistory(live, history.slice(590)), live, '重复边界页应复用现有消息');
 
   const { resolveImageGallery, collectImageGallery } = await server.ssrLoadModule('/src/components/image_gallery.ts');
   const galleryEntries = Array.from({ length: 600 }, (_, index) => ({

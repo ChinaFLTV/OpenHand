@@ -123,6 +123,7 @@ import {
   displayableTranscriptMessages,
   isToolMessage,
   messageHasRenderableTranscriptOutput,
+  prependTranscriptHistory,
 } from '../../../shared/util/session_transcript_messages';
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
 import { ModelPickerDialog } from '../../../components/ModelPickerDialog';
@@ -188,17 +189,14 @@ import {
   MESSAGE_LIST_DEFAULT_PAGE_SIZE,
   MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
   MESSAGE_LIST_INITIAL_VISIBLE_ROWS,
-  MESSAGE_LIST_MAX_LOADED_MESSAGES,
+  MESSAGE_LIST_REVEAL_PAGE_SIZE,
   MESSAGE_LIST_MAX_VISIBLE_ROWS,
   MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
-  boundLiveMessageWindow,
   buildHeightPrefix,
   clampMessageRowHeight,
-  clampVirtualMessageRange,
   initialVirtualMessageRange,
   rebaseVirtualMessageRange,
   resolveVirtualMessageRange,
-  remainingNewerMessageCount,
   shouldVirtualizeMessageList,
   virtualMessageTop,
   virtualMessageRangeAroundIndex,
@@ -878,7 +876,11 @@ function mergeServerWindowResult(prev: SessionMessage[], latest: SessionMessage[
   if (options.preserveLocalStreamingTail && latest.length === 0) {
     return { items: prev, offset: currentOffset };
   }
-  if (nextOffset < currentOffset) {
+  // 展示列表会合并工具结果，优先按消息标识定位重叠，不能用原始偏移切片。
+  const overlapIndex = latest.length > 0
+    ? prev.findIndex((message) => message.id === latest[0]!.id)
+    : -1;
+  if (overlapIndex < 0 && nextOffset < currentOffset) {
     if (options.preserveLocalStreamingTail) {
       const firstPrev = prev[0];
       const overlapIndex = firstPrev ? latest.findIndex((item) => item.id === firstPrev.id) : -1;
@@ -893,7 +895,7 @@ function mergeServerWindowResult(prev: SessionMessage[], latest: SessionMessage[
     }
     return { items: latest, offset: nextOffset };
   }
-  const prefixCount = nextOffset - currentOffset;
+  const prefixCount = overlapIndex >= 0 ? overlapIndex : nextOffset - currentOffset;
   if (prefixCount <= 0) {
     const merged = mergeStream(prev, latest, options);
     return {
@@ -907,16 +909,7 @@ function mergeServerWindowResult(prev: SessionMessage[], latest: SessionMessage[
     const firstLatestId = latest[0]?.id;
     const expectedFirstId = suffix[0]?.id;
     if (suffix.length > 0 && firstLatestId && expectedFirstId !== firstLatestId) {
-      const overlapIndex = suffix.findIndex((item) => item.id === firstLatestId);
-      if (overlapIndex > 0) {
-        const prefix = prev.slice(0, prefixCount + overlapIndex);
-        const merged = [...prefix, ...mergeStream(prev.slice(prefixCount + overlapIndex), latest, options)];
-        return {
-          items: appendLocalStreamingTail(prev, merged),
-          offset: currentOffset,
-        };
-      }
-      if (overlapIndex < 0 && suffix.some(isStreamingTailMessage)) {
+      if (suffix.some(isStreamingTailMessage)) {
         return { items: prev, offset: currentOffset };
       }
     }
@@ -1741,13 +1734,6 @@ export function VirtualMessageList({
   ) {
     renderRange = initialRange;
   }
-  if (virtualized) {
-    renderRange = clampVirtualMessageRange(
-      renderRange,
-      messages.length,
-      visibleRowBudget,
-    );
-  }
 
   useLayoutEffect(() => {
     previousMembershipRef.current = { key: membershipKey, messageIds, virtualized };
@@ -2570,6 +2556,8 @@ export function SessionDetailPage() {
   const associatedKnowledgeBaseCacheRef = useRef(new Map<string, AssociatedKnowledgeBaseCacheEntry>());
   const associatedKnowledgeBaseBuildCacheRef = useRef<AssociatedKnowledgeBaseBuildCache | null>(null);
   const windowOffsetRef = useRef(0);
+  const hasNewerMessagesRef = useRef(false);
+  const [hasNewerMessages, setHasNewerMessages] = useState(false);
   const totalKnownRef = useRef(0);
 
   const [detail, setDetail] = useState<SessionDetailResponse | null>(null);
@@ -4430,7 +4418,7 @@ export function SessionDetailPage() {
     setWindowOffset(offset);
   }
 
-  function replaceBoundedMessageWindow(items: SessionMessage[], offset: number): void {
+  function restoreMessageWindow(items: SessionMessage[], offset: number): void {
     const restoredItems = items.map((message) => {
       if (!messageHasDeferredContent(message)) return message;
       const full = fullMessageContentCacheRef.current.get(message.id);
@@ -4447,8 +4435,7 @@ export function SessionDetailPage() {
         metadata,
       };
     });
-    const bounded = boundLiveMessageWindow(restoredItems, offset);
-    replaceMessageWindow(bounded.items, bounded.offset);
+    replaceMessageWindow(restoredItems, offset);
   }
 
   function updateTotalKnown(value: number): void {
@@ -4457,11 +4444,12 @@ export function SessionDetailPage() {
   }
 
   function messageWindowHasNewerMessages(): boolean {
-    return remainingNewerMessageCount(
-      totalKnownRef.current,
-      windowOffsetRef.current,
-      messagesRef.current.length,
-    ) > 0;
+    return hasNewerMessagesRef.current;
+  }
+
+  function updateHasNewerMessages(value: boolean): void {
+    hasNewerMessagesRef.current = value;
+    setHasNewerMessages(value);
   }
 
   function renderedMessageRow(messageId: string): HTMLElement | null {
@@ -4520,7 +4508,7 @@ export function SessionDetailPage() {
 
   function applyServerMessageWindow(latest: SessionMessage[], nextOffset: number, options: MergeServerWindowOptions = {}): void {
     const result = mergeServerWindowResult(messagesRef.current, latest, windowOffsetRef.current, nextOffset, options);
-    replaceBoundedMessageWindow(result.items, result.offset);
+    restoreMessageWindow(result.items, result.offset);
   }
 
   async function refreshAutoTitleSummary(): Promise<boolean> {
@@ -4593,6 +4581,7 @@ export function SessionDetailPage() {
     setError(null);
     associatedKnowledgeBaseCacheRef.current.clear();
     replaceMessageWindow([], 0);
+    updateHasNewerMessages(false);
     updateTotalKnown(0);
     setActiveMessageId(null);
     lastTailIdRef.current = null;
@@ -4611,7 +4600,8 @@ export function SessionDetailPage() {
         // 历史会话首批消息直接标记为已入场，绕过 CSS 入场 + 高度量动画的
         // 并发开销；后续流式 / SSE 真正新增的消息仍会正常入场。
         markMessagesAsAppeared(m.items.map((it) => it.id));
-        replaceBoundedMessageWindow(m.items, m.offset);
+        restoreMessageWindow(m.items, m.offset);
+        updateHasNewerMessages(m.has_newer ?? false);
         updateTotalKnown(m.total);
         updateSendPhaseValue(m.send_phase || d.runtime.send_phase || 'idle');
         updateLastErrorValue(m.last_error ?? d.runtime.last_error ?? null);
@@ -4661,12 +4651,13 @@ export function SessionDetailPage() {
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
       if (shouldReplaceWindow) {
         markMessagesAsAppeared(m.items.map((item) => item.id));
-        replaceBoundedMessageWindow(m.items, m.offset);
+        restoreMessageWindow(m.items, m.offset);
       } else {
         applyServerMessageWindow(m.items, m.offset, {
           preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase),
         });
       }
+      updateHasNewerMessages(m.has_newer ?? false);
       updateTotalKnown(m.total);
       updateSendPhaseValue(m.send_phase);
       updateLastErrorValue(m.last_error);
@@ -4698,41 +4689,47 @@ export function SessionDetailPage() {
       return;
     }
     const currentOffset = windowOffsetRef.current;
+    const boundaryId = messagesRef.current[0]?.id;
     if (currentOffset <= 0) return;
     const requestSessionId = sessionId;
     const ctrl = new AbortController();
     olderMessagesAbortRef.current = ctrl;
     setLoadingOlder(true);
     const scroller = mainRef.current;
-    const beforeHeight = scroller?.scrollHeight ?? 0;
-    const beforeY = scroller?.scrollTop ?? 0;
-    const currentMessages = messagesRef.current;
-    const anchorId = currentMessages[0]?.id ?? '';
-    const anchorTop = renderedMessageRow(anchorId)?.getBoundingClientRect().top;
+    const scrollIntentAt = lastUserScrollIntentAtRef.current;
+    const viewportTop = scroller?.getBoundingClientRect().top ?? 0;
+    const anchor = Array.from(messagesContentRef.current?.querySelectorAll<HTMLElement>(
+      '.oh-session-message-row[data-message-id]',
+    ) ?? []).find((row) => row.getBoundingClientRect().bottom > viewportTop);
+    const anchorId = anchor?.dataset['messageId'] ?? '';
+    const anchorTop = anchor?.getBoundingClientRect().top;
+    setAutoFollowPausedValue(true);
+    cancelAutoFollowMotion();
     try {
       const offset = Math.max(0, currentOffset - PAGE_SIZE);
-      const requestedLimit = Math.min(
-        MESSAGE_LIST_MAX_LOADED_MESSAGES,
-        currentMessages.length + (currentOffset - offset),
-      );
       const m = await listMessages(requestSessionId, {
-        limit: Math.max(1, requestedLimit),
+        // 多取一条边界消息，按标识合并；偏移可能按原始消息计数。
+        limit: currentOffset - offset + 1,
         offset,
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
-      const existing = new Set(currentMessages.map((item) => item.id));
+      const live = messagesRef.current;
+      const merged = prependTranscriptHistory(live, m.items);
+      if (merged == null) {
+        if (messagesRef.current[0]?.id !== boundaryId) return;
+        throw new Error(t('detail.historyChanged', '历史分页已变化，请刷新后重试。'));
+      }
+      if (m.offset >= windowOffsetRef.current) return;
+      const existing = new Set(live.map((item) => item.id));
       const incoming = m.items.filter((item) => !existing.has(item.id));
       markMessagesAsAppeared(incoming.map((item) => item.id));
       setOlderRenderSettlingValue(incoming.length > 0);
-      replaceBoundedMessageWindow(m.items, m.offset);
-      updateTotalKnown(m.total);
-      updateSendPhaseValue(m.send_phase);
-      updateLastErrorValue(m.last_error);
-      updatePendingWriteApprovalValue(m.pending_write_approval);
-      if (m.session) mergeSessionSummaryFromPolling(m.session);
+      restoreMessageWindow(merged, m.offset);
+      updateTotalKnown(Math.max(totalKnownRef.current, m.total));
       schedulePostRenderFrame(() => {
-        if (!ownsSessionAsyncResult(requestSessionId)) return;
+        if (!ownsSessionAsyncResult(requestSessionId) ||
+            lastUserScrollIntentAtRef.current !== scrollIntentAt) return;
         const el = mainRef.current;
         if (!el) return;
         const anchoredRow = renderedMessageRow(anchorId);
@@ -4741,16 +4738,13 @@ export function SessionDetailPage() {
             top: anchoredRow.getBoundingClientRect().top - anchorTop,
             behavior: 'auto',
           });
-          return;
         }
-        const delta = el.scrollHeight - beforeHeight;
-        el.scrollTo({ top: beforeY + delta, behavior: 'auto' });
       });
     } catch (e: unknown) {
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
-      setError(e instanceof Error ? e.message : String(e));
+      showSnackbar(e instanceof Error ? e.message : String(e), { tone: 'error' });
     } finally {
       if (olderMessagesAbortRef.current === ctrl) {
         olderMessagesAbortRef.current = null;
@@ -4796,7 +4790,7 @@ export function SessionDetailPage() {
 
       if (!targetFound) {
         pageResult = await listMessages(requestSessionId, {
-          limit: MESSAGE_LIST_MAX_LOADED_MESSAGES,
+          limit: MESSAGE_LIST_REVEAL_PAGE_SIZE,
           revealMessageId: starterMessageId || targetMessageId,
           signal: ctrl.signal,
         });
@@ -4821,7 +4815,8 @@ export function SessionDetailPage() {
 
       if (pageResult != null) {
         markMessagesAsAppeared(pageResult.items.map((message) => message.id));
-        replaceMessageWindow(pageResult.items, pageResult.offset);
+        restoreMessageWindow(pageResult.items, pageResult.offset);
+        updateHasNewerMessages(pageResult.has_newer ?? pageResult.has_more);
         updateTotalKnown(pageResult.total);
         updateSendPhaseValue(pageResult.send_phase);
         updateLastErrorValue(pageResult.last_error);
@@ -6589,11 +6584,6 @@ export function SessionDetailPage() {
     }
   }
   const remainingOlder = windowOffset;
-  const remainingNewer = remainingNewerMessageCount(
-    totalKnown,
-    windowOffset,
-    messages.length,
-  );
   const sessionCapsules = useMemo<SessionToolbarCapsule[]>(() => {
     if (!session) return [];
     const templateLabel = session.template_name || session.template_id;
@@ -6752,7 +6742,7 @@ export function SessionDetailPage() {
     onRefresh: async () => {
       if (remainingOlder > 0) {
         await loadOlder();
-      } else if (remainingNewer > 0) {
+      } else if (hasNewerMessages) {
         await returnToLatest();
       } else {
         await refresh();
@@ -6984,7 +6974,7 @@ export function SessionDetailPage() {
           trailing={
             <button
               type="button"
-              onClick={() => void (remainingNewer > 0 ? returnToLatest() : refresh())}
+              onClick={() => void (hasNewerMessages ? returnToLatest() : refresh())}
               disabled={refreshing || effectiveLoadingDetail}
               class="oh-tap-press oh-icon-button oh-session-refresh-button flex-none disabled:opacity-50"
               style={{

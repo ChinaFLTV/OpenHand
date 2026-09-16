@@ -8202,7 +8202,9 @@ class WebMessagePlatformService {
         ? firstRawIndex - 1
         : rawIndexByMessageId[selectedMessages.last.id.trim()] ??
               firstRawIndex + selectedMessages.length - 1;
-    final hasNewer = selectedMessages.isNotEmpty && lastRawIndex + 1 < total;
+    // 尾页已覆盖最新展示消息，末尾被合并的工具结果不代表还有新消息。
+    final hasNewer =
+        !tail && selectedMessages.isNotEmpty && lastRawIndex + 1 < total;
     return (
       messages: selectedMessages,
       offset: math.max(0, math.min(firstRawIndex, total)),

@@ -2,7 +2,7 @@
 
 export const MESSAGE_LIST_DEFAULT_PAGE_SIZE = 20;
 export const MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE = 10;
-export const MESSAGE_LIST_MAX_LOADED_MESSAGES = 200;
+export const MESSAGE_LIST_REVEAL_PAGE_SIZE = 200;
 const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 6;
 export const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 480;
 export const MESSAGE_LIST_MAX_VISIBLE_ROWS = 8;
@@ -57,34 +57,6 @@ export function rebaseVirtualMessageRange<T>(
     return { start, end: Math.min(nextIds.length, start + span) };
   }
   return null;
-}
-
-export function boundLiveMessageWindow<T>(
-  messages: T[],
-  windowOffset: number,
-  maxMessages = MESSAGE_LIST_MAX_LOADED_MESSAGES,
-): { items: T[]; offset: number } {
-  const limit = Math.max(1, Math.floor(maxMessages));
-  const safeOffset = Math.max(0, Math.floor(windowOffset));
-  if (messages.length <= limit) {
-    return { items: messages, offset: safeOffset };
-  }
-  const dropped = messages.length - limit;
-  return {
-    items: messages.slice(dropped),
-    offset: safeOffset + dropped,
-  };
-}
-
-export function remainingNewerMessageCount(
-  total: number,
-  windowOffset: number,
-  loadedCount: number,
-): number {
-  const safeTotal = Math.max(0, Math.floor(total));
-  const safeOffset = Math.max(0, Math.floor(windowOffset));
-  const safeLoadedCount = Math.max(0, Math.floor(loadedCount));
-  return Math.max(0, safeTotal - safeOffset - safeLoadedCount);
 }
 
 export function clampMessageRowHeight(
@@ -182,27 +154,6 @@ function firstVirtualMessageAfter(
     heights.length,
     (index) => virtualMessageTop(prefix, index, gapPx) > targetY,
   );
-}
-
-export function clampVirtualMessageRange(
-  range: VirtualMessageRange,
-  messageCount: number,
-  maxVisibleRows = MESSAGE_LIST_MAX_VISIBLE_ROWS,
-): VirtualMessageRange {
-  const count = Math.max(0, Math.floor(messageCount));
-  if (count <= 0) {
-    return { start: 0, end: 0 };
-  }
-  const start = Math.max(0, Math.min(count, Math.floor(range.start)));
-  const end = Math.max(start, Math.min(count, Math.floor(range.end)));
-  const maxRows = Math.max(1, Math.floor(maxVisibleRows));
-  if (end - start <= maxRows) {
-    return { start, end };
-  }
-  if (end >= count) {
-    return { start: Math.max(0, count - maxRows), end: count };
-  }
-  return { start, end: Math.min(count, start + maxRows) };
 }
 
 /** 首帧优先展示最新尾部，使会话贴近底部且无需挂载全部历史。 */
@@ -304,10 +255,9 @@ export function resolveVirtualMessageRange(params: {
   const visibleEnd = Math.max(visibleStart + 1, Math.min(count, firstVirtualMessageAfter(
     params.prefix, params.heights, params.viewportBottom,
   )));
-  // 首屏贴底时优先保留最新消息，尤其是分帧预算尚未补齐的阶段。
-  if (visibleEnd === count && params.viewportBottom >= virtualMessageTotalHeight(params.prefix, count)) {
-    return { start: Math.max(0, count - maxRows), end: count };
-  }
+  // 挂载预算只限制预加载；短消息较多时必须覆盖整个视口，不能留下空洞。
+  const visibleCount = visibleEnd - visibleStart;
+  if (visibleCount >= maxRows) return { start: visibleStart, end: visibleEnd };
   const spare = Math.max(0, maxRows - (visibleEnd - visibleStart));
   const start = Math.max(nextStart, Math.min(
     visibleStart - Math.floor(spare / 2),

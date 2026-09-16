@@ -23,6 +23,7 @@ import 'package:openhand/shared/util/sensitive_data.dart';
 import 'package:openhand/shared/util/storage_identifier.dart';
 import 'package:openhand/shared/util/text_clip.dart';
 import 'package:openhand/shared/util/text_search.dart';
+import 'package:openhand/shared/util/transcript_list_windowing.dart';
 import 'package:openhand/shared/util/xml_escape.dart';
 
 /// 直接驱动抽出的共享实现：代表输入进、真实返回值出。
@@ -50,6 +51,7 @@ Future<void> main() async {
   failures += _checkPortableFileNameSanitization();
   failures += _checkPlatformShell();
   failures += _checkTextSearch();
+  failures += _checkTranscriptHistory();
   failures += _checkBoundedTextBuffer();
   failures += _checkLifecycleCache();
   failures += _checkSensitiveTextRedaction();
@@ -939,6 +941,45 @@ Future<int> _checkBatchSubscriptionCancellation() async {
   ]);
   if (!succeeded || !firstCancelled || !secondCancelled) {
     stderr.writeln('cancelStreamSubscriptionsBounded 未完整取消订阅');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkTranscriptHistory() {
+  for (final count in [0, 4, 8, 13, 100, 1000]) {
+    var start = TranscriptListWindowing.initialWindowStartIndex(count);
+    for (var page = 0; page <= count ~/ 6 + 1; page++) {
+      final range = TranscriptListWindowing.visibleRange(
+        preferredStart: start,
+        messageCount: count,
+      );
+      if (range.end != count || range.start != start) {
+        stderr.writeln('展开历史后丢失最新尾部：总数 $count，起点 $start');
+        return 1;
+      }
+      final appendedStart = TranscriptListWindowing.windowStartAfterAppend(
+        previousWindowStart: start,
+        messageCount: count + 10,
+      );
+      if (appendedStart != start) {
+        stderr.writeln('追加消息不能收回已展开的历史');
+        return 1;
+      }
+      if (start == 0) break;
+      start = TranscriptListWindowing.revealOlderWindowStart(start);
+    }
+  }
+  final start = TranscriptListWindowing.windowStartAfterHistoryPrepend(
+    previousWindowStart: 0,
+    addedDisplayCount: 40,
+  );
+  final hydrated = TranscriptListWindowing.visibleRange(
+    preferredStart: start,
+    messageCount: 140,
+  );
+  if (hydrated.end != 140 || hydrated.start >= 40) {
+    stderr.writeln('存储分页必须展开更早内容并保留全部旧窗口');
     return 1;
   }
   return 0;
