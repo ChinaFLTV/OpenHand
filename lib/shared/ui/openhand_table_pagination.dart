@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../util/localized_text.dart';
 import 'animated_menu.dart';
-import 'hover_lift.dart';
 import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
@@ -705,52 +704,47 @@ class _PageSizeSelectState extends State<_PageSizeSelect> {
     final label = widget.labelBuilder(widget.value);
     return Tooltip(
       message: label,
-      child: HoverLift(
-        liftDistance: 1.5,
-        child: MicroPressFeedback(
-          enabled: widget.enabled,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: widget.enabled ? _pick : null,
-              borderRadius: kOpenHandBorderRadius8,
-              hoverColor: Colors.transparent,
-              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              child: AnimatedContainer(
-                duration: openHandMotionDuration(context, kOpenHandMotion180),
-                curve: kOpenHandSwitchInCurve,
-                height: kOpenHandTablePagerButtonSize,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                alignment: Alignment.center,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest,
-                  borderRadius: kOpenHandBorderRadius8,
-                  border: Border.all(color: colors.outlineVariant),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: widget.enabled
-                            ? colors.onSurface
-                            : colors.outline,
-                        fontWeight: FontWeight.w700,
-                        height: 1,
-                      ),
+      child: MicroPressFeedback(
+        enabled: widget.enabled,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.enabled ? _pick : null,
+            borderRadius: kOpenHandBorderRadius8,
+            hoverColor: Colors.transparent,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            child: AnimatedContainer(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              curve: kOpenHandSwitchInCurve,
+              height: kOpenHandTablePagerButtonSize,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              alignment: Alignment.center,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest,
+                borderRadius: kOpenHandBorderRadius8,
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: widget.enabled ? colors.onSurface : colors.outline,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
                     ),
-                    const SizedBox(width: 2),
-                    Icon(
-                      Icons.expand_more_rounded,
-                      size: 18,
-                      color: widget.enabled
-                          ? colors.onSurfaceVariant
-                          : colors.outline,
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.expand_more_rounded,
+                    size: 18,
+                    color: widget.enabled
+                        ? colors.onSurfaceVariant
+                        : colors.outline,
+                  ),
+                ],
               ),
             ),
           ),
@@ -891,9 +885,6 @@ class _PagerChrome extends StatelessWidget {
       ),
     );
     if (!enabled) return button;
-    return HoverLift(
-      liftDistance: selected ? 1 : 2,
-      child: MicroPressFeedback(child: button),
-    );
+    return MicroPressFeedback(child: button);
   }
 }

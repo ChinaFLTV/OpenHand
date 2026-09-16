@@ -2102,7 +2102,7 @@ class _CodexDiffFoldRow extends StatelessWidget {
         decoration: BoxDecoration(color: palette.foldedBackground),
         child: Row(
           children: [
-            const ColoredBox(color: Colors.transparent, child: kOpenHandWidth4),
+            const ColoredBox(color: Colors.transparent, child: kOpenHandHGap4),
             SizedBox(
               width: 58,
               child: Center(

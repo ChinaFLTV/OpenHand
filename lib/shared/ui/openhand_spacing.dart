@@ -1,13 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-/// 全局间距 token —— 收敛 `SizedBox(height:)` / `SizedBox(width:)` 位置
-/// 的裸数值字面量，数值即现网常用值，替换绝对零行为差异。
-///
-/// 约定：
-///   * 仅用于布局间距（SizedBox / Padding / EdgeInsets 的固定值）。
-///   * 命名以像素值为后缀：全库同档间距可检索、可盘点，
-///     调档时先改名再改值，避免名值背离。
-///   * 领域内已有语义常量的继续用语义常量，本文件不替代它们。
+// 全局布局间距，名称后缀与像素值保持一致；领域内优先使用已有语义常量。
 
 const SizedBox kOpenHandGap2 = SizedBox(height: 2);
 const SizedBox kOpenHandGap1 = SizedBox(height: 1);
@@ -29,19 +22,14 @@ const SizedBox kOpenHandGap11 = SizedBox(height: 11);
 const SizedBox kOpenHandGap13 = SizedBox(height: 13);
 const SizedBox kOpenHandGap15 = SizedBox(height: 15);
 const SizedBox kOpenHandGap22 = SizedBox(height: 22);
-const SizedBox kOpenHandGap26 = SizedBox(height: 26);
 const SizedBox kOpenHandGap28 = SizedBox(height: 28);
-const SizedBox kOpenHandWidth4 = SizedBox(width: 4);
-const SizedBox kOpenHandWidth10 = SizedBox(width: 10);
-const SizedBox kOpenHandWidth12 = SizedBox(width: 12);
-const SizedBox kOpenHandWidth13 = SizedBox(width: 13);
-const SizedBox kOpenHandWidth22 = SizedBox(width: 22);
 
 const SizedBox kOpenHandHGap4 = SizedBox(width: 4);
 const SizedBox kOpenHandHGap6 = SizedBox(width: 6);
 const SizedBox kOpenHandHGap8 = SizedBox(width: 8);
 const SizedBox kOpenHandHGap10 = SizedBox(width: 10);
 const SizedBox kOpenHandHGap12 = SizedBox(width: 12);
+const SizedBox kOpenHandHGap13 = SizedBox(width: 13);
 const SizedBox kOpenHandHGap16 = SizedBox(width: 16);
 const SizedBox kOpenHandHGap2 = SizedBox(width: 2);
 const SizedBox kOpenHandHGap3 = SizedBox(width: 3);
@@ -52,16 +40,10 @@ const SizedBox kOpenHandHGap11 = SizedBox(width: 11);
 const SizedBox kOpenHandHGap14 = SizedBox(width: 14);
 const SizedBox kOpenHandHGap18 = SizedBox(width: 18);
 const SizedBox kOpenHandHGap20 = SizedBox(width: 20);
+const SizedBox kOpenHandHGap22 = SizedBox(width: 22);
 const SizedBox kOpenHandHGap24 = SizedBox(width: 24);
 
-/// 全局圆角 token —— 收敛散落的 `BorderRadius.circular(数字)` 字面量，
-/// 数值即现网常用值。与间距 token 同源同文件，便于统一管理。
-///
-/// 约定：
-///   * 仅用于 `BorderRadius.circular` / `BorderRadius.all(Radius.circular(...))`
-///     位置。
-///   * 出现两次及以上的值必须用 token；独有值允许写字面量。
-///   * 语义化圆角（如 `_mcpOpsPanelRadius` 等领域内已有常量）继续用语义常量。
+// 全局圆角；重复尺寸使用这些常量，领域内优先使用已有语义常量。
 const double kOpenHandRadius2 = 2;
 const double kOpenHandRadius3 = 3;
 const double kOpenHandRadius4 = 4;

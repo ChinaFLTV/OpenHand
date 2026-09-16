@@ -3891,7 +3891,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                     color: theme.colorScheme.onPrimaryContainer,
                   ),
                 ),
-                kOpenHandWidth13,
+                kOpenHandHGap13,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
-import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
@@ -818,11 +817,7 @@ class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
       padding: widget.margin,
       child: Tooltip(
         message: label,
-        child: Semantics(
-          button: true,
-          label: label,
-          child: HoverLift(liftDistance: 1, child: surface),
-        ),
+        child: Semantics(button: true, label: label, child: surface),
       ),
     );
   }

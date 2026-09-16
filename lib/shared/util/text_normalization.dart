@@ -1,6 +1,6 @@
-/// 连续空白。共用同一个已编译实例：全库有二十余处按空白切分 / 折叠，其中
-/// 若干位于输入框监听、逐行解析这类高频路径上，每次重新编译纯属浪费。
+/// 连续空白，用于切分或折叠文本。
 final RegExp kInlineWhitespacePattern = RegExp(r'\s+');
+final RegExp kLabelKeySeparatorPattern = RegExp(r'[-_\s]+');
 final RegExp _asciiLookupTokenSeparatorPattern = RegExp('[^a-z0-9]+');
 
 /// 统一匹配 HTML/XML 标签，供错误页、TTS 和文档解析复用。
@@ -22,6 +22,22 @@ final RegExp _repeatedUnderscoresPattern = RegExp('_+');
 
 String collapseInlineWhitespace(String value) {
   return value.replaceAll(kInlineWhitespacePattern, ' ').trim();
+}
+
+/// 将短横线、下划线或空白分隔的键转换为标题文本。
+String humanizeLabelKey(String key) {
+  final parts = key
+      .split(kLabelKeySeparatorPattern)
+      .where((part) => part.isNotEmpty)
+      .toList(growable: false);
+  if (parts.isEmpty) return key;
+  return parts
+      .map(
+        (part) => part.length == 1
+            ? part.toUpperCase()
+            : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+      )
+      .join(' ');
 }
 
 /// 移除 HTML/XML 标签；默认以空格替换，传入空串可直接删除。

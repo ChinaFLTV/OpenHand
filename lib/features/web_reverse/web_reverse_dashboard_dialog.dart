@@ -29,7 +29,6 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/appear_once.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/frame_coalesced_rebuild.dart';
-import '../../shared/ui/hover_lift.dart';
 import '../../shared/ui/interaction_timings.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
@@ -39,6 +38,7 @@ import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
+import '../../shared/ui/openhand_hover_state.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
@@ -2623,7 +2623,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                         ? const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              kOpenHandWidth12,
+                              kOpenHandHGap12,
                               SizedBox(
                                 width: 14,
                                 height: 14,

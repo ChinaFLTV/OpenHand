@@ -492,81 +492,79 @@ class _HeSteeringEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return HoverLift(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: kOpenHandBorderRadius16,
-          hoverColor: Colors.transparent,
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          child: OpenHandTintedPanel(
-            accent: accent,
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.18),
-                    borderRadius: kOpenHandBorderRadius10,
-                  ),
-                  child: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: Center(child: Icon(_icon, size: 18, color: accent)),
-                  ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: kOpenHandBorderRadius16,
+        hoverColor: Colors.transparent,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        child: OpenHandTintedPanel(
+          accent: accent,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.18),
+                  borderRadius: kOpenHandBorderRadius10,
                 ),
-                kOpenHandHGap12,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.name,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                child: SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Center(child: Icon(_icon, size: 18, color: accent)),
+                ),
+              ),
+              kOpenHandHGap12,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.name,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
-                      if (description != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            description!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (description != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          description!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
-                if (!entry.isDirectory && entry.size != null) ...[
-                  kOpenHandHGap8,
-                  OhPill(
-                    icon: Icons.sd_storage_outlined,
-                    label: formatByteSize(entry.size!),
-                    foregroundColor: accent,
-                  ),
-                ],
-                if (entry.modified != null) ...[
-                  kOpenHandHGap8,
-                  OhPill(
-                    icon: Icons.schedule_rounded,
-                    label: formatYearMonthDayHm(entry.modified!),
-                    foregroundColor: colorScheme.onSurfaceVariant,
-                  ),
-                ],
-                kOpenHandHGap4,
-                Icon(
-                  entry.isDirectory
-                      ? Icons.chevron_right_rounded
-                      : Icons.open_in_new_rounded,
-                  size: 18,
-                  color: accent,
+              ),
+              if (!entry.isDirectory && entry.size != null) ...[
+                kOpenHandHGap8,
+                OhPill(
+                  icon: Icons.sd_storage_outlined,
+                  label: formatByteSize(entry.size!),
+                  foregroundColor: accent,
                 ),
               ],
-            ),
+              if (entry.modified != null) ...[
+                kOpenHandHGap8,
+                OhPill(
+                  icon: Icons.schedule_rounded,
+                  label: formatYearMonthDayHm(entry.modified!),
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                ),
+              ],
+              kOpenHandHGap4,
+              Icon(
+                entry.isDirectory
+                    ? Icons.chevron_right_rounded
+                    : Icons.open_in_new_rounded,
+                size: 18,
+                color: accent,
+              ),
+            ],
           ),
         ),
       ),

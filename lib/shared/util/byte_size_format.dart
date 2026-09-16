@@ -17,7 +17,7 @@ final RegExp _trailingFractionZerosPattern = RegExp(r'0+$');
 final RegExp _trailingDecimalPointPattern = RegExp(r'\.$');
 
 /// 格式化体积。默认英文单位，供工具回执和纯 Dart 检查使用。
-/// 界面请走 [formatLocalizedByteSize]。
+/// 界面请走 `formatLocalizedByteSizeOf`。
 String formatByteSize(
   num bytes, {
   String languageCode = 'en',

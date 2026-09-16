@@ -23,7 +23,6 @@ import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/error_snackbar.dart';
-import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/markdown_math.dart';

@@ -638,7 +638,7 @@ class _SummaryCard extends StatelessWidget {
             ),
             child: Icon(icon, color: colorScheme.onPrimaryContainer, size: 22),
           ),
-          kOpenHandWidth13,
+          kOpenHandHGap13,
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

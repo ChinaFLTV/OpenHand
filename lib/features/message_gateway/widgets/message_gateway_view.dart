@@ -37,7 +37,6 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../../shared/ui/generated_media_result_card.dart';
-import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/markdown_image_gallery.dart';
@@ -6471,7 +6470,7 @@ class _WebOpsHeaderIdentity extends StatelessWidget {
             ),
           ],
         ),
-        kOpenHandWidth13,
+        kOpenHandHGap13,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -14161,7 +14160,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.close_rounded),
-              kOpenHandWidth10,
+              kOpenHandHGap10,
               Text('取消编辑', maxLines: 1, softWrap: false),
             ],
           ),
@@ -21857,7 +21856,7 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colors.onSurface,
                               fontFamily: 'monospace',
-                                fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w600,
                               height: 1.35,
                               fontSize: 12.5,
                             ),
@@ -24339,74 +24338,67 @@ class _DingTalkAllowlistPickerDialogState
                       final tone = selected
                           ? OpenHandStatusColors.success
                           : accent;
-                      return HoverLift(
-                        child: Material(
-                          color: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          surfaceTintColor: Colors.transparent,
-                          child: InkWell(
-                            hoverColor: Colors.transparent,
-                            splashColor: tone.withValues(alpha: 0.10),
-                            overlayColor: WidgetStatePropertyAll(
-                              tone.withValues(alpha: 0.06),
-                            ),
-                            onTap: () => setState(() {
-                              if (selected) {
-                                _selected.remove(target.id);
-                              } else {
-                                _selected[target.id] = target;
-                              }
-                            }),
-                            borderRadius: kOpenHandBorderRadius16,
-                            child: OpenHandTintedPanel(
-                              accent: tone,
-                              padding: const EdgeInsets.fromLTRB(
-                                12,
-                                10,
-                                12,
-                                10,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(widget.icon, color: tone),
-                                  kOpenHandHGap10,
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
+                      return Material(
+                        color: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        surfaceTintColor: Colors.transparent,
+                        child: InkWell(
+                          hoverColor: Colors.transparent,
+                          splashColor: tone.withValues(alpha: 0.10),
+                          overlayColor: WidgetStatePropertyAll(
+                            tone.withValues(alpha: 0.06),
+                          ),
+                          onTap: () => setState(() {
+                            if (selected) {
+                              _selected.remove(target.id);
+                            } else {
+                              _selected[target.id] = target;
+                            }
+                          }),
+                          borderRadius: kOpenHandBorderRadius16,
+                          child: OpenHandTintedPanel(
+                            accent: tone,
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                            child: Row(
+                              children: [
+                                Icon(widget.icon, color: tone),
+                                kOpenHandHGap10,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        target.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                      if (target.subtitle.trim().isNotEmpty)
                                         Text(
-                                          target.title,
+                                          target.subtitle,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.titleSmall
+                                          style: theme.textTheme.bodySmall
                                               ?.copyWith(
-                                                fontWeight: FontWeight.w800,
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
                                               ),
                                         ),
-                                        if (target.subtitle.trim().isNotEmpty)
-                                          Text(
-                                            target.subtitle,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                ),
-                                          ),
-                                      ],
-                                    ),
+                                    ],
                                   ),
-                                  Icon(
-                                    selected
-                                        ? Icons.check_circle_rounded
-                                        : Icons.add_circle_outline_rounded,
-                                    color: tone,
-                                  ),
-                                ],
-                              ),
+                                ),
+                                Icon(
+                                  selected
+                                      ? Icons.check_circle_rounded
+                                      : Icons.add_circle_outline_rounded,
+                                  color: tone,
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -25626,40 +25618,36 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                 ),
               ),
             ),
-            child: HoverLift(
-              child: Material(
-                color: Colors.transparent,
-                shadowColor: Colors.transparent,
-                surfaceTintColor: Colors.transparent,
-                child: InkWell(
-                  hoverColor: Colors.transparent,
-                  splashColor: OpenHandStatusColors.info.withValues(
-                    alpha: 0.10,
-                  ),
-                  overlayColor: WidgetStatePropertyAll(
-                    OpenHandStatusColors.info.withValues(alpha: 0.06),
-                  ),
-                  onTap: _saving ? null : _selectModel,
-                  borderRadius: kOpenHandBorderRadius16,
-                  child: OpenHandTintedPanel(
-                    accent: OpenHandStatusColors.info,
-                    icon: Icons.auto_awesome_rounded,
-                    title: '当前模型',
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _modelLabel(),
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
+            child: Material(
+              color: Colors.transparent,
+              shadowColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              child: InkWell(
+                hoverColor: Colors.transparent,
+                splashColor: OpenHandStatusColors.info.withValues(alpha: 0.10),
+                overlayColor: WidgetStatePropertyAll(
+                  OpenHandStatusColors.info.withValues(alpha: 0.06),
+                ),
+                onTap: _saving ? null : _selectModel,
+                borderRadius: kOpenHandBorderRadius16,
+                child: OpenHandTintedPanel(
+                  accent: OpenHandStatusColors.info,
+                  icon: Icons.auto_awesome_rounded,
+                  title: '当前模型',
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _modelLabel(),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -26255,58 +26243,56 @@ class _DingTalkMultimodalPickerDialogState
             AiDingTalkMultimodalCapability.audioGeneration =>
               Icons.graphic_eq_rounded,
           };
-          return HoverLift(
-            child: OpenHandTintedPanel(
-              accent: selected ? accent : theme.colorScheme.outline,
-              padding: const EdgeInsets.fromLTRB(6, 5, 8, 5),
-              child: Row(
-                children: [
-                  Checkbox(
-                    value: selected,
-                    onChanged: (value) => setState(() {
-                      if (value == true) {
-                        _selected.add(capability);
-                      } else {
-                        _selected.remove(capability);
-                      }
-                    }),
-                  ),
-                  Icon(icon, color: accent),
-                  kOpenHandHGap9,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          capability.displayName,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+          return OpenHandTintedPanel(
+            accent: selected ? accent : theme.colorScheme.outline,
+            padding: const EdgeInsets.fromLTRB(6, 5, 8, 5),
+            child: Row(
+              children: [
+                Checkbox(
+                  value: selected,
+                  onChanged: (value) => setState(() {
+                    if (value == true) {
+                      _selected.add(capability);
+                    } else {
+                      _selected.remove(capability);
+                    }
+                  }),
+                ),
+                Icon(icon, color: accent),
+                kOpenHandHGap9,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        capability.displayName,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
-                        kOpenHandGap2,
-                        Text(
-                          selected
-                              ? _modelLabel(capability)
-                              : '$modelCount 个可用模型 · 未启用',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                      ),
+                      kOpenHandGap2,
+                      Text(
+                        selected
+                            ? _modelLabel(capability)
+                            : '$modelCount 个可用模型 · 未启用',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  kOpenHandHGap8,
-                  OutlinedButton.icon(
-                    onPressed: selected ? () => _selectModel(capability) : null,
-                    icon: const Icon(Icons.model_training_rounded, size: 17),
-                    label: Text(
-                      _keyFor(capability).trim().isEmpty ? '配置模型' : '更换模型',
-                    ),
+                ),
+                kOpenHandHGap8,
+                OutlinedButton.icon(
+                  onPressed: selected ? () => _selectModel(capability) : null,
+                  icon: const Icon(Icons.model_training_rounded, size: 17),
+                  label: Text(
+                    _keyFor(capability).trim().isEmpty ? '配置模型' : '更换模型',
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },
@@ -26371,89 +26357,87 @@ class _DingTalkResourceField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return HoverLift(
-      child: Material(
-        color: Colors.transparent,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: kOpenHandBorderRadius16,
-          hoverColor: Colors.transparent,
-          splashColor: accent.withValues(alpha: 0.10),
-          overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.06)),
-          child: OpenHandTintedPanel(
-            accent: accent,
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-            child: Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.18),
-                    borderRadius: kOpenHandBorderRadius10,
-                  ),
-                  child: SizedBox(
-                    width: 34,
-                    height: 34,
-                    child: Center(child: Icon(icon, size: 18, color: accent)),
-                  ),
+    return Material(
+      color: Colors.transparent,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: kOpenHandBorderRadius16,
+        hoverColor: Colors.transparent,
+        splashColor: accent.withValues(alpha: 0.10),
+        overlayColor: WidgetStatePropertyAll(accent.withValues(alpha: 0.06)),
+        child: OpenHandTintedPanel(
+          accent: accent,
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          child: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.18),
+                  borderRadius: kOpenHandBorderRadius10,
                 ),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      kOpenHandGap3,
-                      Text(
-                        selectionNote == null
-                            ? '已选 $selectedCount/$totalCount（默认全不选）'
-                            : '已选 $selectedCount/$totalCount · $selectionNote',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: Center(child: Icon(icon, size: 18, color: accent)),
                 ),
-                if (showRefresh) ...[
-                  IconButton.filledTonal(
-                    tooltip: '刷新 $title',
-                    onPressed: refreshing ? null : onRefresh,
-                    style: IconButton.styleFrom(
-                      fixedSize: const Size(40, 40),
-                      padding: EdgeInsets.zero,
-                      shape: const CircleBorder(),
-                      shadowColor: Colors.transparent,
+              ),
+              kOpenHandHGap10,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    icon: refreshing
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh_rounded),
-                  ),
-                  kOpenHandHGap4,
-                ],
+                    kOpenHandGap3,
+                    Text(
+                      selectionNote == null
+                          ? '已选 $selectedCount/$totalCount（默认全不选）'
+                          : '已选 $selectedCount/$totalCount · $selectionNote',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (showRefresh) ...[
                 IconButton.filledTonal(
-                  tooltip: '查看 $title详情',
-                  onPressed: onTap,
+                  tooltip: '刷新 $title',
+                  onPressed: refreshing ? null : onRefresh,
                   style: IconButton.styleFrom(
                     fixedSize: const Size(40, 40),
                     padding: EdgeInsets.zero,
                     shape: const CircleBorder(),
                     shadowColor: Colors.transparent,
                   ),
-                  icon: const Icon(Icons.chevron_right_rounded),
+                  icon: refreshing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
                 ),
+                kOpenHandHGap4,
               ],
-            ),
+              IconButton.filledTonal(
+                tooltip: '查看 $title详情',
+                onPressed: onTap,
+                style: IconButton.styleFrom(
+                  fixedSize: const Size(40, 40),
+                  padding: EdgeInsets.zero,
+                  shape: const CircleBorder(),
+                  shadowColor: Colors.transparent,
+                ),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
           ),
         ),
       ),
@@ -27349,54 +27333,52 @@ class _DingTalkResourcePickerDialogState
     final tone = isSelected
         ? OpenHandStatusColors.success
         : theme.colorScheme.primary;
-    return HoverLift(
-      child: Material(
-        color: Colors.transparent,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        child: InkWell(
-          onTap: () => toggleSelected(!isSelected),
-          borderRadius: kOpenHandBorderRadius16,
-          hoverColor: Colors.transparent,
-          splashColor: tone.withValues(alpha: 0.10),
-          overlayColor: WidgetStatePropertyAll(tone.withValues(alpha: 0.06)),
-          child: OpenHandTintedPanel(
-            accent: tone,
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-            child: ListTile(
-              leading: Icon(option.icon, color: tone),
-              title: Text(
-                option.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: option.subtitle.trim().isEmpty
-                  ? null
-                  : Text(
-                      option.subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-              contentPadding: const EdgeInsets.only(left: 8, right: 4),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: '查看详情',
-                    onPressed: () =>
-                        unawaited(_showOptionDetails(context, option)),
-                    style: _detailsIconButtonStyle(theme),
-                    icon: const Icon(Icons.info_outline_rounded),
+    return Material(
+      color: Colors.transparent,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      child: InkWell(
+        onTap: () => toggleSelected(!isSelected),
+        borderRadius: kOpenHandBorderRadius16,
+        hoverColor: Colors.transparent,
+        splashColor: tone.withValues(alpha: 0.10),
+        overlayColor: WidgetStatePropertyAll(tone.withValues(alpha: 0.06)),
+        child: OpenHandTintedPanel(
+          accent: tone,
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+          child: ListTile(
+            leading: Icon(option.icon, color: tone),
+            title: Text(
+              option.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: option.subtitle.trim().isEmpty
+                ? null
+                : Text(
+                    option.subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  Checkbox(
-                    value: isSelected,
-                    onChanged: toggleSelected,
-                    overlayColor: const WidgetStatePropertyAll(
-                      Colors.transparent,
-                    ),
+            contentPadding: const EdgeInsets.only(left: 8, right: 4),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: '查看详情',
+                  onPressed: () =>
+                      unawaited(_showOptionDetails(context, option)),
+                  style: _detailsIconButtonStyle(theme),
+                  icon: const Icon(Icons.info_outline_rounded),
+                ),
+                Checkbox(
+                  value: isSelected,
+                  onChanged: toggleSelected,
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

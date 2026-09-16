@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_normalization.dart';
 
 typedef _SkillMarketCopy = ({
   String zh,
@@ -16,7 +17,6 @@ final RegExp _bilingualNamePattern = RegExp(
   r'^(.+?)\s+([A-Z][A-Z0-9][A-Z0-9 .&/+_-]{0,48})$',
 );
 final RegExp _latinBrandPattern = RegExp(r'^[A-Z0-9]+$');
-final RegExp _slugSplitter = RegExp(r'[-_\s]+');
 final RegExp _latinBrandNoise = RegExp(r'[\s.&/+_-]');
 
 String _copy(BuildContext context, _SkillMarketCopy text) {
@@ -50,27 +50,9 @@ String _lookup(
     return apiName;
   }
   if (Localizations.localeOf(context).languageCode.toLowerCase() == 'en') {
-    return _humanizeKey(normalized);
+    return humanizeLabelKey(normalized);
   }
   return key.trim();
-}
-
-String _humanizeKey(String key) {
-  final parts = key
-      .split(_slugSplitter)
-      .where((part) => part.isNotEmpty)
-      .toList(growable: false);
-  if (parts.isEmpty) {
-    return key;
-  }
-  return parts
-      .map((part) {
-        if (part.length == 1) {
-          return part.toUpperCase();
-        }
-        return '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}';
-      })
-      .join(' ');
 }
 
 bool _isLatinBrand(String value) {
@@ -93,7 +75,7 @@ String skillMarketDisplayName(BuildContext context, String raw) {
   if (!_cjkPattern.hasMatch(local) || !_isLatinBrand(latin)) {
     return trimmed;
   }
-  final latinTitle = _humanizeKey(latin);
+  final latinTitle = humanizeLabelKey(latin);
   return openHandLocalizedText(
     context,
     zh: local,
@@ -157,7 +139,7 @@ String skillMarketSecurityStatusLabel(
     return status.trim();
   }
   if (!openHandIsChineseLocale(context) && _cjkPattern.hasMatch(text)) {
-    return _humanizeKey(normalized.isEmpty ? text : normalized);
+    return humanizeLabelKey(normalized.isEmpty ? text : normalized);
   }
   return text;
 }

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
-import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
@@ -725,91 +724,89 @@ class _HitTile extends StatelessWidget {
     const accent = OpenHandStatusColors.success;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: HoverLift(
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _showKnowledgeRetrievalHitDetailDialog(context, hit),
-            borderRadius: kOpenHandBorderRadius16,
-            hoverColor: Colors.transparent,
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-            child: OpenHandTintedPanel(
-              accent: accent,
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showKnowledgeRetrievalHitDetailDialog(context, hit),
+          borderRadius: kOpenHandBorderRadius16,
+          hoverColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: OpenHandTintedPanel(
+            accent: accent,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.trim().isEmpty
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '知识库命中',
+                          zhHant: '知識庫命中',
+                          en: 'KB hit',
+                          fr: 'Résultat KB',
+                          de: 'KB-Treffer',
+                          ja: 'KB ヒット',
+                        )
+                      : title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
+                ),
+                if (path.isNotEmpty) ...[
+                  kOpenHandGap6,
                   Text(
-                    title.trim().isEmpty
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '知识库命中',
-                            zhHant: '知識庫命中',
-                            en: 'KB hit',
-                            fr: 'Résultat KB',
-                            de: 'KB-Treffer',
-                            ja: 'KB ヒット',
-                          )
-                        : title,
-                    maxLines: 2,
+                    path,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                       height: 1.25,
                     ),
                   ),
-                  if (path.isNotEmpty) ...[
-                    kOpenHandGap6,
-                    Text(
-                      path,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
-                  kOpenHandGap8,
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      KnowledgeDialogChip(
-                        icon: Icons.trending_up_rounded,
-                        label:
-                            '${openHandLocalizedText(context, zh: '分数', zhHant: '分數', en: 'score', fr: 'score', de: 'Score', ja: 'スコア')} ${hit['score'] ?? '-'}',
-                      ),
-                      if (hit['rerank_score'] != null)
-                        KnowledgeDialogChip(
-                          icon: Icons.filter_alt_rounded,
-                          label:
-                              '${openHandLocalizedText(context, zh: '重排', zhHant: '重排', en: 'rerank', fr: 'rerank', de: 'Rerank', ja: '再ランク')} ${hit['rerank_score']}',
-                        ),
-                      if (hit['token_estimate'] != null)
-                        KnowledgeDialogChip(
-                          icon: Icons.data_usage_rounded,
-                          label:
-                              '${hit['token_estimate']} ${openHandLocalizedText(context, zh: 'token', zhHant: 'token', en: 'tokens', fr: 'tokens', de: 'Tokens', ja: 'トークン')}',
-                        ),
-                      if (documentTimeLabel.isNotEmpty)
-                        KnowledgeDialogChip(
-                          icon: Icons.event_rounded,
-                          label: documentTimeLabel,
-                        ),
-                    ],
-                  ),
-                  if (preview.isNotEmpty) ...[
-                    kOpenHandGap8,
-                    Text(
-                      preview,
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.36),
-                    ),
-                  ],
                 ],
-              ),
+                kOpenHandGap8,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    KnowledgeDialogChip(
+                      icon: Icons.trending_up_rounded,
+                      label:
+                          '${openHandLocalizedText(context, zh: '分数', zhHant: '分數', en: 'score', fr: 'score', de: 'Score', ja: 'スコア')} ${hit['score'] ?? '-'}',
+                    ),
+                    if (hit['rerank_score'] != null)
+                      KnowledgeDialogChip(
+                        icon: Icons.filter_alt_rounded,
+                        label:
+                            '${openHandLocalizedText(context, zh: '重排', zhHant: '重排', en: 'rerank', fr: 'rerank', de: 'Rerank', ja: '再ランク')} ${hit['rerank_score']}',
+                      ),
+                    if (hit['token_estimate'] != null)
+                      KnowledgeDialogChip(
+                        icon: Icons.data_usage_rounded,
+                        label:
+                            '${hit['token_estimate']} ${openHandLocalizedText(context, zh: 'token', zhHant: 'token', en: 'tokens', fr: 'tokens', de: 'Tokens', ja: 'トークン')}',
+                      ),
+                    if (documentTimeLabel.isNotEmpty)
+                      KnowledgeDialogChip(
+                        icon: Icons.event_rounded,
+                        label: documentTimeLabel,
+                      ),
+                  ],
+                ),
+                if (preview.isNotEmpty) ...[
+                  kOpenHandGap8,
+                  Text(
+                    preview,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.36),
+                  ),
+                ],
+              ],
             ),
           ),
         ),

@@ -34,10 +34,3 @@ const kInstructionMarketCategoryAction = 'action';
 const kInstructionMarketCategoryVitality = 'vitality';
 const kInstructionMarketCategoryInsight = 'insight';
 const kInstructionMarketCategoryCompanion = 'companion';
-
-const kInstructionMarketCategoryOrder = <String>[
-  kInstructionMarketCategoryAction,
-  kInstructionMarketCategoryVitality,
-  kInstructionMarketCategoryInsight,
-  kInstructionMarketCategoryCompanion,
-];

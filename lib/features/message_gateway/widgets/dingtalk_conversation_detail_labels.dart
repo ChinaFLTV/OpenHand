@@ -6,7 +6,6 @@ import '../../../shared/util/localized_text.dart';
 const String kDingTalkDetailSettingsKey = '设置';
 const String kDingTalkDetailNotificationKey = '通知';
 const String kDingTalkDetailValueKey = '值';
-const String kDingTalkDetailItemUnit = '项';
 const String kDingTalkDetailPeopleUnit = '人';
 const String kDingTalkDetailExtendedFieldPrefix = '扩展字段 · ';
 const String kDingTalkDetailExtensionKey = '扩展属性';

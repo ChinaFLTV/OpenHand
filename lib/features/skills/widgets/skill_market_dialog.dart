@@ -22,6 +22,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
+import '../../../shared/ui/openhand_centered_state_message.dart';
 import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_document_markdown_preview.dart';
@@ -368,7 +369,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               child: AnimatedSwitcher(
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
                 child: _searchError != null || _session.provider == null
-                    ? _MarketStateMessage(
+                    ? OpenHandCenteredStateMessage(
                         key: const ValueKey<String>('market-search-error'),
                         icon: Icons.cloud_off_outlined,
                         title: openHandLocalizedText(
@@ -391,7 +392,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                         child: CircularProgressIndicator(),
                       )
                     : skills.isEmpty
-                    ? _MarketStateMessage(
+                    ? OpenHandCenteredStateMessage(
                         key: const ValueKey<String>('market-search-empty'),
                         icon: Icons.search_off_rounded,
                         title: openHandLocalizedText(
@@ -464,7 +465,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     final selectedSkill = _selectedSkill;
     final bundleFuture = _selectedBundleFuture;
     final pane = selectedSkill == null || bundleFuture == null
-        ? _MarketStateMessage(
+        ? OpenHandCenteredStateMessage(
             icon: Icons.auto_awesome_rounded,
             title: openHandLocalizedText(
               context,
@@ -492,7 +493,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError || !snapshot.hasData) {
-                return _MarketStateMessage(
+                return OpenHandCenteredStateMessage(
                   icon: Icons.error_outline_rounded,
                   title: openHandLocalizedText(
                     context,
@@ -2312,78 +2313,6 @@ class _SkillMarketAvatarFallback extends StatelessWidget {
       style: Theme.of(
         context,
       ).textTheme.titleLarge?.copyWith(color: colorScheme.onPrimaryContainer),
-    );
-  }
-}
-
-class _MarketStateMessage extends StatelessWidget {
-  const _MarketStateMessage({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.body,
-    this.actionLabel,
-    this.onAction,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(kOpenHandRadius22),
-                ),
-                child: SizedBox(
-                  width: 72,
-                  height: 72,
-                  child: Icon(icon, size: 34, color: colorScheme.primary),
-                ),
-              ),
-              kOpenHandGap16,
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              kOpenHandGap8,
-              Text(
-                body,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-              if (actionLabel != null && onAction != null) ...[
-                kOpenHandGap16,
-                OpenHandDialogActionButton.primary(
-                  onPressed: onAction,
-                  icon: Icons.refresh_rounded,
-                  label: actionLabel!,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

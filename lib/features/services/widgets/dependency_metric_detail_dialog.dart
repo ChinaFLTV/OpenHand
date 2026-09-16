@@ -2367,7 +2367,7 @@ class _AdaptivePair extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(flex: primaryFlex, child: primary),
-          kOpenHandWidth22,
+          kOpenHandHGap22,
           Expanded(flex: secondaryFlex, child: secondary),
         ],
       );

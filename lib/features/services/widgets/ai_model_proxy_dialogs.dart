@@ -13,7 +13,6 @@ import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/feature_state_card.dart';
-import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -2911,101 +2910,99 @@ class _ProxyRecordTile extends StatelessWidget {
           record.error!.trim(),
       ].join(' · '),
     );
-    return HoverLift(
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            tone.withValues(alpha: 0.06),
-            colors.surfaceContainerLow,
-          ),
-          borderRadius: BorderRadius.circular(kOpenHandRadius16),
-          border: Border.all(color: tone.withValues(alpha: 0.22)),
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          tone.withValues(alpha: 0.06),
+          colors.surfaceContainerLow,
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final bounded =
-                constraints.hasBoundedWidth &&
-                constraints.maxWidth.isFinite &&
-                constraints.maxWidth > 0;
-            final maxWidth = bounded
-                ? constraints.maxWidth
-                : _kProxyRecordTileCompactBreakpoint;
-            final compact =
-                !bounded || maxWidth < _kProxyRecordTileCompactBreakpoint;
-            final sourceMaxWidth = (maxWidth * 0.36).clamp(
-              _kProxyRecordSourceMinWidth,
-              _kProxyRecordSourceMaxWidth,
-            );
-            final metrics = Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              alignment: compact ? WrapAlignment.start : WrapAlignment.end,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                OpenHandTableStackedCell(
-                  primary: record.clientEndpoint.isEmpty
-                      ? text(zh: '未知来源', en: 'Unknown source')
-                      : record.clientEndpoint,
-                  secondary: record.clientUserAgent.trim().isEmpty
-                      ? text(zh: 'UA 未知', en: 'UA unknown')
-                      : record.clientUserAgent.trim(),
-                  alignEnd: !compact,
-                  maxWidth: sourceMaxWidth,
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+        border: Border.all(color: tone.withValues(alpha: 0.22)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final bounded =
+              constraints.hasBoundedWidth &&
+              constraints.maxWidth.isFinite &&
+              constraints.maxWidth > 0;
+          final maxWidth = bounded
+              ? constraints.maxWidth
+              : _kProxyRecordTileCompactBreakpoint;
+          final compact =
+              !bounded || maxWidth < _kProxyRecordTileCompactBreakpoint;
+          final sourceMaxWidth = (maxWidth * 0.36).clamp(
+            _kProxyRecordSourceMinWidth,
+            _kProxyRecordSourceMaxWidth,
+          );
+          final metrics = Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            alignment: compact ? WrapAlignment.start : WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              OpenHandTableStackedCell(
+                primary: record.clientEndpoint.isEmpty
+                    ? text(zh: '未知来源', en: 'Unknown source')
+                    : record.clientEndpoint,
+                secondary: record.clientUserAgent.trim().isEmpty
+                    ? text(zh: 'UA 未知', en: 'UA unknown')
+                    : record.clientUserAgent.trim(),
+                alignEnd: !compact,
+                maxWidth: sourceMaxWidth,
+              ),
+              OpenHandTokenMetricCell(
+                total: record.tokens,
+                promptTokens: record.promptTokens,
+                completionTokens: record.completionTokens,
+                alignEnd: !compact,
+              ),
+              OpenHandDurationMetricCell(
+                durationMs: record.durationMs <= 0 ? null : record.durationMs,
+                alignEnd: !compact,
+              ),
+              OpenHandTableStatusBadge(
+                label: statusLabel,
+                color: tone,
+                tooltip: [
+                  statusLabel,
+                  if (record.statusCode > 0) '${record.statusCode}',
+                ].join(' · '),
+              ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: _kProxyRecordTimeMaxWidth,
                 ),
-                OpenHandTokenMetricCell(
-                  total: record.tokens,
-                  promptTokens: record.promptTokens,
-                  completionTokens: record.completionTokens,
-                  alignEnd: !compact,
-                ),
-                OpenHandDurationMetricCell(
-                  durationMs: record.durationMs <= 0 ? null : record.durationMs,
-                  alignEnd: !compact,
-                ),
-                OpenHandTableStatusBadge(
-                  label: statusLabel,
-                  color: tone,
-                  tooltip: [
-                    statusLabel,
-                    if (record.statusCode > 0) '${record.statusCode}',
-                  ].join(' · '),
-                ),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: _kProxyRecordTimeMaxWidth,
-                  ),
-                  child: Text(
-                    formatListDateTime(record.startedAt),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: compact ? TextAlign.start : TextAlign.end,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                child: Text(
+                  formatListDateTime(record.startedAt),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: compact ? TextAlign.start : TextAlign.end,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-              ],
+              ),
+            ],
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [identity, kOpenHandGap10, metrics],
             );
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [identity, kOpenHandGap10, metrics],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 5, child: identity),
-                kOpenHandHGap12,
-                Expanded(flex: 6, child: metrics),
-              ],
-            );
-          },
-        ),
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 5, child: identity),
+              kOpenHandHGap12,
+              Expanded(flex: 6, child: metrics),
+            ],
+          );
+        },
       ),
     );
   }

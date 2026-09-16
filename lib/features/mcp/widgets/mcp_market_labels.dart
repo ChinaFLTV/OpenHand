@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../model/mcp_market.dart';
 
 typedef _McpMarketCopy = ({
@@ -13,7 +14,6 @@ typedef _McpMarketCopy = ({
 });
 
 final RegExp _cjkPattern = RegExp(r'[\u3400-\u9FFF\uF900-\uFAFF]');
-final RegExp _slugSplitter = RegExp(r'[-_\s]+');
 
 String _copy(BuildContext context, _McpMarketCopy text) {
   return openHandLocalizedText(
@@ -57,8 +57,8 @@ String mcpMarketCategoryLabel(BuildContext context, String key) {
   }
   if (Localizations.localeOf(context).languageCode.toLowerCase() == 'en' &&
       !_cjkPattern.hasMatch(key) &&
-      _slugSplitter.hasMatch(normalized)) {
-    return _humanizeKey(normalized);
+      kLabelKeySeparatorPattern.hasMatch(normalized)) {
+    return humanizeLabelKey(normalized);
   }
   return key.trim();
 }
@@ -105,24 +105,6 @@ String mcpMarketInstallsLabel(BuildContext context) {
     de: 'Installationen',
     ja: 'インストール',
   ));
-}
-
-String _humanizeKey(String key) {
-  final parts = key
-      .split(_slugSplitter)
-      .where((part) => part.isNotEmpty)
-      .toList(growable: false);
-  if (parts.isEmpty) {
-    return key;
-  }
-  return parts
-      .map((part) {
-        if (part.length == 1) {
-          return part.toUpperCase();
-        }
-        return '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}';
-      })
-      .join(' ');
 }
 
 const Map<String, _McpMarketCopy> _categories = <String, _McpMarketCopy>{
