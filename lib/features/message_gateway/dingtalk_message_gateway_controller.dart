@@ -2229,7 +2229,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> authorize(Future<void> Function(String url) openUrl) async {
-    if (_isAuthenticating || _isLoggingOut) return;
+    if (_isAuthenticating || _isLoggingOut || _disposed || _shutdownRequested) {
+      return;
+    }
     _isAuthenticating = true;
     _clearError();
     _notify();
@@ -2292,6 +2294,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> updateSettings(DingTalkGatewaySettings value) async {
+    if (_disposed || _shutdownRequested) return;
     final previousSettings = _settings;
     final previousTargets = _eventSubscriptionTargetKeys(_settings);
     final normalized = _normalizeSettings(value);
@@ -2348,10 +2351,22 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> startPolling() async {
-    if (_isPolling || !isAuthorized || _isLoggingOut) return;
+    if (_isPolling ||
+        !isAuthorized ||
+        _isLoggingOut ||
+        _disposed ||
+        _shutdownRequested) {
+      return;
+    }
     final stopping = _pollingStopInFlight;
     if (stopping != null) await stopping;
-    if (_isPolling || !isAuthorized || _isLoggingOut || _disposed) return;
+    if (_isPolling ||
+        !isAuthorized ||
+        _isLoggingOut ||
+        _disposed ||
+        _shutdownRequested) {
+      return;
+    }
     final startedAt = DateTime.now();
     _isPolling = true;
     _pollStartedAt = startedAt;
