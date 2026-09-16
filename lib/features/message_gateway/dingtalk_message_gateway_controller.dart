@@ -593,7 +593,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       .toList(growable: false);
   Future<List<AiDingTalkDwsCommand>> loadDwsCommandCatalog({
     bool forceRefresh = false,
-  }) => _service.loadDwsCommandCatalog(forceRefresh: forceRefresh);
+  }) {
+    if (_disposed || _shutdownRequested) {
+      return Future<List<AiDingTalkDwsCommand>>.value(
+        const <AiDingTalkDwsCommand>[],
+      );
+    }
+    return _service.loadDwsCommandCatalog(forceRefresh: forceRefresh);
+  }
 
   Future<Object?> _executeDwsCommandForAi({
     required AiDingTalkDwsCommand command,
@@ -2238,11 +2245,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     try {
       _authStatus = await _service.authorize(
         onDeviceUrl: (url) async {
+          if (_disposed || _shutdownRequested) return;
           _deviceUrl = url;
           _notify();
           await openUrl(url);
         },
       );
+      if (_disposed || _shutdownRequested) return;
     } catch (error, stack) {
       _setError('钉钉设备流授权', error, stack);
     } finally {
@@ -2330,6 +2339,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> refreshResourceCatalog(
     DingTalkGatewayResourceCatalog catalog,
   ) async {
+    if (_disposed || _shutdownRequested) return;
     switch (catalog) {
       case DingTalkGatewayResourceCatalog.mcp:
         await _mcpController.refresh();
