@@ -615,6 +615,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
+      final previousDisplayMessages = oldWidget.session.displayMessages;
+      final nextDisplayMessages = widget.session.displayMessages;
+      final displayChange = widget.session.displayMessageChangeFrom(
+        oldWidget.session,
+      );
       final previousWindowStartIndex = _windowStartIndex;
       final prependedHistoricalMessages =
           oldWidget.session.messageLoadState ==
@@ -623,8 +628,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           widget.session.messageWindowStartIndex <
               oldWidget.session.messageWindowStartIndex;
       if (prependedHistoricalMessages) {
-        final oldDisplayLength = oldWidget.session.displayMessages.length;
-        final newDisplayLength = widget.session.displayMessages.length;
+        final oldDisplayLength = previousDisplayMessages.length;
+        final newDisplayLength = nextDisplayMessages.length;
         final addedDisplayCount = math.max(
           0,
           newDisplayLength - oldDisplayLength,
@@ -638,8 +643,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           newDisplayLength,
         );
       } else {
-        final oldDisplayLength = oldWidget.session.displayMessages.length;
-        final newDisplayLength = widget.session.displayMessages.length;
+        final oldDisplayLength = previousDisplayMessages.length;
+        final newDisplayLength = nextDisplayMessages.length;
         if (newDisplayLength < oldDisplayLength) {
           final previousRange = TranscriptListWindowing.visibleRange(
             preferredStart: previousWindowStartIndex,
@@ -663,7 +668,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       final windowChanged = previousWindowStartIndex != _windowStartIndex;
       if (prependedHistoricalMessages) {
         _syncRenderEntriesAfterHistoryPrepend();
-      } else {
+      } else if (windowChanged ||
+          !_syncRenderEntriesAfterTailChange(
+            displayChange,
+            previousDisplayMessages,
+            nextDisplayMessages,
+          )) {
         _syncRenderEntries(forceReset: windowChanged);
       }
     }
@@ -1072,6 +1082,84 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       for (var index = 0; index < _renderEntries.length; index += 1)
         _renderEntries[index].id: index,
     };
+  }
+
+  bool _syncRenderEntriesAfterTailChange(
+    AiSessionDisplayMessageChange? change,
+    List<AiSessionMessage> previousMessages,
+    List<AiSessionMessage> nextMessages,
+  ) {
+    if (change == AiSessionDisplayMessageChange.unchanged) return true;
+    if (change == null ||
+        _staggerFillActive ||
+        _renderEntries.isEmpty ||
+        previousMessages.isEmpty ||
+        nextMessages.isEmpty) {
+      return false;
+    }
+    final previousRange = TranscriptListWindowing.visibleRange(
+      preferredStart: _windowStartIndex,
+      messageCount: previousMessages.length,
+    );
+    final nextRange = TranscriptListWindowing.visibleRange(
+      preferredStart: _windowStartIndex,
+      messageCount: nextMessages.length,
+    );
+    if (previousRange.start != nextRange.start ||
+        _renderEntries.length != previousRange.end - previousRange.start ||
+        _renderEntries.last.exiting ||
+        _renderEntries.last.id != previousMessages.last.id) {
+      return false;
+    }
+
+    final nextTail = nextMessages.last;
+    if (change == AiSessionDisplayMessageChange.tailReplaced) {
+      if (previousMessages.length != nextMessages.length ||
+          previousMessages.last.id != nextTail.id) {
+        return false;
+      }
+      _renderEntries[_renderEntries.length - 1] = _renderEntries.last.copyWith(
+        message: nextTail,
+      );
+    } else {
+      if (nextMessages.length != previousMessages.length + 1 ||
+          _renderEntryIndexById.containsKey(nextTail.id)) {
+        return false;
+      }
+      _animatedMessageIds.remove(nextTail.id);
+      _renderEntryIndexById[nextTail.id] = _renderEntries.length;
+      _renderEntries.add(_TranscriptRenderEntry(message: nextTail));
+    }
+    _retargetTailDisplayCaches(previousMessages, nextMessages, change);
+    return true;
+  }
+
+  void _retargetTailDisplayCaches(
+    List<AiSessionMessage> previousMessages,
+    List<AiSessionMessage> nextMessages,
+    AiSessionDisplayMessageChange change,
+  ) {
+    if (!identical(_cachedIndexMapSource, previousMessages) ||
+        _cachedIndexMapWindowStart != _windowStartIndex ||
+        _cachedVisibleIndexMap == null) {
+      return;
+    }
+    final previousVisibleLength = previousMessages.length - _windowStartIndex;
+    if (_cachedVisibleIndexMap!.length != previousVisibleLength) return;
+
+    final nextTail = nextMessages.last;
+    final cachedVisibleMessages = _cachedVisibleMessages;
+    final canRetargetVisibleMessages =
+        _cachedVisibleMessagesWindowStart == _windowStartIndex &&
+        cachedVisibleMessages != null &&
+        cachedVisibleMessages.length == previousVisibleLength;
+    if (change == AiSessionDisplayMessageChange.tailAppended) {
+      _cachedVisibleIndexMap![nextTail.id] = previousVisibleLength;
+      if (canRetargetVisibleMessages) cachedVisibleMessages.add(nextTail);
+    } else if (canRetargetVisibleMessages) {
+      cachedVisibleMessages[cachedVisibleMessages.length - 1] = nextTail;
+    }
+    _cachedIndexMapSource = nextMessages;
   }
 
   void _syncRenderEntries({bool forceReset = false}) {

@@ -125,6 +125,14 @@ import {
   messageHasRenderableTranscriptOutput,
   prependTranscriptHistory,
 } from '../../../shared/util/session_transcript_messages';
+import {
+  mergeServerWindowResult,
+  messageFollowSignature,
+  messagesEquivalentForRender,
+  updateMessageWindowMembership,
+  type MergeServerWindowOptions,
+  type MessageWindowMembershipTracker,
+} from '../../../shared/util/session_message_window';
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
 import { ModelPickerDialog } from '../../../components/ModelPickerDialog';
 import { ReasoningEffortControl } from '../../../components/ReasoningEffortControl';
@@ -567,15 +575,6 @@ function JsonDialogActions({
   );
 }
 
-interface MergeServerWindowOptions {
-  preserveLocalStreamingTail?: boolean;
-}
-
-interface MergeServerWindowResult {
-  items: SessionMessage[];
-  offset: number;
-}
-
 function isRunningPhase(phase: string | null | undefined): boolean {
   return Boolean(phase && phase !== 'idle');
 }
@@ -586,10 +585,6 @@ function shouldApplyPollingMessageWindow(sseLive: boolean, pollSendPhase: string
 
 function shouldApplySessionAsyncResult(currentSessionId: string, requestSessionId: string, componentMounted = true): boolean {
   return componentMounted && requestSessionId.length > 0 && currentSessionId === requestSessionId;
-}
-
-function isStreamingTailMessage(message: SessionMessage): boolean {
-  return message.role === 'assistant' || message.role === 'tool';
 }
 
 function isAssistantTextLikeMessage(message: SessionMessage): boolean {
@@ -620,188 +615,6 @@ function metadataTextLength(value: unknown): number {
   return stringifyJsonSafely(value)?.length ?? String(value).length;
 }
 
-const MESSAGE_RENDER_METADATA_KEYS = [
-  'streaming',
-  'content_format',
-  'tool_call_id',
-  'tool_name',
-  'name',
-  'tool_arguments',
-  'tool_arguments_streaming',
-  'tool_execution_stdout',
-  'tool_execution_stderr',
-  'tool_execution_result',
-  'result_text',
-  'tool_execution_status',
-  'tool_status',
-  'status',
-  'tool_execution_command',
-  'command',
-  'tool_execution_working_directory',
-  'working_directory',
-  'tool_execution_elapsed_ms',
-  'tool_execution_duration_ms',
-  'tool_execution_exit_code',
-  'exit_code',
-  'sandbox_applied',
-  'sandbox_blocked',
-  'sandbox_backend',
-  'sandbox_unavailable_reason',
-  'sandbox_proxy_enabled',
-  'sandbox_proxy_http_port',
-  'sandbox_proxy_socks_port',
-  'file_mutation_kind',
-  'file_mutation_path',
-  'read_file_path',
-  'file_mutation_paths',
-  'file_mutation_write_reason',
-  'write_analysis_reason',
-  'tool_execution_write_analysis_reason',
-  'round_summary_record_count',
-  'mcp_server_name',
-  'mcp_tool_name',
-  'tool_source',
-  'plan_mode_awaiting_approval',
-  'plan_mode_approved',
-  'attachments',
-  'attachment_count',
-  'generated_image_paths',
-  'generated_video_paths',
-  'generated_audio_paths',
-  'creation_request',
-  'conversation_mode',
-  'user_skill_selection',
-  'selected_skill',
-  DEFERRED_MESSAGE_CONTENT_METADATA_KEY,
-  'knowledge_base',
-  'message_feedback',
-  'response_variants',
-  'response_variant_index',
-] as const;
-
-const metadataRenderFingerprintCache = new WeakMap<object, string>();
-const messageRenderSignatureCache = new WeakMap<SessionMessage, string>();
-
-function metadataValueFingerprint(value: unknown): string {
-  if (value == null) return '';
-  if (typeof value === 'string') {
-    return `${value.length}:${value.slice(0, 48)}:${value.slice(-24)}`;
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-  return `json:${metadataTextLength(value)}`;
-}
-
-function metadataRenderFingerprint(value: unknown): string {
-  const meta = recordOrNullFromUnknown(value);
-  if (!meta) return '';
-  const cached = metadataRenderFingerprintCache.get(meta);
-  if (cached != null) return cached;
-  const fingerprint = MESSAGE_RENDER_METADATA_KEYS
-    .map((key) => `${key}=${metadataValueFingerprint(meta[key])}`)
-    .join('|');
-  metadataRenderFingerprintCache.set(meta, fingerprint);
-  return fingerprint;
-}
-
-function usageRenderFingerprint(message: SessionMessage): string {
-  const usage = message.usage;
-  if (!usage) return '';
-  return [
-    usage.prompt_tokens ?? '',
-    usage.completion_tokens ?? '',
-    usage.total_tokens ?? '',
-    usage.cache_read_tokens ?? '',
-    usage.cache_creation_tokens ?? '',
-    usage.reasoning_tokens ?? '',
-    usage.audio_input_tokens ?? '',
-    usage.image_input_tokens ?? '',
-    usage.video_input_tokens ?? '',
-    usage.web_search_tool_usage ?? '',
-    usage.web_search_page_usage ?? '',
-  ].join(':');
-}
-
-function messageRenderSignature(message: SessionMessage): string {
-  const cached = messageRenderSignatureCache.get(message);
-  if (cached != null) return cached;
-  const content = message.content ?? '';
-  const signature = [
-    message.id,
-    message.role,
-    message.kind,
-    content.length,
-    content.slice(0, 64),
-    content.slice(-32),
-    message.character_count ?? 0,
-    message.created_at,
-    message.model_id ?? '',
-    message.model_label ?? '',
-    message.feedback ?? '',
-    usageRenderFingerprint(message),
-    metadataRenderFingerprint(message.metadata),
-  ].join('|');
-  messageRenderSignatureCache.set(message, signature);
-  return signature;
-}
-
-/// 渲染等价比较（与 messageRenderSignature 同一组判据，但分层短路）：
-/// - SSE 每 chunk 都会 JSON.parse 出全新对象，签名 WeakMap 必然 miss；
-///   整签名重建要对 attachments/response_variants 等对象值做完整 JSON
-///   序列化，窗口 × 12.5次/秒 是稳定的主线程税。
-/// - 流式尾消息在 content 长度处即返回 false，完全跳过 metadata 指纹；
-/// - 未变前缀逐键比较：原始值 === 快速通过（字符串比较是原生 memcmp），
-///   仅对象值才回退指纹比较，且首个差异即止。
-function messagesEquivalentForRender(a: SessionMessage, b: SessionMessage): boolean {
-  if (a === b) return true;
-  const contentA = a.content ?? '';
-  const contentB = b.content ?? '';
-  if (
-    a.id !== b.id
-    || a.role !== b.role
-    || a.kind !== b.kind
-    || contentA.length !== contentB.length
-    || (a.character_count ?? 0) !== (b.character_count ?? 0)
-    || a.created_at !== b.created_at
-    || (a.model_id ?? '') !== (b.model_id ?? '')
-    || (a.model_label ?? '') !== (b.model_label ?? '')
-    || (a.feedback ?? '') !== (b.feedback ?? '')
-  ) {
-    return false;
-  }
-  if (
-    contentA.slice(0, 64) !== contentB.slice(0, 64)
-    || contentA.slice(-32) !== contentB.slice(-32)
-  ) {
-    return false;
-  }
-  if (usageRenderFingerprint(a) !== usageRenderFingerprint(b)) return false;
-  return metadataEquivalentForRender(a.metadata, b.metadata);
-}
-
-function metadataEquivalentForRender(rawA: unknown, rawB: unknown): boolean {
-  if (rawA === rawB) return true;
-  const a = recordOrNullFromUnknown(rawA);
-  const b = recordOrNullFromUnknown(rawB);
-  if (!a || !b) {
-    return metadataRenderFingerprint(rawA) === metadataRenderFingerprint(rawB);
-  }
-  for (const key of MESSAGE_RENDER_METADATA_KEYS) {
-    const valueA = a[key];
-    const valueB = b[key];
-    if (valueA === valueB) continue;
-    if (metadataValueFingerprint(valueA) !== metadataValueFingerprint(valueB)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function messageFollowSignature(message: SessionMessage): string {
-  return messageRenderSignature(message);
-}
-
 function toolMessageHasOutput(metadata: Record<string, unknown> | null): boolean {
   if (!metadata) return false;
   return (
@@ -821,105 +634,6 @@ function isActiveFollowMessage(message: SessionMessage): boolean {
   }
   const status = stringFromUnknown(metadata?.['tool_execution_status'] ?? metadata?.['tool_status'] ?? metadata?.['status']);
   return status.length === 0 && !toolMessageHasOutput(metadata);
-}
-
-function shouldKeepLongerStreamingMessage(existing: SessionMessage | undefined, incoming: SessionMessage, options: MergeServerWindowOptions): boolean {
-  return Boolean(options.preserveLocalStreamingTail && existing && existing.id === incoming.id && existing.kind === incoming.kind && existing.role === incoming.role && isStreamingTailMessage(existing) && existing.content.length > incoming.content.length);
-}
-
-/// 流式增量合并：保留与上一次 snapshot 相同的对象引用，仅替换发生变化的尾巴消息。
-/// 使 `<MessageCard memo>` 在 SSE 80ms 推流期间跳过不变前缀的重新 diff，
-/// 让流式更新感觉真正像"逐字增长"而不是"全帧重排"。
-function mergeStream(prev: SessionMessage[], next: SessionMessage[], options: MergeServerWindowOptions = {}): SessionMessage[] {
-  if (prev === next) return prev;
-  if (prev.length === 0 || next.length === 0) return next;
-  // 长度变化或前缀 id 不一致 → 走完整替换；其他场景按 id+content+metadata 比较保留引用。
-  const out: SessionMessage[] = new Array(next.length);
-  let identical = prev.length === next.length;
-  for (let i = 0; i < next.length; i += 1) {
-    const a = i < prev.length ? prev[i] : undefined;
-    const b = next[i];
-    if (shouldKeepLongerStreamingMessage(a, b, options)) {
-      out[i] = a!;
-    } else if (a && messagesEquivalentForRender(a, b)) {
-      out[i] = a;
-    } else {
-      out[i] = b;
-      identical = false;
-    }
-  }
-  return identical ? prev : out;
-}
-
-function appendLocalStreamingTail(prev: SessionMessage[], merged: SessionMessage[]): SessionMessage[] {
-  if (prev.length === 0 || merged.length === 0) return merged;
-  const mergedIndexById = new Map<string, number>();
-  merged.forEach((item, index) => mergedIndexById.set(item.id, index));
-  let prevSharedIndex = -1;
-  let mergedSharedIndex = -1;
-  for (let index = prev.length - 1; index >= 0; index -= 1) {
-    const match = mergedIndexById.get(prev[index]!.id);
-    if (match != null) {
-      prevSharedIndex = index;
-      mergedSharedIndex = match;
-      break;
-    }
-  }
-  if (prevSharedIndex < 0 || mergedSharedIndex !== merged.length - 1) return merged;
-  const suffix = prev.slice(prevSharedIndex + 1);
-  if (suffix.length === 0 || !suffix.every(isStreamingTailMessage)) return merged;
-  return [...merged, ...suffix];
-}
-
-function mergeServerWindowResult(prev: SessionMessage[], latest: SessionMessage[], currentOffset: number, nextOffset: number, options: MergeServerWindowOptions = {}): MergeServerWindowResult {
-  if (prev.length === 0) return { items: latest, offset: nextOffset };
-  if (options.preserveLocalStreamingTail && latest.length === 0) {
-    return { items: prev, offset: currentOffset };
-  }
-  // 展示列表会合并工具结果，优先按消息标识定位重叠，不能用原始偏移切片。
-  const overlapIndex = latest.length > 0
-    ? prev.findIndex((message) => message.id === latest[0]!.id)
-    : -1;
-  if (overlapIndex < 0 && nextOffset < currentOffset) {
-    if (options.preserveLocalStreamingTail) {
-      const firstPrev = prev[0];
-      const overlapIndex = firstPrev ? latest.findIndex((item) => item.id === firstPrev.id) : -1;
-      if (overlapIndex >= 0) {
-        const merged = mergeStream(prev, latest.slice(overlapIndex), options);
-        return {
-          items: appendLocalStreamingTail(prev, merged),
-          offset: currentOffset,
-        };
-      }
-      return { items: prev, offset: currentOffset };
-    }
-    return { items: latest, offset: nextOffset };
-  }
-  const prefixCount = overlapIndex >= 0 ? overlapIndex : nextOffset - currentOffset;
-  if (prefixCount <= 0) {
-    const merged = mergeStream(prev, latest, options);
-    return {
-      items: options.preserveLocalStreamingTail ? appendLocalStreamingTail(prev, merged) : merged,
-      offset: currentOffset,
-    };
-  }
-  if (prefixCount > prev.length) return { items: latest, offset: nextOffset };
-  if (options.preserveLocalStreamingTail && latest.length > 0) {
-    const suffix = prev.slice(prefixCount);
-    const firstLatestId = latest[0]?.id;
-    const expectedFirstId = suffix[0]?.id;
-    if (suffix.length > 0 && firstLatestId && expectedFirstId !== firstLatestId) {
-      if (suffix.some(isStreamingTailMessage)) {
-        return { items: prev, offset: currentOffset };
-      }
-    }
-  }
-  const prefix = prev.slice(0, prefixCount);
-  const merged = [...prefix, ...mergeStream(prev.slice(prefixCount), latest, options)];
-  return {
-    items: options.preserveLocalStreamingTail ? appendLocalStreamingTail(prev, merged) : merged,
-    offset: currentOffset,
-  };
 }
 
 function sessionModeLabel(mode: string): string {
@@ -1548,39 +1262,6 @@ function deriveMessageWindowView(
     lastCreationModeAwaitingAssistant,
     hasUserMessage,
   };
-}
-
-interface MessageWindowMembershipTracker {
-  revision: number;
-  sessionId: string;
-  windowOffset: number;
-  messageIds: string[];
-}
-
-function updateMessageWindowMembership(
-  tracker: MessageWindowMembershipTracker,
-  sessionId: string,
-  windowOffset: number,
-  messages: SessionMessage[],
-): string {
-  let changed = tracker.sessionId !== sessionId ||
-    tracker.windowOffset !== windowOffset ||
-    tracker.messageIds.length !== messages.length;
-  if (!changed) {
-    for (let index = 0; index < messages.length; index += 1) {
-      if (tracker.messageIds[index] !== messages[index]?.id) {
-        changed = true;
-        break;
-      }
-    }
-  }
-  if (changed) {
-    tracker.revision += 1;
-    tracker.sessionId = sessionId;
-    tracker.windowOffset = windowOffset;
-    tracker.messageIds = messages.map((message) => message.id);
-  }
-  return `${sessionId}|${tracker.revision}`;
 }
 
 interface VirtualMessageListProps {
@@ -2548,6 +2229,7 @@ export function SessionDetailPage() {
   const messagesContentRef = useRef<HTMLDivElement | null>(null);
   const composerSectionRef = useRef<HTMLElement | null>(null);
   const messagesRef = useRef<SessionMessage[]>([]);
+  const messageIndexByIdRef = useRef(new Map<string, number>());
   const fullMessageContentCacheRef = useRef(new Map<string, SessionMessage>());
   const fullMessageContentRequestsRef = useRef(
     new Map<string, Promise<SessionMessage | null>>(),
@@ -3458,7 +3140,10 @@ export function SessionDetailPage() {
     updater: (message: SessionMessage) => SessionMessage,
   ): void {
     setMessages((prev) => {
-      const index = prev.findIndex((item) => item.id === messageId);
+      const cachedIndex = messageIndexByIdRef.current.get(messageId);
+      const index = cachedIndex != null && prev[cachedIndex]?.id === messageId
+        ? cachedIndex
+        : prev.findIndex((item) => item.id === messageId);
       if (index < 0) return prev;
       const nextMessage = updater(prev[index]!);
       if (nextMessage === prev[index]) return prev;
@@ -4133,6 +3818,7 @@ export function SessionDetailPage() {
     sessionId: '',
     windowOffset: -1,
     messageIds: [],
+    source: null,
   });
   const messageMembershipKey = updateMessageWindowMembership(
     messageMembershipTrackerRef.current,
@@ -4408,9 +4094,27 @@ export function SessionDetailPage() {
     }
   }
 
-  function replaceMessageWindow(items: SessionMessage[], offset: number): void {
-    if (messagesWindowLooksIdentical(messagesRef.current, items, windowOffsetRef.current, offset)) {
+  function replaceMessageWindow(
+    items: SessionMessage[],
+    offset: number,
+    options: { skipEqualityCheck?: boolean; membershipChanged?: boolean } = {},
+  ): void {
+    if (
+      messagesRef.current === items &&
+      windowOffsetRef.current === offset
+    ) {
       return;
+    }
+    if (
+      !options.skipEqualityCheck &&
+      messagesWindowLooksIdentical(messagesRef.current, items, windowOffsetRef.current, offset)
+    ) {
+      return;
+    }
+    if (options.membershipChanged !== false) {
+      messageIndexByIdRef.current = new Map(
+        items.map((message, index) => [message.id, index]),
+      );
     }
     messagesRef.current = items;
     windowOffsetRef.current = offset;
@@ -4418,12 +4122,24 @@ export function SessionDetailPage() {
     setWindowOffset(offset);
   }
 
-  function restoreMessageWindow(items: SessionMessage[], offset: number): void {
-    const restoredItems = items.map((message) => {
+  function restoreMessageWindow(
+    items: SessionMessage[],
+    offset: number,
+    options: { skipEqualityCheck?: boolean; membershipChanged?: boolean } = {},
+  ): void {
+    const cache = fullMessageContentCacheRef.current;
+    if (cache.size === 0) {
+      replaceMessageWindow(items, offset, options);
+      return;
+    }
+    const restoreMessage = (message: SessionMessage): SessionMessage => {
       if (!messageHasDeferredContent(message)) return message;
-      const full = fullMessageContentCacheRef.current.get(message.id);
+      const full = cache.get(message.id);
       if (!full) return message;
-      const metadata = { ...(full.metadata ?? {}), ...(message.metadata ?? {}) };
+      const metadata = {
+        ...(full.metadata ?? {}),
+        ...(message.metadata ?? {}),
+      };
       delete metadata[DEFERRED_MESSAGE_CONTENT_METADATA_KEY];
       return {
         ...message,
@@ -4434,8 +4150,26 @@ export function SessionDetailPage() {
         ),
         metadata,
       };
-    });
-    replaceMessageWindow(restoredItems, offset);
+    };
+    let restoredItems = items;
+    if (options.membershipChanged === false) {
+      for (const messageId of cache.keys()) {
+        const index = messageIndexByIdRef.current.get(messageId);
+        if (index == null || items[index]?.id !== messageId) continue;
+        const restored = restoreMessage(items[index]!);
+        if (restored === items[index]) continue;
+        if (restoredItems === items) restoredItems = items.slice();
+        restoredItems[index] = restored;
+      }
+    } else {
+      for (let index = 0; index < items.length; index += 1) {
+        const restored = restoreMessage(items[index]!);
+        if (restored === items[index]) continue;
+        if (restoredItems === items) restoredItems = items.slice();
+        restoredItems[index] = restored;
+      }
+    }
+    replaceMessageWindow(restoredItems, offset, options);
   }
 
   function updateTotalKnown(value: number): void {
@@ -4507,8 +4241,18 @@ export function SessionDetailPage() {
   }
 
   function applyServerMessageWindow(latest: SessionMessage[], nextOffset: number, options: MergeServerWindowOptions = {}): void {
-    const result = mergeServerWindowResult(messagesRef.current, latest, windowOffsetRef.current, nextOffset, options);
-    restoreMessageWindow(result.items, result.offset);
+    const result = mergeServerWindowResult(
+      messagesRef.current,
+      latest,
+      windowOffsetRef.current,
+      nextOffset,
+      options,
+      messageIndexByIdRef.current,
+    );
+    restoreMessageWindow(result.items, result.offset, {
+      skipEqualityCheck: true,
+      membershipChanged: result.membershipChanged,
+    });
   }
 
   async function refreshAutoTitleSummary(): Promise<boolean> {

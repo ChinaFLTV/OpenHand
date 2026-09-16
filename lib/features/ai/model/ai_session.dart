@@ -1023,6 +1023,19 @@ class AiSession {
     return _displayMessagesCache ??= _computeDisplayMessages();
   }
 
+  /// 判断展示列表是否只发生了可证明的尾部变化。
+  AiSessionDisplayMessageChange? displayMessageChangeFrom(AiSession previous) {
+    final previousMessages = previous.displayMessages;
+    final nextMessages = displayMessages;
+    if (identical(previousMessages, nextMessages)) {
+      return AiSessionDisplayMessageChange.unchanged;
+    }
+    if (nextMessages is _AiSessionTailMessages) {
+      return nextMessages.changeFrom(previousMessages);
+    }
+    return null;
+  }
+
   int messageIndexOf(String messageId) {
     return (_messageIndexByIdCache ??= <String, int>{
           for (var index = 0; index < messages.length; index += 1)
@@ -1447,6 +1460,8 @@ class AiSession {
   }
 }
 
+enum AiSessionDisplayMessageChange { unchanged, tailReplaced, tailAppended }
+
 /// 流式尾消息共享历史前缀，只复制极小尾段，避免每个片段复制整段会话历史。
 class _AiSessionTailMessages extends ListBase<AiSessionMessage> {
   _AiSessionTailMessages._(this._prefix, this._prefixLength, this._tail);
@@ -1525,6 +1540,46 @@ class _AiSessionTailMessages extends ListBase<AiSessionMessage> {
   final List<AiSessionMessage> _prefix;
   final int _prefixLength;
   final List<AiSessionMessage> _tail;
+
+  AiSessionDisplayMessageChange? changeFrom(List<AiSessionMessage> previous) {
+    final lengthDelta = length - previous.length;
+    if (lengthDelta != 0 && lengthDelta != 1) return null;
+
+    if (identical(_prefix, previous)) {
+      if (lengthDelta == 0 &&
+          _prefixLength == previous.length - 1 &&
+          _tail.length == 1) {
+        return AiSessionDisplayMessageChange.tailReplaced;
+      }
+      if (lengthDelta == 1 &&
+          _prefixLength == previous.length &&
+          _tail.length == 1) {
+        return AiSessionDisplayMessageChange.tailAppended;
+      }
+      return null;
+    }
+
+    if (previous is! _AiSessionTailMessages ||
+        !identical(_prefix, previous._prefix) ||
+        _prefixLength != previous._prefixLength) {
+      return null;
+    }
+    final sharedTailLength = lengthDelta == 0
+        ? _tail.length - 1
+        : previous._tail.length;
+    if (sharedTailLength < 0 ||
+        previous._tail.length !=
+            sharedTailLength + (lengthDelta == 0 ? 1 : 0) ||
+        _tail.length != sharedTailLength + 1) {
+      return null;
+    }
+    for (var index = 0; index < sharedTailLength; index += 1) {
+      if (!identical(_tail[index], previous._tail[index])) return null;
+    }
+    return lengthDelta == 0
+        ? AiSessionDisplayMessageChange.tailReplaced
+        : AiSessionDisplayMessageChange.tailAppended;
+  }
 
   @override
   int get length => _prefixLength + _tail.length;

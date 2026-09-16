@@ -450,6 +450,64 @@ void main() {
     expect(probe.key.currentState, isNull);
   });
 
+  testWidgets('千条消息流式更新只替换尾部并复用索引', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('流式', 1000));
+    await probe.mount(size: const Size(800, 600));
+    await probe.settle();
+    probe.rebuild(() {
+      probe.state._windowStartIndex = 0;
+      probe.state._replaceRenderEntries(
+        probe.session.displayMessages,
+        animate: false,
+      );
+    });
+    await tester.pump();
+
+    final firstEntry = probe.state._renderEntries.first;
+    final middleEntry = probe.state._renderEntries[500];
+    final indexMap = probe.state._cachedVisibleIndexMap!;
+    for (var chunk = 0; chunk < 20; chunk++) {
+      final tail = probe.session.messages.last.copyWith(
+        content: '流式正文$chunk',
+      );
+      final next = probe.session.copyWithTailMessage(tail, append: false);
+      expect(
+        next.displayMessageChangeFrom(probe.session),
+        AiSessionDisplayMessageChange.tailReplaced,
+      );
+      probe.update(next);
+      await tester.pump();
+      expect(identical(probe.state._renderEntries.first, firstEntry), true);
+      expect(identical(probe.state._renderEntries[500], middleEntry), true);
+      expect(identical(probe.state._cachedVisibleIndexMap, indexMap), true);
+      expect(probe.state._renderEntries.last.message.content, '流式正文$chunk');
+    }
+
+    final appended = probe.session.copyWithTailMessage(
+      AiSessionMessage.assistant(
+        id: '流式-追加',
+        content: '追加消息',
+        createdAt: DateTime.utc(2026, 9, 17),
+      ),
+      append: true,
+    );
+    probe.update(appended);
+    await tester.pump();
+    expect(identical(probe.state._cachedVisibleIndexMap, indexMap), true);
+    expect(indexMap['流式-追加'], 1000);
+    expect(probe.state._renderEntries.last.id, '流式-追加');
+
+    final changedMessages = List<AiSessionMessage>.of(probe.session.messages);
+    changedMessages[500] = changedMessages[500].copyWith(content: '中间消息已更新');
+    final middleChanged = probe.session.copyWith(messages: changedMessages);
+    expect(middleChanged.displayMessageChangeFrom(probe.session), isNull);
+    final previousTailEntry = probe.state._renderEntries.last;
+    probe.update(middleChanged);
+    await tester.pump();
+    expect(probe.state._renderEntries[500].message.content, '中间消息已更新');
+    expect(identical(probe.state._renderEntries.last, previousTailEntry), true);
+  });
+
   testWidgets('长会话展开历史与往返滚动保留消息和阅读位置', (tester) async {
     final probe = _TranscriptProbe(
       tester,

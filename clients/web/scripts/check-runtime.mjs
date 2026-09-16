@@ -80,6 +80,70 @@ try {
   assert.equal(prependTranscriptHistory(live, history.slice(0, 20)), null, '不相接的分页不能伪装成连续历史');
   assert.equal(prependTranscriptHistory(live, history.slice(590)), live, '重复边界页应复用现有消息');
 
+  const {
+    mergeServerWindowResult,
+    updateMessageWindowMembership,
+  } = await server.ssrLoadModule('/src/shared/util/session_message_window.ts');
+  const largeWindow = Array.from({ length: 5000 }, (_, index) => ({
+    id: `消息-${index}`,
+    role: index % 2 === 0 ? 'user' : 'assistant',
+    kind: index % 2 === 0 ? 'user' : 'assistant',
+    content: `正文-${index}`,
+    metadata: {},
+    created_at: new Date(2026, 0, 1, 0, 0, index).toISOString(),
+  }));
+  const largeIndex = new Map(largeWindow.map((message, index) => [message.id, index]));
+  const liveWindow = largeWindow.slice(-20);
+  liveWindow[liveWindow.length - 1] = {
+    ...liveWindow[liveWindow.length - 1],
+    content: '流式更新后的尾消息',
+  };
+  const mergedWindow = mergeServerWindowResult(
+    largeWindow,
+    liveWindow,
+    0,
+    4980,
+    { preserveLocalStreamingTail: true },
+    largeIndex,
+  );
+  assert.equal(mergedWindow.items.length, 5000, '尾窗合并不能丢失已加载历史');
+  assert.equal(mergedWindow.membershipChanged, false, '只更新尾消息时成员关系必须保持稳定');
+  assert.equal(mergedWindow.items[2500], largeWindow[2500], '未变化的历史消息必须保留对象引用');
+  assert.equal(mergedWindow.items.at(-1).content, '流式更新后的尾消息');
+  const unchangedWindow = mergeServerWindowResult(
+    mergedWindow.items,
+    liveWindow,
+    0,
+    4980,
+    { preserveLocalStreamingTail: true },
+    largeIndex,
+  );
+  assert.equal(unchangedWindow.items, mergedWindow.items, '重复尾窗快照必须复用原数组');
+  const changedMembershipWindow = [...liveWindow];
+  changedMembershipWindow[5] = { ...changedMembershipWindow[5], id: '替换的消息' };
+  assert.equal(
+    mergeServerWindowResult(mergedWindow.items, changedMembershipWindow, 0, 4980, {}, largeIndex).membershipChanged,
+    true,
+    '尾窗消息标识变化必须使成员关系失效',
+  );
+  const membershipTracker = {
+    revision: 0,
+    sessionId: '',
+    windowOffset: -1,
+    messageIds: [],
+    source: null,
+  };
+  const membershipKey = updateMessageWindowMembership(
+    membershipTracker,
+    '长会话',
+    0,
+    largeWindow,
+  );
+  assert.equal(
+    updateMessageWindowMembership(membershipTracker, '长会话', 0, largeWindow),
+    membershipKey,
+    '同一消息数组重渲染不能重复计算成员版本',
+  );
   const { resolveImageGallery, collectImageGallery } = await server.ssrLoadModule('/src/components/image_gallery.ts');
   const galleryEntries = Array.from({ length: 600 }, (_, index) => ({
     item: { path: `/图片/${index % 2}.png`, name: `图片 ${index}`, kind: 'image' },
