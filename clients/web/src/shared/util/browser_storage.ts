@@ -47,7 +47,8 @@ export function readBrowserJsonStorage(
   if (raw === undefined) return fallback;
   if (raw == null) return null;
   const parsed = parseJsonSafely(raw);
-  if (parsed == null) {
+  // JSON null 是合法值，不能和损坏文本混为一谈并删除。
+  if (parsed == null && raw.trim() !== 'null') {
     removeBrowserStorage(key);
     return null;
   }

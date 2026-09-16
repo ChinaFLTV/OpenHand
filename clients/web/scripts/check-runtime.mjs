@@ -95,8 +95,16 @@ try {
     constructor(type, options) { super(type); this.error = options?.error; }
   });
   const auth = await server.ssrLoadModule('/src/state/storage.ts');
+  const { readBrowserJsonStorage } = await server.ssrLoadModule('/src/shared/util/browser_storage.ts');
   const { apiRequest, UnauthorizedError } = await server.ssrLoadModule('/src/api/client.ts');
   const { STORAGE_KEY_TOKEN, STORAGE_KEY_PROFILE } = await server.ssrLoadModule('/src/shared/util/storage_keys.ts');
+
+  entries.set('合法空值', 'null');
+  assert.equal(readBrowserJsonStorage('合法空值'), null, '合法 JSON null 必须按空值读取');
+  assert.equal(entries.has('合法空值'), true, '合法 JSON null 不能被误删');
+  entries.set('损坏值', '{');
+  assert.equal(readBrowserJsonStorage('损坏值'), null, '损坏 JSON 必须回落为空值');
+  assert.equal(entries.has('损坏值'), false, '损坏 JSON 必须清理');
 
   auth.writeToken('旧凭据', { username: '旧用户' });
   const firstSession = auth.captureAuthSession();
