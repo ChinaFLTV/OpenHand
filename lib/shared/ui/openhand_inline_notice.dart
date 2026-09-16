@@ -144,6 +144,32 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
 class OpenHandInlineNoticeFactory {
   const OpenHandInlineNoticeFactory._();
 
+  static OpenHandInlineNotice _build({
+    required IconData icon,
+    required Color color,
+    required Color foregroundColor,
+    required String message,
+    String? copyText,
+    VoidCallback? onDismiss,
+    bool showCopyAction = true,
+    bool showCloseAction = true,
+    TextStyle? messageStyle,
+    double? maxMessageHeight,
+  }) {
+    return OpenHandInlineNotice(
+      icon: icon,
+      color: color,
+      foregroundColor: foregroundColor,
+      message: message,
+      copyText: copyText,
+      onDismiss: onDismiss,
+      showCopyAction: showCopyAction,
+      showCloseAction: showCloseAction,
+      messageStyle: messageStyle,
+      maxMessageHeight: maxMessageHeight,
+    );
+  }
+
   static OpenHandInlineNotice error(
     BuildContext context,
     String message, {
@@ -155,7 +181,7 @@ class OpenHandInlineNoticeFactory {
     double? maxMessageHeight,
   }) {
     final scheme = Theme.of(context).colorScheme;
-    return OpenHandInlineNotice(
+    return _build(
       icon: Icons.error_outline_rounded,
       color: scheme.errorContainer,
       foregroundColor: scheme.onErrorContainer,
@@ -180,7 +206,7 @@ class OpenHandInlineNoticeFactory {
     double? maxMessageHeight,
   }) {
     final scheme = Theme.of(context).colorScheme;
-    return OpenHandInlineNotice(
+    return _build(
       icon: Icons.warning_amber_rounded,
       color: scheme.tertiaryContainer,
       foregroundColor: scheme.onTertiaryContainer,
