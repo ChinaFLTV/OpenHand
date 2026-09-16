@@ -7,6 +7,8 @@ const Duration _kCreationFailureExitDuration = kOpenHandMotion240;
 // 过大时滚动会在视口外同步挂载多个平台视图，直接拖垮帧率。
 // 280 约等于 2~3 条富文本气泡高度，兼顾预渲染与帧预算。
 const double _kTranscriptListCacheExtent = 280;
+const int _kTranscriptViewportFillMessageLimit = 64;
+const int _kTranscriptViewportFillPageLimit = 3;
 const double _kTranscriptScrollbarThickness = 6;
 const Radius _kTranscriptScrollbarRadius = kOpenHandPillRadius;
 const double _kTranscriptEstimatedMessageSpacing = 14;
@@ -471,6 +473,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       RichContentFrameScheduler(isPaused: _transcriptRenderPaused);
   int _staggerFillGeneration = 0;
   bool _staggerFillActive = false;
+  bool _viewportFillQueued = false;
+  int _viewportFillMessagesRemaining = _kTranscriptViewportFillMessageLimit;
+  int _viewportFillPagesRemaining = _kTranscriptViewportFillPageLimit;
+  int? _lastViewportFillHistoryStart;
 
   @override
   void initState() {
@@ -563,7 +569,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       }
       final ready =
           elapsedFrames >= _transcriptInitialRevealMinimumFrameCount &&
-          stableFrames >= _scrollToBottomSettleStableFrameLimit;
+          stableFrames >= _scrollToBottomSettleStableFrameLimit &&
+          !_staggerFillActive &&
+          !_viewportFillQueued;
       if (!ready && framesRemaining > 0) {
         WidgetsBinding.instance.addPostFrameCallback(settle);
         WidgetsBinding.instance.scheduleFrame();
@@ -602,26 +610,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       );
       _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
       _syncWindowStartIndex(forceReset: true);
-      _renderEntries = const <_TranscriptRenderEntry>[];
-      _renderEntryIndexById = const <String, int>{};
       _initialRevealPhase = _TranscriptInitialRevealPhase.preparing;
+      _materializeOpenWindow();
       _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
-      // 双兜底物化：在 mount 状态变化或父级帧抢占
-      // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
-      // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
-      // 之前已 schedule）。`endOfFrame` 在当前帧结束后再尝试一次，
-      // 形成「post-frame → endOfFrame → build fallback」三重保险。
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (_renderEntries.isNotEmpty) return;
-        setState(_materializeOpenWindow);
-      });
-      unawaited(
-        _awaitEndOfFrameBounded().then((_) {
-          if (!mounted || _renderEntries.isNotEmpty) return;
-          setState(_materializeOpenWindow);
-        }),
-      );
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
       final previousWindowStartIndex = _windowStartIndex;
@@ -726,6 +717,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _activeScrollTargetId = null;
     _staggerFillGeneration += 1;
     _staggerFillActive = false;
+    _viewportFillMessagesRemaining = _kTranscriptViewportFillMessageLimit;
+    _viewportFillPagesRemaining = _kTranscriptViewportFillPageLimit;
+    _lastViewportFillHistoryStart = null;
   }
 
   void _setInitialRevealPhase(_TranscriptInitialRevealPhase next) {
@@ -740,7 +734,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         next == _TranscriptInitialRevealPhase.ready;
     _initialRevealPhase = next;
     if (wasHidden && nowVisible) {
-      _scheduleStaggeredWindowFill();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _pinTranscriptToLatestIfOpening();
       });
@@ -816,10 +809,69 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _listCenterMessageId ??= firstPaint.firstOrNull?.id;
     final needsFill = firstPaint.length < visibleMessages.length;
     _staggerFillActive = needsFill;
-    if (needsFill &&
-        _initialRevealPhase != _TranscriptInitialRevealPhase.preparing) {
+    if (needsFill) {
       _scheduleStaggeredWindowFill();
     }
+    _scheduleViewportFill();
+  }
+
+  void _scheduleViewportFill() {
+    if (_viewportFillQueued) return;
+    _viewportFillQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _viewportFillQueued = false;
+      if (!mounted ||
+          _staggerFillActive ||
+          _loadingOlderMessages ||
+          _viewportFillMessagesRemaining <= 0 ||
+          _isTranscriptScrollActive(context) ||
+          widget.controller.positions.length != 1) {
+        return;
+      }
+      final position = widget.controller.position;
+      if (!position.hasContentDimensions ||
+          position.isScrollingNotifier.value ||
+          position.extentAfter > _scrollToBottomSettleTolerance) {
+        return;
+      }
+      final showSelfLearning = context
+          .read<SettingsController>()
+          .showSelfLearningMessages;
+      final firstMessage = _renderEntries
+          .where(
+            (entry) =>
+                !entry.exiting &&
+                (showSelfLearning ||
+                    entry.message.kind != AiSessionMessageKind.selfLearning),
+          )
+          .firstOrNull;
+      if (firstMessage != null) {
+        final top = _viewportOffsetForMessage(firstMessage.id);
+        // 首条在屏外或已覆盖视口顶部时，不再物化更多历史。
+        if (top == null || top <= _scrollToBottomSettleTolerance) return;
+      }
+      if (_windowStartIndex > 0) {
+        _viewportFillMessagesRemaining -= 1;
+        setState(() {
+          _windowStartIndex -= 1;
+          _staggerFillActive = true;
+        });
+        _scheduleStaggeredWindowFill();
+        return;
+      }
+      final historyStart = widget.session.messageWindowStartIndex;
+      if (!widget.session.hasMoreHistoricalMessages ||
+          _viewportFillPagesRemaining <= 0 ||
+          (_lastViewportFillHistoryStart != null &&
+              historyStart >= _lastViewportFillHistoryStart!)) {
+        return;
+      }
+      // 自动补屏不暂停追底；失败或分页无进展时不自动重试。
+      _lastViewportFillHistoryStart = historyStart;
+      _viewportFillPagesRemaining -= 1;
+      unawaited(_revealOlderMessages(fillViewport: true));
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _scheduleStaggeredWindowFill() {
@@ -858,6 +910,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _replaceRenderEntries(visibleMessages, animate: false);
         });
       }
+      _scheduleViewportFill();
       return;
     }
     final message = visibleMessages[firstPaintedIndex - 1];
@@ -892,6 +945,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     } else {
       _staggerFillActive = false;
     }
+    _scheduleViewportFill();
   }
 
   void _reconcileStaggeredRenderEntries(
@@ -938,6 +992,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   void _pinTranscriptToLatestIfOpening() {
     if (!mounted || !widget.controller.hasClients) return;
+    if (!widget.jumpToBottomOnInit) return;
     if (_isTranscriptScrollActive(context)) return;
     if (_initialRevealPhase == _TranscriptInitialRevealPhase.ready &&
         !_staggerFillActive) {
@@ -1385,6 +1440,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       });
       return;
     }
+    _scheduleViewportFill();
     if (!widget.preserveViewportAfterUserScroll) return;
     final anchor = _capturePrependAnchor();
     if (anchor != null) {
@@ -1928,27 +1984,29 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return clipText(normalized, maxLength);
   }
 
-  Future<void> _revealOlderMessages() {
+  Future<void> _revealOlderMessages({bool fillViewport = false}) {
     final existing = _activeRevealOlderFuture;
     if (existing != null) {
       return existing;
     }
     late final Future<void> future;
-    future = _runRevealOlderMessages().whenComplete(() {
-      if (identical(_activeRevealOlderFuture, future)) {
-        _activeRevealOlderFuture = null;
-      }
-    });
+    future = _runRevealOlderMessages(fillViewport: fillViewport).whenComplete(
+      () {
+        if (identical(_activeRevealOlderFuture, future)) {
+          _activeRevealOlderFuture = null;
+        }
+      },
+    );
     _activeRevealOlderFuture = future;
     return future;
   }
 
-  Future<void> _runRevealOlderMessages() async {
+  Future<void> _runRevealOlderMessages({required bool fillViewport}) async {
     if (_loadingOlderMessages ||
         (_windowStartIndex <= 0 && !widget.session.hasMoreHistoricalMessages)) {
       return;
     }
-    widget.onRevealOlderMessages();
+    if (!fillViewport) widget.onRevealOlderMessages();
 
     final anchor = _capturePrependAnchor();
     final restoreGeneration = _viewportRestoreGeneration;
@@ -2003,6 +2061,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           setState(() {
             _loadingOlderMessages = false;
           });
+          _scheduleViewportFill();
         }
       }
     }
@@ -2777,13 +2836,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       range.start,
       range.end,
     );
-    // build-stage 同步初始窗口 fallback：
-    // 当 didUpdateWidget 把 `_renderEntries` 重置为空、且 post-frame
-    // callback 因 mount 抖动尚未触发时，直接同步物化首屏，避免
-    // 「displayMessages 非空 → empty short-circuit」连续 K 帧白屏。
-    // 注意：build 中不允许 setState，但 _replaceRenderEntries 仅做
-    // 字段赋值（与 didUpdateWidget 内的同名调用一致），赋值后
-    // 当前帧即拿到新 `_renderEntries` 用于绘制，不破坏 build 不变量。
+    // 数据刚完成水合时，同步建立首帧，避免空列表闪烁。
     if (_renderEntries.isEmpty && visibleMessages.isNotEmpty) {
       _materializeOpenWindow();
     }
@@ -2938,58 +2991,66 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                 thickness: _kTranscriptScrollbarThickness,
                 radius: _kTranscriptScrollbarRadius,
                 stabilizeMetrics: true,
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: widget.onScrollNotification,
-                  child: CustomScrollView(
-                    scrollCacheExtent: const ScrollCacheExtent.pixels(
-                      _kTranscriptListCacheExtent,
-                    ),
-                    key: const ValueKey<String>('session-transcript-list'),
-                    controller: widget.controller,
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    physics: kOpenHandClampingPhysics,
-                    primary: false,
-                    center: centerKey,
-                    anchor: 1,
-                    slivers: [
-                      // 历史向负方向增长，不改动当前消息的布局坐标。
-                      if (beforeCenterCount > 0)
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => buildItem(
-                              context,
-                              beforeCenterCount - index - 1,
-                            ),
-                            childCount: beforeCenterCount,
-                            addRepaintBoundaries: false,
-                            findChildIndexCallback: (key) {
-                              final index = findIndex(key);
-                              return index != null && index < beforeCenterCount
-                                  ? beforeCenterCount - index - 1
-                                  : null;
-                            },
-                          ),
-                        ),
-                      SliverPadding(
-                        key: centerKey,
-                        padding: const EdgeInsets.only(bottom: 12),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) =>
-                                buildItem(context, beforeCenterCount + index),
-                            childCount: listItemCount - beforeCenterCount,
-                            addRepaintBoundaries: false,
-                            findChildIndexCallback: (key) {
-                              final index = findIndex(key);
-                              return index != null && index >= beforeCenterCount
-                                  ? index - beforeCenterCount
-                                  : null;
-                            },
-                          ),
-                        ),
+                child: NotificationListener<ScrollMetricsNotification>(
+                  onNotification: (_) {
+                    _scheduleViewportFill();
+                    return false;
+                  },
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: widget.onScrollNotification,
+                    child: CustomScrollView(
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(
+                        _kTranscriptListCacheExtent,
                       ),
-                    ],
+                      key: const ValueKey<String>('session-transcript-list'),
+                      controller: widget.controller,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      physics: kOpenHandClampingPhysics,
+                      primary: false,
+                      center: centerKey,
+                      anchor: 1,
+                      slivers: [
+                        // 历史向负方向增长，不改动当前消息的布局坐标。
+                        if (beforeCenterCount > 0)
+                          SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => buildItem(
+                                context,
+                                beforeCenterCount - index - 1,
+                              ),
+                              childCount: beforeCenterCount,
+                              addRepaintBoundaries: false,
+                              findChildIndexCallback: (key) {
+                                final index = findIndex(key);
+                                return index != null &&
+                                        index < beforeCenterCount
+                                    ? beforeCenterCount - index - 1
+                                    : null;
+                              },
+                            ),
+                          ),
+                        SliverPadding(
+                          key: centerKey,
+                          padding: const EdgeInsets.only(bottom: 12),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) =>
+                                  buildItem(context, beforeCenterCount + index),
+                              childCount: listItemCount - beforeCenterCount,
+                              addRepaintBoundaries: false,
+                              findChildIndexCallback: (key) {
+                                final index = findIndex(key);
+                                return index != null &&
+                                        index >= beforeCenterCount
+                                    ? index - beforeCenterCount
+                                    : null;
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
