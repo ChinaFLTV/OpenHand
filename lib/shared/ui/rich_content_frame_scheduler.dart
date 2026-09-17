@@ -1,5 +1,3 @@
-import 'dart:collection';
-
 import 'package:flutter/widgets.dart';
 
 /// 各渲染队列共用每帧一个任务的额度，同优先级队列轮流执行。
@@ -14,10 +12,10 @@ class RichContentFrameScheduler {
 
   final bool Function()? isPaused;
   final int maxPending;
-  final _priorityPending = Queue<_FrameTask>();
-  final _pending = Queue<_FrameTask>();
+  final _priorityPending = <_FrameTask>{};
+  final _pending = <_FrameTask>{};
 
-  bool schedule(
+  VoidCallback schedule(
     VoidCallback task, {
     bool priority = false,
     bool Function()? isValid,
@@ -25,24 +23,32 @@ class RichContentFrameScheduler {
   }) {
     if (_priorityPending.length + _pending.length >= maxPending) {
       if (_pending.isNotEmpty) {
-        _pending.removeFirst().onDropped?.call();
+        final dropped = _pending.first;
+        _pending.remove(dropped);
+        dropped.onDropped?.call();
       } else if (priority) {
-        _priorityPending.removeLast().onDropped?.call();
+        final dropped = _priorityPending.last;
+        _priorityPending.remove(dropped);
+        dropped.onDropped?.call();
       } else {
         onDropped?.call();
-        return false;
+        return () {};
       }
     }
     final entry = _FrameTask(task, isValid, onDropped);
     if (priority) {
       // 同级任务先进先出，持续进入的新卡片不能饿死已在等待的正文。
-      _priorityPending.addLast(entry);
+      _priorityPending.add(entry);
     } else {
-      _pending.addLast(entry);
+      _pending.add(entry);
     }
     _active.add(this);
     _scheduleFrame();
-    return true;
+    return () {
+      if (!_priorityPending.remove(entry) && !_pending.remove(entry)) return;
+      if (_priorityPending.isEmpty && _pending.isEmpty) _active.remove(this);
+      entry.onDropped?.call();
+    };
   }
 
   void clear() {
@@ -79,7 +85,8 @@ class RichContentFrameScheduler {
         final queue = selected._priorityPending.isNotEmpty
             ? selected._priorityPending
             : selected._pending;
-        final entry = queue.removeFirst();
+        final entry = queue.first;
+        queue.remove(entry);
         _active.remove(selected);
         if (selected._priorityPending.isNotEmpty ||
             selected._pending.isNotEmpty) {

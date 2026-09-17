@@ -134,6 +134,7 @@ class _TranscriptProbe {
   late SettingsController settings;
   late StateSetter rebuild;
   int manualReveals = 0;
+  VoidCallback? onLayoutChanged;
   _SessionTranscriptState get state => key.currentState!;
 
   Future<void> mount({
@@ -172,7 +173,7 @@ class _TranscriptProbe {
                   onScrollNotification: (_) => false,
                   session: session,
                   sendPhase: AiSendPhase.idle,
-                  onLayoutChanged: () {},
+                  onLayoutChanged: () => onLayoutChanged?.call(),
                   onMessageExpansionChanged: (_) {},
                   preserveViewportAfterUserScroll: true,
                   onRevealOlderMessages: () => manualReveals += 1,
@@ -255,6 +256,120 @@ class _TranscriptProbe {
 }
 
 void main() {
+  test('千条历史按窗口解码，大元数据后台加载保留正文与标记', () async {
+    final directory = await Directory.systemTemp.createTemp('openhand_history_');
+    final database = await DatabaseService.initialize(
+      databasePath: '${directory.path}/history.db',
+    );
+    addTearDown(() async {
+      await database.close();
+      await directory.delete(recursive: true);
+    });
+    final store = AiSessionStore(sessionsDirectoryPath: directory.path);
+    final session = _probeSession('history', 1000);
+    final longContent = List.filled(3000, '**历史正文**\n').join();
+    final largeMetadata = List.filled(30000, '工具输出').join();
+    final tail = session.messages.last.copyWith(
+      content: longContent,
+      characterCount: longContent.length,
+      metadata: {
+        'tool_execution_stdout': largeMetadata,
+        'request_payload': {'内部遥测': '按需恢复'},
+      },
+    );
+    await store.save(session.copyWith(messages: [
+      ...session.messages.take(session.messages.length - 1), tail,
+    ]));
+    final window = (await store.loadSessionTailWindow(session.id, limit: 8))!;
+    expect(window.messages.length, 8);
+    expect(window.messageWindowStartIndex, 992);
+    expect(window.messageTotalCount, 1000);
+    expect(window.messages.last.content.length, 4096);
+    expect(window.messages.last.metadata[aiSessionMessageContentPreviewMetadataKey], true);
+    expect(window.messages.last.metadata['tool_execution_stdout'], largeMetadata);
+    expect(window.messages.last.metadata.containsKey('request_payload'), false);
+    final full = (await store.loadMessage(session.id, tail.id))!;
+    expect(full.content, longContent);
+    expect(full.metadata['request_payload'], {'内部遥测': '按需恢复'});
+    expect(full.metadata.containsKey(aiSessionMessageContentPreviewMetadataKey), false);
+    // 损坏单行不能让后台队列丢失后续正常消息。
+    await database.database.update('messages', {'metadata_json': '{损坏'},
+      where: 'id = ?', whereArgs: ['history-998']);
+    final page = await store.loadMessages(session.id, offset: 998, limit: 2);
+    expect(page.messages.map((message) => message.id), ['history-998', 'history-999']);
+    expect(page.messages.first.metadata, const <String, Object?>{});
+    expect(page.messages.last.metadata['tool_execution_stdout'], largeMetadata);
+  });
+
+  testWidgets('失效富文本任务立即取消', (tester) async {
+    final scheduler = RichContentFrameScheduler();
+    var executed = 0;
+    final cancellations = <VoidCallback>[
+      for (var index = 0; index < 1000; index++)
+        scheduler.schedule(() => executed += 1),
+    ];
+    for (final cancel in cancellations) {
+      cancel();
+    }
+    scheduler.schedule(() => executed += 1);
+    await tester.pump();
+    expect(executed, 1);
+    scheduler.clear();
+  });
+
+  for (final html in [false, true]) {
+    testWidgets('离屏真实富文本进入视口后才解析，HTML=$html', (tester) async {
+      final controller = ScrollController();
+      var richBuildCount = 0;
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 320,
+              child: SingleChildScrollView(
+                controller: controller,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 1200),
+                    if (html)
+                      _DeferredPreparedHtmlBody(
+                        data: '<p>视口测试 <strong>完整富文本</strong></p>',
+                        backgroundColor: Colors.white,
+                        builder: (prepared) {
+                          richBuildCount += 1;
+                          return Text(prepared.healedHtml);
+                        },
+                      )
+                    else
+                      _SafeMarkdownBody(
+                        data: '**视口测试完整富文本**',
+                        styleSheet: MarkdownStyleSheet(),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(richBuildCount, 0);
+      expect(find.byType(_SafeMarkdownRichBody), findsNothing);
+      expect(find.byType(_RichContentPendingPreview), findsOneWidget);
+
+      controller.jumpTo(controller.position.maxScrollExtent);
+      for (var frame = 0; frame < 6; frame++) await tester.pump();
+      if (html) {
+        expect(richBuildCount, 1);
+      } else {
+        final state = tester.state<_SafeMarkdownBodyState>(find.byType(_SafeMarkdownRichBody));
+        expect(state._lastData, '**视口测试完整富文本**');
+      }
+      expect(find.byType(_RichContentPendingPreview), findsNothing);
+    });
+  }
+
   for (final creation in [false, true]) {
     for (final unmount in [false, true]) {
       testWidgets('错误卡片退场可取消，创作=$creation，卸载=$unmount', (tester) async {
@@ -481,6 +596,40 @@ void main() {
     pending.complete();
     await probe.settle();
     expect(probe.key.currentState, isNull);
+  });
+
+  testWidgets('千条长正文混排只解析附近预览且不预挂载平台视图', (tester) async {
+    final base = _probeSession('rich-history', 1000);
+    final markdown = List.filled(1500, '- **历史正文**：消息内容\n').join();
+    final html = '<article>${List.filled(500, '<p>历史 HTML 卡片</p>').join()}</article>';
+    final session = base.copyWith(messages: [
+      for (var index = 0; index < base.messages.length; index++)
+        base.messages[index].copyWith(
+          content: index.isEven ? html : markdown,
+          metadata: {'content_format': index.isEven ? 'html' : 'markdown'},
+        ),
+    ]);
+    final probe = _TranscriptProbe(tester, session);
+    var layoutUpdates = 0;
+    probe.onLayoutChanged = () {
+      layoutUpdates += 1;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!probe.controller.hasClients) return;
+        probe.controller.jumpTo(probe.controller.position.maxScrollExtent);
+      });
+    };
+    await probe.mount();
+    expect(probe.state._bubbleRegistry._contexts.length, lessThanOrEqualTo(2));
+    await probe.settle();
+    final richBodies = tester.stateList<_SafeMarkdownBodyState>(
+      find.byType(_SafeMarkdownRichBody),
+    ).toList();
+    expect(richBodies.length, greaterThan(0));
+    expect(richBodies.every((body) => body.config.data.length <= 1200), true);
+    expect(probe.state._bubbleRegistry._contexts.length, lessThan(20));
+    expect(find.byType(_DeferredHtmlBubbleWebView), findsNothing);
+    expect(layoutUpdates, greaterThan(0));
+    expect(probe.controller.position.extentAfter, lessThan(1));
   });
 
   testWidgets('千条消息流式更新只替换尾部并复用索引', (tester) async {

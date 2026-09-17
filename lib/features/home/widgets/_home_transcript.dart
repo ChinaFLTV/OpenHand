@@ -3065,7 +3065,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                 radius: _kTranscriptScrollbarRadius,
                 stabilizeMetrics: true,
                 child: NotificationListener<ScrollMetricsNotification>(
-                  onNotification: (_) {
+                  onNotification: (notification) {
+                    if (notification.depth != 0) return false;
+                    // 历史正文延迟就绪也会增高；沿用首页的用户滚动保护。
+                    widget.onLayoutChanged();
                     _scheduleViewportFill();
                     return false;
                   },

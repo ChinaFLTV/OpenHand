@@ -129,6 +129,28 @@ try {
   await until(() => settled && root.querySelector('[data-message-id="新-消息-999"] td') != null);
   verify(root.querySelector('[data-message-id="消息-999"]') == null, '快速切换二十次后仅保留当前会话');
   render(null, root);
+  const longMarkdown = '- **历史正文**：消息内容\n'.repeat(1500);
+  const longMessages = messages.map((message) => ({
+    ...message,
+    id: `长正文-${message.id}`,
+    content: longMarkdown,
+    metadata: { content_format: 'markdown' },
+  }));
+  markMessagesAsAppeared(longMessages.map((message) => message.id));
+  settled = false;
+  render(<div ref={scrollRef} style={{ height: '480px', overflowY: 'auto', width: '600px', maxWidth: '100%' }}>
+    <VirtualMessageList key="长正文" messages={longMessages} membershipKey="长正文"
+      scrollContainerRef={scrollRef} revealTarget={null} highlightedMessageId={null}
+      onInitialLayoutSettled={() => { settled = true; }}
+      renderMessage={(message) => <MessageCard message={message} />} />
+  </div>, root);
+  await until(() => settled && root.querySelector('[data-message-id="长正文-消息-999"] .oh-markdown strong') != null);
+  verify(root.querySelectorAll('[data-message-id]').length <= MESSAGE_LIST_MAX_VISIBLE_ROWS,
+    '千条长正文消息仍仅挂载视口附近卡片');
+  const renderedBodies = Array.from(root.querySelectorAll('.oh-markdown'));
+  verify(renderedBodies.length > 0 && renderedBodies.every((body) => (body.textContent?.length ?? 0) <= 1200),
+    '千条长正文首次仅解析折叠预览，正文开销不随历史总长度增长');
+  render(null, root);
   document.title = '长会话渲染回归检查通过';
   result.textContent = `通过 ${checks.length} 项：\n${checks.join('\n')}`;
 } catch (error) {

@@ -1004,6 +1004,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   _CodeBlockPalette? _cachedPalette;
   int? _cachedPaletteSignature;
   bool _highlightScheduled = false;
+  VoidCallback? _cancelHighlight;
   bool _highlightIsPlaceholder = false;
   ScrollController? _internalScrollController;
   TranscriptScrollActivity? _scrollActivity;
@@ -1074,6 +1075,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     _copiedResetTimer?.cancel();
     _downloadedResetTimer?.cancel();
     _internalScrollController?.dispose();
+    _cancelHighlight?.call();
     super.dispose();
   }
 
@@ -1413,8 +1415,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       return;
     }
     _highlightScheduled = true;
-    _highlightFrameScheduler.schedule(
+    _cancelHighlight = _highlightFrameScheduler.schedule(
       () {
+        _cancelHighlight = null;
         if (!mounted) return;
         if (_scrollActivity?.value ?? false) {
           _highlightScheduled = false;
@@ -1456,6 +1459,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       priority: true,
       isValid: () => mounted,
       onDropped: () {
+        _cancelHighlight = null;
         _highlightScheduled = false;
         _highlightPendingAfterScroll = false;
         _highlightIsPlaceholder = false;

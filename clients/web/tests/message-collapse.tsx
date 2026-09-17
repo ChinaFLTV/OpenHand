@@ -103,7 +103,7 @@ try {
   for (const format of ['markdown', 'html'] as const) {
     const source = format === 'html'
       ? `<article><h3>完整 HTML 正文</h3>${'<p>保留 <strong>已渲染内容</strong> 与交互状态。</p>'.repeat(80)}</article>`
-      : content.repeat(5);
+      : `${content.repeat(5)}\n\n## 完整正文尾部标记`;
     const message: SessionMessage = { ...reasoning, id: `响应折叠-${format}`, kind: 'assistant', content: source, metadata: { content_format: format } };
     markMessagesAsAppeared([message.id]);
     syncRemoteDialogMotionSettings({ entrance_style: 'spring_scale', exit_style: 'spring_scale', duration_ms: durationMs });
@@ -111,6 +111,11 @@ try {
     if (format === 'html') {
       await until(() => root.querySelector('.oh-html-progressive-button') != null);
       await act(async () => { root.querySelector<HTMLButtonElement>('.oh-html-progressive-button')!.click(); });
+    } else {
+      verify(!root.textContent?.includes('完整正文尾部标记'), '折叠 Markdown 首次只解析有界预览');
+      await clickToggle();
+      await until(() => root.textContent?.includes('完整正文尾部标记') === true);
+      verify(root.textContent?.includes('完整正文尾部标记') === true, '展开后恢复完整 Markdown 正文');
     }
     await until(() => root.querySelector('h3') != null);
     await wait(80);

@@ -1161,7 +1161,7 @@ class _RenderMeasureSize extends RenderProxyBox {
   }
 }
 
-class _SafeMarkdownBody extends StatefulWidget {
+class _SafeMarkdownBody extends StatelessWidget {
   const _SafeMarkdownBody({
     required this.data,
     required this.styleSheet,
@@ -1185,7 +1185,25 @@ class _SafeMarkdownBody extends StatefulWidget {
   final bool deferInitialParse;
 
   @override
-  State<_SafeMarkdownBody> createState() => _SafeMarkdownBodyState();
+  Widget build(BuildContext context) {
+    return DeferredRichContent(
+      enabled: deferInitialParse && !streaming,
+      placeholder: _RichContentPendingPreview(
+        source: data,
+        style: styleSheet.p,
+      ),
+      builder: (_) => _SafeMarkdownRichBody(this),
+    );
+  }
+}
+
+class _SafeMarkdownRichBody extends StatefulWidget {
+  const _SafeMarkdownRichBody(this.content);
+
+  final _SafeMarkdownBody content;
+
+  @override
+  State<_SafeMarkdownRichBody> createState() => _SafeMarkdownBodyState();
 }
 
 // 大型 Markdown 冷解析先保留可读正文，再按共享帧预算构建富文本树。
@@ -1424,8 +1442,9 @@ class _RichContentPendingPreview extends StatelessWidget {
   }
 }
 
-class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
+class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
     implements MarkdownBuilderDelegate {
+  _SafeMarkdownBody get config => widget.content;
   List<Widget>? _children;
   final List<GestureRecognizer> _recognizers = <GestureRecognizer>[];
   int? _lastThemeSignature;
@@ -1435,6 +1454,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   String? _lastBuilderSignature;
   String? _lastParseKey;
   bool _deferredParseScheduled = false;
+  VoidCallback? _cancelDeferredParse;
   int _deferredParseGeneration = 0;
   Timer? _deferredParseThrottleTimer;
   final Stopwatch _markdownParseStopwatch = Stopwatch()..start();
@@ -1451,14 +1471,14 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   @override
-  void didUpdateWidget(covariant _SafeMarkdownBody oldWidget) {
+  void didUpdateWidget(covariant _SafeMarkdownRichBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     final builderSignature = _builderSignature();
-    if (_lastData != widget.data ||
-        _lastSelectable != widget.selectable ||
-        _lastStreaming != widget.streaming ||
+    if (_lastData != config.data ||
+        _lastSelectable != config.selectable ||
+        _lastStreaming != config.streaming ||
         _lastBuilderSignature != builderSignature ||
-        _lastParseKey != widget.parseKey) {
+        _lastParseKey != config.parseKey) {
       _parseMarkdownMaybeDeferred(initial: false);
       return;
     }
@@ -1472,6 +1492,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   @override
   void dispose() {
     _cancelDeferredParseThrottle();
+    _cancelDeferredParse?.call();
     _markdownParseStopwatch.stop();
     _disposeRecognizers();
     super.dispose();
@@ -1480,33 +1501,33 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   /// 富文本构建使用共享帧预算；AST 命中仅省去解析，不豁免组件树构建。
   /// 流式更新保留上一棵富文本树，避免内容在富文本和占位之间反复切换。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
-    final deferredThreshold = widget.streaming
+    final deferredThreshold = config.streaming
         ? _markdownStreamingDeferredParseThresholdChars
         : _markdownDeferredParseThresholdChars;
     // 缓存只省去语法解析，首屏组件树构建仍须分帧；等待中的占位不算已完成。
     final deferHistoricalInitial =
-        widget.deferInitialParse && !widget.streaming && _lastData == null;
-    final overDeferredThreshold = widget.data.length > deferredThreshold;
+        config.deferInitialParse && !config.streaming && _lastData == null;
+    final overDeferredThreshold = config.data.length > deferredThreshold;
     final shouldDeferParse =
-        deferHistoricalInitial || (widget.streaming && overDeferredThreshold);
+        deferHistoricalInitial || (config.streaming && overDeferredThreshold);
     if (shouldDeferParse &&
-        widget.data.length <= _markdownPlainTextSkipThresholdChars &&
+        config.data.length <= _markdownPlainTextSkipThresholdChars &&
         (overDeferredThreshold ||
-            !_canRenderMarkdownAsPlainText(widget.data))) {
+            !_canRenderMarkdownAsPlainText(config.data))) {
       // 仅首次挂载使用占位，后续更新保留上一帧富文本直到新解析完成。
       final hadChildren = _children != null;
-      if (widget.streaming &&
+      if (config.streaming &&
           !hadChildren &&
-          widget.data.length <=
+          config.data.length <=
               _markdownStreamingInitialSyncParseThresholdChars) {
         _cancelDeferredParseThrottle();
         _parseMarkdown();
         return;
       }
       if (initial || !hadChildren) {
-        _renderDeferredPlaceholder(widget.data);
+        _renderDeferredPlaceholder(config.data);
       }
-      _scheduleDeferredParse(throttle: widget.streaming && hadChildren);
+      _scheduleDeferredParse(throttle: config.streaming && hadChildren);
       return;
     }
     _cancelDeferredParseThrottle();
@@ -1552,8 +1573,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     }
     _deferredParseScheduled = true;
     final generation = ++_deferredParseGeneration;
-    _markdownFrameScheduler.schedule(
+    _cancelDeferredParse = _markdownFrameScheduler.schedule(
       () {
+        _cancelDeferredParse = null;
         if (!mounted) {
           _deferredParseScheduled = false;
           return;
@@ -1565,6 +1587,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       isValid: () => mounted && generation == _deferredParseGeneration,
       onDropped: () {
         if (generation != _deferredParseGeneration) return;
+        _cancelDeferredParse = null;
         _deferredParseScheduled = false;
       },
     );
@@ -1573,7 +1596,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   void _renderDeferredPlaceholder(String source) {
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
-    ).merge(widget.styleSheet);
+    ).merge(config.styleSheet);
     _disposeRecognizers();
     _children = <Widget>[
       _RichContentPendingPreview(source: source, style: effectiveStyleSheet.p),
@@ -1581,12 +1604,14 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   void _parseMarkdown() {
+    _cancelDeferredParse?.call();
+    _cancelDeferredParse = null;
     _deferredParseGeneration += 1;
     _deferredParseScheduled = false;
     if (kDebugMode) {
       developer.Timeline.startSync(
         'openhand.markdown.parse',
-        arguments: <String, Object?>{'chars': widget.data.length},
+        arguments: <String, Object?>{'chars': config.data.length},
       );
       try {
         _parseMarkdownInner();
@@ -1620,29 +1645,29 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   bool _rebuildMarkdownChildren() {
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
-    ).merge(widget.styleSheet);
+    ).merge(config.styleSheet);
     final normalizedSource = normalizeOpenHandMarkdownSource(
-      widget.data.isEmpty ? ' ' : widget.data,
+      config.data.isEmpty ? ' ' : config.data,
       stripMessageScaffolding: true,
     );
     _lastThemeSignature = _computeThemeSignature();
-    _lastData = widget.data;
-    _lastSelectable = widget.selectable;
-    _lastStreaming = widget.streaming;
+    _lastData = config.data;
+    _lastSelectable = config.selectable;
+    _lastStreaming = config.streaming;
     _lastBuilderSignature = _builderSignature();
-    _lastParseKey = widget.parseKey;
-    if (_canRenderMarkdownAsPlainText(widget.data)) {
+    _lastParseKey = config.parseKey;
+    if (_canRenderMarkdownAsPlainText(config.data)) {
       _children = <Widget>[
-        widget.selectable
+        config.selectable
             ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
             : Text(normalizedSource, style: effectiveStyleSheet.p),
       ];
       return false;
     }
     // 超大消息回退到可选择的纯文本，避免同步 Markdown 解析和构建卡顿。
-    if (widget.data.length > _markdownPlainTextSkipThresholdChars) {
+    if (config.data.length > _markdownPlainTextSkipThresholdChars) {
       _children = <Widget>[
-        widget.selectable
+        config.selectable
             ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
             : Text(normalizedSource, style: effectiveStyleSheet.p),
       ];
@@ -1653,8 +1678,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       // `md.Document.parseLines` + `_sanitizeMarkdownAst`。MarkdownBuilder
       // 的 widget 构造仍按当前主题样式 fresh 跑一次，避免主题切换时
       // 残留旧色。
-      final astCacheKey = _markdownAstCacheKeyFor(normalizedSource, widget);
-      final shouldCacheAst = !widget.streaming;
+      final astCacheKey = _markdownAstCacheKeyFor(normalizedSource, config);
+      final shouldCacheAst = !config.streaming;
       final cachedAst = shouldCacheAst
           ? _markdownAstCache.get(astCacheKey)
           : null;
@@ -1665,7 +1690,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         astNodes = parseOpenHandMarkdown(
           normalizedSource,
           inlineSyntaxes: withOpenHandMarkdownMathInlineSyntaxes(
-            widget.inlineSyntaxes,
+            config.inlineSyntaxes,
           ),
         );
         if (shouldCacheAst) {
@@ -1677,13 +1702,13 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         resolveImageFilePath: _resolveMarkdownImageFilePath,
         nodes: astNodes,
         delegate: this,
-        selectable: widget.selectable,
+        selectable: config.selectable,
         styleSheet: effectiveStyleSheet,
         imageBuilder: _buildMarkdownImage,
-        builders: widget.builders,
+        builders: config.builders,
       );
     } catch (_) {
-      if (widget.streaming) {
+      if (config.streaming) {
         if (_children != null && _children!.isNotEmpty) {
           return true;
         }
@@ -1696,9 +1721,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         return false;
       }
       _children = <Widget>[
-        widget.selectable
-            ? SelectableText(widget.data, style: effectiveStyleSheet.p)
-            : Text(widget.data, style: effectiveStyleSheet.p),
+        config.selectable
+            ? SelectableText(config.data, style: effectiveStyleSheet.p)
+            : Text(config.data, style: effectiveStyleSheet.p),
       ];
     }
     return false;
@@ -1711,14 +1736,14 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       theme.colorScheme.surface.toARGB32(),
       theme.colorScheme.onSurface.toARGB32(),
       theme.colorScheme.primary.toARGB32(),
-      widget.styleSheet.hashCode,
-      widget.styleSheet.p?.color?.toARGB32(),
-      widget.styleSheet.code?.color?.toARGB32(),
+      config.styleSheet.hashCode,
+      config.styleSheet.p?.color?.toARGB32(),
+      config.styleSheet.code?.color?.toARGB32(),
     );
   }
 
   String _builderSignature() {
-    final keys = widget.builders.keys.toList(growable: false)..sort();
+    final keys = config.builders.keys.toList(growable: false)..sort();
     return '$openHandMarkdownMathSyntaxVersion|${keys.join('|')}';
   }
 
@@ -1887,7 +1912,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   String? _resolveMarkdownImageFilePath(Uri uri) =>
-      _resolveGalleryImageFilePath(uri, widget.pathRoots);
+      _resolveGalleryImageFilePath(uri, config.pathRoots);
 
   Widget _buildMarkdownImageFrame(BuildContext context, Widget image) {
     return ClipRRect(
@@ -1978,7 +2003,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     }
     final resolvedPath = await resolveExistingMessagePathAsync(
       pathText,
-      widget.pathRoots,
+      config.pathRoots,
     );
     if (!mounted) return;
     if (resolvedPath != null) {
@@ -1997,7 +2022,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final normalizedCode = code.replaceAll(_trailingNewlinePattern, '');
     final resolvedPath = resolveExistingMessagePath(
       normalizedCode,
-      widget.pathRoots,
+      config.pathRoots,
     );
     if (resolvedPath == null) {
       return TextSpan(text: normalizedCode, style: styleSheet.code);
@@ -2033,7 +2058,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: children,
           );
-    if (!widget.selectable) return body;
+    if (!config.selectable) return body;
     // 通过统一选择容器协调 Markdown 内多个可选节点，支持跨段落选择。
     return SelectionArea(child: _MarkdownSelectionContainer(child: body));
   }
@@ -3900,6 +3925,7 @@ class _DeferredHtmlBubbleWebViewState
   int? _mountedWebViewGeneration;
   TranscriptScrollActivity? _scrollActivity;
   bool _pendingMountAfterScroll = false;
+  VoidCallback? _cancelMount;
   HtmlWebViewMountPermit? _activePermit;
   HtmlWebViewMountPermit? _bootstrapPermit;
   Timer? _coldMountTimer;
@@ -3945,6 +3971,8 @@ class _DeferredHtmlBubbleWebViewState
       if (_useFlutterFallback) _useFlutterFallback = false;
       if (_mountWebView) return;
       _generation += 1;
+      _cancelMount?.call();
+      _cancelMount = null;
       _permitWaitTimeoutCount = 0;
       _pendingMountAfterScroll = false;
       _cancelColdMountTimer();
@@ -3976,6 +4004,8 @@ class _DeferredHtmlBubbleWebViewState
     _scrollActivity?.removeListener(_handleScrollActivityChanged);
     _scrollActivity = null;
     _generation += 1;
+    _cancelMount?.call();
+    _cancelMount = null;
     _cancelColdMountTimer();
     _bootstrapTimer?.cancel();
     _bootstrapTimer = null;
@@ -4030,8 +4060,10 @@ class _DeferredHtmlBubbleWebViewState
       return;
     }
     final generation = ++_generation;
-    _htmlWebViewFrameScheduler.schedule(
+    _cancelMount?.call();
+    _cancelMount = _htmlWebViewFrameScheduler.schedule(
       () {
+        _cancelMount = null;
         if (!mounted || generation != _generation || _mountWebView) {
           return;
         }
@@ -4044,6 +4076,7 @@ class _DeferredHtmlBubbleWebViewState
       priority: true,
       isValid: () => mounted && generation == _generation && !_mountWebView,
       onDropped: () {
+        if (generation == _generation) _cancelMount = null;
         if (mounted && generation == _generation && !_mountWebView) {
           _handleWebViewFallback(retryOnCapacity: true);
         }
@@ -5505,49 +5538,17 @@ class _DeferredPreparedHtmlBody extends StatefulWidget {
 
 class _DeferredPreparedHtmlBodyState extends State<_DeferredPreparedHtmlBody> {
   _PreparedHtmlRenderData? _prepared;
-  bool _prepareScheduled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _prepared = _peekPreparedHtmlRenderData(widget.data);
-    if (_prepared == null) {
-      _schedulePrepare();
-    }
-  }
 
   @override
   void didUpdateWidget(covariant _DeferredPreparedHtmlBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data == widget.data) return;
-    _prepared = _peekPreparedHtmlRenderData(widget.data);
-    if (_prepared == null) {
-      _schedulePrepare();
-    }
-  }
-
-  void _schedulePrepare() {
-    if (_prepareScheduled) return;
-    _prepareScheduled = true;
-    _markdownFrameScheduler.schedule(
-      () {
-        _prepareScheduled = false;
-        if (!mounted) return;
-        final next = _preparedHtmlRenderDataFor(widget.data);
-        if (identical(_prepared, next)) return;
-        setState(() => _prepared = next);
-      },
-      priority: true,
-      isValid: () => mounted,
-      onDropped: () => _prepareScheduled = false,
-    );
+    if (oldWidget.data != widget.data) _prepared = null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final prepared = _prepared;
-    if (prepared == null) {
-      return SizedBox(
+    return DeferredRichContent(
+      placeholder: SizedBox(
         height: _estimateHtmlBubbleHeight(widget.data),
         child: ColoredBox(
           color: widget.backgroundColor,
@@ -5559,9 +5560,10 @@ class _DeferredPreparedHtmlBodyState extends State<_DeferredPreparedHtmlBody> {
             ),
           ),
         ),
-      );
-    }
-    return widget.builder(prepared);
+      ),
+      builder: (_) =>
+          widget.builder(_prepared ??= _preparedHtmlRenderDataFor(widget.data)),
+    );
   }
 }
 

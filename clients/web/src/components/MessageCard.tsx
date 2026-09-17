@@ -2474,8 +2474,7 @@ function MessageCardImpl({
   const strippedContent = useMemo(() => stripCollectedNetworkMedia(content), [content]);
   const translatedText = strictStringFromUnknown(translatedContent);
   const showingTranslation = translationVisible && translatedText.length > 0;
-  // 不再在内容层面截断：完整渲染后交由 CollapsibleBody 用 max-height + mask 动画过渡，
-  // 避免「全多」↔「袪断+…」间的文字跳变在手动折叠/展开时生硬。
+  // 操作与格式判断使用完整正文，首次折叠的渲染预算在下方单独处理。
   const visibleContent = showingTranslation ? translatedText : strippedContent;
 
   // ── 工具调用/思考/正式响应胶囊折叠（与 APP 端消息卡对齐） ──
@@ -2515,6 +2514,11 @@ function MessageCardImpl({
   const bodyCollapsedByCard = !isCollapsibleByBadge && collapsed;
   const badgeBodyCollapsed =
     (badgeCanCollapse && badgeCollapsed) || bodyCollapsedByCard;
+  const richContentRevealRef = useRef({ id: message.id, revealed: false });
+  if (richContentRevealRef.current.id !== message.id) {
+    richContentRevealRef.current = { id: message.id, revealed: false };
+  }
+  if (!badgeBodyCollapsed) richContentRevealRef.current.revealed = true;
   const reasoningPreviewCollapsed =
     isReasoningMessage && badgeCanCollapse && badgeCollapsed;
 
@@ -2583,6 +2587,18 @@ function MessageCardImpl({
     (effectiveFormat === 'html' || effectiveFormat === 'markdown');
   const textActionsSupported = supportsTextActions && !htmlRenderableMessage;
   const canOpenHtmlInBrowser = effectiveFormat === 'html' && contentLooksHtml;
+  // 首次折叠仅解析预览；展开后保留全文，连续收放不再重建正文树。
+  const renderedVisibleContent =
+    !richContentRevealRef.current.revealed &&
+    badgeBodyCollapsed &&
+    !streamingContent &&
+    !showRawContent &&
+    (effectiveFormat === 'markdown' || isReasoningMessage || isUserBubble) &&
+    !contentLooksHtml
+      ? truncateEndText(visibleContent, COLLAPSED_RICH_BODY_PREVIEW_MAX_CHARS, {
+          ellipsis: '',
+        })
+      : visibleContent;
   useEffect(() => {
     if (!supportsRenderedSourceToggle && showRawContent) {
       setShowRawContent(false);
@@ -3030,14 +3046,14 @@ function MessageCardImpl({
           responseCollapsedWhileStreaming ||
           (activelyStreaming && effectiveFormat === 'plain_text') ? (
             <StreamingPlainTextReveal
-              content={visibleContent}
+              content={renderedVisibleContent}
               streaming={!isContentPreview && !reasoningPreviewCollapsed}
               reduceMotion={reduceMotion}
               mono={style.mono === true}
             />
           ) : (
             <StreamingMarkdownReveal
-              content={visibleContent}
+              content={renderedVisibleContent}
               streaming={streamingContent && !isUserBubble}
               reduceMotion={reduceMotion}
               raw={

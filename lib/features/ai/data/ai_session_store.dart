@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
@@ -526,6 +527,7 @@ class AiSessionStore {
   // 解码成本让步：每累积约 16KB 字符就让出一次事件循环，使 UI 能在重负载
   // 消息之间稳定绘制水合占位帧，把首屏开销摊到多帧而非一帧。
   static const int _kMessageDecodeYieldCostBudget = 16000;
+  static const int _kMessageJsonWorkerThreshold = 64 * kBytesPerKiB;
   static const int _kTailMessageContentPreviewChars = 4096;
   static const String _kTailContentPreviewAlias = 'content';
 
@@ -1403,7 +1405,7 @@ class AiSessionStore {
     if (rows.isEmpty) {
       return null;
     }
-    return _messageFromRow(rows.first);
+    return (await _decodeMessagesCooperatively(rows)).single;
   }
 
   /// 返回消息在会话持久化顺序中的零基偏移，不加载消息正文。
@@ -2068,6 +2070,17 @@ class AiSessionStore {
     if (messageRows.isEmpty) {
       return const <AiSessionMessage>[];
     }
+    var totalJsonCost = 0;
+    for (final row in messageRows) {
+      totalJsonCost += _messageRowJsonDecodeCost(row);
+    }
+    if (totalJsonCost >= _kMessageJsonWorkerThreshold) {
+      final messages = await _decodeMessageRowsOffThread(messageRows);
+      return _normalizeKnowledgeBaseAssistantMetadata(
+        messages,
+        leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
+      );
+    }
     final messages = <AiSessionMessage>[];
     var costSinceYield = 0;
     for (var index = 0; index < messageRows.length; index++) {
@@ -2089,6 +2102,22 @@ class AiSessionStore {
       leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
     );
   }
+
+  int _messageRowJsonDecodeCost(Map<String, Object?> row) {
+    final metadata = row['metadata_json'];
+    final usage = row['usage_json'];
+    return (metadata is String ? metadata.length : 0) +
+        (usage is String ? usage.length : 0);
+  }
+
+  // 全局串行且有界，避免快速切换会话或并发 Web 请求无限创建工作 isolate。
+  static final _messageDecodeQueue = SerialTaskQueue(maxPendingTasks: 64);
+
+  static Future<List<AiSessionMessage>> _decodeMessageRowsOffThread(
+    List<Map<String, Object?>> rows,
+  ) => _messageDecodeQueue.enqueue(
+    () => Isolate.run(() => rows.map(_messageFromRow).toList(growable: false)),
+  );
 
   Future<Map<String, Object?>?> _leadingKnowledgeBaseMetadataForWindowStart(
     String sessionId,
@@ -2340,7 +2369,7 @@ class AiSessionStore {
     };
   }
 
-  AiSessionMessage _messageFromRow(Map<String, Object?> row) {
+  static AiSessionMessage _messageFromRow(Map<String, Object?> row) {
     final usageRaw = row['usage_json'] as String?;
     AiTokenUsage? usage;
     if (usageRaw != null && usageRaw.isNotEmpty) {
