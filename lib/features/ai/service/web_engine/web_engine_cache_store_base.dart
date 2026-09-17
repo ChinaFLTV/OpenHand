@@ -15,30 +15,6 @@ import 'web_engine_json_utils.dart';
 import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
 
-/// WebSearch / WebFetch 共用的「prewarm/cleanup 报告」数据。
-class WebEngineCachePrewarmReport {
-  const WebEngineCachePrewarmReport({
-    required this.removedExpired,
-    required this.removedOrphanFiles,
-    required this.removedOrphanEntries,
-  });
-
-  static const empty = WebEngineCachePrewarmReport(
-    removedExpired: 0,
-    removedOrphanFiles: 0,
-    removedOrphanEntries: 0,
-  );
-
-  final int removedExpired;
-  final int removedOrphanFiles;
-  final int removedOrphanEntries;
-
-  bool get isEmpty =>
-      removedExpired == 0 &&
-      removedOrphanFiles == 0 &&
-      removedOrphanEntries == 0;
-}
-
 /// 基础原始命中：包含 payload 文本 + 元数据 + 时间戳。
 ///
 /// 子类基于本结构包装出 `summary` / `content` 等典型字段命名。
@@ -144,18 +120,15 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   /// * 删除已过期条目（含其 .txt 文件）。
   /// * 删除磁盘上 .txt 文件已丢失的孤儿条目。
   /// * 删除 index 未登记的孤儿 .txt 文件。
-  Future<WebEngineCachePrewarmReport> prewarm() async {
-    if (_shuttingDown) return WebEngineCachePrewarmReport.empty;
+  Future<void> prewarm() async {
+    if (_shuttingDown) return;
     try {
       return await _operations.enqueue(() async {
-        var removedExpired = 0;
-        var removedOrphanFiles = 0;
-        var removedOrphanEntries = 0;
         final deadline = WebEngineIoDeadline();
         try {
           final dir = Directory(defaultDirectoryPath());
           if (!await webEngineEntityExists(dir, deadline: deadline)) {
-            return WebEngineCachePrewarmReport.empty;
+            return;
           }
           final indexFile = File(p.join(dir.path, webEngineCacheIndexFileName));
           Map<String, Object?> root = <String, Object?>{};
@@ -186,7 +159,6 @@ abstract class WebEngineCacheStoreBase<TSettings> {
             final expectedPayload = webEngineCachePayloadFileName(entry.key);
             if (expectedPayload == null || payloadRel != expectedPayload) {
               keysToRemove.add(entry.key);
-              removedOrphanEntries++;
               continue;
             }
             if (expiresAt <= now) {
@@ -201,12 +173,10 @@ abstract class WebEngineCacheStoreBase<TSettings> {
                   /* 删除失败不影响其余缓存自愈。 */
                 }
               }
-              removedExpired++;
             } else {
               final f = File(p.join(dir.path, payloadRel));
               if (!await webEngineEntityExists(f, deadline: deadline)) {
                 keysToRemove.add(entry.key);
-                removedOrphanEntries++;
               } else {
                 keepFileNames.add(payloadRel);
               }
@@ -228,7 +198,6 @@ abstract class WebEngineCacheStoreBase<TSettings> {
                   await entity.delete().timeout(
                     deadline.nextOperationTimeout(),
                   );
-                  removedOrphanFiles++;
                 } on TimeoutException {
                   rethrow;
                 } on FileSystemException {
@@ -248,18 +217,12 @@ abstract class WebEngineCacheStoreBase<TSettings> {
           } catch (error, stack) {
             silentLog(logTag, '预热缓存并写入索引', error, stack);
           }
-          return WebEngineCachePrewarmReport(
-            removedExpired: removedExpired,
-            removedOrphanFiles: removedOrphanFiles,
-            removedOrphanEntries: removedOrphanEntries,
-          );
         } finally {
           deadline.stop();
         }
       });
     } catch (error, stack) {
       silentLog(logTag, '预热缓存', error, stack);
-      return WebEngineCachePrewarmReport.empty;
     }
   }
 

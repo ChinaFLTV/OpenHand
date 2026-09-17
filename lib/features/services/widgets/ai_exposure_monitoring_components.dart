@@ -771,7 +771,7 @@ class _DistributionItem {
 
 enum _DistributionRecordType { task, result, rule, log }
 
-class _DistributionPanel extends StatefulWidget {
+class _DistributionPanel extends StatelessWidget {
   const _DistributionPanel({
     required this.id,
     required this.icon,
@@ -787,38 +787,10 @@ class _DistributionPanel extends StatefulWidget {
   final List<_DistributionItem> items;
 
   @override
-  State<_DistributionPanel> createState() => _DistributionPanelState();
-}
-
-class _DistributionPanelState extends State<_DistributionPanel> {
-  late final ValueNotifier<List<_DistributionItem>> _liveItems = ValueNotifier(
-    widget.items,
-  );
-  bool _syncScheduled = false;
-
-  @override
-  void didUpdateWidget(_DistributionPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_syncScheduled) return;
-    _syncScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _syncScheduled = false;
-      _liveItems.value = widget.items;
-    });
-  }
-
-  @override
-  void dispose() {
-    _liveItems.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final visible = widget.items
+    final visible = items
         .where((item) => item.value > 0)
         .take(8)
         .toList(growable: false);
@@ -830,13 +802,8 @@ class _DistributionPanelState extends State<_DistributionPanel> {
       tone: colors.primary,
       borderRadius: kOpenHandBorderRadius8,
       showFocusRing: true,
-      onTap: () => _showDistributionInsight(
-        context,
-        id: widget.id,
-        icon: widget.icon,
-        title: widget.title,
-        items: _liveItems,
-      ),
+      onTap: () =>
+          _showDistributionInsight(context, id: id, icon: icon, title: title),
       child: Container(
         constraints: const BoxConstraints(minHeight: 260),
         padding: const EdgeInsets.all(16),
@@ -850,11 +817,11 @@ class _DistributionPanelState extends State<_DistributionPanel> {
           children: [
             Row(
               children: [
-                _OpsSectionIcon(icon: widget.icon),
+                _OpsSectionIcon(icon: icon),
                 kOpenHandHGap9,
                 Expanded(
                   child: Text(
-                    widget.title,
+                    title,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
@@ -891,7 +858,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                       trackColor: colors.surfaceContainerHighest,
                       child: Center(
                         child: OpenHandLiveValue(
-                          widget.centerValue,
+                          centerValue,
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w900,
                           ),

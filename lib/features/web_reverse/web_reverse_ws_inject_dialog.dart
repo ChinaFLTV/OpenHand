@@ -107,16 +107,10 @@ Future<void> showWebReverseWsInjectDialog(
 }
 
 class _WsRow {
-  _WsRow({
-    required this.id,
-    required this.url,
-    required this.readyState,
-    required this.protocol,
-  });
+  _WsRow({required this.id, required this.url, required this.readyState});
   final int id;
   final String url;
   final int readyState;
-  final String protocol;
 
   String get readyStateLabel {
     switch (readyState) {
@@ -249,7 +243,6 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
               min: -1,
               max: 3,
             ),
-            protocol: _capWsInjectText('${m['protocol'] ?? ''}', 128),
           ),
         );
       }

@@ -4930,8 +4930,6 @@ class _SettingsViewState extends State<SettingsView> {
                       final config = sorted[index];
                       return _BuiltinToolTile(
                         config: config,
-                        isFirst: index == 0,
-                        isLast: index == sorted.length - 1,
                         onToggle: (enabled) async {
                           final updated = config.copyWith(enabled: enabled);
                           await settingsController.updateBuiltinToolConfig(
@@ -6054,7 +6052,6 @@ class _SettingsViewState extends State<SettingsView> {
       control: PromptCacheBreakpointBar(
         key: liveKey,
         initialValues: List<double>.unmodifiable(values),
-        thumbCount: thumbCount,
         onCommit: (positions) =>
             _saveAiInputCacheBreakpointPositions(context, positions),
         onReset: () =>

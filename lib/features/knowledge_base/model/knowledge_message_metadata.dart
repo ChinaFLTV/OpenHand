@@ -48,52 +48,6 @@ final RegExp _knowledgeUsageNormalizeNoisePattern = RegExp(
 class KnowledgeMessageMetadata {
   const KnowledgeMessageMetadata._();
 
-  static Map<String, Object?> skipped({
-    required bool enabled,
-    required String reason,
-    required String query,
-  }) {
-    return <String, Object?>{
-      'enabled': enabled,
-      'status': 'skipped',
-      'query': query,
-      'error': reason,
-    };
-  }
-
-  static Map<String, Object?> failed({
-    required String query,
-    required String error,
-    required KnowledgeBaseSettings settings,
-    int? embeddingDurationMs,
-    int? retrievalDurationMs,
-  }) {
-    return <String, Object?>{
-      'enabled': true,
-      'status': 'failed',
-      'query': query,
-      'embedding': <String, Object?>{
-        'provider_config_id': settings.providerConfigId,
-        'model_id': settings.modelId,
-        'dimensions': settings.dimensions,
-        if (embeddingDurationMs != null) 'duration_ms': embeddingDurationMs,
-      },
-      'retrieval': <String, Object?>{
-        if (retrievalDurationMs != null) 'duration_ms': retrievalDurationMs,
-        'top_n': settings.topN,
-        'top_k': settings.topK,
-        'min_similarity': settings.minSimilarity,
-      },
-      'results': const <Object?>[],
-      'prompt_append': const <String, Object?>{
-        'chunk_count': 0,
-        'token_estimate': 0,
-        'content_hash': '',
-      },
-      'error': error,
-    };
-  }
-
   static Map<String, Object?> success({
     required KnowledgeBaseSettings settings,
     required KnowledgeRetrievalResult result,

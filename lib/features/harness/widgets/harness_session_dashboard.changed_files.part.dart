@@ -1,10 +1,9 @@
 part of 'harness_session_dashboard.dart';
 
 class _HeChangedFilesList extends StatelessWidget {
-  const _HeChangedFilesList({required this.files, required this.isZh});
+  const _HeChangedFilesList({required this.files});
 
   final List<HarnessChangedFile> files;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +112,7 @@ class _HeChangedFilesList extends StatelessWidget {
   void _showDiffDialog(BuildContext context, HarnessChangedFile file) {
     showAnimatedDialog(
       context: context,
-      builder: (ctx) => _HeFileDiffDialog(file: file, isZh: isZh),
+      builder: (ctx) => _HeFileDiffDialog(file: file),
     );
   }
 }
@@ -124,10 +123,9 @@ List<String> _computeDiffIsolate(List<Object> args) {
 }
 
 class _HeFileDiffDialog extends StatefulWidget {
-  const _HeFileDiffDialog({required this.file, required this.isZh});
+  const _HeFileDiffDialog({required this.file});
 
   final HarnessChangedFile file;
-  final bool isZh;
 
   @override
   State<_HeFileDiffDialog> createState() => _HeFileDiffDialogState();

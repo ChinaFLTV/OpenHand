@@ -27,7 +27,6 @@ class KnowledgeDependencySnapshot {
   final String messageJa;
 
   bool get dockerInstalled => docker?.isInstalled == true;
-  String get message => messageZh;
 
   String localizedMessage(Locale locale) {
     return openHandLocalizedTextForLocale(

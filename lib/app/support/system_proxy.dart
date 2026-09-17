@@ -39,8 +39,6 @@ class SystemProxyResolver {
   final OpenHandSingleFlight<void> _initializeFlight =
       OpenHandSingleFlight<void>();
 
-  AppProxySettings get effectiveSettings => _settings;
-
   /// 应用设置中心的代理配置变更，并立即生效。
   void applyConfig(AppProxySettings settings) {
     if (_settings == settings) return;
@@ -51,10 +49,6 @@ class SystemProxyResolver {
   /// 代理决策变更后的版本号，供依赖代理环境的资源重启。
   final ValueNotifier<int> _revision = ValueNotifier<int>(0);
   ValueListenable<int> get revision => _revision;
-
-  /// 是否已至少完成一次自动代理探测。
-  bool _initialized = false;
-  bool get isInitialized => _initialized;
 
   /// 自动模式下探测到的端点，优先级为 HTTPS、HTTP、SOCKS。
   String? get detectedAutomaticEndpoint {
@@ -109,7 +103,6 @@ class SystemProxyResolver {
     if (Platform.isMacOS) {
       await _resolveFromMacScutil();
     }
-    _initialized = true;
     _revision.value = _revision.value + 1;
   }
 

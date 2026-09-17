@@ -53,9 +53,6 @@ class AdbCommandResult {
 
   bool get ok => exitCode == 0 && !timedOut;
 
-  bool get hasOutput =>
-      nullIfBlank(stdout) != null || nullIfBlank(stderr) != null;
-
   bool get hasUsableStdout => nullIfBlank(stdout) != null;
 
   bool get partialOk => timedOut && hasUsableStdout;
@@ -197,8 +194,6 @@ class AndroidPackagePidLookupResult {
   final String? pid;
   final bool timedOut;
   final String stderr;
-
-  bool get found => nullIfBlank(pid) != null;
 }
 
 /// 精简 ADB 客户端，封装 `adb` 命令行调用。
@@ -263,12 +258,6 @@ class AndroidReverseAdbClient {
   }
 
   // ── 基本 Shell 命令 ───────────────────────────────────────────────────
-
-  Future<String?> shell(String command, {Duration? timeout}) async {
-    final args = _shellCommandArgs(command);
-    if (args == null) return null;
-    return _runDevice(args, timeout: timeout);
-  }
 
   Future<AdbCommandResult> shellDetailed(String command, {Duration? timeout}) {
     final args = _shellCommandArgs(command);
@@ -505,11 +494,6 @@ class AndroidReverseAdbClient {
     return parseAndroidProcessList(result.stdout, filterName: filterName);
   }
 
-  Future<String?> pidOfPackage(String packageName) async {
-    final result = await pidOfPackageDetailed(packageName);
-    return result.pid;
-  }
-
   Future<AndroidPackagePidLookupResult> pidOfPackageDetailed(
     String packageName,
   ) async {
@@ -577,12 +561,6 @@ class AndroidReverseAdbClient {
 
   // ── 文件传输 ──────────────────────────────────────────────────────────
 
-  Future<bool> push(String localPath, String remotePath) async =>
-      (await pushDetailed(localPath, remotePath)).ok;
-
-  Future<bool> pull(String remotePath, String localPath) async =>
-      (await pullDetailed(remotePath, localPath)).ok;
-
   Future<AdbCommandResult> pushDetailed(String localPath, String remotePath) {
     final local = nullIfBlank(localPath);
     final remote = nullIfBlank(remotePath);
@@ -625,14 +603,6 @@ class AndroidReverseAdbClient {
 
   // ── Logcat ────────────────────────────────────────────────────────────
 
-  /// 拉取最近 [lines] 行 logcat（非流式）。
-  Future<String?> logcat({String? tag, String? level, int lines = 200}) async {
-    final result = await logcatDetailed(tag: tag, level: level, lines: lines);
-    if (result.timedOut && !result.hasUsableStdout) return null;
-    if (!result.ok && !result.hasUsableStdout) return null;
-    return result.stdout.trim();
-  }
-
   Future<AdbCommandResult> logcatDetailed({
     String? tag,
     String? level,
@@ -671,12 +641,6 @@ class AndroidReverseAdbClient {
 
   // ── 端口转发 ──────────────────────────────────────────────────────────
 
-  Future<bool> forwardPort(int localPort, int remotePort) async =>
-      (await forwardPortDetailed(localPort, remotePort)).ok;
-
-  Future<bool> removeForward(int localPort) async =>
-      (await removeForwardDetailed(localPort)).ok;
-
   Future<String?> listForwards() {
     return _runDevice(<String>['forward', '--list']);
   }
@@ -710,12 +674,6 @@ class AndroidReverseAdbClient {
       'tcp:$localPort',
     ]);
   }
-
-  Future<bool> reversePort(int devicePort, int hostPort) async =>
-      (await reversePortDetailed(devicePort, hostPort)).ok;
-
-  Future<bool> removeReverse(int devicePort) async =>
-      (await removeReverseDetailed(devicePort)).ok;
 
   Future<String?> listReverses() {
     return _runDevice(<String>['reverse', '--list']);

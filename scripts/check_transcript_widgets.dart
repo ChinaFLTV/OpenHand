@@ -171,7 +171,6 @@ class _TranscriptProbe {
                   controller: controller,
                   onScrollNotification: (_) => false,
                   session: session,
-                  liveRuntimeToolPreview: null,
                   sendPhase: AiSendPhase.idle,
                   onLayoutChanged: () {},
                   onMessageExpansionChanged: (_) {},

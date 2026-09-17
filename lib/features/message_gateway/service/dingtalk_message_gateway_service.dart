@@ -1883,16 +1883,6 @@ class DingTalkMessageGatewayService {
     return _parseTargets(decoded, type: type);
   }
 
-  Future<String?> send({
-    required DingTalkConversation conversation,
-    required String text,
-    required String uuid,
-  }) async => (await sendWithDetails(
-    conversation: conversation,
-    text: text,
-    uuid: uuid,
-  ))?.messageId;
-
   Future<DingTalkSentMessage?> sendWithDetails({
     required DingTalkConversation conversation,
     required String text,

@@ -3,14 +3,12 @@ part of 'harness_session_dashboard.dart';
 class _HeStreamingSubConversation extends StatefulWidget {
   const _HeStreamingSubConversation({
     required this.lines,
-    required this.isZh,
     required this.theme,
     required this.colorScheme,
     this.filePathRoots = const [],
   });
 
   final List<String> lines;
-  final bool isZh;
   final ThemeData theme;
   final ColorScheme colorScheme;
   final List<String> filePathRoots;
@@ -148,7 +146,6 @@ class _HeStreamingSubConversationState
             final card = _HeSegmentMiniCard(
               key: ValueKey<String>(_heSegmentWidgetKey(segments[i], i)),
               segment: segments[i],
-              isZh: widget.isZh,
               theme: widget.theme,
               colorScheme: colorScheme,
               filePathRoots: widget.filePathRoots,
@@ -339,7 +336,6 @@ class _HeSegmentMiniCard extends StatefulWidget {
   const _HeSegmentMiniCard({
     super.key,
     required this.segment,
-    required this.isZh,
     required this.theme,
     required this.colorScheme,
     this.filePathRoots = const [],
@@ -347,7 +343,6 @@ class _HeSegmentMiniCard extends StatefulWidget {
   });
 
   final _HeOutputSegment segment;
-  final bool isZh;
   final ThemeData theme;
   final ColorScheme colorScheme;
   final List<String> filePathRoots;
@@ -380,7 +375,6 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
         seg.kind == _HeSegmentKind.toolResult) {
       return _HeStructuredToolTraceCard(
         segment: seg,
-        isZh: widget.isZh,
         theme: widget.theme,
         colorScheme: colorScheme,
         isStreaming: widget.isStreaming,

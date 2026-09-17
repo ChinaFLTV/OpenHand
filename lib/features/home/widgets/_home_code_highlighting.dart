@@ -98,7 +98,6 @@ int _highlightSignatureForInputs({
 TextStyle _baseCodeStyleForTheme({
   required ThemeData theme,
   required Color baseColor,
-  required bool useDarkPalette,
 }) {
   final fontSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
   return theme.textTheme.bodyMedium?.copyWith(
@@ -129,11 +128,7 @@ TextSpan _computeHighlightedCodeSpan({
   if (cached != null) {
     return cached;
   }
-  final baseStyle = _baseCodeStyleForTheme(
-    theme: theme,
-    baseColor: baseColor,
-    useDarkPalette: useDarkPalette,
-  );
+  final baseStyle = _baseCodeStyleForTheme(theme: theme, baseColor: baseColor);
   if (content.length > _highlightSkipThresholdChars) {
     final span = TextSpan(text: content, style: baseStyle);
     _highlightSpanCache.put(signature, span, content.length);
@@ -187,11 +182,7 @@ void _warmHighlightedCodeSpan({
       signature,
       TextSpan(
         text: content,
-        style: _baseCodeStyleForTheme(
-          theme: theme,
-          baseColor: baseColor,
-          useDarkPalette: useDarkPalette,
-        ),
+        style: _baseCodeStyleForTheme(theme: theme, baseColor: baseColor),
       ),
       content.length,
     );
@@ -1310,7 +1301,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
               palette: palette,
             ),
           )
-        : _buildCodeBody(palette);
+        : _buildCodeBody();
     final padding = EdgeInsets.all(widget.showToolbar ? 14 : 16);
     if (!widget.internalVerticalScroll) {
       return Padding(padding: padding, child: body);
@@ -1332,19 +1323,13 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     );
   }
 
-  Widget _buildCodeBody(_CodeBlockPalette palette) {
+  Widget _buildCodeBody() {
     // 确保 span 不为 null：如果 _highlightedSpan 仍为 null（理论上不应该，
     // 因为 didChangeDependencies 已经调用了 _ensureHighlightedSpan），
     // 回退到直接渲染纯文本，避免显示空白。
     final span =
         _highlightedSpan ??
-        TextSpan(
-          text: widget.content,
-          style: _baseStyleForCurrentTheme(
-            widget.forceDarkSurface ||
-                widget.theme.brightness == Brightness.dark,
-          ),
-        );
+        TextSpan(text: widget.content, style: _baseStyleForCurrentTheme());
     // 大代码块（> 8KB）使用 RichText 而非 SelectableText，避免
     // EditableText 层在大 TextSpan 上的 O(n) layout 开销。
     final useSelectable =
@@ -1391,7 +1376,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     if (widget.content.length > _highlightSkipThresholdChars) {
       _highlightedSpan = TextSpan(
         text: widget.content,
-        style: _baseStyleForCurrentTheme(useDarkPalette),
+        style: _baseStyleForCurrentTheme(),
       );
       _highlightSignature = signature;
       _highlightIsPlaceholder = false;
@@ -1401,7 +1386,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     if (widget.content.length > _highlightDeferThresholdChars) {
       _highlightedSpan = TextSpan(
         text: widget.content,
-        style: _baseStyleForCurrentTheme(useDarkPalette),
+        style: _baseStyleForCurrentTheme(),
       );
       _highlightSignature = signature;
       _highlightIsPlaceholder = true;
@@ -1454,10 +1439,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           return;
         }
         final span = widget.content.length > _highlightSkipThresholdChars
-            ? TextSpan(
-                text: widget.content,
-                style: _baseStyleForCurrentTheme(currentUseDarkPalette),
-              )
+            ? TextSpan(text: widget.content, style: _baseStyleForCurrentTheme())
             : _highlightSpanCache.get(currentSignature) ??
                   _runHighlight(
                     currentEffectiveLanguage,
@@ -1494,11 +1476,10 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     );
   }
 
-  TextStyle _baseStyleForCurrentTheme(bool useDarkPalette) {
+  TextStyle _baseStyleForCurrentTheme() {
     return _baseCodeStyleForTheme(
       theme: widget.theme,
       baseColor: widget.baseColor,
-      useDarkPalette: useDarkPalette,
     );
   }
 
@@ -2744,26 +2725,17 @@ final OpenHandRetryableAsyncCache<String> _mermaidJsCache =
           rootBundle.loadString('assets/tooling/mermaid.min.js', cache: false),
     );
 
-/// Mermaid 流程图渲染视图。在代码块 header 右上角的「视图/代码」toggle
-/// 按钮切到视图时启用：用 [WebView] + 内联 mermaid.js (assets 离线) 渲染 SVG,
-/// 配合 CSS `transform: scale/translate` + `touch-action: none` 让
-/// JS 完全接管双指放缩与长按拖动平移；mermaid 原生 `interaction: true`
-/// 还能让用户点击图元悬浮 tooltip、点击边/节点触发回调。
-///
-/// 仅在用户主动切到「视图」时才挂载 WebView，默认展示代码文本，
-/// 不浪费主线程 / WebView 内存，与正式响应 markdown 渲染节流同源思路。
 class _SvgClipboardVerification {
   const _SvgClipboardVerification({
     required this.pbpasteLen,
-    required this.flutterLen,
     required this.osLayerOk,
   });
 
   final int pbpasteLen;
-  final int flutterLen;
   final bool osLayerOk;
 }
 
+/// 切到视图时才挂载离线 Mermaid 渲染，支持图表缩放和平移。
 class _MermaidDiagramView extends StatefulWidget {
   const _MermaidDiagramView({required this.source, required this.palette});
 
@@ -3446,7 +3418,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     int pbpasteLen = 0;
     int pbpasteSvgOpenCount = 0;
     int pbpasteSvgCloseCount = 0;
-    int flutterLen = 0;
     try {
       final result = await runBinaryProcessWithTimeout(
         'pbpaste',
@@ -3471,15 +3442,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     } catch (error, stack) {
       silentLog('home_code_highlighting', '通过 pbpaste 校验 SVG', error, stack);
     }
-    final clipboardText = await getOpenHandClipboardText();
-    flutterLen = clipboardText?.length ?? 0;
     final osLayerOk =
         pbpasteLen == expectedByteLength &&
         pbpasteSvgOpenCount == 1 &&
         pbpasteSvgCloseCount == 1;
     return _SvgClipboardVerification(
       pbpasteLen: pbpasteLen,
-      flutterLen: flutterLen,
       osLayerOk: osLayerOk,
     );
   }

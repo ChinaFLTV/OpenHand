@@ -179,8 +179,6 @@ class AiJunglerClient {
     },
   );
 
-  Future<void> clearAiExtractor() => _emptyRequest('DELETE', _kApiAiExtractor);
-
   Future<AiExposureDependencyStatus> dependencyStatus() async =>
       AiExposureDependencyStatus.fromJson(
         await _jsonRequest('GET', _kApiDependencies),

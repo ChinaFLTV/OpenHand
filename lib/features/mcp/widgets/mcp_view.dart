@@ -814,7 +814,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     // 异步清理底层依赖包（不阻塞 UI）
     if (shouldCleanupDeps && isNpxService && npxPackageName != null) {
       final cleanPkg = npxPackageName.replaceAll(RegExp(r'@[^/]*$'), '');
-      unawaited(_cleanupNpxDependency(context, cleanPkg, server.name));
+      unawaited(_cleanupNpxDependency(context, cleanPkg));
     }
 
     flashOpenHandSnack(
@@ -828,7 +828,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   Future<void> _cleanupNpxDependency(
     BuildContext context,
     String packageName,
-    String serverName,
   ) async {
     final l10n = AppLocalizations.of(context)!;
     try {
@@ -6492,7 +6491,6 @@ class _McpOpsExposureTile extends StatelessWidget {
       context: context,
       builder: (_) => _McpOpsSchemaDialog(
         title: row.title,
-        subtitle: row.subtitle,
         schema: row.inputSchema!,
         defaultSchema: row.defaultSchema,
         onSaved: row.onSchemaSaved,
@@ -6560,14 +6558,12 @@ class _McpOpsSchemaPill extends StatelessWidget {
 class _McpOpsSchemaDialog extends StatefulWidget {
   const _McpOpsSchemaDialog({
     required this.title,
-    required this.subtitle,
     required this.schema,
     required this.defaultSchema,
     required this.onSaved,
   });
 
   final String title;
-  final String subtitle;
   final Map<String, Object?> schema;
   final Map<String, Object?>? defaultSchema;
   final Future<bool> Function(Map<String, Object?>? schema)? onSaved;
@@ -18939,28 +18935,24 @@ _McpOpsInsightSpec _mcpOpsInsightSpec(
 
     case _McpOpsInsightKind.ipMix:
       return _mcpOpsDistributionSpec(
-        context,
         icon: Icons.public_rounded,
         title: _localizedText(context, zh: '请求来源分布', en: 'Peer Mix'),
         selector: (data) => data.snapshot.ipDistribution,
       );
     case _McpOpsInsightKind.clientMix:
       return _mcpOpsDistributionSpec(
-        context,
         icon: Icons.devices_other_rounded,
         title: _localizedText(context, zh: '客户端分布', en: 'Client Mix'),
         selector: (data) => data.snapshot.clientDistribution,
       );
     case _McpOpsInsightKind.requestMix:
       return _mcpOpsDistributionSpec(
-        context,
         icon: Icons.account_tree_rounded,
         title: _localizedText(context, zh: '请求方法分布', en: 'Request Mix'),
         selector: (data) => data.snapshot.requestDistribution,
       );
     case _McpOpsInsightKind.protocolMix:
       return _mcpOpsDistributionSpec(
-        context,
         icon: Icons.api_rounded,
         title: _localizedText(context, zh: '协议分布', en: 'Protocol Mix'),
         selector: (data) => data.snapshot.protocolDistribution,
@@ -19110,8 +19102,7 @@ _McpOpsInsightSpec _mcpOpsTrafficSpec(
 }
 
 /// 通用分布下钻，包含完整排行和环形摘要。
-_McpOpsInsightSpec _mcpOpsDistributionSpec(
-  BuildContext context, {
+_McpOpsInsightSpec _mcpOpsDistributionSpec({
   required IconData icon,
   required String title,
   required Map<String, int> Function(_McpOpsInsightData data) selector,

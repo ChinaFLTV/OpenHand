@@ -45,7 +45,6 @@ class _SheetUsage {
   int usedRanges = 0;
   int totalBytes = 0;
   int usedBytes = 0;
-  String sourceUrl = '';
 }
 
 class _CssCovDialogState extends State<_CssCovDialog> {

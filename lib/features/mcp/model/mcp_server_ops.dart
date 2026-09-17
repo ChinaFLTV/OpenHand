@@ -701,8 +701,6 @@ class McpOpsRuntimeSnapshot {
   /// 跨越单次请求响应周期的 SSE 长连接数。
   int get idleStreams =>
       (currentConnections - activeRequests).clamp(0, 1 << 30);
-  int get successTotal =>
-      (requestTotal - blockedTotal - failedTotal).clamp(0, 1 << 30);
 
   bool get isRunning => lifecycle == McpOpsLifecycleState.running;
 

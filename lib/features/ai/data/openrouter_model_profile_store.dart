@@ -10,7 +10,6 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../model/ai_model_catalog.dart';
 import '../model/ai_model_config.dart';
-import '../model/ai_one_million_context_policy.dart';
 
 const int _maxOpenRouterProfileCount = 10000;
 const int _maxOpenRouterProfileBatchCount = 5000;
@@ -45,12 +44,6 @@ class OpenRouterModelProfileStore {
     });
     _loading = loading;
     return loading;
-  }
-
-  AiModelProfile? profileFor(String modelId) {
-    final normalizedId = modelId.trim().toLowerCase();
-    return _profiles[normalizedId] ??
-        _profiles[AiOneMillionContextPolicy.stripModelIdSuffix(normalizedId)];
   }
 
   Future<void> _load() async {

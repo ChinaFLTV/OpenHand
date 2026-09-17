@@ -1561,8 +1561,6 @@ class _ManagedResponseRouter {
     _pending.clear();
     _lineBuffer.clear();
   }
-
-  bool get hasPending => _pending.isNotEmpty;
 }
 
 class _ManagedProcess {

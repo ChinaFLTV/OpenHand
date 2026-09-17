@@ -502,21 +502,18 @@ class _ElementsBodyState extends State<_ElementsBody> {
             children: [
               kOpenHandHGap10,
               _subTabBtn(
-                theme,
                 cs,
                 0,
                 loc?.webReverseElementsAttrsTab(_attrs.length) ??
                     'Attrs (${_attrs.length})',
               ),
               _subTabBtn(
-                theme,
                 cs,
                 1,
                 loc?.webReverseElementsComputedTab(_computed.length) ??
                     'Computed (${_computed.length})',
               ),
               _subTabBtn(
-                theme,
                 cs,
                 2,
                 loc?.webReverseElementsListenersTab(_listeners.length) ??
@@ -545,8 +542,8 @@ class _ElementsBodyState extends State<_ElementsBody> {
             duration: widget.reduceMotion ? Duration.zero : kOpenHandMotion180,
             switchInCurve: kOpenHandSwitchInCurve,
             child: switch (_detailsTab) {
-              0 => _attrsView(theme, cs, loc),
-              1 => _computedView(theme, cs, loc),
+              0 => _attrsView(cs, loc),
+              1 => _computedView(cs, loc),
               _ => _listenersView(theme, cs, loc),
             },
           ),
@@ -555,7 +552,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
     );
   }
 
-  Widget _subTabBtn(ThemeData theme, ColorScheme cs, int idx, String label) {
+  Widget _subTabBtn(ColorScheme cs, int idx, String label) {
     final on = _detailsTab == idx;
     return Padding(
       padding: const EdgeInsets.only(right: 4),
@@ -570,7 +567,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
     );
   }
 
-  Widget _attrsView(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _attrsView(ColorScheme cs, AppLocalizations? loc) {
     if (_attrs.isEmpty) {
       return OpenHandInlineEmptyState(
         key: const ValueKey('attrs-empty'),
@@ -612,7 +609,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
     );
   }
 
-  Widget _computedView(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _computedView(ColorScheme cs, AppLocalizations? loc) {
     if (_computed.isEmpty) {
       return OpenHandInlineEmptyState(
         key: const ValueKey('comp-empty'),

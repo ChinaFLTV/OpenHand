@@ -20,14 +20,6 @@ class InstructionMarketEntry {
   final String avatarUrl, sourceKey, body, interpretation;
   final String role, style, approach, tone;
   final String? localizationKey;
-
-  bool matches(String query) {
-    final keyword = query.trim().toLowerCase();
-    return keyword.isEmpty ||
-        '$id $role $name $description $category $style $approach $tone $interpretation $body'
-            .toLowerCase()
-            .contains(keyword);
-  }
 }
 
 const kInstructionMarketCategoryAction = 'action';

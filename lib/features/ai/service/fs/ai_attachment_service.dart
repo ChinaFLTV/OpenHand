@@ -71,8 +71,6 @@ class AiAttachmentService {
   final String _attachmentsDirectoryPath;
   final String Function(String sessionId)? _perSessionAttachmentsDirectoryPath;
 
-  String get attachmentsDirectoryPath => _attachmentsDirectoryPath;
-
   /// 解析 [sessionId] 新附件的写入目录。配置会话目录解析器时使用新版布局：
   /// `~/.openhand/sessions/{sessionId}/attachments/{messageId}-{attachmentId}.{ext}`。
   /// 否则回退到旧版消息子目录布局。

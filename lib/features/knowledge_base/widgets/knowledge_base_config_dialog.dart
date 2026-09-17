@@ -681,7 +681,6 @@ class _KnowledgeBaseConfigDialogState
             dependencyRefreshing: dependencyRefreshing,
           ),
           _section(
-            context,
             title: t(
               zh: '嵌入模型',
               zhHant: '嵌入模型',
@@ -706,7 +705,6 @@ class _KnowledgeBaseConfigDialogState
             ),
           ),
           _section(
-            context,
             accent: colorScheme.tertiary,
             title: t(
               zh: '向量库',
@@ -827,7 +825,6 @@ class _KnowledgeBaseConfigDialogState
             ],
           ),
           _section(
-            context,
             accent: OpenHandStatusColors.info,
             title: t(
               zh: '文档导入与分块',
@@ -1248,7 +1245,6 @@ class _KnowledgeBaseConfigDialogState
             ],
           ),
           _section(
-            context,
             accent: OpenHandStatusColors.caution,
             title: t(
               zh: '标签与时间',
@@ -1390,7 +1386,6 @@ class _KnowledgeBaseConfigDialogState
             ],
           ),
           _section(
-            context,
             accent: OpenHandStatusColors.success,
             title: t(
               zh: '检索召回',
@@ -1595,7 +1590,6 @@ class _KnowledgeBaseConfigDialogState
             ],
           ),
           _section(
-            context,
             accent: colorScheme.secondary,
             title: t(
               zh: '重排与去重',
@@ -1849,7 +1843,6 @@ class _KnowledgeBaseConfigDialogState
             ],
           ),
           _section(
-            context,
             accent: colorScheme.primary,
             title: t(
               zh: 'Prompt 追加',
@@ -1968,7 +1961,6 @@ class _KnowledgeBaseConfigDialogState
             ],
           ),
           _section(
-            context,
             accent: OpenHandStatusColors.warning,
             title: t(
               zh: '发送时行为',
@@ -2077,7 +2069,6 @@ class _KnowledgeBaseConfigDialogState
             ],
           ),
           _section(
-            context,
             accent: colorScheme.tertiary,
             title: t(
               zh: '工具权限',
@@ -2115,7 +2106,6 @@ class _KnowledgeBaseConfigDialogState
             ],
           ),
           _section(
-            context,
             accent: OpenHandStatusColors.info,
             title: t(
               zh: '维护与诊断',
@@ -3161,7 +3151,6 @@ class _KnowledgeBaseConfigDialogState
                       ja: 'ベクトルストアへ書き込む次元、入力予算、バッチサイズを制御します。',
                     ),
                     child: _embeddingSettingsGrid(
-                      context,
                       children: [
                         _embeddingSettingTextField(
                           context,
@@ -3232,7 +3221,6 @@ class _KnowledgeBaseConfigDialogState
                       ja: 'タイムアウト、再試行、バックオフ、並列数を制限し、リソース占有を防ぎます。',
                     ),
                     child: _embeddingSettingsGrid(
-                      context,
                       children: [
                         _embeddingSettingTextField(
                           context,
@@ -3319,7 +3307,6 @@ class _KnowledgeBaseConfigDialogState
                       ja: 'クラウド埋め込みはドキュメントチャンクやユーザークエリを送信します。承認がない限りオフにしてください。',
                     ),
                     child: _embeddingSettingsGrid(
-                      context,
                       minItemWidth: 220,
                       children: [
                         _embeddingSwitchTile(
@@ -3501,8 +3488,7 @@ class _KnowledgeBaseConfigDialogState
     );
   }
 
-  Widget _embeddingSettingsGrid(
-    BuildContext context, {
+  Widget _embeddingSettingsGrid({
     required List<Widget> children,
     double minItemWidth = _knowledgeEmbeddingSettingMinWidth,
   }) {
@@ -4033,8 +4019,7 @@ class _KnowledgeBaseConfigDialogState
     );
   }
 
-  Widget _section(
-    BuildContext context, {
+  Widget _section({
     required String title,
     required IconData icon,
     String? subtitle,

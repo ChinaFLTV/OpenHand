@@ -206,13 +206,11 @@ class _ResponseMetaRow extends _SweepElapsedMetaRow {
   const _ResponseMetaRow({
     super.key,
     required super.message,
-    required this.color,
     required super.showSweep,
     required this.expanded,
     required this.onTap,
   });
 
-  final Color color;
   final bool expanded;
   final VoidCallback? onTap;
 

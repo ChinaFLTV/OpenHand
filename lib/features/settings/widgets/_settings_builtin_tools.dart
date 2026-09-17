@@ -188,8 +188,6 @@ class _BuiltinToolMetricChip extends StatelessWidget {
 class _BuiltinToolTile extends StatelessWidget {
   const _BuiltinToolTile({
     required this.config,
-    required this.isFirst,
-    required this.isLast,
     required this.onToggle,
     required this.onEdit,
     this.onMoveUp,
@@ -198,8 +196,6 @@ class _BuiltinToolTile extends StatelessWidget {
   });
 
   final AiBuiltinToolConfig config;
-  final bool isFirst;
-  final bool isLast;
   final ValueChanged<bool> onToggle;
   final VoidCallback onEdit;
   final VoidCallback? onMoveUp;
@@ -975,7 +971,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         _WebFetchSettingsEditor(
                           value: _webFetchSettings!,
                           availableModels: widget.availableModels,
-                          recentModelSelections: widget.recentModelSelections,
                           onChanged: (next) =>
                               setState(() => _webFetchSettings = next),
                         ),

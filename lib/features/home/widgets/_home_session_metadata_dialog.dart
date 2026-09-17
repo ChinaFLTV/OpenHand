@@ -336,7 +336,6 @@ class _SessionMetadataDialog extends StatelessWidget {
           ),
           ..._buildContextBudgetSection(
             context,
-            theme,
             colorScheme,
             lastPromptMetadata,
           ),
@@ -698,11 +697,7 @@ class _SessionMetadataDialog extends StatelessWidget {
   ///
   /// 抽出独立的 [_CacheHitTrendChart] 子部件支持
   /// (a) 悬停 tooltip 标注每点 %；(b) 切换显示另一条协议公式的叠加曲线。
-  List<Widget> _buildCacheHitTrendSection(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
+  List<Widget> _buildCacheHitTrendSection() {
     final trend = SessionCacheHitTrend.fromStatisticsOrSession(
       session,
       claudeStyle: claudeStyle,
@@ -850,15 +845,10 @@ class _SessionMetadataDialog extends StatelessWidget {
 
   List<Widget> _buildContextBudgetSection(
     BuildContext context,
-    ThemeData theme,
     ColorScheme colorScheme,
     Map<String, Object?> metadata,
   ) {
-    final cacheHitTrendWidgets = _buildCacheHitTrendSection(
-      context,
-      theme,
-      colorScheme,
-    );
+    final cacheHitTrendWidgets = _buildCacheHitTrendSection();
     final estimatedTokens = _metadataInt(
       metadata['context_budget_estimated_prompt_tokens'],
     );
@@ -2687,7 +2677,6 @@ class _CacheHitSparklinePainter extends CustomPainter {
 
     _drawSeries(
       canvas: canvas,
-      w: w,
       h: h,
       stepX: stepX,
       data: ratios,
@@ -2702,7 +2691,6 @@ class _CacheHitSparklinePainter extends CustomPainter {
     if (alt != null && alt.length == n) {
       _drawSeries(
         canvas: canvas,
-        w: w,
         h: h,
         stepX: stepX,
         data: alt,
@@ -2717,7 +2705,6 @@ class _CacheHitSparklinePainter extends CustomPainter {
 
   void _drawSeries({
     required Canvas canvas,
-    required double w,
     required double h,
     required double stepX,
     required List<double?> data,

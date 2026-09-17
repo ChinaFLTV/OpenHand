@@ -97,8 +97,6 @@ class AiDingTalkDwsCommand {
   final List<String> positionals;
   final List<String> examples;
 
-  String get id => cliPath;
-
   List<String> get requiredParameterNames => parameters.entries
       .where(
         (entry) =>

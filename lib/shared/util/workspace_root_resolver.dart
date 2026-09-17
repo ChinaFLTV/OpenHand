@@ -123,8 +123,6 @@ final class WorkspaceRootResolver {
     return tracked;
   }
 
-  void clear() => _cache.clear();
-
   Future<String> _probe(String startDirectory) async {
     final ancestors = ancestorDirectoriesFrom(
       startDirectory,

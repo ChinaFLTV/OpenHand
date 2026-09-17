@@ -559,7 +559,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     // 注意不更新 _buttons，避免随后到达的 PointerUp 把右键当成 mouse
     // released 转发到浏览器。
     if ((e.buttons & kSecondaryButton) != 0) {
-      _showContextMenu(e.position, renderSize, e.localPosition);
+      _showContextMenu(e.position);
       return;
     }
     _buttons = e.buttons;
@@ -1418,11 +1418,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   /// 打开 / 检查元素 / 保存当前帧 / 框选导出。复制 / 粘贴 / 全选通过 CDP
   /// `Input.dispatchKeyEvent` 模拟 Cmd / Ctrl + C/V/A，让浏览器原生剪贴板
   /// 路径自然处理。
-  Future<void> _showContextMenu(
-    Offset globalPos,
-    Size renderSize,
-    Offset localPos,
-  ) async {
+  Future<void> _showContextMenu(Offset globalPos) async {
     final selected = await showAnimatedPointerMenu<String>(
       context: context,
       globalPosition: globalPos,

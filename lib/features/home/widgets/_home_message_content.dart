@@ -5722,30 +5722,6 @@ class _ProgressiveHtmlMessageBodyState
   }
 }
 
-@visibleForTesting
-Widget buildCollapsibleMessageBodyForTesting(
-  BuildContext context, {
-  required String data,
-  required bool collapsed,
-}) {
-  return _AssistantMessageBodyDispatcher(
-    data: data,
-    format: AiMessageContentFormat.markdown,
-    htmlFallback: AiHtmlRenderFallback.markdown,
-    textColor: Colors.black,
-    backgroundColor: Colors.white,
-    markdownBuilders: const {},
-    markdownStyleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
-    inlineSyntaxes: const [],
-    filePathRoots: const [],
-    filePathParseKey: 'collapse-test',
-    collapseCharThreshold: _messageMarkdownCollapseCharThreshold,
-    collapseLineThreshold: _messageMarkdownCollapseLineThreshold,
-    previewMaxHeight: _messageResponsePreviewMaxHeight,
-    collapsedOverride: collapsed,
-  );
-}
-
 /// 助手消息正文按"消息内容格式"设置分派：
 /// - Markdown：原有 `_CollapsibleMessageMarkdownBody`
 /// - 纯文本：`_PlainTextMessageBody`

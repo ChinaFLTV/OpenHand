@@ -512,16 +512,4 @@ class AiCreationRequest {
       options: AiCreationOptions.fromMetadata(map['options']),
     );
   }
-
-  /// 审计日志使用的稳定短标识。
-  String describe() {
-    final parts = <String>[mode.storageValue];
-    final optionsMeta = options.toMetadata();
-    if (optionsMeta.isNotEmpty) {
-      parts.add(
-        optionsMeta.entries.map((e) => '${e.key}=${e.value}').join(','),
-      );
-    }
-    return parts.join(' ');
-  }
 }

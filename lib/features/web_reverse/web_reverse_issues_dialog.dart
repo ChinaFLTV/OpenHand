@@ -70,7 +70,7 @@ Future<void> showWebReverseIssuesDialog(
   if (!context.mounted) return;
   return webReverseToolDialogs.show<void>(
     context: context,
-    builder: (_) => _IssuesDialog(controller: controller),
+    builder: (_) => const _IssuesDialog(),
   );
 }
 
@@ -192,8 +192,7 @@ class _IssueEntry {
 }
 
 class _IssuesDialog extends StatefulWidget {
-  const _IssuesDialog({required this.controller});
-  final WebReverseSessionController controller;
+  const _IssuesDialog();
   @override
   State<_IssuesDialog> createState() => _IssuesDialogState();
 }

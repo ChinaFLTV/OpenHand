@@ -303,7 +303,6 @@ class McpServerOpsRuntime {
   final Map<DateTime, _McpOpsMinuteBucket> _trafficBuckets =
       <DateTime, _McpOpsMinuteBucket>{};
 
-  McpOpsRuntimeSnapshot get snapshot => _snapshot;
   bool get isRunning => _server != null;
 
   void hydrateMetrics(McpOpsRuntimeSnapshot snapshot) {

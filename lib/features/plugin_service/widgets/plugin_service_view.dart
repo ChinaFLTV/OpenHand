@@ -945,8 +945,7 @@ class _PluginCard extends StatelessWidget {
   void _showMcpActions(BuildContext context) {
     showAnimatedDialog(
       context: context,
-      builder: (ctx) =>
-          _PluginMcpDialog(plugin: plugin, controller: controller),
+      builder: (ctx) => _PluginMcpDialog(plugin: plugin),
     );
   }
 }
@@ -2112,10 +2111,9 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _PluginMcpDialog extends StatefulWidget {
-  const _PluginMcpDialog({required this.plugin, required this.controller});
+  const _PluginMcpDialog({required this.plugin});
 
   final PluginInfo plugin;
-  final PluginServiceController controller;
 
   @override
   State<_PluginMcpDialog> createState() => _PluginMcpDialogState();

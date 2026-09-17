@@ -359,7 +359,6 @@ class AiTranslationService {
     required Duration timeout,
   }) async {
     _requireFields(
-      providerSettings,
       provider: AiTranslationProvider.youdao,
       fields: <String, String>{
         'API Key': providerSettings.apiKey,
@@ -415,7 +414,6 @@ class AiTranslationService {
     required Duration timeout,
   }) async {
     _requireFields(
-      providerSettings,
       provider: AiTranslationProvider.google,
       fields: <String, String>{'API Key': providerSettings.apiKey},
     );
@@ -461,7 +459,6 @@ class AiTranslationService {
     required Duration timeout,
   }) async {
     _requireFields(
-      providerSettings,
       provider: AiTranslationProvider.bing,
       fields: <String, String>{'Subscription Key': providerSettings.apiKey},
     );
@@ -551,7 +548,6 @@ class AiTranslationService {
     required Duration timeout,
   }) async {
     _requireFields(
-      providerSettings,
       provider: AiTranslationProvider.baidu,
       fields: <String, String>{
         'App ID': providerSettings.appId,
@@ -722,8 +718,7 @@ class AiTranslationService {
     ].join('\n');
   }
 
-  void _requireFields(
-    AiTranslationProviderSettings settings, {
+  void _requireFields({
     required AiTranslationProvider provider,
     required Map<String, String> fields,
   }) {

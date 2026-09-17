@@ -46,10 +46,6 @@ class AndroidReverseToolchainCommandResult {
   final String stderr;
   final int durationMs;
   final bool timedOut;
-
-  bool get ok => exitCode == 0 && !timedOut;
-  bool get hasOutput =>
-      nullIfBlank(stdout) != null || nullIfBlank(stderr) != null;
 }
 
 class AndroidReverseToolchainProbe {

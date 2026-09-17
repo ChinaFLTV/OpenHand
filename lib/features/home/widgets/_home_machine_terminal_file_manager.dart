@@ -2705,7 +2705,6 @@ class _MachineTerminalFileEditorDialogState
                           controller: _controller,
                           scrollController: _scrollController,
                           focusNode: _focusNode,
-                          language: _language,
                           fontSize: _fontSize,
                           readOnly: widget.readOnly,
                           wordWrap: context.select<SettingsController, bool>(

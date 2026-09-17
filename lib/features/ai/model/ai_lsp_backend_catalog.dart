@@ -48,8 +48,6 @@ class AiLspManagedInstallRecipe {
   final List<String> versionedPackages;
   final List<String> additionalPackages;
   final String? installDocUrl;
-
-  bool get supportsManagedInstall => kind != AiLspManagedInstallKind.none;
 }
 
 class AiLspBackendDescriptor {

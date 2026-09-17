@@ -36,18 +36,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseAnimationsDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return webReverseToolDialogs.show<void>(
     context: context,
-    builder: (_) => _AnimationsDialog(controller: controller, isZh: isZh),
+    builder: (_) => _AnimationsDialog(controller: controller),
   );
 }
 
 class _AnimationsDialog extends StatefulWidget {
-  const _AnimationsDialog({required this.controller, required this.isZh});
+  const _AnimationsDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_AnimationsDialog> createState() => _AnimationsDialogState();
 }

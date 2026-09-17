@@ -1024,7 +1024,6 @@ class _SocketTunnel {
 class _HttpProxyRequest {
   _HttpProxyRequest({
     required this.method,
-    required this.target,
     required this.version,
     required this.headerLines,
     required this.host,
@@ -1036,7 +1035,6 @@ class _HttpProxyRequest {
   });
 
   final String method;
-  final String target;
   final String version;
   final List<String> headerLines;
   final String host;
@@ -1177,7 +1175,6 @@ class _HttpProxyRequest {
       if (authority == null) return null;
       return _HttpProxyRequest(
         method: method,
-        target: target,
         version: version,
         headerLines: headerLines,
         host: authority.host,
@@ -1210,7 +1207,6 @@ class _HttpProxyRequest {
       if (!isValidTcpPort(port)) return null;
       return _HttpProxyRequest(
         method: method,
-        target: target,
         version: version,
         headerLines: headerLines,
         host: uri.host,
@@ -1228,7 +1224,6 @@ class _HttpProxyRequest {
     if (authority == null) return null;
     return _HttpProxyRequest(
       method: method,
-      target: target,
       version: version,
       headerLines: headerLines,
       host: authority.host,

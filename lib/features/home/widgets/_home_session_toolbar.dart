@@ -106,7 +106,6 @@ class _SessionToolbar extends StatelessWidget {
       livePreview: liveRuntimeToolPreview,
     );
     final planTimeline = _buildPlanTimelineData(
-      context,
       session,
       sendPhase,
       requiresReview: runtimeStatus.planRecoveryRequired,
@@ -988,7 +987,6 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
 }
 
 _PlanTimelineData? _buildPlanTimelineData(
-  BuildContext context,
   AiSession session,
   AiSendPhase sendPhase, {
   bool requiresReview = false,

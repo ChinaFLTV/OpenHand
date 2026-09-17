@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -29,6 +28,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/localized_units.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/user_failure_message.dart';
 import '../data/mcp_market_providers.dart';
@@ -1005,12 +1005,18 @@ class _McpMarketDialogState extends State<_McpMarketDialog> {
                   items: <OpenHandMetricItem>[
                     (
                       label: mcpMarketDownloadsLabel(context),
-                      value: _mcpMarketFormatCount(context, server.downloads),
+                      value: openHandCompactCountLabel(
+                        context,
+                        server.downloads,
+                      ),
                       accent: OpenHandStatusColors.info,
                     ),
                     (
                       label: mcpMarketInstallsLabel(context),
-                      value: _mcpMarketFormatCount(context, server.installs),
+                      value: openHandCompactCountLabel(
+                        context,
+                        server.installs,
+                      ),
                       accent: colors.tertiary,
                     ),
                   ],
@@ -1478,7 +1484,7 @@ class _McpMarketResultTile extends StatelessWidget {
                                 children: [
                                   OpenHandFactChip(
                                     icon: Icons.download_rounded,
-                                    label: _mcpMarketFormatCount(
+                                    label: openHandCompactCountLabel(
                                       context,
                                       server.downloads,
                                     ),
@@ -1486,7 +1492,7 @@ class _McpMarketResultTile extends StatelessWidget {
                                   ),
                                   OpenHandFactChip(
                                     icon: Icons.extension_rounded,
-                                    label: _mcpMarketFormatCount(
+                                    label: openHandCompactCountLabel(
                                       context,
                                       server.installs,
                                     ),
@@ -1669,17 +1675,6 @@ String _retryLabel(BuildContext context) {
     de: 'Erneut versuchen',
     ja: '再試行',
   );
-}
-
-String _mcpMarketFormatCount(BuildContext context, int value) {
-  final safe = value < 0 ? 0 : value;
-  try {
-    return NumberFormat.compact(
-      locale: Localizations.localeOf(context).toString(),
-    ).format(safe);
-  } catch (_) {
-    return '$safe';
-  }
 }
 
 String _mcpMarketTruncationMessage(BuildContext context) {

@@ -1380,7 +1380,6 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
     final cs = Theme.of(context).colorScheme;
     if (widget.kind == MediaPreviewKind.audio) {
       return NativeAudioPreview(
-        title: widget.title,
         source: _nativeAudioSource,
         meta: _nativeAudioMeta,
         autoplay: true,

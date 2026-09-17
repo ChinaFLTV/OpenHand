@@ -91,7 +91,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                 VerticalDivider(width: 1, color: cs.outlineVariant),
                 Expanded(
                   child: _selected == null || _selected!.samples.isEmpty
-                      ? _buildEmpty(theme, cs, loc)
+                      ? _buildEmpty(loc)
                       : _buildDetail(theme, cs, loc, _selected!),
                 ),
               ],
@@ -259,7 +259,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     );
   }
 
-  Widget _buildEmpty(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _buildEmpty(AppLocalizations? loc) {
     return OpenHandInlineEmptyState(
       icon: Icons.insights_rounded,
       dense: true,
@@ -308,28 +308,24 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
             runSpacing: 4,
             children: [
               _summaryChip(
-                cs,
                 loc?.webReverseSignatureDiffStable ?? 'Stable',
                 g.stableCount,
                 cs.secondaryContainer,
                 cs.onSecondaryContainer,
               ),
               _summaryChip(
-                cs,
                 loc?.webReverseSignatureDiffDynamic ?? 'Dynamic',
                 g.dynamicCount,
                 cs.errorContainer,
                 cs.onErrorContainer,
               ),
               _summaryChip(
-                cs,
                 loc?.webReverseSignatureDiffIncreasing ?? 'Increasing',
                 g.increasingCount,
                 cs.tertiaryContainer,
                 cs.onTertiaryContainer,
               ),
               _summaryChip(
-                cs,
                 loc?.webReverseSignatureDiffFixedHash ?? 'Fixed-len hash',
                 g.fixedHashCount,
                 cs.primaryContainer,
@@ -371,7 +367,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     );
   }
 
-  Widget _summaryChip(ColorScheme cs, String label, int n, Color bg, Color fg) {
+  Widget _summaryChip(String label, int n, Color bg, Color fg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(

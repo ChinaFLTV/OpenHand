@@ -127,14 +127,13 @@ class _WorkflowLlmConversationViewState
                       ? '正在启动本次虚拟会话…'
                       : '暂无会话记录。\n测试或执行当前 LLM 节点后，这里会保留最近一次完整会话。',
                 )
-              : _buildMessages(context, conversation, settings),
+              : _buildMessages(conversation, settings),
         ),
       ],
     );
   }
 
   Widget _buildMessages(
-    BuildContext context,
     WorkflowLlmConversation conversation,
     SettingsController settings,
   ) {

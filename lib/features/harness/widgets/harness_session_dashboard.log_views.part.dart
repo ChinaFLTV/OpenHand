@@ -3,13 +3,11 @@ part of 'harness_session_dashboard.dart';
 class _HeLogSection extends StatefulWidget {
   const _HeLogSection({
     required this.log,
-    required this.isZh,
     required this.onCopy,
     this.filePathRoots = const [],
   });
 
   final HarnessPhaseLog log;
-  final bool isZh;
   final VoidCallback onCopy;
   final List<String> filePathRoots;
 
@@ -98,26 +96,19 @@ class _HeLogSectionState extends State<_HeLogSection> {
             ),
             kOpenHandGap10,
             if (lines.isEmpty)
-              _HeEmptyOutputPlaceholder(isZh: widget.isZh)
+              const _HeEmptyOutputPlaceholder()
             else if (isRunning)
               _HeStreamingSubConversation(
                 lines: lines,
-                isZh: widget.isZh,
                 theme: theme,
                 colorScheme: colorScheme,
                 filePathRoots: widget.filePathRoots,
               )
             else if (_showRaw)
-              _HeRawFullView(
-                lines: lines,
-                colorScheme: colorScheme,
-                onCopy: widget.onCopy,
-                isZh: widget.isZh,
-              )
+              _HeRawFullView(lines: lines, colorScheme: colorScheme)
             else
               _HeSubConversationView(
                 lines: lines,
-                isZh: widget.isZh,
                 theme: theme,
                 colorScheme: colorScheme,
                 filePathRoots: widget.filePathRoots,
@@ -130,8 +121,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
 }
 
 class _HeEmptyOutputPlaceholder extends StatelessWidget {
-  const _HeEmptyOutputPlaceholder({required this.isZh});
-  final bool isZh;
+  const _HeEmptyOutputPlaceholder();
 
   @override
   Widget build(BuildContext context) {
@@ -168,17 +158,10 @@ class _HeEmptyOutputPlaceholder extends StatelessWidget {
 }
 
 class _HeRawFullView extends StatefulWidget {
-  const _HeRawFullView({
-    required this.lines,
-    required this.colorScheme,
-    required this.onCopy,
-    required this.isZh,
-  });
+  const _HeRawFullView({required this.lines, required this.colorScheme});
 
   final List<String> lines;
   final ColorScheme colorScheme;
-  final VoidCallback onCopy;
-  final bool isZh;
 
   static const int _previewCount = 30;
 
@@ -259,34 +242,6 @@ class _HeRawFullViewState extends State<_HeRawFullView> {
   }
 }
 
-// 超过阈值的大日志交给隔离线程解析，避免阻塞界面线程。
-
-class _HeSmartView extends StatefulWidget {
-  const _HeSmartView({
-    required this.lines,
-    required this.isZh,
-    required this.theme,
-    required this.colorScheme,
-    required this.filePathRoots,
-  });
-
-  final List<String> lines;
-  final bool isZh;
-  final ThemeData theme;
-  final ColorScheme colorScheme;
-  final List<String> filePathRoots;
-
-  static const int _isolateThreshold = 3000;
-
-  @override
-  State<_HeSmartView> createState() => _HeSmartViewState();
-}
-
-// compute 只能调用顶层函数。
-({String? command, String body}) _heSplitLogForMarkdownCompute(
-  List<String> lines,
-) => _heSplitLogForMarkdown(lines);
-
 Widget _heProcessingIndicator(BuildContext context, ColorScheme colorScheme) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -337,88 +292,16 @@ Widget _heEmptyOutputText(BuildContext context, ColorScheme colorScheme) {
   );
 }
 
-class _HeSmartViewState extends State<_HeSmartView> {
-  ({String? command, String body})? _parsed;
-  int _parseGeneration = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _parse(widget.lines);
-  }
-
-  @override
-  void didUpdateWidget(_HeSmartView old) {
-    super.didUpdateWidget(old);
-    if (old.lines != widget.lines) {
-      _parsed = null;
-      _parse(widget.lines);
-    }
-  }
-
-  void _parse(List<String> lines) {
-    final generation = ++_parseGeneration;
-    if (lines.length > _HeSmartView._isolateThreshold) {
-      compute(_heSplitLogForMarkdownCompute, lines).then<void>(
-        (result) {
-          if (!mounted || generation != _parseGeneration) return;
-          setState(() => _parsed = result);
-        },
-        onError: (Object error, StackTrace stack) {
-          silentLog('harness_log_view', '在隔离线程解析日志', error, stack);
-          if (!mounted || generation != _parseGeneration) return;
-          setState(() => _parsed = _heSplitLogForMarkdown(lines));
-        },
-      );
-    } else {
-      _parsed = _heSplitLogForMarkdown(lines);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = widget.colorScheme;
-
-    if (_parsed == null) {
-      return _heProcessingIndicator(context, colorScheme);
-    }
-
-    final (:command, :body) = _parsed!;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (command != null) ...[
-          _HeCommandStrip(command: command),
-          kOpenHandGap10,
-        ],
-        if (body.isNotEmpty)
-          _HeMarkdownContent(
-            content: body,
-            isZh: widget.isZh,
-            theme: widget.theme,
-            colorScheme: colorScheme,
-            filePathRoots: widget.filePathRoots,
-          )
-        else
-          _heEmptyOutputText(context, colorScheme),
-      ],
-    );
-  }
-}
-
 // 将已完成阶段的命令行输出解析为独立片段。
 class _HeSubConversationView extends StatefulWidget {
   const _HeSubConversationView({
     required this.lines,
-    required this.isZh,
     required this.theme,
     required this.colorScheme,
     this.filePathRoots = const [],
   });
 
   final List<String> lines;
-  final bool isZh;
   final ThemeData theme;
   final ColorScheme colorScheme;
   final List<String> filePathRoots;
@@ -562,7 +445,6 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
               child: _HeSegmentMiniCard(
                 key: ValueKey<String>(segmentKey),
                 segment: visibleSegments[i],
-                isZh: widget.isZh,
                 theme: widget.theme,
                 colorScheme: colorScheme,
                 filePathRoots: widget.filePathRoots,

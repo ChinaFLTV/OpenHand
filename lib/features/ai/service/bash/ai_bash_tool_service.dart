@@ -261,8 +261,6 @@ class _WriteConfirmationOutcome {
 
   final BashCommandApprovalDecision decision;
   final bool cancelled;
-
-  bool get approved => decision == BashCommandApprovalDecision.approved;
 }
 
 class _PersistentBashCommandOutcome {
@@ -2258,14 +2256,6 @@ class AiBashToolService {
             ])
             .timeout(_persistentShutdownTimeout, onTimeout: () => <void>[])
             .then<void>((_) {});
-  }
-
-  void dispose() {
-    unawaited(
-      shutdown().catchError((Object error, StackTrace stack) {
-        silentLog('ai_bash_tool_service', '关闭 Bash 工具服务', error, stack);
-      }),
-    );
   }
 
   /// 跨平台终止进程：Windows 使用默认终止，POSIX 先 SIGTERM 后 SIGKILL。

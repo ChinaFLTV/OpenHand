@@ -2103,9 +2103,6 @@ class _WriteConfirmationOutcome {
   const _WriteConfirmationOutcome.fromDecision(this.decision);
 
   final BashCommandApprovalDecision decision;
-
-  bool get approved => decision == BashCommandApprovalDecision.approved;
-  bool get cancelled => decision == BashCommandApprovalDecision.cancelled;
 }
 
 class _MissingPathSuggestion {

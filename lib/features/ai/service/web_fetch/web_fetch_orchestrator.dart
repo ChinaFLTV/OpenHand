@@ -77,9 +77,7 @@ class WebFetchOrchestrator {
     required Future<void>? cancelSignal,
     required WebFetchProgressEmitter onProgress,
   }) async {
-    final activeConfigs = settings.engines
-        .where((c) => c.enabled)
-        .toList(growable: false);
+    final activeConfigs = settings.enabledEnginesInOrder();
     final resilience = settings.resilience;
 
     // 处于 cooldown 中或已超 throttle 上限的引擎：跳过。primary 全部被跳时

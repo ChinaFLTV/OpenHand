@@ -3221,10 +3221,10 @@ fi
         child: Column(
           children: [
             // ── Header ──────────────────────────────────────────────────
-            _buildHeader(context, cs, isZh, device, config),
+            _buildHeader(context, cs, device, config),
             Divider(height: 1, color: cs.outlineVariant),
             // ── Tab bar ─────────────────────────────────────────────────
-            _buildTabBar(context, theme, cs, isZh),
+            _buildTabBar(context, theme, cs),
             Divider(height: 1, color: cs.outlineVariant),
             // ── Body ────────────────────────────────────────────────────
             Expanded(child: _buildBody(context, cs, theme, isZh)),
@@ -3237,7 +3237,6 @@ fi
   Widget _buildHeader(
     BuildContext context,
     ColorScheme cs,
-    bool isZh,
     AdbDevice? device,
     AndroidReverseSessionConfig config,
   ) {
@@ -3360,12 +3359,7 @@ fi
     );
   }
 
-  Widget _buildTabBar(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme cs,
-    bool isZh,
-  ) {
+  Widget _buildTabBar(BuildContext context, ThemeData theme, ColorScheme cs) {
     return SizedBox(
       height: 40,
       child: ListView(
@@ -3434,37 +3428,32 @@ fi
       switchInCurve: kOpenHandSwitchInCurve,
       child: KeyedSubtree(
         key: ValueKey<_Tab>(_currentTab),
-        child: _buildTab(context, cs, theme, isZh),
+        child: _buildTab(cs, theme, isZh),
       ),
     );
   }
 
-  Widget _buildTab(
-    BuildContext context,
-    ColorScheme cs,
-    ThemeData theme,
-    bool isZh,
-  ) {
+  Widget _buildTab(ColorScheme cs, ThemeData theme, bool isZh) {
     return switch (_currentTab) {
-      _Tab.devices => _buildDevicesTab(cs, theme, isZh),
+      _Tab.devices => _buildDevicesTab(cs, theme),
       _Tab.overview => _buildOverviewTab(cs, theme),
-      _Tab.toolchain => _buildToolchainTab(cs, theme, isZh),
-      _Tab.mcp => _buildMcpTab(cs, theme, isZh),
-      _Tab.plugins => _buildPluginsTab(cs, theme, isZh),
-      _Tab.packages => _buildPackagesTab(cs, theme, isZh),
-      _Tab.processes => _buildProcessesTab(cs, theme, isZh),
+      _Tab.toolchain => _buildToolchainTab(cs, theme),
+      _Tab.mcp => _buildMcpTab(cs, theme),
+      _Tab.plugins => _buildPluginsTab(cs, theme),
+      _Tab.packages => _buildPackagesTab(cs, theme),
+      _Tab.processes => _buildProcessesTab(cs, theme),
       _Tab.logcat => _buildLogcatTab(cs, theme, isZh),
-      _Tab.frida => _buildFridaTab(cs, theme, isZh),
-      _Tab.network => _buildNetworkTab(cs, theme, isZh),
-      _Tab.staticAnalysis => _buildStaticTab(cs, theme, isZh),
-      _Tab.certs => _buildCertsTab(cs, theme, isZh),
-      _Tab.crypto => _buildCryptoTab(cs, theme, isZh),
+      _Tab.frida => _buildFridaTab(cs, theme),
+      _Tab.network => _buildNetworkTab(cs),
+      _Tab.staticAnalysis => _buildStaticTab(cs),
+      _Tab.certs => _buildCertsTab(cs),
+      _Tab.crypto => _buildCryptoTab(cs),
     };
   }
 
   // ── Devices tab ─────────────────────────────────────────────────────────
 
-  Widget _buildDevicesTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildDevicesTab(ColorScheme cs, ThemeData theme) {
     final devices = _ctrl.allDevices;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3524,8 +3513,8 @@ fi
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final list = _buildDeviceList(devices, cs, theme, isZh);
-              final details = _buildDeviceDetailsPanel(cs, theme, isZh);
+              final list = _buildDeviceList(devices, cs, theme);
+              final details = _buildDeviceDetailsPanel(cs, theme);
               if (constraints.maxWidth < 760) {
                 return Column(
                   children: [
@@ -3596,11 +3585,11 @@ fi
               ),
               if (_shellHistory.isNotEmpty) ...[
                 kOpenHandGap8,
-                _buildShellHistoryChips(cs, theme, isZh),
+                _buildShellHistoryChips(cs, theme),
               ],
               if (_shellOutputCtrl.text.isNotEmpty) ...[
                 kOpenHandGap8,
-                _buildShellOutputPanel(cs, theme, isZh),
+                _buildShellOutputPanel(cs, theme),
               ],
             ],
           ),
@@ -3609,7 +3598,7 @@ fi
     );
   }
 
-  Widget _buildShellHistoryChips(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildShellHistoryChips(ColorScheme cs, ThemeData theme) {
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -3660,7 +3649,7 @@ fi
     );
   }
 
-  Widget _buildShellOutputPanel(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildShellOutputPanel(ColorScheme cs, ThemeData theme) {
     final output = _shellOutputCtrl.text;
     final result = _lastShellResult;
     return Container(
@@ -3755,7 +3744,6 @@ fi
     List<AdbDevice> devices,
     ColorScheme cs,
     ThemeData theme,
-    bool isZh,
   ) {
     if (devices.isEmpty) {
       return OpenHandInlineEmptyState(
@@ -3848,7 +3836,7 @@ fi
     );
   }
 
-  Widget _buildDeviceDetailsPanel(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildDeviceDetailsPanel(ColorScheme cs, ThemeData theme) {
     final serial = _targetSerial;
     final device = serial == null
         ? null
@@ -5745,7 +5733,7 @@ fi
 
   // ── Toolchain tab ───────────────────────────────────────────────────────
 
-  Widget _buildToolchainTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildToolchainTab(ColorScheme cs, ThemeData theme) {
     final pluginController = context.watch<PluginServiceController>();
     final requiredMissing = _toolchainRows
         .where((row) => row.probe.required && !row.ok)
@@ -5963,7 +5951,7 @@ fi
 
   // ── MCP tab ─────────────────────────────────────────────────────────────
 
-  Widget _buildMcpTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildMcpTab(ColorScheme cs, ThemeData theme) {
     final mcpController = context.watch<McpController>();
     final capabilities =
         TemplateRuntimeDependencyRegistry.androidReverse.mcpCapabilities;
@@ -6105,7 +6093,7 @@ fi
             )
           else
             for (final row in serverRows) ...[
-              _buildMcpServerCard(row, cs, theme, isZh),
+              _buildMcpServerCard(row, cs, theme),
               kOpenHandGap8,
             ],
         ],
@@ -6115,7 +6103,7 @@ fi
 
   // ── Plugins tab ────────────────────────────────────────────────────────
 
-  Widget _buildPluginsTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildPluginsTab(ColorScheme cs, ThemeData theme) {
     final pluginController = context.watch<PluginServiceController>();
     final runtimePlugins = _kAndroidRuntimePluginIds
         .map(pluginController.pluginById)
@@ -6232,13 +6220,7 @@ fi
             )
           else
             for (final plugin in runtimePlugins) ...[
-              _buildRuntimePluginTile(
-                plugin,
-                pluginController,
-                cs,
-                theme,
-                isZh,
-              ),
+              _buildRuntimePluginTile(plugin, pluginController, cs, theme),
               kOpenHandGap8,
             ],
           kOpenHandGap14,
@@ -6266,7 +6248,7 @@ fi
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (final row in _toolchainRows) ...[
-                        _buildToolchainCommandTile(row, cs, theme, isZh),
+                        _buildToolchainCommandTile(row, cs, theme),
                         kOpenHandGap8,
                       ],
                     ],
@@ -6281,7 +6263,6 @@ fi
     _AndroidMcpServerView row,
     ColorScheme cs,
     ThemeData theme,
-    bool isZh,
   ) {
     final server = row.server;
     final catalog = row.catalog;
@@ -6995,7 +6976,6 @@ fi
     PluginServiceController pluginController,
     ColorScheme cs,
     ThemeData theme,
-    bool isZh,
   ) {
     final color = plugin.isInstalled
         ? plugin.enabled
@@ -7500,7 +7480,6 @@ fi
     AndroidReverseToolchainProbeResult row,
     ColorScheme cs,
     ThemeData theme,
-    bool isZh,
   ) {
     final ok = row.ok;
     final color = ok
@@ -7603,7 +7582,7 @@ fi
 
   // ── Packages tab ─────────────────────────────────────────────────────────
 
-  Widget _buildPackagesTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildPackagesTab(ColorScheme cs, ThemeData theme) {
     return Column(
       children: [
         Padding(
@@ -7884,7 +7863,7 @@ fi
 
   // ── Processes tab ───────────────────────────────────────────────────────
 
-  Widget _buildProcessesTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildProcessesTab(ColorScheme cs, ThemeData theme) {
     return Column(
       children: [
         Padding(
@@ -8008,11 +7987,7 @@ fi
 
   // ── Logcat tab ──────────────────────────────────────────────────────────
 
-  Widget _buildLogcatPackageFilterChip(
-    ColorScheme cs,
-    ThemeData theme,
-    bool isZh,
-  ) {
+  Widget _buildLogcatPackageFilterChip(ColorScheme cs, ThemeData theme) {
     final packageName = _logcatPackageTarget()?.trim();
     if (packageName == null || packageName.isEmpty) {
       return const SizedBox.shrink();
@@ -8109,7 +8084,7 @@ fi
                     color: cs.primary,
                   ),
                   if (_logcatPackageTarget()?.isNotEmpty ?? false)
-                    _buildLogcatPackageFilterChip(cs, theme, isZh),
+                    _buildLogcatPackageFilterChip(cs, theme),
                   OpenHandBusyStatusIcon(
                     busy: _loadingLogcat,
                     icon: null,
@@ -8434,7 +8409,6 @@ fi
                         parsed: _parseCachedLogcatLine(line),
                         colorScheme: cs,
                         theme: theme,
-                        isZh: isZh,
                         onMenu: (position) =>
                             _showLogcatLineMenu(i, line, position),
                       );
@@ -8448,13 +8422,13 @@ fi
 
   // ── Frida tab ───────────────────────────────────────────────────────────
 
-  Widget _buildFridaTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildFridaTab(ColorScheme cs, ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final snippets = _buildFridaSnippetPane(cs, theme, isZh);
-          final editor = _buildFridaEditorPane(cs, theme, isZh);
+          final snippets = _buildFridaSnippetPane(cs, theme);
+          final editor = _buildFridaEditorPane(cs, theme);
           if (constraints.maxWidth < 760) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -8485,7 +8459,7 @@ fi
     );
   }
 
-  Widget _buildFridaSnippetPane(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildFridaSnippetPane(ColorScheme cs, ThemeData theme) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
@@ -8553,7 +8527,7 @@ fi
     );
   }
 
-  Widget _buildFridaEditorPane(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildFridaEditorPane(ColorScheme cs, ThemeData theme) {
     final scriptAsset = _selectedFridaSnippetAsset;
     final selectedAssetLabel = Text(
       scriptAsset ??
@@ -8750,7 +8724,7 @@ fi
 
   // ── Network tab ─────────────────────────────────────────────────────────
 
-  Widget _buildNetworkTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildNetworkTab(ColorScheme cs) {
     final addonOutput = _networkAddonOutput?.trim();
     final captureRunning = _ctrl.networkCaptureRunning;
     return OpenHandSafeScrollbar(
@@ -8967,7 +8941,7 @@ fi
 
   // ── Static analysis tab ─────────────────────────────────────────────────
 
-  Widget _buildStaticTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildStaticTab(ColorScheme cs) {
     final scanOutput = _staticQuickScanOutput?.trim();
     final staticBusy = _runningStaticQuickScan || _runningStaticAction;
     return OpenHandSafeScrollbar(
@@ -9107,7 +9081,7 @@ fi
 
   // ── Certs tab ────────────────────────────────────────────────────────────
 
-  Widget _buildCertsTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildCertsTab(ColorScheme cs) {
     final artifactOutput = _certificateArtifactOutput?.trim();
     final certificateBusy =
         _writingCertificateArtifacts || _runningCertificateAction;
@@ -9224,7 +9198,7 @@ fi
 
   // ── Crypto pad tab ────────────────────────────────────────────────────────
 
-  Widget _buildCryptoTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildCryptoTab(ColorScheme cs) {
     final cryptoOutput = _base64OutCtrl.text.trim();
     return OpenHandSafeScrollbar(
       child: ListView(
@@ -10486,14 +10460,12 @@ class _LogcatLineTile extends StatelessWidget {
     required this.parsed,
     required this.colorScheme,
     required this.theme,
-    required this.isZh,
     required this.onMenu,
   });
 
   final _ParsedLogcatLine parsed;
   final ColorScheme colorScheme;
   final ThemeData theme;
-  final bool isZh;
   final ValueChanged<Offset> onMenu;
 
   @override

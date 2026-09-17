@@ -1592,43 +1592,6 @@ class ServicesController extends ChangeNotifier {
     _notify();
   }
 
-  Future<bool> updateDependencies({
-    String? postgresqlUrl,
-    String? redisUrl,
-  }) async {
-    try {
-      final client = _requireClient();
-      await client.updateDependencies(
-        postgresqlUrl: postgresqlUrl,
-        redisUrl: redisUrl,
-      );
-      _dependencyStatus = await client.dependencyStatus();
-      _errorMessage = null;
-      _notify();
-      return true;
-    } catch (error, stack) {
-      _errorMessage = _reportServicesFailure('更新扫描运行依赖', error, stack);
-      _notify();
-      return false;
-    }
-  }
-
-  /// 清除扫描引擎上的 AI 提取器配置，使其恢复到未配置状态。
-  Future<bool> clearAiExtractor() async {
-    try {
-      final client = _requireClient();
-      await client.clearAiExtractor();
-      _aiExtractorStatus = await client.aiExtractorStatus();
-      _errorMessage = null;
-      _notify();
-      return true;
-    } catch (error, stack) {
-      _errorMessage = _reportServicesFailure('清除 AI 提取器配置', error, stack);
-      _notify();
-      return false;
-    }
-  }
-
   /// 保存结构化的运行依赖选择，并使用 OpenHand 托管实例的默认连接地址。
   Future<bool> updateManagedDependencyPreferences({
     required bool postgresqlEnabled,

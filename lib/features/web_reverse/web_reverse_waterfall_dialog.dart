@@ -31,20 +31,18 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseWaterfallDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return webReverseToolDialogs.show<void>(
     context: context,
-    builder: (_) => _WaterfallDialog(controller: controller, isZh: isZh),
+    builder: (_) => _WaterfallDialog(controller: controller),
   );
 }
 
 enum _SortMode { time, duration, size }
 
 class _WaterfallDialog extends StatefulWidget {
-  const _WaterfallDialog({required this.controller, required this.isZh});
+  const _WaterfallDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_WaterfallDialog> createState() => _WaterfallDialogState();
 }
@@ -408,7 +406,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                       ),
                     ),
                   ),
-                  _initiatorBadge(theme, cs, e),
+                  _initiatorBadge(cs, e),
                   Expanded(
                     child: Text(
                       _shortUrl(e.url),
@@ -495,7 +493,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
   }
 
   /// Initiator 入口徽标：有调用栈/url 时高亮，可点击展开详情并跳转 Sources。
-  Widget _initiatorBadge(ThemeData theme, ColorScheme cs, CdpNetworkEntry e) {
+  Widget _initiatorBadge(ColorScheme cs, CdpNetworkEntry e) {
     final loc = AppLocalizations.of(context);
     final hasAny =
         (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty) ||

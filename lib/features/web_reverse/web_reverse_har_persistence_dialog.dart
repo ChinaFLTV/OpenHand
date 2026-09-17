@@ -32,11 +32,10 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseHarPersistenceDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return webReverseToolDialogs.show<void>(
     context: context,
-    builder: (_) => _HarPersistenceDialog(controller: controller, isZh: isZh),
+    builder: (_) => _HarPersistenceDialog(controller: controller),
   );
 }
 
@@ -53,9 +52,8 @@ class _AutoRotateState {
 final _AutoRotateState _autoRotate = _AutoRotateState();
 
 class _HarPersistenceDialog extends StatefulWidget {
-  const _HarPersistenceDialog({required this.controller, required this.isZh});
+  const _HarPersistenceDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_HarPersistenceDialog> createState() => _HarPersistenceDialogState();
 }

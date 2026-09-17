@@ -39,7 +39,6 @@ void _showTrendInsight(
         animation: Listenable.merge([series, sampleLabels]),
         builder: (context, _) => _TrendInsightBody(
           id: id,
-          title: title,
           series: series.value,
           sampleLabels: sampleLabels.value,
           suffix: suffix,
@@ -54,7 +53,6 @@ void _showDistributionInsight(
   required _DistributionInsightId id,
   required IconData icon,
   required String title,
-  required ValueListenable<List<_DistributionItem>> items,
 }) {
   showAnimatedDialog<void>(
     context: context,
@@ -62,11 +60,7 @@ void _showDistributionInsight(
       icon: icon,
       title: title,
       subtitle: '实时业务分布与诊断',
-      child: ValueListenableBuilder<List<_DistributionItem>>(
-        valueListenable: items,
-        builder: (context, values, _) =>
-            _DistributionInsightBody(id: id, title: title, items: values),
-      ),
+      child: _DistributionInsightBody(id: id),
     ),
   );
 }
@@ -210,13 +204,11 @@ class _MetricInsightBody extends StatelessWidget {
 class _TrendInsightBody extends StatelessWidget {
   const _TrendInsightBody({
     required this.id,
-    required this.title,
     required this.series,
     required this.sampleLabels,
     required this.suffix,
   });
   final _TrendInsightId id;
-  final String title;
   final List<OpenHandChartSeries> series;
   final List<String> sampleLabels;
   final String suffix;
@@ -227,7 +219,6 @@ class _TrendInsightBody extends StatelessWidget {
     return _buildTrendInsight(
       context,
       id: id,
-      title: title,
       controller: controller,
       series: series,
       sampleLabels: sampleLabels,
@@ -237,25 +228,13 @@ class _TrendInsightBody extends StatelessWidget {
 }
 
 class _DistributionInsightBody extends StatelessWidget {
-  const _DistributionInsightBody({
-    required this.id,
-    required this.title,
-    required this.items,
-  });
+  const _DistributionInsightBody({required this.id});
   final _DistributionInsightId id;
-  final String title;
-  final List<_DistributionItem> items;
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ServicesController>();
-    return _buildDistributionInsight(
-      context,
-      id: id,
-      title: title,
-      controller: controller,
-      items: items,
-    );
+    return _buildDistributionInsight(context, id: id, controller: controller);
   }
 }
 

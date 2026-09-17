@@ -138,8 +138,6 @@ class AiMessageAttachment {
 
   bool get isAudio => kind == AiAttachmentKind.audio;
 
-  String get extension => p.extension(name).toLowerCase();
-
   AiMessageAttachment copyWith({
     String? id,
     String? name,

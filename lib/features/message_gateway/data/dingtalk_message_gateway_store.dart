@@ -41,8 +41,6 @@ class DingTalkMessageGatewayStore {
   final String filePath;
   String? _expectedContent;
   bool _loaded = false;
-  List<DingTalkConversation> _cachedConversations =
-      const <DingTalkConversation>[];
 
   Future<DingTalkGatewayStoreSnapshot> loadSnapshot() async {
     _loaded = false;
@@ -51,7 +49,6 @@ class DingTalkMessageGatewayStore {
     if (!await regularFileExistsBounded(file)) {
       _loaded = true;
       _expectedContent = null;
-      _cachedConversations = const <DingTalkConversation>[];
       return const DingTalkGatewayStoreSnapshot(
         settings: DingTalkGatewaySettings(),
         conversations: <DingTalkConversation>[],
@@ -114,20 +111,11 @@ class DingTalkMessageGatewayStore {
     }
     _loaded = true;
     _expectedContent = raw;
-    _cachedConversations = List<DingTalkConversation>.unmodifiable(
-      conversations,
-    );
     return DingTalkGatewayStoreSnapshot(
       settings: settings,
       conversations: List<DingTalkConversation>.unmodifiable(conversations),
     );
   }
-
-  Future<DingTalkGatewaySettings> load() async =>
-      (await loadSnapshot()).settings;
-
-  Future<void> save(DingTalkGatewaySettings value) =>
-      saveSnapshot(settings: value, conversations: _cachedConversations);
 
   Future<void> saveSnapshot({
     required DingTalkGatewaySettings settings,
@@ -207,9 +195,6 @@ class DingTalkMessageGatewayStore {
     }
     await writeFileAtomically(file, content);
     _expectedContent = content;
-    _cachedConversations = List<DingTalkConversation>.unmodifiable(
-      limitedConversations,
-    );
   }
 
   void _keepRecentMessagesFairly(

@@ -784,7 +784,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
           },
         ),
         kOpenHandGap10,
-        _buildHistoryToolbar(context, l10n),
+        _buildHistoryToolbar(l10n),
         kOpenHandGap12,
         Expanded(
           child: filtered.isEmpty
@@ -821,7 +821,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     );
   }
 
-  Widget _buildHistoryToolbar(BuildContext context, AppLocalizations l10n) {
+  Widget _buildHistoryToolbar(AppLocalizations l10n) {
     final sourceFilter = SegmentedButton<AiToolSearchLoadSource?>(
       showSelectedIcon: false,
       style: const ButtonStyle(

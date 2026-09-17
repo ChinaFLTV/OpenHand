@@ -5493,7 +5493,6 @@ class _AiModelTileState extends State<_AiModelTile>
   }
 
   Widget _buildProviderMetaLine({
-    required BuildContext context,
     required AppLocalizations l10n,
     required String modelCountLabel,
     required TextStyle? style,
@@ -5602,7 +5601,6 @@ class _AiModelTileState extends State<_AiModelTile>
                           ),
                           kOpenHandGap4,
                           _buildProviderMetaLine(
-                            context: context,
                             l10n: l10n,
                             modelCountLabel: modelCountLabel,
                             style: theme.textTheme.bodyMedium?.copyWith(

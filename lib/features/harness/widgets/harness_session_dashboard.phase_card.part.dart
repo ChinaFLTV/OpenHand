@@ -22,7 +22,6 @@ class _HePhaseCard extends StatefulWidget {
     super.key,
     required this.log,
     required this.config,
-    required this.isZh,
     required this.expanded,
     required this.onToggleExpand,
     required this.onCopyLog,
@@ -32,7 +31,6 @@ class _HePhaseCard extends StatefulWidget {
 
   final HarnessPhaseLog log;
   final HarnessSessionConfig config;
-  final bool isZh;
   final bool expanded;
   final VoidCallback onToggleExpand;
   final VoidCallback onCopyLog;
@@ -79,14 +77,6 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     };
   }
 
-  static const Map<HarnessPhase, IconData> _phaseIcons = {
-    HarnessPhase.metaCollection: Icons.manage_search_rounded,
-    HarnessPhase.reading: Icons.menu_book_rounded,
-    HarnessPhase.planning: Icons.route_rounded,
-    HarnessPhase.implementing: Icons.code_rounded,
-    HarnessPhase.reviewing: Icons.fact_check_rounded,
-  };
-
   IconData get _statusIcon {
     // 审查阶段失败时使用警告图标。
     if (widget.log.status == HarnessPhaseStatus.completed &&
@@ -126,7 +116,6 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final log = widget.log;
-    final isZh = widget.isZh;
     // 仅在模型列表变化时重建，忽略设置控制器的其他通知。
     final aiModels = context.select<SettingsController?, List<AiModelConfig>>(
       (controller) => controller?.aiModels ?? const <AiModelConfig>[],
@@ -146,7 +135,6 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     final borderColor = palette.border;
     final textColor = palette.text;
 
-    final phaseIcon = _phaseIcons[log.phase] ?? Icons.timelapse_rounded;
     final phaseName = _heHarnessPhaseLabel(context, log.phase);
     final roleConfig = _roleConfig();
     final collapsedPreviewLine = _collapsedPreviewLine(log.lines);
@@ -188,7 +176,6 @@ class _HePhaseCardState extends State<_HePhaseCard> {
             _HePhaseMetaRow(
               log: log,
               phaseName: phaseName,
-              phaseIcon: phaseIcon,
               statusText: _statusText(context),
               statusIcon: _statusIcon,
               textColor: textColor,
@@ -336,7 +323,6 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                         padding: const EdgeInsets.only(top: 12),
                         child: _HePhaseExpandedBody(
                           log: log,
-                          isZh: isZh,
                           onCopyLog: widget.onCopyLog,
                           filePathRoots: widget.filePathRoots,
                         ),
@@ -374,13 +360,11 @@ class _HePhaseCardState extends State<_HePhaseCard> {
 class _HePhaseExpandedBody extends StatelessWidget {
   const _HePhaseExpandedBody({
     required this.log,
-    required this.isZh,
     required this.onCopyLog,
     this.filePathRoots = const [],
   });
 
   final HarnessPhaseLog log;
-  final bool isZh;
   final VoidCallback onCopyLog;
   final List<String> filePathRoots;
 
@@ -395,13 +379,12 @@ class _HePhaseExpandedBody extends StatelessWidget {
       children: [
         _HeLogSection(
           log: log,
-          isZh: isZh,
           onCopy: onCopyLog,
           filePathRoots: filePathRoots,
         ),
         if (log.changedFiles.isNotEmpty) ...[
           kOpenHandGap12,
-          _HeChangedFilesList(files: log.changedFiles, isZh: isZh),
+          _HeChangedFilesList(files: log.changedFiles),
         ],
         if (isFailed) ...[
           kOpenHandGap12,
@@ -524,7 +507,6 @@ class _HePhaseMetaRow extends StatelessWidget {
   const _HePhaseMetaRow({
     required this.log,
     required this.phaseName,
-    required this.phaseIcon,
     required this.statusText,
     required this.statusIcon,
     required this.textColor,
@@ -534,7 +516,6 @@ class _HePhaseMetaRow extends StatelessWidget {
 
   final HarnessPhaseLog log;
   final String phaseName;
-  final IconData phaseIcon;
   final String statusText;
   final IconData statusIcon;
   final Color textColor;

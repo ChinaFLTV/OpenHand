@@ -46,21 +46,11 @@ String _sourcesStatusLabel(
   );
 }
 
-/// Sources tab：列出 page 已 parse 的所有 JS 脚本（来自 CDP `Debugger.scriptParsed`），
-/// 点开任一脚本 → 调 `Debugger.getScriptSource` 拉源码 → 提供"原样 / 美化"切换 +
-/// 行号 + 简易行点击下断点（`Debugger.setBreakpointByUrl`）。
-///
-/// 此版仅做"看 + 下断点"两件事；命中断点后的 Step Over / 作用域回显是更大的工程，
-/// 用户可点"打开官方 DevTools"按钮走 Chrome 自带 inspector。
+/// 源码面板：提供脚本浏览、美化、断点及暂停后的单步调试、调用栈和作用域查看。
 class _SourcesPanel extends StatefulWidget {
-  const _SourcesPanel({
-    super.key,
-    required this.controller,
-    required this.reduceMotion,
-  });
+  const _SourcesPanel({super.key, required this.controller});
 
   final WebReverseSessionController controller;
-  final bool reduceMotion;
 
   @override
   State<_SourcesPanel> createState() => _SourcesPanelState();
@@ -81,10 +71,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   bool _lspEnabled = false;
   String? _lastSentUri;
 
-  // 自动 hover + 行尾浮窗 + 跳转定义滚动。
-  // _hoverDebounce 在用户停留 300ms 后才触发 LSP hover，避免每个鼠标
-  // 移动事件都打 server 一次。_hoverLine / _hoverColumn / _hoverMarkdown
-  // 联动 _SourceHoverBubble 在行尾贴一张浮窗显示 markdown。
+  // 悬停请求经防抖后触发，结果在对应行旁显示。
   Timer? _hoverDebounce;
   int? _hoverLine;
   String? _hoverMarkdown;
@@ -625,7 +612,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
 
   /// 鼠标在某一行上悬停时调度：300ms 内不触发新 hover，超过则发起 LSP
   /// 请求并把结果写到 _hoverMarkdown 让 _SourceHoverBubble 渲染贴在行尾。
-  void _scheduleAutoHover(int line, int column, String text) {
+  void _scheduleAutoHover(int line, int column) {
     if (!_lspEnabled || _lsp.status != WebReverseLspStatus.ready) return;
     _hoverDebounce?.cancel();
     _hoverDebounce = startSafeTimer(
@@ -1530,7 +1517,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                     event.localPosition.dx,
                                     line,
                                   );
-                                  _scheduleAutoHover(idx, col, line);
+                                  _scheduleAutoHover(idx, col);
                                 }
                               : null,
                           onExit: _lspEnabled ? (_) => _clearAutoHover() : null,

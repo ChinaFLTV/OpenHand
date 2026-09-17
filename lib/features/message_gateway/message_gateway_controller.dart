@@ -479,10 +479,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
     return result;
   }
 
-  Future<String> exportLogBundleJson() async {
-    return _service.exportLogBundleJson();
-  }
-
   Future<String> exportCurrentLogText() async {
     return _service.exportCurrentLogText();
   }

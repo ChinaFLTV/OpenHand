@@ -124,9 +124,6 @@ class HarnessRoleConfig {
     );
   }
 
-  static HarnessRoleConfig get empty =>
-      const HarnessRoleConfig(cliName: '', modelId: '');
-
   @override
   String toString() => jsonEncode(toJson());
 }

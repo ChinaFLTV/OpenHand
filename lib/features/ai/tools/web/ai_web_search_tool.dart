@@ -101,9 +101,7 @@ class AiWebSearchTool extends AiTool {
       settings.resilience,
     );
 
-    final progress = StringBuffer()
-      ..writeln('query: $query')
-      ..writeln('engines_active: ${_engineLabels(settings)}');
+    final progress = StringBuffer()..writeln('query: $query');
     if (allowedDomains.isNotEmpty) {
       progress.writeln('allowed_domains: ${allowedDomains.join(', ')}');
     }
@@ -481,12 +479,6 @@ class AiWebSearchTool extends AiTool {
                 ? 'miss-stored'
                 : 'disabled',
     );
-  }
-
-  String _engineLabels(AiWebSearchSettings settings) {
-    final active = settings.engines.where((e) => e.enabled).toList();
-    if (active.isEmpty) return '<fallback: bing,duckduckgo>';
-    return active.map((e) => e.kind.name).join(',');
   }
 
   AiModelConfig _resolveSummaryModel({

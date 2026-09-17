@@ -1194,8 +1194,7 @@ class AnimatedDropdownButtonFormField<T> extends FormField<T> {
     MouseCursor? dropdownMenuItemMouseCursor,
     bool useRootNavigator = false,
     DialogAnimationSettings? animationSettings,
-  }) : decoration = decoration ?? const InputDecoration(),
-       super(
+  }) : super(
          initialValue: initialValue ?? value,
          autovalidateMode: autovalidateMode ?? AutovalidateMode.disabled,
          builder: (field) {
@@ -1269,7 +1268,6 @@ class AnimatedDropdownButtonFormField<T> extends FormField<T> {
        );
 
   final ValueChanged<T?>? onChanged;
-  final InputDecoration decoration;
 
   @override
   FormFieldState<T> createState() => _AnimatedDropdownButtonFormFieldState<T>();

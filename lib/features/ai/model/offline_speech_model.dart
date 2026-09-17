@@ -200,10 +200,6 @@ class OfflineSpeechModelDefinition {
     return null;
   }
 
-  Map<String, Object?> defaults() => <String, Object?>{
-    for (final parameter in parameters) parameter.key: parameter.defaultValue,
-  };
-
   Map<String, Object?> normalizeConfiguration(Object? raw) {
     final source = raw is Map
         ? stringKeyedMapFromValue(raw)

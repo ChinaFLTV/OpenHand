@@ -2160,8 +2160,6 @@ class _AiLspSession {
         addsDocument: true,
       );
       _openDocuments[uri] = _AiLspOpenDocument(
-        uri: uri,
-        language: language,
         text: currentText,
         byteLength: currentBytes,
         version: 1,
@@ -3075,15 +3073,11 @@ class _AiLspSession {
 
 class _AiLspOpenDocument {
   _AiLspOpenDocument({
-    required this.uri,
-    required this.language,
     required this.text,
     required this.byteLength,
     required this.version,
   });
 
-  final String uri;
-  final String language;
   String text;
   int byteLength;
   int version;

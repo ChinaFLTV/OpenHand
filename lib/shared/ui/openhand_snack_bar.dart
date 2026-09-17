@@ -363,9 +363,7 @@ class OpenHandSnackBar {
     return duration;
   }
 
-  static void hideGlobal({
-    SnackBarClosedReason reason = SnackBarClosedReason.hide,
-  }) {
+  static void hideGlobal() {
     OpenHandGlobalSnackBarHost.hideCurrent();
   }
 
@@ -485,7 +483,6 @@ class OpenHandSnackBar {
     int? maxLines,
   }) {
     return _build(
-      context,
       message,
       icon: Icons.check_circle_rounded,
       tint: OpenHandStatusColors.success,
@@ -503,7 +500,6 @@ class OpenHandSnackBar {
     int? maxLines,
   }) {
     return _build(
-      context,
       message,
       icon: Icons.error_rounded,
       tint: OpenHandStatusColors.error,
@@ -522,7 +518,6 @@ class OpenHandSnackBar {
   }) {
     final cs = Theme.of(context).colorScheme;
     return _build(
-      context,
       message,
       icon: Icons.info_rounded,
       tint: cs.inversePrimary,
@@ -633,7 +628,6 @@ class OpenHandSnackBar {
     Duration duration = kOpenHandSnackBarDetailedDuration,
   }) {
     return _build(
-      context,
       message,
       icon: icon,
       tint: tint,
@@ -645,7 +639,6 @@ class OpenHandSnackBar {
   }
 
   static SnackBar _build(
-    BuildContext context,
     String message, {
     required IconData icon,
     required Color tint,

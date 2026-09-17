@@ -2148,7 +2148,6 @@ class _ToolCallViewData {
     required this.workingDirectory,
     required this.stdout,
     required this.stderr,
-    required this.resultText,
     required this.exitCode,
     required this.durationMs,
     required this.argumentsPreview,
@@ -2158,13 +2157,10 @@ class _ToolCallViewData {
     required this.formattedStdout,
     required this.formattedStderr,
     required this.formattedResult,
-    required this.defaultExpanded,
     required this.showResultText,
     required this.hasResultContent,
-    required this.shouldSweepBadge,
     required this.statusIcon,
     required this.primaryChipLabel,
-    required this.statusLabel,
     required this.outcomeLabel,
     required this.resultPreview,
     this.stdoutFile,
@@ -2242,7 +2238,6 @@ class _ToolCallViewData {
       workingDirectory: workingDirectory,
       stdout: stdout,
       stderr: stderr,
-      resultText: resultText,
       exitCode: exitCode,
       durationMs: durationMs,
       argumentsPreview: argumentsPreview,
@@ -2252,20 +2247,12 @@ class _ToolCallViewData {
       formattedStdout: formattedStdout,
       formattedStderr: formattedStderr,
       formattedResult: formattedResult,
-      defaultExpanded: _shouldDefaultExpandToolStatus(status),
       showResultText: showResultText,
       hasResultContent: hasResultContent,
       stdoutFile: stdoutFile.isNotEmpty ? stdoutFile : null,
       stderrFile: stderrFile.isNotEmpty ? stderrFile : null,
-      shouldSweepBadge: _shouldSweepToolStatus(status),
       statusIcon: _toolExecutionStatusIcon(status),
       primaryChipLabel: _buildPrimaryChipLabel(context, effectivePresentation),
-      statusLabel: _toolCallStatusLabelForData(
-        context,
-        effectivePresentation,
-        status,
-        durationMs,
-      ),
       outcomeLabel: _toolExecutionOutcomeLabel(context, status),
       resultPreview: _toolExecutionPreviewText(
         context,
@@ -2284,7 +2271,6 @@ class _ToolCallViewData {
   final String workingDirectory;
   final String stdout;
   final String stderr;
-  final String resultText;
   final int? exitCode;
   final int durationMs;
   final String argumentsPreview;
@@ -2296,13 +2282,10 @@ class _ToolCallViewData {
   final _FormattedToolContent formattedStdout;
   final _FormattedToolContent formattedStderr;
   final _FormattedToolContent formattedResult;
-  final bool defaultExpanded;
   final bool showResultText;
   final bool hasResultContent;
-  final bool shouldSweepBadge;
   final IconData statusIcon;
   final String primaryChipLabel;
-  final String statusLabel;
   final String outcomeLabel;
   final String resultPreview;
 

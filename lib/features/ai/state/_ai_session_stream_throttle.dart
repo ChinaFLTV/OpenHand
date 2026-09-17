@@ -210,11 +210,6 @@ class _StreamCharThrottleBudget {
     return (count: granted, bucketSecond: _bucketSecond);
   }
 
-  double get partialCharProgress {
-    if (_maxCharsPerSecond <= 0) return 1;
-    return clampUnitInterval(_budget);
-  }
-
   void _refill() {
     final nowSec = _streamThroughputSecond();
     if (_bucketSecond != nowSec) {
@@ -394,13 +389,6 @@ class _StreamCharThrottle {
         _scheduleDrain();
       }
     });
-  }
-
-  /// 当前距离释放下一个 grapheme 还差多少（[0, 1] 区间，1 = 即将释放）。
-  /// 用于给 UI 渲染半透明的"待出场字符"，让低速率下的渲染拥有连续动画。
-  double get partialCharProgress {
-    if (!isEnabled) return 1;
-    return _budget.partialCharProgress;
   }
 
   /// 直通（关闭）期间调用方以码元数近似计量，与 grapheme 预算口径脱钩；

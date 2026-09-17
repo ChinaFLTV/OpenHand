@@ -237,12 +237,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
       _state == AndroidReverseSessionState.running ||
       _state == AndroidReverseSessionState.deviceLost;
 
-  void clearErrorMessage() {
-    if (_errorMessage == null) return;
-    _errorMessage = null;
-    _safeNotify();
-  }
-
   Future<void> start() {
     if (_disposed || isRunning) {
       return Future<void>.value();
@@ -427,9 +421,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<String?> getPackagePath(String packageName, {String? serial}) =>
       _clientForSerial(serial).getPackagePath(packageName);
 
-  Future<List<String>> getPackagePaths(String packageName, {String? serial}) =>
-      _clientForSerial(serial).getPackagePaths(packageName);
-
   Future<String?> getPackageVersion(String packageName, {String? serial}) =>
       _clientForSerial(serial).getPackageVersion(packageName);
 
@@ -524,13 +515,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
     String? serial,
   }) => _clientForSerial(serial).resolveLauncherActivity(packageName);
 
-  Future<String?> logcat({
-    String? tag,
-    String? level,
-    int lines = 200,
-    String? serial,
-  }) => _clientForSerial(serial).logcat(tag: tag, level: level, lines: lines);
-
   Future<AdbCommandResult> logcatDetailed({
     String? tag,
     String? level,
@@ -608,9 +592,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
     }
   }
 
-  Future<String?> shell(String command, {String? serial}) =>
-      _clientForSerial(serial).shell(command);
-
   Future<AdbCommandResult> shellDetailed(
     String command, {
     String? serial,
@@ -639,9 +620,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
     String packageName, {
     String? serial,
   }) => _clientForSerial(serial).startPackageDetailed(packageName);
-
-  Future<String?> pidOfPackage(String packageName, {String? serial}) =>
-      _clientForSerial(serial).pidOfPackage(packageName);
 
   Future<AndroidPackagePidLookupResult> pidOfPackageDetailed(
     String packageName, {
@@ -675,12 +653,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<Map<String, String>> getProperties({String? serial}) =>
       _clientForSerial(serial).getProperties();
 
-  Future<bool> forwardPort(int local, int remote, {String? serial}) =>
-      _clientForSerial(serial).forwardPort(local, remote);
-
-  Future<bool> removeForward(int local, {String? serial}) =>
-      _clientForSerial(serial).removeForward(local);
-
   Future<AdbCommandResult> forwardPortDetailed(
     int local,
     int remote, {
@@ -695,12 +667,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<bool> removeAllForwards({String? serial}) =>
       _clientForSerial(serial).removeAllForwards();
-
-  Future<bool> reversePort(int devicePort, int hostPort, {String? serial}) =>
-      _clientForSerial(serial).reversePort(devicePort, hostPort);
-
-  Future<bool> removeReverse(int devicePort, {String? serial}) =>
-      _clientForSerial(serial).removeReverse(devicePort);
 
   Future<AdbCommandResult> reversePortDetailed(
     int devicePort,

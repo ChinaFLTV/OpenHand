@@ -10,14 +10,12 @@ class _RequestDetailPanel extends StatefulWidget {
   const _RequestDetailPanel({
     required this.controller,
     required this.entry,
-    required this.isZh,
     required this.reduceMotion,
     required this.onClose,
   });
 
   final WebReverseSessionController controller;
   final CdpNetworkEntry entry;
-  final bool isZh;
   final bool reduceMotion;
   final VoidCallback onClose;
 
@@ -85,12 +83,11 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     return Column(
       children: [
-        _buildHeader(theme, cs, isZh),
+        _buildHeader(theme, cs),
         Divider(height: 1, color: cs.outlineVariant),
-        _buildTabBar(theme, cs, isZh),
+        _buildTabBar(),
         Divider(height: 1, color: cs.outlineVariant),
         Expanded(
           child: AnimatedSwitcher(
@@ -101,7 +98,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
                 FadeTransition(opacity: animation, child: child),
             child: KeyedSubtree(
               key: ValueKey<_DetailTab>(_tab),
-              child: _buildBody(theme, cs, isZh),
+              child: _buildBody(),
             ),
           ),
         ),
@@ -109,7 +106,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHeader(ThemeData theme, ColorScheme cs) {
     // 关闭按钮 + URL + 复制菜单同一行；显式 center 对齐确
     // 保关闭图标永远视觉居中，URL 限制为单行 + 省略号避免双行换行后
     // 图标看起来偏上；给 URL 一个固定 height + center 包裹再加一道
@@ -260,7 +257,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
     );
   }
 
-  Widget _buildTabBar(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildTabBar() {
     final tabs = <_DetailTab>[
       _DetailTab.headers,
       _DetailTab.preview,
@@ -323,9 +320,9 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
         ),
       };
 
-  Widget _buildBody(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildBody() {
     return switch (_tab) {
-      _DetailTab.headers => _HeadersTab(entry: widget.entry, isZh: isZh),
+      _DetailTab.headers => _HeadersTab(entry: widget.entry),
       _DetailTab.preview => _BodyTab(
         entry: widget.entry,
         loading: _bodyLoading,
@@ -333,7 +330,6 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
         base64: _bodyBase64,
         mimeType: widget.entry.mimeType,
         preview: true,
-        isZh: isZh,
       ),
       _DetailTab.response => _BodyTab(
         entry: widget.entry,
@@ -342,15 +338,13 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
         base64: _bodyBase64,
         mimeType: widget.entry.mimeType,
         preview: false,
-        isZh: isZh,
       ),
       _DetailTab.initiator => _InitiatorTab(
         controller: widget.controller,
         entry: widget.entry,
-        isZh: isZh,
       ),
-      _DetailTab.timing => _TimingTab(entry: widget.entry, isZh: isZh),
-      _DetailTab.messages => _MessagesTab(entry: widget.entry, isZh: isZh),
+      _DetailTab.timing => _TimingTab(entry: widget.entry),
+      _DetailTab.messages => _MessagesTab(entry: widget.entry),
     };
   }
 }
@@ -396,9 +390,8 @@ class _DetailTabButton extends StatelessWidget {
 }
 
 class _HeadersTab extends StatelessWidget {
-  const _HeadersTab({required this.entry, required this.isZh});
+  const _HeadersTab({required this.entry});
   final CdpNetworkEntry entry;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -659,7 +652,6 @@ class _BodyTab extends StatelessWidget {
     required this.base64,
     required this.mimeType,
     required this.preview,
-    required this.isZh,
   });
 
   final CdpNetworkEntry entry;
@@ -668,7 +660,6 @@ class _BodyTab extends StatelessWidget {
   final bool base64;
   final String? mimeType;
   final bool preview;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -683,21 +674,13 @@ class _BodyTab extends StatelessWidget {
     // Response tab 仍走文本/二进制兜底，方便复制原始 body。
     if (preview) {
       if (isImageMimeType(mime)) {
-        return _ImageInlinePreview(entry: entry, bytesText: text, isZh: isZh);
+        return _ImageInlinePreview(entry: entry, bytesText: text);
       }
       if (isAudioMimeType(mime)) {
-        return _MediaInlinePreview(
-          entry: entry,
-          kind: MediaPreviewKind.audio,
-          isZh: isZh,
-        );
+        return _MediaInlinePreview(entry: entry, kind: MediaPreviewKind.audio);
       }
       if (isVideoMimeType(mime)) {
-        return _MediaInlinePreview(
-          entry: entry,
-          kind: MediaPreviewKind.video,
-          isZh: isZh,
-        );
+        return _MediaInlinePreview(entry: entry, kind: MediaPreviewKind.video);
       }
     }
     if (text == null) {
@@ -816,14 +799,9 @@ class _BodyTab extends StatelessWidget {
 }
 
 class _InitiatorTab extends StatelessWidget {
-  const _InitiatorTab({
-    required this.controller,
-    required this.entry,
-    required this.isZh,
-  });
+  const _InitiatorTab({required this.controller, required this.entry});
   final WebReverseSessionController controller;
   final CdpNetworkEntry entry;
-  final bool isZh;
 
   void _jumpToSource(String url, [int? line, int? col]) {
     if (url.isEmpty) return;
@@ -859,7 +837,6 @@ class _InitiatorTab extends StatelessWidget {
             line: initLine,
             col: initCol,
             onTap: () => _jumpToSource(initUrl, initLine, initCol),
-            isZh: isZh,
           ),
         if (initLine != null && initUrl.isEmpty)
           _MetaRow(
@@ -908,7 +885,7 @@ class _InitiatorTab extends StatelessWidget {
           )
         else
           for (final frame in stack)
-            _StackFrame(frame: frame, onJump: _jumpToSource, isZh: isZh),
+            _StackFrame(frame: frame, onJump: _jumpToSource),
         kOpenHandGap16,
         // Request Initiator Chain：重定向链按时间顺序展示，与 Chrome
         // DevTools 同名区段对齐。每一跳显示状态码 + URL + 跳转时间。
@@ -945,12 +922,7 @@ class _InitiatorTab extends StatelessWidget {
           )
         else ...[
           for (var i = 0; i < chain.length; i++)
-            _RedirectStepRow(
-              index: i + 1,
-              step: chain[i],
-              isFinal: false,
-              isZh: isZh,
-            ),
+            _RedirectStepRow(index: i + 1, step: chain[i], isFinal: false),
           _RedirectStepRow(
             index: chain.length + 1,
             // 最后一跳就是当前请求自己；用 entry 当前 url / status 复用同
@@ -963,7 +935,6 @@ class _InitiatorTab extends StatelessWidget {
               at: entry.responseReceivedAt ?? entry.timestamp,
             ),
             isFinal: true,
-            isZh: isZh,
           ),
         ],
       ],
@@ -977,13 +948,11 @@ class _RedirectStepRow extends StatelessWidget {
     required this.index,
     required this.step,
     required this.isFinal,
-    required this.isZh,
   });
 
   final int index;
   final CdpRedirectStep step;
   final bool isFinal;
-  final bool isZh;
 
   Color _statusColor(ColorScheme cs) {
     final s = step.status ?? 0;
@@ -1084,7 +1053,6 @@ class _ClickableSourceRow extends StatelessWidget {
     required this.line,
     required this.col,
     required this.onTap,
-    required this.isZh,
   });
 
   final String label;
@@ -1092,7 +1060,6 @@ class _ClickableSourceRow extends StatelessWidget {
   final int? line;
   final int? col;
   final VoidCallback onTap;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -1183,14 +1150,9 @@ class _MetaRow extends StatelessWidget {
 }
 
 class _StackFrame extends StatelessWidget {
-  const _StackFrame({
-    required this.frame,
-    required this.onJump,
-    required this.isZh,
-  });
+  const _StackFrame({required this.frame, required this.onJump});
   final Map<String, Object?> frame;
   final void Function(String url, [int? line, int? col]) onJump;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -1257,9 +1219,8 @@ class _StackFrame extends StatelessWidget {
 }
 
 class _TimingTab extends StatelessWidget {
-  const _TimingTab({required this.entry, required this.isZh});
+  const _TimingTab({required this.entry});
   final CdpNetworkEntry entry;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -1849,9 +1810,8 @@ String _asFetch(CdpNetworkEntry e, {required bool node}) {
 }
 
 class _MessagesTab extends StatelessWidget {
-  const _MessagesTab({required this.entry, required this.isZh});
+  const _MessagesTab({required this.entry});
   final CdpNetworkEntry entry;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -1981,15 +1941,10 @@ class _MessagesTab extends StatelessWidget {
 /// 优先使用已缓存的 base64 body 解码；缓存为空时降级到 [Image.network]
 /// 的 URL 直拉模式（很多媒体站要求 referer，可能 401，这是预期行为）。
 class _ImageInlinePreview extends StatelessWidget {
-  const _ImageInlinePreview({
-    required this.entry,
-    required this.bytesText,
-    required this.isZh,
-  });
+  const _ImageInlinePreview({required this.entry, required this.bytesText});
 
   final CdpNetworkEntry entry;
   final String? bytesText;
-  final bool isZh;
 
   Uint8List? _decodeBytes() {
     final t = bytesText;
@@ -2095,15 +2050,10 @@ class _ImageInlinePreview extends StatelessWidget {
 /// Preview tab 内的音频 / 视频预览：直接复用 MediaPreviewDialog 的内嵌
 /// player surface 给一个紧凑控件；同时提供"全屏预览"按钮。
 class _MediaInlinePreview extends StatelessWidget {
-  const _MediaInlinePreview({
-    required this.entry,
-    required this.kind,
-    required this.isZh,
-  });
+  const _MediaInlinePreview({required this.entry, required this.kind});
 
   final CdpNetworkEntry entry;
   final MediaPreviewKind kind;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {

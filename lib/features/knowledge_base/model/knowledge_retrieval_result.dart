@@ -153,6 +153,4 @@ class KnowledgeRetrievalResult {
   final List<double> queryVector;
   final KnowledgeRerankTrace? rerankTrace;
   final String error;
-
-  bool get isSuccess => error.isEmpty;
 }

@@ -5,12 +5,10 @@ part of 'web_reverse_dashboard_dialog.dart';
 class _PerformancePanel extends StatefulWidget {
   const _PerformancePanel({
     required this.controller,
-    required this.isZh,
     required this.reduceMotion,
   });
 
   final WebReverseSessionController controller;
-  final bool isZh;
   final bool reduceMotion;
 
   @override
@@ -37,7 +35,6 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   // 解析后的 trace 事件，按 5 条 lane（Loading/Scripting/Rendering/Painting/Other）
   // 直接画到面板里的 inline timeline。单次录制结果，跨录制覆盖。
   List<_TraceLaneEvent> _traceLanes = const [];
-  double _traceMinTs = 0;
   double _traceMaxTs = 0;
 
   // FPS：用 requestAnimationFrame 在浏览器里采样上一秒帧数，
@@ -279,7 +276,6 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       try {
         final parsed = _parseTraceLanes(json);
         _traceLanes = parsed.events;
-        _traceMinTs = parsed.minTs;
         _traceMaxTs = parsed.maxTs;
       } catch (error, stack) {
         silentLog('web_reverse_dashboard_dialog', '解析性能轨迹泳道', error, stack);
@@ -481,11 +477,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
           if (_traceLanes.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _TraceLanesInline(
-                events: _traceLanes,
-                minTs: _traceMinTs,
-                maxTs: _traceMaxTs,
-              ),
+              child: _TraceLanesInline(events: _traceLanes, maxTs: _traceMaxTs),
             ),
           // FPS 横幅卡片：单独一行展示，sparkline 占满宽度。
           Container(
@@ -600,7 +592,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                                     ),
                                   ),
                                   Text(
-                                    _formatMetric(m.$1, m.$2),
+                                    _formatMetric(m.$2),
                                     style: theme.textTheme.titleMedium
                                         ?.copyWith(fontWeight: FontWeight.w800),
                                   ),
@@ -633,7 +625,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     );
   }
 
-  String _formatMetric(String name, double v) {
+  String _formatMetric(double v) {
     if (v.abs() < 1) return v.toStringAsFixed(3);
     if (v.abs() < 1000) return v.toStringAsFixed(2);
     return v.toStringAsFixed(0);
@@ -1393,15 +1385,9 @@ class _Sparkline extends CustomPainter {
 // Memory：HeapProfiler.takeHeapSnapshot 拉 .heapsnapshot，导出可用于 DevTools 重放。
 
 class _MemoryPanel extends StatefulWidget {
-  const _MemoryPanel({
-    required this.controller,
-    required this.isZh,
-    required this.reduceMotion,
-  });
+  const _MemoryPanel({required this.controller});
 
   final WebReverseSessionController controller;
-  final bool isZh;
-  final bool reduceMotion;
 
   @override
   State<_MemoryPanel> createState() => _MemoryPanelState();
@@ -1733,7 +1719,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             isSampling: widget.controller.isMemorySampling,
             deltas: _samplingDeltas,
             onToggle: _toggleSampling,
-            reduceMotion: widget.reduceMotion,
           ),
           kOpenHandGap12,
           // ── 采样 / 快照工具栏 ──────────────────────────────────────
@@ -2233,13 +2218,11 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
     required this.isSampling,
     required this.deltas,
     required this.onToggle,
-    required this.reduceMotion,
   });
 
   final bool isSampling;
   final List<double> deltas;
   final Future<void> Function() onToggle;
-  final bool reduceMotion;
 
   @override
   Widget build(BuildContext context) {
@@ -2710,15 +2693,9 @@ class _SamplingTopList extends StatelessWidget {
 // Application：Cookies / Local Storage / Session Storage（按 origin 切换）
 
 class _ApplicationPanel extends StatefulWidget {
-  const _ApplicationPanel({
-    required this.controller,
-    required this.isZh,
-    required this.reduceMotion,
-  });
+  const _ApplicationPanel({required this.controller});
 
   final WebReverseSessionController controller;
-  final bool isZh;
-  final bool reduceMotion;
 
   @override
   State<_ApplicationPanel> createState() => _ApplicationPanelState();
@@ -2862,7 +2839,6 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -2874,7 +2850,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
             children: [
               for (final t in _AppTab.values)
                 _TextTabPill(
-                  label: _appTabLabel(t, isZh),
+                  label: _appTabLabel(t),
                   active: _tab == t,
                   onTap: () {
                     setState(() => _tab = t);
@@ -2937,7 +2913,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
     );
   }
 
-  String _appTabLabel(_AppTab t, bool isZh) => switch (t) {
+  String _appTabLabel(_AppTab t) => switch (t) {
     _AppTab.cookies => 'Cookies',
     _AppTab.localStorage => 'Local Storage',
     _AppTab.sessionStorage => 'Session Storage',
@@ -5916,8 +5892,6 @@ class _HeapGrowthEntry {
     required this.countDelta,
     required this.bytesA,
     required this.bytesB,
-    required this.countA,
-    required this.countB,
   });
 
   final String label;
@@ -5925,8 +5899,6 @@ class _HeapGrowthEntry {
   final int countDelta;
   final int bytesA;
   final int bytesB;
-  final int countA;
-  final int countB;
 }
 
 /// 在 isolate 里跑：把两份 heapsnapshot JSON 解析成「constructor →
@@ -5951,8 +5923,6 @@ _HeapDiffResult _heapDiffWorker(Map<String, String> input) {
           countDelta: countB - countA,
           bytesA: bytesA,
           bytesB: bytesB,
-          countA: countA,
-          countB: countB,
         ),
       );
     }
@@ -6126,11 +6096,10 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
       });
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '解析堆快照保持者链', error, stack);
-      result = _RetainerChainResult(
-        label: label,
+      result = const _RetainerChainResult(
         found: false,
         totalInstances: 0,
-        chains: const <_RetainerChain>[],
+        chains: <_RetainerChain>[],
         error: '保持者链解析失败。',
       );
     }
@@ -6489,13 +6458,11 @@ class _RetainerChain {
 
 class _RetainerChainResult {
   const _RetainerChainResult({
-    required this.label,
     required this.found,
     required this.totalInstances,
     required this.chains,
     required this.error,
   });
-  final String label;
   final bool found;
   final int totalInstances;
   final List<_RetainerChain> chains;
@@ -6582,11 +6549,10 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
       if (labelOfNode(i * nLen) == wantLabel) candidates.add(i);
     }
     if (candidates.isEmpty) {
-      return _RetainerChainResult(
-        label: wantLabel,
+      return const _RetainerChainResult(
         found: false,
         totalInstances: 0,
-        chains: const [],
+        chains: [],
         error: null,
       );
     }
@@ -6658,7 +6624,6 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
     }
     chains.sort((a, b) => a.hops.compareTo(b.hops));
     return _RetainerChainResult(
-      label: wantLabel,
       found: true,
       totalInstances: candidates.length,
       chains: chains.take(6).toList(growable: false),
@@ -6666,7 +6631,6 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
     );
   } catch (e) {
     return _RetainerChainResult(
-      label: wantLabel,
       found: false,
       totalInstances: 0,
       chains: const [],
@@ -6881,9 +6845,8 @@ class _TraceLaneEvent {
 }
 
 class _TraceLaneParseResult {
-  _TraceLaneParseResult(this.events, this.minTs, this.maxTs);
+  _TraceLaneParseResult(this.events, this.maxTs);
   final List<_TraceLaneEvent> events;
-  final double minTs;
   final double maxTs;
 }
 
@@ -6896,7 +6859,7 @@ _TraceLaneParseResult _parseTraceLanes(String json) {
       ? decodeJsonList(json)
       : decodedMap['traceEvents'];
   final events = rawEvents is List ? rawEvents : const <Object?>[];
-  if (events.isEmpty) return _TraceLaneParseResult(const [], 0, 0);
+  if (events.isEmpty) return _TraceLaneParseResult(const [], 0);
   final out = <_TraceLaneEvent>[];
   double minTs = double.infinity;
   double maxTs = -double.infinity;
@@ -6919,7 +6882,7 @@ _TraceLaneParseResult _parseTraceLanes(String json) {
     );
     if (out.length >= 8000) break;
   }
-  if (out.isEmpty) return _TraceLaneParseResult(const [], 0, 0);
+  if (out.isEmpty) return _TraceLaneParseResult(const [], 0);
   // 全部 startMs 归一到 0 起点
   final shifted = out
       .map(
@@ -6931,7 +6894,7 @@ _TraceLaneParseResult _parseTraceLanes(String json) {
         ),
       )
       .toList(growable: false);
-  return _TraceLaneParseResult(shifted, 0, maxTs - minTs);
+  return _TraceLaneParseResult(shifted, maxTs - minTs);
 }
 
 /// Chrome trace 事件 → lane index。
@@ -6989,18 +6952,11 @@ int _categorizeLane(String name, String cat) {
   return 4;
 }
 
-/// 面板内嵌的 trace lane timeline。横向 InteractiveViewer 支持
-/// 双指 / Ctrl+滚轮缩放，普通拖动平移；reduceMotion 时禁用任何
-/// 隐式动画（CustomPaint 本身就是静态绘制）。
+/// 内嵌轨迹时间线，支持缩放和平移；轨迹由画布静态绘制。
 class _TraceLanesInline extends StatefulWidget {
-  const _TraceLanesInline({
-    required this.events,
-    required this.minTs,
-    required this.maxTs,
-  });
+  const _TraceLanesInline({required this.events, required this.maxTs});
 
   final List<_TraceLaneEvent> events;
-  final double minTs;
   final double maxTs;
 
   @override

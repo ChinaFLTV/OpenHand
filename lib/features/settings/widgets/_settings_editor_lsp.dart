@@ -333,7 +333,6 @@ extension on _SettingsViewState {
 
     return _EditorLspLanguageRow(
       key: ValueKey<String>('editor-lsp-row-$language'),
-      language: language,
       languageLabel: _editorLspLanguageLabel(context, language),
       summary: _editorLspSummary(context, settingsController, language),
       hasManagedInstallManifest: managedInstallManifest != null,
@@ -749,7 +748,6 @@ extension on _SettingsViewState {
 class _EditorLspLanguageRow extends StatefulWidget {
   const _EditorLspLanguageRow({
     super.key,
-    required this.language,
     required this.languageLabel,
     required this.summary,
     required this.hasManagedInstallManifest,
@@ -757,7 +755,6 @@ class _EditorLspLanguageRow extends StatefulWidget {
     required this.onTap,
   });
 
-  final String language;
   final String languageLabel;
   final String summary;
   final bool hasManagedInstallManifest;

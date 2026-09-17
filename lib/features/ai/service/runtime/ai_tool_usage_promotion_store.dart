@@ -321,8 +321,6 @@ final class AiResourceUsageSnapshot {
         );
   }
 
-  bool get isEmpty => levels.values.every((level) => level.totalCount == 0);
-
   Map<String, Object?> toJson() => <String, Object?>{
     'kind': kind.storageValue,
     'generated_at': generatedAt.toUtc().toIso8601String(),
@@ -1989,8 +1987,6 @@ class _UsageBucket {
 
   Map<String, int> countsFor(AiResourceUsageKind kind) =>
       counts[kind] ?? const <String, int>{};
-
-  int countFor(AiResourceUsageKind kind, String id) => counts[kind]?[id] ?? 0;
 
   int totalFor(AiResourceUsageKind kind) => totals[kind] ?? 0;
 

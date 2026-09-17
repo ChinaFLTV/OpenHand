@@ -21,18 +21,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseInputSimDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return webReverseToolDialogs.show<void>(
     context: context,
-    builder: (_) => _InputSimDialog(controller: controller, isZh: isZh),
+    builder: (_) => _InputSimDialog(controller: controller),
   );
 }
 
 class _InputSimDialog extends StatefulWidget {
-  const _InputSimDialog({required this.controller, required this.isZh});
+  const _InputSimDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_InputSimDialog> createState() => _InputSimDialogState();
 }

@@ -980,7 +980,7 @@ class _HeSteeringFileEditorDialogState
         children: [
           // ── Markdown toolbar ──
           if (isMarkdown && !_loading && _error == null) ...[
-            _buildToolbar(context, theme, colorScheme),
+            _buildToolbar(context, colorScheme),
             kOpenHandGap6,
           ],
 
@@ -1045,11 +1045,7 @@ class _HeSteeringFileEditorDialogState
     );
   }
 
-  Widget _buildToolbar(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildToolbar(BuildContext context, ColorScheme colorScheme) {
     final sep = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: SizedBox(

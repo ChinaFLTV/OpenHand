@@ -35,12 +35,10 @@ String _advancedTextForLocale(
 class _AdvancedMenuDialog extends StatelessWidget {
   const _AdvancedMenuDialog({
     required this.controller,
-    required this.isZh,
     required this.hostContext,
   });
 
   final WebReverseSessionController controller;
-  final bool isZh;
   final BuildContext hostContext;
 
   @override
@@ -719,11 +717,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
         ),
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseWaterfallDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseWaterfallDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -796,7 +790,6 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseHarPersistenceDialog(
             context,
             controller: controller,
-            isZh: isZh,
           );
         },
       ),
@@ -991,11 +984,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
         ),
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseAnimationsDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseAnimationsDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -1018,11 +1007,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
         ),
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseRenderingDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseRenderingDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -1115,11 +1100,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
         ),
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseInputSimDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseInputSimDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -2739,8 +2720,8 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
               child: switch (_tab) {
                 0 => _buildChartsTab(theme),
                 1 => _buildIceTab(theme),
-                2 => _buildSdpDiffTab(theme),
-                _ => _buildEventsTab(theme),
+                2 => _buildSdpDiffTab(),
+                _ => _buildEventsTab(),
               },
             ),
           ),
@@ -3054,7 +3035,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   /// SDP Diff tab：左右双列展示当前 PC 的 local SDP / remote SDP。每列
   /// 头部还显示 type（offer/answer），下方按"上一份 vs 当前"做行级 diff
   /// （绿 = 新增，红 = 删除，灰 = 不变）。第一次接到 SDP 时只渲染单列。
-  Widget _buildSdpDiffTab(ThemeData theme) {
+  Widget _buildSdpDiffTab() {
     final ids = _sdps.keys.toList()..sort();
     if (ids.isEmpty) {
       return Padding(
@@ -3139,7 +3120,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     );
   }
 
-  Widget _buildEventsTab(ThemeData theme) {
+  Widget _buildEventsTab() {
     if (_events.isEmpty) {
       return Padding(
         key: const ValueKey('empty-events'),
@@ -4380,7 +4361,6 @@ class _IceTopologyGraph extends StatelessWidget {
                 secondary: secondary,
                 error: error,
                 onSurface: onSurface,
-                surfaceContainer: surfaceContainer,
               ),
             ),
           ),
@@ -4478,7 +4458,6 @@ class _IceTopologyPainter extends CustomPainter {
     required this.secondary,
     required this.error,
     required this.onSurface,
-    required this.surfaceContainer,
   });
 
   final int pcId;
@@ -4488,7 +4467,6 @@ class _IceTopologyPainter extends CustomPainter {
   final Color secondary;
   final Color error;
   final Color onSurface;
-  final Color surfaceContainer;
 
   @override
   void paint(Canvas canvas, Size size) {

@@ -1271,7 +1271,6 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           isActive: widget.activeFilePath == node.path,
           isSelected: _selectedNodePath == node.path,
           hasClipboard: _clipboardPath != null,
-          rootPath: widget.rootPath,
           onTap: () {
             setState(() => _selectedNodePath = node.path);
             if (node.isDirectory) {
@@ -1318,7 +1317,6 @@ class _FileTreeTile extends StatelessWidget {
     required this.visibleMinWidth,
     required this.onTap,
     required this.onContextMenuAction,
-    required this.rootPath,
     this.isActive = false,
     this.isSelected = false,
     this.hasClipboard = false,
@@ -1329,7 +1327,6 @@ class _FileTreeTile extends StatelessWidget {
   final double visibleMinWidth;
   final VoidCallback onTap;
   final void Function(String action, Offset position) onContextMenuAction;
-  final String rootPath;
   final bool isActive;
   final bool isSelected;
   final bool hasClipboard;
@@ -2479,7 +2476,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       final extraction = _extractEditorSymbolsFromLsp(
         filePath: filePath,
         documentSymbols: documentSymbols,
-        text: controller.text,
       );
       applyExtraction(
         extraction,
@@ -9924,7 +9920,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       case _ctxRefactorSubmenu:
         unawaited(_showRefactorSubmenu(filePath, globalPosition));
       case _ctxNavigateSubmenu:
-        unawaited(_showNavigateSubmenu(filePath, globalPosition));
+        unawaited(_showNavigateSubmenu(globalPosition));
       case _ctxFoldingSubmenu:
         unawaited(_showFoldingSubmenu(filePath, globalPosition));
       case _ctxCut:
@@ -10115,10 +10111,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   // 导航子菜单。
 
-  Future<void> _showNavigateSubmenu(
-    String filePath,
-    Offset globalPosition,
-  ) async {
+  Future<void> _showNavigateSubmenu(Offset globalPosition) async {
     if (!mounted) return;
 
     final selected = await showAnimatedPointerMenu<String>(
@@ -11127,7 +11120,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         controller: textController,
         scrollController: scrollController,
         focusNode: focusNode,
-        language: language,
         fontSize: _fontSize,
         // 逐项订阅：整体 watch 会让任意一条设置变更都重建整个编辑器。
         wordWrap: context.select<SettingsController, bool>(
@@ -11282,7 +11274,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   items: _filteredCompletionItems,
                   selectedIndex: _completionSelectedIndex,
                   onSelected: _applyCompletionItem,
-                  onDismissed: _dismissCompletionOverlay,
                 ),
               ),
             );
@@ -11343,13 +11334,11 @@ class _CompletionOverlay extends StatelessWidget {
     required this.items,
     required this.selectedIndex,
     required this.onSelected,
-    required this.onDismissed,
   });
 
   final List<AiLspCompletionItem> items;
   final int selectedIndex;
   final ValueChanged<AiLspCompletionItem> onSelected;
-  final VoidCallback onDismissed;
 
   @override
   Widget build(BuildContext context) {
@@ -12010,7 +11999,6 @@ class _EditorSymbol {
     required this.filePath,
     required this.line,
     required this.column,
-    required this.offset,
     required this.signature,
     required this.depth,
   });
@@ -12020,7 +12008,6 @@ class _EditorSymbol {
   final String filePath;
   final int line;
   final int column;
-  final int offset;
   final String signature;
   final int depth;
 }
@@ -12704,7 +12691,6 @@ String _editorSymbolKindFromLsp(int kind) {
 _EditorSymbolExtractionResult _extractEditorSymbolsFromLsp({
   required String filePath,
   required List<AiLspDocumentSymbol> documentSymbols,
-  required String text,
 }) {
   const maxSymbols = 240;
   final symbols = <_EditorSymbol>[];
@@ -12726,11 +12712,6 @@ _EditorSymbolExtractionResult _extractEditorSymbolsFromLsp({
           filePath: filePath,
           line: symbol.range.start.line,
           column: symbol.range.start.character,
-          offset: _editorOffsetForLineColumn(
-            text,
-            symbol.range.start.line,
-            symbol.range.start.character,
-          ),
           signature: detail == null || detail.isEmpty ? kind : detail,
           depth: depth,
         ),
@@ -12782,7 +12763,6 @@ _EditorSymbolExtractionResult _extractEditorSymbolsFromWorkspaceLsp({
         filePath: symbol.location.filePath,
         line: symbol.location.line,
         column: symbol.location.character,
-        offset: 0,
         signature: detail?.isNotEmpty == true
             ? detail!
             : containerName?.isNotEmpty == true
@@ -12816,13 +12796,11 @@ _EditorSymbolExtractionResult _extractEditorSymbols({
   final lines = allLines.take(lineCount).toList(growable: false);
   final patterns = _symbolPatternsForLanguage(language);
   final symbols = <_EditorSymbol>[];
-  var offset = 0;
 
   for (var index = 0; index < lines.length; index++) {
     final line = lines[index];
     final trimmed = line.trimLeft();
     if (trimmed.isEmpty || _isEditorCommentLine(trimmed)) {
-      offset += line.length + 1;
       continue;
     }
     for (final pattern in patterns) {
@@ -12841,14 +12819,12 @@ _EditorSymbolExtractionResult _extractEditorSymbols({
           filePath: filePath,
           line: index + 1,
           column: match.start + 1,
-          offset: offset + match.start,
           signature: trimmed,
           depth: 0,
         ),
       );
       break;
     }
-    offset += line.length + 1;
     if (symbols.length >= maxSymbols) {
       return _EditorSymbolExtractionResult(
         symbols: List<_EditorSymbol>.unmodifiable(symbols),
@@ -13504,7 +13480,6 @@ class _SyntaxHighlightEditor extends StatefulWidget {
     required this.scrollController,
     required this.focusNode,
     required this.onChanged,
-    this.language,
     this.fontSize = _editorFontSizeDefault,
     this.readOnly = false,
     this.wordWrap = true,
@@ -13523,7 +13498,6 @@ class _SyntaxHighlightEditor extends StatefulWidget {
   final _HighlightingTextController controller;
   final ScrollController scrollController;
   final FocusNode focusNode;
-  final String? language;
   final ValueChanged<String> onChanged;
   final double fontSize;
   final bool readOnly;

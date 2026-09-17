@@ -354,14 +354,12 @@ class _HeStructuredToolTrace {
 class _HeStructuredToolTraceCard extends StatefulWidget {
   const _HeStructuredToolTraceCard({
     required this.segment,
-    required this.isZh,
     required this.theme,
     required this.colorScheme,
     required this.isStreaming,
   });
 
   final _HeOutputSegment segment;
-  final bool isZh;
   final ThemeData theme;
   final ColorScheme colorScheme;
   final bool isStreaming;
@@ -510,7 +508,6 @@ class _HeStructuredToolTraceCardState
                       _HeToolTextPanel(
                         label: 'command',
                         content: '\$ ${data.command}',
-                        isZh: widget.isZh,
                         theme: widget.theme,
                         colorScheme: colorScheme,
                       ),
@@ -519,7 +516,6 @@ class _HeStructuredToolTraceCardState
                       _HeToolTextPanel(
                         label: 'arguments',
                         content: data.argumentsText,
-                        isZh: widget.isZh,
                         theme: widget.theme,
                         colorScheme: colorScheme,
                       ),
@@ -553,7 +549,6 @@ class _HeStructuredToolTraceCardState
                       _HeToolTextPanel(
                         label: 'stdout',
                         content: data.stdout,
-                        isZh: widget.isZh,
                         theme: widget.theme,
                         colorScheme: colorScheme,
                       ),
@@ -562,7 +557,6 @@ class _HeStructuredToolTraceCardState
                       _HeToolTextPanel(
                         label: 'stderr',
                         content: data.stderr,
-                        isZh: widget.isZh,
                         theme: widget.theme,
                         colorScheme: colorScheme,
                         isError: true,
@@ -574,7 +568,6 @@ class _HeStructuredToolTraceCardState
                       _HeToolTextPanel(
                         label: 'result',
                         content: data.resultText,
-                        isZh: widget.isZh,
                         theme: widget.theme,
                         colorScheme: colorScheme,
                       ),
@@ -697,7 +690,6 @@ class _HeToolTextPanel extends StatefulWidget {
   const _HeToolTextPanel({
     required this.label,
     required this.content,
-    required this.isZh,
     required this.theme,
     required this.colorScheme,
     this.isError = false,
@@ -705,7 +697,6 @@ class _HeToolTextPanel extends StatefulWidget {
 
   final String label;
   final String content;
-  final bool isZh;
   final ThemeData theme;
   final ColorScheme colorScheme;
   final bool isError;

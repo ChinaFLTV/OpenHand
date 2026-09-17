@@ -76,7 +76,6 @@ part 'harness_session_dashboard.markdown.part.dart';
 part 'harness_session_dashboard.composer.part.dart';
 part 'harness_session_dashboard.model_dropdown.part.dart';
 part 'harness_session_dashboard.changed_files.part.dart';
-part 'harness_session_dashboard.streaming_smart.part.dart';
 part 'harness_session_dashboard.file_hover.part.dart';
 part 'harness_session_dashboard.steering.part.dart';
 
@@ -97,71 +96,6 @@ final RegExp _heInlineToolCallsXmlPattern = RegExp(
 
 // 匹配会被 Markdown 误判为标题的 Setext 下划线。
 final RegExp _heSetextEscapePattern = RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)');
-
-/// 提取首条命令并将其余日志整理为可渲染的 Markdown。
-({String? command, String body}) _heSplitLogForMarkdown(List<String> lines) {
-  String? command;
-  final out = <String>[];
-  String? prev;
-
-  for (final raw in lines) {
-    final trimmed = raw.trim();
-
-    // 状态装饰已由界面表达，无需重复渲染。
-    if (trimmed.isNotEmpty &&
-        (trimmed.startsWith('▶ ') ||
-            trimmed.startsWith('✓ ') ||
-            trimmed.startsWith('✗ ') ||
-            trimmed.startsWith('⚠ '))) {
-      continue;
-    }
-
-    if (command == null && raw.startsWith('> ')) {
-      command = raw.substring(2);
-      continue;
-    }
-
-    // 将终端分隔线转换为 Markdown 水平线。
-    if (_heSeparatorLinePattern.hasMatch(trimmed)) {
-      if (prev != null && out.isNotEmpty && out.last.isNotEmpty) out.add('');
-      out.add('---');
-      out.add('');
-      prev = null;
-      continue;
-    }
-
-    // 将 CLI 角色标记转换为段落分隔线。
-    if (trimmed.length <= 12 &&
-        const {
-          'user',
-          'codex',
-          'assistant',
-          'exec',
-          'function',
-          'tool',
-        }.contains(trimmed.toLowerCase())) {
-      if (prev != null && out.isNotEmpty && out.last.isNotEmpty) out.add('');
-      out.add('---');
-      out.add('');
-      prev = null;
-      continue;
-    }
-
-    out.add(raw);
-    if (trimmed.isNotEmpty) prev = trimmed;
-  }
-
-  // 转义可能生成虚假标题的 Setext 标记。
-  final joined = out
-      .join('\n')
-      .trim()
-      .replaceAllMapped(
-        _heSetextEscapePattern,
-        (m) => '${m[1]}${m[2]}\\${m[3]}',
-      );
-
-  return (command: command, body: joined);
-}
 
 String _heAiModelConfigLabel(AiModelConfig config) {
   final label = config.providerLabel;
@@ -1852,7 +1786,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         _HePaneHeader(
           config: widget.config,
           orchestrator: widget.orchestrator,
-          isZh: widget.isZh,
           isRunning: _isRunning,
           isDone: _isDone,
           sessionTitle: widget.sessionTitle,
@@ -1863,7 +1796,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           sessionUpdatedAt: widget.sessionUpdatedAt,
           onCancel: () => _requestCancel(context),
           onRestart: widget.onRestart,
-          fullAccessPermission: widget.fullAccessPermission,
         ),
         kOpenHandGap12,
         Expanded(child: _buildFeed(context)),
@@ -1921,16 +1853,12 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     // 无阶段时区分等待启动与正在启动。
     if (logs.isEmpty) {
       if (orchestrator.status == HarnessOrchestratorStatus.idle) {
-        return _HeReadyPlaceholder(
-          isZh: widget.isZh,
-          onStart: widget.onRestart,
-        );
+        return _HeReadyPlaceholder(onStart: widget.onRestart);
       }
       if (orchestrator.status == HarnessOrchestratorStatus.running) {
-        return _InitializingPlaceholder(isZh: widget.isZh);
+        return const _InitializingPlaceholder();
       }
       return _HeRestoredSessionPlaceholder(
-        isZh: widget.isZh,
         status: orchestrator.status,
         onRestart: widget.onRestart,
       );
@@ -1981,7 +1909,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
                               key: ObjectKey(log),
                               log: log,
                               config: widget.config,
-                              isZh: widget.isZh,
                               expanded: _isPhaseExpanded(log),
                               onToggleExpand: () => _setPhaseExpanded(
                                 log,

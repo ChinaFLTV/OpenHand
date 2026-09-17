@@ -251,7 +251,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
               kOpenHandGap4,
               Expanded(
                 child: snaps.isEmpty
-                    ? _buildEmpty(theme, cs, loc)
+                    ? _buildEmpty(loc)
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -291,7 +291,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     );
   }
 
-  Widget _buildEmpty(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _buildEmpty(AppLocalizations? loc) {
     return OpenHandInlineEmptyState(
       icon: Icons.account_circle_outlined,
       dense: true,
@@ -334,9 +334,9 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                 Wrap(
                   spacing: 6,
                   children: [
-                    _badge(theme, cs, '${snap.cookies.length} cookies'),
-                    _badge(theme, cs, '${snap.localStorage.length} local'),
-                    _badge(theme, cs, '${snap.sessionStorage.length} session'),
+                    _badge(cs, '${snap.cookies.length} cookies'),
+                    _badge(cs, '${snap.localStorage.length} local'),
+                    _badge(cs, '${snap.sessionStorage.length} session'),
                   ],
                 ),
               ],
@@ -357,7 +357,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     );
   }
 
-  Widget _badge(ThemeData theme, ColorScheme cs, String text) => Container(
+  Widget _badge(ColorScheme cs, String text) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
     decoration: BoxDecoration(
       color: cs.secondaryContainer,

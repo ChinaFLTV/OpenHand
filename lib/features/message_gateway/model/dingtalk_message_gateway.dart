@@ -2442,7 +2442,6 @@ class DingTalkGatewayMessage {
   bool get isAutomaticReply =>
       messageType == DingTalkGatewayMessageType.automaticReply &&
       automaticReplyCard != null;
-  bool get hasQuotedMessage => quotedMessage != null;
   bool get isForwardedChatRecord => forwardedMessages.isNotEmpty;
   Iterable<DingTalkGatewayMedia> get contextualMedia sync* {
     yield* media;
@@ -2681,8 +2680,6 @@ class DingTalkMessageRenderTopology {
   final List<String> _identities;
   final Map<String, int> _reverseIndexByIdentity;
 
-  int get length => _identities.length;
-
   String identityAt(int messageIndex) => _identities[messageIndex];
 
   int? reverseIndexOf(String identity) => _reverseIndexByIdentity[identity];
@@ -2838,8 +2835,6 @@ class DingTalkConversation {
 
   DateTime get updatedAt =>
       messages.isEmpty ? createdAt : messages.last.createdAt;
-
-  String get preview => messages.isEmpty ? '' : messages.last.content;
 }
 
 int compareDingTalkConversationsByRecent(

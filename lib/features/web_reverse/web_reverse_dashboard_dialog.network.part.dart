@@ -139,13 +139,11 @@ class _NetworkBody extends StatelessWidget {
   const _NetworkBody({
     required this.state,
     required this.controller,
-    required this.isZh,
     required this.reduceMotion,
   });
 
   final _WebReverseDashboardDialogState state;
   final WebReverseSessionController controller;
-  final bool isZh;
   final bool reduceMotion;
 
   @override
@@ -219,12 +217,10 @@ class _NetworkBody extends StatelessWidget {
                       ),
                       onCopyUrl: (e) => _copyUrl(context, e),
                       controller: controller,
-                      reduceMotion: reduceMotion,
                     ),
                     right: _RequestDetailPanel(
                       controller: controller,
                       entry: selected,
-                      isZh: isZh,
                       reduceMotion: reduceMotion,
                       onClose: () => state.rebuildFromExternal(
                         () => state._selectedRequest = null,
@@ -240,7 +236,6 @@ class _NetworkBody extends StatelessWidget {
                     ),
                     onCopyUrl: (e) => _copyUrl(context, e),
                     controller: controller,
-                    reduceMotion: reduceMotion,
                   ),
           ),
         ),
@@ -304,7 +299,6 @@ class _NetworkList extends StatelessWidget {
     required this.onSelect,
     required this.onCopyUrl,
     required this.controller,
-    required this.reduceMotion,
   });
 
   final List<CdpNetworkEntry> items;
@@ -312,7 +306,6 @@ class _NetworkList extends StatelessWidget {
   final ValueChanged<CdpNetworkEntry> onSelect;
   final ValueChanged<CdpNetworkEntry> onCopyUrl;
   final WebReverseSessionController controller;
-  final bool reduceMotion;
 
   @override
   Widget build(BuildContext context) {

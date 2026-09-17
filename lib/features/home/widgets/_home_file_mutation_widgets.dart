@@ -4024,12 +4024,8 @@ class _RoundFileMutationSummaryCardState
           : groups.values.first;
       final toolName = groups.keys.isEmpty ? '_' : groups.keys.first;
       _emitRowsWithOptionalPathSubgroups(
-        theme: theme,
-        cs: cs,
         toolName: toolName,
         groupRows: only,
-        showAll: showAll,
-        reduceMotion: reduceMotion,
         children: children,
         renderedAdd: (n) {
           rendered += n;
@@ -4066,12 +4062,8 @@ class _RoundFileMutationSummaryCardState
           continue;
         }
         _emitRowsWithOptionalPathSubgroups(
-          theme: theme,
-          cs: cs,
           toolName: entry.key,
           groupRows: entry.value,
-          showAll: showAll,
-          reduceMotion: reduceMotion,
           children: children,
           renderedAdd: (n) {
             rendered += n;
@@ -4159,12 +4151,8 @@ class _RoundFileMutationSummaryCardState
 
   /// 组内若超阈值 → 按 `_topDir` 二级分桶；否则平铺。
   void _emitRowsWithOptionalPathSubgroups({
-    required ThemeData theme,
-    required ColorScheme cs,
     required String toolName,
     required List<_RoundSummaryRow> groupRows,
-    required bool showAll,
-    required bool reduceMotion,
     required List<Widget> children,
     required void Function(int n) renderedAdd,
     required bool Function() capReached,

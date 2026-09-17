@@ -2347,7 +2347,6 @@ class AiToolRuntimeService {
     }
     final cdpFirstBlock = _webReverseMcpCdpFirstBlock(
       tool: tool,
-      toolCall: toolCall,
       decodedArguments: decodedArguments,
       metadata: metadata,
     );
@@ -2385,7 +2384,6 @@ class AiToolRuntimeService {
 
   AiToolExecutionResult? _webReverseMcpCdpFirstBlock({
     required AiResolvedTool tool,
-    required AiToolCall toolCall,
     required Map<String, Object?> decodedArguments,
     required Map<String, Object?> metadata,
   }) {
@@ -3099,14 +3097,6 @@ class AiToolRuntimeService {
             silentLog('ai_tool_runtime_service', '关闭 HTTP 客户端', error, stack),
       );
     }
-  }
-
-  void dispose() {
-    unawaited(
-      shutdown().catchError((Object error, StackTrace stack) {
-        silentLog('ai_tool_runtime_service', '关闭工具运行时', error, stack);
-      }),
-    );
   }
 
   static Map<String, Object?> _cronConfigToolProperties() {

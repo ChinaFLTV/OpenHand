@@ -18,7 +18,6 @@ import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
-import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -215,7 +214,6 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
         );
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final text = openHandTextResolver(context);
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -306,16 +304,8 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                 key: ValueKey<DependencyDataView>(_view),
                 physics: openHandDialogAwareScrollPhysics(context),
                 child: _view == DependencyDataView.postgresql
-                    ? _buildPostgresql(
-                        dependencyStatus,
-                        dependencyDataOverview,
-                        text,
-                      )
-                    : _buildRedis(
-                        dependencyStatus,
-                        dependencyDataOverview,
-                        text,
-                      ),
+                    ? _buildPostgresql(dependencyStatus, dependencyDataOverview)
+                    : _buildRedis(dependencyStatus, dependencyDataOverview),
               ),
             ),
           ),
@@ -327,7 +317,6 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   Widget _buildPostgresql(
     AiExposureDependencyStatus? dependencyStatus,
     Map<String, Object?> dependencyDataOverview,
-    OpenHandLocalizedTextResolver text,
   ) {
     final connected = dependencyStatus?.postgresql.connected == true;
     final overview = _map(dependencyDataOverview['postgresql']);
@@ -576,7 +565,6 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   Widget _buildRedis(
     AiExposureDependencyStatus? dependencyStatus,
     Map<String, Object?> dependencyDataOverview,
-    OpenHandLocalizedTextResolver text,
   ) {
     final connected = dependencyStatus?.redis.connected == true;
     final overview = _map(dependencyDataOverview['redis']);

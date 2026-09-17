@@ -1520,7 +1520,7 @@ class _WebReverseDashboardDialogState
           // 工具条又默认 MainAxisSize.min，外层 stretch 会强制铺满）。
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeader(theme, cs, isZh),
+            _buildHeader(theme, cs),
             Divider(height: 1, color: cs.outlineVariant),
             AnimatedSize(
               duration: reduceMotion ? Duration.zero : _kSwitchDuration,
@@ -1539,7 +1539,7 @@ class _WebReverseDashboardDialogState
                       ),
               ),
             ),
-            _buildToolbar(theme, cs, isZh, ctrl, reduceMotion),
+            _buildToolbar(isZh, ctrl, reduceMotion),
             Divider(height: 1, color: cs.outlineVariant),
             Expanded(
               child: AnimatedSwitcher(
@@ -1558,7 +1558,7 @@ class _WebReverseDashboardDialogState
                 ),
                 child: KeyedSubtree(
                   key: ValueKey<_Tab>(_tab),
-                  child: _buildBody(theme, cs, isZh, ctrl, reduceMotion),
+                  child: _buildBody(ctrl, reduceMotion),
                 ),
               ),
             ),
@@ -1609,7 +1609,7 @@ class _WebReverseDashboardDialogState
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildHeader(ThemeData theme, ColorScheme cs) {
     final ctrl = widget.controller;
     final version = ctrl.browserVersion ?? '-';
     final cdpRuntimeMeta = context.select<AiSessionController, Object?>((
@@ -1735,13 +1735,7 @@ class _WebReverseDashboardDialogState
     return '$normalizedVersion · $cdpLabel';
   }
 
-  Widget _buildBody(
-    ThemeData theme,
-    ColorScheme cs,
-    bool isZh,
-    WebReverseSessionController ctrl,
-    bool reduceMotion,
-  ) {
+  Widget _buildBody(WebReverseSessionController ctrl, bool reduceMotion) {
     return switch (_tab) {
       _Tab.browser => _BrowserBody(
         controller: ctrl,
@@ -1751,7 +1745,6 @@ class _WebReverseDashboardDialogState
       _Tab.network => _NetworkBody(
         state: this,
         controller: ctrl,
-        isZh: isZh,
         reduceMotion: reduceMotion,
       ),
       _Tab.console => _ConsoleBody(
@@ -1759,11 +1752,7 @@ class _WebReverseDashboardDialogState
         filter: _networkFilter,
         reduceMotion: reduceMotion,
       ),
-      _Tab.sources => _SourcesPanel(
-        key: _sourcesPanelKey,
-        controller: ctrl,
-        reduceMotion: reduceMotion,
-      ),
+      _Tab.sources => _SourcesPanel(key: _sourcesPanelKey, controller: ctrl),
       _Tab.snippets => _SnippetsBody(
         controller: ctrl,
         onPersist: persistSnippets,
@@ -1789,19 +1778,10 @@ class _WebReverseDashboardDialogState
       _Tab.crypto => _CryptoPadBody(reduceMotion: reduceMotion),
       _Tab.performance => _PerformancePanel(
         controller: ctrl,
-        isZh: isZh,
         reduceMotion: reduceMotion,
       ),
-      _Tab.memory => _MemoryPanel(
-        controller: ctrl,
-        isZh: isZh,
-        reduceMotion: reduceMotion,
-      ),
-      _Tab.application => _ApplicationPanel(
-        controller: ctrl,
-        isZh: isZh,
-        reduceMotion: reduceMotion,
-      ),
+      _Tab.memory => _MemoryPanel(controller: ctrl),
+      _Tab.application => _ApplicationPanel(controller: ctrl),
       _Tab.security => _SecurityPanel(controller: ctrl),
       _Tab.recorder => _RecorderPanel(controller: ctrl),
     };

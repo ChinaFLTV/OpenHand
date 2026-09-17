@@ -281,7 +281,6 @@ class _SessionTranscript extends StatefulWidget {
     required this.controller,
     required this.onScrollNotification,
     required this.session,
-    required this.liveRuntimeToolPreview,
     required this.sendPhase,
     required this.onLayoutChanged,
     required this.onMessageExpansionChanged,
@@ -299,7 +298,6 @@ class _SessionTranscript extends StatefulWidget {
   final ScrollController controller;
   final bool Function(ScrollNotification notification) onScrollNotification;
   final AiSession session;
-  final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final AiSendPhase sendPhase;
   final VoidCallback onLayoutChanged;
   final ValueChanged<bool> onMessageExpansionChanged;
@@ -323,13 +321,11 @@ class _MessageTranslationEntry {
     required this.sourceText,
     required this.settingsFingerprint,
     required this.translatedText,
-    required this.provider,
   });
 
   final String sourceText;
   final String settingsFingerprint;
   final String translatedText;
-  final AiTranslationProvider provider;
 
   int get retainedCharacters =>
       sourceText.length + settingsFingerprint.length + translatedText.length;
@@ -1628,7 +1624,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             sourceText: sourceText,
             settingsFingerprint: requestFingerprint,
             translatedText: result.text,
-            provider: result.provider,
           ),
         );
         _translationVisibleMessageIds.removeWhere(
@@ -2395,7 +2390,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   /// allowWhenIdle 作为旁路条件，避免每次 build 都反向遍历
   /// visibleMessages 找最新 user message + 检 assistant 是否已有内容。
   AiCreationRequest? _resolvePendingCreationPlaceholderCached({
-    required AiSession session,
     required List<AiSessionMessage> displayMessages,
     required int windowStart,
     required AiSendPhase sendPhase,
@@ -2413,7 +2407,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final clampedWindowStart = windowStart.clamp(0, displayMessages.length);
     final visibleMessages = displayMessages.sublist(clampedWindowStart);
     final result = _resolvePendingCreationPlaceholder(
-      session: session,
       visibleMessages: visibleMessages,
       sendPhase: sendPhase,
       allowWhenIdle: allowWhenIdle,
@@ -2643,7 +2636,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         message: message,
         galleryImages: _galleryImages,
         sessionId: session.id,
-        sessionTitle: session.title,
         sessionEnvironment: session.environment,
         showReasoningSweep:
             !entry.exiting &&
@@ -2961,11 +2953,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (_renderEntries.isEmpty &&
         visibleMessages.isEmpty &&
         userVisibleError == null) {
-      if (aiSessionController.isMessagesHydrating) {
-        return _TranscriptHydratingPlaceholder(
-          key: ValueKey<String>('hydrating-transcript-${session.id}'),
-        );
-      }
       return _WorkspaceEmptyState(
         key: ValueKey<String>('empty-session-transcript-${session.id}'),
         session: session,
@@ -2974,7 +2961,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final hiddenLoadMoreCount = hiddenMessageCount > 0 ? 1 : 0;
     // 等待媒体生成结果时在用户消息下方展示微光占位卡片。
     final pendingCreationRequest = _resolvePendingCreationPlaceholderCached(
-      session: session,
       displayMessages: displayMessages,
       windowStart: clampedWindowStartIndex,
       sendPhase: widget.sendPhase,
@@ -2986,7 +2972,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             userVisibleError != null &&
             widget.sendPhase == AiSendPhase.idle)
         ? _resolvePendingCreationPlaceholderCached(
-            session: session,
             displayMessages: displayMessages,
             windowStart: clampedWindowStartIndex,
             sendPhase: widget.sendPhase,
@@ -3586,7 +3571,6 @@ Map<String, Object?>? _associatedKnowledgeBaseMetadataForMessage({
 }
 
 AiCreationRequest? _resolvePendingCreationPlaceholder({
-  required AiSession session,
   required List<AiSessionMessage> visibleMessages,
   required AiSendPhase sendPhase,
   bool allowWhenIdle = false,

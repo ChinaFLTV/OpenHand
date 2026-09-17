@@ -163,8 +163,6 @@ final class OpenHandRetryableAsyncCache<T> {
     );
     return loading;
   }
-
-  void clear() => _future = null;
 }
 
 /// 合并并发调用；当前操作结束后允许下一轮重新执行。

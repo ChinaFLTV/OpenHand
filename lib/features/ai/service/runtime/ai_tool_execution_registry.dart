@@ -223,7 +223,6 @@ class AiToolExecutionRegistration {
   final ({String sessionId, String toolCallId}) _key;
   final _RegisteredEntry _entry;
 
-  String get sessionId => _key.sessionId;
   String get toolCallId => _key.toolCallId;
 
   Future<void> get cancelSignal => _entry.cancelCompleter.future;

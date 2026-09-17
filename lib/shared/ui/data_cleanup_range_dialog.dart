@@ -21,8 +21,6 @@ class OpenHandCleanupDateRange {
   final OpenHandCleanupRangePreset preset;
   final DateTime? startUtc;
   final DateTime? endUtc;
-
-  bool get clearsAll => startUtc == null && endUtc == null;
 }
 
 Future<OpenHandCleanupDateRange?> showOpenHandDataCleanupRangeDialog({

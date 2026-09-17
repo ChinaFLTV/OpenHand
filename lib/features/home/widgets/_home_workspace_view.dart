@@ -135,11 +135,9 @@ class _WorkspaceView extends StatelessWidget {
     required this.voiceConversationService,
     required this.onStartVoiceConversation,
     required this.onStopVoiceConversation,
-    required this.onCreateThreadRequested,
     required this.creationMode,
     required this.onCreationModeChanged,
     this.creationOptions = AiCreationOptions.empty,
-    this.onCreationOptionsChanged,
     this.onEditOptionsRequested,
     required this.editingMessageId,
     required this.onCancelEditing,
@@ -202,11 +200,9 @@ class _WorkspaceView extends StatelessWidget {
   final AiVoiceConversationService voiceConversationService;
   final Future<void> Function() onStartVoiceConversation;
   final Future<void> Function() onStopVoiceConversation;
-  final Future<void> Function() onCreateThreadRequested;
   final _CreationMode creationMode;
   final ValueChanged<_CreationMode> onCreationModeChanged;
   final AiCreationOptions creationOptions;
-  final ValueChanged<AiCreationOptions>? onCreationOptionsChanged;
   final Future<void> Function()? onEditOptionsRequested;
   final String? editingMessageId;
   final Future<void> Function() onCancelEditing;
@@ -326,8 +322,6 @@ class _WorkspaceView extends StatelessWidget {
                                   onScrollNotification:
                                       onMessageScrollNotification,
                                   session: session,
-                                  liveRuntimeToolPreview:
-                                      liveRuntimeToolPreview,
                                   sendPhase: sendPhase,
                                   onLayoutChanged: onTranscriptLayoutChanged,
                                   onMessageExpansionChanged:
@@ -396,7 +390,6 @@ class _WorkspaceView extends StatelessWidget {
                       creationMode: creationMode,
                       onCreationModeChanged: onCreationModeChanged,
                       creationOptions: creationOptions,
-                      onCreationOptionsChanged: onCreationOptionsChanged,
                       onEditOptionsRequested: onEditOptionsRequested,
                       editingMessageId: editingMessageId,
                       onCancelEditing: onCancelEditing,

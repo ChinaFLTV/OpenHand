@@ -144,9 +144,6 @@ class AutoFollowScrollGuard {
   final AutoFollowProgrammaticScrollWindow _programmaticScroll =
       AutoFollowProgrammaticScrollWindow();
 
-  /// 用户滚动手势是否仍在进行。
-  bool get isUserScrolling => _userScrolling;
-
   /// 接入 NotificationListener.onNotification；固定返回 false 以继续冒泡。
   bool handleNotification(ScrollNotification notification) {
     final programmaticScroll = _programmaticScroll.active;

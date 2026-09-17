@@ -8,7 +8,6 @@ class _HePaneHeader extends StatelessWidget {
   const _HePaneHeader({
     required this.config,
     required this.orchestrator,
-    required this.isZh,
     required this.isRunning,
     required this.isDone,
     required this.sessionTitle,
@@ -19,12 +18,10 @@ class _HePaneHeader extends StatelessWidget {
     required this.sessionUpdatedAt,
     required this.onCancel,
     required this.onRestart,
-    required this.fullAccessPermission,
   });
 
   final HarnessSessionConfig config;
   final HarnessOrchestrator orchestrator;
-  final bool isZh;
   final bool isRunning;
   final bool isDone;
   final String? sessionTitle;
@@ -35,7 +32,6 @@ class _HePaneHeader extends StatelessWidget {
   final DateTime? sessionUpdatedAt;
   final VoidCallback onCancel;
   final VoidCallback onRestart;
-  final bool fullAccessPermission;
 
   String _effectiveTitle(BuildContext context) =>
       (sessionTitle?.trim().isNotEmpty == true)
@@ -144,7 +140,7 @@ class _HePaneHeader extends StatelessWidget {
     return Icons.pending_outlined;
   }
 
-  Color _phaseProgressColor(ColorScheme cs) {
+  Color _phaseProgressColor() {
     if (orchestrator.awaitingApprovalPhase != null) {
       return _hePausedTone;
     }
@@ -172,7 +168,7 @@ class _HePaneHeader extends StatelessWidget {
       OhPill(
         icon: _phaseProgressIcon(),
         label: _phaseProgressLabel(context),
-        foregroundColor: _phaseProgressColor(colorScheme),
+        foregroundColor: _phaseProgressColor(),
       ),
       if (reviewRetries > 0)
         OhPill(

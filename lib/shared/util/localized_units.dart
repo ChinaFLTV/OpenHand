@@ -1,6 +1,19 @@
 import 'package:flutter/widgets.dart';
+import 'package:intl/intl.dart';
 
 import 'localized_text.dart';
+
+/// 按当前语言紧凑显示非负计数。
+String openHandCompactCountLabel(BuildContext context, int value) {
+  final safe = value < 0 ? 0 : value;
+  try {
+    return NumberFormat.compact(
+      locale: Localizations.localeOf(context).toString(),
+    ).format(safe);
+  } on ArgumentError {
+    return '$safe';
+  }
+}
 
 /// 当前语言下的「每秒」单位，避免中文界面残留 `/s`。
 String openHandPerSecondUnit(BuildContext context) {

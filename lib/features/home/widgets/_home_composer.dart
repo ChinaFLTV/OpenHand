@@ -37,16 +37,7 @@ enum _AtMentionOverlayMode { projectFiles, localFiles }
 
 bool _isComposerPathLikeQuery(String query) {
   if (query.isEmpty) return false;
-  if (query.startsWith('/') ||
-      query.startsWith('\\') ||
-      query.contains('/') ||
-      query.contains('\\') ||
-      query.startsWith('./') ||
-      query.startsWith('../') ||
-      query.startsWith('~/') ||
-      query.startsWith('.\\') ||
-      query.startsWith('..\\') ||
-      query.startsWith('~\\')) {
+  if (query.contains('/') || query.contains('\\')) {
     return true;
   }
   return _composerTriggerWindowsDrivePattern.hasMatch(query);
@@ -54,10 +45,6 @@ bool _isComposerPathLikeQuery(String query) {
 
 bool _shouldSuppressSlashSkillPickerQuery(String query) {
   return _isComposerPathLikeQuery(query) || query.startsWith('*');
-}
-
-bool _shouldSuppressAtMentionPickerQuery(String query) {
-  return _isComposerPathLikeQuery(query);
 }
 
 bool _shouldSuppressDismissedComposerTrigger({
@@ -219,7 +206,6 @@ class _ComposerPanel extends StatefulWidget {
     required this.creationMode,
     required this.onCreationModeChanged,
     this.creationOptions = AiCreationOptions.empty,
-    this.onCreationOptionsChanged,
     this.onEditOptionsRequested,
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
@@ -262,7 +248,6 @@ class _ComposerPanel extends StatefulWidget {
   final _CreationMode creationMode;
   final ValueChanged<_CreationMode> onCreationModeChanged;
   final AiCreationOptions creationOptions;
-  final ValueChanged<AiCreationOptions>? onCreationOptionsChanged;
   final Future<void> Function()? onEditOptionsRequested;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
@@ -427,7 +412,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
     if (cursor > tokenEnd) return null;
     final query = text.substring(atIndex + 1, tokenEnd);
-    if (_shouldSuppressAtMentionPickerQuery(query)) {
+    if (_isComposerPathLikeQuery(query)) {
       return null;
     }
     return (triggerOffset: atIndex, tokenEnd: tokenEnd, query: query);
@@ -4696,14 +4681,12 @@ class _ComposerAttachmentDraft {
 
 class _AppendComposerAttachmentsResult {
   const _AppendComposerAttachmentsResult({
-    this.added = 0,
     this.oversized = 0,
     this.unsupported = 0,
     this.unreadable = 0,
     this.limitSkipped = 0,
   });
 
-  final int added;
   final int oversized;
   final int unsupported;
   final int unreadable;

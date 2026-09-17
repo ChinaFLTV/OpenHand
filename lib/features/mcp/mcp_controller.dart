@@ -147,41 +147,6 @@ class McpController extends ChangeNotifier {
     );
   }
 
-  static Future<McpController> create({
-    required String initialFilePath,
-    McpStore? store,
-    McpToolDiscoveryService? toolDiscoveryService,
-    McpKeywordIndexService? keywordIndexService,
-    McpToolCatalogCacheService? toolCatalogCacheService,
-    Duration healthCheckInterval = const Duration(seconds: 30),
-    int autoProbeConcurrency = defaultAutoProbeConcurrency,
-  }) async {
-    final effectiveStore = store ?? McpStore(serversFilePath: initialFilePath);
-    final controller = McpController._(
-      store: effectiveStore,
-      opsStore: McpServerOpsStore(
-        storageDirectoryPath: effectiveStore.storageDirectoryPath,
-      ),
-      toolDiscoveryService:
-          toolDiscoveryService ?? DefaultMcpToolDiscoveryService(),
-      keywordIndexService:
-          keywordIndexService ??
-          McpKeywordIndexService(
-            storageDir: Directory(effectiveStore.storageDirectoryPath),
-          ),
-      toolCatalogCacheService:
-          toolCatalogCacheService ??
-          McpToolCatalogCacheService(
-            storageDir: Directory(effectiveStore.storageDirectoryPath),
-          ),
-      ownsToolDiscoveryService: toolDiscoveryService == null,
-      healthCheckInterval: healthCheckInterval,
-      autoProbeConcurrency: autoProbeConcurrency,
-    );
-    await controller.ensureRuntimeReady();
-    return controller;
-  }
-
   static const Duration _pageActivationWorkDelay = Duration(milliseconds: 450);
   static const Duration _autoProbeGap = Duration(milliseconds: 80);
   static const Duration runtimeCleanupTimeout = Duration(seconds: 10);
@@ -316,9 +281,6 @@ class McpController extends ChangeNotifier {
       const <String, McpCachedToolCatalog>{};
   int _keywordIndexRevision = 0;
 
-  /// 当前最近一次构建（或落盘加载）的关键词倒排索引。从未构建则为 null。
-  McpKeywordIndex? get keywordIndex => _keywordIndex;
-
   /// 是否正在构建（用于按钮 disable / 防抖）。
   bool get isBuildingKeywordIndex => _keywordIndexService.isBuilding;
 
@@ -406,9 +368,7 @@ class McpController extends ChangeNotifier {
     if (_restoreCachedToolCatalogs()) notifyListeners();
   }
 
-  /// 触发一次构建。`onProgress` 直接转发自服务层；构建完毕会更新
-  /// [keywordIndex] 并 notifyListeners。返回构建结果（含跳过统计）。
-  /// 调用方负责防抖 / disable 按钮 —— 服务层也做了单飞兜底。
+  /// 转发构建进度，完成后刷新内存索引并通知界面；并发构建由服务层合并。
   Future<McpKeywordIndexBuildResult> buildKeywordIndex({
     void Function(McpKeywordIndexProgress)? onProgress,
   }) async {
@@ -563,9 +523,6 @@ class McpController extends ChangeNotifier {
 
   /// 最近一次自动批量探测（tools 拉取或健康检查）的发起时间（UTC）。
   DateTime? get lastBatchProbeAt => _lastBatchProbeAt;
-
-  /// 健康检查的固定周期，用于 UI 推算「下次自动探测」时间。
-  Duration get healthCheckInterval => _healthCheckInterval;
 
   /// 推算下次自动健康探测的 UTC 时间；当前没有可用信息时返回 null。
   DateTime? get nextScheduledProbeAt {

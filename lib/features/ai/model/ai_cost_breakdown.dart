@@ -100,21 +100,6 @@ class AiCostBreakdown {
     );
   }
 
-  /// 跨轮 / 跨 session 成本聚合：分量逐项相加，任一边非 null 即出现在结果。
-  AiCostBreakdown merge(AiCostBreakdown other) {
-    return AiCostBreakdown(
-      inputUsd: _sumNullable(inputUsd, other.inputUsd),
-      outputUsd: _sumNullable(outputUsd, other.outputUsd),
-      cacheReadUsd: _sumNullable(cacheReadUsd, other.cacheReadUsd),
-      cacheWriteUsd: _sumNullable(cacheWriteUsd, other.cacheWriteUsd),
-    );
-  }
-
-  static double? _sumNullable(double? left, double? right) {
-    if (left == null && right == null) return null;
-    return (left ?? 0) + (right ?? 0);
-  }
-
   Map<String, Object?> toJson() => <String, Object?>{
     if (inputUsd != null) 'input_usd': inputUsd,
     if (outputUsd != null) 'output_usd': outputUsd,

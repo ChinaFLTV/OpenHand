@@ -247,7 +247,6 @@ class AiSessionGoalRecord {
   final List<AiSessionGoalEvaluationRecord> evaluations;
 
   bool get isActive => status.isActive;
-  bool get isRunning => status == AiSessionGoalStatus.running;
   bool get isPaused => status == AiSessionGoalStatus.paused;
   bool get hasTurnLimit => maxTurns != null && maxTurns! > 0;
   bool get hasTokenBudget => tokenBudget != null && tokenBudget! > 0;
@@ -429,10 +428,6 @@ class AiSessionGoalState {
 
   final AiSessionGoalRecord? current;
   final List<AiSessionGoalRecord> history;
-
-  bool get hasActiveGoal => current?.isActive == true;
-  bool get isRunning => current?.isRunning == true;
-  bool get isPaused => current?.isPaused == true;
 
   AiSessionGoalState copyWith({
     AiSessionGoalRecord? current,

@@ -1875,7 +1875,7 @@ class AiChatService implements AiChatClient {
       emitEvent(AiChatStreamEvent.textDelta(delta));
     }
 
-    void completeStreamResult(String reason, {bool wasCancelled = false}) {
+    void completeStreamResult({bool wasCancelled = false}) {
       if (resultCompleter.isCompleted) {
         return;
       }
@@ -1969,7 +1969,7 @@ class AiChatService implements AiChatClient {
       }
       final data = dataLines.join('\n');
       if (data == '[DONE]') {
-        completeStreamResult('done_marker');
+        completeStreamResult();
         unawaited(cancelResponseStream());
         return;
       }
@@ -2134,7 +2134,7 @@ class AiChatService implements AiChatClient {
           },
           onDone: () {
             lineBuffer.finish(processEventBlock);
-            completeStreamResult('stream_closed');
+            completeStreamResult();
           },
           cancelOnError: true,
         );
@@ -2142,7 +2142,7 @@ class AiChatService implements AiChatClient {
     eventController.onResume = () => responseSubscription?.resume();
     eventController.onCancel = () async {
       if (resultCompleter.isCompleted) return;
-      completeStreamResult('event_stream_cancelled', wasCancelled: true);
+      completeStreamResult(wasCancelled: true);
       await cancelResponseStream();
     };
 
@@ -2150,7 +2150,7 @@ class AiChatService implements AiChatClient {
       events: eventController.stream,
       result: resultCompleter.future,
       cancel: () async {
-        completeStreamResult('cancelled', wasCancelled: true);
+        completeStreamResult(wasCancelled: true);
         await cancelResponseStream();
       },
     );
@@ -3388,7 +3388,7 @@ void _processClaudeStreamEvent(
   required AiTokenUsage? Function() usage,
   required void Function(AiTokenUsage?) setUsage,
   required void Function(AiChatStreamEvent) emitEvent,
-  required void Function(String) completeStreamResult,
+  required void Function() completeStreamResult,
   required void Function() cancelSubscription,
   required void Function(String) setFinishReason,
 }) {
@@ -3502,7 +3502,7 @@ void _processClaudeStreamEvent(
       }
 
     case 'message_stop':
-      completeStreamResult('claude_message_stop');
+      completeStreamResult();
       cancelSubscription();
 
     case 'error':

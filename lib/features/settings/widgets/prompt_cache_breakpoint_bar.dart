@@ -21,13 +21,11 @@ class PromptCacheBreakpointBar extends StatefulWidget {
   const PromptCacheBreakpointBar({
     super.key,
     required this.initialValues,
-    required this.thumbCount,
     required this.onCommit,
     required this.onReset,
   });
 
   final List<double> initialValues;
-  final int thumbCount;
   final Future<void> Function(List<double>) onCommit;
   final VoidCallback onReset;
 
@@ -83,7 +81,6 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
     return _specs
         .map(
           (spec) => _PromptStructureSegment(
-            id: spec.id,
             label: _labelFor(spec.id, l10n),
             summary: _summaryFor(spec.id, l10n),
             cacheHint: _cacheHintFor(spec.id, l10n),
@@ -323,7 +320,6 @@ class _PromptStructureSpec {
 
 class _PromptStructureSegment {
   const _PromptStructureSegment({
-    required this.id,
     required this.label,
     required this.summary,
     required this.cacheHint,
@@ -331,7 +327,6 @@ class _PromptStructureSegment {
     required this.weight,
   });
 
-  final String id;
   final String label;
   final String summary;
   final String cacheHint;

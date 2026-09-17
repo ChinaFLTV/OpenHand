@@ -60,14 +60,6 @@ class SkillsController extends ManagedChangeNotifier {
     });
   }
 
-  Future<LocalSkill> createSkillTemplate() async {
-    return _enqueueOperation(() async {
-      final skill = await _repository.createSkillTemplate(_storagePath);
-      await _refreshLocked(savedSkill: skill);
-      return _findSkillByManifestPath(skill.manifestPath) ?? skill;
-    });
-  }
-
   Future<LocalSkill> createSkill({
     required String name,
     String? emojiIcon,
@@ -117,22 +109,6 @@ class SkillsController extends ManagedChangeNotifier {
 
   Future<String> readSkillManifest(LocalSkill skill) {
     return _repository.readSkillManifest(skill);
-  }
-
-  Future<LocalSkill> updateSkillManifest(
-    LocalSkill skill,
-    String content,
-  ) async {
-    return _enqueueOperation(() async {
-      final updatedSkill = await _repository.updateSkillManifest(
-        skill,
-        _storagePath,
-        content,
-      );
-      await _refreshLocked(savedSkill: updatedSkill);
-      return _findSkillByManifestPath(updatedSkill.manifestPath) ??
-          updatedSkill;
-    });
   }
 
   Future<LocalSkill> updateSkill({

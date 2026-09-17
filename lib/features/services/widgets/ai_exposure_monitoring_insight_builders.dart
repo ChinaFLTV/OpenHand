@@ -447,7 +447,6 @@ Widget _buildOverviewMetricInsight(
         ..sort();
       return _metricInsightPage([
         _proxyRequestInsightPanel(
-          context,
           controller,
           _ProxyRequestLens.all,
           title: '近期请求时延样本',
@@ -1138,8 +1137,6 @@ class _SourceInsightState {
     required this.configured,
     required this.enabled,
     required this.quota,
-    required this.taskCount,
-    required this.resultCount,
   });
 
   final AiExposureSource source;
@@ -1147,8 +1144,6 @@ class _SourceInsightState {
   final bool configured;
   final bool enabled;
   final AiExposureQuota? quota;
-  final int taskCount;
-  final int resultCount;
 
   bool get ready => configured && (quota?.available ?? !requiresCredential);
 }
@@ -1174,16 +1169,6 @@ List<_SourceInsightState> _sourceInsightStates(
   bool includeArtifact = true,
 }) {
   final quotas = {for (final quota in controller.quotas) quota.source: quota};
-  final tasks = <AiExposureSource, int>{};
-  for (final entry in controller.history) {
-    for (final source in entry.sources.toSet()) {
-      tasks.update(source, (value) => value + 1, ifAbsent: () => 1);
-    }
-  }
-  final results = <AiExposureSource, int>{};
-  for (final entry in controller.results) {
-    results.update(entry.source, (value) => value + 1, ifAbsent: () => 1);
-  }
   return AiExposureSource.values
       .where(
         (source) =>
@@ -1199,8 +1184,6 @@ List<_SourceInsightState> _sourceInsightStates(
           configured: configured,
           enabled: controller.enabledSources.contains(source),
           quota: quotas[_sourceQuotaKey(source)],
-          taskCount: tasks[source] ?? 0,
-          resultCount: results[source] ?? 0,
         );
       })
       .toList(growable: false);
@@ -1489,7 +1472,7 @@ Widget _buildStorageMetricInsight(
               .map<_InsightTarget?>((event) => event.target)
               .toList(growable: false),
         ),
-        _persistenceWriteEventPanel(context, controller),
+        _persistenceWriteEventPanel(controller),
       ]);
     default:
       throw StateError('指标 ID 分派到了错误的运维分组：$id');
@@ -2200,7 +2183,6 @@ Widget _proxyRequestLoadPanel(
 }
 
 Widget _proxyFailureEndpointPanel(
-  BuildContext context,
   ServicesController controller, {
   String title = '失败关联节点诊断',
 }) {
@@ -2244,7 +2226,6 @@ Widget _proxyFailureEndpointPanel(
 enum _ProxyRequestLens { all, success, failure, timeout, abnormal, http }
 
 Widget _proxyRequestInsightPanel(
-  BuildContext context,
   ServicesController controller,
   _ProxyRequestLens lens, {
   required String title,
@@ -2481,10 +2462,7 @@ Widget _sqliteDatabaseDetailSection(
   );
 }
 
-Widget _persistenceWriteEventPanel(
-  BuildContext context,
-  ServicesController controller,
-) {
+Widget _persistenceWriteEventPanel(ServicesController controller) {
   final events = <(DateTime, _InsightRecord)>[];
   for (final job in controller.history.where(
     (entry) => entry.createdAtReported,
@@ -2585,7 +2563,6 @@ Widget _persistenceWriteEventPanel(
 Widget _buildTrendInsight(
   BuildContext context, {
   required _TrendInsightId id,
-  required String title,
   required ServicesController controller,
   required List<OpenHandChartSeries> series,
   required List<String> sampleLabels,
@@ -2638,9 +2615,7 @@ Widget _buildTrendInsight(
 Widget _buildDistributionInsight(
   BuildContext context, {
   required _DistributionInsightId id,
-  required String title,
   required ServicesController controller,
-  required List<_DistributionItem> items,
 }) => switch (id) {
   _DistributionInsightId.resultCategory => _resultCategoryDistributionInsight(
     context,
@@ -3239,14 +3214,12 @@ Widget _proxyLatencyTrendInsight(
       emptyLabel: '暂无代理节点。',
     ),
     _proxyRequestInsightPanel(
-      context,
       controller,
       _ProxyRequestLens.all,
       title: '最慢请求样本',
       sortByLatency: true,
     ),
     _proxyRequestInsightPanel(
-      context,
       controller,
       _ProxyRequestLens.timeout,
       title: '超时事件时间线',
@@ -3376,7 +3349,7 @@ Widget _archiveGrowthTrendInsight(
         _ => throw StateError('未知归档记录类型：${item.key}'),
       },
     ),
-    _persistenceWriteEventPanel(context, controller),
+    _persistenceWriteEventPanel(controller),
     _Section(
       title: '增长停滞判定',
       icon: Icons.rule_folder_outlined,
@@ -3504,7 +3477,7 @@ Widget _writeLoadTrendInsight(
           .toList(growable: false),
       emptyLabel: '暂无任务写入负载。',
     ),
-    _persistenceWriteEventPanel(context, controller),
+    _persistenceWriteEventPanel(controller),
   ]);
 }
 
@@ -4202,7 +4175,6 @@ Widget _requestOutcomeDistributionInsight(
       icon: Icons.donut_large_rounded,
       items: items,
       detailBuilder: (context, item) => _proxyRequestInsightPanel(
-        context,
         controller,
         _ProxyRequestLens.all,
         title: '近期${item.label}请求',
@@ -4210,9 +4182,8 @@ Widget _requestOutcomeDistributionInsight(
       ),
     ),
     _proxyRequestLoadPanel(context, controller),
-    _proxyFailureEndpointPanel(context, controller, title: '失败与超时节点'),
+    _proxyFailureEndpointPanel(controller, title: '失败与超时节点'),
     _proxyRequestInsightPanel(
-      context,
       controller,
       _ProxyRequestLens.abnormal,
       title: '近期异常请求',
@@ -4266,7 +4237,6 @@ Widget _httpStatusDistributionInsight(
       icon: Icons.http_rounded,
       items: families,
       detailBuilder: (context, item) => _proxyRequestInsightPanel(
-        context,
         controller,
         _ProxyRequestLens.http,
         title: '近期 ${item.label} 请求',
@@ -4297,7 +4267,6 @@ Widget _httpStatusDistributionInsight(
           .toList(),
       emptyLabel: '近期请求尚未形成具体 HTTP 状态码；状态码族累计值仍可用。',
       detailBuilder: (context, item) => _proxyRequestInsightPanel(
-        context,
         controller,
         _ProxyRequestLens.http,
         title: '${item.label} 请求样本',
@@ -4341,13 +4310,11 @@ Widget _httpStatusDistributionInsight(
       emptyLabel: '暂无节点 HTTP 遥测。',
     ),
     _proxyRequestInsightPanel(
-      context,
       controller,
       _ProxyRequestLens.http,
       title: '近期 HTTP 请求样本',
     ),
     _proxyRequestInsightPanel(
-      context,
       controller,
       _ProxyRequestLens.abnormal,
       title: '近期失败样本',
@@ -4384,7 +4351,6 @@ Widget _nodeRequestDistributionInsight(
       detailBuilder: (context, item) {
         final endpoint = item.key! as AiExposureProxyEndpoint;
         return _proxyRequestInsightPanel(
-          context,
           controller,
           _ProxyRequestLens.all,
           title: '${endpoint.displayName}近期请求',
@@ -4451,9 +4417,8 @@ Widget _nodeRequestDistributionInsight(
       }).toList(),
       emptyLabel: '暂无代理节点。',
     ),
-    _proxyFailureEndpointPanel(context, controller),
+    _proxyFailureEndpointPanel(controller),
     _proxyRequestInsightPanel(
-      context,
       controller,
       _ProxyRequestLens.all,
       title: '节点请求时间线',
@@ -4553,7 +4518,7 @@ Widget _recordTypeDistributionInsight(
           },
         ),
         _sqliteDatabaseDetailSection(controller, path, stats),
-        _persistenceWriteEventPanel(context, controller),
+        _persistenceWriteEventPanel(controller),
       ]);
     },
   );
@@ -4827,7 +4792,6 @@ Widget _proxyReliabilityDistributionInsight(
       icon: Icons.donut_large_rounded,
       items: outcomes,
       detailBuilder: (context, item) => _proxyRequestInsightPanel(
-        context,
         controller,
         _ProxyRequestLens.all,
         title: '近期${item.label}请求',
@@ -4857,9 +4821,8 @@ Widget _proxyReliabilityDistributionInsight(
       }).toList(),
       emptyLabel: '暂无节点可靠性数据。',
     ),
-    _proxyFailureEndpointPanel(context, controller, title: '节点异常诊断'),
+    _proxyFailureEndpointPanel(controller, title: '节点异常诊断'),
     _proxyRequestInsightPanel(
-      context,
       controller,
       _ProxyRequestLens.abnormal,
       title: '异常请求样本',

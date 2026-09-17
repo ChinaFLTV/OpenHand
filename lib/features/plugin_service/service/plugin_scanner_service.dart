@@ -943,8 +943,6 @@ class PluginScannerService {
         executable: executable,
         latestVersion: latestVersion,
         source: source,
-        pyenvVersion: managedPyenvVersion,
-        brewFormula: formula,
       );
     }
     return null;
@@ -979,7 +977,6 @@ class PluginScannerService {
         executable: executable,
         latestVersion: latestVersion,
         source: source,
-        brewFormula: formula,
       );
     }
     return null;
@@ -2298,14 +2295,10 @@ class _PythonRuntimeScan {
     required this.executable,
     required this.latestVersion,
     required this.source,
-    this.pyenvVersion,
-    this.brewFormula,
   });
 
   final String version;
   final String executable;
   final String? latestVersion;
   final _PythonRuntimeSource source;
-  final String? pyenvVersion;
-  final String? brewFormula;
 }

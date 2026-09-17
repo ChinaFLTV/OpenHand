@@ -177,7 +177,7 @@ class _WorkflowDetailsDialog extends StatelessWidget {
         kOpenHandGap16,
         _buildNodeDistribution(context),
         kOpenHandGap16,
-        _buildMiniMap(context),
+        _buildMiniMap(),
         kOpenHandGap16,
         _buildRecentCalls(context, recentCalls),
         if (workflow.tags.isNotEmpty) ...[kOpenHandGap16, _buildTags(context)],
@@ -369,7 +369,7 @@ class _WorkflowDetailsDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildMiniMap(BuildContext context) {
+  Widget _buildMiniMap() {
     return _DetailsPanel(
       title: '工作流全貌',
       icon: Icons.map_outlined,

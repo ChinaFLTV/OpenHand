@@ -2465,10 +2465,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     return true;
   }
 
-  Future<bool> sendMessage(String conversationId, String text) async {
-    return sendMessageWithAttachments(conversationId, text, const <String>[]);
-  }
-
   Future<bool> sendMessageWithAttachments(
     String conversationId,
     String text,

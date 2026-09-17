@@ -1995,10 +1995,6 @@ class AiSessionStore {
     }
   }
 
-  Future<void> openStorageDirectory() {
-    return openDirectoryInFileManager(Directory(_sessionsDirectoryPath));
-  }
-
   /// 清空全部会话行，并删除磁盘上的会话目录、附件和旧版会话文件。
   ///
   /// 调用前应确保控制器没有活动流；完成后由调用方刷新内存状态。

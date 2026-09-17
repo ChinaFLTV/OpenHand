@@ -146,11 +146,7 @@ class KnowledgeRetrievalService {
       capped.add(hit);
       if (capped.length >= settings.topK) break;
     }
-    final prompt = _buildPromptContext(
-      hits: capped,
-      settings: settings,
-      query: query,
-    );
+    final prompt = _buildPromptContext(hits: capped, settings: settings);
     final rerankTrace = ranked.trace.copyWith(
       keptCount: capped.length,
       discardedCount: nonNegativeRemaining(scored.length, capped.length),
@@ -650,7 +646,6 @@ class KnowledgeRetrievalService {
   ({String text, int tokenEstimate}) _buildPromptContext({
     required List<KnowledgeRetrievalHit> hits,
     required KnowledgeBaseSettings settings,
-    required String query,
   }) {
     if (hits.isEmpty) return (text: '', tokenEstimate: 0);
     final buffer = StringBuffer()

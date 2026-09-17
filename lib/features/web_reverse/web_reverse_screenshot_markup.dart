@@ -37,8 +37,7 @@ Future<Uint8List?> showScreenshotMarkupDialog(
 enum _MarkupTool { draw, rect, arrow, blur, text }
 
 class _Stroke {
-  _Stroke({required this.tool, required this.color, required this.thickness});
-  final _MarkupTool tool;
+  _Stroke({required this.color, required this.thickness});
   final Color color;
   final double thickness;
   final List<Offset> points = <Offset>[];
@@ -117,7 +116,7 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
         children: [
           _buildHeader(),
           Divider(height: 1, color: cs.outlineVariant),
-          _buildToolbar(theme, cs),
+          _buildToolbar(cs),
           Divider(height: 1, color: cs.outlineVariant),
           Expanded(
             child: Container(
@@ -188,7 +187,7 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
     );
   }
 
-  Widget _buildToolbar(ThemeData theme, ColorScheme cs) {
+  Widget _buildToolbar(ColorScheme cs) {
     // 使用高层级表面与分割线增强工具栏对比度。
     final loc = AppLocalizations.of(context);
     return Material(
@@ -304,7 +303,7 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
 
   void _onPanStart(DragStartDetails d) {
     if (_tool == _MarkupTool.draw) {
-      final s = _Stroke(tool: _tool, color: _color, thickness: _thickness)
+      final s = _Stroke(color: _color, thickness: _thickness)
         ..points.add(d.localPosition);
       setState(() => _activeStroke = s);
     } else if (_tool == _MarkupTool.rect ||

@@ -311,136 +311,6 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
   }
 }
 
-class _HeMarkdownContent extends StatefulWidget {
-  const _HeMarkdownContent({
-    required this.content,
-    required this.isZh,
-    required this.theme,
-    required this.colorScheme,
-    this.filePathRoots = const [],
-  });
-
-  final String content;
-  final bool isZh;
-  final ThemeData theme;
-  final ColorScheme colorScheme;
-  final List<String> filePathRoots;
-
-  // 长内容默认折叠。
-  static const int _collapseCharThreshold = 1800;
-  static const int _previewChars = 1200;
-
-  @override
-  State<_HeMarkdownContent> createState() => _HeMarkdownContentState();
-}
-
-class _HeMarkdownContentState extends State<_HeMarkdownContent>
-    with SingleTickerProviderStateMixin {
-  bool _expanded = false;
-  late final AnimationController _fadeCtrl;
-  late final Animation<double> _fadeAnim;
-
-  bool get _needsCollapse =>
-      widget.content.length > _HeMarkdownContent._collapseCharThreshold;
-
-  String get _displayContent {
-    if (!_needsCollapse || _expanded) return widget.content;
-    // 优先在字符上限前的词边界截断。
-    final cut = widget.content.lastIndexOf(
-      RegExp(r'\s'),
-      _HeMarkdownContent._previewChars,
-    );
-    final end = cut > 0 ? cut : _HeMarkdownContent._previewChars;
-    return clipTextByCodeUnits(widget.content, end, suffix: '…');
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _fadeCtrl = AnimationController(vsync: this, duration: kOpenHandMotion280)
-      ..value = 1.0;
-    // 入场使用 easeOutCubic：开始快、收尾舒缓，符合全局丝滑节奏；
-    // 与 easeIn（开始慢）相比能更早把首帧像素呈现给用户。
-    _fadeAnim = openHandCurveAnimation(
-      parent: _fadeCtrl,
-      curve: kOpenHandSwitchInCurve,
-    );
-  }
-
-  @override
-  void dispose() {
-    _fadeCtrl.dispose();
-    super.dispose();
-  }
-
-  void _expand() {
-    _fadeCtrl.value = 0;
-    setState(() => _expanded = true);
-    _fadeCtrl.forward();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = widget.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        FadeTransition(
-          opacity: _fadeAnim,
-          child: _HeSafeMarkdownBody(
-            content: _displayContent,
-            theme: widget.theme,
-            colorScheme: colorScheme,
-            filePathRoots: widget.filePathRoots,
-          ),
-        ),
-        if (_needsCollapse && !_expanded) ...[
-          kOpenHandGap6,
-          OpenHandTapRegion(
-            onTap: _expand,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 9),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: kOpenHandBorderRadius16,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.expand_more_rounded,
-                    size: 16,
-                    color: colorScheme.primary,
-                  ),
-                  kOpenHandHGap6,
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '展开全部内容',
-                      zhHant: '展開全部內容',
-                      en: 'Show full content',
-                      fr: 'Afficher tout le contenu',
-                      de: 'Vollständigen Inhalt anzeigen',
-                      ja: '全文を表示',
-                    ),
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
 class _HeSmallPill extends StatelessWidget {
   const _HeSmallPill({
     required this.icon,
@@ -629,9 +499,8 @@ String _heSanitizeMarkdownSource(String source) {
 }
 
 class _HeReadyPlaceholder extends StatelessWidget {
-  const _HeReadyPlaceholder({required this.isZh, required this.onStart});
+  const _HeReadyPlaceholder({required this.onStart});
 
-  final bool isZh;
   final VoidCallback onStart;
 
   @override
@@ -672,9 +541,7 @@ class _HeReadyPlaceholder extends StatelessWidget {
 }
 
 class _InitializingPlaceholder extends StatelessWidget {
-  const _InitializingPlaceholder({required this.isZh});
-
-  final bool isZh;
+  const _InitializingPlaceholder();
 
   @override
   Widget build(BuildContext context) {
@@ -712,12 +579,10 @@ class _InitializingPlaceholder extends StatelessWidget {
 
 class _HeRestoredSessionPlaceholder extends StatelessWidget {
   const _HeRestoredSessionPlaceholder({
-    required this.isZh,
     required this.status,
     required this.onRestart,
   });
 
-  final bool isZh;
   final HarnessOrchestratorStatus status;
   final VoidCallback onRestart;
 

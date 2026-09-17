@@ -981,10 +981,6 @@ class AiExposureProxyRequestRecord {
         '${sample.result}_${sample.responseTimeMs}_${sample.targetHost ?? ''}';
   }
 
-  String get clientIp => sample.clientIp?.trim().isNotEmpty == true
-      ? sample.clientIp!.trim()
-      : '--';
-
   String get clientEndpoint =>
       aiExposureProxyClientEndpoint(sample.clientIp, sample.clientPort);
 

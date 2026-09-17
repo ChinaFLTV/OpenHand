@@ -56,7 +56,7 @@ class FeatureStateCard extends StatelessWidget {
 
   Widget _buildCentered(BuildContext context, _FeatureStateToneColors colors) {
     final theme = Theme.of(context);
-    final noticeActions = _buildNoticeActions(context, colors);
+    final noticeActions = _buildNoticeActions(colors);
     return Center(
       child: _constrain(
         Card(
@@ -117,7 +117,7 @@ class FeatureStateCard extends StatelessWidget {
 
   Widget _buildInline(BuildContext context, _FeatureStateToneColors colors) {
     final theme = Theme.of(context);
-    final noticeActions = _buildNoticeActions(context, colors);
+    final noticeActions = _buildNoticeActions(colors);
     final trailingActions = trailing == null && noticeActions == null
         ? null
         : Wrap(
@@ -174,10 +174,7 @@ class FeatureStateCard extends StatelessWidget {
     );
   }
 
-  Widget? _buildNoticeActions(
-    BuildContext context,
-    _FeatureStateToneColors colors,
-  ) {
+  Widget? _buildNoticeActions(_FeatureStateToneColors colors) {
     final effectiveCopyText =
         copyText ?? (tone == FeatureStateTone.error ? body : null);
     final hasCopy = effectiveCopyText?.trim().isNotEmpty == true;

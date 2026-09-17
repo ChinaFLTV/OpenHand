@@ -26,9 +26,6 @@ import '../model/local_skill.dart';
 class SkillsRepository {
   static const String _manifestFileName = 'SKILL.md';
   static const String _defaultSkillSlug = 'new-skill';
-  static const String _defaultTemplateDescription =
-      'Describe what this skill does.';
-  static const String _defaultTemplateIcon = '🧩';
   static const String _openAiMetadataRelativePath = 'agents/openai.yaml';
   static const String _openAiAssetsRelativePath = 'agents/assets';
   static const String _generatedEmojiIconFileName = 'skill-icon.svg';
@@ -85,38 +82,6 @@ class SkillsRepository {
           left.name.toLowerCase().compareTo(right.name.toLowerCase()),
     );
     return skills;
-  }
-
-  Future<LocalSkill> createSkillTemplate(String storagePath) async {
-    final directory = await ensureStorageDirectory(storagePath);
-    final targetDirectory = await _createUniqueSkillDirectory(directory);
-    final skillSlug = OpenHandPaths.basename(targetDirectory.path);
-    final skillName = _titleFromSlug(skillSlug);
-    final manifestFile = File(p.join(targetDirectory.path, _manifestFileName));
-    final templateContent = _buildTemplate(skillName);
-
-    try {
-      await writeFileAtomically(manifestFile, templateContent);
-      await _writeOpenAiMetadata(
-        targetDirectory.path,
-        displayName: skillName,
-        shortDescription: _defaultTemplateDescription,
-        emojiIcon: _defaultTemplateIcon,
-        defaultPrompt: _deriveDefaultPrompt(
-          templateContent,
-          fallback: _defaultTemplateDescription,
-        ),
-      );
-      return await _parseSkill(manifestFile, storagePath);
-    } catch (error, stack) {
-      return _throwAfterFailedSkillDirectoryOperation(
-        action: '创建技能模板',
-        error: error,
-        stack: stack,
-        directory: targetDirectory,
-        storageRootPath: storagePath,
-      );
-    }
   }
 
   Future<LocalSkill> createSkill(
@@ -273,51 +238,6 @@ class SkillsRepository {
       File(skill.manifestPath),
       maxBytes: skillManifestMaxBytes,
     );
-  }
-
-  Future<LocalSkill> updateSkillManifest(
-    LocalSkill skill,
-    String storagePath,
-    String content,
-  ) async {
-    if (nullIfBlank(content) == null) {
-      throw const FileSystemException('技能清单为空。');
-    }
-
-    final manifestFile = File(skill.manifestPath);
-    final normalizedContent = content.replaceAll('\r\n', '\n');
-    final skillDirectoryPath = manifestFile.parent.path;
-    final metadataPath = p.join(
-      skillDirectoryPath,
-      _openAiMetadataRelativePath,
-    );
-    final previousManifestContent = await readBoundedFileString(
-      manifestFile,
-      maxBytes: skillManifestMaxBytes,
-    );
-    final previousMetadataBytes = await _readOptionalFileBytes(metadataPath);
-
-    try {
-      await writeFileAtomically(manifestFile, normalizedContent);
-      await _syncOpenAiMetadataWithManifest(
-        skillDirectoryPath: skillDirectoryPath,
-        content: normalizedContent,
-        fallbackSkill: skill,
-      );
-      return await _parseSkill(manifestFile, storagePath);
-    } catch (error, stack) {
-      return _throwAfterFailedSkillUpdate(
-        action: '更新技能清单',
-        error: error,
-        stack: stack,
-        manifestFile: manifestFile,
-        previousManifestContent: previousManifestContent,
-        previousOptionalFiles: <String, Uint8List?>{
-          metadataPath: previousMetadataBytes,
-        },
-        rootDirectoryPath: skillDirectoryPath,
-      );
-    }
   }
 
   Future<LocalSkill> updateSkill(
@@ -1324,30 +1244,6 @@ class SkillsRepository {
         .replaceAll(_slugUnsafeCharsPattern, '-')
         .replaceAll(_slugEdgeHyphenPattern, '');
     return normalized.isEmpty ? _defaultSkillSlug : normalized;
-  }
-
-  String _buildTemplate(String skillName) {
-    return '''
----
-name: $skillName
-description: Describe what this skill does.
----
-
-# $skillName
-
-## Purpose
-
-Explain the goal of this skill.
-
-## Workflow
-
-1. Describe the first step.
-2. Describe the second step.
-
-## Notes
-
-Add any implementation details or constraints here.
-''';
   }
 }
 

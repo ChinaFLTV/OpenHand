@@ -763,12 +763,6 @@ class AiModelProxyController extends ChangeNotifier {
     );
   }
 
-  void clearError() {
-    if (_disposed || _errorMessage == null) return;
-    _errorMessage = null;
-    _notify();
-  }
-
   void _startTelemetrySampling() {
     if (_disposed) return;
     _telemetrySampleTimer?.cancel();

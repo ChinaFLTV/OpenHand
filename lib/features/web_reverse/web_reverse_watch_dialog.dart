@@ -53,8 +53,7 @@ Future<void> showWebReverseWatchDialog(
 
 /// 单条表达式 + 其最近样本队列。完全本地状态（dialog 关闭即销毁）。
 class _WatchExpr {
-  _WatchExpr({required this.id, required this.name, required this.code});
-  final String id;
+  _WatchExpr({required this.name, required this.code});
   String name;
   String code;
   final List<_WatchSample> samples = <_WatchSample>[];
@@ -94,16 +93,8 @@ class _WatchDialogState extends State<_WatchDialog> {
   void initState() {
     super.initState();
     _exprs.addAll([
-      _WatchExpr(
-        id: 'w_${DateTime.now().microsecondsSinceEpoch}',
-        name: 'document.title',
-        code: 'document.title',
-      ),
-      _WatchExpr(
-        id: 'w_${DateTime.now().microsecondsSinceEpoch + 1}',
-        name: 'localStorage 项数',
-        code: 'localStorage.length',
-      ),
+      _WatchExpr(name: 'document.title', code: 'document.title'),
+      _WatchExpr(name: 'localStorage 项数', code: 'localStorage.length'),
     ]);
     _selected = 0;
     _start();
@@ -212,13 +203,7 @@ class _WatchDialogState extends State<_WatchDialog> {
     final rawName = _newName.text.trim().isEmpty ? code : _newName.text.trim();
     final name = clipTextWithEllipsis(rawName, _kWatchMaxNameChars);
     setState(() {
-      _exprs.add(
-        _WatchExpr(
-          id: 'w_${DateTime.now().microsecondsSinceEpoch}',
-          name: name,
-          code: code,
-        ),
-      );
+      _exprs.add(_WatchExpr(name: name, code: code));
       _selected = _exprs.length - 1;
       _newCode.clear();
       _newName.clear();

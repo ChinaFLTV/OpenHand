@@ -100,7 +100,6 @@ class AiWebFetchTool extends AiTool {
 
     final progress = StringBuffer()
       ..writeln('url: $rawUrl')
-      ..writeln('engines_active: ${_engineLabels(settings)}')
       ..writeln(
         settings.parallel
             ? 'mode: parallel (workers=${settings.parallelWorkers})'
@@ -479,12 +478,6 @@ class AiWebFetchTool extends AiTool {
                 ? 'miss-stored'
                 : 'disabled',
     );
-  }
-
-  String _engineLabels(AiWebFetchSettings settings) {
-    final active = settings.engines.where((e) => e.enabled).toList();
-    if (active.isEmpty) return '<fallback: bing,duckduckgo>';
-    return active.map((e) => e.kind.name).join(',');
   }
 
   Future<String?> _uriBlockReason(Uri uri) {

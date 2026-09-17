@@ -10528,7 +10528,6 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
       rows
         ..add(
           _ProviderGroupHeader(
-            providerId: pid,
             providerLabel: providerLabels[pid] ?? pid,
             options: grouped[pid]!,
           ),
@@ -10878,12 +10877,10 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
 
 class _ProviderGroupHeader {
   const _ProviderGroupHeader({
-    required this.providerId,
     required this.providerLabel,
     required this.options,
   });
 
-  final String providerId;
   final String providerLabel;
   final List<WebGatewayModelOption> options;
 }
@@ -17124,7 +17121,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   fixedCrossAxisSizeFactor: 1,
                   child: !contentExpanded
                       ? _buildCollapsedMessageContent(
-                          context,
                           bubbleColor: bubbleColor,
                           foreground: foreground,
                         )
@@ -17921,8 +17917,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     return message.media.map((item) => '[${item.displayName}]').join(' ');
   }
 
-  Widget _buildCollapsedMessageContent(
-    BuildContext context, {
+  Widget _buildCollapsedMessageContent({
     required Color bubbleColor,
     required Color foreground,
   }) {
@@ -20055,7 +20050,7 @@ class _DingTalkForwardedChatDialogState
                                     ),
                                   ),
                                 if (item.ignoredForAiContext)
-                                  _buildIgnoredExpandedState(context, itemKey),
+                                  _buildIgnoredExpandedState(itemKey),
                               ],
                             ),
                           ),
@@ -20179,7 +20174,7 @@ class _DingTalkForwardedChatDialogState
     );
   }
 
-  Widget _buildIgnoredExpandedState(BuildContext context, String itemKey) {
+  Widget _buildIgnoredExpandedState(String itemKey) {
     return _DingTalkExcludedMessageState(
       recalled: false,
       expanded: true,

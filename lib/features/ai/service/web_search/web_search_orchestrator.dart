@@ -94,9 +94,7 @@ class WebSearchOrchestrator {
     required Future<void>? cancelSignal,
     required WebSearchProgressEmitter onProgress,
   }) async {
-    final activeConfigs = settings.engines
-        .where((c) => c.enabled)
-        .toList(growable: false);
+    final activeConfigs = settings.enabledEnginesInOrder();
     final resilience = settings.resilience;
 
     final outcome =

@@ -160,7 +160,6 @@ class NativeAudioVisualMeta {
 class NativeAudioPreview extends StatefulWidget {
   const NativeAudioPreview({
     super.key,
-    required this.title,
     required this.source,
     required this.meta,
     this.controller,
@@ -170,7 +169,6 @@ class NativeAudioPreview extends StatefulWidget {
     this.motionCurve = kNativeAudioMotionCurve,
   });
 
-  final String title;
   final NativeAudioPreviewSource source;
   final NativeAudioVisualMeta meta;
   final NativeAudioPreviewController? controller;
@@ -1160,7 +1158,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   @override
   Widget build(BuildContext context) {
-    final meta = widget.meta;
     final colorScheme = Theme.of(context).colorScheme;
     final motionDur = openHandMotionDuration(context, widget.motionDuration);
     final baseColor = colorScheme.surface;
@@ -1209,7 +1206,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
               children: [
                 Positioned.fill(
                   child: _NativeAudioAnimatedBackdrop(
-                    meta: meta,
                     duration: motionDur,
                     curve: widget.motionCurve,
                     isDark: colorScheme.brightness == Brightness.dark,
@@ -1299,8 +1295,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                 size: coverSize,
                 foregroundColor: Theme.of(context).colorScheme.onSurface,
                 isPlaying: _isPlaying,
-                motionDuration: widget.motionDuration,
-                motionCurve: widget.motionCurve,
               ),
             ),
             SizedBox(height: gap),
@@ -1637,16 +1631,12 @@ class _NativeAudioAlbumCover extends StatefulWidget {
     required this.size,
     required this.foregroundColor,
     required this.isPlaying,
-    required this.motionDuration,
-    required this.motionCurve,
   });
 
   final NativeAudioVisualMeta meta;
   final double size;
   final Color foregroundColor;
   final bool isPlaying;
-  final Duration motionDuration;
-  final Curve motionCurve;
 
   @override
   State<_NativeAudioAlbumCover> createState() => _NativeAudioAlbumCoverState();
@@ -1826,13 +1816,11 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
 
 class _NativeAudioAnimatedBackdrop extends StatefulWidget {
   const _NativeAudioAnimatedBackdrop({
-    required this.meta,
     required this.duration,
     required this.curve,
     required this.isDark,
   });
 
-  final NativeAudioVisualMeta meta;
   final Duration duration;
   final Curve curve;
   final bool isDark;
@@ -2397,7 +2385,6 @@ _Mp3Frame? _parseMp3FrameHeader(Uint8List bytes, int offset) {
   if (bitrateKbps == null || sampleRate == null || layer == 0) return null;
   return _Mp3Frame(
     versionBits: versionBits,
-    layer: layer,
     bitrate: bitrateKbps * 1000,
     sampleRate: sampleRate,
     samplesPerFrame: _mp3SamplesPerFrame(versionBits, layer),
@@ -2735,7 +2722,6 @@ int _readUint32LE(Uint8List bytes, int offset) {
 class _Mp3Frame {
   const _Mp3Frame({
     required this.versionBits,
-    required this.layer,
     required this.bitrate,
     required this.sampleRate,
     required this.samplesPerFrame,
@@ -2743,7 +2729,6 @@ class _Mp3Frame {
   });
 
   final int versionBits;
-  final int layer;
   final int bitrate;
   final int sampleRate;
   final int samplesPerFrame;

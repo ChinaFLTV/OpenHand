@@ -921,9 +921,6 @@ class AiSessionController extends ChangeNotifier {
   bool _notifierDisposed = false;
   Future<void>? _shutdownFuture;
   StateError get _disposedError => StateError('$runtimeType 已关闭');
-  bool _isLoading = false;
-  // 头信息刷新只加载侧栏数据，选中会话再按需加载消息；该状态保留给仍需统一信号的全局加载流程。
-  bool _isMessagesHydrating = false;
   final Map<String, AiSendPhase> _sessionSendPhases = <String, AiSendPhase>{};
   final Map<String, Future<void>> _sessionOperationQueues =
       <String, Future<void>>{};
@@ -1054,10 +1051,7 @@ class AiSessionController extends ChangeNotifier {
   Future<String>? _pendingAutoTitleSystemPromptLoad;
   int? _pendingAutoTitleSystemPromptForMaxCharacters;
 
-  bool get isLoading => _isLoading;
-  bool get isMessagesHydrating => _isMessagesHydrating;
   bool get isSending => _sessionSendPhases.isNotEmpty;
-  AiSendPhase get sendPhase => sendPhaseForSession(currentSessionId);
   String? get currentSessionId =>
       _primaryWorkspaceSessionById(_currentSessionId)?.id;
   AiSessionDeletionNotice? get lastDeletionNotice => _lastDeletionNotice;
@@ -1087,7 +1081,6 @@ class AiSessionController extends ChangeNotifier {
     return ids;
   }
 
-  List<AiThreadTemplate> get templates => _templateRepository.templates;
   List<AiThreadTemplate> get availableTemplates =>
       _templateRepository.templatesForPlatform();
   String get sessionsDirectoryPath => _store.sessionsDirectoryPath;
@@ -1095,8 +1088,7 @@ class AiSessionController extends ChangeNotifier {
   bool isSessionMessagesHydrating(String sessionId) {
     final normalizedSessionId = sessionId.trim();
     if (normalizedSessionId.isEmpty) return false;
-    return _isMessagesHydrating ||
-        _hydratingSessionMessageIds.contains(normalizedSessionId);
+    return _hydratingSessionMessageIds.contains(normalizedSessionId);
   }
 
   String? sessionMessageWindowLoadErrorFor(String sessionId) {
@@ -1533,20 +1525,6 @@ class AiSessionController extends ChangeNotifier {
     return _primaryWorkspaceSessionById(_currentSessionId);
   }
 
-  AiSessionMessage? get editingMessage {
-    final currentSession = this.currentSession;
-    final editingMessageId = _editingMessageId;
-    if (currentSession == null || editingMessageId == null) {
-      return null;
-    }
-    for (final message in currentSession.messages) {
-      if (message.id == editingMessageId) {
-        return message;
-      }
-    }
-    return null;
-  }
-
   void _resetLastSendOutcome(String sessionId) {
     _didCompressInLastSendBySession[sessionId] = false;
     _lastErrorMessagesBySession.remove(sessionId);
@@ -1692,8 +1670,6 @@ class AiSessionController extends ChangeNotifier {
     _deviceIdFuture ??= _readOrCreateDeviceId();
     unawaited(_localNetworkSnapshot());
     await _enqueueOperation(() async {
-      _isLoading = true;
-      _isMessagesHydrating = false;
       _lastErrorMessage = null;
       _persistenceIssues = const <AiSessionPersistenceIssue>[];
       notifyListeners();
@@ -1742,8 +1718,6 @@ class AiSessionController extends ChangeNotifier {
           operation: 'load',
         );
       } finally {
-        _isLoading = false;
-        _isMessagesHydrating = false;
         notifyListeners();
       }
     });
@@ -4349,7 +4323,6 @@ class AiSessionController extends ChangeNotifier {
 
   AiRuntimeToolPreview previewRuntimeToolCatalog({
     required AiSession session,
-    required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     Map<String, McpToolCatalog> mcpToolCatalogsByServerName =
         const <String, McpToolCatalog>{},
@@ -5360,10 +5333,6 @@ class AiSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog('ai_session_controller', '删除空工具输出目录', error, stack);
     }
-  }
-
-  Future<void> openStorageDirectory() {
-    return _store.openStorageDirectory();
   }
 
   Future<bool> markErrorAsPresented({
@@ -8835,7 +8804,6 @@ class AiSessionController extends ChangeNotifier {
         result: result,
         runtimeContext: runtimeContext,
         model: model,
-        promptResult: promptResult,
         userMessageId: activeLatestUserMessageId ?? activeRoundAnchorMessageId,
         assistantMessageId: assistantMessageId,
         reasoningMessageId: reasoningMessageId,
@@ -9753,7 +9721,6 @@ class AiSessionController extends ChangeNotifier {
       ...result.metadata,
     };
     final toolMessage = _buildToolResultMessage(
-      toolCall: toolCall,
       result: result,
       metadata: metadata,
     );
@@ -10136,7 +10103,6 @@ class AiSessionController extends ChangeNotifier {
   }
 
   AiSessionMessage _buildToolResultMessage({
-    required AiToolCall toolCall,
     required AiToolExecutionResult result,
     required Map<String, Object?> metadata,
   }) {
@@ -13964,7 +13930,6 @@ $tail''';
     return _commitPendingToolCallsWithTerminalStatus(
       session,
       status: BashToolExecutionStatus.cancelled,
-      debugLabel: 'cancelled',
       fallbackResultText: _cancelledToolExecutionResultText,
     );
   }
@@ -13972,7 +13937,6 @@ $tail''';
   Future<AiSession?> _commitPendingToolCallsWithTerminalStatus(
     AiSession session, {
     required BashToolExecutionStatus status,
-    required String debugLabel,
     required String Function({
       required String command,
       required String workingDirectory,
@@ -13984,7 +13948,6 @@ $tail''';
     final updatedSession = _markPendingToolCallsWithTerminalStatus(
       session,
       status: status,
-      debugLabel: debugLabel,
       fallbackResultText: fallbackResultText,
     );
     if (identical(updatedSession, session)) {
@@ -14019,7 +13982,6 @@ $tail''';
     return _markPendingToolCallsWithTerminalStatus(
       session,
       status: BashToolExecutionStatus.cancelled,
-      debugLabel: 'cancelled',
       fallbackResultText: _cancelledToolExecutionResultText,
     );
   }
@@ -14031,7 +13993,6 @@ $tail''';
     return _markPendingToolCallsWithTerminalStatus(
       session,
       status: BashToolExecutionStatus.failed,
-      debugLabel: 'failed',
       fallbackResultText:
           ({
             required String command,
@@ -14050,7 +14011,6 @@ $tail''';
   AiSession _markPendingToolCallsWithTerminalStatus(
     AiSession session, {
     required BashToolExecutionStatus status,
-    required String debugLabel,
     required String Function({
       required String command,
       required String workingDirectory,
@@ -14876,7 +14836,6 @@ $tail''';
     required AiChatStreamResult result,
     required AiSessionRuntimeContext runtimeContext,
     required AiModelConfig model,
-    required AiPromptBuildResult promptResult,
     String? userMessageId,
     String? assistantMessageId,
     String? reasoningMessageId,

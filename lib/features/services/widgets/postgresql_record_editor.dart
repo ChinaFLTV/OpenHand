@@ -312,7 +312,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
                 controller: _scrollController,
                 physics: openHandDialogAwareScrollPhysics(context),
                 padding: const EdgeInsets.only(right: 12),
-                child: _buildSections(context),
+                child: _buildSections(),
               ),
             ),
           ),
@@ -326,7 +326,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
     );
   }
 
-  Widget _buildSections(BuildContext context) {
+  Widget _buildSections() {
     final groups = <String, List<_PostgresqlColumnSpec>>{};
     for (final column in _columns) {
       groups
@@ -1189,7 +1189,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
         });
       },
     );
-    final valueField = _buildJsonValueField(context, draft, index);
+    final valueField = _buildJsonValueField(context, draft);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
@@ -1254,7 +1254,6 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
   Widget _buildJsonValueField(
     BuildContext context,
     _PostgresqlJsonDraft draft,
-    int index,
   ) {
     final colors = Theme.of(context).colorScheme;
     switch (draft.type) {

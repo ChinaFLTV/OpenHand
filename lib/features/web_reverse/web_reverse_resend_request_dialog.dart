@@ -699,9 +699,9 @@ print(resp.text[:2000])''';
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildUrlRow(theme, cs, loc),
+                  _buildUrlRow(),
                   kOpenHandGap14,
-                  _buildTransportRow(theme, cs, loc),
+                  _buildTransportRow(theme, cs),
                   kOpenHandGap14,
                   _buildHeadersBlock(theme, cs, loc),
                   kOpenHandGap14,
@@ -761,11 +761,7 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildTransportRow(
-    ThemeData theme,
-    ColorScheme cs,
-    AppLocalizations? loc,
-  ) {
+  Widget _buildTransportRow(ThemeData theme, ColorScheme cs) {
     final browserAlive = widget.controller.isBrowserAlive;
     return Row(
       children: [
@@ -850,7 +846,7 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildUrlRow(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _buildUrlRow() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

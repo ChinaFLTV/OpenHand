@@ -2635,9 +2635,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!explicitUserScroll) {
         return false;
       }
-      _cancelProgrammaticAutoFollowScroll(
-        keepPixels: notification.metrics.pixels,
-      );
+      _cancelProgrammaticAutoFollowScroll();
     }
     if (!_autoFollowEnabled && userScrollActivity) {
       _shouldAutoFollowMessages = false;
@@ -5938,7 +5936,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     final preview = sessionController.previewRuntimeToolCatalog(
       session: session,
-      model: model,
       runtimeContext: runtimeCatalogPreviewContext,
       mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
     );
@@ -7748,7 +7745,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       });
     }
     return _AppendComposerAttachmentsResult(
-      added: addedCount,
       oversized: oversizedCount,
       unsupported: unsupportedCount,
       unreadable: unreadableCount,
@@ -8312,7 +8308,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
-  void _cancelProgrammaticAutoFollowScroll({double? keepPixels}) {
+  void _cancelProgrammaticAutoFollowScroll() {
     _messageProgrammaticScrollWindow.cancel();
     _scrollToBottomSettleFramesRemaining = 0;
     _scrollToBottomStableFrames = 0;
@@ -10491,7 +10487,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         voiceConversationService: _voiceConversationService,
         onStartVoiceConversation: _startVoiceConversation,
         onStopVoiceConversation: _stopVoiceConversation,
-        onCreateThreadRequested: _createSessionFromDialog,
         creationMode: _creationMode,
         creationOptions: _creationOptions,
         onCreationModeChanged: (mode) async {
@@ -10524,9 +10519,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               setState(() => _creationOptions = picked);
             }
           }
-        },
-        onCreationOptionsChanged: (options) {
-          setState(() => _creationOptions = options);
         },
         onEditOptionsRequested: () async {
           if (_creationMode == _CreationMode.none) return;

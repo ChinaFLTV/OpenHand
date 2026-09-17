@@ -193,8 +193,6 @@ final class BoundedZipArchive {
   final List<BoundedZipEntry> files;
   final Map<String, BoundedZipEntry> _filesByName;
 
-  int get length => files.length;
-
   BoundedZipEntry? findFile(String name) => _filesByName[name];
 
   static int _findEndOfCentralDirectory(Uint8List bytes, ByteData data) {

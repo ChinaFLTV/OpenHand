@@ -99,7 +99,6 @@ class WebSearchEngineResult {
   final int elapsedMs;
 
   bool get isSuccess => error == null && hits.isNotEmpty;
-  bool get isEmpty => hits.isEmpty;
 }
 
 /// 抽象引擎：retry/backoff/cancel/timeout 委托给 [WebEngineBase]，子类只需实现

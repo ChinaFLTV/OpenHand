@@ -1462,10 +1462,6 @@ abstract class AiProtocolAdapter {
 
   bool get supportsToolCalls => false;
 
-  String describe(AiModelConfig model) {
-    return '${protocolType.storageValue.toUpperCase()} · ${model.modelId}';
-  }
-
   Future<AiRequestBlueprint> buildChatRequest({
     required AiModelConfig model,
     required List<AiChatTurn> messages,

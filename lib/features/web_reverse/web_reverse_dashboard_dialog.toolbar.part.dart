@@ -5,8 +5,6 @@ const int _kNetworkBatchCurlCopyLimit = 100;
 
 extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   Widget _buildToolbar(
-    ThemeData theme,
-    ColorScheme cs,
     bool isZh,
     WebReverseSessionController ctrl,
     bool reduceMotion,
@@ -37,7 +35,6 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       label: _tabLabel(context, _tab),
                       icon: _tabIcon(_tab),
                       count: _tabBadgeCount(_tab),
-                      isZh: isZh,
                       reduceMotion: reduceMotion,
                       onChanged: _setTab,
                       labelFor: (t) => _tabLabel(context, t),
@@ -195,7 +192,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         ja: 'HAR をファイルに保存',
                       ),
                       icon: Icons.archive_rounded,
-                      onPressed: () => _saveHarToFile(ctrl, isZh),
+                      onPressed: () => _saveHarToFile(ctrl),
                     ),
                     kOpenHandHGap8,
                     _ToolbarIconButton(
@@ -223,8 +220,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         ja: 'スクリーンショット（表示領域）',
                       ),
                       icon: Icons.photo_camera_outlined,
-                      onPressed: () =>
-                          _saveScreenshot(ctrl, isZh, fullPage: false),
+                      onPressed: () => _saveScreenshot(ctrl, fullPage: false),
                     ),
                     kOpenHandHGap8,
                     _ToolbarIconButton(
@@ -238,8 +234,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         ja: 'スクリーンショット（ページ全体）',
                       ),
                       icon: Icons.picture_in_picture_rounded,
-                      onPressed: () =>
-                          _saveScreenshot(ctrl, isZh, fullPage: true),
+                      onPressed: () => _saveScreenshot(ctrl, fullPage: true),
                     ),
                     kOpenHandHGap8,
                     _ToolbarTogglePill(
@@ -271,7 +266,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         ja: '一括操作（現在のフィルタ）',
                       ),
                       icon: Icons.dynamic_form_rounded,
-                      onPressed: () => _showBatchActions(context, ctrl, isZh),
+                      onPressed: () => _showBatchActions(context, ctrl),
                     ),
                     kOpenHandHGap8,
                     _ToolbarIconButton(
@@ -310,7 +305,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         ja: '詳細ツール',
                       ),
                       icon: Icons.tune_rounded,
-                      onPressed: () => _showAdvancedMenu(context, ctrl, isZh),
+                      onPressed: () => _showAdvancedMenu(context, ctrl),
                     ),
                     kOpenHandHGap8,
                     _ToolbarPrimaryPill(
@@ -493,10 +488,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     };
   }
 
-  Future<void> _saveHarToFile(
-    WebReverseSessionController ctrl,
-    bool isZh,
-  ) async {
+  Future<void> _saveHarToFile(WebReverseSessionController ctrl) async {
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
@@ -568,8 +560,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   }
 
   Future<void> _saveScreenshot(
-    WebReverseSessionController ctrl,
-    bool isZh, {
+    WebReverseSessionController ctrl, {
     required bool fullPage,
   }) async {
     final bytes = fullPage
@@ -1009,7 +1000,6 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   void _showBatchActions(
     BuildContext context,
     WebReverseSessionController ctrl,
-    bool isZh,
   ) {
     final filtered = _filteredNetworkEntries(ctrl);
     webReverseToolDialogs.show<void>(
@@ -1210,15 +1200,11 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   void _showAdvancedMenu(
     BuildContext context,
     WebReverseSessionController ctrl,
-    bool isZh,
   ) {
     webReverseToolDialogs.show<void>(
       context: context,
-      builder: (_) => _AdvancedMenuDialog(
-        controller: ctrl,
-        isZh: isZh,
-        hostContext: context,
-      ),
+      builder: (_) =>
+          _AdvancedMenuDialog(controller: ctrl, hostContext: context),
     );
   }
 }
@@ -1386,7 +1372,6 @@ class _ToolbarTabDropdown extends StatelessWidget {
     required this.tabs,
     required this.label,
     required this.icon,
-    required this.isZh,
     required this.reduceMotion,
     required this.onChanged,
     required this.labelFor,
@@ -1400,7 +1385,6 @@ class _ToolbarTabDropdown extends StatelessWidget {
   final String label;
   final IconData icon;
   final int? count;
-  final bool isZh;
   final bool reduceMotion;
   final ValueChanged<_Tab> onChanged;
   final String Function(_Tab) labelFor;

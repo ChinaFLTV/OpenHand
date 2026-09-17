@@ -8,13 +8,11 @@ class _WebFetchSettingsEditor extends StatefulWidget {
     required this.value,
     required this.onChanged,
     required this.availableModels,
-    required this.recentModelSelections,
   });
 
   final AiWebFetchSettings value;
   final ValueChanged<AiWebFetchSettings> onChanged;
   final List<AiModelConfig> availableModels;
-  final List<RecentModelSelection> recentModelSelections;
 
   @override
   State<_WebFetchSettingsEditor> createState() =>

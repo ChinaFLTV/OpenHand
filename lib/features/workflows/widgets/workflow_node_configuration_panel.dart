@@ -180,11 +180,11 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           WorkflowNodeKind.start => _buildStart(),
           WorkflowNodeKind.llm => _buildLlm(context),
           WorkflowNodeKind.httpRequest => _buildHttp(context),
-          WorkflowNodeKind.condition => _buildCondition(context),
-          WorkflowNodeKind.loop => _buildLoop(context),
-          WorkflowNodeKind.iteration => _buildIteration(context),
+          WorkflowNodeKind.condition => _buildCondition(),
+          WorkflowNodeKind.loop => _buildLoop(),
+          WorkflowNodeKind.iteration => _buildIteration(),
           WorkflowNodeKind.parameterAssignment => _buildParameterAssignment(),
-          WorkflowNodeKind.listOperation => _buildListOperation(context),
+          WorkflowNodeKind.listOperation => _buildListOperation(),
           WorkflowNodeKind.codeExecution => _buildCodeExecution(context),
           WorkflowNodeKind.humanIntervention => _buildHumanIntervention(
             context,
@@ -1634,7 +1634,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildCondition(BuildContext context) {
+  Widget _buildCondition() {
     final configuredCases = node.conditionCases();
     final cases = configuredCases.isEmpty
         ? _legacyConditionCases(node)
@@ -1658,7 +1658,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildLoop(BuildContext context) {
+  Widget _buildLoop() {
     final variables = node.loopVariables();
     final breakConditions = node.loopBreakConditions();
     final conditionLogic = WorkflowConditionLogic.fromStorage(
@@ -1752,7 +1752,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildIteration(BuildContext context) {
+  Widget _buildIteration() {
     final parallel = node.boolSetting(WorkflowSettingKeys.iterationParallel);
     final errorMode = WorkflowIterationErrorMode.fromStorage(
       node.settings[WorkflowSettingKeys.iterationErrorMode],
@@ -1944,7 +1944,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildListOperation(BuildContext context) {
+  Widget _buildListOperation() {
     final filterEnabled = node.boolSetting(
       WorkflowSettingKeys.listFilterEnabled,
     );

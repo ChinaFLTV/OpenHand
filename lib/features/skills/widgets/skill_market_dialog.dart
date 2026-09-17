@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/openhand_paths.dart';
@@ -37,6 +36,7 @@ import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/localized_units.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/user_failure_message.dart';
@@ -1219,7 +1219,7 @@ class _SkillMarketResultTile extends StatelessWidget {
                                 children: [
                                   OpenHandFactChip(
                                     icon: Icons.download_rounded,
-                                    label: _formatCount(
+                                    label: openHandCompactCountLabel(
                                       context,
                                       skill.downloads,
                                     ),
@@ -1227,7 +1227,10 @@ class _SkillMarketResultTile extends StatelessWidget {
                                   ),
                                   OpenHandFactChip(
                                     icon: Icons.star_rounded,
-                                    label: _formatCount(context, skill.stars),
+                                    label: openHandCompactCountLabel(
+                                      context,
+                                      skill.stars,
+                                    ),
                                     color: OpenHandStatusColors.caution,
                                   ),
                                   if (installed)
@@ -1449,17 +1452,17 @@ class _SkillMarketDetailView extends StatelessWidget {
             items: <OpenHandMetricItem>[
               (
                 label: skillMarketDownloadsLabel(context),
-                value: _formatCount(context, downloads),
+                value: openHandCompactCountLabel(context, downloads),
                 accent: OpenHandStatusColors.info,
               ),
               (
                 label: skillMarketInstallsLabel(context),
-                value: _formatCount(context, installs),
+                value: openHandCompactCountLabel(context, installs),
                 accent: colorScheme.tertiary,
               ),
               (
                 label: skillMarketStarsLabel(context),
-                value: _formatCount(context, stars),
+                value: openHandCompactCountLabel(context, stars),
                 accent: OpenHandStatusColors.caution,
               ),
             ],
@@ -2352,17 +2355,6 @@ bool _isMarketSkillInstalled(
 ) {
   return installedSkillKeys.contains(normalizeAsciiSlugKey(skill.slug)) ||
       installedSkillKeys.contains(normalizeAsciiSlugKey(skill.name));
-}
-
-String _formatCount(BuildContext context, int value) {
-  final safe = value < 0 ? 0 : value;
-  try {
-    return NumberFormat.compact(
-      locale: Localizations.localeOf(context).toString(),
-    ).format(safe);
-  } catch (_) {
-    return '$safe';
-  }
 }
 
 String _skillMarketFileTreeItemCount(BuildContext context, int count) {

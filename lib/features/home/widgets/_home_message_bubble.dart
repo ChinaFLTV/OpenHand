@@ -139,7 +139,6 @@ class _MessageBubble extends StatefulWidget {
     super.key,
     required this.message,
     required this.sessionId,
-    required this.sessionTitle,
     required this.sessionEnvironment,
     required this.showReasoningSweep,
     required this.trackLayoutChanges,
@@ -178,7 +177,6 @@ class _MessageBubble extends StatefulWidget {
   final Iterable<OpenHandGalleryImage> Function()? galleryImages;
   final AiSessionMessage message;
   final String sessionId;
-  final String sessionTitle;
   final AiSessionEnvironment sessionEnvironment;
   final bool showReasoningSweep;
   final bool trackLayoutChanges;
@@ -1161,7 +1159,6 @@ class _MessageBubbleState extends State<_MessageBubble>
                   _ResponseMetaRow(
                     key: _metaCapsuleKey,
                     message: message,
-                    color: textColor,
                     showSweep: isStreamingAssistant,
                     expanded: assistantResponseExpanded,
                     onTap: canCollapseAssistantResponse
@@ -1387,7 +1384,6 @@ class _MessageBubbleState extends State<_MessageBubble>
                         kOpenHandGap10,
                         _AssistantKnowledgeCitationRail(
                           metadata: associatedKnowledgeBaseMetadata,
-                          textColor: textColor,
                         ),
                       ],
                       if (isStreamingAssistant &&
@@ -4589,7 +4585,6 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
         children: [
           Positioned.fill(
             child: NativeAudioPreview(
-              title: widget.title,
               source: _nativeAudioPreviewSourceFor(widget.source),
               meta: _nativeAudioVisualMetaForGenerated(
                 widget.source,
@@ -5233,12 +5228,9 @@ final RegExp _goalAutoFollowUpMarkerPattern = RegExp(
 class _GoalMessageViewData {
   const _GoalMessageViewData({
     required this.kind,
-    this.goalId,
-    this.evaluationId,
     this.objective,
     this.summary,
     this.followUpPrompt,
-    this.status,
     this.roundIndex,
     this.turnCount,
     this.maxTurns,
@@ -5254,12 +5246,9 @@ class _GoalMessageViewData {
   });
 
   final _GoalMessageViewKind kind;
-  final String? goalId;
-  final String? evaluationId;
   final String? objective;
   final String? summary;
   final String? followUpPrompt;
-  final String? status;
   final int? roundIndex;
   final int? turnCount;
   final int? maxTurns;
@@ -5295,16 +5284,10 @@ class _GoalMessageViewData {
 
   static _GoalMessageViewData? _computeFromMessage(AiSessionMessage message) {
     final metadata = message.metadata;
-    final goalId = _readString(metadata[aiSessionGoalIdMetadataKey]);
-    final evaluationId = _readString(
-      metadata[aiSessionGoalEvaluationIdMetadataKey],
-    );
     if (metadata[aiSessionGoalAutoFollowUpMetadataKey] == true) {
       final parsed = _parseAutoFollowUp(message.content);
       return _GoalMessageViewData(
         kind: _GoalMessageViewKind.autoFollowUp,
-        goalId: goalId,
-        evaluationId: evaluationId,
         objective: _readString(
           metadata[aiSessionGoalObjectiveMetadataKey],
         ).ifEmpty(parsed.objective),
@@ -5323,10 +5306,7 @@ class _GoalMessageViewData {
       final recentMessages = payload?['recent_messages'];
       return _GoalMessageViewData(
         kind: _GoalMessageViewKind.evaluationRequest,
-        goalId: goalId.ifEmpty(_readString(goal?['id'])),
-        evaluationId: evaluationId,
         objective: _readString(goal?['objective']),
-        status: _readString(goal?['status']),
         roundIndex: _readInt(
           metadata[aiSessionGoalEvaluationRoundIndexMetadataKey],
         ),
@@ -5343,8 +5323,6 @@ class _GoalMessageViewData {
       final decoded = _decodeJsonObject(message.content);
       return _GoalMessageViewData(
         kind: _GoalMessageViewKind.evaluationResponse,
-        goalId: goalId,
-        evaluationId: evaluationId,
         summary: _readString(decoded?['summary']),
         followUpPrompt: _readString(decoded?['follow_up_prompt']),
         roundIndex: _readInt(
@@ -6248,13 +6226,6 @@ class _GoalMessageMetricChip extends StatelessWidget {
   }
 }
 
-class _KnowledgeBaseCitationSource {
-  const _KnowledgeBaseCitationSource({required this.key, required this.label});
-
-  final String key;
-  final String label;
-}
-
 Map<String, Object?> _knowledgeBaseMetadataEnvelope(
   Map<String, Object?> metadata,
 ) {
@@ -6290,21 +6261,21 @@ Map<String, Object?>? _knowledgeBaseMetadataFromRoundToolMessages(
   );
 }
 
-List<_KnowledgeBaseCitationSource> _knowledgeBaseCitationSources(
+List<String> _knowledgeBaseCitationLabels(
   Map<String, Object?> metadata, {
   int limit = 1 << 30,
 }) {
-  final sources = <_KnowledgeBaseCitationSource>[];
+  final labels = <String>[];
   final seen = <String>{};
   for (final hit in _knowledgeBaseResultMaps(metadata)) {
     final label = _knowledgeBaseCitationLabel(hit);
     if (label.isEmpty) continue;
     final key = _knowledgeBaseCitationKey(hit, label);
     if (!seen.add(key)) continue;
-    sources.add(_KnowledgeBaseCitationSource(key: key, label: label));
-    if (sources.length >= limit) break;
+    labels.add(label);
+    if (labels.length >= limit) break;
   }
-  return sources;
+  return labels;
 }
 
 bool _knowledgeBaseMetadataWasEnabled(Map<String, Object?>? metadata) {
@@ -6367,25 +6338,21 @@ String _knowledgeBaseCitationLabel(Map<String, Object?> hit) {
 }
 
 class _AssistantKnowledgeCitationRail extends StatelessWidget {
-  const _AssistantKnowledgeCitationRail({
-    required this.metadata,
-    required this.textColor,
-  });
+  const _AssistantKnowledgeCitationRail({required this.metadata});
 
   final Map<String, Object?> metadata;
-  final Color textColor;
 
   @override
   Widget build(BuildContext context) {
-    final sources = _knowledgeBaseCitationSources(metadata, limit: 6);
-    if (sources.isEmpty) return const SizedBox.shrink();
+    final labels = _knowledgeBaseCitationLabels(metadata, limit: 6);
+    if (labels.isEmpty) return const SizedBox.shrink();
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       children: [
-        for (final source in sources)
+        for (final label in labels)
           _KnowledgeCitationChip(
-            source: source,
+            label: label,
             onPressed: () {
               unawaited(
                 showKnowledgeRetrievalDetailDialog(
@@ -6401,9 +6368,9 @@ class _AssistantKnowledgeCitationRail extends StatelessWidget {
 }
 
 class _KnowledgeCitationChip extends StatelessWidget {
-  const _KnowledgeCitationChip({required this.source, required this.onPressed});
+  const _KnowledgeCitationChip({required this.label, required this.onPressed});
 
-  final _KnowledgeBaseCitationSource source;
+  final String label;
   final VoidCallback onPressed;
 
   @override
@@ -6457,7 +6424,7 @@ class _KnowledgeCitationChip extends StatelessWidget {
                 kOpenHandHGap6,
                 Flexible(
                   child: Text(
-                    source.label,
+                    label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -6529,9 +6496,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
     final associatedKnowledgeBaseSourceCount =
         associatedKnowledgeBaseMetadata == null
         ? 0
-        : _knowledgeBaseCitationSources(
-            associatedKnowledgeBaseMetadata!,
-          ).length;
+        : _knowledgeBaseCitationLabels(associatedKnowledgeBaseMetadata!).length;
     final responseVariants = message.responseVariants;
     final responseVariantIndex = message.responseVariantIndex;
     final capsules = <Widget>[
@@ -6542,33 +6507,16 @@ class _SelectedMessageContextRow extends StatelessWidget {
           textColor: textColor,
           onSelect: onSelectResponseVariant,
         ),
-      ..._MachineExpertRequestContextCapsules.build(
-        context,
-        message: message,
-        textColor: textColor,
-      ),
-      ..._ReverseExpertRequestContextCapsules.build(
-        context,
-        message: message,
-        textColor: textColor,
-      ),
-      ..._GoalMessageContextCapsules.build(
-        context,
-        message: message,
-        textColor: textColor,
-      ),
-      ..._GoalObjectiveContextCapsules.build(
-        context,
-        message: message,
-        textColor: textColor,
-      ),
+      ..._MachineExpertRequestContextCapsules.build(context, message: message),
+      ..._ReverseExpertRequestContextCapsules.build(context, message: message),
+      ..._GoalMessageContextCapsules.build(context, message: message),
+      ..._GoalObjectiveContextCapsules.build(context, message: message),
       if (_knowledgeBaseMetadataWasEnabled(knowledgeBaseMetadata))
         _KnowledgeBaseContextCapsule(
           label: _knowledgeBaseMessageCapsuleLabel(
             context,
             knowledgeBaseMetadata!,
           ),
-          textColor: textColor,
           onPressed: () {
             unawaited(
               showKnowledgeRetrievalDetailDialog(
@@ -6587,7 +6535,6 @@ class _SelectedMessageContextRow extends StatelessWidget {
             zh: '引用 $associatedKnowledgeBaseSourceCount 篇知识库',
             en: '$associatedKnowledgeBaseSourceCount KB sources',
           ),
-          textColor: textColor,
           onPressed: () {
             unawaited(
               showKnowledgeRetrievalDetailDialog(
@@ -6599,15 +6546,13 @@ class _SelectedMessageContextRow extends StatelessWidget {
             );
           },
         ),
-      if (creationRequest.isActive)
-        _CreationModeChip(request: creationRequest, textColor: textColor),
+      if (creationRequest.isActive) _CreationModeChip(request: creationRequest),
       if (_UserSkillSelectionChip.nameFromMetadata(skillMetadata).isNotEmpty)
-        _UserSkillSelectionChip(metadata: skillMetadata, textColor: textColor),
+        _UserSkillSelectionChip(metadata: skillMetadata),
       if (harnessAnnotation != null && harnessAnnotation!.hasAnnotations)
         ..._HarnessAnnotationContextCapsules.build(
           context,
           annotation: harnessAnnotation!,
-          textColor: textColor,
         ),
       if (showModelLabel &&
           message.modelLabel != null &&
@@ -6615,12 +6560,10 @@ class _SelectedMessageContextRow extends StatelessWidget {
         _MessageContextCapsule(
           icon: Icons.memory_rounded,
           label: message.modelLabel!.trim(),
-          textColor: textColor,
         ),
       _MessageContextCapsule(
         icon: Icons.schedule_rounded,
         label: formatYearMonthDayHmLocal(message.createdAt),
-        textColor: textColor,
       ),
     ];
     if (capsules.isEmpty) {
@@ -6639,7 +6582,6 @@ class _HarnessAnnotationContextCapsules {
   static List<Widget> build(
     BuildContext context, {
     required _HeAnnotation annotation,
-    required Color textColor,
   }) {
     return <Widget>[
       if (annotation.agentRole != null)
@@ -6650,7 +6592,6 @@ class _HarnessAnnotationContextCapsules {
             zh: '角色 · ${_roleLabel(annotation, isZh: true)}${_agentSuffix(annotation)}',
             en: 'Role · ${_roleLabel(annotation, isZh: false)}${_agentSuffix(annotation)}',
           ),
-          textColor: textColor,
         ),
       if (annotation.phase != null)
         _MessageContextCapsule(
@@ -6660,7 +6601,6 @@ class _HarnessAnnotationContextCapsules {
             zh: '阶段 · ${_phaseLabel(annotation, isZh: true)}',
             en: 'Phase · ${_phaseLabel(annotation, isZh: false)}',
           ),
-          textColor: textColor,
         ),
     ];
   }
@@ -6694,7 +6634,6 @@ class _GoalMessageContextCapsules {
   static List<Widget> build(
     BuildContext context, {
     required AiSessionMessage message,
-    required Color textColor,
   }) {
     final data = _GoalMessageViewData.fromMessage(message);
     if (data == null) {
@@ -6705,13 +6644,7 @@ class _GoalMessageContextCapsules {
         : data.passed == true
         ? '${data.chipLabel(context)} · ${openHandLocalizedText(context, zh: '通过', en: 'Passed')}'
         : '${data.chipLabel(context)} · ${openHandContinueLabel(context)}';
-    return <Widget>[
-      _MessageContextCapsule(
-        icon: data.icon,
-        label: label,
-        textColor: textColor,
-      ),
-    ];
+    return <Widget>[_MessageContextCapsule(icon: data.icon, label: label)];
   }
 }
 
@@ -6721,7 +6654,6 @@ class _GoalObjectiveContextCapsules {
   static List<Widget> build(
     BuildContext context, {
     required AiSessionMessage message,
-    required Color textColor,
   }) {
     if (message.kind != AiSessionMessageKind.user) {
       return const <Widget>[];
@@ -6748,7 +6680,6 @@ class _GoalObjectiveContextCapsules {
       _MessageContextCapsule(
         icon: Icons.flag_rounded,
         label: '${_homeMessageBubGoalLabel(context)} · ${_shortGoalId(goalId)}',
-        textColor: textColor,
         maxLabelWidth: 180,
       ),
     ];
@@ -6769,7 +6700,6 @@ class _MachineExpertRequestContextCapsules {
   static List<Widget> build(
     BuildContext context, {
     required AiSessionMessage message,
-    required Color textColor,
   }) {
     final data = _machineExpertRequestCardFor(message);
     if (data == null) {
@@ -6783,13 +6713,11 @@ class _MachineExpertRequestContextCapsules {
           zh: '机器专家请求',
           en: 'Machine Expert Request',
         ),
-        textColor: textColor,
       ),
       if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
         _MessageContextCapsule(
           icon: Icons.my_location_rounded,
           label: _homeMessageBubPreciseTargetLabel(context),
-          textColor: textColor,
         ),
     ];
   }
@@ -6801,7 +6729,6 @@ class _ReverseExpertRequestContextCapsules {
   static List<Widget> build(
     BuildContext context, {
     required AiSessionMessage message,
-    required Color textColor,
   }) {
     final webData = _webReverseRequestCardFor(message);
     if (webData != null) {
@@ -6809,13 +6736,11 @@ class _ReverseExpertRequestContextCapsules {
         _MessageContextCapsule(
           icon: Icons.travel_explore_rounded,
           label: _homeMessageBubWebReverseRequestLabel(context),
-          textColor: textColor,
         ),
         if (webData.cdpPort.trim().isNotEmpty)
           _MessageContextCapsule(
             icon: Icons.settings_ethernet_rounded,
             label: 'CDP ${webData.cdpPort.trim()}',
-            textColor: textColor,
           ),
       ];
     }
@@ -6827,13 +6752,11 @@ class _ReverseExpertRequestContextCapsules {
       _MessageContextCapsule(
         icon: Icons.android_rounded,
         label: _homeMessageBubAndroidReverseRequestLabel(context),
-        textColor: textColor,
       ),
       if ((androidData.packageName ?? '').trim().isNotEmpty)
         _MessageContextCapsule(
           icon: Icons.apps_rounded,
           label: androidData.packageName!.trim(),
-          textColor: textColor,
         ),
     ];
   }
@@ -7015,7 +6938,6 @@ class _MessageContextCapsule extends StatelessWidget {
   const _MessageContextCapsule({
     required this.icon,
     required this.label,
-    required this.textColor,
     this.leading,
     this.maxLabelWidth,
     this.onPressed,
@@ -7023,7 +6945,6 @@ class _MessageContextCapsule extends StatelessWidget {
 
   final IconData icon;
   final String label;
-  final Color textColor;
   final Widget? leading;
   final double? maxLabelWidth;
   final VoidCallback? onPressed;
@@ -7224,12 +7145,10 @@ class _UserMessageAttachmentTile extends StatelessWidget {
 class _KnowledgeBaseContextCapsule extends StatelessWidget {
   const _KnowledgeBaseContextCapsule({
     required this.label,
-    required this.textColor,
     required this.onPressed,
   });
 
   final String label;
-  final Color textColor;
   final VoidCallback onPressed;
 
   @override
@@ -7237,7 +7156,6 @@ class _KnowledgeBaseContextCapsule extends StatelessWidget {
     return _MessageContextCapsule(
       icon: Icons.auto_stories_rounded,
       label: label,
-      textColor: textColor,
       maxLabelWidth: 280,
       onPressed: onPressed,
     );
@@ -7245,10 +7163,9 @@ class _KnowledgeBaseContextCapsule extends StatelessWidget {
 }
 
 class _CreationModeChip extends StatelessWidget {
-  const _CreationModeChip({required this.request, required this.textColor});
+  const _CreationModeChip({required this.request});
 
   final AiCreationRequest request;
-  final Color textColor;
 
   @override
   Widget build(BuildContext context) {
@@ -7264,23 +7181,15 @@ class _CreationModeChip extends StatelessWidget {
     final detailParts = _creationOptionDetailParts(l10n, request.options);
     final label = _creationModeChipLabel(l10n, request.mode);
     final detail = detailParts.isEmpty ? '' : ' · ${detailParts.join(' · ')}';
-    return _MessageContextCapsule(
-      icon: icon,
-      label: '$label$detail',
-      textColor: textColor,
-    );
+    return _MessageContextCapsule(icon: icon, label: '$label$detail');
   }
 }
 
 /// 消息显式选择本地技能时展示的上下文胶囊。
 class _UserSkillSelectionChip extends StatelessWidget {
-  const _UserSkillSelectionChip({
-    required this.metadata,
-    required this.textColor,
-  });
+  const _UserSkillSelectionChip({required this.metadata});
 
   final Object? metadata;
-  final Color textColor;
 
   static String nameFromMetadata(Object? metadata) {
     final map = stringKeyedMapFromValue(metadata);
@@ -7309,7 +7218,6 @@ class _UserSkillSelectionChip extends StatelessWidget {
     return _MessageContextCapsule(
       icon: Icons.extension_rounded,
       label: label,
-      textColor: textColor,
       leading: leading,
     );
   }
