@@ -48,14 +48,8 @@ bool constantTimeStringEquals(String left, String right) {
   return difference == 0;
 }
 
-/// 整体或以 `-` 结尾即视为凭据的键名。
-///
-/// 用「整体相等或以 `-<后缀>` 结尾」而不是子串包含：`authorization-scope`
-/// 这类描述性字段不该被抹掉，抹掉了排查请求头问题就没了线索。
-///
-/// 后半段的连写形式（`apikey` / `accesstoken` …）是必要的：模型与 MCP 都允许
-/// 用户自填请求头，而这些写法按 `-` 切词后是一个整词，走不到下面的分词匹配，
-/// 此前会原样落进会话遥测并随导出文件一起带走。
+/// 凭据键匹配完整名称或 `-名称` 后缀，避免误删 `authorization-scope` 等描述字段。
+/// 连写形式覆盖用户自定义请求头中的 `apikey`、`accesstoken` 等写法。
 const List<String> _sensitiveKeySuffixes = <String>[
   'authorization',
   'authentication',

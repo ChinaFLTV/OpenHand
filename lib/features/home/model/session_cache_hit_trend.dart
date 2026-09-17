@@ -63,9 +63,7 @@ class SessionCacheHitTurnPoint {
     required this.starterMessageKind,
     required this.starterOrigin,
     required this.anchorMessageId,
-    required this.timestamp,
     required this.hitRatio,
-    required this.averageHitRatio,
     required this.promptTokens,
     required this.cacheReadTokens,
     required this.cacheWriteTokens,
@@ -82,9 +80,7 @@ class SessionCacheHitTurnPoint {
   final String starterMessageKind;
   final String starterOrigin;
   final String anchorMessageId;
-  final DateTime timestamp;
   final double hitRatio;
-  final double averageHitRatio;
   final int promptTokens;
   final int cacheReadTokens;
   final int cacheWriteTokens;
@@ -212,14 +208,9 @@ class SessionCacheHitViewport {
 }
 
 class SessionCacheHitTrend {
-  const SessionCacheHitTrend({
-    required this.points,
-    required this.averageHitRatio,
-    required this.claudeStyle,
-  });
+  const SessionCacheHitTrend({required this.points, required this.claudeStyle});
 
   final List<SessionCacheHitTurnPoint> points;
-  final double averageHitRatio;
   final bool claudeStyle;
 
   bool get hasEnoughPoints => points.length >= 2;
@@ -277,7 +268,6 @@ class SessionCacheHitTrend {
       mode: mode,
       trend: SessionCacheHitTrend(
         points: List<SessionCacheHitTurnPoint>.unmodifiable(chartPoints),
-        averageHitRatio: averageHitRatio,
         claudeStyle: claudeStyle,
       ),
       averageHitRatio: averageHitRatio,
@@ -300,9 +290,6 @@ class SessionCacheHitTrend {
   }) {
     final points = <SessionCacheHitTurnPoint>[];
     var turnIndex = 0;
-    var averagePromptTotal = 0;
-    var averageCacheReadTotal = 0;
-    var averageCacheWriteTotal = 0;
     int? previousDenominatorTokens;
     AiSessionMessage? previousRoundStarter;
 
@@ -354,15 +341,6 @@ class SessionCacheHitTrend {
       if (!hasCacheUsageTelemetry) {
         continue;
       }
-      averagePromptTotal += promptTokens;
-      averageCacheReadTotal += cacheReadTokens;
-      averageCacheWriteTotal += cacheWriteTokens;
-      final averageHitRatio = computeCacheHitRatio(
-        promptTokens: averagePromptTotal,
-        cacheReadTokens: averageCacheReadTotal,
-        claudeStyle: claudeStyle,
-        cacheWriteTokens: averageCacheWriteTotal,
-      );
       final fallbackIdleGapSeconds = previousStarter == null
           ? null
           : message.createdAt.difference(previousStarter.createdAt).inSeconds;
@@ -386,9 +364,7 @@ class SessionCacheHitTrend {
           starterMessageKind: message.kind.storageValue,
           starterOrigin: message.senderOrigin,
           anchorMessageId: anchor?.id ?? '',
-          timestamp: telemetryMessage.createdAt,
           hitRatio: hitRatio,
-          averageHitRatio: averageHitRatio,
           promptTokens: promptTokens,
           cacheReadTokens: cacheReadTokens,
           cacheWriteTokens: cacheWriteTokens,
@@ -447,14 +423,7 @@ class SessionCacheHitTrend {
     required bool claudeStyle,
   }) {
     final points = <SessionCacheHitTurnPoint>[];
-    var promptTotal = 0;
-    var cacheReadTotal = 0;
-    var cacheWriteTotal = 0;
     int? previousDenominatorTokens;
-    final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
-      0,
-      isUtc: true,
-    );
     for (final point in statistics.cacheHitTrendPoints) {
       final denominator = computeCacheHitDenominatorTokens(
         promptTokens: point.promptTokens,
@@ -463,19 +432,10 @@ class SessionCacheHitTrend {
         claudeStyle: claudeStyle,
       );
       if (denominator <= 0) continue;
-      promptTotal += point.promptTokens;
-      cacheReadTotal += point.cacheReadTokens;
-      cacheWriteTotal += point.cacheWriteTokens;
       final hitRatio = computeCacheHitRatio(
         promptTokens: point.promptTokens,
         cacheReadTokens: point.cacheReadTokens,
         cacheWriteTokens: point.cacheWriteTokens,
-        claudeStyle: claudeStyle,
-      );
-      final averageHitRatio = computeCacheHitRatio(
-        promptTokens: promptTotal,
-        cacheReadTokens: cacheReadTotal,
-        cacheWriteTokens: cacheWriteTotal,
         claudeStyle: claudeStyle,
       );
       final ttlSuspected = _isExpiredCacheMissByValues(
@@ -489,9 +449,7 @@ class SessionCacheHitTrend {
           starterMessageKind: point.starterMessageKind ?? '',
           starterOrigin: point.starterOrigin ?? '',
           anchorMessageId: point.anchorMessageId ?? '',
-          timestamp: fallbackTimestamp,
           hitRatio: hitRatio,
-          averageHitRatio: averageHitRatio,
           promptTokens: point.promptTokens,
           cacheReadTokens: point.cacheReadTokens,
           cacheWriteTokens: point.cacheWriteTokens,
@@ -513,15 +471,8 @@ class SessionCacheHitTrend {
     List<SessionCacheHitTurnPoint> points, {
     required bool claudeStyle,
   }) {
-    final averageHitRatio = _averageCacheHitRatioForPoints(
-      points.where((point) {
-        return !point.isFirstRequest && !_isExpiredCacheMiss(point);
-      }),
-      claudeStyle: claudeStyle,
-    );
     return SessionCacheHitTrend(
       points: List<SessionCacheHitTurnPoint>.unmodifiable(points),
-      averageHitRatio: averageHitRatio,
       claudeStyle: claudeStyle,
     );
   }
@@ -539,27 +490,6 @@ class SessionCacheHitTrend {
 
 bool _hasCacheUsageTelemetry(AiTokenUsage? usage) {
   return usage?.cacheReadTokens != null || usage?.cacheCreationTokens != null;
-}
-
-double _averageCacheHitRatioForPoints(
-  Iterable<SessionCacheHitTurnPoint> points, {
-  required bool claudeStyle,
-}) {
-  var cacheReadTokens = 0;
-  var cacheWriteTokens = 0;
-  var uncachedPromptTokens = 0;
-  for (final point in points) {
-    cacheReadTokens += point.cacheReadTokens;
-    cacheWriteTokens += point.cacheWriteTokens;
-    uncachedPromptTokens += computeUncachedPromptTokens(
-      promptTokens: point.promptTokens,
-      cacheReadTokens: point.cacheReadTokens,
-      claudeStyle: claudeStyle,
-      cacheWriteTokens: point.cacheWriteTokens,
-    );
-  }
-  final denominator = cacheReadTokens + cacheWriteTokens + uncachedPromptTokens;
-  return unitRatio(cacheReadTokens, denominator);
 }
 
 class _CacheHitDiagnostics {

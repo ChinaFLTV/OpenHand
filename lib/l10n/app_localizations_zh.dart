@@ -3772,9 +3772,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get creationOptionsPitch => '音高';
 
   @override
-  String get creationOptionsCount => '数量';
-
-  @override
   String get creationOptionsAuto => '默认';
 
   @override
@@ -6585,12 +6582,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get settingsThisWillRestoreAllBuiltIn =>
       '这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。';
-
-  @override
-  String get tlCallUnwrap => '取消换行';
-
-  @override
-  String get tlCallWrapLines => '自动换行';
 
   @override
   String get tlCallViewCompressedContent => '查看压缩内容';
@@ -14446,9 +14437,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get creationOptionsPitch => '音高';
 
   @override
-  String get creationOptionsCount => '數量';
-
-  @override
   String get creationOptionsAuto => '預設';
 
   @override
@@ -17256,12 +17244,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get settingsThisWillRestoreAllBuiltIn =>
       '这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。';
-
-  @override
-  String get tlCallUnwrap => '取消换行';
-
-  @override
-  String get tlCallWrapLines => '自动换行';
 
   @override
   String get tlCallViewCompressedContent => '查看压缩内容';

@@ -71,16 +71,6 @@ class NativeAudioPlaybackSettings {
     return NativeAudioPlaybackSettings(volume: volume, effect: effect);
   }
 
-  NativeAudioPlaybackSettings copyWith({
-    double? volume,
-    NativeAudioEffect? effect,
-  }) {
-    return NativeAudioPlaybackSettings(
-      volume: volume ?? this.volume,
-      effect: effect ?? this.effect,
-    );
-  }
-
   Map<String, Object?> toJson() => <String, Object?>{
     'volume': volume,
     'effect': effect.storageValue,

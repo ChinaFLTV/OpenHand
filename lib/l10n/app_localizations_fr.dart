@@ -3968,9 +3968,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get creationOptionsPitch => 'Hauteur';
 
   @override
-  String get creationOptionsCount => 'Quantité';
-
-  @override
   String get creationOptionsAuto => 'Par défaut';
 
   @override
@@ -6956,12 +6953,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settingsThisWillRestoreAllBuiltIn =>
       'Ceci restaurera toutes les configurations d’outils intégrés aux valeurs d’usine, y compris le nom, la description, le schéma, etc.';
-
-  @override
-  String get tlCallUnwrap => 'Annuler le retour à la ligne';
-
-  @override
-  String get tlCallWrapLines => 'Renvoyer les lignes à la ligne';
 
   @override
   String get tlCallViewCompressedContent => 'Voir le contenu compressé';

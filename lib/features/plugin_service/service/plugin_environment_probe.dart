@@ -113,10 +113,6 @@ final class PluginNpmPackageInstallation {
 final RegExp _pluginSemverPattern = RegExp(r'(\d+\.\d+\.\d+)');
 
 /// 独占一行的稳定版本号；`pyenv install --list` 里带后缀的预览版因此被排除。
-///
-/// **必须开 multiLine**：不开时 `^`/`$` 只锚定整段输入的首尾，对多行输出永远
-/// 匹配不到——两个插件服务里的旧副本都漏了这个标记，导致「查最新 Python 版本」
-/// 的兜底分支实际上从来没生效过。
 final RegExp _pluginStableVersionLinePattern = RegExp(
   r'^\s*(\d+\.\d+\.\d+)\s*$',
   multiLine: true,
@@ -153,9 +149,6 @@ String? extractPluginAbsolutePath(String output) {
 }
 
 /// 由 `npm root -g` 的执行结果定位全局包安装位置。
-///
-/// 两个插件服务跑这条命令的方式不同（一个走托管进程、一个走 shell），但拿到
-/// 输出之后的解析完全一样，此前各写一遍。
 Future<PluginNpmPackageInstallation?> resolvePluginGlobalNpmPackage({
   required int exitCode,
   required String stdout,

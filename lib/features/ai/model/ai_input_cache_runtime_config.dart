@@ -18,14 +18,6 @@ class AiInputCacheRuntimeConfig {
     this.promptCacheKey = '',
   });
 
-  /// 一个明确的"无缓存"哨兵；适配器收到 null 或 disabled 都走旧路径。
-  static const AiInputCacheRuntimeConfig disabled = AiInputCacheRuntimeConfig(
-    enabled: false,
-    mode: 'allMessages',
-    updateInterval: 10,
-    breakpointCount: 4,
-  );
-
   final bool enabled;
 
   /// 'allMessages' / 'userMessages' / 'tokens'.

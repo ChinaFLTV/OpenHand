@@ -622,23 +622,6 @@ class McpOpsTrafficSample {
       p95LatencyMs: nonNegativeIntFromValue(map['p95_latency_ms'], fallback: 0),
     );
   }
-
-  McpOpsTrafficSample copyWith({
-    int? success,
-    int? blocked,
-    int? failed,
-    int? avgLatencyMs,
-    int? p95LatencyMs,
-  }) {
-    return McpOpsTrafficSample(
-      minute: minute,
-      success: success ?? this.success,
-      blocked: blocked ?? this.blocked,
-      failed: failed ?? this.failed,
-      avgLatencyMs: avgLatencyMs ?? this.avgLatencyMs,
-      p95LatencyMs: p95LatencyMs ?? this.p95LatencyMs,
-    );
-  }
 }
 
 class McpOpsRuntimeSnapshot {

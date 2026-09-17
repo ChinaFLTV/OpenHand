@@ -290,28 +290,6 @@ class WebGatewayHealthCheckConfig {
   final String responseContains;
   final bool followRedirects;
 
-  WebGatewayHealthCheckConfig copyWith({
-    bool? enabled,
-    String? path,
-    String? method,
-    Map<String, String>? queryParameters,
-    int? timeoutMs,
-    int? expectedStatusCode,
-    String? responseContains,
-    bool? followRedirects,
-  }) {
-    return WebGatewayHealthCheckConfig(
-      enabled: enabled ?? this.enabled,
-      path: path ?? this.path,
-      method: method ?? this.method,
-      queryParameters: queryParameters ?? this.queryParameters,
-      timeoutMs: timeoutMs ?? this.timeoutMs,
-      expectedStatusCode: expectedStatusCode ?? this.expectedStatusCode,
-      responseContains: responseContains ?? this.responseContains,
-      followRedirects: followRedirects ?? this.followRedirects,
-    );
-  }
-
   WebGatewayHealthCheckConfig normalized() {
     return WebGatewayHealthCheckConfig(
       enabled: enabled,
@@ -366,22 +344,6 @@ class WebGatewayLogConfig {
   final int maxFiles;
   final List<String> levels;
   final int lazyReadPageSize;
-
-  WebGatewayLogConfig copyWith({
-    int? fileMaxBytes,
-    int? rotationDays,
-    int? maxFiles,
-    List<String>? levels,
-    int? lazyReadPageSize,
-  }) {
-    return WebGatewayLogConfig(
-      fileMaxBytes: fileMaxBytes ?? this.fileMaxBytes,
-      rotationDays: rotationDays ?? this.rotationDays,
-      maxFiles: maxFiles ?? this.maxFiles,
-      levels: levels ?? this.levels,
-      lazyReadPageSize: lazyReadPageSize ?? this.lazyReadPageSize,
-    );
-  }
 
   WebGatewayLogConfig normalized() {
     return WebGatewayLogConfig(

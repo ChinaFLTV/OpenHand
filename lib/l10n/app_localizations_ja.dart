@@ -3817,9 +3817,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get creationOptionsPitch => '音高';
 
   @override
-  String get creationOptionsCount => '数量';
-
-  @override
   String get creationOptionsAuto => '既定';
 
   @override
@@ -6682,12 +6679,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get settingsThisWillRestoreAllBuiltIn =>
       'これにより、すべての組み込みツール設定が工場出荷時のデフォルト（名前、説明、スキーマなどを含む）に復元されます。';
-
-  @override
-  String get tlCallUnwrap => '折り返しを解除';
-
-  @override
-  String get tlCallWrapLines => '行を折り返す';
 
   @override
   String get tlCallViewCompressedContent => '圧縮されたコンテンツを表示';

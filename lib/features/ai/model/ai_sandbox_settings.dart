@@ -61,20 +61,6 @@ class AiSandboxPatternRule extends AiCommandRule {
     super.note,
   });
 
-  AiSandboxPatternRule copyWith({
-    String? id,
-    String? pattern,
-    AiCommandMatchMode? matchMode,
-    String? note,
-  }) {
-    return AiSandboxPatternRule(
-      id: id ?? this.id,
-      pattern: pattern ?? this.pattern,
-      matchMode: matchMode ?? this.matchMode,
-      note: note ?? this.note,
-    );
-  }
-
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -117,22 +103,6 @@ class AiSandboxFileRule {
   final AiSandboxFileAccessMode accessMode;
   final AiCommandMatchMode matchMode;
   final String note;
-
-  AiSandboxFileRule copyWith({
-    String? id,
-    String? path,
-    AiSandboxFileAccessMode? accessMode,
-    AiCommandMatchMode? matchMode,
-    String? note,
-  }) {
-    return AiSandboxFileRule(
-      id: id ?? this.id,
-      path: path ?? this.path,
-      accessMode: accessMode ?? this.accessMode,
-      matchMode: matchMode ?? this.matchMode,
-      note: note ?? this.note,
-    );
-  }
 
   Map<String, Object?> toJson() {
     return <String, Object?>{

@@ -57,7 +57,6 @@ const BoundedDeletePolicy _kUpdateCleanupPolicy = BoundedDeletePolicy(
 class AppReleaseInfo {
   const AppReleaseInfo({
     required this.version,
-    required this.tagName,
     required this.releaseName,
     required this.releaseNotes,
     required this.publishedAt,
@@ -67,7 +66,6 @@ class AppReleaseInfo {
   });
 
   final String version;
-  final String tagName;
   final String releaseName;
   final String releaseNotes;
   final DateTime publishedAt;
@@ -516,7 +514,6 @@ AppReleaseInfo? _parseGitHubReleaseInfo(
   final releaseNotes = stringFromValue(json['body']);
   return AppReleaseInfo(
     version: version,
-    tagName: tagName,
     releaseName: clipTextByCodeUnits(
       releaseName,
       _kUpdateReleaseNameMaxCharacters,

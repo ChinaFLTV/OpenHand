@@ -10713,7 +10713,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         folded.add(region.startLine);
       }
     });
-    _applyFolding(filePath);
+    _textControllers[filePath]?.invalidateHighlightCache(notify: true);
   }
 
   void _foldAtCursor(String filePath) {
@@ -10722,7 +10722,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final folded = _foldedRegions.putIfAbsent(filePath, () => <int>{});
     if (folded.contains(region.startLine)) return;
     setState(() => folded.add(region.startLine));
-    _applyFolding(filePath);
+    _textControllers[filePath]?.invalidateHighlightCache(notify: true);
   }
 
   void _unfoldAtCursor(String filePath) {
@@ -10731,7 +10731,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final folded = _foldedRegions[filePath];
     if (folded == null || !folded.contains(region.startLine)) return;
     setState(() => folded.remove(region.startLine));
-    _applyFolding(filePath);
+    _textControllers[filePath]?.invalidateHighlightCache(notify: true);
   }
 
   void _foldAll(String filePath) {
@@ -10743,14 +10743,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         folded.add(region.startLine);
       }
     });
-    _applyFolding(filePath);
+    _textControllers[filePath]?.invalidateHighlightCache(notify: true);
   }
 
   void _unfoldAll(String filePath) {
     final folded = _foldedRegions[filePath];
     if (folded == null || folded.isEmpty) return;
     setState(folded.clear);
-    _applyFolding(filePath);
+    _textControllers[filePath]?.invalidateHighlightCache(notify: true);
   }
 
   void _foldComments(String filePath) {
@@ -10765,7 +10765,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         folded.add(region.startLine);
       }
     });
-    _applyFolding(filePath);
+    _textControllers[filePath]?.invalidateHighlightCache(notify: true);
   }
 
   void _unfoldComments(String filePath) {
@@ -10777,23 +10777,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final folded = _foldedRegions[filePath];
     if (folded == null || folded.isEmpty) return;
     setState(() => folded.removeWhere(commentStarts.contains));
-    _applyFolding(filePath);
-  }
-
-  /// 将折叠状态同步到文本控制器。
-  void _applyFolding(String filePath) {
-    final controller = _textControllers[filePath];
-    if (controller == null) return;
-    final foldedStarts = _foldedRegions[filePath];
-    if (foldedStarts == null || foldedStarts.isEmpty) {
-      controller.foldedLineRanges = const <_FoldableRegion>[];
-      return;
-    }
-    final regions = _foldableRegionsForFile(filePath);
-    final active = regions
-        .where((r) => foldedStarts.contains(r.startLine))
-        .toList(growable: false);
-    controller.foldedLineRanges = active;
+    _textControllers[filePath]?.invalidateHighlightCache(notify: true);
   }
 
   @override
@@ -13059,15 +13043,6 @@ class _HighlightingTextController extends TextEditingController {
 
   /// 用于视口缓存命中判断的光标行。
   int _cachedCursorLine = 0;
-  List<_FoldableRegion> _foldedLineRanges = const <_FoldableRegion>[];
-
-  set foldedLineRanges(List<_FoldableRegion> value) {
-    _foldedLineRanges = List<_FoldableRegion>.unmodifiable(value);
-    invalidateHighlightCache();
-    notifyListeners();
-  }
-
-  List<_FoldableRegion> get foldedLineRanges => _foldedLineRanges;
 
   /// 完全跳过语法高亮的字符数阈值。
   static const _maxHighlightLength = 96 * kBytesPerKiB;
@@ -13332,7 +13307,7 @@ class _HighlightingTextController extends TextEditingController {
     _lineOffsets = offsets;
   }
 
-  void invalidateHighlightCache() {
+  void invalidateHighlightCache({bool notify = false}) {
     _debounceTimer?.cancel();
     _cachedSpan = null;
     _lastText = null;
@@ -13340,6 +13315,7 @@ class _HighlightingTextController extends TextEditingController {
     _lastDiagnosticsRevision = null;
     _viewportStartLine = -1;
     _viewportEndLine = -1;
+    if (notify) notifyListeners();
   }
 
   /// 通过二分查找返回字符偏移对应的行下标。

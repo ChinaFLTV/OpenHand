@@ -7002,12 +7002,6 @@ abstract class AppLocalizations {
   /// **'音高'**
   String get creationOptionsPitch;
 
-  /// No description provided for @creationOptionsCount.
-  ///
-  /// In zh, this message translates to:
-  /// **'数量'**
-  String get creationOptionsCount;
-
   /// No description provided for @creationOptionsAuto.
   ///
   /// In zh, this message translates to:
@@ -12245,18 +12239,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。'**
   String get settingsThisWillRestoreAllBuiltIn;
-
-  /// No description provided for @tlCallUnwrap.
-  ///
-  /// In zh, this message translates to:
-  /// **'取消换行'**
-  String get tlCallUnwrap;
-
-  /// No description provided for @tlCallWrapLines.
-  ///
-  /// In zh, this message translates to:
-  /// **'自动换行'**
-  String get tlCallWrapLines;
 
   /// No description provided for @tlCallViewCompressedContent.
   ///

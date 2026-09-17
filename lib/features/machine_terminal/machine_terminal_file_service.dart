@@ -115,12 +115,6 @@ class MachineTerminalFileProgress {
   final int processed;
   final int? total;
   final MachineTerminalFileProgressUnit unit;
-
-  double? get progress => machineTerminalFileProgressRatio(
-    processed: processed,
-    total: total,
-    unit: unit,
-  );
 }
 
 @immutable

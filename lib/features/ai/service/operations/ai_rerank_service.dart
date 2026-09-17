@@ -12,28 +12,19 @@ import '../usage/ai_usage_tracker.dart';
 import 'ai_operation_http.dart';
 
 class AiRerankItem {
-  const AiRerankItem({
-    required this.index,
-    required this.score,
-    this.document,
-    this.payload = const <String, Object?>{},
-  });
+  const AiRerankItem({required this.index, required this.score});
 
   final int index;
   final double score;
-  final Object? document;
-  final Map<String, Object?> payload;
 }
 
 class AiRerankResult {
   const AiRerankResult({
     required this.items,
-    required this.rawResponse,
     this.payload = const <String, Object?>{},
   });
 
   final List<AiRerankItem> items;
-  final String rawResponse;
   final Map<String, Object?> payload;
 }
 
@@ -45,7 +36,6 @@ class AiRerankService {
 
   static const AiRerankResult _emptyResult = AiRerankResult(
     items: <AiRerankItem>[],
-    rawResponse: '',
     payload: <String, Object?>{'results': <Object?>[]},
   );
 
@@ -93,7 +83,6 @@ class AiRerankService {
       );
       final result = await _sendPlan(
         model: model,
-        documents: documents,
         plan: plan,
         timeout: timeout,
         cancelSignal: cancelSignal,
@@ -129,7 +118,6 @@ class AiRerankService {
 
   Future<AiRerankResult> _sendPlan({
     required AiModelConfig model,
-    required List<Object> documents,
     required _RerankRequestPlan plan,
     required Duration timeout,
     required Future<void>? cancelSignal,
@@ -155,11 +143,7 @@ class AiRerankService {
       body: response.body,
       contextHint: plan.contextHint,
     );
-    return AiRerankResult(
-      items: _parseItems(payload, documents: documents),
-      rawResponse: response.body,
-      payload: payload,
-    );
+    return AiRerankResult(items: _parseItems(payload), payload: payload);
   }
 
   _RerankRequestPlan _buildRequestPlan({
@@ -192,10 +176,7 @@ class AiRerankService {
     throw StateError('No rerank request strategy matched.');
   }
 
-  List<AiRerankItem> _parseItems(
-    Map<String, Object?> payload, {
-    required List<Object> documents,
-  }) {
+  List<AiRerankItem> _parseItems(Map<String, Object?> payload) {
     final rawResults = _firstRerankList(payload);
     final items = <AiRerankItem>[];
     for (final item in rawResults) {
@@ -217,14 +198,7 @@ class AiRerankService {
             itemPayload['logit'],
       );
       if (index == null || score == null) continue;
-      items.add(
-        AiRerankItem(
-          index: index,
-          score: score,
-          document: itemPayload['document'] ?? _documentAt(documents, index),
-          payload: itemPayload,
-        ),
-      );
+      items.add(AiRerankItem(index: index, score: score));
     }
     return items;
   }
@@ -611,11 +585,6 @@ String _documentText(Object document) {
     return jsonEncode(document);
   }
   return '$document';
-}
-
-Object? _documentAt(List<Object> documents, int index) {
-  if (index < 0 || index >= documents.length) return null;
-  return documents[index];
 }
 
 const Set<String> _deepMergeableRerankBodyKeys = <String>{

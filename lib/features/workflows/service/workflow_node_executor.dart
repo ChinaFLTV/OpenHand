@@ -781,7 +781,7 @@ class WorkflowNodeExecutor {
         resources.cancellation?.throwIfCancelled();
         final output = WorkflowStructuredOutputParser.resolveValues(
           outputFields,
-          result.output,
+          result,
           label: '代码输出参数',
           defaultVariables: variables,
         );

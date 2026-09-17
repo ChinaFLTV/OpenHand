@@ -282,20 +282,6 @@ class AiSessionTodoItem {
   final String status;
   final String activeForm;
 
-  AiSessionTodoItem copyWith({
-    String? id,
-    String? content,
-    String? status,
-    String? activeForm,
-  }) {
-    return AiSessionTodoItem(
-      id: id ?? this.id,
-      content: content ?? this.content,
-      status: status ?? this.status,
-      activeForm: activeForm ?? this.activeForm,
-    );
-  }
-
   Map<String, Object?> toJson() {
     final json = <String, Object?>{
       'id': id,
@@ -1793,44 +1779,6 @@ class AiSessionEnvironment {
   final int compressionThresholdChars;
   final int singleRoundToolCallLimit;
   final int sequentialToolRoundLimit;
-
-  AiSessionEnvironment copyWith({
-    String? localeTag,
-    String? platform,
-    String? appVersion,
-    String? appBuildNumber,
-    String? applicationDirectory,
-    String? homeDirectory,
-    String? settingsFilePath,
-    String? skillsStoragePath,
-    String? mcpServersFilePath,
-    String? userMemoryFilePath,
-    String? sessionsDirectoryPath,
-    int? compressionThresholdChars,
-    int? singleRoundToolCallLimit,
-    int? sequentialToolRoundLimit,
-  }) {
-    return AiSessionEnvironment(
-      localeTag: localeTag ?? this.localeTag,
-      platform: platform ?? this.platform,
-      appVersion: appVersion ?? this.appVersion,
-      appBuildNumber: appBuildNumber ?? this.appBuildNumber,
-      applicationDirectory: applicationDirectory ?? this.applicationDirectory,
-      homeDirectory: homeDirectory ?? this.homeDirectory,
-      settingsFilePath: settingsFilePath ?? this.settingsFilePath,
-      skillsStoragePath: skillsStoragePath ?? this.skillsStoragePath,
-      mcpServersFilePath: mcpServersFilePath ?? this.mcpServersFilePath,
-      userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
-      sessionsDirectoryPath:
-          sessionsDirectoryPath ?? this.sessionsDirectoryPath,
-      compressionThresholdChars:
-          compressionThresholdChars ?? this.compressionThresholdChars,
-      singleRoundToolCallLimit:
-          singleRoundToolCallLimit ?? this.singleRoundToolCallLimit,
-      sequentialToolRoundLimit:
-          sequentialToolRoundLimit ?? this.sequentialToolRoundLimit,
-    );
-  }
 
   Map<String, Object?> toJson() {
     return <String, Object?>{

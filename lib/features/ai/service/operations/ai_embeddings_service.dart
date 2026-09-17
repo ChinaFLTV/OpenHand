@@ -16,12 +16,10 @@ import 'ai_operation_http.dart';
 class AiEmbeddingResult {
   const AiEmbeddingResult({
     required this.vectors,
-    required this.rawResponse,
     this.payload = const <String, Object?>{},
   });
 
   final List<List<double>> vectors;
-  final String rawResponse;
   final Map<String, Object?> payload;
 }
 
@@ -37,7 +35,6 @@ class AiEmbeddingsService {
       'v1beta/models/{model_id}:batchEmbedContents';
   static const AiEmbeddingResult _emptyResult = AiEmbeddingResult(
     vectors: <List<double>>[],
-    rawResponse: '',
     payload: <String, Object?>{'data': <Object?>[]},
   );
   static const List<_EmbeddingRequestStrategy> _requestStrategies =
@@ -178,7 +175,6 @@ class AiEmbeddingsService {
         expectedDimensions:
             plan.expectedDimensions ?? _embeddingResponseDimensions(plan.body),
       ),
-      rawResponse: response.body,
       payload: payload,
     );
   }

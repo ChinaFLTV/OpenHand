@@ -19,7 +19,6 @@ class SkillHubMcpProvider implements McpMarketProvider {
     : _client = httpClient ?? SystemProxyResolver.instance.createHttpClient(),
       _ownsClient = httpClient == null;
 
-  static const int defaultPageSize = McpMarketProvider.defaultPageSize;
   static const int maxResponseBytes = 2 * kBytesPerMiB;
   static const Duration _timeout = Duration(seconds: 15);
   static const String _host = 'api.skillhub.cn';

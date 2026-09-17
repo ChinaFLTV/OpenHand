@@ -14,12 +14,6 @@ enum AiResourceUsagePayloadField {
       _ => null,
     };
   }
-
-  String get storageValue => switch (this) {
-    arguments => 'arguments',
-    result => 'result',
-    metadata => 'metadata',
-  };
 }
 
 enum AiResourceUsagePayloadOrigin { stored, persisted, recovered, truncated }

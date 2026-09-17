@@ -70,20 +70,6 @@ Map<WorkflowCodeLanguage, WorkflowCodeRuntime> workflowSystemCodeRuntimes() {
   };
 }
 
-class WorkflowCodeExecutionResult {
-  const WorkflowCodeExecutionResult({
-    required this.output,
-    required this.stdout,
-    required this.stderr,
-    required this.duration,
-  });
-
-  final Map<String, Object?> output;
-  final String stdout;
-  final String stderr;
-  final Duration duration;
-}
-
 class WorkflowCodeExecutionException implements Exception {
   const WorkflowCodeExecutionException(this.message, {this.cause});
 
@@ -111,17 +97,16 @@ class WorkflowCodeExecutor {
     Future<void>? cancelSignal,
   }) async {
     if (expressions.isEmpty) return const <String, Object?>{};
-    final result = await execute(
+    return execute(
       runtime: runtime,
       code: _expressionCode(runtime.language, expressions),
       inputs: variables,
       timeout: workflowValueExpressionTimeout,
       cancelSignal: cancelSignal,
     );
-    return result.output;
   }
 
-  Future<WorkflowCodeExecutionResult> execute({
+  Future<Map<String, Object?>> execute({
     required WorkflowCodeRuntime runtime,
     required String code,
     required Map<String, Object?> inputs,
@@ -157,7 +142,6 @@ class WorkflowCodeExecutor {
         maxWorkflowCodeTimeoutSeconds,
       ),
     );
-    final stopwatch = Stopwatch()..start();
     Directory? temporaryDirectory;
     try {
       temporaryDirectory = await createTemporaryDirectoryBounded(
@@ -238,16 +222,8 @@ class WorkflowCodeExecutor {
       if (value is! Map) {
         throw const WorkflowCodeExecutionException('main 函数必须返回 JSON 对象。');
       }
-      return WorkflowCodeExecutionResult(
-        output: Map<String, Object?>.unmodifiable(
-          stringKeyedMapFromValue(value),
-        ),
-        stdout: stdout,
-        stderr: stderr,
-        duration: stopwatch.elapsed,
-      );
+      return Map<String, Object?>.unmodifiable(stringKeyedMapFromValue(value));
     } finally {
-      stopwatch.stop();
       final directory = temporaryDirectory;
       if (directory != null) {
         try {

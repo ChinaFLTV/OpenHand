@@ -28,39 +28,6 @@ class AiRealtimeConfig {
       nullIfBlank(outputFormat) == null &&
       sessionDefaults.isEmpty;
 
-  AiRealtimeConfig copyWith({
-    String? transport,
-    String? urlOverride,
-    String? voice,
-    int? sampleRate,
-    String? inputFormat,
-    String? outputFormat,
-    Map<String, Object?>? sessionDefaults,
-    bool clearTransport = false,
-    bool clearUrlOverride = false,
-    bool clearVoice = false,
-    bool clearSampleRate = false,
-    bool clearInputFormat = false,
-    bool clearOutputFormat = false,
-    bool clearSessionDefaults = false,
-  }) {
-    return AiRealtimeConfig(
-      transport: clearTransport ? null : (transport ?? this.transport),
-      urlOverride: clearUrlOverride ? null : (urlOverride ?? this.urlOverride),
-      voice: clearVoice ? null : (voice ?? this.voice),
-      sampleRate: clearSampleRate
-          ? null
-          : normalizeSampleRate(sampleRate ?? this.sampleRate),
-      inputFormat: clearInputFormat ? null : (inputFormat ?? this.inputFormat),
-      outputFormat: clearOutputFormat
-          ? null
-          : (outputFormat ?? this.outputFormat),
-      sessionDefaults: clearSessionDefaults
-          ? const <String, Object?>{}
-          : (sessionDefaults ?? this.sessionDefaults),
-    );
-  }
-
   Map<String, Object?> toJson() {
     final json = <String, Object?>{};
     putIfNotBlank(json, 'transport', transport);

@@ -3159,33 +3159,6 @@ String _toolExecutionPreviewText(
   return AppLocalizations.of(context)!.tlCallExpandToInspectToolOutput;
 }
 
-String lastNonEmptyLine(String content) {
-  var lineEnd = content.length;
-  while (lineEnd > 0) {
-    var lineStart = lineEnd;
-    while (lineStart > 0) {
-      final unit = content.codeUnitAt(lineStart - 1);
-      if (unit == 0x0A || unit == 0x0D) {
-        break;
-      }
-      lineStart -= 1;
-    }
-    final line = content.substring(lineStart, lineEnd).trim();
-    if (line.isNotEmpty) {
-      return line;
-    }
-    while (lineStart > 0) {
-      final unit = content.codeUnitAt(lineStart - 1);
-      if (unit != 0x0A && unit != 0x0D) {
-        break;
-      }
-      lineStart -= 1;
-    }
-    lineEnd = lineStart;
-  }
-  return '';
-}
-
 int _toolExecutionDurationMs(AiSessionMessage message) {
   final rawValue =
       message.metadata['tool_execution_elapsed_ms'] ??

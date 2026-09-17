@@ -513,9 +513,7 @@ const Duration kTrackedProcessSlotGracePeriod = Duration(milliseconds: 500);
 
 /// 单进程槽位：同一时刻只跟踪一个子进程，并用代际号作废过期的那一轮。
 ///
-/// 安装 / 校验类弹窗共享同一套生命周期：开新一轮前自增代际，旧代际迟到交回
-/// 的进程立刻终止而不占用槽位；取消与销毁时终止在跑的进程。此前 LSP 安装与
-/// Harness CLI 安装各写了一份，任何加固都得改两处且容易漏。
+/// 开始新一轮时作废旧代际，迟到进程立即终止；取消与销毁时回收当前进程。
 ///
 /// 只负责进程与代际，`mounted` / `disposed` 这类 Widget 状态仍由调用方判断。
 class TrackedProcessSlot {

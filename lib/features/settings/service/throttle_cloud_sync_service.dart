@@ -73,7 +73,6 @@ class ThrottleCloudSyncResult {
     required this.ok,
     this.message = '',
     this.config,
-    this.fetchedAt,
     this.updatedAtMs = 0,
     this.createdGistId = '',
   });
@@ -81,7 +80,6 @@ class ThrottleCloudSyncResult {
   factory ThrottleCloudSyncResult.success({
     String message = '',
     Map<String, Object?>? config,
-    DateTime? fetchedAt,
     int updatedAtMs = 0,
     String createdGistId = '',
   }) {
@@ -89,7 +87,6 @@ class ThrottleCloudSyncResult {
       ok: true,
       message: message,
       config: config,
-      fetchedAt: fetchedAt,
       updatedAtMs: updatedAtMs,
       createdGistId: createdGistId,
     );
@@ -102,7 +99,6 @@ class ThrottleCloudSyncResult {
   final bool ok;
   final String message;
   final Map<String, Object?>? config;
-  final DateTime? fetchedAt;
 
   /// 远端最近一次 push 的本地 epoch ms。0 表示未携带或解析失败。
   final int updatedAtMs;
@@ -323,7 +319,6 @@ class ThrottleCloudSyncService {
       final remote = _readRemoteConfig(decoded);
       return ThrottleCloudSyncResult.success(
         config: remote.config,
-        fetchedAt: DateTime.now().toUtc(),
         updatedAtMs: remote.updatedAtMs,
         message: '已拉取云端配置。',
       );
@@ -622,7 +617,6 @@ class ThrottleCloudSyncService {
       final remote = _readRemoteConfig(decoded);
       return ThrottleCloudSyncResult.success(
         config: remote.config,
-        fetchedAt: DateTime.now().toUtc(),
         updatedAtMs: remote.updatedAtMs,
         message: '已拉取 iCloud 配置。',
       );
@@ -774,7 +768,6 @@ class ThrottleCloudSyncService {
       final remote = _readRemoteConfig(inner);
       return ThrottleCloudSyncResult.success(
         config: remote.config,
-        fetchedAt: DateTime.now().toUtc(),
         updatedAtMs: remote.updatedAtMs,
         message: '已拉取 GitHub Gist 配置。',
       );

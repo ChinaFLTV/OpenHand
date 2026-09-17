@@ -80,32 +80,6 @@ class AndroidReverseSessionConfig {
   /// 用户备注（如登录账号 / 抓包网关 / 证书路径）。
   final String? notes;
 
-  AndroidReverseSessionConfig copyWith({
-    String? objective,
-    String? packageName,
-    String? apkPath,
-    String? deviceSerial,
-    String? authorizationScope,
-    AndroidReverseAnalysisMode? analysisMode,
-    bool? adbMcpEnabled,
-    bool? fridaMcpEnabled,
-    List<String>? keywords,
-    String? notes,
-  }) {
-    return AndroidReverseSessionConfig(
-      objective: objective ?? this.objective,
-      packageName: packageName ?? this.packageName,
-      apkPath: apkPath ?? this.apkPath,
-      deviceSerial: deviceSerial ?? this.deviceSerial,
-      authorizationScope: authorizationScope ?? this.authorizationScope,
-      analysisMode: analysisMode ?? this.analysisMode,
-      adbMcpEnabled: adbMcpEnabled ?? this.adbMcpEnabled,
-      fridaMcpEnabled: fridaMcpEnabled ?? this.fridaMcpEnabled,
-      keywords: keywords ?? this.keywords,
-      notes: notes ?? this.notes,
-    );
-  }
-
   Map<String, Object?> toJson() => <String, Object?>{
     'objective': objective,
     if (packageName != null) 'package_name': packageName,

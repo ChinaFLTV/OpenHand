@@ -19,18 +19,4 @@ class AiDenyCommandRule extends AiCommandRule {
     required super.matchMode,
     super.note,
   });
-
-  AiDenyCommandRule copyWith({
-    String? id,
-    String? pattern,
-    AiCommandMatchMode? matchMode,
-    String? note,
-  }) {
-    return AiDenyCommandRule(
-      id: id ?? this.id,
-      pattern: pattern ?? this.pattern,
-      matchMode: matchMode ?? this.matchMode,
-      note: note ?? this.note,
-    );
-  }
 }

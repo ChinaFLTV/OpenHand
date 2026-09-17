@@ -1,19 +1,3 @@
-import '../../../../shared/util/text_normalization.dart';
-
-/// 提取助手回复中的 `<image_summary>` 指令，并从用户可见文本中移除该指令。
-class AiImageSummaryExtractionResult {
-  const AiImageSummaryExtractionResult({
-    required this.summariesByAttachmentId,
-    required this.strippedContent,
-  });
-
-  /// 附件 ID 到已去除首尾空白的摘要映射。
-  final Map<String, String> summariesByAttachmentId;
-
-  /// 已移除所有 `<image_summary>` 块的助手回复。
-  final String strippedContent;
-}
-
 class AiImageSummaryExtractor {
   AiImageSummaryExtractor._();
 
@@ -22,14 +6,9 @@ class AiImageSummaryExtractor {
     caseSensitive: false,
   );
 
-  /// 提取图片摘要并返回清洗后的可见正文；未闭合标签同样不会进入正文。
-  static AiImageSummaryExtractionResult extractAndStrip(String content) {
-    if (content.isEmpty) {
-      return const AiImageSummaryExtractionResult(
-        summariesByAttachmentId: <String, String>{},
-        strippedContent: '',
-      );
-    }
+  /// 提取完整图片摘要，按附件 ID 归集；正文清理由可见内容管线统一处理。
+  static Map<String, String> extract(String content) {
+    if (content.isEmpty) return const <String, String>{};
     final summaries = <String, String>{};
     for (final match in _pattern.allMatches(content)) {
       final id = (match.group(1) ?? match.group(2) ?? match.group(3) ?? '')
@@ -41,10 +20,6 @@ class AiImageSummaryExtractor {
       // 同一 ID 重复出现时保留最后一条摘要。
       summaries[id] = summary;
     }
-    final stripped = stripImageSummaryMarkup(content);
-    return AiImageSummaryExtractionResult(
-      summariesByAttachmentId: summaries,
-      strippedContent: stripped.trim(),
-    );
+    return summaries;
   }
 }

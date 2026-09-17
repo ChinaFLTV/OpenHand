@@ -4695,17 +4695,6 @@ class WebReverseSessionController extends ChangeNotifier {
     if (changed) _safeNotify();
   }
 
-  Future<void> stop() async {
-    if (_stopped) {
-      final stopping = _safeStopTask;
-      if (stopping != null) await stopping;
-      return;
-    }
-    _stopped = true;
-    await _safeStop();
-    _safeNotify();
-  }
-
   /// 用户主动停止调试：杀掉外部浏览器进程并关闭临时桥接服务，保留会话本身。
   /// 后续可调 [restartBrowser] 再起一个新的。会话工作目录 / artifacts /
   /// dashboard 网络/控制台缓冲全部保留以便回看。
@@ -7159,15 +7148,6 @@ class WebReverseSessionController extends ChangeNotifier {
       lineNumber: line,
       condition: normalizedCondition,
     );
-  }
-
-  /// 持久化数据下发：恢复之前持久化的断点（dashboard 启动 / 浏览器重启用）。
-  Future<void> restoreBreakpoints(
-    Iterable<({String url, int line})> bps,
-  ) async {
-    for (final b in bps.take(maxSourceBreakpoints)) {
-      await setBreakpointByUrl(url: b.url, lineNumber: b.line);
-    }
   }
 
   Future<bool> removeBreakpoint(String breakpointId) async {
@@ -10320,13 +10300,6 @@ enum WebReverseThrottlePreset {
     de: deLabel,
     ja: jaLabel,
   );
-
-  Map<String, Object?> get cdpParams => <String, Object?>{
-    'offline': isOffline,
-    'latency': latencyMs,
-    'downloadThroughput': _networkThroughputFromKbps(downloadKbps),
-    'uploadThroughput': _networkThroughputFromKbps(uploadKbps),
-  };
 }
 
 class WebReverseNetworkConditions {

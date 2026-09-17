@@ -89,49 +89,6 @@ class AiSessionGoalEvaluationRecord {
   final AiTokenUsage? usage;
   final String? error;
 
-  AiSessionGoalEvaluationRecord copyWith({
-    String? id,
-    DateTime? createdAt,
-    int? roundIndex,
-    bool? passed,
-    String? summary,
-    double? confidence,
-    bool clearConfidence = false,
-    String? followUpPrompt,
-    bool clearFollowUpPrompt = false,
-    List<String>? evidence,
-    List<String>? missing,
-    String? rawResponse,
-    bool clearRawResponse = false,
-    String? providerConfigId,
-    String? modelId,
-    String? modelLabel,
-    AiTokenUsage? usage,
-    bool clearUsage = false,
-    String? error,
-    bool clearError = false,
-  }) {
-    return AiSessionGoalEvaluationRecord(
-      id: id ?? this.id,
-      createdAt: createdAt ?? this.createdAt,
-      roundIndex: roundIndex ?? this.roundIndex,
-      passed: passed ?? this.passed,
-      summary: summary ?? this.summary,
-      confidence: clearConfidence ? null : confidence ?? this.confidence,
-      followUpPrompt: clearFollowUpPrompt
-          ? null
-          : followUpPrompt ?? this.followUpPrompt,
-      evidence: evidence ?? this.evidence,
-      missing: missing ?? this.missing,
-      rawResponse: clearRawResponse ? null : rawResponse ?? this.rawResponse,
-      providerConfigId: providerConfigId ?? this.providerConfigId,
-      modelId: modelId ?? this.modelId,
-      modelLabel: modelLabel ?? this.modelLabel,
-      usage: clearUsage ? null : usage ?? this.usage,
-      error: clearError ? null : error ?? this.error,
-    );
-  }
-
   Map<String, Object?> toJson() {
     final json = <String, Object?>{
       'id': id,

@@ -3952,9 +3952,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get creationOptionsPitch => 'Tonhöhe';
 
   @override
-  String get creationOptionsCount => 'Anzahl';
-
-  @override
   String get creationOptionsAuto => 'Standard';
 
   @override
@@ -6932,12 +6929,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get settingsThisWillRestoreAllBuiltIn =>
       'Dies stellt alle integrierten Werkzeugkonfigurationen auf Werkseinstellungen zurück, einschließlich Name, Beschreibung, Schema usw.';
-
-  @override
-  String get tlCallUnwrap => 'Umbruch aufheben';
-
-  @override
-  String get tlCallWrapLines => 'Zeilen umbrechen';
 
   @override
   String get tlCallViewCompressedContent => 'Komprimierten Inhalt anzeigen';

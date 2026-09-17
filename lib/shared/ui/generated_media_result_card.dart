@@ -62,12 +62,10 @@ NativeAudioVisualMeta generatedMediaAudioVisualMeta({
     title: cleanTitle,
     artist: artist,
     album: album,
-    detail: cleanDetail,
     primaryColor: palette.$1,
     secondaryColor: palette.$2,
     accentColor: palette.$3,
     coverGlyph: '♪',
-    seed: seed,
   );
 }
 

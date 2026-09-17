@@ -1757,9 +1757,6 @@ class MachineTerminalSession {
   bool get attached => _attached;
   bool get hasUserActivity => _hasUserActivity || _commandSequence > 0;
   bool get shouldRetainOnClose => hasUserActivity;
-  int? get pid => _pid;
-  int? get exitCode => _exitCode;
-  String? get errorMessage => _errorMessage;
   bool get isRunningOrStarting =>
       _status == MachineTerminalStatus.running ||
       _status == MachineTerminalStatus.starting;

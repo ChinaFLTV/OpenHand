@@ -181,9 +181,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
               )
               .toList(growable: false);
     final hasAnyModels = widget.entries.isNotEmpty;
-    // 分组结构拍平成一维行清单，交给 ListView.builder 按需构建：此前是
-    // ListView(children: [...])，一次性把全部候选建成 widget，多 provider
-    // 场景下每敲一个字符就要重建几百个条目。
+    // 分组平铺为行清单，按可见范围构建候选项。
     final rows = <_ModelPickerRow>[
       if (recentFiltered.isNotEmpty) ...[
         _ModelPickerRow.header(l10n.modelSearchRecent),

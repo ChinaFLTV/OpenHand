@@ -64,7 +64,7 @@ Map<String, Object?> webEngineCacheEntriesFromValue(Object? value) {
 
 final class WebEngineIoDeadline {
   WebEngineIoDeadline({
-    this.totalTimeout = webEngineDirectoryTotalTimeout,
+    Duration totalTimeout = webEngineDirectoryTotalTimeout,
     this.operationTimeout = webEngineFileOperationTimeout,
   }) : _deadline = MonotonicDeadline(
          totalTimeout,
@@ -73,7 +73,6 @@ final class WebEngineIoDeadline {
     requirePositiveDuration(operationTimeout, 'operationTimeout');
   }
 
-  final Duration totalTimeout;
   final Duration operationTimeout;
   final MonotonicDeadline _deadline;
 

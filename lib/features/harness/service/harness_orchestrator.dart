@@ -384,7 +384,6 @@ class HarnessOrchestrator extends ChangeNotifier {
 
   /// 是否无需逐阶段审批。
   bool _fullAccessPermission = false;
-  bool get fullAccessPermission => _fullAccessPermission;
   set fullAccessPermission(bool value) {
     if (_fullAccessPermission == value) return;
     _fullAccessPermission = value;

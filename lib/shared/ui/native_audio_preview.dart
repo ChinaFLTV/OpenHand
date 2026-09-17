@@ -112,12 +112,10 @@ class NativeAudioVisualMeta {
     required this.title,
     required this.artist,
     required this.album,
-    required this.detail,
     required this.primaryColor,
     required this.secondaryColor,
     required this.accentColor,
     required this.coverGlyph,
-    required this.seed,
   });
 
   factory NativeAudioVisualMeta.fromText({
@@ -137,24 +135,20 @@ class NativeAudioVisualMeta {
       title: cleanTitle,
       artist: deriveNativeAudioArtist(cleanDetail),
       album: deriveNativeAudioAlbum(cleanDetail),
-      detail: cleanDetail,
       primaryColor: palette.$1,
       secondaryColor: palette.$2,
       accentColor: palette.$3,
       coverGlyph: '♪',
-      seed: seed,
     );
   }
 
   final String title;
   final String artist;
   final String album;
-  final String detail;
   final Color primaryColor;
   final Color secondaryColor;
   final Color accentColor;
   final String coverGlyph;
-  final int seed;
 }
 
 class NativeAudioPreview extends StatefulWidget {

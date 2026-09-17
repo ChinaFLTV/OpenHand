@@ -24,7 +24,6 @@ class WebReverseLaunchResult {
   WebReverseLaunchResult({
     required this.process,
     required this.cdpPort,
-    required this.userDataDir,
     required this.browserVersion,
     required this.webSocketDebuggerUrl,
     required this._stderrSubscription,
@@ -33,7 +32,6 @@ class WebReverseLaunchResult {
 
   final Process process;
   final int cdpPort;
-  final String userDataDir;
   final String browserVersion;
   final String webSocketDebuggerUrl;
   final StreamSubscription<String>? _stderrSubscription;
@@ -366,7 +364,6 @@ class WebReverseBrowserLauncher {
     return WebReverseLaunchResult(
       process: process,
       cdpPort: port,
-      userDataDir: normalizedUserDataDir,
       browserVersion: version,
       webSocketDebuggerUrl: wsUrl,
       stderrSubscription: errSub,

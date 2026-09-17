@@ -8751,21 +8751,19 @@ class AiSessionController extends ChangeNotifier {
       final effectiveReply = didCancelStream
           ? (visibleAssistantReplyWhenCancelled ?? '')
           : result.reply;
-      final extraction = AiImageSummaryExtractor.extractAndStrip(
-        effectiveReply,
-      );
+      final imageSummaries = AiImageSummaryExtractor.extract(effectiveReply);
       final sanitizedReply = _sanitizeVisibleModelContent(effectiveReply);
       final hasMeaningfulNarration = sanitizedReply.trim().isNotEmpty;
       final shouldPersistIntermediateAssistantNarration =
           hasMeaningfulNarration ||
           didCancelStream ||
-          extraction.summariesByAttachmentId.isNotEmpty;
+          imageSummaries.isNotEmpty;
       if (shouldPersistIntermediateAssistantNarration) {
         // 提取图片摘要并回写对应附件，再保存清理后的助手正文。
-        if (extraction.summariesByAttachmentId.isNotEmpty) {
+        if (imageSummaries.isNotEmpty) {
           streamedSession = _applyImageSummariesToSession(
             streamedSession,
-            extraction.summariesByAttachmentId,
+            imageSummaries,
           );
         }
         streamedSession = syncFinalAssistantMessage(

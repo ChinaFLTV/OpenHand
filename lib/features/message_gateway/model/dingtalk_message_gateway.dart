@@ -1758,68 +1758,6 @@ class DingTalkGatewaySettings {
     responseEchoTypes: _normalizeResponseEchoTypes(responseEchoTypes),
   );
 
-  DingTalkGatewaySettings copyWith({
-    int? pollIntervalSeconds,
-    int? responseWorkerCount,
-    DingTalkOverloadStrategy? overloadStrategy,
-    DingTalkReminderMode? reminderMode,
-    DingTalkMessageOutputEffect? messageOutputEffect,
-    DingTalkResponseMode? responseMode,
-    String? responseModelKey,
-    String? workingDirectory,
-    bool? fullAccessPermission,
-    String? templateId,
-    List<String>? allowedMcpServerNames,
-    List<String>? allowedSkillNames,
-    List<String>? allowedMemoryIds,
-    List<String>? allowedInstructionIds,
-    List<String>? allowedKnowledgeBaseSourceIds,
-    List<String>? allowedWorkflowIds,
-    List<String>? allowedDingTalkDwsCommandIds,
-    Set<AiDingTalkMultimodalCapability>? enabledMultimodalCapabilities,
-    String? imageGenerationModelKey,
-    String? videoGenerationModelKey,
-    String? audioGenerationModelKey,
-    List<DingTalkConversationTarget>? allowedGroupTargets,
-    List<DingTalkConversationTarget>? allowedContactTargets,
-    List<DingTalkResponseEchoType>? responseEchoTypes,
-  }) => DingTalkGatewaySettings(
-    pollIntervalSeconds: normalizePollIntervalSeconds(
-      pollIntervalSeconds ?? this.pollIntervalSeconds,
-    ),
-    responseWorkerCount: normalizeResponseWorkerCount(
-      responseWorkerCount ?? this.responseWorkerCount,
-    ),
-    overloadStrategy: overloadStrategy ?? this.overloadStrategy,
-    reminderMode: reminderMode ?? this.reminderMode,
-    messageOutputEffect: messageOutputEffect ?? this.messageOutputEffect,
-    responseMode: responseMode ?? this.responseMode,
-    responseModelKey: responseModelKey ?? this.responseModelKey,
-    workingDirectory: workingDirectory ?? this.workingDirectory,
-    fullAccessPermission: fullAccessPermission ?? this.fullAccessPermission,
-    templateId: templateId ?? this.templateId,
-    allowedMcpServerNames: allowedMcpServerNames ?? this.allowedMcpServerNames,
-    allowedSkillNames: allowedSkillNames ?? this.allowedSkillNames,
-    allowedMemoryIds: allowedMemoryIds ?? this.allowedMemoryIds,
-    allowedInstructionIds: allowedInstructionIds ?? this.allowedInstructionIds,
-    allowedKnowledgeBaseSourceIds:
-        allowedKnowledgeBaseSourceIds ?? this.allowedKnowledgeBaseSourceIds,
-    allowedWorkflowIds: allowedWorkflowIds ?? this.allowedWorkflowIds,
-    allowedDingTalkDwsCommandIds:
-        allowedDingTalkDwsCommandIds ?? this.allowedDingTalkDwsCommandIds,
-    enabledMultimodalCapabilities:
-        enabledMultimodalCapabilities ?? this.enabledMultimodalCapabilities,
-    imageGenerationModelKey:
-        imageGenerationModelKey ?? this.imageGenerationModelKey,
-    videoGenerationModelKey:
-        videoGenerationModelKey ?? this.videoGenerationModelKey,
-    audioGenerationModelKey:
-        audioGenerationModelKey ?? this.audioGenerationModelKey,
-    allowedGroupTargets: allowedGroupTargets ?? this.allowedGroupTargets,
-    allowedContactTargets: allowedContactTargets ?? this.allowedContactTargets,
-    responseEchoTypes: responseEchoTypes ?? this.responseEchoTypes,
-  );
-
   Map<String, Object?> toJson() => <String, Object?>{
     'poll_interval_seconds': pollIntervalSeconds,
     'response_worker_count': responseWorkerCount,

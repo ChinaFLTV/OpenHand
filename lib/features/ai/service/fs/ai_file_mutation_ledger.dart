@@ -1624,28 +1624,6 @@ class AiFileMutationLedger {
     }
   }
 
-  Future<void> clearSession(String sessionId) async {
-    await _enqueueSessionMutation(
-      sessionId,
-      () => _clearSessionLocked(sessionId),
-      ensureInitialized: true,
-    );
-    await gcUnreferencedBlobs();
-  }
-
-  Future<void> _clearSessionLocked(String sessionId) async {
-    final normalizedSessionId = nullIfBlank(sessionId);
-    if (normalizedSessionId == null) return;
-    final dir = _sessionDir(normalizedSessionId);
-    await deletePathBounded(
-      p.absolute(dir.path),
-      policy: _ledgerTreeDeletePolicy,
-      allowedRoot: p.absolute(_sessionsDir().path),
-    );
-    // 不主动 GC blobs，避免影响其他会话引用；总清理时统一处理。
-    _invalidateSessionCache(normalizedSessionId);
-  }
-
   /// 删除最早 `now - retention` 之前的全部会话 ledger（同时回收 blob）。
   Future<int> pruneOlderThan(Duration retention) async {
     await _ensureInitialized();

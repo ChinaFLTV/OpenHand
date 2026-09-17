@@ -26,28 +26,6 @@ class AiEndpointOverride {
       headers.isEmpty &&
       queryDefaults.isEmpty;
 
-  AiEndpointOverride copyWith({
-    String? path,
-    String? url,
-    String? method,
-    String? transport,
-    Map<String, String>? headers,
-    Map<String, String>? queryDefaults,
-    bool clearPath = false,
-    bool clearUrl = false,
-    bool clearMethod = false,
-    bool clearTransport = false,
-  }) {
-    return AiEndpointOverride(
-      path: clearPath ? null : (path ?? this.path),
-      url: clearUrl ? null : (url ?? this.url),
-      method: clearMethod ? null : (method ?? this.method),
-      transport: clearTransport ? null : (transport ?? this.transport),
-      headers: headers ?? this.headers,
-      queryDefaults: queryDefaults ?? this.queryDefaults,
-    );
-  }
-
   Map<String, Object?> toJson() {
     final json = <String, Object?>{};
     putIfNotBlank(json, 'path', path);

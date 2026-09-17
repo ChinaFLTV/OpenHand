@@ -3916,9 +3916,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get creationOptionsPitch => 'Pitch';
 
   @override
-  String get creationOptionsCount => 'Count';
-
-  @override
   String get creationOptionsAuto => 'Default';
 
   @override
@@ -6870,12 +6867,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsThisWillRestoreAllBuiltIn =>
       'This will restore all built-in tool configurations to factory defaults, including name, description, schema overrides, priority, sort order, and load strategy. This cannot be undone.';
-
-  @override
-  String get tlCallUnwrap => 'Unwrap';
-
-  @override
-  String get tlCallWrapLines => 'Wrap Lines';
 
   @override
   String get tlCallViewCompressedContent => 'View Compressed Content';
