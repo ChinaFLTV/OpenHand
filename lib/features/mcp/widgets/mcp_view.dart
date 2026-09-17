@@ -30,7 +30,6 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
-import '../../../shared/ui/openhand_bottom_pinned_scroll_controller.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_code_editor.dart';
@@ -178,8 +177,9 @@ class _AnimatedMcpServerList extends StatefulWidget {
 }
 
 class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
-  final ScrollController _scrollController =
-      OpenHandBottomPinnedScrollController(debugLabel: 'MCP 服务列表');
+  final ScrollController _scrollController = ScrollController(
+    debugLabel: 'MCP 服务列表',
+  );
   late List<McpServer> _displayedServers;
 
   @override
