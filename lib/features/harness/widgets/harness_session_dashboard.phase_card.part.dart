@@ -296,7 +296,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                 );
               },
               transitionBuilder: (child, animation) {
-                final fade = CurvedAnimation(
+                final fade = openHandCurveAnimation(
                   parent: animation,
                   curve: kOpenHandSwitchInCurve,
                   reverseCurve: kOpenHandSwitchOutCurve,
@@ -305,13 +305,10 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                   begin: const Offset(0, -0.04),
                   end: Offset.zero,
                 ).animate(fade);
-                final scale = Tween<double>(begin: 0.985, end: 1.0).animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: kOpenHandSwitchInCurve,
-                    reverseCurve: kOpenHandSwitchOutCurve,
-                  ),
-                );
+                final scale = Tween<double>(
+                  begin: 0.985,
+                  end: 1.0,
+                ).animate(fade);
                 return ClipRect(
                   child: FadeTransition(
                     opacity: fade,
@@ -558,7 +555,10 @@ class _HePhaseMetaRow extends StatelessWidget {
           opacity: animation,
           child: ScaleTransition(
             scale: Tween<double>(begin: 0.6, end: 1.0).animate(
-              CurvedAnimation(parent: animation, curve: kOpenHandEntranceCurve),
+              openHandCurveAnimation(
+                parent: animation,
+                curve: kOpenHandEntranceCurve,
+              ),
             ),
             child: child,
           ),

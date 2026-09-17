@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -140,7 +141,10 @@ class _WorkflowExportProgressDialogState
     if (oldValue != nextTarget) {
       _progressAnimation = Tween<double>(begin: oldValue, end: nextTarget)
           .animate(
-            CurvedAnimation(parent: _progressController, curve: _progressCurve),
+            openHandCurveAnimation(
+              parent: _progressController,
+              curve: _progressCurve,
+            ),
           );
       _progressController.forward(from: 0);
     }

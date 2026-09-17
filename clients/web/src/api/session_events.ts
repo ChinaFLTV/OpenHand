@@ -1,6 +1,6 @@
 // EventSource 不支持自定义请求头，鉴权与客户端信息通过查询参数传递。
 
-import { ensureDeviceId, readToken } from '../state/storage';
+import { captureAuthSession, ensureDeviceId, readToken } from '../state/storage';
 import type { SessionMessage, SessionSummary } from './sessions';
 import { collectClientEnvironment } from '../utils/client_env';
 import {
@@ -162,6 +162,7 @@ export function subscribeSessionEvents(
     };
   }
   const params = new URLSearchParams();
+  const isCurrentSession = captureAuthSession();
   const env = collectClientEnvironment();
   params.set('device_id', ensureDeviceId());
   params.set('source', env.source);
@@ -174,19 +175,27 @@ export function subscribeSessionEvents(
   } catch (error) {
     // 不支持 SSE 或构造失败时交给轮询兜底；卸载后不再投递错误。
     queueMicrotask(() => {
-      if (!closed) handlers.onError(new ErrorEvent('eventsource_unavailable', { error }));
+      if (!closed && isCurrentSession()) {
+        reportEventError(handlers.onError, 'eventsource_unavailable', error);
+      }
     });
     return () => { closed = true; };
   }
 
-  const handleSnapshot = (ev: Event) => !closed && dispatchParsedEvent(
+  const isActive = () => {
+    if (closed) return false;
+    if (isCurrentSession()) return true;
+    close();
+    return false;
+  };
+  const handleSnapshot = (ev: Event) => isActive() && dispatchParsedEvent(
     ev,
     (data): data is SessionEventSnapshot =>
       isSessionEventSnapshot(data) && data.session.id === normalizedSessionId,
     handlers.onSnapshot,
     handlers.onError,
   );
-  const handleDeleted = (ev: Event) => !closed && dispatchParsedEvent(
+  const handleDeleted = (ev: Event) => isActive() && dispatchParsedEvent(
     ev,
     (data): data is SessionDeletedEvent =>
       isSessionDeletedEvent(data) && data.session_id === normalizedSessionId,
@@ -194,7 +203,7 @@ export function subscribeSessionEvents(
     handlers.onError,
   );
   const handleOpen = () => {
-    if (closed) return;
+    if (!isActive()) return;
     try {
       handlers.onOpen?.();
     } catch (error) {
@@ -202,14 +211,14 @@ export function subscribeSessionEvents(
     }
   };
   const handleError = (ev: Event) => {
-    if (!closed) runIgnoringErrors(() => handlers.onError(ev));
+    if (isActive()) runIgnoringErrors(() => handlers.onError(ev));
   };
 
   es.addEventListener('snapshot', handleSnapshot);
   es.addEventListener('session_deleted', handleDeleted);
   es.onopen = handleOpen;
   es.onerror = handleError;
-  return () => {
+  function close() {
     if (closed) return;
     closed = true;
     es.removeEventListener('snapshot', handleSnapshot);
@@ -217,5 +226,6 @@ export function subscribeSessionEvents(
     es.onopen = null;
     es.onerror = null;
     runIgnoringErrors(() => es.close());
-  };
+  }
+  return close;
 }

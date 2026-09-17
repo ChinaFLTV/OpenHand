@@ -161,9 +161,7 @@ abstract final class OpenHandNotificationService {
     final safeTitle = escapeXmlAttribute(
       _escapeForSingleQuotedPowerShell(title),
     );
-    final safeBody = escapeXmlAttribute(
-      _escapeForSingleQuotedPowerShell(body),
-    );
+    final safeBody = escapeXmlAttribute(_escapeForSingleQuotedPowerShell(body));
 
     final script =
         r'''

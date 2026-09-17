@@ -3659,7 +3659,10 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
       vsync: this,
       duration: _streamingHtmlDotsDuration,
     );
-    _dotAnim = CurvedAnimation(parent: _dotCtrl, curve: Curves.easeInOut);
+    _dotAnim = openHandCurveAnimation(
+      parent: _dotCtrl,
+      curve: Curves.easeInOut,
+    );
   }
 
   @override

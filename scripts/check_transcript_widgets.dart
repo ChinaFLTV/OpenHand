@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'support/flutter_widget_check.dart';
+
 /// 合并真实页面及其 part 后执行私有组件回归，不给生产代码添加测试接口。
 Future<void> main() async {
   final root = File.fromUri(Platform.script).parent.parent;
@@ -19,26 +21,14 @@ Future<void> main() async {
       page.uri.resolve(match[1]!),
     ).readAsStringSync().replaceFirst(RegExp('^part of [^;]+;'), '');
   });
-  final directory = await Directory(
-    '${root.path}/.dart_tool',
-  ).createTemp('transcript_check_');
-  try {
-    final testFile = File('${directory.path}/transcript_test.dart');
-    await testFile.writeAsString(
-      "import 'package:flutter_test/flutter_test.dart' hide isEmpty, isNotEmpty;\n"
-      "import 'package:openhand/app/state/settings_store.dart';\n"
-      '$source\n$_widgetTests',
-    );
-    final process = await Process.start(
-      'flutter',
-      ['test', '--reporter', 'expanded', testFile.path],
-      workingDirectory: root.path,
-      mode: ProcessStartMode.inheritStdio,
-    );
-    exitCode = await process.exitCode;
-  } finally {
-    await directory.delete(recursive: true);
-  }
+  await runFlutterWidgetCheck(
+    root: root,
+    name: 'transcript',
+    source:
+        "import 'package:flutter_test/flutter_test.dart' hide isEmpty, isNotEmpty;\n"
+        "import 'package:openhand/app/state/settings_store.dart';\n"
+        '$source\n$_widgetTests',
+  );
 }
 
 const _widgetTests = r'''
@@ -266,6 +256,50 @@ class _TranscriptProbe {
 }
 
 void main() {
+  for (final creation in [false, true]) {
+    for (final unmount in [false, true]) {
+      testWidgets('错误卡片退场可取消，创作=$creation，卸载=$unmount', (tester) async {
+        final bannerKey = GlobalKey<_SessionErrorBannerState>();
+        var dismissed = 0;
+        final error = AiSessionErrorRecord(
+          id: '动效错误检查', createdAt: DateTime.utc(2026),
+          stage: 'chat', message: '请求失败',
+        );
+        Widget host(bool disabled) => MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+          home: Scaffold(body: MediaQuery(
+            data: MediaQueryData(disableAnimations: disabled),
+            child: creation
+                ? _CreationFailureCard(
+                    request: const AiCreationRequest(mode: AiCreationMode.image),
+                    error: error,
+                    onDismiss: () async { dismissed++; },
+                  )
+                : _SessionErrorBanner(
+                    key: bannerKey, error: error,
+                    onDismiss: () { dismissed++; },
+                  ),
+          )),
+        );
+        await tester.pumpWidget(host(false));
+        await tester.pump(const Duration(milliseconds: 220));
+        expect(tester.takeException(), isNull);
+        var finished = false;
+        final closing = creation
+            ? tester.state<_CreationFailureCardState>(find.byType(_CreationFailureCard))._handleDismiss()
+            : bannerKey.currentState!._handleDismiss();
+        unawaited(closing.then((_) { finished = true; }));
+        await tester.pump(const Duration(milliseconds: 20));
+        await tester.pumpWidget(unmount ? const SizedBox.shrink() : host(true));
+        await tester.pump();
+        expect(finished, true, reason: '取消 Ticker 后不能永久挂起关闭操作');
+        expect(dismissed, unmount ? 0 : 1);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
   for (final animated in [false, true]) {
     testWidgets('首次打开和切换短会话按视口填充，动画=$animated', (tester) async {
       final probe = _TranscriptProbe(tester, _probeSession('首屏', 30));

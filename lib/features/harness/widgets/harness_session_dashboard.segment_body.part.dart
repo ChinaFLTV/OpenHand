@@ -598,10 +598,9 @@ class _HeCommandStripState extends State<_HeCommandStrip>
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: kOpenHandMotion220);
-    _turn = Tween<double>(
-      begin: 0,
-      end: 0.5,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: kOpenHandSwitchInCurve));
+    _turn = Tween<double>(begin: 0, end: 0.5).animate(
+      openHandCurveAnimation(parent: _ctrl, curve: kOpenHandSwitchInCurve),
+    );
   }
 
   @override

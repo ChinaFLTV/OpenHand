@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import 'bounded_animation.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 
@@ -43,8 +44,11 @@ class _AppearOnceState extends State<AppearOnce>
       duration: _safeAppearDuration(widget.duration),
       vsync: this,
     );
-    _opacity = CurvedAnimation(parent: ctrl, curve: Curves.easeOut);
-    _translate = CurvedAnimation(parent: ctrl, curve: kOpenHandEmphasizedCurve);
+    _opacity = openHandCurveAnimation(parent: ctrl, curve: Curves.easeOut);
+    _translate = openHandCurveAnimation(
+      parent: ctrl,
+      curve: kOpenHandEmphasizedCurve,
+    );
     ctrl.addStatusListener(_onStatus);
     _ctrl = ctrl;
     ctrl.forward();

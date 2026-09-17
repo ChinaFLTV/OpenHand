@@ -48,6 +48,7 @@ import '../../../shared/ui/animated_overlay.dart';
 import '../../../shared/ui/app_update_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/buffered_console_log.dart';
 import '../../../shared/ui/error_snackbar.dart';
 import '../../../shared/ui/feature_page_shell.dart';
@@ -120,24 +121,24 @@ import 'openrouter_model_sync_dialog.dart';
 import 'prompt_cache_breakpoint_bar.dart';
 import 'thread_session_management_dialog.dart';
 
+part '_settings_active_tool_calls.dart';
 part '_settings_ai_model_editor.dart';
-part '_settings_editor_lsp.dart';
-part '_settings_command_rules.dart';
-part '_settings_sandbox.dart';
-part '_settings_shortcut_widgets.dart';
+part '_settings_ai_usage.dart';
 part '_settings_animation_sections.dart';
 part '_settings_builtin_tools.dart';
-part '_settings_web_search_editor.dart';
-part '_settings_web_fetch_editor.dart';
-part '_settings_web_fetch_runtime_dialog.dart';
+part '_settings_command_rules.dart';
+part '_settings_data_cleanup.dart';
+part '_settings_editor_lsp.dart';
 part '_settings_helper_widgets.dart';
 part '_settings_offline_speech.dart';
-part '_settings_user_profile.dart';
-part '_settings_data_cleanup.dart';
-part '_settings_system_proxy.dart';
 part '_settings_proxy_test_dialog.dart';
-part '_settings_active_tool_calls.dart';
-part '_settings_ai_usage.dart';
+part '_settings_sandbox.dart';
+part '_settings_shortcut_widgets.dart';
+part '_settings_system_proxy.dart';
+part '_settings_user_profile.dart';
+part '_settings_web_fetch_editor.dart';
+part '_settings_web_fetch_runtime_dialog.dart';
+part '_settings_web_search_editor.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
@@ -3664,7 +3665,7 @@ class _SettingsViewState extends State<SettingsView> {
                     opacity: animation,
                     child: ScaleTransition(
                       scale: Tween<double>(begin: 0.98, end: 1.0).animate(
-                        CurvedAnimation(
+                        openHandCurveAnimation(
                           parent: animation,
                           curve: kOpenHandEntranceCurve,
                           reverseCurve: kOpenHandSwitchOutCurve,

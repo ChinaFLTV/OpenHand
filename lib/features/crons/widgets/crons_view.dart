@@ -10,6 +10,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/markdown_surface_tones.dart';
@@ -664,6 +665,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
 
   @override
   void dispose() {
+    _fadeAnimation.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -843,10 +845,10 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                   ],
                 ),
                 SizeTransition(
-                  sizeFactor: _fadeAnimation,
+                  sizeFactor: OpenHandBoundedDoubleAnimation(_fadeAnimation),
                   alignment: AlignmentDirectional.topStart,
                   child: FadeTransition(
-                    opacity: _fadeAnimation,
+                    opacity: OpenHandBoundedDoubleAnimation(_fadeAnimation),
                     child: Padding(
                       padding: const EdgeInsets.only(top: 10),
                       child: _detailSection(

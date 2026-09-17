@@ -2741,14 +2741,14 @@ class _VoiceTranscriptViewport extends StatelessWidget {
                   ),
               transitionBuilder: (child, animation) {
                 final incoming = child.key == pageKey;
-                final curved = CurvedAnimation(
+                final curved = openHandCurveAnimation(
                   parent: animation,
                   curve: incoming
                       ? kOpenHandEntranceCurve
                       : kOpenHandSwitchOutCurve,
                 );
                 return FadeTransition(
-                  opacity: curved,
+                  opacity: OpenHandBoundedDoubleAnimation(curved),
                   child: SlideTransition(
                     position: Tween<Offset>(
                       begin: Offset(0, incoming ? 0.42 : -0.42),

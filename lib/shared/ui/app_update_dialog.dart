@@ -15,6 +15,7 @@ import '../util/input_value_parsing.dart';
 import '../util/localized_text.dart';
 import '../util/user_failure_message.dart';
 import 'animated_dialog.dart';
+import 'bounded_animation.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
@@ -76,7 +77,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
       duration: _kAppUpdateProgressAnimationDuration,
     );
     _progressAnimation = Tween<double>(begin: 0, end: 0).animate(
-      CurvedAnimation(
+      openHandCurveAnimation(
         parent: _progressAnimController,
         curve: kOpenHandSwitchInCurve,
       ),
@@ -215,7 +216,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
     final oldValue = _progressAnimation.value;
     _progressAnimation = Tween<double>(begin: oldValue, end: safeTarget)
         .animate(
-          CurvedAnimation(
+          openHandCurveAnimation(
             parent: _progressAnimController,
             curve: kOpenHandSwitchInCurve,
           ),

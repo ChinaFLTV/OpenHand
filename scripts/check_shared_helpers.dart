@@ -6,6 +6,7 @@ import 'package:openhand/shared/net/abortable_http_request.dart';
 import 'package:openhand/shared/net/http_response_utils.dart';
 import 'package:openhand/shared/net/http_status_utils.dart';
 import 'package:openhand/shared/net/loopback_hosts.dart';
+import 'package:openhand/shared/net/sse_line_parsing.dart';
 import 'package:openhand/shared/util/async_concurrency.dart';
 import 'package:openhand/shared/util/bounded_file_io.dart';
 import 'package:openhand/shared/util/bounded_json_conversion.dart';
@@ -55,6 +56,7 @@ Future<void> main() async {
   failures += _checkBoundedTextBuffer();
   failures += _checkLifecycleCache();
   failures += _checkSensitiveTextRedaction();
+  failures += _checkSseFraming();
   failures += await _checkBatchSubscriptionCancellation();
   failures += await _checkAbortableResponseLifetime();
   failures += await _checkBoundedByteStreams();
@@ -66,6 +68,71 @@ Future<void> main() async {
     exit(1);
   }
   stdout.writeln('[共享辅助检查] 通过。');
+}
+
+int _checkSseFraming() {
+  const source =
+      '\uFEFFevent: 更新\r\ndata: {"正文":\r\ndata: "你好"}\r\n\r\n'
+      ': 心跳\r\rdata:  保留空白  \ndata\n\ndata: 末尾';
+  const expected =
+      'event: 更新\ndata: {"正文":\ndata: "你好"}|: 心跳|'
+      'data:  保留空白  \ndata|data: 末尾';
+  for (var size = 1; size <= source.length; size++) {
+    final buffer = BoundedSseEventBuffer(maxEventCharacters: source.length);
+    final blocks = <String>[];
+    for (var start = 0; start < source.length; start += size) {
+      if (!buffer.add(
+        source.substring(start, (start + size).clamp(0, source.length)),
+        onEvent: blocks.add,
+        isComplete: () => false,
+      )) {
+        stderr.writeln('SSE 正常分片被错误拒绝');
+        return 1;
+      }
+    }
+    buffer.finish(blocks.add);
+    if (blocks.join('|') != expected) {
+      stderr.writeln('SSE 在分片长度 $size 时错误拆分了事件');
+      return 1;
+    }
+  }
+  if (extractSseDataLines('data:  空白  \r\ndata\rdata:\n').join('|') !=
+          ' 空白  ||' ||
+      sseEventName('event:  更新 ') != ' 更新 ' ||
+      sseDataPayload(' data: 忽略') != null) {
+    stderr.writeln('SSE 字段解析错误裁剪了载荷或接受了无效字段');
+    return 1;
+  }
+  final bounded = BoundedSseEventBuffer(maxEventCharacters: 7);
+  final blocks = <String>[];
+  if (!bounded.add('data: 1\r', onEvent: blocks.add, isComplete: () => false) ||
+      !bounded.add('\n\r\n', onEvent: blocks.add, isComplete: () => false) ||
+      blocks.single != 'data: 1' ||
+      bounded.add('data: 12', onEvent: blocks.add, isComplete: () => false)) {
+    stderr.writeln('SSE 单事件容量边界处理错误');
+    return 1;
+  }
+  bounded.finish(blocks.add);
+  if (blocks.length != 1) {
+    stderr.writeln('SSE 超限后不应输出截断事件');
+    return 1;
+  }
+  final stopped = BoundedSseEventBuffer(maxEventCharacters: 12);
+  blocks.clear();
+  if (!stopped.add(
+    'data: [DONE]\n\n${'x' * 100}',
+    onEvent: blocks.add,
+    isComplete: () => blocks.isNotEmpty,
+  )) {
+    stderr.writeln('SSE 结束后不应继续解析或保留后续分片');
+    return 1;
+  }
+  stopped.finish(blocks.add);
+  if (blocks.length != 1) {
+    stderr.writeln('SSE 结束后重复输出了事件');
+    return 1;
+  }
+  return 0;
 }
 
 Future<int> _checkBoundedByteStreams() async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'bounded_animation.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 
@@ -206,18 +207,12 @@ class OpenHandCrossFadeSwitcher extends StatelessWidget {
         ],
       ),
       transitionBuilder: (transitionChild, animation) => FadeTransition(
-        opacity: animation,
+        opacity: OpenHandBoundedDoubleAnimation(animation),
         child: SlideTransition(
-          position:
-              Tween<Offset>(
-                begin: Offset(0, slideBeginOffsetY),
-                end: Offset.zero,
-              ).animate(
-                CurvedAnimation(
-                  parent: animation,
-                  curve: kOpenHandSwitchInCurve,
-                ),
-              ),
+          position: Tween<Offset>(
+            begin: Offset(0, slideBeginOffsetY),
+            end: Offset.zero,
+          ).animate(animation),
           child: transitionChild,
         ),
       ),

@@ -31,6 +31,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
@@ -10903,7 +10904,7 @@ class _AnimatedLogLine extends StatelessWidget {
     if (!openHandTickerMotionEnabled(context)) {
       return _LogLine(entry: entry);
     }
-    final curved = CurvedAnimation(
+    final curved = openHandCurveAnimation(
       parent: animation,
       curve: removing ? kOpenHandSwitchOutCurve : kOpenHandEntranceCurve,
       reverseCurve: kOpenHandSwitchOutCurve,

@@ -552,6 +552,7 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
 
   @override
   void dispose() {
+    _curved.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -610,7 +611,7 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
     );
 
     final animatedContent = FadeTransition(
-      opacity: _fade,
+      opacity: OpenHandBoundedDoubleAnimation(_fade),
       child: SlideTransition(
         position: _slide,
         child: ScaleTransition(scale: _scale, child: emptyStateContent),

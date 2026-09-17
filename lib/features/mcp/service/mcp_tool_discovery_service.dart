@@ -1763,17 +1763,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   List<_SseEvent> _parseSseEvents(String body) {
-    final normalized = body.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final blocks = normalized.split('\n\n');
     final events = <_SseEvent>[];
-    for (final block in blocks) {
-      final trimmedBlock = block.trim();
-      if (trimmedBlock.isEmpty) {
-        continue;
-      }
+    final buffer = BoundedSseEventBuffer(
+      maxEventCharacters: _mcpHttpMaxResponseBytes,
+    );
+    void collectEvent(String block) {
       var eventName = '';
       final dataLines = <String>[];
-      for (final line in trimmedBlock.split('\n')) {
+      for (final line in block.split('\n')) {
         final event = sseEventName(line);
         if (event != null) {
           eventName = event;
@@ -1785,10 +1782,15 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         }
       }
       if (dataLines.isEmpty) {
-        continue;
+        return;
       }
       events.add(_SseEvent(name: eventName, data: dataLines.join('\n')));
     }
+
+    if (!buffer.add(body, onEvent: collectEvent, isComplete: () => false)) {
+      throw const McpToolDiscoveryException('MCP SSE 事件超过安全上限。');
+    }
+    buffer.finish(collectEvent);
     return events;
   }
 

@@ -33,7 +33,7 @@ class AnimatedExpandChevron extends StatelessWidget {
       color: color,
     );
     if (!openHandTickerMotionEnabled(context)) {
-      return icon;
+      return RotatedBox(quarterTurns: expanded ? 1 : 0, child: icon);
     }
     return AnimatedRotation(
       turns: expanded ? 0.25 : 0.0,

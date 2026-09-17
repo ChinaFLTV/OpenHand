@@ -77,7 +77,7 @@ class _OpenHandSpringEntranceState extends State<OpenHandSpringEntrance>
 
   void _configureAnimations() {
     _opacity = OpenHandBoundedDoubleAnimation(
-      CurvedAnimation(
+      openHandCurveAnimation(
         parent: _controller,
         curve: Interval(
           0.0,
@@ -88,14 +88,20 @@ class _OpenHandSpringEntranceState extends State<OpenHandSpringEntrance>
     );
     _scale = Tween<double>(begin: _safeScaleBegin(widget.scaleBegin), end: 1.0)
         .animate(
-          CurvedAnimation(parent: _controller, curve: kOpenHandEntranceCurve),
+          openHandCurveAnimation(
+            parent: _controller,
+            curve: kOpenHandEntranceCurve,
+          ),
         );
     _slide =
         Tween<Offset>(
           begin: _safeOffset(widget.slideBegin),
           end: Offset.zero,
         ).animate(
-          CurvedAnimation(parent: _controller, curve: kOpenHandSwitchInCurve),
+          openHandCurveAnimation(
+            parent: _controller,
+            curve: kOpenHandSwitchInCurve,
+          ),
         );
   }
 

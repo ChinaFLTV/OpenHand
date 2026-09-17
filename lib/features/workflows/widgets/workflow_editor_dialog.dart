@@ -12,6 +12,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -967,7 +968,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           begin: _transformationController.value.clone(),
           end: target,
         ).animate(
-          CurvedAnimation(parent: controller, curve: kOpenHandSwitchInCurve),
+          openHandCurveAnimation(
+            parent: controller,
+            curve: kOpenHandSwitchInCurve,
+          ),
         );
     controller.forward(from: 0);
   }
@@ -4160,7 +4164,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           begin: _transformationController.value.clone(),
           end: Matrix4.identity(),
         ).animate(
-          CurvedAnimation(parent: controller, curve: kOpenHandSwitchInCurve),
+          openHandCurveAnimation(
+            parent: controller,
+            curve: kOpenHandSwitchInCurve,
+          ),
         );
     controller.forward(from: 0);
   }

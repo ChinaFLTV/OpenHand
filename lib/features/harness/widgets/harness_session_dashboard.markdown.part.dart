@@ -361,7 +361,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
       ..value = 1.0;
     // 入场使用 easeOutCubic：开始快、收尾舒缓，符合全局丝滑节奏；
     // 与 easeIn（开始慢）相比能更早把首帧像素呈现给用户。
-    _fadeAnim = CurvedAnimation(
+    _fadeAnim = openHandCurveAnimation(
       parent: _fadeCtrl,
       curve: kOpenHandSwitchInCurve,
     );

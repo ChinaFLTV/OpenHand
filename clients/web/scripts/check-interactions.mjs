@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 
-// 只替换 Hook 生命周期和通知出口，直接驱动真实手势监听器。
+// 只替换 Hook 生命周期和浏览器出口，直接驱动真实交互与轮询逻辑。
 const hooksId = '\0交互检查钩子';
 const noticesId = '\0交互检查通知';
 const server = await createServer({
@@ -47,6 +47,7 @@ const server = await createServer({
             });
           }
         }
+        export const useEffect = useLayoutEffect;
         export function render(callback) {
           index = 0;
           const result = callback();
@@ -65,7 +66,7 @@ const server = await createServer({
 });
 const saved = new Map();
 function replace(name, value) {
-  saved.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
+  if (!saved.has(name)) saved.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
   Object.defineProperty(globalThis, name, { configurable: true, writable: true, value });
 }
 class Surface extends EventTarget {
@@ -173,7 +174,76 @@ try {
   startPen();
   pointer('pointerup');
   assert.equal(refreshes, before, '卸载后必须移除手势监听器');
-  console.log('[交互检查] 手势归属、取消、重入、禁用、异常与卸载检查通过。');
+
+  const timers = new Map();
+  let timerId = 0;
+  replace('window', {
+    setTimeout(callback, delay) {
+      const id = ++timerId;
+      timers.set(id, { callback, delay });
+      return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+  });
+  const settle = async () => {
+    for (let turn = 0; turn < 24; turn++) await Promise.resolve();
+  };
+  const tick = async (delay) => {
+    const entry = [...timers].find(([, timer]) => timer.delay === delay);
+    assert.ok(entry, `缺少 ${delay} 毫秒的预期计时器`);
+    timers.delete(entry[0]);
+    entry[1].callback();
+    await settle();
+  };
+  const { useAsyncPolling } = await server.ssrLoadModule('/src/hooks/useAsyncPolling.ts');
+  const runs = [];
+  const pollingErrors = [];
+  let options = { enabled: true, intervalMs: 500, taskTimeoutMs: 1000 };
+  const renderPoll = () => hooks.render(() => useAsyncPolling((isActive, signal) => {
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    runs.push({ isActive, signal, resolve });
+    return promise;
+  }, { ...options, onError: error => pollingErrors.push(error) }));
+  renderPoll();
+  await settle();
+  assert.equal(runs.length, 1);
+  for (let round = 0; round < 5; round++) {
+    options = { ...options, enabled: false };
+    renderPoll();
+    options = { ...options, enabled: true, intervalMs: 750 };
+    renderPoll();
+    await settle();
+  }
+  assert.equal(runs.length, 1, '反复启停或修改间隔不能叠加忽略取消的旧任务');
+  assert.equal(runs[0].signal.aborted, true, '配置变更必须中止旧请求');
+  assert.equal(runs[0].isActive(), false, '旧任务不能更新新配置的页面');
+  runs[0].resolve();
+  await settle();
+  assert.equal(timers.size, 1, '旧任务结束后只恢复一个轮询计时器');
+  await tick(750);
+  assert.equal(runs.length, 2, '旧任务结束后必须按最新配置恢复轮询');
+  await tick(1000);
+  assert.equal(pollingErrors.length, 1, '任务超时必须报告一次');
+  assert.equal(runs[1].signal.aborted, true);
+  assert.equal(timers.size, 0, '忽略超时取消的任务结束前不得继续调度');
+  options = { ...options, intervalMs: 900 };
+  renderPoll();
+  await settle();
+  assert.equal(runs.length, 2, '超时后改配置仍不能绕过运行门闩');
+  runs[1].resolve();
+  await settle();
+  await tick(900);
+  assert.equal(runs.length, 3);
+  hooks.unmount();
+  runs[2].resolve();
+  await settle();
+  assert.equal(timers.size, 0, '卸载必须清除计时器且阻止迟到任务重新调度');
+  renderPoll();
+  hooks.unmount();
+  await settle();
+  assert.equal(runs.length, 3, '开始前卸载不得启动底层轮询任务');
+  console.log('[交互检查] 手势与轮询的取消、重入、配置变更、超时及卸载检查通过。');
 } finally {
   for (const [name, descriptor] of saved) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);

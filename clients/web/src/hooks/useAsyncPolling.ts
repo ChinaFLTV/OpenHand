@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import {
   MAX_BROWSER_TIMEOUT_MS,
   normalizeDurationMs,
@@ -70,12 +70,15 @@ export function useAsyncPolling(
     scheduleTimer: schedulePollTimer,
   } = useTimeoutController();
 
+  // 跨配置变更保留运行门闩；忽略取消的旧任务结束前不能启动新任务。
+  const taskRunningRef = useRef(false);
+  const resumePollingRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (!enabled) return undefined;
 
     let stopped = false;
     let activeController: AbortController | null = null;
-    let activeRunId = 0;
     const delayMs = normalizeIntervalMs(intervalMs);
     const timeoutMs = normalizeTaskTimeoutMs(taskTimeoutMs);
 
@@ -88,34 +91,27 @@ export function useAsyncPolling(
     };
 
     const run = async () => {
-      activeController?.abort();
+      if (stopped || taskRunningRef.current) return;
+      taskRunningRef.current = true;
       const controller = new AbortController();
       activeController = controller;
-      const runId = ++activeRunId;
-      let taskSettled = false;
-      let scheduleWhenTaskSettles = false;
+      let taskSettled = true;
+      let timeoutSettled = false;
+      const release = () => {
+        if (!taskSettled || !timeoutSettled) return;
+        taskRunningRef.current = false;
+        resumePollingRef.current?.();
+      };
       try {
         await runWithAbortableTimeout(
           (signal) => {
-            const taskCompletion = Promise.resolve().then(() =>
-              runTask(
-                () =>
-                  !stopped &&
-                  activeRunId === runId &&
-                  !signal.aborted &&
-                  !controller.signal.aborted,
-                signal,
-              ),
-            );
-            return taskCompletion.finally(() => {
+            taskSettled = false;
+            return Promise.resolve().then(() => {
+              if (stopped || signal.aborted) return;
+              return runTask(() => !stopped && !signal.aborted, signal);
+            }).finally(() => {
               taskSettled = true;
-              if (
-                scheduleWhenTaskSettles &&
-                !stopped &&
-                activeRunId === runId
-              ) {
-                schedule(delayMs);
-              }
+              release();
             });
           },
           {
@@ -128,48 +124,14 @@ export function useAsyncPolling(
       } catch (error) {
         if (!stopped && !isOperationAbortedError(error)) handleError(error);
       } finally {
-        if (!controller.signal.aborted) {
-          controller.abort();
-        }
-        if (activeController === controller) {
-          activeController = null;
-        }
-        if (!stopped) {
-          // 任务忽略取消信号时，等它真正结束后再调度，避免超时任务无限叠加。
-          if (taskSettled) {
-            schedule(delayMs);
-          } else {
-            scheduleWhenTaskSettles = true;
-          }
-        }
+        controller.abort();
+        if (activeController === controller) activeController = null;
+        timeoutSettled = true;
+        release();
       }
     };
 
-    if (typeof window === 'undefined') {
-      let immediateController: AbortController | null = null;
-      if (immediate) {
-        const controller = new AbortController();
-        immediateController = controller;
-        void (async () => {
-          try {
-            await runTask(
-              () => !stopped && !controller.signal.aborted,
-              controller.signal,
-            );
-          } catch (error) {
-            if (!stopped && !isOperationAbortedError(error)) handleError(error);
-          } finally {
-            controller.abort();
-          }
-        })();
-      }
-      return () => {
-        stopped = true;
-        immediateController?.abort();
-        immediateController = null;
-      };
-    }
-
+    resumePollingRef.current = () => schedule(delayMs);
     if (immediate) {
       void run();
     } else {
@@ -178,6 +140,7 @@ export function useAsyncPolling(
 
     return () => {
       stopped = true;
+      resumePollingRef.current = null;
       activeController?.abort();
       activeController = null;
       clearPollTimer();

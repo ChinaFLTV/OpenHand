@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../app/support/silent_log.dart';
 import '../util/bounded_file_io.dart';
 import '../util/localized_text.dart';
+import 'bounded_animation.dart';
 import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
@@ -113,7 +114,7 @@ class _GeneratedMediaResultCardState extends State<GeneratedMediaResultCard>
     vsync: this,
     duration: kOpenHandMotion420,
   );
-  late final Animation<double> _revealAnimation = CurvedAnimation(
+  late final Animation<double> _revealAnimation = openHandCurveAnimation(
     parent: _revealController,
     curve: kOpenHandEntranceCurve,
   );

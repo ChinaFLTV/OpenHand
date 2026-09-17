@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'bounded_animation.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 
@@ -84,10 +85,13 @@ class _OpenHandInteractiveImagePreviewState
     }
     final resetController = _ensureResetController();
     resetController.stop();
-    _resetAnimation = Matrix4Tween(
-      begin: _controller.value.clone(),
-      end: Matrix4.identity(),
-    ).animate(CurvedAnimation(parent: resetController, curve: _kResetCurve));
+    _resetAnimation =
+        Matrix4Tween(
+          begin: _controller.value.clone(),
+          end: Matrix4.identity(),
+        ).animate(
+          openHandCurveAnimation(parent: resetController, curve: _kResetCurve),
+        );
     resetController.forward(from: 0);
   }
 

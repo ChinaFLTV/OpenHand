@@ -1796,7 +1796,9 @@ class AiChatService implements AiChatClient {
     AiTokenUsage? usage;
     String? finishReason;
     String? providerWarning;
-    final lineBuffer = _SseLineCarry();
+    final lineBuffer = BoundedSseEventBuffer(
+      maxEventCharacters: maxStreamLineBufferBytes,
+    );
     StreamSubscription<String>? responseSubscription;
     Future<void>? responseSubscriptionCancelFuture;
 
@@ -2094,12 +2096,10 @@ class AiChatService implements AiChatClient {
     bool isStreamComplete() => resultCompleter.isCompleted;
 
     void processChunk(String chunk) {
-      final accepted = _processBoundedSseChunk(
-        chunk: chunk,
-        carry: lineBuffer,
-        maxBufferLength: maxStreamLineBufferBytes,
+      final accepted = lineBuffer.add(
+        chunk,
         isComplete: isStreamComplete,
-        processEventBlock: processEventBlock,
+        onEvent: processEventBlock,
       );
       if (!accepted) {
         failStream('AI 响应流单个事件超过安全上限。');
@@ -2133,10 +2133,7 @@ class AiChatService implements AiChatClient {
             }
           },
           onDone: () {
-            if (lineBuffer.isNotEmpty &&
-                lineBuffer.length <= maxStreamLineBufferBytes) {
-              processEventBlock(lineBuffer.pending);
-            }
+            lineBuffer.finish(processEventBlock);
             completeStreamResult('stream_closed');
           },
           cancelOnError: true,
@@ -2374,7 +2371,9 @@ class AiChatService implements AiChatClient {
     final reasoningBuffer = StringBuffer();
     final toolCalls = <int, AiResponsesStreamToolCall>{};
     final rawResponseBuffer = StringBuffer();
-    final lineBuffer = _SseLineCarry();
+    final lineBuffer = BoundedSseEventBuffer(
+      maxEventCharacters: maxStreamLineBufferBytes,
+    );
     AiTokenUsage? usage;
     String? finishReason;
     Map<String, Object?>? completedResponse;
@@ -2666,12 +2665,10 @@ class AiChatService implements AiChatClient {
     bool isStreamComplete() => resultCompleter.isCompleted;
 
     void processChunk(String chunk) {
-      final accepted = _processBoundedSseChunk(
-        chunk: chunk,
-        carry: lineBuffer,
-        maxBufferLength: maxStreamLineBufferBytes,
+      final accepted = lineBuffer.add(
+        chunk,
         isComplete: isStreamComplete,
-        processEventBlock: processEventBlock,
+        onEvent: processEventBlock,
       );
       if (!accepted) {
         failStream('AI 响应流单个事件超过安全上限。');
@@ -2692,10 +2689,7 @@ class AiChatService implements AiChatClient {
             }
           },
           onDone: () {
-            if (lineBuffer.isNotEmpty &&
-                lineBuffer.length <= maxStreamLineBufferBytes) {
-              processEventBlock(lineBuffer.pending);
-            }
+            lineBuffer.finish(processEventBlock);
             unawaited(completeStreamResult());
           },
           cancelOnError: true,
@@ -3201,54 +3195,6 @@ class AiChatService implements AiChatClient {
     _activeRequestAborts.remove(abort);
     _requestSlots.release();
   }
-}
-
-/// SSE 行缓冲。
-///
-/// 刻意用可变 String 而不是 StringBuffer：解析每轮都要读「当前尚未消费的
-/// 全部内容」，而 StringBuffer 每次读都得整体 toString 再重建。一个 TCP
-/// 分片里若含 k 个完整事件，就会做 k 次「整缓冲 toString + 整余量 substring
-/// + 整余量 write」，在上限 4 MiB 的缓冲上退化为 O(k·n) 字符拷贝——而这条
-/// 路径是流式渲染最热的一环。
-class _SseLineCarry {
-  String pending = '';
-
-  bool get isNotEmpty => pending.isNotEmpty;
-
-  int get length => pending.length;
-}
-
-bool _processBoundedSseChunk({
-  required String chunk,
-  required _SseLineCarry carry,
-  required int maxBufferLength,
-  required bool Function() isComplete,
-  required void Function(String block) processEventBlock,
-}) {
-  var pending =
-      carry.pending + chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-  // 已消费前缀的游标：整轮只在最后切一次，循环内不复制字符串。
-  var cut = 0;
-  while (!isComplete()) {
-    if (pending.length - cut < 2) break;
-    final separatorIndex = pending.indexOf('\n\n', cut);
-    if (separatorIndex < 0) {
-      if (pending.length - cut > maxBufferLength) {
-        carry.pending = '';
-        return false;
-      }
-      break;
-    }
-    final block = pending.substring(cut, separatorIndex);
-    cut = separatorIndex + 2;
-    if (block.length > maxBufferLength) {
-      carry.pending = '';
-      return false;
-    }
-    processEventBlock(block);
-  }
-  carry.pending = cut == 0 ? pending : pending.substring(cut);
-  return true;
 }
 
 const Object _cancelledRequestSentinel = Object();

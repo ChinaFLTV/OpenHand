@@ -390,6 +390,17 @@ try {
   assert.equal(snapshots.length, 1, '取消订阅后不能继续通知页面');
   assert.equal(eventSource.closed, true);
 
+  const staleSnapshots = [];
+  const stopStale = subscribeSessionEvents('当前会话', {
+    onSnapshot: value => staleSnapshots.push(value),
+    onError: () => assert.fail('旧登录态的事件不能通知新页面'),
+  });
+  auth.writeToken('事件订阅后的新凭据', null);
+  send(snapshot);
+  assert.equal(staleSnapshots.length, 0, '登录态切换后必须丢弃旧连接快照');
+  assert.equal(eventSource.closed, true, '旧登录态的连接必须关闭以停止自动重连');
+  stopStale();
+
   replaceGlobal('EventSource', undefined);
   const cancelUnavailable = subscribeSessionEvents('当前会话', {
     onSnapshot: () => assert.fail('无 SSE 时不能生成快照'),
@@ -398,6 +409,12 @@ try {
   cancelUnavailable();
   await Promise.resolve();
   assert.equal(errors.length, 2, '卸载后不能投递 SSE 初始化错误');
+  const stopUnavailable = subscribeSessionEvents('当前会话', {
+    onSnapshot() {},
+    onError: () => { throw new Error('模拟 SSE 初始化错误回调失败'); },
+  });
+  await Promise.resolve();
+  stopUnavailable();
 
   replaceGlobal('window', undefined);
   replaceGlobal('document', {

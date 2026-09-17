@@ -164,37 +164,93 @@ class OpenHandImageRevealSwitcher extends StatelessWidget {
             fit: StackFit.passthrough,
             clipBehavior: Clip.none,
           ),
-      transitionBuilder: (transitionChild, animation) {
-        final fade = CurvedAnimation(
-          parent: animation,
-          curve: kOpenHandSwitchInCurve,
-          reverseCurve: kOpenHandSwitchOutCurve,
-        );
-        final spring = CurvedAnimation(
-          parent: animation,
-          curve: kOpenHandEntranceCurve,
-          reverseCurve: kOpenHandSpringExitCurve,
-        );
-        return FadeTransition(
-          opacity: fade,
-          child: AnimatedBuilder(
-            animation: Listenable.merge(<Listenable>[fade, spring]),
-            builder: (context, child) {
-              final fadeT = fade.value.clamp(0.0, 1.0);
-              final springT = spring.value.clamp(0.0, 1.25);
-              return Transform.translate(
-                offset: Offset(0, (1 - fadeT) * slide),
-                child: Transform.scale(
-                  scale: scaleFrom + (1 - scaleFrom) * springT,
-                  child: child,
-                ),
-              );
-            },
-            child: transitionChild,
-          ),
-        );
-      },
+      transitionBuilder: (transitionChild, animation) => _ImageRevealTransition(
+        animation: animation,
+        slide: slide,
+        scaleFrom: scaleFrom,
+        child: transitionChild,
+      ),
       child: KeyedSubtree(key: ValueKey<String>(stateKey), child: child),
+    );
+  }
+}
+
+/// 曲线随过渡节点存活，重建不重复注册监听，中途反向保留当前曲线进度。
+class _ImageRevealTransition extends StatefulWidget {
+  const _ImageRevealTransition({
+    required this.animation,
+    required this.slide,
+    required this.scaleFrom,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final double slide;
+  final double scaleFrom;
+  final Widget child;
+
+  @override
+  State<_ImageRevealTransition> createState() => _ImageRevealTransitionState();
+}
+
+class _ImageRevealTransitionState extends State<_ImageRevealTransition> {
+  late CurvedAnimation _fade;
+  late CurvedAnimation _spring;
+
+  @override
+  void initState() {
+    super.initState();
+    _configureCurves();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ImageRevealTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animation == widget.animation) return;
+    _fade.dispose();
+    _spring.dispose();
+    _configureCurves();
+  }
+
+  void _configureCurves() {
+    _fade = CurvedAnimation(
+      parent: widget.animation,
+      curve: kOpenHandSwitchInCurve,
+      reverseCurve: kOpenHandSwitchOutCurve,
+    );
+    _spring = CurvedAnimation(
+      parent: widget.animation,
+      curve: kOpenHandEntranceCurve,
+      reverseCurve: kOpenHandSpringExitCurve,
+    );
+  }
+
+  @override
+  void dispose() {
+    _fade.dispose();
+    _spring.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: AnimatedBuilder(
+        animation: widget.animation,
+        builder: (context, child) {
+          final fadeT = _fade.value.clamp(0.0, 1.0);
+          final springT = _spring.value.clamp(0.0, 1.25);
+          return Transform.translate(
+            offset: Offset(0, (1 - fadeT) * widget.slide),
+            child: Transform.scale(
+              scale: widget.scaleFrom + (1 - widget.scaleFrom) * springT,
+              child: child,
+            ),
+          );
+        },
+        child: widget.child,
+      ),
     );
   }
 }

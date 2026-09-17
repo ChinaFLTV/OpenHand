@@ -1117,6 +1117,7 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T>
   final Curve _exitBarrierCurve;
   final bool dismissOnEscape;
   bool _escapeDismissRequested = false;
+  CurvedAnimation? _barrierAnimation;
 
   @override
   ModalRoute<Object?> get escapeRoute => this;
@@ -1133,6 +1134,7 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T>
   @override
   void dispose() {
     _OpenHandEscapeDispatcher.instance.unregister(this);
+    _barrierAnimation?.dispose();
     super.dispose();
   }
 
@@ -1180,7 +1182,7 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T>
       );
     }
     final curvedAnimation = OpenHandBoundedDoubleAnimation(
-      CurvedAnimation(
+      _barrierAnimation ??= CurvedAnimation(
         parent: animation!,
         curve: _entranceBarrierCurve,
         reverseCurve: _exitBarrierCurve,

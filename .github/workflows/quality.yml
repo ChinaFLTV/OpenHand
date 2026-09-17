@@ -40,6 +40,8 @@ jobs:
         run: dart run scripts/check_shared_helpers.dart
       - name: 检查会话首屏与历史滚动
         run: dart run scripts/check_transcript_widgets.dart
+      - name: 检查动效边界与资源释放
+        run: dart run scripts/check_motion_widgets.dart
       - name: 执行静态分析
         run: flutter analyze
 

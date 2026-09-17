@@ -3336,7 +3336,7 @@ class _SessionErrorBanner extends StatefulWidget {
 class _SessionErrorBannerState extends State<_SessionErrorBanner>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _fade;
+  late final CurvedAnimation _fade;
   late final Animation<Offset> _slide;
   late final Animation<double> _scale;
   bool _exiting = false;
@@ -3371,17 +3371,18 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
     _controller.reverseDuration = motionEnabled
         ? kOpenHandMotion220
         : Duration.zero;
-    if (_entranceStarted) return;
-    _entranceStarted = true;
-    if (motionEnabled) {
+    if (!motionEnabled) {
+      _controller.value = _exiting ? 0 : 1;
+      _entranceStarted = true;
+    } else if (!_entranceStarted) {
+      _entranceStarted = true;
       _controller.forward();
-    } else {
-      _controller.value = 1;
     }
   }
 
   @override
   void dispose() {
+    _fade.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -3389,7 +3390,11 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
   Future<void> _handleDismiss() async {
     if (_exiting) return;
     _exiting = true;
-    await _controller.reverse();
+    try {
+      await _controller.reverse().orCancel;
+    } on TickerCanceled {
+      // 卸载或禁用动效会取消 Ticker；只在组件仍存在时提交关闭。
+    }
     if (!mounted) return;
     widget.onDismiss();
   }
@@ -3504,7 +3509,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
     return SlideTransition(
       position: _slide,
       child: FadeTransition(
-        opacity: _fade,
+        opacity: OpenHandBoundedDoubleAnimation(_fade),
         child: ScaleTransition(scale: _scale, child: banner),
       ),
     );
@@ -4102,7 +4107,7 @@ class _CreationFailureCard extends StatefulWidget {
 class _CreationFailureCardState extends State<_CreationFailureCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _fade;
+  late final CurvedAnimation _fade;
   late final Animation<Offset> _slide;
   late final Animation<double> _scale;
   bool _exiting = false;
@@ -4132,12 +4137,13 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!openHandTickerMotionEnabled(context)) {
-      _controller.value = 1;
+      _controller.value = _exiting ? 0 : 1;
     }
   }
 
   @override
   void dispose() {
+    _fade.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -4146,7 +4152,11 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
     if (_exiting) return;
     _exiting = true;
     if (openHandTickerMotionEnabled(context)) {
-      await _controller.reverse();
+      try {
+        await _controller.reverse().orCancel;
+      } on TickerCanceled {
+        // 卸载或禁用动效时结束等待。
+      }
     }
     if (!mounted) return;
     await widget.onDismiss();
@@ -4249,7 +4259,7 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
     return SlideTransition(
       position: _slide,
       child: FadeTransition(
-        opacity: _fade,
+        opacity: OpenHandBoundedDoubleAnimation(_fade),
         child: ScaleTransition(scale: _scale, child: card),
       ),
     );

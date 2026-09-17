@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -953,7 +954,7 @@ class KnowledgeDialogTabScaffold extends StatelessWidget {
                               begin: const Offset(0.03, 0.05),
                               end: Offset.zero,
                             ).animate(
-                              CurvedAnimation(
+                              openHandCurveAnimation(
                                 parent: animation,
                                 curve: kOpenHandEntranceCurve,
                               ),
