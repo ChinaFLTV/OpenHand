@@ -11,6 +11,7 @@ import '../../shared/net/loopback_hosts.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/platform_environment.dart';
 import '../model/app_proxy_settings.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
@@ -110,7 +111,7 @@ class SystemProxyResolver {
     final env = Platform.environment;
     String? pickRaw(List<String> keys) {
       for (final key in keys) {
-        final value = nullIfBlank(env[key]);
+        final value = nullIfBlank(platformEnvironmentValue(env, key));
         if (value != null) return value;
       }
       return null;
@@ -146,7 +147,7 @@ class SystemProxyResolver {
       }
     }
 
-    final noProxy = env['NO_PROXY'] ?? env['no_proxy'] ?? '';
+    final noProxy = pickRaw(<String>['NO_PROXY', 'no_proxy']) ?? '';
     _noProxyHosts
       ..clear()
       ..addAll(splitTrimmedNonEmpty(noProxy).map((s) => s.toLowerCase()));

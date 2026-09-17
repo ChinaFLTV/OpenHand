@@ -153,6 +153,14 @@ List<_RestrictedApiRule> _restrictedApiRules() => <_RestrictedApiRule>[
     advice: '请使用 app/support/safe_subprocess.dart 的安全进程入口',
   ),
   _RestrictedApiRule(
+    pattern: RegExp(r'\bPlatform\s*\.\s*environment\s*\['),
+    allowedRelativePaths: const <String>{
+      'shared/util/platform_environment.dart',
+    },
+    fallbackApiName: '环境变量直接读取',
+    advice: '请使用 shared/util/platform_environment.dart 的跨平台读取入口',
+  ),
+  _RestrictedApiRule(
     pattern: RegExp(r'\.createTemp\s*\('),
     allowedRelativePaths: const <String>{'shared/util/bounded_file_io.dart'},
     fallbackApiName: '临时目录创建 API',

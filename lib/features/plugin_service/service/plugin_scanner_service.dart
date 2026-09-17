@@ -15,6 +15,7 @@ import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/platform_environment.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/plugin_info.dart';
@@ -163,17 +164,7 @@ class PluginScannerService {
   );
   static final RegExp _nodeVersionOutputPattern = RegExp(r'v(\d+\.\d+\.\d+)');
   static final RegExp _strictNodeVersionPattern = RegExp(r'^v\d+\.\d+\.\d+$');
-  static final RegExp _pyenvVersionPathPattern = RegExp(
-    '/.pyenv/versions/([^/]+)/',
-  );
-  static final RegExp _brewPythonFormulaPathPattern = RegExp(
-    r'/(python(?:@[\d.]+)?)(?:/|$)',
-  );
   static final RegExp _semverSearchPattern = RegExp(r'(\d+\.\d+\.\d+)');
-  static final RegExp _playwrightVersionPrefixPattern = RegExp(
-    r'^Version\s+',
-    caseSensitive: false,
-  );
   static final RegExp _looseVersionPattern = RegExp(
     r'(\d+(?:\.\d+)+(?:[-+._A-Za-z0-9]*)?)',
   );
@@ -404,19 +395,6 @@ class PluginScannerService {
         : null;
   }
 
-  static String? _extractPyenvVersionFromPath(String path) {
-    final match = _pyenvVersionPathPattern.firstMatch(path);
-    final value = match?.group(1);
-    if (value != null && isStrictSemanticVersionText(value)) return value;
-    return null;
-  }
-
-  static String? _extractBrewPythonFormulaFromPath(String path) {
-    final matches = _brewPythonFormulaPathPattern.allMatches(path);
-    if (matches.isEmpty) return null;
-    return matches.last.group(1);
-  }
-
   Future<bool> _isPyenvAvailable() async {
     if (await pluginPyenvInstallationExists()) return true;
     final result = await _shellRun('command -v pyenv');
@@ -459,17 +437,9 @@ class PluginScannerService {
   Future<String?> _queryBrewLatestVersionUncached(String formula) async {
     final result = await _shellRun('brew info --json=v2 $formula');
     if (result.exitCode != 0) return null;
-    final decoded = tryDecodeJson(result.stdout.toString());
-    final formulae = decoded is Map<String, Object?>
-        ? decoded['formulae']
-        : null;
-    if (formulae is! List || formulae.isEmpty) return null;
-    final item = formulae.first;
-    if (item is! Map<String, Object?>) return null;
-    final versions = item['versions'];
-    if (versions is! Map<String, Object?>) return null;
-    final stable = versions['stable'];
-    return stable is String && stable.isNotEmpty ? stable : null;
+    return extractPluginHomebrewStableVersion(
+      tryDecodeJson(result.stdout.toString()),
+    );
   }
 
   Future<String?> _queryLatestPipVersion() {
@@ -602,7 +572,8 @@ class PluginScannerService {
           : 'PATH 可执行文件';
     }
     if (Platform.isWindows) {
-      final localAppData = Platform.environment['LOCALAPPDATA'] ?? '';
+      final localAppData =
+          currentPlatformEnvironmentValue('LOCALAPPDATA') ?? '';
       return localAppData.isNotEmpty &&
               normalized.toLowerCase().startsWith(localAppData.toLowerCase())
           ? '当前用户安装'
@@ -920,9 +891,9 @@ class PluginScannerService {
           (selectedVersionName != null &&
               isStrictSemanticVersionText(selectedVersionName))
           ? selectedVersionName
-          : _extractPyenvVersionFromPath(executable);
+          : extractPluginPyenvVersionFromPath(executable);
       final formula = pluginLooksLikeHomebrewPythonPath(executable)
-          ? (_extractBrewPythonFormulaFromPath(executable) ?? 'python')
+          ? (extractPluginBrewPythonFormulaFromPath(executable) ?? 'python')
           : null;
       final source = managedPyenvVersion != null
           ? _PythonRuntimeSource.pyenv
@@ -962,7 +933,7 @@ class PluginScannerService {
           : null;
       if (executable == null || executable.isEmpty) continue;
       final formula = pluginLooksLikeHomebrewPythonPath(executable)
-          ? (_extractBrewPythonFormulaFromPath(executable) ?? 'python')
+          ? (extractPluginBrewPythonFormulaFromPath(executable) ?? 'python')
           : null;
       final source = formula != null
           ? _PythonRuntimeSource.homebrew
@@ -1130,11 +1101,7 @@ class PluginScannerService {
         '${posixShellQuote(installation.executablePath)} --version',
       );
       if (versionResult.exitCode != 0) return _playwrightNotInstalled;
-      final version = versionResult.stdout
-          .toString()
-          .trim()
-          .replaceFirst(_playwrightVersionPrefixPattern, '')
-          .trim();
+      final version = normalizePluginPlaywrightVersion(versionResult.stdout);
       if (!_semverSearchPattern.hasMatch(version)) {
         return _playwrightNotInstalled;
       }

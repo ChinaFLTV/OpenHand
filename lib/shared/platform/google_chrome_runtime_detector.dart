@@ -3,6 +3,7 @@ import 'dart:io';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../util/bounded_file_io.dart';
+import '../util/platform_environment.dart';
 
 const Duration _chromeFileProbeTimeout = Duration(milliseconds: 500);
 const Duration _chromeProcessProbeTimeout = Duration(seconds: 2);
@@ -62,7 +63,7 @@ class GoogleChromeRuntimeDetector {
     for (final candidate in <String>[
       if (app?.isNotEmpty == true) '$app/Contents/MacOS/Google Chrome',
       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      '${Platform.environment['HOME'] ?? ''}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '${currentPlatformEnvironmentValue('HOME') ?? ''}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     ]) {
       if (await _isExecutable(candidate)) return candidate;
     }
@@ -71,10 +72,11 @@ class GoogleChromeRuntimeDetector {
 
   Future<String?> _detectWindows() async {
     final programFiles =
-        Platform.environment['ProgramFiles'] ?? r'C:\Program Files';
+        currentPlatformEnvironmentValue('ProgramFiles') ?? r'C:\Program Files';
     final programFilesX86 =
-        Platform.environment['ProgramFiles(x86)'] ?? r'C:\Program Files (x86)';
-    final localAppData = Platform.environment['LOCALAPPDATA'] ?? '';
+        currentPlatformEnvironmentValue('ProgramFiles(x86)') ??
+        r'C:\Program Files (x86)';
+    final localAppData = currentPlatformEnvironmentValue('LOCALAPPDATA') ?? '';
     for (final candidate in <String>[
       '$programFiles\\Google\\Chrome\\Application\\chrome.exe',
       '$programFilesX86\\Google\\Chrome\\Application\\chrome.exe',

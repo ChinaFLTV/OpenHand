@@ -17,6 +17,11 @@ String? platformEnvironmentValue(
   return null;
 }
 
+/// 读取当前进程环境变量；Windows 下按系统语义忽略键名大小写。
+String? currentPlatformEnvironmentValue(String name) {
+  return platformEnvironmentValue(Platform.environment, name);
+}
+
 /// 合并平台环境变量；Windows 下按大小写无关语义覆盖同名键。
 Map<String, String> mergePlatformEnvironment(
   Map<String, String> overrides, {

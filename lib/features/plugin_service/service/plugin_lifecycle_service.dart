@@ -14,6 +14,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/physical_path_safety.dart';
+import '../../../shared/util/platform_environment.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/version_compare.dart';
 import 'managed_service_defaults.dart';
@@ -33,16 +34,6 @@ const int _dockerDaemonMaxPollAttempts = 24;
 const int _pluginLifecycleMaxCapturedLines = 500;
 final RegExp _pluginLifecycleNodeVersionPattern = RegExp(
   r'(v\d+\.\d+(?:\.\d+)?)',
-);
-final RegExp _pluginLifecyclePlaywrightVersionPrefixPattern = RegExp(
-  r'^Version\s+',
-  caseSensitive: false,
-);
-final RegExp _pluginLifecyclePyenvVersionPathPattern = RegExp(
-  '/.pyenv/versions/([^/]+)/',
-);
-final RegExp _pluginLifecycleBrewPythonFormulaPathPattern = RegExp(
-  r'/(python(?:@[\d.]+)?)(?:/|$)',
 );
 
 class _ManagedDatabaseSpec {
@@ -97,15 +88,6 @@ const _redisManagedDatabase = _ManagedDatabaseSpec(
   healthCommand: 'redis-cli ping',
   containerArguments: <String>['redis-server', '--appendonly', 'yes'],
 );
-
-String? _homebrewStableVersionFromDecoded(Object? decoded) {
-  final root = stringKeyedMapFromValue(decoded);
-  final formulae = stringKeyedMapListFromValue(root['formulae']);
-  if (formulae.isEmpty) return null;
-  final versions = stringKeyedMapFromValue(formulae.first['versions']);
-  final stable = '${versions['stable'] ?? ''}'.trim();
-  return stable.isEmpty ? null : stable;
-}
 
 /// 插件生命周期操作结果。
 class PluginOperationResult {
@@ -1162,7 +1144,7 @@ exit 4''';
     final managedPyenvVersion =
         selected != null && isStrictSemanticVersionText(selected)
         ? selected
-        : _extractPyenvVersionFromPath(executable);
+        : extractPluginPyenvVersionFromPath(executable);
     if (managedPyenvVersion == null) return null;
     final version = await _readPythonVersion(executable);
     return _PythonRuntimeContext(
@@ -1183,7 +1165,8 @@ exit 4''';
       source: _PythonRuntimeSource.homebrew,
       executablePath: executable,
       version: version,
-      brewFormula: _extractBrewPythonFormulaFromPath(executable) ?? 'python',
+      brewFormula:
+          extractPluginBrewPythonFormulaFromPath(executable) ?? 'python',
     );
   }
 
@@ -1314,7 +1297,7 @@ exit 4''';
       final decoded = tryDecodeJson(result.stdout.toString());
       return decoded == null
           ? null
-          : _homebrewStableVersionFromDecoded(decoded);
+          : extractPluginHomebrewStableVersion(decoded);
     } catch (_) {
       return null;
     }
@@ -1621,7 +1604,7 @@ exit 4''';
       '--version',
     ], timeout: const Duration(seconds: 15));
     if (verify.exitCode == 0) {
-      final version = _normalizePlaywrightVersion(verify.stdout);
+      final version = normalizePluginPlaywrightVersion(verify.stdout);
       if (extractPluginFirstSemver(version) == null) {
         return PluginOperationResult(
           success: false,
@@ -3500,7 +3483,7 @@ ${_managedDatabaseHealthWaitScript(containerName: spec.containerName, healthComm
         message: '未找到 Chrome 官方卸载程序，请通过 Windows 应用设置卸载。',
       );
     }
-    final localAppData = Platform.environment['LOCALAPPDATA'] ?? '';
+    final localAppData = currentPlatformEnvironmentValue('LOCALAPPDATA') ?? '';
     final systemLevel =
         localAppData.isEmpty ||
         !executable.toLowerCase().startsWith(localAppData.toLowerCase());
@@ -3564,7 +3547,7 @@ ${_managedDatabaseHealthWaitScript(containerName: spec.containerName, healthComm
         message: '未找到支持的 Linux 包管理器，无法自动卸载 Google Chrome。',
       );
     }
-    final isRoot = Platform.environment['USER'] == 'root';
+    final isRoot = currentPlatformEnvironmentValue('USER') == 'root';
     final pkexec = isRoot
         ? null
         : await _resolveManagedToolchainCommandPath('pkexec');
@@ -4061,24 +4044,4 @@ String? _extractNodeVersion(String output) {
     version = match.group(1);
   }
   return version;
-}
-
-String _normalizePlaywrightVersion(Object? output) {
-  return '$output'.trim().replaceFirst(
-    _pluginLifecyclePlaywrightVersionPrefixPattern,
-    '',
-  );
-}
-
-String? _extractPyenvVersionFromPath(String path) {
-  final match = _pluginLifecyclePyenvVersionPathPattern.firstMatch(path);
-  final value = match?.group(1);
-  if (value != null && isStrictSemanticVersionText(value)) return value;
-  return null;
-}
-
-String? _extractBrewPythonFormulaFromPath(String path) {
-  final matches = _pluginLifecycleBrewPythonFormulaPathPattern.allMatches(path);
-  if (matches.isEmpty) return null;
-  return matches.last.group(1);
 }

@@ -19,6 +19,7 @@ import 'package:openhand/shared/util/input_value_parsing.dart';
 import 'package:openhand/shared/util/lifecycle_cache.dart';
 import 'package:openhand/shared/util/message_frame_scan.dart';
 import 'package:openhand/shared/util/path_safety.dart';
+import 'package:openhand/shared/util/platform_environment.dart';
 import 'package:openhand/shared/util/platform_shell.dart';
 import 'package:openhand/shared/util/sensitive_data.dart';
 import 'package:openhand/shared/util/storage_identifier.dart';
@@ -51,6 +52,7 @@ Future<void> main() async {
   failures += _checkTextClip();
   failures += _checkPortableFileNameSanitization();
   failures += _checkPlatformShell();
+  failures += _checkPlatformEnvironment();
   failures += _checkTextSearch();
   failures += _checkTranscriptHistory();
   failures += _checkBoundedTextBuffer();
@@ -215,6 +217,33 @@ int _checkPlatformShell() {
           'powershell.exe -NoProfile -NonInteractive -EncodedCommand '
               'VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAnAC1OJwA=') {
     stderr.writeln('平台 Shell 转义或 PowerShell 命令编码错误');
+    return 1;
+  }
+  return 0;
+}
+
+int _checkPlatformEnvironment() {
+  const environment = <String, String>{
+    'Path': r'C:\Windows\System32',
+    'localappdata': r'C:\Users\tester\AppData\Local',
+  };
+  if (platformEnvironmentValue(environment, 'PATH', caseInsensitive: true) !=
+      environment['Path']) {
+    stderr.writeln('platformEnvironmentValue 未兼容 Windows 环境变量大小写');
+    return 1;
+  }
+  if (platformEnvironmentValue(environment, 'PATH', caseInsensitive: false) !=
+      null) {
+    stderr.writeln('platformEnvironmentValue 在大小写敏感模式下错误匹配了键名');
+    return 1;
+  }
+  final merged = mergePlatformEnvironment(
+    const <String, String>{'PATH': r'D:\Tools'},
+    base: environment,
+    caseInsensitive: true,
+  );
+  if (merged['PATH'] != r'D:\Tools' || merged.containsKey('Path')) {
+    stderr.writeln('mergePlatformEnvironment 未按 Windows 语义覆盖同名变量');
     return 1;
   }
   return 0;

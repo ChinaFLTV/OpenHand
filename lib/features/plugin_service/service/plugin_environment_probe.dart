@@ -8,8 +8,20 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/node_package_manifest.dart';
 import '../../../shared/util/platform_environment.dart';
 import '../../../shared/util/platform_shell.dart';
+import '../../../shared/util/version_compare.dart';
 
 const Duration _pluginEnvironmentProbeTimeout = Duration(milliseconds: 500);
+final RegExp _pluginPyenvVersionPathPattern = RegExp(
+  r'(?:^|[\\/])\.pyenv(?:[\\/]pyenv-win)?[\\/]versions[\\/]([^\\/]+)(?:[\\/]|$)',
+  caseSensitive: false,
+);
+final RegExp _pluginBrewPythonFormulaPathPattern = RegExp(
+  r'/(python(?:@[\d.]+)?)(?:/|$)',
+);
+final RegExp _pluginPlaywrightVersionPrefixPattern = RegExp(
+  r'^Version\s+',
+  caseSensitive: false,
+);
 
 String pluginShellExecutable() {
   return preferredPosixShellExecutable(requireBashCompatible: true);
@@ -34,7 +46,8 @@ String _pluginToolchainDirectoryPath({
   required String environmentName,
   required String defaultDirectoryName,
 }) {
-  final configured = Platform.environment[environmentName]?.trim() ?? '';
+  final configured =
+      currentPlatformEnvironmentValue(environmentName)?.trim() ?? '';
   if (p.isAbsolute(configured)) return p.normalize(configured);
   return p.join(OpenHandPaths.homeDirectoryPath(), defaultDirectoryName);
 }
@@ -54,6 +67,36 @@ bool pluginLooksLikeHomebrewPythonPath(String path) {
 bool pluginLooksLikeSystemPythonPath(String path) {
   return path.startsWith('/usr/bin/') ||
       path.startsWith('/Library/Developer/CommandLineTools/');
+}
+
+String? extractPluginPyenvVersionFromPath(String path) {
+  final value = _pluginPyenvVersionPathPattern.firstMatch(path)?.group(1);
+  return value != null && isStrictSemanticVersionText(value) ? value : null;
+}
+
+String? extractPluginBrewPythonFormulaFromPath(String path) {
+  final matches = _pluginBrewPythonFormulaPathPattern.allMatches(path);
+  return matches.isEmpty ? null : matches.last.group(1);
+}
+
+String normalizePluginPlaywrightVersion(Object? output) {
+  return '$output'
+      .trim()
+      .replaceFirst(_pluginPlaywrightVersionPrefixPattern, '')
+      .trim();
+}
+
+String? extractPluginHomebrewStableVersion(Object? decoded) {
+  final formulae = decoded is Map ? decoded['formulae'] : null;
+  if (formulae is! List || formulae.isEmpty) return null;
+  final formula = formulae.first;
+  if (formula is! Map) return null;
+  final versions = formula['versions'];
+  if (versions is! Map) return null;
+  final value = versions['stable'];
+  if (value is! String) return null;
+  final stable = value.trim();
+  return stable.isEmpty ? null : stable;
 }
 
 final class PluginNpmPackageInstallation {
@@ -196,16 +239,28 @@ String? pluginPlaywrightDataDirectory({
   return p.join(home, '.cache', 'ms-playwright');
 }
 
-Future<bool> pluginPyenvInstallationExists({String? homeDirectory}) {
+Future<bool> pluginPyenvInstallationExists({String? homeDirectory}) async {
   final root = homeDirectory == null
       ? pluginPyenvRootDirectoryPath()
       : p.join(homeDirectory.trim(), '.pyenv');
-  if (!p.isAbsolute(root)) return Future<bool>.value(false);
-  return isRegularFilePath(
+  if (!p.isAbsolute(root)) return false;
+  final candidates = <String>{
     p.join(root, 'bin', 'pyenv'),
-    timeout: _pluginEnvironmentProbeTimeout,
-    followLinks: true,
-  );
+    p.join(root, 'bin', 'pyenv.bat'),
+    p.join(root, 'bin', 'pyenv.exe'),
+    p.join(root, 'pyenv-win', 'bin', 'pyenv.bat'),
+    p.join(root, 'pyenv-win', 'bin', 'pyenv.exe'),
+  };
+  for (final candidate in candidates) {
+    if (await isRegularFilePath(
+      candidate,
+      timeout: _pluginEnvironmentProbeTimeout,
+      followLinks: true,
+    )) {
+      return true;
+    }
+  }
+  return false;
 }
 
 Future<bool> pluginDockerDesktopInstallationExists({

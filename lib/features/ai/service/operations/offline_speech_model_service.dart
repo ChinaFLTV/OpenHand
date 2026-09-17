@@ -27,6 +27,7 @@ import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/bounded_text_buffer.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/platform_environment.dart';
 import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
@@ -4574,7 +4575,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         ? <String>[
             p.join(home, '.local', 'bin', 'uv.exe'),
             p.join(
-              Platform.environment['LOCALAPPDATA'] ?? home,
+              currentPlatformEnvironmentValue('LOCALAPPDATA') ?? home,
               'Programs',
               'uv',
               'uv.exe',
@@ -4675,7 +4676,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   Future<String> _readArchitecture() async {
     if (Platform.isWindows) {
-      final value = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? '';
+      final value =
+          currentPlatformEnvironmentValue('PROCESSOR_ARCHITECTURE') ?? '';
       return _normalizeArchitecture(value);
     }
     if (Platform.isMacOS) {
@@ -4911,7 +4913,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
 
   String? _findExecutable(String name) {
     if (p.isAbsolute(name) && File(name).existsSync()) return name;
-    final pathValue = Platform.environment['PATH'];
+    final pathValue = currentPlatformEnvironmentValue('PATH');
     if (pathValue == null) return null;
     for (final directory in pathValue.split(Platform.isWindows ? ';' : ':')) {
       final candidate = File(p.join(directory, name));

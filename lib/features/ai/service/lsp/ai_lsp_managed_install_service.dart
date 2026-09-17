@@ -12,6 +12,7 @@ import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/platform_environment.dart';
 import '../../../../shared/util/platform_shell.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
 import '../../model/ai_lsp_language_settings.dart';
@@ -1230,11 +1231,11 @@ abstract final class AiLspManagedInstallService {
 
   static String _detectArchitecture() {
     final candidates = <String>[
-      Platform.environment['PROCESSOR_ARCHITECTURE'] ?? '',
-      Platform.environment['PROCESSOR_ARCHITEW6432'] ?? '',
-      Platform.environment['HOSTTYPE'] ?? '',
-      Platform.environment['MACHTYPE'] ?? '',
-      Platform.environment['HOST'] ?? '',
+      currentPlatformEnvironmentValue('PROCESSOR_ARCHITECTURE') ?? '',
+      currentPlatformEnvironmentValue('PROCESSOR_ARCHITEW6432') ?? '',
+      currentPlatformEnvironmentValue('HOSTTYPE') ?? '',
+      currentPlatformEnvironmentValue('MACHTYPE') ?? '',
+      currentPlatformEnvironmentValue('HOST') ?? '',
       Platform.version,
       Platform.resolvedExecutable,
     ];

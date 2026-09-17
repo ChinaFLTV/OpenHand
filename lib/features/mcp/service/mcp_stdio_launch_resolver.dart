@@ -6,6 +6,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/platform_environment.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../model/mcp_server.dart';
 import 'mcp_node_package_resolver.dart';
@@ -29,7 +30,8 @@ Completer<String>? _loginEnvironmentPathProbe;
 final Map<String, String> _nodeRuntimeKeys = <String, String>{};
 
 String get mcpCachedLoginEnvironmentPath => _cachedLoginEnvironmentPath ?? '';
-String get mcpProcessEnvironmentPath => Platform.environment['PATH'] ?? '';
+String get mcpProcessEnvironmentPath =>
+    currentPlatformEnvironmentValue('PATH') ?? '';
 
 final class McpStdioLaunch {
   McpStdioLaunch({

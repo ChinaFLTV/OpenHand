@@ -19,6 +19,7 @@ import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/bounded_text_buffer.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/platform_environment.dart';
 import '../../shared/util/platform_shell.dart';
 import '../../shared/util/storage_identifier.dart';
 import '../../shared/util/text_clip.dart';
@@ -3002,9 +3003,9 @@ MachineTerminalStatus _restorableStatusFromValue(Object? value) {
 
 String _resolveShellExecutable() {
   if (Platform.isWindows) {
-    return Platform.environment['COMSPEC'] ?? 'cmd.exe';
+    return currentPlatformEnvironmentValue('COMSPEC') ?? 'cmd.exe';
   }
-  return nullIfBlank(Platform.environment['SHELL']) ?? '/bin/zsh';
+  return nullIfBlank(currentPlatformEnvironmentValue('SHELL')) ?? '/bin/zsh';
 }
 
 String _normalizeSessionId(String sessionId) {

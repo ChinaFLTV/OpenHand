@@ -8,6 +8,7 @@ import '../../app/support/openhand_paths.dart';
 import '../util/bounded_file_io.dart';
 import '../util/bounded_json_conversion.dart';
 import '../util/byte_size_format.dart';
+import '../util/platform_environment.dart';
 
 const int maxSettingsDocumentBytes = 8 * kBytesPerMiB;
 const int maxLegacyMemoryBytes = 64 * kBytesPerMiB;
@@ -80,7 +81,7 @@ String defaultLegacyMemoryFilePath() {
 Future<File?> findLegacySettingsFile() async {
   final candidates = <String>[defaultLegacySettingsFilePath()];
   if (Platform.isMacOS) {
-    final rawHome = Platform.environment['HOME']?.trim();
+    final rawHome = currentPlatformEnvironmentValue('HOME')?.trim();
     if (rawHome != null && rawHome.isNotEmpty) {
       candidates.add(p.join(rawHome, '.openhand', 'settings', 'SETTINGS.toml'));
     }
