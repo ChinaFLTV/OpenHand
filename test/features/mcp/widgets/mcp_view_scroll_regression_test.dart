@@ -58,7 +58,7 @@ void main() {
     await directory.delete(recursive: true);
   });
 
-  testWidgets('后台探测改变卡片高度时不抢占列表滚动位置', (tester) async {
+  testWidgets('到达底部后跟随卡片增高，向上滚动后保持阅读位置', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1600, 900));
     await tester.pumpWidget(
@@ -90,28 +90,30 @@ void main() {
     final position = tester.state<ScrollableState>(scrollable).position;
     expect(position.maxScrollExtent, greaterThan(0));
 
-    for (
-      var attempt = 0;
-      attempt < 8 && position.extentAfter > 0.5;
-      attempt++
-    ) {
-      await tester.drag(list, const Offset(0, -500));
-      await tester.pumpAndSettle();
-    }
-    final bottomOffset = position.pixels;
-    final bottomExtent = position.maxScrollExtent;
-    expect(bottomOffset, closeTo(bottomExtent, 0.5));
+    await tester.fling(list, const Offset(0, -2400), 8000);
+    await tester.pumpAndSettle();
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.5));
 
+    final previousMaxExtent = position.maxScrollExtent;
     await controller.checkServerHealth('server-4', preserveCurrentStatus: true);
+    for (var frame = 0; frame < 20; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(position.pixels, closeTo(position.maxScrollExtent, 0.5));
+    }
     await tester.pumpAndSettle();
 
-    expect(position.maxScrollExtent, greaterThan(bottomExtent));
-    expect(position.pixels, closeTo(bottomOffset, 0.5));
-    expect(position.extentAfter, greaterThan(0));
+    expect(position.maxScrollExtent, greaterThan(previousMaxExtent));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.5));
 
     await tester.drag(list, const Offset(0, 400));
     await tester.pumpAndSettle();
-    expect(position.pixels, lessThan(bottomOffset - 100));
+    final readingOffset = position.pixels;
+    expect(position.extentAfter, greaterThan(100));
+
+    await controller.checkServerHealth('server-3', preserveCurrentStatus: true);
+    await tester.pumpAndSettle();
+
+    expect(position.pixels, closeTo(readingOffset, 0.5));
     expect(
       find.byKey(const ValueKey<String>('mcp-server-card-server-3')),
       findsOneWidget,

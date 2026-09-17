@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/openhand_scroll_physics.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
@@ -123,6 +124,7 @@ const double _mcpChipStripHeight = 40;
 const double _mcpToolPreviewExpandedHeight = 160;
 const double _mcpToolChipMaxWidth = 360;
 const double _mcpScrollCorrectionEpsilon = 0.5;
+const double _mcpListBottomAnchorThreshold = 2;
 
 const DialogAnimationSettings _mcpChipAnimationSettings =
     DialogAnimationSettings(
@@ -158,6 +160,71 @@ typedef _McpServerItemBuilder =
       McpToolCatalog toolCatalog,
     );
 
+class _McpBottomAnchoredScrollController extends ScrollController {
+  _McpBottomAnchoredScrollController({
+    required this.shouldKeepBottomAnchored,
+    required this.onUserScrollDirection,
+    super.debugLabel,
+  });
+
+  final bool Function() shouldKeepBottomAnchored;
+  final ValueChanged<ScrollDirection> onUserScrollDirection;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) {
+    return _McpBottomAnchoredScrollPosition(
+      physics: physics,
+      context: context,
+      initialPixels: initialScrollOffset,
+      keepScrollOffset: keepScrollOffset,
+      oldPosition: oldPosition,
+      debugLabel: debugLabel,
+      shouldKeepBottomAnchored: shouldKeepBottomAnchored,
+      onUserScrollDirection: onUserScrollDirection,
+    );
+  }
+}
+
+class _McpBottomAnchoredScrollPosition extends ScrollPositionWithSingleContext {
+  _McpBottomAnchoredScrollPosition({
+    required super.physics,
+    required super.context,
+    required super.initialPixels,
+    required super.keepScrollOffset,
+    required super.oldPosition,
+    required super.debugLabel,
+    required this.shouldKeepBottomAnchored,
+    required this.onUserScrollDirection,
+  });
+
+  final bool Function() shouldKeepBottomAnchored;
+  final ValueChanged<ScrollDirection> onUserScrollDirection;
+
+  @override
+  void updateUserScrollDirection(ScrollDirection value) {
+    onUserScrollDirection(value);
+    super.updateUserScrollDirection(value);
+  }
+
+  @override
+  bool correctForNewDimensions(
+    ScrollMetrics oldPosition,
+    ScrollMetrics newPosition,
+  ) {
+    if (!shouldKeepBottomAnchored()) {
+      return super.correctForNewDimensions(oldPosition, newPosition);
+    }
+    final target = newPosition.maxScrollExtent;
+    if ((target - pixels).abs() <= _mcpScrollCorrectionEpsilon) return true;
+    correctPixels(target);
+    return false;
+  }
+}
+
 class _AnimatedMcpServerList extends StatefulWidget {
   const _AnimatedMcpServerList({
     super.key,
@@ -177,14 +244,22 @@ class _AnimatedMcpServerList extends StatefulWidget {
 }
 
 class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
-  final ScrollController _scrollController = ScrollController(
-    debugLabel: 'MCP 服务列表',
-  );
+  late final ScrollController _scrollController;
   late List<McpServer> _displayedServers;
+  bool _keepBottomAnchored = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = _McpBottomAnchoredScrollController(
+      debugLabel: 'MCP 服务列表',
+      shouldKeepBottomAnchored: () => _keepBottomAnchored,
+      onUserScrollDirection: (direction) {
+        if (direction == ScrollDirection.forward) {
+          _keepBottomAnchored = false;
+        }
+      },
+    );
     _displayedServers = List<McpServer>.from(widget.servers);
   }
 
@@ -209,6 +284,34 @@ class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
     });
   }
 
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    final metrics = notification.metrics;
+    if (notification is UserScrollNotification) {
+      if (notification.direction == ScrollDirection.forward) {
+        _keepBottomAnchored = false;
+      } else if (notification.direction == ScrollDirection.reverse &&
+          metrics.extentAfter <= _mcpListBottomAnchorThreshold) {
+        _keepBottomAnchored = true;
+      }
+    } else if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta;
+      if (delta != null && delta < -_mcpScrollCorrectionEpsilon) {
+        _keepBottomAnchored = false;
+      } else if (delta != null &&
+          delta > _mcpScrollCorrectionEpsilon &&
+          metrics.extentAfter <= _mcpListBottomAnchorThreshold) {
+        _keepBottomAnchored = true;
+      }
+    } else if (notification is ScrollEndNotification) {
+      if (!_keepBottomAnchored) {
+        _keepBottomAnchored =
+            metrics.extentAfter <= _mcpListBottomAnchorThreshold;
+      }
+    }
+    return false;
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -221,28 +324,54 @@ class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
       (SettingsController controller) => controller.listItemAnimationSettings,
     );
     final currentNames = widget.servers.map((server) => server.name).toSet();
-    return ListView(
+    final prefixCount = widget.prefixChildren.length;
+    final serverCount = _displayedServers.length;
+    final childIndexByKey = <Key, int>{
+      for (var index = 0; index < prefixCount; index++)
+        if (widget.prefixChildren[index].key case final key?) key: index,
+      for (var index = 0; index < serverCount; index++)
+        ValueKey<String>(
+          'mcp-server-appearance-${_displayedServers[index].name}',
+        ): prefixCount + index,
+      const ValueKey<String>('mcp-empty'): prefixCount + serverCount,
+    };
+    final list = ListView.builder(
       controller: _scrollController,
-      scrollCacheExtent: const ScrollCacheExtent.pixels(600),
+      physics: kOpenHandClampingPhysics,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(360),
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-      children: [
-        ...widget.prefixChildren,
-        for (final server in _displayedServers)
-          _AnimatedMcpServerEntry(
+      itemCount: prefixCount + serverCount + 1,
+      findChildIndexCallback: (key) => childIndexByKey[key],
+      itemBuilder: (context, index) {
+        if (index < prefixCount) return widget.prefixChildren[index];
+        final serverIndex = index - prefixCount;
+        if (serverIndex < serverCount) {
+          final server = _displayedServers[serverIndex];
+          return _AnimatedMcpServerEntry(
             key: ValueKey<String>('mcp-server-appearance-${server.name}'),
             server: server,
             settings: settings,
             present: currentNames.contains(server.name),
             onDismissed: () => _removeDismissedServer(server.name),
             itemBuilder: widget.itemBuilder,
-          ),
-        AnimatedAppearance(
+          );
+        }
+        return AnimatedAppearance(
           key: const ValueKey<String>('mcp-empty'),
           settings: settings,
           present: widget.servers.isEmpty,
           child: widget.emptyChild,
-        ),
-      ],
+        );
+      },
+    );
+    return OpenHandSafeScrollbar(
+      controller: _scrollController,
+      stabilizeMetrics: true,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: list,
+      ),
     );
   }
 }
