@@ -247,6 +247,7 @@ class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
   late final ScrollController _scrollController;
   late List<McpServer> _displayedServers;
   bool _keepBottomAnchored = false;
+  int _bottomAnchorGeneration = 0;
 
   @override
   void initState() {
@@ -257,6 +258,7 @@ class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
       onUserScrollDirection: (direction) {
         if (direction == ScrollDirection.forward) {
           _keepBottomAnchored = false;
+          _bottomAnchorGeneration += 1;
         }
       },
     );
@@ -286,30 +288,36 @@ class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
 
   bool _handleScrollNotification(ScrollNotification notification) {
     if (notification.depth != 0) return false;
-    final metrics = notification.metrics;
     if (notification is UserScrollNotification) {
       if (notification.direction == ScrollDirection.forward) {
         _keepBottomAnchored = false;
-      } else if (notification.direction == ScrollDirection.reverse &&
-          metrics.extentAfter <= _mcpListBottomAnchorThreshold) {
-        _keepBottomAnchored = true;
+        _bottomAnchorGeneration += 1;
       }
     } else if (notification is ScrollUpdateNotification) {
       final delta = notification.scrollDelta;
       if (delta != null && delta < -_mcpScrollCorrectionEpsilon) {
         _keepBottomAnchored = false;
-      } else if (delta != null &&
-          delta > _mcpScrollCorrectionEpsilon &&
-          metrics.extentAfter <= _mcpListBottomAnchorThreshold) {
-        _keepBottomAnchored = true;
+        _bottomAnchorGeneration += 1;
       }
     } else if (notification is ScrollEndNotification) {
-      if (!_keepBottomAnchored) {
-        _keepBottomAnchored =
-            metrics.extentAfter <= _mcpListBottomAnchorThreshold;
-      }
+      _scheduleBottomAnchorUpdate();
     }
     return false;
+  }
+
+  void _scheduleBottomAnchorUpdate() {
+    final generation = ++_bottomAnchorGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _bottomAnchorGeneration) return;
+      if (!_scrollController.hasClients ||
+          _scrollController.positions.length != 1) {
+        return;
+      }
+      final position = _scrollController.position;
+      _keepBottomAnchored =
+          position.userScrollDirection != ScrollDirection.forward &&
+          position.extentAfter <= _mcpListBottomAnchorThreshold;
+    });
   }
 
   @override
@@ -339,7 +347,7 @@ class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
       controller: _scrollController,
       physics: kOpenHandClampingPhysics,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      scrollCacheExtent: const ScrollCacheExtent.pixels(360),
+      scrollCacheExtent: const ScrollCacheExtent.viewport(1),
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
       itemCount: prefixCount + serverCount + 1,
       findChildIndexCallback: (key) => childIndexByKey[key],
@@ -406,6 +414,7 @@ class _AnimatedMcpServerEntryState extends State<_AnimatedMcpServerEntry> {
     return AnimatedAppearance(
       settings: widget.settings,
       present: widget.present,
+      animateInitialAppearance: false,
       onDismissed: widget.onDismissed,
       child: IgnorePointer(
         ignoring: !widget.present,
@@ -10503,11 +10512,15 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
   final ScrollController _scrollController = ScrollController();
   late List<_McpChipStripItem> _displayedItems;
   bool _scrollCorrectionScheduled = false;
+  bool _animateNewItems = false;
 
   @override
   void initState() {
     super.initState();
     _displayedItems = List<_McpChipStripItem>.of(widget.resolvedItems);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _animateNewItems = true;
+    });
   }
 
   @override
@@ -10607,6 +10620,7 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
                 key: ValueKey<String>('mcp-chip-appearance-${item.id}'),
                 settings: settings,
                 present: currentIds.contains(item.id),
+                animateInitialAppearance: _animateNewItems,
                 collapseAxis: Axis.horizontal,
                 keepContentVisibleDuringExitCollapse: true,
                 onDismissed: () => _removeDismissedItem(item.id),

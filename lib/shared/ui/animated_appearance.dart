@@ -15,6 +15,7 @@ class AnimatedAppearance extends StatefulWidget {
     required this.child,
     required this.settings,
     this.present = true,
+    this.animateInitialAppearance = true,
     this.onDismissed,
     this.collapseSize = true,
     this.collapseAxis = Axis.vertical,
@@ -26,6 +27,9 @@ class AnimatedAppearance extends StatefulWidget {
   final Widget child;
   final DialogAnimationSettings settings;
   final bool present;
+
+  /// 初次挂载且已显示时是否播放进场动画；后续显隐切换不受影响。
+  final bool animateInitialAppearance;
 
   /// 退场完成后调用；提前释放组件时不调用。
   final VoidCallback? onDismissed;
@@ -72,7 +76,8 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
     );
     _ctrl.addStatusListener(_onStatus);
     if (widget.present) {
-      if (widget.settings.entranceDisabled) {
+      if (!widget.animateInitialAppearance ||
+          widget.settings.entranceDisabled) {
         _showImmediately();
       } else {
         _ctrl.forward();
