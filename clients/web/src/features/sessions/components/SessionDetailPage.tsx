@@ -3860,51 +3860,17 @@ export function SessionDetailPage() {
     pinComposerLayoutToBottom();
   }, [composerCollapsed]);
 
-  // 折叠/展开期间稳住消息：observer 跟踪 composer 高度变化，
-  // 当用户「未在底部」时把 transcript scrollTop 反向补偿，让可视区底部
-  // 锚到原始内容偏移，从而上方消息不被「挤上去 / 压下来」。
-  // 使用 rAF 合并同帧内的多次 ResizeObserver 回调，避免 CSS transition
-  // 期间反复触发补偿导致消息列表抽搐/鬼畜。
+  // 输入区尺寸动画期间仅维持已贴底的 transcript。浏览器会自行保留非贴底
+  // 视口的 scrollTop，额外按高度差补偿会造成消息先下移再被拉回。
   useEffect(() => {
     if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') return;
     const composerEl = composerSectionRef.current;
-    const scroller = mainRef.current;
-    if (!composerEl || !scroller) return;
-    // 使用 offsetHeight 而非 getBoundingClientRect().height：
-    // offsetHeight 不受 CSS transform (scale) 影响，反映真实布局高度，
-    // 避免展开/折叠动画期间 scale 变化导致测量值抖动。
-    let lastH = composerEl.offsetHeight;
-    let pendingDelta = 0;
-    let rafId: number | null = null;
+    if (!composerEl || !mainRef.current) return;
     const observer = new ResizeObserver(() => {
-      const measured = composerEl.offsetHeight;
-      const delta = measured - lastH;
-      lastH = measured;
-      if (delta === 0) return;
-      if (pinComposerLayoutToBottom()) {
-        pendingDelta = 0;
-        return;
-      }
-      pendingDelta += delta;
-      if (rafId != null) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        const totalDelta = pendingDelta;
-        pendingDelta = 0;
-        if (Math.abs(totalDelta) < 0.5 || !scroller) return;
-        if (pinComposerLayoutToBottom()) return;
-        // 补偿 scrollTop：保持用户当前可视位置不变。
-        // 不使用 clamp 到 maxScroll，因为在 transition 期间
-        // scrollHeight 可能尚未更新到位。直接设置即可，
-        // 浏览器会自动 clamp 到有效范围。
-        scroller.scrollTop = scroller.scrollTop + totalDelta;
-      });
+      pinComposerLayoutToBottom();
     });
     observer.observe(composerEl);
-    return () => {
-      observer.disconnect();
-      if (rafId != null) cancelAnimationFrame(rafId);
-    };
+    return () => observer.disconnect();
   }, []);
 
   useLayoutEffect(() => {
@@ -6148,8 +6114,7 @@ export function SessionDetailPage() {
       messagesAreNearBottom();
     markComposerLayoutTransition();
     setComposerCollapsed((value) => !value);
-    // DOM 提交后的 useLayoutEffect 与 ResizeObserver 会在绘制前钉底；
-    // 非贴底场景仍走 ResizeObserver 的位置补偿。
+    // DOM 提交后的 useLayoutEffect 与 ResizeObserver 会在绘制前维持贴底。
   }
 
   useEffect(() => {

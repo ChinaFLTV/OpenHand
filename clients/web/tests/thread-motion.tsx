@@ -39,6 +39,37 @@ function TitleProbe() {
   return <AnimatedTitleText text={title} animateOnMount />;
 }
 
+function ComposerCollapseProbe() {
+  const [collapsed, setCollapsed] = useState(false);
+  return <section
+    class="oh-session-composer rounded-xl p-4"
+    data-collapsed={collapsed ? 'true' : 'false'}
+    style={{ width: '680px', background: 'var(--m3-surface-container)', boxShadow: 'var(--m3-elev-1)' }}
+  >
+    <div class="oh-composer-toolbar" data-collapsed={collapsed ? 'true' : 'false'}>
+      <button
+        type="button"
+        class="oh-composer-icon-control oh-composer-collapse-control"
+        onClick={() => setCollapsed((value) => !value)}
+      >
+        折叠
+      </button>
+    </div>
+    <div class="oh-composer-body" data-collapsed={collapsed ? 'true' : 'false'}>
+      <div style={{ height: '220px', padding: '18px', background: 'var(--m3-surface)' }}>
+        输入区内容
+      </div>
+    </div>
+    <div
+      class="oh-composer-footer"
+      data-collapsed={collapsed ? 'true' : 'false'}
+      style={{ height: '64px', marginTop: '12px' }}
+    >
+      输入区操作栏
+    </div>
+  </section>;
+}
+
 function Demo() {
   const [rows, setRows] = useState([a, b, c]);
   const [selected, setSelected] = useState(a.id);
@@ -131,6 +162,32 @@ try {
   await act(async () => { render(null, root); });
   await wait(180);
   verify(root.childElementCount === 0, '卸载后迟到的动画回调不会重新创建节点');
+
+  syncRemoteDialogMotionSettings({ entrance_style: 'spring_scale', exit_style: 'spring_scale', duration_ms: 360 });
+  await act(async () => { render(<ComposerCollapseProbe />, root); });
+  await wait(420);
+  const composer = root.querySelector<HTMLElement>('.oh-session-composer')!;
+  const collapseButton = root.querySelector<HTMLButtonElement>('.oh-composer-collapse-control')!;
+  const expandedHeight = composer.getBoundingClientRect().height;
+  const expandedWidth = composer.offsetWidth;
+  await act(async () => { collapseButton.click(); });
+  const collapseHeights: number[] = [];
+  for (let frame = 0; frame < 28; frame++) {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    collapseHeights.push(composer.getBoundingClientRect().height);
+  }
+  const collapsedHeight = collapseHeights.at(-1)!;
+  const largestRebound = collapseHeights.slice(1).reduce(
+    (largest, height, index) => Math.max(largest, height - collapseHeights[index]!),
+    0,
+  );
+  verify(collapseHeights[0]! > collapsedHeight + 80,
+    '输入区折叠首帧保留连续布局高度，不会瞬间释放空间');
+  verify(collapsedHeight < expandedHeight - 180, '输入区折叠最终收敛到紧凑高度');
+  verify(largestRebound < 12, '输入区折叠期间没有明显反向回弹');
+  verify(Math.abs(composer.offsetWidth - expandedWidth) < 1,
+    '输入区折叠期间保持稳定宽度，避免内容重排');
+  await act(async () => { render(null, root); });
 
   result.textContent = `通过 ${results.length} 项：\n${results.join('\n')}`;
   document.title = '线程动效回归检查通过';

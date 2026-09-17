@@ -6098,10 +6098,10 @@ button.oh-message-context-capsule {
 
 .oh-session-composer[data-collapsed='true'] {
   transform: translate3d(0, 0, 0) scale(1);
-  width: max-content;
+  width: 100%;
   max-width: 100%;
   max-height: none;
-  align-self: center;
+  align-self: stretch;
   padding: 0 !important;
   border-radius: 999px !important;
   background: transparent !important;
@@ -6376,21 +6376,6 @@ button.oh-message-context-capsule {
   flex: none;
   gap: 0;
   margin-bottom: 0;
-}
-
-.oh-session-composer[data-collapsed='true'] .oh-composer-body,
-.oh-session-composer[data-collapsed='true'] .oh-composer-footer {
-  position: absolute;
-  width: 0;
-  min-width: 0;
-  max-width: 0;
-  height: 0;
-  min-height: 0;
-  max-height: 0;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden;
-  visibility: hidden;
 }
 
 .oh-composer-control {

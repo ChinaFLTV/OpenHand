@@ -344,11 +344,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final Set<String> _skippedInstructionIds = <String>{};
   AiCreationOptions _creationOptions = AiCreationOptions.empty;
   bool _composerCollapsed = false;
-
-  /// 最近一次量到的 composer panel 高度，供折叠/展开时反向补偿 transcript scroll。
-  double? _lastComposerHeight;
-  String? _lastComposerHeightSessionId;
-  bool _composerLayoutMeasureScheduled = false;
   bool _autoFollowEnabled = true;
   // 自动跟随开启但用户离开底部时进入暂停态，输入区按钮用于恢复并跳到底部。
   bool _autoFollowPaused = false;
@@ -376,7 +371,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _scrollToBottomSettleQueued = false;
   int _scrollToBottomSettleFramesRemaining = 0;
   int _scrollToBottomStableFrames = 0;
-  bool _composerScrollCompensationInProgress = false;
   final Stopwatch _scrollActivityStopwatch = Stopwatch()..start();
   Duration? _lastPointerSignalScrollAt;
   // 指针滚动每一拍都会结束，保留宽限窗口避免慢速滚动期间误恢复自动跟随。
@@ -413,8 +407,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         operationTimeout: Duration(seconds: 3),
         totalTimeout: Duration(seconds: 8),
       );
-  int _composerTransitionMeasurePassesRemaining = 0;
-  bool _composerTransitionMeasureQueued = false;
   // 桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
   // 导致 _userScrollInProgress 未被置位。用 _lastScrollActivityAt 兜底记录
   // 外层 ListView 的 ScrollUpdateNotification，作为独立的后备检测源。
@@ -1064,7 +1056,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       setState(() {
         _composerCollapsed = collapsed;
       });
-      _scheduleComposerTransitionMeasurements();
     }
     if (collapsed) {
       if (_composerFocusNode.hasFocus) {
@@ -1338,14 +1329,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   bool _isProgrammaticMessageScrollInProgress() {
     return _messageProgrammaticScrollWindow.active ||
-        _programmaticTranscriptScrollCorrectionDepth > 0 ||
-        _composerScrollCompensationInProgress;
+        _programmaticTranscriptScrollCorrectionDepth > 0;
   }
 
   bool _isProgrammaticMessageScrollCommandBusy() {
     return _messageProgrammaticScrollWindow.busy ||
-        _programmaticTranscriptScrollCorrectionDepth > 0 ||
-        _composerScrollCompensationInProgress;
+        _programmaticTranscriptScrollCorrectionDepth > 0;
   }
 
   bool _isUserMessageScrollActivityActive() {
@@ -3149,14 +3138,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _lastScrollActivityAt = null;
     _transcriptScrollActivity.markInactive();
     _clearPendingAutoFollowState();
-    if (switchingSessions) {
-      // 新会话输入区可能恢复不同高度的草稿或创作选项。丢弃旧会话的高度
-      // 基线与过渡测量，避免它们在新 transcript 首帧上反向修正滚动位置。
-      _lastComposerHeight = null;
-      _lastComposerHeightSessionId = null;
-      _composerTransitionMeasurePassesRemaining = 0;
-    }
-
     // 会话选择是同步界面意图，不等待无关音频清理或帧回调。
     if (_selectedSection != AppSection.workspace) {
       setState(() {
@@ -8362,113 +8343,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _handleComposerLayoutChanged() {
-    // SizeChangedLayoutNotification 在 layout 阶段同步派发，此时读取
-    // `RenderBox.size` 会触发 `sizeAccessAllowed` 断言；而我们也想在补偿
-    // scrollOffset 时避开 layout 临界期。统一推迟到下一帧再处理 —— 既能拿到
-    // 稳定的 composer 高度，也避免 jumpTo 与正在进行的 layout 互相打架。
-    if (_composerLayoutMeasureScheduled) {
+    if (!_autoFollowEnabled ||
+        !_shouldAutoFollowMessages ||
+        _shouldDeferAutoFollowScheduling()) {
       return;
     }
-    _composerLayoutMeasureScheduled = true;
-    // 使用 addPostFrameCallback 而非 endOfFrame：确保在下一帧 layout 完成后
-    // 再测量和补偿，此时 transcript 的 maxScrollExtent 已经更新到位，
-    // 避免 clamp 到过时的范围导致消息列表不跟随。
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _composerLayoutMeasureScheduled = false;
-      if (!mounted) return;
-      _measureComposerAndMaybeFollow();
-    });
-  }
-
-  void _scheduleComposerTransitionMeasurements() {
-    final reduceMotion = openHandReduceMotionOf(context);
-    _composerTransitionMeasurePassesRemaining = math.max(
-      _composerTransitionMeasurePassesRemaining,
-      reduceMotion ? 2 : 24,
-    );
-    _queueComposerTransitionMeasurePass();
-  }
-
-  void _queueComposerTransitionMeasurePass() {
-    if (_composerTransitionMeasureQueued ||
-        _composerTransitionMeasurePassesRemaining <= 0) {
-      return;
-    }
-    _composerTransitionMeasureQueued = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _composerTransitionMeasureQueued = false;
-      if (!mounted || _composerTransitionMeasurePassesRemaining <= 0) {
-        return;
-      }
-      _composerTransitionMeasurePassesRemaining -= 1;
-      _measureComposerAndMaybeFollow();
-      _queueComposerTransitionMeasurePass();
-    });
-  }
-
-  void _measureComposerAndMaybeFollow() {
-    final compensation = _measureComposerHeightAndCompensate();
-    if (_shouldDeferAutoFollowScheduling()) {
-      return;
-    }
-    _scheduleAutoFollowIfNeeded(
-      animated: compensation.grew && !compensation.compensated,
-      allowSettlePasses: false,
-    );
-  }
-
-  ({bool compensated, bool grew}) _measureComposerHeightAndCompensate() {
-    // 折叠/展开期间稳住消息：用 composer panel size delta 反向补偿 transcript
-    // scrollOffset，让上方消息无论用户是否在底部，都被 Q 弹自然地"压下来 /
-    // 顶上去"，与 AnimatedSize 节奏（260ms easeInOutCubicEmphasized）严丝合缝。
-    final composerCtx = _composerPanelState?.context;
-    final renderObject = composerCtx?.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.hasSize) {
-      return (compensated: false, grew: false);
-    }
-    final newHeight = renderObject.size.height;
-    final sessionId = context.read<AiSessionController>().currentSessionId;
-    final prev = _lastComposerHeightSessionId == sessionId
-        ? _lastComposerHeight
-        : null;
-    _lastComposerHeight = newHeight;
-    _lastComposerHeightSessionId = sessionId;
-    if (prev == null) return (compensated: false, grew: false);
-    final delta = newHeight - prev;
-    if (delta.abs() <= 0.5) {
-      return (compensated: false, grew: false);
-    }
-    final grew = delta > 0;
-    // correctBy 虽不会派发滚动通知，但依然会改写 pixels。用户正在慢速
-    // 滚轮/trackpad 读历史，或已暂停自动跟随时，只刷新高度基线，不改写
-    // ScrollPosition，避免下一次恢复时用陈旧 prev 算出一记大幅反向拉扯。
-    if (_hasActiveOrRecentMessageScrollActivity() ||
-        !_shouldAutoFollowMessages) {
-      return (compensated: false, grew: grew);
-    }
-    final position = _activeMessageScrollPosition();
-    if (position == null) {
-      return (compensated: false, grew: grew);
-    }
-    // 反向偏移 scroll position：composer 长高 → pixels +delta，让"上方"内容
-    // 视觉上往上挪同等距离；反之自然下移填补空间。修正量必须限制在当前
-    // 滚动范围内，避免越界后由弹道回拉造成可见的二次跳动。
-    final target = (position.pixels + delta).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    final correction = target - position.pixels;
-    if (correction.abs() <= 0.5) {
-      return (compensated: false, grew: grew);
-    }
-    _composerScrollCompensationInProgress = true;
-    position.correctBy(correction);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _composerScrollCompensationInProgress = false;
-      }
-    });
-    return (compensated: true, grew: grew);
+    // 输入区尺寸动画已由 Flutter 布局系统更新滚动范围。这里只维持贴底，
+    // 避免再按高度差修正 pixels，导致折叠时消息先下移再被拉回。
+    _scheduleScrollToBottom(allowSettlePasses: false);
   }
 
   void _handleTranscriptLayoutChanged() {
