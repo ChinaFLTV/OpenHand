@@ -204,6 +204,7 @@ class _BuiltinToolTile extends StatelessWidget {
 
   IconData _toolIcon(AiBuiltinToolKind kind) {
     return switch (kind) {
+      AiBuiltinToolKind.endVoiceConversation => Icons.call_end_rounded,
       AiBuiltinToolKind.task => Icons.task_alt_rounded,
       AiBuiltinToolKind.bash => Icons.terminal_rounded,
       AiBuiltinToolKind.bashBackground => Icons.dvr_rounded,

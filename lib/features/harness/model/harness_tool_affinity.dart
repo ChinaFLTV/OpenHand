@@ -70,7 +70,8 @@ HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.exitPlanMode => HarnessToolCategory.planning,
     AiBuiltinToolKind.task => HarnessToolCategory.subtask,
     // 交互工具由提示词构建器统一排除。
-    AiBuiltinToolKind.askUserChoice => null,
+    AiBuiltinToolKind.askUserChoice ||
+    AiBuiltinToolKind.endVoiceConversation => null,
     // 下列工具由其他专用链路使用，不参与 Harness 阶段亲和。
     AiBuiltinToolKind.skillManager => null,
     // ToolSearch 由延迟加载策略动态控制。

@@ -86,6 +86,7 @@ import 'tools/memory/ai_memory_tool.dart' show MemoryControllerProvider;
 import 'tools/planning/ai_task_tool.dart';
 import 'tools/search/ai_tool_search_tool.dart';
 import 'tools/skill/ai_skill_manager_tool.dart';
+import 'tools/voice/ai_end_voice_conversation_tool.dart';
 import 'tools/web/ai_web_fetch_tool.dart';
 import 'tools/web/ai_web_search_tool.dart';
 
@@ -9865,6 +9866,9 @@ class AiSessionController extends ChangeNotifier {
         promptMetadata: promptMetadata,
       );
       toolMetadata.addAll(runtimeContext.toolExecutionMetadata);
+      if (executionSessionId != null && executionSessionId != sessionId) {
+        toolMetadata.remove(aiVoiceCallIdKey);
+      }
       toolMetadata.addAll(<String, Object?>{
         if (sessionMode != null) 'session_mode': sessionMode.storageValue,
         'plan_mode_active': planModeActive,
@@ -9919,6 +9923,16 @@ class AiSessionController extends ChangeNotifier {
       ...session.metadata,
       'template_id': session.templateId,
     };
+    // 只信任本轮用户消息的通话标识，不继承历史通话或子任务的标识。
+    final voiceCallId = session.messages.reversed
+        .where((message) => message.kind == AiSessionMessageKind.user)
+        .firstOrNull
+        ?.metadata[aiVoiceCallIdKey];
+    if (voiceCallId is String && voiceCallId.isNotEmpty) {
+      metadata[aiVoiceCallIdKey] = voiceCallId;
+    } else {
+      metadata.remove(aiVoiceCallIdKey);
+    }
     final webReverseRuntime =
         _metadataMap(promptMetadata['web_reverse_runtime']) ??
         _metadataMap(session.lastPromptMetadata['web_reverse_runtime']);

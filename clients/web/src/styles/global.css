@@ -11567,3 +11567,15 @@ button.oh-json-tree-row { cursor: pointer; }
   cursor: pointer;
 }
 .oh-image-gallery-action:disabled { opacity: .4; cursor: default; }
+
+/* 通话按钮沿用全局按压与过渡节奏，退出后恢复文字输入。 */
+.oh-voice-control {
+  transition: background-color var(--oh-dialog-duration, 240ms), color var(--oh-dialog-duration, 240ms), box-shadow var(--oh-dialog-duration, 240ms);
+}
+.oh-voice-control.is-active {
+  background: linear-gradient(125deg, color-mix(in srgb, var(--oh-primary, #5c7c35) 24%, transparent), color-mix(in srgb, #38bdf8 22%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--oh-primary, #5c7c35) 45%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .oh-voice-control { transition: none; }
+}

@@ -5206,9 +5206,18 @@ class WebMessagePlatformService {
         'send_phase': currentPhase.name,
       });
     }
+    final rawVoiceCallId = body[aiVoiceCallIdKey];
+    final voiceCallId = rawVoiceCallId is String ? rawVoiceCallId.trim() : '';
+    if (rawVoiceCallId != null &&
+        (rawVoiceCallId is! String ||
+            !RegExp(r'^[a-zA-Z0-9-]{1,64}$').hasMatch(voiceCallId))) {
+      await _deleteMaterializedAttachments(attachments);
+      return _errorJson(HttpStatus.badRequest, 'invalid_voice_call_id');
+    }
     final userMessageMetadata =
         _metadataForRequest(auth, request, <String, Object?>{
           'sent_via': 'web_api',
+          if (voiceCallId.isNotEmpty) aiVoiceCallIdKey: voiceCallId,
           'conversation_mode': conversationMode.storageValue,
           'model_key': _modelKey(model.id, model.modelId),
           'attachment_count': attachments.length,
@@ -5253,9 +5262,10 @@ class WebMessagePlatformService {
                 ),
             confirmWriteCommand: (request) =>
                 _confirmWebWriteCommand(session.id, request),
-            additionalSystemReminders: selectedSkill.reminder == null
-                ? const <String>[]
-                : <String>[selectedSkill.reminder!],
+            additionalSystemReminders: <String>[
+              if (selectedSkill.reminder != null) selectedSkill.reminder!,
+              if (voiceCallId.isNotEmpty) aiVoiceConversationReminder,
+            ],
             selectedSkillMetadata: selectedSkill.metadata,
             goalStartOptions: goalStartOptions,
             allowQueuedGoalInterruption: allowQueuedGoalInterruption,

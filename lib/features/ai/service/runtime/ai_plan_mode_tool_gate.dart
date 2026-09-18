@@ -5,6 +5,7 @@ import '../../../../shared/util/text_normalization.dart';
 abstract final class AiPlanModeToolGate {
   static const List<String> planningToolNames = <String>[
     'AskUserChoice',
+    'EndVoiceConversation',
     'Task',
     'Glob',
     'Grep',
@@ -22,6 +23,7 @@ abstract final class AiPlanModeToolGate {
 
   static const Set<String> _planningToolTokens = <String>{
     'askuserchoice',
+    'endvoiceconversation',
     'task',
     'glob',
     'grep',

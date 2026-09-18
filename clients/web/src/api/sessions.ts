@@ -605,6 +605,7 @@ export function listSessionTitleSourceMessages(
 /// - selected_skill: 由 /api/skills 返回的 name + relative_directory_path，
 ///   service 端会读取 SKILL.md 并走 App 同款隐藏 reminder 注入。
 export interface SendMessageInput {
+  voiceCallId?: string;
   content: string;
   modelKey: string;
   mode?: string;
@@ -646,6 +647,7 @@ export function sendMessage(
       method: 'POST',
       body: {
         content: input.content,
+        voice_call_id: input.voiceCallId,
         mode: input.mode ?? 'normal',
         model_key: input.modelKey,
         attachments: input.attachments ?? [],

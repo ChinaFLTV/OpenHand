@@ -268,9 +268,12 @@ class OpenHandHomePage extends StatefulWidget {
 class _VoiceConversationSessionState {
   _VoiceConversationSessionState({this.lastReadAssistantId});
 
+  final String callId = const Uuid().v4();
+
   AiVoiceConversationResumeState resumeState =
       const AiVoiceConversationResumeState();
   String? lastReadAssistantId;
+  int checkedMessageCount = -1;
 }
 
 class _OpenHandHomePageState extends State<OpenHandHomePage>
@@ -1490,6 +1493,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _syncVoiceAssistantResponse(AiSessionController? controller) {
+    if (controller != null) {
+      for (final entry
+          in _voiceConversationStatesBySessionId.entries.toList()) {
+        final messages = controller.sessionById(entry.key)?.messages;
+        if (messages == null ||
+            messages.length == entry.value.checkedMessageCount) {
+          continue;
+        }
+        entry.value.checkedMessageCount = messages.length;
+        if (messages.reversed.any(
+          (message) =>
+              message.metadata[aiEndedVoiceCallIdKey] == entry.value.callId,
+        )) {
+          unawaited(_stopVoiceConversation(sessionId: entry.key));
+        }
+      }
+    }
     if (!_voiceConversationService.snapshot.active || controller == null) {
       return;
     }
@@ -6553,6 +6573,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         prompt,
         const <_ComposerAttachmentDraft>[],
         allowQueuedGoalInterruption: true,
+        voiceCallId:
+            _voiceConversationStatesBySessionId[targetSessionId]?.callId,
         restoreDraftOnLocalStop: false,
         processQueueAfterCompletion: false,
         onSubmissionStarted: () {
@@ -6617,14 +6639,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     await _resumeVoiceConversationForCurrentSession();
   }
 
-  Future<void> _stopVoiceConversation() async {
-    final currentSessionId = context
-        .read<AiSessionController>()
-        .currentSessionId;
+  Future<void> _stopVoiceConversation({String? sessionId}) async {
+    final currentSessionId =
+        sessionId ?? context.read<AiSessionController>().currentSessionId;
     if (currentSessionId != null) {
       _voiceConversationStatesBySessionId.remove(currentSessionId);
     }
     if (mounted) setState(() {});
+    if (_voiceConversationServiceSessionId != currentSessionId) return;
     await _pauseVoiceConversationForNavigation();
     if (!mounted || _selectedSection != AppSection.workspace) return;
     _composerFocusNode.requestFocus();
@@ -7027,6 +7049,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     Map<String, Object?>? selectedSkillMetadata,
     AiSessionGoalStartOptions? goalStartOptions,
     bool allowQueuedGoalInterruption = false,
+    String? voiceCallId,
     bool restoreDraftOnLocalStop = true,
     bool processQueueAfterCompletion = true,
     void Function()? onSubmissionStarted,
@@ -7218,7 +7241,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         requireWriteCommandConfirmation: requireWriteConfirmation,
         confirmWriteCommand: (request) =>
             _confirmWriteCommand(request, sessionId: targetSessionId),
-        additionalSystemReminders: additionalSystemReminders,
+        additionalSystemReminders: [
+          ...additionalSystemReminders,
+          if (voiceCallId != null) aiVoiceConversationReminder,
+        ],
+        userMessageMetadata: {
+          if (voiceCallId != null) aiVoiceCallIdKey: voiceCallId,
+        },
         selectedSkillMetadata: selectedSkillMetadata,
         onUserMessagePrepared: (_) {
           _removeLocalSubmissionPreview(targetSessionId);

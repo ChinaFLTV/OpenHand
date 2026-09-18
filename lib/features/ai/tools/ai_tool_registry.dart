@@ -43,6 +43,7 @@ import 'search/ai_grep_tool.dart';
 import 'search/ai_tool_search_tool.dart';
 import 'skill/ai_skill_manager_tool.dart';
 import 'terminal/ai_machine_terminal_tools.dart';
+import 'voice/ai_end_voice_conversation_tool.dart';
 import 'web/ai_web_fetch_tool.dart';
 import 'web/ai_web_search_tool.dart';
 import 'workflow/ai_workflow_tools.dart';
@@ -74,6 +75,7 @@ class AiToolRegistry {
       ..register(AiApplyFileDiffsTool())
       ..register(AiWriteTool())
       ..register(AiExitPlanModeTool())
+      ..register(AiEndVoiceConversationTool())
       ..register(AiTodoWriteTool())
       ..register(AiNotebookEditTool())
       ..register(AiReadTool())

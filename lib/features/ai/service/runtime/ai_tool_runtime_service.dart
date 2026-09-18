@@ -218,6 +218,7 @@ enum AiBuiltinToolKind {
   grep,
   ls,
   exitPlanMode,
+  endVoiceConversation,
   read,
   edit,
   multiEdit,
@@ -2619,6 +2620,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.grep => 'Grep',
       AiBuiltinToolKind.ls => 'LS',
       AiBuiltinToolKind.exitPlanMode => 'ExitPlanMode',
+      AiBuiltinToolKind.endVoiceConversation => 'EndVoiceConversation',
       AiBuiltinToolKind.read => 'Read',
       AiBuiltinToolKind.edit => 'Edit',
       AiBuiltinToolKind.multiEdit => 'MultiEdit',
@@ -3786,6 +3788,17 @@ class AiToolRuntimeService {
                 'Glob patterns of file/directory names or paths to ignore.',
           },
         },
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.endVoiceConversation,
+      name: 'EndVoiceConversation',
+      description:
+          '仅在当前语音通话中，用户明确要求挂断、结束语音沟通或返回文字输入时调用。停止当前通话的录音和播放，保留线程及聊天记录。不要用于引用、假设或其他会话。',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{},
         'additionalProperties': false,
       },
     ),

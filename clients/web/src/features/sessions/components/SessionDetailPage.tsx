@@ -1,3 +1,4 @@
+import { useVoiceConversation } from '../../../hooks/useVoiceConversation';
 import { collectMedia } from '../../../components/MessageMedia';
 import type { ImageGalleryEntry } from '../../../components/image_gallery';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -4721,6 +4722,32 @@ export function SessionDetailPage() {
   const selectedModel = useMemo(() => allowedModels.find((model) => model.key === composerModelKey), [allowedModels, composerModelKey]);
   const persistedModelName = detail?.session.last_used_model_label?.trim() ?? '';
   const selectedModelUnavailable = !selectedModel && Boolean(persistedModelName);
+  const voiceConversation = useVoiceConversation({
+    sessionId,
+    messages,
+    busy: composerSending || isRunningPhase(sendPhase),
+    onStop: () => composerTextareaRef.current?.focus(),
+    onError: (message) => showSnackbar(message, { tone: 'error' }),
+    submit: async (text, callId) => {
+      const target = sessionId;
+      setComposerSending(true);
+      lastLocalSendAtRef.current = Date.now();
+      try {
+        const result = await sendMessage(target, {
+          content: text,
+          modelKey: composerModelKey,
+          mode: 'normal',
+          voiceCallId: callId,
+          skippedInstructionIds: Array.from(skippedInstructionIds),
+        });
+        if (!ownsSessionAsyncResult(target)) return;
+        updateSendPhaseValue(result.send_phase || 'sendingMessage');
+        if (!sseLive) void refresh();
+      } finally {
+        if (ownsSessionAsyncResult(target)) setComposerSending(false);
+      }
+    },
+  });
   const selectedModelName = selectedModel?.model_id || selectedModel?.label || persistedModelName;
   const titleSummaryDefaultModelKey = useMemo(() => {
     const sessionModelKey = detail?.session.last_model_key ?? '';
@@ -5937,7 +5964,7 @@ export function SessionDetailPage() {
   }
 
   async function handleSend(): Promise<void> {
-    if (composerSending) return;
+    if (composerSending || voiceConversation.active) return;
     if (selectedModelUnavailable) {
       const message = t('composer.modelUnavailable', '线程固定模型配置已不可用，请重新选择模型');
       setComposerError(message);
@@ -7256,6 +7283,7 @@ export function SessionDetailPage() {
                   </OverlayPortal>
                 ) : null}
                 <textarea
+                  readOnly={voiceConversation.active}
                   ref={composerTextareaRef}
                   defaultValue={composerTextRef.current}
                   onBlur={(e) => {
@@ -7306,7 +7334,7 @@ export function SessionDetailPage() {
                   }}
                   disabled={composerSending || composerCollapsed || hasModeLockedGoal}
                   rows={4}
-                  placeholder={hasActiveGoal ? t('goal.composer.placeholder', '目标模式由 Agent Runtime 接管中') : t('composer.placeholder', '输入消息')}
+                  placeholder={voiceConversation.active ? `${voiceConversation.phase}，可说“挂了吧”返回文字输入` : hasActiveGoal ? t('goal.composer.placeholder', '目标模式由 Agent Runtime 接管中') : t('composer.placeholder', '输入消息')}
                   class="oh-composer-textarea w-full px-3 py-2 rounded-md text-sm"
                 />
                 {dragOver ? <div class="oh-composer-drop-overlay absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up">{t('composer.attachment.drop', '松开即可添加附件')}</div> : null}
@@ -7320,6 +7348,15 @@ export function SessionDetailPage() {
           </div>
 
           <div class="oh-composer-footer flex flex-wrap items-center gap-2 mt-3" data-collapsed={composerCollapsed ? 'true' : 'false'} aria-hidden={composerCollapsed ? 'true' : undefined} {...(composerCollapsed ? { inert: true } : {})}>
+            <button type="button"
+              onClick={() => voiceConversation.active ? voiceConversation.stop() : voiceConversation.start()}
+              disabled={!voiceConversation.active && (!voiceConversation.supported || composerSending || responseRunning || hasModeLockedGoal || composerMode !== 'normal' || !selectedModel)}
+              aria-pressed={voiceConversation.active}
+              title={voiceConversation.supported ? '语音沟通中可说“挂了吧”结束通话' : '语音沟通需要支持语音识别的浏览器与 HTTPS 或本机连接'}
+              class={`oh-tap-press oh-composer-footer-action oh-voice-control ${voiceConversation.active ? 'is-active' : ''}`}>
+              <ComposerIcon name={voiceConversation.active ? 'stop' : 'play'} size={16} />
+              <span aria-live="polite">{voiceConversation.active ? `${voiceConversation.phase} · 结束通话` : '语音沟通'}</span>
+            </button>
             {attachmentsAllowed ? (
               <label class="oh-tap-press oh-composer-footer-action is-attachment cursor-pointer">
                 <span class="oh-composer-action-icon">
@@ -7369,7 +7406,7 @@ export function SessionDetailPage() {
               </button>
             ) : null}
             {!hasActiveGoal ? (
-              <button type="button" onClick={handleSend} disabled={composerSendDisabled} class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${responseRunning ? 'is-queueing' : ''}`}>
+              <button type="button" onClick={handleSend} disabled={composerSendDisabled || voiceConversation.active} class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${responseRunning ? 'is-queueing' : ''}`}>
                 <span class={composerSending ? 'oh-spin' : undefined}>
                   <ComposerIcon name={composerSending ? 'refresh' : 'send'} size={16} />
                 </span>

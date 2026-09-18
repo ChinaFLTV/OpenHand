@@ -577,6 +577,7 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.notebookEdit => 44,
       AiBuiltinToolKind.deleteFile => 45,
       AiBuiltinToolKind.exitPlanMode => 50,
+      AiBuiltinToolKind.endVoiceConversation => 52,
       AiBuiltinToolKind.askUserChoice => 51,
       AiBuiltinToolKind.webSearch => 60,
       AiBuiltinToolKind.webFetch => 61,
@@ -635,6 +636,7 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.machineTerminalExec:
       case AiBuiltinToolKind.machineTerminalControl:
         return AiBuiltinToolLoadStrategy.eager;
+      case AiBuiltinToolKind.endVoiceConversation:
       case AiBuiltinToolKind.bashBackground:
       case AiBuiltinToolKind.taskOutput:
       case AiBuiltinToolKind.taskStop:

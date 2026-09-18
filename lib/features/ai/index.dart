@@ -115,6 +115,8 @@ export 'tools/dingtalk/ai_dingtalk_media_generation_tool.dart';
 export 'tools/planning/ai_ask_user_choice_tool.dart';
 export 'tools/search/ai_dingtalk_tool_search_tool.dart';
 export 'tools/search/ai_tool_search_tool.dart';
+export 'tools/voice/ai_end_voice_conversation_tool.dart'
+    show aiEndedVoiceCallIdKey, aiVoiceCallIdKey, aiVoiceConversationReminder;
 export 'tools/workflow/ai_workflow_tools.dart';
 
 // 工具函数
