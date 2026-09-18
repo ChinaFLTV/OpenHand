@@ -3772,7 +3772,14 @@ $tail''';
         modelProfile.supportsAttachments != false &&
         modelProfile.isMultimodal != false &&
         modelProfile.supportedModalities.contains(AiModelModality.audio);
-    final parts = <AiChatContentPart>[];
+    final currentCount = attachments.where((item) => !item.isHistorical).length;
+    final parts = <AiChatContentPart>[
+      AiChatContentPart.text(
+        '[输入附件] 当前 $currentCount 个，历史 ${attachments.length - currentCount} 个。'
+        '这些是用户输入参考，不是 AI 本轮下载或发送的文件。'
+        '历史附件不代表本轮上传，与当前请求无关时忽略。',
+      ),
+    ];
     for (final item in attachments) {
       final attachment = item.attachment;
       parts.add(AiChatContentPart.text(item.label));

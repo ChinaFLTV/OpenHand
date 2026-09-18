@@ -339,6 +339,7 @@ void main() {
     expect(text, contains('missing'));
     expect(text, contains('unavailable'));
     expect(text, isNot(contains('附件正文image0')));
+    expect(text, contains('[输入附件] 当前 2 个，历史 0 个。'));
     final compressed = session.copyWith(
       messages: [
         ...history,
@@ -356,6 +357,50 @@ void main() {
       media(afterCompression).map((p) => p.filePath),
       unorderedEquals(media(first).map((p) => p.filePath)),
     );
+    expect(
+      afterCompression.messages
+          .expand((turn) => turn.effectiveParts)
+          .map((part) => part.text)
+          .join('\n'),
+      contains('[输入附件] 当前 2 个，历史 10 个。'),
+    );
+
+    // 复现钉钉纯文本找图请求携带历史风景图，续写与压缩均不能改成当前附件。
+    final historicalOnly = message(
+      'latest',
+      [],
+      snapshot: [
+        attachment(
+          'image6',
+          AiAttachmentKind.image,
+        ).copyWith(sourceMessageId: '旧图片消息', summaryText: '蓝天白云与草坡，无人物。'),
+      ],
+    ).copyWith(content: '给我找一张人物写真');
+    final failedFetch = AiSessionMessage.toolResult(
+      id: 'fetch',
+      content: 'Sina Visitor System',
+      createdAt: DateTime.utc(2026),
+      metadata: const {'tool_name': 'WebFetch', 'status': 'success'},
+    );
+    for (final messages in [
+      [historicalOnly],
+      [historicalOnly, failedFetch],
+    ]) {
+      for (final fullSession in [session, compressed]) {
+        final result = await build(messages, fullSession: fullSession);
+        final prompt = result.messages
+            .expand((turn) => turn.effectiveParts)
+            .map((part) => part.text)
+            .join('\n');
+        expect(prompt, contains('[输入附件] 当前 0 个，历史 1 个。'));
+        expect(prompt, contains('不是 AI 本轮下载或发送的文件'));
+        expect(prompt, contains('[历史附件]'));
+        expect(prompt, contains('旧图片消息'));
+        expect(prompt, isNot(contains('[当前附件]')));
+        expect(media(result), hasLength(1));
+        expect(collectAiDownloadedReplyAttachments(messages), isEmpty);
+      }
+    }
     final textOnly = AiModelConfig.fromJson({
       'model_id': 'text-only',
       'model_profiles': {

@@ -392,8 +392,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const String _forcedResponseReminder =
       '钉钉网关规则：回复本轮最后一条有效消息；此前消息仅作上下文。直接输出一条适合发送的回复。';
   static const String _responseCompletionReminder =
-      '钉钉回复必须完整、可直接发送；若声明查询或调用，立即完成对应动作。'
-      '网上现有资源先查找直链，再用 DownloadFile 下载；附件由网关交付，不重复发送或输出本地路径。';
+      '钉钉回复必须完整、可直接发送；若声明查询或调用，立即完成对应动作。\n'
+      '文件交付：网上现有资源先查找直链，再用 DownloadFile 下载。'
+      '来源受限时尝试其他符合用户要求的公开来源，不编造链接或擅加来源限制。\n'
+      '仅本轮成功下载且附加到回复的文件由网关交付；不重复发送或输出本地路径。'
+      '下载成功不等于发送成功，不提前声称已发送。'
+      '未取得文件时明确说明本轮未获取文件，不把历史输入附件当作交付结果。';
   static const String _overloadBusyReply = 'AI 当前较忙，请稍后再试。';
   static const String _responseFailureReply = 'AI 响应失败，请稍后重试。';
   static const String _responseTimeoutReply = 'AI 响应超时，已停止本次请求，请稍后重试。';
