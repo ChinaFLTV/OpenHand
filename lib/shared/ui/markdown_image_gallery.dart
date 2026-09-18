@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:html/parser.dart' as html;
 import 'package:markdown/markdown.dart' as md;
 
 import '../../features/home/index.dart' show showOpenHandImageGallery;
@@ -130,7 +131,21 @@ Iterable<OpenHandGalleryImage> collectOpenHandMessageImages({
           resolveFilePath: resolveFilePath,
         )
       : const <OpenHandGalleryImage>[];
-  for (final image in attachments.followedBy(markdownImages)) {
+  final htmlImages = RegExp(r'<img\b', caseSensitive: false).hasMatch(content)
+      ? html.parseFragment(content).querySelectorAll('img[src]').map((node) {
+          final source = Uri.tryParse((node.attributes['src'] ?? '').trim());
+          if (source == null) return null;
+          final file = resolveFilePath?.call(source);
+          final uri = file == null ? source : Uri.file(file);
+          if (!['http', 'https', 'file'].contains(uri.scheme)) return null;
+          return OpenHandGalleryImage(
+            uri: uri,
+            title: node.attributes['alt'] ?? node.attributes['title'] ?? '图片',
+          );
+        }).whereType<OpenHandGalleryImage>()
+      : const <OpenHandGalleryImage>[];
+  for (final image
+      in attachments.followedBy(markdownImages).followedBy(htmlImages)) {
     if (!seen.add(image.uri)) continue;
     yield OpenHandGalleryImage(
       uri: image.uri,

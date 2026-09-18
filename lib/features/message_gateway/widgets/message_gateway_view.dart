@@ -97,6 +97,7 @@ import '../model/dingtalk_message_gateway.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
 import 'dingtalk_conversation_detail_labels.dart';
+import 'dingtalk_image_gallery.dart';
 import 'dingtalk_message_content_transition.dart';
 
 const int _dingtalkTranslationCacheMaxEntries = 64;
@@ -13759,22 +13760,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   ) sync* {
     for (final message in conversation.messages) {
       if (message.isContentHidden) continue;
-      yield* collectOpenHandMessageImages(
-        content: stripImageSummaryMarkup(message.content),
-        messageId: message.id,
+      yield* collectDingTalkMessageImages(
+        message,
         onLocate: () => _locateGalleryMessage(conversation, message.id),
-        attachments: message.media
-            .where(
-              (media) =>
-                  media.kind == DingTalkMediaKind.image &&
-                  media.localPath.trim().isNotEmpty,
-            )
-            .map(
-              (media) => OpenHandGalleryImage(
-                uri: Uri.file(media.localPath.trim()),
-                title: media.displayName,
-              ),
-            ),
       );
     }
   }
@@ -17052,7 +17040,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       galleryImages: widget.galleryImages,
       onInteractiveTap: _cancelPendingActionToggle,
       onLocate: widget.onLocateMessage,
-      images: widget.message.media
+      images: [...?widget.message.quotedMessage?.media, ...widget.message.media]
           .where(
             (item) =>
                 item.kind == DingTalkMediaKind.image &&

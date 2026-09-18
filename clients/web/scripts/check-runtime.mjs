@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
+import preact from '@preact/preset-vite';
 
 const server = await createServer({
   configFile: false,
+  plugins: [preact()],
   root: fileURLToPath(new URL('..', import.meta.url)),
   cacheDir: 'node_modules/.vite-runtime-check',
   optimizeDeps: { noDiscovery: true, include: [] },
@@ -164,6 +166,17 @@ try {
   const documentGallery = collectImageGallery({ querySelectorAll: () => domImages }, domImages[500]);
   assert.equal(documentGallery.images[documentGallery.index].url, domImages[500].src);
   assert.ok(documentGallery.index > 0);
+
+  const { collectGalleryMedia } = await server.ssrLoadModule('/src/components/MessageMedia.tsx');
+  const quotedImages = collectGalleryMedia({ content: '> ![引用图片](/tmp/quoted.png)\n\n![重复图片](/tmp/quoted.png)' });
+  assert.equal(quotedImages.length, 1, '本地引用图片须进入图库且同消息去重');
+  assert.equal(quotedImages[0].path, '/tmp/quoted.png');
+  assert.equal(quotedImages[0].isDirectUrl, false);
+  const referencedGallery = [galleryEntries[0],
+    { item: quotedImages[0], url: '/quoted.png', messageId: '引用' }, galleryEntries[2]];
+  const referenced = resolveImageGallery(referencedGallery, referencedGallery[1], '引用');
+  assert.equal(referenced.index, 1, '引用图片必须保留会话中的前后导航');
+  assert.equal(referenced.images.length, 3);
 
   const entries = new Map();
   let readFails = false;

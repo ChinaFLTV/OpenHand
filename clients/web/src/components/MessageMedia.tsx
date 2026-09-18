@@ -398,6 +398,30 @@ export function collectMedia(message: SessionMessage): MediaItem[] {
   });
 }
 
+// 图库同时包含引用正文里的内联图片；不将这些图片额外渲染成附件卡片。
+export function collectGalleryMedia(message: SessionMessage): MediaItem[] {
+  const images = collectMedia(message).filter((item) => item.kind === 'image');
+  const seen = new Set(images.map((item) => item.path));
+  const append = (path: string, name: string) => {
+    if (!path || seen.has(path) || /^(?:javascript|vbscript):/i.test(path)) return;
+    if (/^data:/i.test(path) && !/^data:image\//i.test(path)) return;
+    seen.add(path);
+    images.push({ path, name: name || '图片', kind: 'image',
+      isDirectUrl: /^(?:https?:|blob:|data:image\/)/i.test(path) });
+  };
+  const content = message.content ?? '';
+  for (const match of content.matchAll(MARKDOWN_MEDIA_REF)) {
+    if (match[1] === '!') append(normalizeMarkdownDestination(match[3] ?? ''), match[2] ?? '');
+  }
+  if (/<img\b/i.test(content)) {
+    const document = new DOMParser().parseFromString(content, 'text/html');
+    for (const image of document.querySelectorAll<HTMLImageElement>('img[src]')) {
+      append((image.getAttribute('src') ?? '').trim(), image.alt || image.title);
+    }
+  }
+  return images;
+}
+
 export function messageHasMultimedia(message: SessionMessage): boolean {
   return collectMedia(message).some((item) => (
     item.kind === 'image' || item.kind === 'video' || item.kind === 'audio'
