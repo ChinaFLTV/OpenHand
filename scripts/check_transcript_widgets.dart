@@ -70,6 +70,8 @@ class _ProbeAiController extends ChangeNotifier implements AiSessionController {
   Future<AiSession?> Function(String)? loadOlder;
   int loadCount = 0;
   @override
+  AiSession? get currentSession => null;
+  @override
   Future<AiSession?> loadOlderSessionMessages(String id) {
     loadCount += 1;
     return loadOlder?.call(id) ?? Future.value();
@@ -146,7 +148,7 @@ class _TranscriptProbe {
   final WidgetTester tester;
   AiSession session;
   final key = GlobalKey<_SessionTranscriptState>();
-  final controller = ScrollController();
+  final controller = OpenHandStableScrollController();
   final activity = TranscriptScrollActivity();
   final ai = _ProbeAiController();
   final tts = _ProbeTts();
@@ -525,6 +527,52 @@ void main() {
     tester.view.physicalSize = const Size(400, 500);
     await probe.settle();
     probe.expectFilled();
+  });
+
+  for (final animated in [false, true]) {
+    testWidgets('首帧耗时超过揭示上限仍定位到最终回复，动画=$animated', (tester) async {
+      final original = _probeSession('慢首帧', 3, hidden: 320);
+      final probe = _TranscriptProbe(tester, original.copyWith(messages: [
+        AiSessionMessage.reasoning(
+          id: '思考', createdAt: original.createdAt,
+          content: List.filled(6, '检查已完成，接下来整理最终交付结果。').join('\n\n'),
+        ),
+        original.messages[1].copyWith(content: '**检查通过**\n\n## 最终交付\n\n${List.filled(12, '- 已完成验证，结果正常。').join('\n')}'),
+        AiSessionMessage.fileMutationSummary(
+          id: original.messages.last.id, createdAt: original.createdAt,
+          metadata: const {'round_summary_record_count': 9,
+            'round_summary_tool_call_ids': ['历史工具调用']},
+        ),
+      ]));
+      // 模拟首帧被复杂卡片或平台视图占用，真实时钟超过揭示时限。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        sleep(_transcriptInitialRevealMaxDuration + const Duration(milliseconds: 20));
+      });
+      await probe.mount(animated: animated, size: const Size(1100, 550));
+      await probe.settle();
+      expect(probe.controller.position.extentAfter, lessThan(1),
+        reason: '揭示超时只能结束占位，不能跳过首次尾部定位');
+      expect(probe.state._viewportOffsetForMessage(original.messages.last.id),
+        lessThan(probe.controller.position.viewportDimension));
+      expect(find.text('检查通过', findRichText: true), findsOneWidget);
+      final pixels = probe.controller.offset;
+      await tester.pump(const Duration(seconds: 2));
+      expect(probe.controller.offset, pixels, reason: '首次定位完成后不得持续纠偏');
+    });
+  }
+
+  testWidgets('慢首帧揭示后用户开始阅读，剩余定位帧不得抢占滚动', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('阅读保护', 30, mixed: true));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      sleep(_transcriptInitialRevealMaxDuration + const Duration(milliseconds: 20));
+    });
+    await probe.mount();
+    probe.activity.value = true;
+    probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+    final pixels = probe.controller.offset;
+    await probe.settle();
+    expect(probe.controller.offset, pixels);
+    expect(probe.state._initialRevealPhase, _TranscriptInitialRevealPhase.ready);
   });
 
   testWidgets('没有追底请求时首次打开仍显示最新消息并填满视口', (tester) async {

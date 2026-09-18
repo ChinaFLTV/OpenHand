@@ -531,9 +531,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           widget.session.id != sessionId) {
         return;
       }
-      if (framesRemaining <= 0 ||
-          elapsed.elapsed >= _transcriptInitialRevealMaxDuration) {
+      if (framesRemaining <= 0) {
         reveal();
+        return;
+      }
+      // 时长上限只结束占位等待；慢首帧仍须完成有界的尾部定位。
+      if (elapsed.elapsed >= _transcriptInitialRevealMaxDuration) {
+        reveal();
+      }
+      if (_initialRevealPhase == _TranscriptInitialRevealPhase.ready &&
+          _isTranscriptScrollActive(context)) {
         return;
       }
       framesRemaining -= 1;
