@@ -8471,10 +8471,7 @@ class WebMessagePlatformService {
     if (!activelyStreaming &&
         previewLimit > 0 &&
         content.length > previewLimit) {
-      content = content.substring(
-        0,
-        safeUtf16PrefixCodeUnits(content, previewLimit),
-      );
+      content = clipTextByCodeUnits(content, previewLimit, suffix: '');
       metadata = <String, Object?>{
         ...metadata,
         aiSessionMessageContentPreviewMetadataKey: true,

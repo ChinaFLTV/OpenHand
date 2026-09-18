@@ -506,15 +506,11 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
         : math.min(cappedLength, lockedLength);
   }
 
-  /// 截断后的预览文本。裸 substring 会从中间切断 UTF-16 代理对（emoji /
-  /// CJK 扩展 B），预览尾部会渲染成替换字形，因此统一走窗口化截断。
+  /// 按 UTF-16 安全截断预览，保留完整代理对。
   String get _effectiveData {
     final data = _previewSource.isEmpty ? ' ' : _previewSource;
     if (_previewExpanded) return data;
-    return TranscriptListWindowing.boundedContentPreview(
-      data,
-      maxCharacters: _previewDataLength,
-    );
+    return clipTextByCodeUnits(data, _previewDataLength, suffix: '');
   }
 
   @override
@@ -1637,24 +1633,16 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
         'openhand.markdown.parse',
         arguments: <String, Object?>{'chars': config.data.length},
       );
-      try {
-        _parseMarkdownInner();
-      } finally {
-        _lastMarkdownParseAtMs = _markdownParseStopwatch.elapsedMilliseconds;
-        developer.Timeline.finishSync();
-      }
-      return;
     }
-    _parseMarkdownInner();
-    _lastMarkdownParseAtMs = _markdownParseStopwatch.elapsedMilliseconds;
+    try {
+      _parseMarkdownInner();
+    } finally {
+      _lastMarkdownParseAtMs = _markdownParseStopwatch.elapsedMilliseconds;
+      if (kDebugMode) developer.Timeline.finishSync();
+    }
   }
 
-  /// 解析入口：负责手势识别器的所有权交接。
-  ///
-  /// 上一帧的识别器仍被当前 widget 树引用，只能在新一轮 children 真正提交
-  /// 之后再销毁；流式解析失败保留旧树时，反过来要丢弃本轮登记的半成品并把
-  /// 旧识别器交还——否则旧树里全是已 dispose 的识别器，点击行内链接/文件
-  /// 路径立刻触发 “used after being disposed”。
+  /// 新树提交后释放旧识别器；解析失败沿用旧树时，丢弃本轮识别器并恢复旧集合。
   void _parseMarkdownInner() {
     final previousRecognizers = _detachRecognizers();
     if (_rebuildMarkdownChildren()) {

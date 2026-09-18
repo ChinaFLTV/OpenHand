@@ -636,13 +636,12 @@ class _MessageBubbleState extends State<_MessageBubble>
           'chars': widget.message.content.length,
         },
       );
-      try {
-        return _buildInner(context);
-      } finally {
-        developer.Timeline.finishSync();
-      }
     }
-    return _buildInner(context);
+    try {
+      return _buildInner(context);
+    } finally {
+      if (kDebugMode) developer.Timeline.finishSync();
+    }
   }
 
   Widget _buildInner(BuildContext context) {

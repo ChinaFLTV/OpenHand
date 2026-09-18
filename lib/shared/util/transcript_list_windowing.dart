@@ -1,7 +1,5 @@
 import 'dart:math' as math;
 
-import 'text_clip.dart';
-
 /// 按需展开历史消息；已展开区间始终包含最新尾部，组件由列表懒构建。
 abstract final class TranscriptListWindowing {
   static const int defaultInitialWindowSize = 4;
@@ -84,16 +82,5 @@ abstract final class TranscriptListWindowing {
     final rows = math.max(1, paintRows);
     if (count <= rows) return messages;
     return messages.sublist(count - rows);
-  }
-
-  /// 截取固定开销的正文预览，并避免切断 UTF-16 代理对。
-  static String boundedContentPreview(
-    String value, {
-    required int maxCharacters,
-  }) {
-    final requestedEnd = math.min(value.length, math.max(0, maxCharacters));
-    final end = safeUtf16PrefixCodeUnits(value, requestedEnd);
-    if (end == value.length) return value;
-    return value.substring(0, end);
   }
 }

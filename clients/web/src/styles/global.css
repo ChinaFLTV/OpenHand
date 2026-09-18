@@ -95,14 +95,7 @@ html, body, #root {
   --shadow-m3-3: var(--m3-elev-3);
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   Motion 系统：M3 Expressive 自然弹性曲线 + 进入/退出/列表错峰。
-   - 核心动效的时长和缓动统一读取 CSS 变量，便于集中调整和降低动效。
-   - 降低动效状态由 [data-motion='reduced'] 标志位控制（JS 写入根节点）。
-   - .oh-appear-up：220ms 淡入并沿 Y 轴上移 8px，配合 .oh-appear-stagger-N 形成入场错峰（最多 12 阶，每阶 60ms）。
-   - .oh-page-fade：路由切换时整页 360ms 淡入，避免顶层闪烁。
-   - .oh-tap-press：可点击元素受压反馈，按下与释放都走弹性曲线。
-   - 任何作用于位移或透明度的动画都额外启用 will-change，避免布局和绘制抖动。 */
+/* 动效共享参数；降低动效状态由根节点的 data-motion='reduced' 控制。 */
 :root {
   --oh-motion-emphasized: cubic-bezier(0.2, 0, 0, 1);
   --oh-motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -126,10 +119,7 @@ html, body, #root {
   --oh-page-content-max: none;
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   页面全宽骨架：会话列表 / 会话详情共用。
-   - 不再使用 max-w-3xl 居中窄栏；内容水平拓展至全屏。
-   - 内边距走 clamp，宽屏更舒展，窄屏仍保留触控安全区。 */
+/* 会话页面共用全宽骨架，内边距通过 clamp 适配视口。 */
 .oh-page-shell {
   width: 100%;
   max-width: none;

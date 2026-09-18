@@ -100,20 +100,13 @@ TextStyle _baseCodeStyleForTheme({
   required Color baseColor,
 }) {
   final fontSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
-  return theme.textTheme.bodyMedium?.copyWith(
-        color: baseColor,
-        fontFamily: kOpenHandMonospaceFontFamily,
-        fontSize: fontSize * 0.94,
-        height: 1.5,
-        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
-      ) ??
-      TextStyle(
-        color: baseColor,
-        fontFamily: kOpenHandMonospaceFontFamily,
-        fontSize: fontSize * 0.94,
-        height: 1.5,
-        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
-      );
+  return (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(
+    color: baseColor,
+    fontFamily: kOpenHandMonospaceFontFamily,
+    fontSize: fontSize * 0.94,
+    height: 1.5,
+    fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+  );
 }
 
 TextSpan _computeHighlightedCodeSpan({
@@ -134,24 +127,22 @@ TextSpan _computeHighlightedCodeSpan({
     _highlightSpanCache.put(signature, span, content.length);
     return span;
   }
-  final timelineLabel = effectiveLanguage == null || effectiveLanguage.isEmpty
-      ? '代码高亮（纯文本，${content.length} 字符）'
-      : '代码高亮（$effectiveLanguage，${content.length} 字符）';
-  TextSpan span;
   if (kDebugMode) {
-    span = developer.Timeline.timeSync<TextSpan>(timelineLabel, () {
-      final highlighter = _CodeSyntaxHighlighter(
-        baseStyle: baseStyle,
-        darkSurface: useDarkPalette,
-      );
-      return highlighter.build(content, language: effectiveLanguage);
-    });
-  } else {
+    developer.Timeline.startSync(
+      effectiveLanguage == null || effectiveLanguage.isEmpty
+          ? '代码高亮（纯文本，${content.length} 字符）'
+          : '代码高亮（$effectiveLanguage，${content.length} 字符）',
+    );
+  }
+  final TextSpan span;
+  try {
     final highlighter = _CodeSyntaxHighlighter(
       baseStyle: baseStyle,
       darkSurface: useDarkPalette,
     );
     span = highlighter.build(content, language: effectiveLanguage);
+  } finally {
+    if (kDebugMode) developer.Timeline.finishSync();
   }
   _highlightSpanCache.put(signature, span, content.length);
   return span;

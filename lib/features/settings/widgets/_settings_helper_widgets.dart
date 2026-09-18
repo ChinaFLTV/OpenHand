@@ -911,16 +911,12 @@ class _AiTranslationProviderCardState
         .provider(widget.provider)
         .normalized()
         .enabled;
-    final isEnabled = widget.settings
-        .provider(widget.provider)
-        .normalized()
-        .enabled;
-    if (wasEnabled && !isEnabled) {
+    final persisted = widget.settings.provider(widget.provider).normalized();
+    if (wasEnabled && !persisted.enabled) {
       _expanded = _settingsProviderCardDefaultExpanded;
     }
     final latest = _latestProviderSettings;
     if (latest == null) return;
-    final persisted = widget.settings.provider(widget.provider).normalized();
     if (stableJsonEquals(latest.toJson(), persisted.toJson())) {
       _latestProviderSettings = null;
     }
@@ -1706,8 +1702,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
 
   AiTtsProviderSettings get _effectiveProviderSettings =>
       _normalizeProviderSettingsForCurrentModel(
-        (_latestProviderSettings ?? widget.settings.provider(widget.provider))
-            .normalized(),
+        _latestProviderSettings ?? widget.settings.provider(widget.provider),
         widget.availableModels,
       );
 
@@ -1772,16 +1767,12 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         .provider(widget.provider)
         .normalized()
         .enabled;
-    final isEnabled = widget.settings
-        .provider(widget.provider)
-        .normalized()
-        .enabled;
-    if (wasEnabled && !isEnabled) {
+    final persisted = widget.settings.provider(widget.provider).normalized();
+    if (wasEnabled && !persisted.enabled) {
       _expanded = _settingsProviderCardDefaultExpanded;
     }
     final latest = _latestProviderSettings;
     if (latest == null) return;
-    final persisted = widget.settings.provider(widget.provider).normalized();
     if (stableJsonEquals(latest.toJson(), persisted.toJson())) {
       _latestProviderSettings = null;
     }
