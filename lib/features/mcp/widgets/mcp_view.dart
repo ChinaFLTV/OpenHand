@@ -24,13 +24,14 @@ import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
-import '../../../shared/ui/bounded_animation.dart';
+import '../../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_animated_chip_wrap.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_code_editor.dart';
@@ -126,13 +127,6 @@ const double _mcpToolChipMaxWidth = 360;
 const double _mcpScrollCorrectionEpsilon = 0.5;
 const double _mcpListBottomAnchorThreshold = 2;
 
-const DialogAnimationSettings _mcpChipAnimationSettings =
-    DialogAnimationSettings(
-      durationMs: 220,
-      curve: DialogAnimationCurve.elasticOut,
-    );
-const OpenHandAnimationTransitionProfile _mcpChipTransitionProfile =
-    OpenHandAnimationTransitionProfile(alignment: Alignment.centerLeft);
 const EdgeInsets _mcpServerCardMotionPadding = EdgeInsets.only(
   top: _mcpServerCardHoverClearance,
   bottom: _mcpServerCardSpacing - _mcpServerCardHoverClearance,
@@ -10388,15 +10382,16 @@ class _McpStdioProcessChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = openHandMotionDuration(context, kOpenHandMotion220);
     return AnimatedBuilder(
       animation: McpStdioProcessManager.instance,
       builder: (context, _) {
         final processInfo = McpStdioProcessManager.instance.infoFor(serverName);
         final visible =
             !processInfo.isStopped || processInfo.errorMessage != null;
-        final child = visible
-            ? Padding(
+        return OpenHandAnimatedChipWrap(
+          children: [
+            if (visible)
+              Padding(
                 key: const ValueKey<String>('mcp-stdio-process-visible'),
                 padding: const EdgeInsets.only(right: 10),
                 child: _McpAnimatedChipContent(
@@ -10437,33 +10432,8 @@ class _McpStdioProcessChip extends StatelessWidget {
                     },
                   ),
                 ),
-              )
-            : const SizedBox.shrink(
-                key: ValueKey<String>('mcp-stdio-process-hidden'),
-              );
-        return AnimatedSwitcher(
-          duration: duration,
-          layoutBuilder: (currentChild, previousChildren) => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ...previousChildren,
-              if (currentChild != null) currentChild,
-            ],
-          ),
-          transitionBuilder: (child, animation) {
-            final sizeMotion = openHandBoundedCurveAnimation(
-              parent: animation,
-              curve: _mcpChipAnimationSettings.curve.curve,
-              reverseCurve: _mcpChipAnimationSettings.curve.reverseCurve,
-            );
-            return SizeTransition(
-              axis: Axis.horizontal,
-              alignment: AlignmentDirectional.topStart,
-              sizeFactor: sizeMotion,
-              child: _mcpChipTransition(child, animation),
-            );
-          },
-          child: child,
+              ),
+          ],
         );
       },
     );
@@ -10512,15 +10482,11 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
   final ScrollController _scrollController = ScrollController();
   late List<_McpChipStripItem> _displayedItems;
   bool _scrollCorrectionScheduled = false;
-  bool _animateNewItems = false;
 
   @override
   void initState() {
     super.initState();
     _displayedItems = List<_McpChipStripItem>.of(widget.resolvedItems);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _animateNewItems = true;
-    });
   }
 
   @override
@@ -10540,14 +10506,14 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
     })) {
       dismissOpenHandTooltipsSafely(debugLabel: '更新MCP胶囊前收起工具提示');
     }
-    final hasOutgoingItems = _displayedItems.any(
-      (item) => !nextItemsById.containsKey(item.id),
-    );
-    _displayedItems = hasOutgoingItems
-        ? <_McpChipStripItem>[
-            for (final item in _displayedItems) nextItemsById[item.id] ?? item,
-          ]
-        : nextItems;
+    final merged = List<_McpChipStripItem>.of(nextItems);
+    for (var index = 0; index < _displayedItems.length; index++) {
+      final item = _displayedItems[index];
+      if (!nextItemsById.containsKey(item.id)) {
+        merged.insert(index.clamp(0, merged.length), item);
+      }
+    }
+    _displayedItems = merged;
     if (geometryChanged) _scheduleScrollCorrection();
   }
 
@@ -10601,8 +10567,13 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.select(
-      (SettingsController controller) => controller.listItemAnimationSettings,
+    final preference = context.select(
+      (SettingsController controller) => controller.chipAnimationSettings,
+    );
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.chip,
+      override: preference,
     );
     final currentIds = widget.resolvedItems.map((item) => item.id).toSet();
     return SizedBox(
@@ -10620,21 +10591,25 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
                 key: ValueKey<String>('mcp-chip-appearance-${item.id}'),
                 settings: settings,
                 present: currentIds.contains(item.id),
-                animateInitialAppearance: _animateNewItems,
                 collapseAxis: Axis.horizontal,
-                keepContentVisibleDuringExitCollapse: true,
                 onDismissed: () => _removeDismissedItem(item.id),
-                child: TooltipVisibility(
-                  visible: currentIds.contains(item.id),
-                  child: IgnorePointer(
-                    ignoring: !currentIds.contains(item.id),
-                    child: _McpAnimatedChipContent(
-                      contentKey: item.contentKey ?? item.id,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          right: item.trailingSpacing ? 10 : 0,
+                child: ExcludeSemantics(
+                  excluding: !currentIds.contains(item.id),
+                  child: ExcludeFocus(
+                    excluding: !currentIds.contains(item.id),
+                    child: TooltipVisibility(
+                      visible: currentIds.contains(item.id),
+                      child: IgnorePointer(
+                        ignoring: !currentIds.contains(item.id),
+                        child: _McpAnimatedChipContent(
+                          contentKey: item.contentKey ?? item.id,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: item.trailingSpacing ? 10 : 0,
+                            ),
+                            child: item.child,
+                          ),
                         ),
-                        child: item.child,
                       ),
                     ),
                   ),
@@ -10691,26 +10666,32 @@ class _McpAnimatedChipContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = openHandMotionDuration(context, kOpenHandMotion220);
+    final preference = context.select(
+      (SettingsController controller) => controller.chipAnimationSettings,
+    );
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.chip,
+      override: preference,
+    );
     return AnimatedSwitcher(
-      duration: duration,
-      layoutBuilder: (currentChild, previousChildren) => Stack(
-        alignment: Alignment.centerLeft,
-        children: [...previousChildren, if (currentChild != null) currentChild],
+      duration: settings.entranceDuration,
+      reverseDuration: settings.exitDuration,
+      layoutBuilder: (currentChild, previousChildren) =>
+          buildCollisionSafeAnimatedSwitcherLayout(
+            currentChild,
+            previousChildren,
+            alignment: AlignmentDirectional.centerStart,
+          ),
+      transitionBuilder: (child, animation) => buildAnimationStyleTransition(
+        animation: animation,
+        settings: settings,
+        profile: kOpenHandLayoutSafeTransitionProfile,
+        child: child,
       ),
-      transitionBuilder: _mcpChipTransition,
       child: KeyedSubtree(key: ValueKey<Object>(contentKey), child: child),
     );
   }
-}
-
-Widget _mcpChipTransition(Widget child, Animation<double> animation) {
-  return buildAnimationStyleTransition(
-    animation: animation,
-    settings: _mcpChipAnimationSettings,
-    profile: _mcpChipTransitionProfile,
-    child: child,
-  );
 }
 
 class _McpStatusChip extends StatelessWidget {
@@ -12679,11 +12660,15 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
             zh: '服务已禁用，可手动刷新检测 Tool 信息。',
             en: 'This service is disabled. Refresh manually to inspect its tools.',
           );
-    final toolVisualKey = _mcpToolVisualKey(filteredTools);
-    final animationDuration = openHandMotionDuration(
-      context,
-      kOpenHandMotion220,
+    final preference = context.select(
+      (SettingsController controller) => controller.chipAnimationSettings,
     );
+    final chipSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.chip,
+      override: preference,
+    );
+    final animationDuration = chipSettings.entranceDuration;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -12758,7 +12743,14 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                       padding: const EdgeInsets.only(right: 12),
                       child: AnimatedSwitcher(
                         duration: animationDuration,
-                        transitionBuilder: _mcpChipTransition,
+                        reverseDuration: chipSettings.exitDuration,
+                        transitionBuilder: (child, animation) =>
+                            buildAnimationStyleTransition(
+                              animation: animation,
+                              settings: chipSettings,
+                              profile: kOpenHandLayoutSafeTransitionProfile,
+                              child: child,
+                            ),
                         child: filteredTools.isEmpty
                             ? _buildEmptyState(
                                 context,
@@ -12768,14 +12760,17 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                                 label: emptyLabel,
                               )
                             : Align(
-                                key: ValueKey<int>(toolVisualKey),
+                                key: const ValueKey('mcp-tools-expanded'),
                                 alignment: Alignment.topLeft,
-                                child: Wrap(
+                                child: OpenHandAnimatedChipWrap(
                                   spacing: 10,
                                   runSpacing: 10,
                                   children: [
                                     for (final tool in previewTools)
-                                      _buildToolChip(context, tool),
+                                      KeyedSubtree(
+                                        key: ValueKey(tool.id),
+                                        child: _buildToolChip(context, tool),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -12784,7 +12779,14 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                   )
                 : AnimatedSwitcher(
                     duration: animationDuration,
-                    transitionBuilder: _mcpChipTransition,
+                    reverseDuration: chipSettings.exitDuration,
+                    transitionBuilder: (child, animation) =>
+                        buildAnimationStyleTransition(
+                          animation: animation,
+                          settings: chipSettings,
+                          profile: kOpenHandLayoutSafeTransitionProfile,
+                          child: child,
+                        ),
                     child: filteredTools.isEmpty
                         ? _buildEmptyState(
                             context,

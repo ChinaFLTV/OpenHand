@@ -7,6 +7,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_animated_chip_wrap.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -126,78 +127,99 @@ class _AiExposureServiceCard extends StatelessWidget {
     final activeValidation =
         snapshot.defaultValidationMode ==
         AiExposureValidationMode.authorizedActive;
-    final capabilityFacts = <({IconData icon, String label, Color color})>[
-      (
-        icon: Icons.travel_explore_rounded,
-        label: text(
-          zh: '启用来源 ${snapshot.enabledSourceCount}',
-          en: 'Sources ${snapshot.enabledSourceCount}',
-        ),
-        color: cs.primary,
-      ),
-      (
-        icon: activeValidation
-            ? Icons.verified_user_rounded
-            : Icons.shield_outlined,
-        label: activeValidation
-            ? text(zh: '授权主动验证', en: 'Authorized active validation')
-            : text(zh: '被动验证', en: 'Passive validation'),
-        color: activeValidation ? OpenHandStatusColors.warning : cs.secondary,
-      ),
-      (
-        icon: Icons.bolt_rounded,
-        label: text(
-          zh: '默认并发 ${snapshot.defaultConcurrency}',
-          en: 'Concurrency ${snapshot.defaultConcurrency}',
-        ),
-        color: cs.tertiary,
-      ),
-      switch (snapshot.proxyRoute) {
-        AiExposureProxyRoute.pool => (
-          icon: Icons.lan_rounded,
-          label: text(
-            zh: '代理节点 ${snapshot.activeProxyCount}',
-            en: 'Proxies ${snapshot.activeProxyCount}',
+    final capabilityFacts =
+        <({String id, IconData icon, String label, Color color})>[
+          (
+            id: 'sources',
+            icon: Icons.travel_explore_rounded,
+            label: text(
+              zh: '启用来源 ${snapshot.enabledSourceCount}',
+              en: 'Sources ${snapshot.enabledSourceCount}',
+            ),
+            color: cs.primary,
           ),
-          color: cs.tertiary,
-        ),
-        AiExposureProxyRoute.system => (
-          icon: Icons.public_rounded,
-          label: text(zh: '系统代理', en: 'System proxy'),
-          color: cs.secondary,
-        ),
-        AiExposureProxyRoute.direct => (
-          icon: Icons.link_rounded,
-          label: text(zh: '网络直连', en: 'Direct connection'),
-          color: cs.onSurfaceVariant,
-        ),
-      },
-      (
-        icon: Icons.forum_rounded,
-        label: switch (snapshot.forumFetchMode) {
-          AiExposureForumFetchMode.jinaFallback => text(
-            zh: '论坛智能降级',
-            en: 'Forum fallback',
+          (
+            id: 'validation',
+            icon: activeValidation
+                ? Icons.verified_user_rounded
+                : Icons.shield_outlined,
+            label: activeValidation
+                ? text(zh: '授权主动验证', en: 'Authorized active validation')
+                : text(zh: '被动验证', en: 'Passive validation'),
+            color: activeValidation
+                ? OpenHandStatusColors.warning
+                : cs.secondary,
           ),
-          AiExposureForumFetchMode.playwright => text(
-            zh: '论坛浏览器直读',
-            en: 'Forum browser',
+          (
+            id: 'concurrency',
+            icon: Icons.bolt_rounded,
+            label: text(
+              zh: '默认并发 ${snapshot.defaultConcurrency}',
+              en: 'Concurrency ${snapshot.defaultConcurrency}',
+            ),
+            color: cs.tertiary,
           ),
-          AiExposureForumFetchMode.cdp => 'Chrome CDP',
-        },
-        color: cs.primary,
-      ),
-      if (snapshot.defaultGptAssisted)
-        (
-          icon: Icons.auto_awesome_rounded,
-          label: text(zh: 'GPT 辅助', en: 'GPT assisted'),
-          color: OpenHandStatusColors.info,
-        ),
-      if (snapshot.postgresqlEnabled)
-        (icon: Icons.storage_rounded, label: 'PostgreSQL', color: cs.tertiary),
-      if (snapshot.redisEnabled)
-        (icon: Icons.memory_rounded, label: 'Redis', color: cs.secondary),
-    ];
+          switch (snapshot.proxyRoute) {
+            AiExposureProxyRoute.pool => (
+              id: 'route',
+              icon: Icons.lan_rounded,
+              label: text(
+                zh: '代理节点 ${snapshot.activeProxyCount}',
+                en: 'Proxies ${snapshot.activeProxyCount}',
+              ),
+              color: cs.tertiary,
+            ),
+            AiExposureProxyRoute.system => (
+              id: 'route',
+              icon: Icons.public_rounded,
+              label: text(zh: '系统代理', en: 'System proxy'),
+              color: cs.secondary,
+            ),
+            AiExposureProxyRoute.direct => (
+              id: 'route',
+              icon: Icons.link_rounded,
+              label: text(zh: '网络直连', en: 'Direct connection'),
+              color: cs.onSurfaceVariant,
+            ),
+          },
+          (
+            id: 'forum',
+            icon: Icons.forum_rounded,
+            label: switch (snapshot.forumFetchMode) {
+              AiExposureForumFetchMode.jinaFallback => text(
+                zh: '论坛智能降级',
+                en: 'Forum fallback',
+              ),
+              AiExposureForumFetchMode.playwright => text(
+                zh: '论坛浏览器直读',
+                en: 'Forum browser',
+              ),
+              AiExposureForumFetchMode.cdp => 'Chrome CDP',
+            },
+            color: cs.primary,
+          ),
+          if (snapshot.defaultGptAssisted)
+            (
+              id: 'gpt',
+              icon: Icons.auto_awesome_rounded,
+              label: text(zh: 'GPT 辅助', en: 'GPT assisted'),
+              color: OpenHandStatusColors.info,
+            ),
+          if (snapshot.postgresqlEnabled)
+            (
+              id: 'postgresql',
+              icon: Icons.storage_rounded,
+              label: 'PostgreSQL',
+              color: cs.tertiary,
+            ),
+          if (snapshot.redisEnabled)
+            (
+              id: 'redis',
+              icon: Icons.memory_rounded,
+              label: 'Redis',
+              color: cs.secondary,
+            ),
+        ];
 
     return Card(
       key: const ValueKey<String>('ai-infrastructure-exposure-service-card'),
@@ -246,11 +268,12 @@ class _AiExposureServiceCard extends StatelessWidget {
                     ],
                   ),
                 kOpenHandGap16,
-                Wrap(
+                OpenHandAnimatedChipWrap(
                   spacing: 10,
                   runSpacing: 10,
                   children: [
                     OpenHandStatusPill(
+                      key: const ValueKey('lifecycle'),
                       icon: running
                           ? Icons.check_circle_outline_rounded
                           : Icons.pause_circle_outline_rounded,
@@ -258,17 +281,20 @@ class _AiExposureServiceCard extends StatelessWidget {
                       color: toneColor,
                     ),
                     OpenHandStatusPill(
+                      key: const ValueKey('proprietary'),
                       icon: Icons.workspace_premium_outlined,
                       label: l10n.servicesProprietaryBadge,
                       color: cs.secondary,
                     ),
                     if (snapshot.health != null)
                       OpenHandStatusPill(
+                        key: const ValueKey('version'),
                         icon: Icons.memory_rounded,
                         label: 'ai_jungler ${snapshot.health!.version}',
                         color: cs.tertiary,
                       ),
                     OpenHandStatusPill(
+                      key: const ValueKey('sources'),
                       icon: Icons.travel_explore_rounded,
                       label: openHandLocalizedText(
                         context,
@@ -278,6 +304,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                       color: cs.primary,
                     ),
                     OpenHandStatusPill(
+                      key: const ValueKey('rules'),
                       icon: Icons.rule_rounded,
                       label: openHandLocalizedText(
                         context,
@@ -287,6 +314,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                       color: cs.secondary,
                     ),
                     OpenHandStatusPill(
+                      key: const ValueKey('history'),
                       icon: Icons.history_rounded,
                       label: openHandLocalizedText(
                         context,
@@ -296,6 +324,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                       color: cs.primary,
                     ),
                     OpenHandStatusPill(
+                      key: const ValueKey('results'),
                       icon: Icons.fact_check_outlined,
                       label: openHandLocalizedText(
                         context,
@@ -311,12 +340,11 @@ class _AiExposureServiceCard extends StatelessWidget {
                   _CompactProgress(progress: snapshot.progress!),
                 ],
                 kOpenHandGap14,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                OpenHandAnimatedChipWrap(
                   children: [
                     for (final fact in capabilityFacts)
                       OpenHandFactChip(
+                        key: ValueKey(fact.id),
                         icon: fact.icon,
                         label: fact.label,
                         color: fact.color,

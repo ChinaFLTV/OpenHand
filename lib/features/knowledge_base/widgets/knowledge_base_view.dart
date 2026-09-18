@@ -702,11 +702,13 @@ class _KnowledgeSourceCard extends StatelessWidget {
       ],
       statusPills: [
         OpenHandStatusPill(
+          key: const ValueKey('kind'),
           icon: knowledgeSourceKindIcon(source.kind),
           label: kindLabel,
           color: kindAccent,
         ),
         OpenHandStatusPill(
+          key: const ValueKey('status'),
           icon: statusIcon,
           label: statusLabel,
           color: statusColor,
@@ -714,11 +716,13 @@ class _KnowledgeSourceCard extends StatelessWidget {
       ],
       factChips: [
         OpenHandFactChip(
+          key: const ValueKey('size'),
           icon: Icons.sd_storage_outlined,
           label: sizeLabel,
           color: colorScheme.tertiary,
         ),
         OpenHandFactChip(
+          key: const ValueKey('updated'),
           icon: Icons.schedule_rounded,
           label: updatedLabel,
           color: OpenHandStatusColors.warning,

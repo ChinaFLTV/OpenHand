@@ -17,6 +17,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_animated_chip_wrap.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
@@ -397,7 +398,11 @@ class _PluginServiceViewState extends State<PluginServiceView> {
 }
 
 class _PluginStatusBadge extends StatelessWidget {
-  const _PluginStatusBadge({required this.label, required this.color});
+  const _PluginStatusBadge({
+    super.key,
+    required this.label,
+    required this.color,
+  });
 
   final String label;
   final Color color;
@@ -422,7 +427,7 @@ class _PluginStatusBadge extends StatelessWidget {
 }
 
 class _PluginTemplateBadge extends StatelessWidget {
-  const _PluginTemplateBadge({required this.spec});
+  const _PluginTemplateBadge({super.key, required this.spec});
 
   final TemplateRuntimeDependencySpec spec;
 
@@ -517,16 +522,17 @@ class _PluginCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Wrap(
-                            spacing: 8,
+                          OpenHandAnimatedChipWrap(
                             runSpacing: 6,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
                                 plugin.name,
+                                key: const ValueKey('name'),
                                 style: theme.textTheme.titleLarge,
                               ),
                               _PluginStatusBadge(
+                                key: const ValueKey('status'),
                                 label: statusLabel,
                                 color: stateColor,
                               ),
@@ -534,7 +540,10 @@ class _PluginCard extends StatelessWidget {
                                   in TemplateRuntimeDependencyRegistry.specsForPlugin(
                                     plugin.id,
                                   ))
-                                _PluginTemplateBadge(spec: spec),
+                                _PluginTemplateBadge(
+                                  key: ValueKey(spec.templateId),
+                                  spec: spec,
+                                ),
                             ],
                           ),
                           kOpenHandGap6,
@@ -566,14 +575,8 @@ class _PluginCard extends StatelessWidget {
                 );
               },
             ),
-            if (plugin.isInstalled) ...[
-              kOpenHandGap14,
-              _PluginMetaRow(plugin: plugin),
-            ],
-            if (plugin.dependencies.isNotEmpty) ...[
-              kOpenHandGap10,
-              _DependencyRow(plugin: plugin, controller: controller),
-            ],
+            _PluginMetaRow(plugin: plugin),
+            _DependencyRow(plugin: plugin, controller: controller),
             OpenHandInlineNoticeSlot(
               child:
                   plugin.status == PluginStatus.error &&
@@ -1202,57 +1205,32 @@ class _PluginMetaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final metaStyle = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-    return Wrap(
-      spacing: 20,
-      runSpacing: 6,
+    return OpenHandAnimatedChipWrap(
+      topSpacing: 14,
       children: [
-        if (plugin.installedVersion != null)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.tag,
-                size: 14,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              kOpenHandHGap4,
-              Text(
-                '${l10n.pluginServiceVersion}: ${plugin.installedVersion}',
-                style: metaStyle,
-              ),
-            ],
+        if (plugin.isInstalled && plugin.installedVersion != null)
+          OpenHandFactChip(
+            key: const ValueKey('version'),
+            icon: Icons.tag,
+            label: '${l10n.pluginServiceVersion}: ${plugin.installedVersion}',
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-        if (plugin.latestVersion != null && plugin.hasUpdate)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.new_releases_outlined,
-                size: 14,
-                color: OpenHandStatusColors.warning,
-              ),
-              kOpenHandHGap4,
-              Text(
+        if (plugin.isInstalled &&
+            plugin.latestVersion != null &&
+            plugin.hasUpdate)
+          OpenHandFactChip(
+            key: const ValueKey('update'),
+            icon: Icons.new_releases_outlined,
+            label:
                 '${l10n.pluginServiceUpdateAvailable}: ${plugin.latestVersion}',
-                style: metaStyle?.copyWith(color: OpenHandStatusColors.warning),
-              ),
-            ],
+            color: OpenHandStatusColors.warning,
           ),
-        if (plugin.installPath != null)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.folder_outlined,
-                size: 14,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              kOpenHandHGap4,
-              Text(plugin.installPath!, style: metaStyle),
-            ],
+        if (plugin.isInstalled && plugin.installPath != null)
+          OpenHandFactChip(
+            key: const ValueKey('directory'),
+            icon: Icons.folder_outlined,
+            label: plugin.installPath!,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
       ],
     );
@@ -1271,40 +1249,30 @@ class _DependencyRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    return Row(
+    return OpenHandAnimatedChipWrap(
+      topSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Icon(
-          Icons.account_tree_outlined,
-          size: 14,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        kOpenHandHGap6,
-        Text(
-          '${l10n.pluginServiceDependsOn}: ',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        ...plugin.dependencies.map((depId) {
-          final dep = controller.pluginById(depId);
-          final installed = dep?.isInstalled ?? false;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Chip(
-              avatar: Icon(
-                installed ? Icons.check_circle : Icons.cancel,
-                size: 14,
-                color: installed
-                    ? OpenHandStatusColors.success
-                    : theme.colorScheme.error,
-              ),
-              label: Text(
-                dep?.name ?? depId,
-                style: theme.textTheme.labelSmall,
-              ),
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        if (plugin.dependencies.isNotEmpty)
+          Text(
+            '${l10n.pluginServiceDependsOn}:',
+            key: const ValueKey('label'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
+          ),
+        ...plugin.dependencies.toSet().map((depId) {
+          final dependency = controller.pluginById(depId);
+          final installed = dependency?.isInstalled == true;
+          return OpenHandFactChip(
+            key: ValueKey(('dependency', depId)),
+            icon: installed
+                ? Icons.check_circle_outline_rounded
+                : Icons.cancel_outlined,
+            label: dependency?.name ?? depId,
+            color: installed
+                ? OpenHandStatusColors.success
+                : theme.colorScheme.error,
           );
         }),
       ],

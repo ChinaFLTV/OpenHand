@@ -18,6 +18,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_animated_chip_wrap.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -574,6 +575,7 @@ class _WorkflowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tags = workflow.tags.toSet();
     final colors = theme.colorScheme;
     final actionButtonStyle = _workflowCardActionButtonStyle(theme);
     return Card(
@@ -638,22 +640,24 @@ class _WorkflowCard extends StatelessWidget {
                             ),
                           ),
                         ],
-                        if (workflow.tags.isNotEmpty) ...[
-                          kOpenHandGap8,
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              for (final tag in workflow.tags.take(5))
-                                _WorkflowTagChip(label: tag),
-                              if (workflow.tags.length > 5)
-                                _WorkflowTagChip(
-                                  label: '+${workflow.tags.length - 5}',
-                                  compact: true,
-                                ),
-                            ],
-                          ),
-                        ],
+                        OpenHandAnimatedChipWrap(
+                          topSpacing: 8,
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            for (final tag in tags.take(5))
+                              _WorkflowTagChip(
+                                key: ValueKey(('tag', tag)),
+                                label: tag,
+                              ),
+                            if (tags.length > 5)
+                              _WorkflowTagChip(
+                                key: const ValueKey('more-tags'),
+                                label: '+${tags.length - 5}',
+                                compact: true,
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -776,7 +780,11 @@ class _WorkflowCard extends StatelessWidget {
 }
 
 class _WorkflowTagChip extends StatelessWidget {
-  const _WorkflowTagChip({required this.label, this.compact = false});
+  const _WorkflowTagChip({
+    super.key,
+    required this.label,
+    this.compact = false,
+  });
 
   final String label;
   final bool compact;

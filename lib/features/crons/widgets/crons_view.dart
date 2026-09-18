@@ -268,10 +268,11 @@ class _CronEntryCard extends StatelessWidget {
     final toggleLocked = entry.tags.contains(
       CronsController.mcpKeywordIndexTag,
     );
-    final visibleTags = entry.tags
+    final displayTags = entry.tags.toSet();
+    final visibleTags = displayTags
         .take(_cronTagPreviewLimit)
         .toList(growable: false);
-    final hiddenTagCount = entry.tags.length - visibleTags.length;
+    final hiddenTagCount = displayTags.length - visibleTags.length;
     final statusColor = _cronStatusAccent(entry, colorScheme);
     final description = entry.description.trim();
     final lastRunLabel = entry.lastRunAt == null
@@ -342,11 +343,13 @@ class _CronEntryCard extends StatelessWidget {
       ],
       statusPills: [
         OpenHandStatusPill(
+          key: const ValueKey('status'),
           icon: _cronStatusIcon(entry),
           label: entry.status.label(l10n),
           color: statusColor,
         ),
         OpenHandStatusPill(
+          key: const ValueKey('script-type'),
           icon: entry.scriptType == CronScriptType.script
               ? Icons.description_outlined
               : entry.scriptType == CronScriptType.managed
@@ -357,6 +360,7 @@ class _CronEntryCard extends StatelessWidget {
         ),
         if (entry.lastRunAt != null)
           OpenHandStatusPill(
+            key: const ValueKey('last-run'),
             icon: Icons.schedule_rounded,
             label: lastRunLabel,
             color: OpenHandStatusColors.warning,
@@ -364,29 +368,34 @@ class _CronEntryCard extends StatelessWidget {
       ],
       factChips: [
         OpenHandFactChip(
+          key: const ValueKey('schedule'),
           icon: Icons.event_repeat_outlined,
           label: entry.cronExpression,
           color: colorScheme.tertiary,
         ),
         OpenHandFactChip(
+          key: const ValueKey('timeout'),
           icon: Icons.timer_outlined,
           label: '${entry.timeoutSeconds}s',
           color: colorScheme.primary,
         ),
         if (entry.retryCount > 0)
           OpenHandFactChip(
+            key: const ValueKey('retries'),
             icon: Icons.replay_rounded,
             label: '${entry.retryCount}',
             color: OpenHandStatusColors.info,
           ),
         for (final tag in visibleTags)
           OpenHandFactChip(
+            key: ValueKey(('tag', tag)),
             icon: Icons.sell_outlined,
             label: tag,
             color: colorScheme.secondary,
           ),
         if (hiddenTagCount > 0)
           OpenHandFactChip(
+            key: const ValueKey('more-tags'),
             icon: Icons.more_horiz_rounded,
             label: '+$hiddenTagCount',
             color: colorScheme.onSurfaceVariant,

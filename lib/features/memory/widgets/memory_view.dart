@@ -766,6 +766,7 @@ class _MemoryEntryCard extends StatelessWidget {
               !isAutoLearned ||
               tag.toLowerCase() != UserMemoryEntry.autoLearnedTag.toLowerCase(),
         )
+        .toSet()
         .toList(growable: false);
     final visibleTags = displayTags
         .take(_memoryTagPreviewLimit)
@@ -816,6 +817,7 @@ class _MemoryEntryCard extends StatelessWidget {
       ],
       statusPills: [
         OpenHandStatusPill(
+          key: const ValueKey('kind'),
           icon: isAutoLearned
               ? Icons.auto_awesome_outlined
               : Icons.person_outline_rounded,
@@ -823,6 +825,7 @@ class _MemoryEntryCard extends StatelessWidget {
           color: kindColor,
         ),
         OpenHandStatusPill(
+          key: const ValueKey('created'),
           icon: Icons.schedule_rounded,
           label: createdLabel,
           color: OpenHandStatusColors.warning,
@@ -831,12 +834,14 @@ class _MemoryEntryCard extends StatelessWidget {
       factChips: [
         for (final tag in visibleTags)
           OpenHandFactChip(
+            key: ValueKey(('tag', tag)),
             icon: Icons.sell_outlined,
             label: tag,
             color: OpenHandStatusColors.info,
           ),
         if (hiddenTagCount > 0)
           OpenHandFactChip(
+            key: const ValueKey('more-tags'),
             icon: Icons.more_horiz_rounded,
             label: '+$hiddenTagCount',
             color: colorScheme.onSurfaceVariant,

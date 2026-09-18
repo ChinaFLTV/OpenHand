@@ -1215,12 +1215,14 @@ class _SkillCard extends StatelessWidget {
       ],
       statusPills: [
         OpenHandStatusPill(
+          key: const ValueKey('source'),
           icon: isSystem ? Icons.verified_outlined : Icons.inventory_2_outlined,
           label: sourceLabel,
           color: sourceColor,
         ),
         if (hasPrompt)
           OpenHandStatusPill(
+            key: const ValueKey('prompt'),
             icon: Icons.auto_awesome_outlined,
             label: l10n.skillsHasDefaultPrompt,
             color: colorScheme.primary,
@@ -1228,6 +1230,7 @@ class _SkillCard extends StatelessWidget {
       ],
       factChips: [
         OpenHandFactChip(
+          key: const ValueKey('directory'),
           icon: Icons.folder_outlined,
           label: skill.displayDirectoryPath,
           color: colorScheme.secondary,

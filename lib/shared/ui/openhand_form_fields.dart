@@ -6,6 +6,7 @@ import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
+import 'openhand_animated_chip_wrap.dart';
 import 'openhand_dialog_action_button.dart';
 
 /// 隐藏 TextField 的 `maxLength` 计数器。
@@ -853,14 +854,13 @@ class OpenHandFeatureListCard extends StatelessWidget {
           );
     final body = <Widget>[
       header,
-      if (statusPills.isNotEmpty) ...[
-        kOpenHandGap16,
-        Wrap(spacing: 10, runSpacing: 10, children: statusPills),
-      ],
-      if (factChips.isNotEmpty) ...[
-        kOpenHandGap12,
-        Wrap(spacing: 8, runSpacing: 8, children: factChips),
-      ],
+      OpenHandAnimatedChipWrap(
+        topSpacing: 16,
+        spacing: 10,
+        runSpacing: 10,
+        children: statusPills,
+      ),
+      OpenHandAnimatedChipWrap(topSpacing: 12, children: factChips),
       if (footer != null) ...[kOpenHandGap14, footer!],
     ];
     final metricsStrip = metrics.isEmpty

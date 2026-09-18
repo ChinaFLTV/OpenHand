@@ -47,6 +47,7 @@ import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_animated_chip_wrap.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
@@ -585,6 +586,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
     };
     final statusPills = <Widget>[
       OpenHandStatusPill(
+        key: const ValueKey('enabled'),
         icon: config.enabled
             ? Icons.check_circle_outline_rounded
             : Icons.pause_circle_outline_rounded,
@@ -594,6 +596,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: config.enabled ? OpenHandStatusColors.success : cs.outline,
       ),
       OpenHandStatusPill(
+        key: const ValueKey('auth'),
         icon: Icons.lock_outline_rounded,
         label: config.authEnabled
             ? openHandLocalizedText(
@@ -617,6 +620,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: config.authEnabled ? cs.primary : cs.outline,
       ),
       OpenHandStatusPill(
+        key: const ValueKey('telemetry'),
         icon: Icons.analytics_outlined,
         label: config.telemetryEnabled
             ? openHandLocalizedText(
@@ -640,6 +644,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: config.telemetryEnabled ? cs.secondary : cs.outline,
       ),
       OpenHandStatusPill(
+        key: const ValueKey('logging'),
         icon: Icons.article_outlined,
         label: config.loggingEnabled
             ? openHandLocalizedText(
@@ -663,6 +668,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: config.loggingEnabled ? cs.tertiary : cs.outline,
       ),
       OpenHandStatusPill(
+        key: const ValueKey('endpoint'),
         icon: Icons.link_rounded,
         label: isRunning
             ? controller.webUrl
@@ -671,6 +677,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
       ),
       if (controller.hasPendingRuntimeConfig)
         OpenHandStatusPill(
+          key: const ValueKey('pending-restart'),
           icon: Icons.pending_actions_rounded,
           label: openHandLocalizedText(
             context,
@@ -685,6 +692,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         ),
       if (usingFallbackPort)
         OpenHandStatusPill(
+          key: const ValueKey('fallback-port'),
           icon: Icons.warning_amber_rounded,
           label: openHandLocalizedText(
             context,
@@ -700,6 +708,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
     ];
     final factChips = <Widget>[
       OpenHandFactChip(
+        key: const ValueKey('auto-start'),
         icon: Icons.rocket_launch_outlined,
         label: config.autoStartOnLaunch
             ? openHandLocalizedText(
@@ -723,6 +732,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: config.autoStartOnLaunch ? cs.secondary : cs.onSurfaceVariant,
       ),
       OpenHandFactChip(
+        key: const ValueKey('auto-reload'),
         icon: Icons.sync_rounded,
         label: config.autoReloadOnChange
             ? openHandLocalizedText(
@@ -746,6 +756,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: config.autoReloadOnChange ? cs.tertiary : cs.onSurfaceVariant,
       ),
       OpenHandFactChip(
+        key: const ValueKey('concurrency'),
         icon: Icons.bolt_rounded,
         label: openHandLocalizedText(
           context,
@@ -759,6 +770,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: cs.primary,
       ),
       OpenHandFactChip(
+        key: const ValueKey('message-tokens'),
         icon: Icons.chat_bubble_outline_rounded,
         label: openHandLocalizedText(
           context,
@@ -772,6 +784,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: cs.tertiary,
       ),
       OpenHandFactChip(
+        key: const ValueKey('session-messages'),
         icon: Icons.forum_outlined,
         label: openHandLocalizedText(
           context,
@@ -785,6 +798,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: cs.secondary,
       ),
       OpenHandFactChip(
+        key: const ValueKey('session-management'),
         icon: Icons.manage_accounts_outlined,
         label: config.sessionManagementEnabled
             ? openHandLocalizedText(
@@ -810,6 +824,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
             : cs.onSurfaceVariant,
       ),
       OpenHandFactChip(
+        key: const ValueKey('knowledge-base'),
         icon: Icons.library_books_outlined,
         label: config.knowledgeBaseEnabled
             ? openHandLocalizedText(
@@ -833,6 +848,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         color: config.knowledgeBaseEnabled ? cs.primary : cs.onSurfaceVariant,
       ),
       OpenHandFactChip(
+        key: const ValueKey('workspace-files'),
         icon: Icons.folder_open_rounded,
         label: config.workspaceFileWriteEnabled
             ? openHandLocalizedText(
@@ -1049,15 +1065,24 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 );
               },
             ),
-            kOpenHandGap16,
-            Wrap(spacing: 10, runSpacing: 10, children: statusPills),
-            kOpenHandGap12,
-            Wrap(spacing: 8, runSpacing: 8, children: factChips),
+            OpenHandAnimatedChipWrap(
+              topSpacing: 16,
+              spacing: 10,
+              runSpacing: 10,
+              children: statusPills,
+            ),
+            OpenHandAnimatedChipWrap(topSpacing: 12, children: factChips),
             // 监听通配符地址时列出全部可访问 URL；仅多地址时展示，避免与状态层重复。
-            if (isRunning && controller.webUrls.length > 1) ...[
-              kOpenHandGap14,
-              _AccessibleUrlsBar(urls: controller.webUrls),
-            ],
+            OpenHandAnimatedChipWrap(
+              topSpacing: 14,
+              children: [
+                if (isRunning && controller.webUrls.length > 1)
+                  _AccessibleUrlsBar(
+                    key: const ValueKey('accessible-urls'),
+                    urls: controller.webUrls,
+                  ),
+              ],
+            ),
             kOpenHandGap16,
             _GatewayRuntimeMetricsStrip(
               items: [
@@ -8223,7 +8248,7 @@ const EdgeInsets _kGatewayUrlPillPadding = EdgeInsets.symmetric(
 /// 监听通配符地址（0.0.0.0 / ::）时展示全部可访问 URL 的横向胶囊条。
 /// 每个 URL 胶囊同时提供复制与浏览器访问动作。
 class _AccessibleUrlsBar extends StatelessWidget {
-  const _AccessibleUrlsBar({required this.urls});
+  const _AccessibleUrlsBar({super.key, required this.urls});
 
   final List<String> urls;
 
@@ -8338,12 +8363,13 @@ class _AccessibleUrlsBar extends StatelessWidget {
           ],
         ),
         kOpenHandGap10,
-        Wrap(
+        OpenHandAnimatedChipWrap(
           spacing: 10,
           runSpacing: 10,
           children: [
             for (final url in urls)
               _AccessibleUrlPill(
+                key: ValueKey(url),
                 url: url,
                 onCopy: () => _copy(context, url),
                 onOpen: () => _open(context, url),
@@ -8357,6 +8383,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
 
 class _AccessibleUrlPill extends StatelessWidget {
   const _AccessibleUrlPill({
+    super.key,
     required this.url,
     required this.onCopy,
     required this.onOpen,
@@ -11856,6 +11883,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
             : cs.outline;
         final statusPills = <Widget>[
           OpenHandStatusPill(
+            key: const ValueKey('authorization'),
             icon: ding.isLoggingOut
                 ? Icons.logout_rounded
                 : ding.isAuthorized
@@ -11873,6 +11901,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                 : OpenHandStatusColors.warning,
           ),
           OpenHandStatusPill(
+            key: const ValueKey('polling'),
             icon: ding.isPolling
                 ? Icons.sensors_rounded
                 : Icons.sensors_off_rounded,
@@ -11890,10 +11919,12 @@ class _DingTalkGatewayCard extends StatelessWidget {
                 : cs.outline,
           ),
           _DingTalkResponseStatusPill(
+            key: const ValueKey('response'),
             activeResponseCount: ding.activeResponseCount,
           ),
           if (ding.warningMessage != null)
             OpenHandStatusPill(
+              key: const ValueKey('warning'),
               icon: Icons.info_outline_rounded,
               label: ding.warningMessage!,
               color: OpenHandStatusColors.warning,
@@ -11901,17 +11932,20 @@ class _DingTalkGatewayCard extends StatelessWidget {
         ];
         final factChips = <Widget>[
           OpenHandFactChip(
+            key: const ValueKey('conversations'),
             icon: Icons.forum_outlined,
             label: '会话 ${ding.conversations.length}',
             color: cs.primary,
           ),
           if (ding.unreadCount > 0)
             OpenHandFactChip(
+              key: const ValueKey('unread'),
               icon: Icons.mark_email_unread_outlined,
               label: '未读 ${ding.unreadCount}',
               color: OpenHandStatusColors.warning,
             ),
           OpenHandFactChip(
+            key: const ValueKey('plugin'),
             icon: ding.isInstalled
                 ? Icons.extension_rounded
                 : Icons.extension_off_outlined,
@@ -12061,10 +12095,13 @@ class _DingTalkGatewayCard extends StatelessWidget {
                     );
                   },
                 ),
-                kOpenHandGap16,
-                Wrap(spacing: 10, runSpacing: 10, children: statusPills),
-                kOpenHandGap12,
-                Wrap(spacing: 8, runSpacing: 8, children: factChips),
+                OpenHandAnimatedChipWrap(
+                  topSpacing: 16,
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: statusPills,
+                ),
+                OpenHandAnimatedChipWrap(topSpacing: 12, children: factChips),
                 if (ding.errorMessage != null) ...[
                   kOpenHandGap12,
                   Text(
@@ -12109,7 +12146,10 @@ class _DingTalkGatewayCard extends StatelessWidget {
 }
 
 class _DingTalkResponseStatusPill extends StatelessWidget {
-  const _DingTalkResponseStatusPill({required this.activeResponseCount});
+  const _DingTalkResponseStatusPill({
+    super.key,
+    required this.activeResponseCount,
+  });
 
   final int activeResponseCount;
 

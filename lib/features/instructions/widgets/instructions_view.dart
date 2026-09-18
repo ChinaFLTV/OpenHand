@@ -243,8 +243,8 @@ class _InstructionCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     // 过滤空白项，避免持久化历史中遗留的空字符串渲染出"空胶囊"。
-    final visibleTaskTypes = stringListFromValue(entry.taskTypes);
-    final visibleKeywords = stringListFromValue(entry.keywords);
+    final visibleTaskTypes = stringListFromValue(entry.taskTypes).toSet();
+    final visibleKeywords = stringListFromValue(entry.keywords).toSet();
     final taskTypes = visibleTaskTypes.take(4).toList(growable: false);
     final hiddenTaskTypeCount = visibleTaskTypes.length - taskTypes.length;
     final keywords = visibleKeywords.take(4).toList(growable: false);
@@ -300,6 +300,7 @@ class _InstructionCard extends StatelessWidget {
       ],
       statusPills: [
         OpenHandStatusPill(
+          key: const ValueKey('enabled'),
           icon: entry.enabled
               ? Icons.check_circle_outline_rounded
               : Icons.pause_circle_outline_rounded,
@@ -310,12 +311,14 @@ class _InstructionCard extends StatelessWidget {
         ),
         if (trimmedVersion.isNotEmpty)
           OpenHandStatusPill(
+            key: const ValueKey('version'),
             icon: Icons.label_outline_rounded,
             label: l10n.instructionSummaryVersion(trimmedVersion),
             color: colorScheme.secondary,
           ),
         if (entry.notes.isNotEmpty)
           OpenHandStatusPill(
+            key: const ValueKey('notes'),
             icon: Icons.notes_outlined,
             label: '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
             color: OpenHandStatusColors.warning,
@@ -324,30 +327,35 @@ class _InstructionCard extends StatelessWidget {
       factChips: [
         if (applyTo.isNotEmpty)
           OpenHandFactChip(
+            key: const ValueKey('apply-to'),
             icon: Icons.account_tree_outlined,
             label: '${l10n.instructionApplyToChipLabel}: $applyTo',
             color: colorScheme.tertiary,
           ),
         for (final taskType in taskTypes)
           OpenHandFactChip(
+            key: ValueKey(('task-type', taskType)),
             icon: Icons.category_outlined,
             label: taskType,
             color: colorScheme.primary,
           ),
         if (hiddenTaskTypeCount > 0)
           OpenHandFactChip(
+            key: const ValueKey('more-task-types'),
             icon: Icons.more_horiz_rounded,
             label: '+$hiddenTaskTypeCount',
             color: colorScheme.primary,
           ),
         for (final keyword in keywords)
           OpenHandFactChip(
+            key: ValueKey(('keyword', keyword)),
             icon: Icons.tag_rounded,
             label: keyword,
             color: OpenHandStatusColors.info,
           ),
         if (hiddenKeywordCount > 0)
           OpenHandFactChip(
+            key: const ValueKey('more-keywords'),
             icon: Icons.more_horiz_rounded,
             label: '+$hiddenKeywordCount',
             color: OpenHandStatusColors.info,

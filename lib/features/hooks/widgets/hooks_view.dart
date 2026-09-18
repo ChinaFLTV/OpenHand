@@ -315,6 +315,7 @@ class _HookEntryCard extends StatelessWidget {
       ],
       statusPills: [
         OpenHandStatusPill(
+          key: const ValueKey('enabled'),
           icon: enabled
               ? Icons.check_circle_outline_rounded
               : Icons.pause_circle_outline_rounded,
@@ -324,6 +325,7 @@ class _HookEntryCard extends StatelessWidget {
           color: statusColor,
         ),
         OpenHandStatusPill(
+          key: const ValueKey('event'),
           icon: _hookEventIcon(entry.event),
           label: entry.event.label(l10n),
           color: accent,
@@ -331,17 +333,20 @@ class _HookEntryCard extends StatelessWidget {
       ],
       factChips: [
         OpenHandFactChip(
+          key: const ValueKey('timeout'),
           icon: Icons.timer_outlined,
           label: '${entry.timeoutSeconds}s',
           color: colorScheme.primary,
         ),
         OpenHandFactChip(
+          key: const ValueKey('script'),
           icon: scriptIcon,
           label: scriptLabel,
           color: scriptColor,
         ),
         if (hasInline)
           OpenHandFactChip(
+            key: const ValueKey('lines'),
             icon: Icons.format_list_numbered_rounded,
             label: openHandLocalizedText(
               context,

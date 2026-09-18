@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_animated_chip_wrap.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -107,11 +108,12 @@ class AiModelProxyServiceCard extends StatelessWidget {
               },
             ),
             kOpenHandGap14,
-            Wrap(
+            OpenHandAnimatedChipWrap(
               spacing: 10,
               runSpacing: 10,
               children: [
                 OpenHandStatusPill(
+                  key: const ValueKey('lifecycle'),
                   icon: running
                       ? Icons.check_circle_outline_rounded
                       : Icons.pause_circle_outline_rounded,
@@ -121,6 +123,7 @@ class AiModelProxyServiceCard extends StatelessWidget {
                   color: statusColor,
                 ),
                 OpenHandStatusPill(
+                  key: const ValueKey('providers'),
                   icon: Icons.hub_outlined,
                   label: text(
                     zh: '提供商 $enabledProviderCount',
@@ -129,6 +132,7 @@ class AiModelProxyServiceCard extends StatelessWidget {
                   color: colors.secondary,
                 ),
                 OpenHandStatusPill(
+                  key: const ValueKey('models'),
                   icon: Icons.api_rounded,
                   label: text(
                     zh: '已启用暴露模型 $enabledRouteCount',
@@ -137,12 +141,14 @@ class AiModelProxyServiceCard extends StatelessWidget {
                   color: colors.primary,
                 ),
                 OpenHandStatusPill(
+                  key: const ValueKey('limits'),
                   icon: Icons.speed_rounded,
                   label:
                       '${aiModelProxyLimitScopeLabel(settings.limitScope, text)} · ${settings.limitMode.label} ${settings.limitThreshold}',
                   color: colors.tertiary,
                 ),
                 OpenHandStatusPill(
+                  key: const ValueKey('network'),
                   icon:
                       proxyState.enabled &&
                           proxyState.mode == AiExposureProxyMode.pool
