@@ -25115,11 +25115,14 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                 ),
                 OpenHandInlineNoticeSlot(
                   child: _fullAccessPermission
-                      ? OpenHandInlineNoticeFactory.warning(
-                          context,
-                          '完全访问仅关闭审批弹窗，工作目录边界仍然有效。',
-                          showCopyAction: false,
-                          showCloseAction: false,
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: OpenHandInlineNoticeFactory.warning(
+                            context,
+                            '完全访问仅关闭审批弹窗，工作目录边界仍然有效。',
+                            showCopyAction: false,
+                            showCloseAction: false,
+                          ),
                         )
                       : null,
                 ),
