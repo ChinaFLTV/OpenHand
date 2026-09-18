@@ -36,11 +36,17 @@ class _OpenHandAnimatedChipWrapState extends State<OpenHandAnimatedChipWrap>
     with SingleTickerProviderStateMixin {
   late final AnimationController _reflow = AnimationController(vsync: this);
   late List<Widget> _displayed;
+  bool _readyForItemTransitions = false;
 
   @override
   void initState() {
     super.initState();
     _displayed = List.of(widget.children);
+    // 列表卡本身已有首屏入场动效。首帧不再叠加每个胶囊的进场，避免刷新和
+    // 网格复用时因多层透明度、缩放同时变化而闪烁。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _readyForItemTransitions = true);
+    });
   }
 
   @override
@@ -103,6 +109,7 @@ class _OpenHandAnimatedChipWrapState extends State<OpenHandAnimatedChipWrap>
             child: AnimatedAppearance(
               settings: settings,
               present: currentKeys.contains(child.key),
+              animateInitialAppearance: _readyForItemTransitions,
               collapseSize: false,
               onDismissed: () => _removeDismissed(child.key!),
               child: ExcludeSemantics(

@@ -186,6 +186,20 @@ void main() {
     expect(tester.binding.transientCallbackCount, 0);
   });
 
+  testWidgets('首屏胶囊随卡片稳定落位，后续新增才播放进场', (tester) async {
+    await tester.pumpWidget(_scene(['a']));
+    await tester.pump();
+    expect(find.text('a'), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, 0);
+
+    await tester.pumpWidget(_scene(['a', 'b']));
+    await tester.pump();
+    expect(find.text('b'), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    await tester.pumpAndSettle();
+    expect(tester.binding.transientCallbackCount, 0);
+  });
+
   testWidgets('删除触发的换行逐帧移动，最终没有残留占位', (tester) async {
     await tester.pumpWidget(_scene(['a', 'b', 'c']));
     await tester.pumpAndSettle();
