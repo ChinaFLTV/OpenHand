@@ -24623,6 +24623,10 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       TextEditingController(
         text: '${widget.controller.settings.responseWorkerCount}',
       );
+  late final TextEditingController _responseTimeoutController =
+      TextEditingController(
+        text: '${widget.controller.settings.responseTimeoutMinutes}',
+      );
   late final TextEditingController _workingDirectoryController =
       TextEditingController(
         text: widget.controller.settings.workingDirectory.isEmpty
@@ -24712,6 +24716,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   void dispose() {
     _intervalController.dispose();
     _workerCountController.dispose();
+    _responseTimeoutController.dispose();
     _workingDirectoryController.dispose();
     super.dispose();
   }
@@ -24826,7 +24831,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
             icon: Icons.speed_rounded,
             accent: OpenHandStatusColors.info,
             title: '运行节奏',
-            subtitle: '实时事件不可用时的轮询间隔、并行会话数与过载策略，保存后立即生效。',
+            subtitle: '配置轮询、并行会话与过载策略；响应总时限从每轮开始处理时计时。',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -24855,6 +24860,18 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       ),
                     ),
                   ],
+                ),
+                kOpenHandGap12,
+                TextField(
+                  controller: _responseTimeoutController,
+                  enabled: !_saving,
+                  keyboardType: TextInputType.number,
+                  decoration: _dingTalkSettingsFieldDecoration(
+                    label: 'AI 响应超时时间（分钟）',
+                    helperText:
+                        '${DingTalkGatewaySettings.minResponseTimeoutMinutes}–${DingTalkGatewaySettings.maxResponseTimeoutMinutes} 的整数，默认 ${DingTalkGatewaySettings.defaultResponseTimeoutMinutes} 分钟；超时终止请求并回复提示，新响应生效',
+                    prefixIcon: const Icon(Icons.timer_outlined),
+                  ).copyWith(helperMaxLines: 3),
                 ),
                 kOpenHandGap12,
                 AnimatedDropdownButtonFormField<DingTalkOverloadStrategy>(
@@ -25918,6 +25935,18 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       );
       return;
     }
+    final responseTimeout = optionalIntegralIntFromValue(
+      _responseTimeoutController.text,
+    );
+    if (responseTimeout == null ||
+        responseTimeout < DingTalkGatewaySettings.minResponseTimeoutMinutes ||
+        responseTimeout > DingTalkGatewaySettings.maxResponseTimeoutMinutes) {
+      showOpenHandErrorSnack(
+        context,
+        'AI 响应超时时间必须为 ${DingTalkGatewaySettings.minResponseTimeoutMinutes}–${DingTalkGatewaySettings.maxResponseTimeoutMinutes} 的整数（分钟）。',
+      );
+      return;
+    }
     final rawDirectory = _workingDirectoryController.text.trim();
     final workingDirectory = Directory(
       OpenHandPaths.normalizePath(
@@ -25935,6 +25964,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
         DingTalkGatewaySettings(
           pollIntervalSeconds: seconds,
           responseWorkerCount: workerCount,
+          responseTimeoutMinutes: responseTimeout,
           overloadStrategy: _overloadStrategy,
           reminderMode: _reminderMode,
           messageOutputEffect: _messageOutputEffect,

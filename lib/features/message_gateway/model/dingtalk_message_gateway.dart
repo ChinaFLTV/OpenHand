@@ -1547,6 +1547,7 @@ class DingTalkGatewaySettings {
   const DingTalkGatewaySettings({
     this.pollIntervalSeconds = defaultPollIntervalSeconds,
     this.responseWorkerCount = defaultResponseWorkerCount,
+    this.responseTimeoutMinutes = defaultResponseTimeoutMinutes,
     this.overloadStrategy = DingTalkOverloadStrategy.queue,
     this.reminderMode = DingTalkReminderMode.inApp,
     this.messageOutputEffect = DingTalkMessageOutputEffect.typewriter,
@@ -1585,6 +1586,9 @@ class DingTalkGatewaySettings {
       ),
       responseWorkerCount: normalizeResponseWorkerCount(
         json['response_worker_count'],
+      ),
+      responseTimeoutMinutes: normalizeResponseTimeoutMinutes(
+        json['response_timeout_minutes'],
       ),
       overloadStrategy: DingTalkOverloadStrategy.fromStorage(
         json['overload_strategy'],
@@ -1635,8 +1639,13 @@ class DingTalkGatewaySettings {
   static const int minResponseWorkerCount = 1;
   static const int maxResponseWorkerCount = 8;
 
+  static const int defaultResponseTimeoutMinutes = 5;
+  static const int minResponseTimeoutMinutes = 1;
+  static const int maxResponseTimeoutMinutes = 60;
+
   final int pollIntervalSeconds;
   final int responseWorkerCount;
+  final int responseTimeoutMinutes;
   final DingTalkOverloadStrategy overloadStrategy;
   final DingTalkReminderMode reminderMode;
   final DingTalkMessageOutputEffect messageOutputEffect;
@@ -1689,6 +1698,16 @@ class DingTalkGatewaySettings {
     return parsed.clamp(minResponseWorkerCount, maxResponseWorkerCount);
   }
 
+  static int normalizeResponseTimeoutMinutes(Object? value) {
+    final parsed = optionalIntegralIntFromValue(value);
+    if (parsed == null || parsed <= 0) return defaultResponseTimeoutMinutes;
+    return parsed.clamp(minResponseTimeoutMinutes, maxResponseTimeoutMinutes);
+  }
+
+  Duration get responseTimeout => Duration(
+    minutes: normalizeResponseTimeoutMinutes(responseTimeoutMinutes),
+  );
+
   Duration get pollInterval =>
       Duration(seconds: normalizePollIntervalSeconds(pollIntervalSeconds));
 
@@ -1703,6 +1722,9 @@ class DingTalkGatewaySettings {
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: normalizePollIntervalSeconds(pollIntervalSeconds),
     responseWorkerCount: normalizeResponseWorkerCount(responseWorkerCount),
+    responseTimeoutMinutes: normalizeResponseTimeoutMinutes(
+      responseTimeoutMinutes,
+    ),
     overloadStrategy: overloadStrategy,
     reminderMode: reminderMode,
     messageOutputEffect: messageOutputEffect,
@@ -1761,6 +1783,7 @@ class DingTalkGatewaySettings {
   Map<String, Object?> toJson() => <String, Object?>{
     'poll_interval_seconds': pollIntervalSeconds,
     'response_worker_count': responseWorkerCount,
+    'response_timeout_minutes': responseTimeoutMinutes,
     'overload_strategy': overloadStrategy.storageValue,
     'reminder_mode': reminderMode.name,
     'message_output_effect': messageOutputEffect.storageValue,

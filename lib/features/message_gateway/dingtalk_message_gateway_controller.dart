@@ -41,6 +41,7 @@ import 'dingtalk_markdown_compat.dart';
 import 'message_gateway_dependencies.dart';
 import 'model/dingtalk_message_gateway.dart';
 import 'service/dingtalk_message_gateway_service.dart';
+import 'service/dingtalk_response_deadline.dart';
 
 const String _dingTalkResponseRoundIdMetadataKey = 'dingtalk_response_round_id';
 const String _dingTalkRuntimeProfileMetadataKey =
@@ -376,6 +377,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       '钉钉回复必须完整、可直接发送。若声明查询、调用、重试或继续，立即完成对应动作；不得以冒号、半句或未闭合结构结束。';
   static const String _overloadBusyReply = 'AI 当前较忙，请稍后再试。';
   static const String _responseFailureReply = 'AI 响应失败，请稍后重试。';
+  static const String _responseTimeoutReply = 'AI 响应超时，已停止本次请求，请稍后重试。';
   static const String _conversationCapacityError =
       '钉钉会话已达到 $kDingTalkMaxConversations 个上限，请删除不再需要的会话后重试。';
   static const int _maxConversationReconcileCount = 12;
@@ -4635,6 +4637,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkConversation conversation,
     String content,
     String sourceMessageId, {
+    required DingTalkResponseDeadline deadline,
     bool forceResponse = false,
     bool automaticResponse = false,
     int? pollingGeneration,
@@ -4656,6 +4659,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     };
     final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
     bool responseCancelled() =>
+        deadline.timedOut ||
         _isResponseCancelled(conversation.id, responseVersion) ||
         (automaticResponse &&
             (source == null ||
@@ -4715,44 +4719,48 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       ).map((message) => message.id).toSet();
       _activeResponseContextMessageIds[conversation.id] = contextMessageIds;
       if (forceResponse) {
-        await _ensureIncomingContextMedia(
-          conversation,
-          sourceMessageId,
-          forceResponse: true,
+        await deadline.wait(
+          () => _ensureIncomingContextMedia(
+            conversation,
+            sourceMessageId,
+            forceResponse: true,
+          ),
         );
         if (responseCancelled()) return;
       }
       final selectedMemoryIds = _settings.allowedMemoryIds.toSet();
       _workspaceInstructionService.maxDocumentCharacters =
           _settingsController.aiMaxWorkspaceDocumentCharacters;
-      final preparedResources = await Future.wait<Object?>(<Future<Object?>>[
-        _mcpController
-            .ensureRuntimeToolCatalogs(
-              maxWait: const Duration(seconds: 6),
-              serverNames: _settings.allowedMcpServerNames,
-            )
-            .then<Object?>((_) => null),
-        if (_settingsController.memoryEnabled && selectedMemoryIds.isNotEmpty)
-          _memoryController
-              .trustedEntriesSnapshot()
-              .timeout(const Duration(seconds: 5), onTimeout: () => null)
-              .then<Object?>((value) => value)
-        else
-          Future<Object?>.value(const <UserMemoryEntry>[]),
-        if (_settings.allowedDingTalkDwsCommandIds.isEmpty)
-          Future<Object?>.value(const <AiDingTalkDwsCommand>[])
-        else
-          _service.loadDwsCommandCatalog().then<Object?>((value) => value),
-        _gitSnapshotService
-            .loadSnapshot(workingDirectory: _settings.workingDirectory)
-            .then<Object?>((value) => value),
-        _workspaceInstructionService
-            .loadDocuments(
-              startDirectory: _settings.workingDirectory,
-              homeDirectory: OpenHandPaths.homeDirectoryPath(),
-            )
-            .then<Object?>((value) => value),
-      ]);
+      final preparedResources = await deadline.wait(
+        () => Future.wait<Object?>(<Future<Object?>>[
+          _mcpController
+              .ensureRuntimeToolCatalogs(
+                maxWait: const Duration(seconds: 6),
+                serverNames: _settings.allowedMcpServerNames,
+              )
+              .then<Object?>((_) => null),
+          if (_settingsController.memoryEnabled && selectedMemoryIds.isNotEmpty)
+            _memoryController
+                .trustedEntriesSnapshot()
+                .timeout(const Duration(seconds: 5), onTimeout: () => null)
+                .then<Object?>((value) => value)
+          else
+            Future<Object?>.value(const <UserMemoryEntry>[]),
+          if (_settings.allowedDingTalkDwsCommandIds.isEmpty)
+            Future<Object?>.value(const <AiDingTalkDwsCommand>[])
+          else
+            _service.loadDwsCommandCatalog().then<Object?>((value) => value),
+          _gitSnapshotService
+              .loadSnapshot(workingDirectory: _settings.workingDirectory)
+              .then<Object?>((value) => value),
+          _workspaceInstructionService
+              .loadDocuments(
+                startDirectory: _settings.workingDirectory,
+                homeDirectory: OpenHandPaths.homeDirectoryPath(),
+              )
+              .then<Object?>((value) => value),
+        ]),
+      );
       if (responseCancelled()) return;
       final selectedMcp = _mcpController.runtimeServers
           .where(
@@ -4971,19 +4979,21 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation.aiContextCheckpointMessageId = null;
       }
       if (sessionId == null) {
-        final created = await _sessionController.createSession(
-          templateId: templateId,
-          runtimeContext: runtimeContext,
-          title: '钉钉 · ${conversation.title}',
-          fullAccessPermission: _settings.fullAccessPermission,
-          initialModelProviderConfigId: model.id,
-          initialModelId: model.modelId,
-          metadata: <String, Object?>{
-            'created_via': 'dingtalk_gateway',
-            'dingtalk_conversation_id': conversation.id,
-            _dingTalkRuntimeProfileMetadataKey: runtimeProfileFingerprint,
-          },
-          selectAfterCreate: false,
+        final created = await deadline.wait(
+          () => _sessionController.createSession(
+            templateId: templateId,
+            runtimeContext: runtimeContext,
+            title: '钉钉 · ${conversation.title}',
+            fullAccessPermission: _settings.fullAccessPermission,
+            initialModelProviderConfigId: model.id,
+            initialModelId: model.modelId,
+            metadata: <String, Object?>{
+              'created_via': 'dingtalk_gateway',
+              'dingtalk_conversation_id': conversation.id,
+              _dingTalkRuntimeProfileMetadataKey: runtimeProfileFingerprint,
+            },
+            selectAfterCreate: false,
+          ),
         );
         if (!created) {
           _setResponseError(
@@ -5018,9 +5028,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         sourceMessageId,
         forceResponse: forceResponse,
       );
-      await _sessionController.updateSessionFullAccessPermission(
-        sessionId,
-        _settings.fullAccessPermission,
+      await deadline.wait(
+        () => _sessionController.updateSessionFullAccessPermission(
+          sessionId!,
+          _settings.fullAccessPermission,
+        ),
       );
       if (responseCancelled()) return;
       final responseRoundId = _uuid.v4();
@@ -5122,67 +5134,69 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           final correctionContent = configuredCapabilityUnavailableForRequest
               ? '纠正上一轮：当前钉钉网关未启用用户指定的能力。不要调用其他工具替代；仅准确说明当前配置无法执行该请求，并提示用户在网关设置中启用所需能力。'
               : '纠正上一轮：重新回答上一条用户请求，并先调用当前工具目录中匹配的必需工具；取得真实结果后再作答。';
-          final sent = await _sessionController.sendMessage(
-            sessionId: sessionId,
-            content: correctingToolUse ? correctionContent : aiContent,
-            model: model,
-            runtimeContext: runtimeContext,
-            attachmentFilePaths: correctingToolUse
-                ? const <String>[]
-                : attachmentPaths,
-            denyCommandRules: _settingsController.aiDenyCommandRules,
-            requireWriteCommandConfirmation: requireWriteConfirmation,
-            confirmWriteCommand: requireWriteConfirmation
-                ? (request) {
-                    if (_settingsController.aiAllowCommandRules.any(
-                      (rule) => rule.matches(request.command),
-                    )) {
-                      return Future<BashCommandApprovalDecision>.value(
-                        BashCommandApprovalDecision.approved,
-                      );
+          final sent = await deadline.wait(
+            () => _sessionController.sendMessage(
+              sessionId: sessionId,
+              content: correctingToolUse ? correctionContent : aiContent,
+              model: model,
+              runtimeContext: runtimeContext,
+              attachmentFilePaths: correctingToolUse
+                  ? const <String>[]
+                  : attachmentPaths,
+              denyCommandRules: _settingsController.aiDenyCommandRules,
+              requireWriteCommandConfirmation: requireWriteConfirmation,
+              confirmWriteCommand: requireWriteConfirmation
+                  ? (request) {
+                      if (_settingsController.aiAllowCommandRules.any(
+                        (rule) => rule.matches(request.command),
+                      )) {
+                        return Future<BashCommandApprovalDecision>.value(
+                          BashCommandApprovalDecision.approved,
+                        );
+                      }
+                      final handler = _writeApprovalHandler;
+                      if (handler == null) {
+                        return Future<BashCommandApprovalDecision>.value(
+                          BashCommandApprovalDecision.rejected,
+                        );
+                      }
+                      return handler(sessionId!, request);
                     }
-                    final handler = _writeApprovalHandler;
-                    if (handler == null) {
-                      return Future<BashCommandApprovalDecision>.value(
-                        BashCommandApprovalDecision.rejected,
-                      );
-                    }
-                    return handler(sessionId!, request);
-                  }
-                : null,
-            additionalSystemReminders: <String>[
-              forceResponse
-                  ? _forcedResponseReminder
-                  : !automaticResponse
-                  ? _standardResponseReminder
-                  : conversation.type == DingTalkConversationType.direct
-                  ? _directResponseReminder
-                  : _groupResponseReminder,
-              _responseCompletionReminder,
-              _dingTalkCapabilityContractReminder(
-                model: model,
-                mcpServerNames: selectedMcp.map((item) => item.name),
-                dwsCommandCount: dwsCatalog.length,
-                skillCount: selectedSkills.length,
-                memoryCount: selectedMemory.length,
-                instructionCount: selectedInstructions.length,
-                knowledgeSourceCount: selectedKnowledgeSourceIds.length,
-                workflowCount: selectedWorkflows.length,
-              ),
-              if (mediaRequest != null) mediaRequest.routingReminder,
-              if (selectedMcp.isNotEmpty)
-                _dingTalkMcpRoutingReminder(selectedMcp, eagerMcpTools),
-            ],
-            userMessageMetadata: <String, Object?>{
-              'sent_via': 'dingtalk_gateway',
-              _dingTalkResponseRoundIdMetadataKey: responseRoundId,
-              if (forceResponse) 'dingtalk_force_response': true,
-              if (correctingToolUse) 'dingtalk_tool_correction': true,
-              'dingtalk_source_message_id': sourceMessageId,
-              'dingtalk_context_message_ids': contextMessageIds.toList(
-                growable: false,
-              ),
-            },
+                  : null,
+              additionalSystemReminders: <String>[
+                forceResponse
+                    ? _forcedResponseReminder
+                    : !automaticResponse
+                    ? _standardResponseReminder
+                    : conversation.type == DingTalkConversationType.direct
+                    ? _directResponseReminder
+                    : _groupResponseReminder,
+                _responseCompletionReminder,
+                _dingTalkCapabilityContractReminder(
+                  model: model,
+                  mcpServerNames: selectedMcp.map((item) => item.name),
+                  dwsCommandCount: dwsCatalog.length,
+                  skillCount: selectedSkills.length,
+                  memoryCount: selectedMemory.length,
+                  instructionCount: selectedInstructions.length,
+                  knowledgeSourceCount: selectedKnowledgeSourceIds.length,
+                  workflowCount: selectedWorkflows.length,
+                ),
+                if (mediaRequest != null) mediaRequest.routingReminder,
+                if (selectedMcp.isNotEmpty)
+                  _dingTalkMcpRoutingReminder(selectedMcp, eagerMcpTools),
+              ],
+              userMessageMetadata: <String, Object?>{
+                'sent_via': 'dingtalk_gateway',
+                _dingTalkResponseRoundIdMetadataKey: responseRoundId,
+                if (forceResponse) 'dingtalk_force_response': true,
+                if (correctingToolUse) 'dingtalk_tool_correction': true,
+                'dingtalk_source_message_id': sourceMessageId,
+                'dingtalk_context_message_ids': contextMessageIds.toList(
+                  growable: false,
+                ),
+              },
+            ),
           );
           if (!sent) {
             if (!responseCancelled()) {
@@ -5227,18 +5241,22 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             mediaRequest,
           );
           if (!roundState.attempted) {
-            await _executeDingTalkMediaGenerationFallback(
-              conversation: conversation,
-              capability: mediaRequest,
-              prompt: requestContent,
-              referenceImagePaths: attachmentPaths,
-              responseCancelled: responseCancelled,
+            await deadline.wait(
+              () => _executeDingTalkMediaGenerationFallback(
+                conversation: conversation,
+                capability: mediaRequest,
+                prompt: requestContent,
+                referenceImagePaths: attachmentPaths,
+                responseCancelled: responseCancelled,
+              ),
             );
           } else if (!roundState.succeeded) {
-            await _sendDingTalkMediaGenerationFailure(
-              conversation: conversation,
-              capability: mediaRequest,
-              responseCancelled: responseCancelled,
+            await deadline.wait(
+              () => _sendDingTalkMediaGenerationFailure(
+                conversation: conversation,
+                capability: mediaRequest,
+                responseCancelled: responseCancelled,
+              ),
             );
           }
           if (responseCancelled()) return;
@@ -5263,35 +5281,44 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         responseCompleted = true;
       } finally {
         _sessionController.removeListener(onSessionChanged);
-        if (!responseCancelled()) {
-          // 请求失败时同样收敛：已流式发出的消息应停留在最后已生成内容，
-          // 避免钉钉端留下与本地不一致的半途文本；未发送的正式响应仅在
-          // 整轮成功后投递，失败场景统一发送明确的失败提示。
-          final session = currentSession();
-          if (session != null) {
-            echoCoordinator.complete(
-              session,
-              includeUnsentFinalResponse: responseCompleted,
-            );
+        try {
+          if (!responseCancelled()) {
+            // 请求失败时同样收敛：已流式发出的消息应停留在最后已生成内容，
+            // 避免钉钉端留下与本地不一致的半途文本；未发送的正式响应仅在
+            // 整轮成功后投递，失败场景统一发送明确的失败提示。
+            final session = currentSession();
+            if (session != null) {
+              echoCoordinator.complete(
+                session,
+                includeUnsentFinalResponse: responseCompleted,
+              );
+            }
+            try {
+              await deadline.wait(
+                () => echoCoordinator.flush().timeout(
+                  const Duration(seconds: 45),
+                ),
+              );
+            } on TimeoutException {
+              if (deadline.timedOut) rethrow;
+              silentLog(
+                'dingtalk_gateway',
+                '收敛钉钉流式回显超时',
+                TimeoutException('钉钉流式回显未在限定时间内完成。'),
+                StackTrace.current,
+              );
+            }
+            if (echoCoordinator.hasDeliveryFailure) {
+              responseCompleted = false;
+              _responseFailureReplySuppressed.add(conversation.id);
+            }
           }
-          try {
-            await echoCoordinator.flush().timeout(const Duration(seconds: 45));
-          } on TimeoutException {
-            silentLog(
-              'dingtalk_gateway',
-              '收敛钉钉流式回显超时',
-              TimeoutException('钉钉流式回显未在限定时间内完成。'),
-              StackTrace.current,
-            );
-          }
-          if (echoCoordinator.hasDeliveryFailure) {
-            responseCompleted = false;
-            _responseFailureReplySuppressed.add(conversation.id);
-          }
+        } finally {
+          echoCoordinator.dispose();
         }
-        echoCoordinator.dispose();
       }
     } catch (error, stack) {
+      if (deadline.timedOut) rethrow;
       if (!responseCancelled()) {
         _setResponseError(conversation.id, 'AI 响应失败，请查看钉钉网关运行日志。');
       }
@@ -5300,7 +5327,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _setMessageAiResponseState(
         conversation,
         sourceMessageId,
-        responseCancelled()
+        deadline.timedOut &&
+                !_isResponseCancelled(conversation.id, responseVersion)
+            ? DingTalkMessageAiResponseState.failed
+            : responseCancelled()
             ? DingTalkMessageAiResponseState.cancelled
             : responseCompleted
             ? DingTalkMessageAiResponseState.responded
@@ -5310,9 +5340,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       );
       _responseInFlight.remove(conversation.id);
       _activeResponseContextMessageIds.remove(conversation.id);
-      if (_responseCancellationVersions[conversation.id] == responseVersion) {
-        _responseCancellationVersions.remove(conversation.id);
-      }
       _notify();
     }
   }
@@ -6424,22 +6451,24 @@ ${_markdownStructuredFields(response)}''';
   }
 
   Future<void> _sendResponseFailureReply(
-    DingTalkConversation conversation,
-  ) async {
+    DingTalkConversation conversation, {
+    bool timedOut = false,
+  }) async {
     if (!isServiceEnabled ||
         !identical(_conversations[conversation.id], conversation)) {
       return;
     }
+    final reply = timedOut ? _responseTimeoutReply : _responseFailureReply;
     try {
       await _sendDingTalkEcho(
         conversation: conversation,
         source: AiSessionMessage.assistant(
           id: 'dingtalk-response-failure-${_uuid.v4()}',
-          content: _responseFailureReply,
+          content: reply,
           createdAt: DateTime.now(),
         ),
         type: DingTalkResponseEchoType.finalResponse,
-        text: _responseFailureReply,
+        text: reply,
         uuid: _uuid.v4(),
         respectEchoTypeSettings: false,
       );
@@ -6881,6 +6910,25 @@ ${_markdownStructuredFields(response)}''';
     _QueuedDingTalkResponse item,
   ) async {
     final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
+    Future<void>? timeoutCancellation;
+    final deadline = DingTalkResponseDeadline(
+      _settings.responseTimeout,
+      onTimeout: () {
+        final mediaCancellation = _activeMediaGenerationCancellations.remove(
+          conversation.id,
+        );
+        if (mediaCancellation != null && !mediaCancellation.isCompleted) {
+          mediaCancellation.complete();
+        }
+        final sessionId = conversation.aiSessionId;
+        if (sessionId != null) {
+          timeoutCancellation = _stopSessionResponse(
+            sessionId,
+            operation: '终止超时的钉钉 AI 请求',
+          );
+        }
+      },
+    );
     if (item.automaticResponse) {
       _activeAutomaticResponses[conversation.id] = item;
     }
@@ -6888,13 +6936,15 @@ ${_markdownStructuredFields(response)}''';
       if (isServiceEnabled) {
         if (item.automaticResponse &&
             _pendingInitialContextHydration.remove(conversation.id)) {
-          await _reconcileConversationNow(
-            conversation,
-            force: true,
-            allowResponses: false,
-            reportError: false,
-            before: item.scheduledAt,
-            allowHistoricalBackfill: true,
+          await deadline.wait(
+            () => _reconcileConversationNow(
+              conversation,
+              force: true,
+              allowResponses: false,
+              reportError: false,
+              before: item.scheduledAt,
+              allowHistoricalBackfill: true,
+            ),
           );
           if (_isResponseCancelled(conversation.id, responseVersion)) {
             return;
@@ -6932,7 +6982,10 @@ ${_markdownStructuredFields(response)}''';
           return;
         }
         if (item.automaticResponse) {
-          await _ensureIncomingContextMedia(conversation, item.sourceMessageId);
+          await deadline.wait(
+            () =>
+                _ensureIncomingContextMedia(conversation, item.sourceMessageId),
+          );
           if (_isResponseCancelled(conversation.id, responseVersion)) {
             return;
           }
@@ -6974,6 +7027,7 @@ ${_markdownStructuredFields(response)}''';
           conversation,
           item.content,
           item.sourceMessageId,
+          deadline: deadline,
           forceResponse: item.forceResponse,
           automaticResponse: item.automaticResponse,
           pollingGeneration: item.pollingGeneration,
@@ -6992,10 +7046,15 @@ ${_markdownStructuredFields(response)}''';
             : DingTalkMessageAiResponseState.failed,
       );
       if (!cancelled) {
-        _setResponseError(conversation.id, 'AI 响应失败，请查看钉钉网关运行日志。');
+        _setResponseError(
+          conversation.id,
+          deadline.timedOut ? _responseTimeoutReply : 'AI 响应失败，请查看钉钉网关运行日志。',
+        );
       }
       silentLog('dingtalk_gateway', '处理钉钉消息队列', error, stack);
     } finally {
+      deadline.dispose();
+      if (timeoutCancellation != null) await timeoutCancellation;
       var sourceState = _messageAiResponseState(
         conversation,
         item.sourceMessageId,
@@ -7013,17 +7072,22 @@ ${_markdownStructuredFields(response)}''';
         conversation.id,
       );
       if (sourceState == DingTalkMessageAiResponseState.failed &&
-          !suppressFailureReply) {
-        await _sendResponseFailureReply(conversation);
+          (deadline.timedOut || !suppressFailureReply)) {
+        await _sendResponseFailureReply(
+          conversation,
+          timedOut: deadline.timedOut,
+        );
       }
       item.complete();
       if (identical(_activeAutomaticResponses[conversation.id], item)) {
         _activeAutomaticResponses.remove(conversation.id);
       }
       _activeResponseConversationIds.remove(conversation.id);
-      if (!_responseQueues.containsKey(conversation.id) &&
-          !_responseInFlight.contains(conversation.id) &&
-          !_conversations.containsKey(conversation.id)) {
+      // 完成错误分类与回传后再释放版本，避免超时被误判为手动取消。
+      if (_responseCancellationVersions[conversation.id] == responseVersion ||
+          (!_responseQueues.containsKey(conversation.id) &&
+              !_responseInFlight.contains(conversation.id) &&
+              !_conversations.containsKey(conversation.id))) {
         _responseCancellationVersions.remove(conversation.id);
       }
       _scheduleResponseWorkers();
