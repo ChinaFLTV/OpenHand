@@ -552,8 +552,10 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _manualCompactionDebounce = Duration(seconds: 30);
 
   // 首次打开时与消息列表窗口保持一致，避免长会话在首帧前解码大量消息。
-  static const int _initialMessageHydrationWindowSize = 8;
-  static const int _initialMessageHydrationCharacterBudget = 14000;
+  // 首次打开只取足够定位上下文的尾部内容；完整正文和更早记录继续按需读取。
+  // 这条路径运行在会话切换期间，降低首屏 JSON 解码和富文本准备的峰值。
+  static const int _initialMessageHydrationWindowSize = 6;
+  static const int _initialMessageHydrationCharacterBudget = 10000;
   static const int _olderMessageHydrationBatchSize = 12;
   static const int _olderMessageHydrationContentPreviewChars = 4096;
   static const Duration _initialMessageHydrationTimeout = Duration(seconds: 10);

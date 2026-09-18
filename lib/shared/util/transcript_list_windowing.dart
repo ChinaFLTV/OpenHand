@@ -6,7 +6,9 @@ import 'text_clip.dart';
 abstract final class TranscriptListWindowing {
   static const int defaultInitialWindowSize = 4;
   static const int defaultWindowIncrement = 6;
-  static const int defaultWindowingThreshold = 8;
+  // 尾窗达到四条后就启用按需展开。首屏只需展示最新上下文，避免把已
+  // 水合的富文本、Markdown 或 HTML 卡片同时交给 UI 线程解析。
+  static const int defaultWindowingThreshold = defaultInitialWindowSize;
 
   /// 首帧只构建尾部，避免同时解析多张富文本卡片。
   static const int defaultInitialPaintRows = 2;

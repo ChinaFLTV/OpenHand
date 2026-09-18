@@ -12,7 +12,9 @@ class HtmlWebViewMountLimiter {
   }) : maxMounted = maxMounted.clamp(1, maxAllowedMounted),
        maxWaiting = maxWaiting.clamp(0, maxAllowedWaiting);
 
-  static const int defaultMaxMounted = 2;
+  // 单个 WebView 已会同步占用 UI、平台线程和 GPU；消息列表中只保留一张
+  // 活跃 HTML 卡，其他可见卡走已有的轻量回退，避免快速进入长会话时卡顿。
+  static const int defaultMaxMounted = 1;
   static const int defaultMaxWaiting = 64;
   static const int maxAllowedMounted = 16;
   static const int maxAllowedWaiting = 4096;
