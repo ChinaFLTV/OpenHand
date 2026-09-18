@@ -10482,11 +10482,15 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
   final ScrollController _scrollController = ScrollController();
   late List<_McpChipStripItem> _displayedItems;
   bool _scrollCorrectionScheduled = false;
+  bool _readyForItemTransitions = false;
 
   @override
   void initState() {
     super.initState();
     _displayedItems = List<_McpChipStripItem>.of(widget.resolvedItems);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _readyForItemTransitions = true);
+    });
   }
 
   @override
@@ -10591,6 +10595,7 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
                 key: ValueKey<String>('mcp-chip-appearance-${item.id}'),
                 settings: settings,
                 present: currentIds.contains(item.id),
+                animateInitialAppearance: _readyForItemTransitions,
                 collapseAxis: Axis.horizontal,
                 onDismissed: () => _removeDismissedItem(item.id),
                 child: ExcludeSemantics(
@@ -12501,7 +12506,9 @@ class _McpServerToggleChip extends StatelessWidget {
           ? _localizedText(context, zh: '点击停用', en: 'Click to Disable')
           : _localizedText(context, zh: '点击启用', en: 'Click to Enable'),
       child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0.0, end: enabled ? 1.0 : 0.0),
+        // 首帧直接使用服务已持久化的状态；只有启用值真实变化时才补间，
+        // 避免健康数据刷新或页面切换时错误闪过停用配色。
+        tween: Tween<double>(end: enabled ? 1.0 : 0.0),
         duration: openHandMotionDuration(context, kOpenHandMotion220),
         curve: kOpenHandSwitchInCurve,
         builder: (context, t, _) {
