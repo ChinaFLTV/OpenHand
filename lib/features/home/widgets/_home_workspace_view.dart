@@ -148,7 +148,6 @@ class _WorkspaceView extends StatelessWidget {
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
     required this.queuedPanel,
-    this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
     this.machineTerminalPanelVisible = false,
@@ -214,7 +213,6 @@ class _WorkspaceView extends StatelessWidget {
   final ValueChanged<bool> onToggleFullAccessPermission;
   final _QueuedMessagesPanel queuedPanel;
   // 首帧直接跳到底部，避免依赖父级滚动调度。
-  final bool jumpToBottomOnInit;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
   final bool machineTerminalPanelVisible;
@@ -335,7 +333,6 @@ class _WorkspaceView extends StatelessWidget {
                                   ttsPlaybackService: ttsPlaybackService,
                                   translationService: translationService,
                                   onDismissError: onDismissError,
-                                  jumpToBottomOnInit: jumpToBottomOnInit,
                                   claudeStyle:
                                       selectedModel?.protocolType ==
                                       AiProtocolType.claude,

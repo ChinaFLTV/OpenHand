@@ -32,6 +32,25 @@ Future<void> main() async {
 }
 
 const _widgetTests = r'''
+// 仅替换平台视图边界；消息格式分发与延迟加载仍执行生产实现。
+class _ProbeWebViewPlatform extends iaw.InAppWebViewPlatform {
+  @override
+  iaw.PlatformInAppWebViewWidget createPlatformInAppWebViewWidget(
+    iaw.PlatformInAppWebViewWidgetCreationParams params,
+  ) => _ProbeWebView(params);
+}
+
+class _ProbeWebView extends iaw.PlatformInAppWebViewWidget {
+  _ProbeWebView(super.params) : super.implementation();
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
+  @override
+  T controllerFromPlatform<T>(iaw.PlatformInAppWebViewController controller) =>
+      throw UnimplementedError('本用例不调用平台控制器');
+  @override
+  void dispose() {}
+}
+
 class _ProbeSettingsStore extends SettingsStore {
   _ProbeSettingsStore(this.animated);
   final bool animated;
@@ -141,7 +160,6 @@ class _TranscriptProbe {
     Size size = const Size(1400, 900),
     bool animated = false,
     bool paused = false,
-    bool jumpToBottom = true,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -191,7 +209,6 @@ class _TranscriptProbe {
                   ttsPlaybackService: tts,
                   translationService: _ProbeTranslation(),
                   onDismissError: (_) async {},
-                  jumpToBottomOnInit: jumpToBottom,
                 );
               },
             ),
@@ -237,7 +254,7 @@ class _TranscriptProbe {
         .fold(double.infinity, math.min);
     final allExpanded =
         state._windowStartIndex == 0 && !session.hasMoreHistoricalMessages;
-    expect(allExpanded || top <= 1, true, reason: '有历史可展示时，视口顶部不得留下空白');
+    expect(allExpanded || top <= 1, true, reason: '有历史可展示时，视口顶部不得留下空白：顶部=$top，起点=${state._windowStartIndex}，条数=${state._renderEntries.length}，剩余额度=${state._viewportFillMessagesRemaining}');
     final last = state._bubbleRegistry.contextOf(
       session.displayMessages.last.id,
     );
@@ -256,6 +273,7 @@ class _TranscriptProbe {
 }
 
 void main() {
+  iaw.InAppWebViewPlatform.instance = _ProbeWebViewPlatform();
   test('千条历史按窗口解码，大元数据后台加载保留正文与标记', () async {
     final directory = await Directory.systemTemp.createTemp('openhand_history_');
     final database = await DatabaseService.initialize(
@@ -315,6 +333,38 @@ void main() {
     await tester.pump();
     expect(executed, 1);
     scheduler.clear();
+  });
+
+  testWidgets('前方布局收缩后富文本进入视口，无滚动也能继续渲染', (tester) async {
+    final spacer = ValueNotifier<double>(1200);
+    addTearDown(spacer.dispose);
+    var built = 0;
+    final deferred = DeferredRichContent(
+      placeholder: const SizedBox(height: 60),
+      builder: (_) { built++; return const Text('已渲染正文'); },
+    );
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(
+      child: Column(children: [
+        ValueListenableBuilder<double>(valueListenable: spacer,
+          builder: (_, height, _) => SizedBox(height: height)),
+        deferred,
+      ]),
+    ))));
+    await tester.pump();
+    expect(built, 0);
+    spacer.value = 0;
+    for (var frame = 0; frame < 6; frame++) await tester.pump();
+    expect(built, 1);
+    expect(find.text('已渲染正文'), findsOneWidget);
+  });
+
+  testWidgets('富文本等待解析时不暴露 Markdown 源码', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SafeMarkdownBody(
+      data: '**待渲染正文**', styleSheet: MarkdownStyleSheet(),
+    ))));
+    expect(find.text('**待渲染正文**'), findsNothing);
+    for (var frame = 0; frame < 6; frame++) await tester.pump();
+    expect(find.byType(_RichContentPendingPreview), findsNothing);
   });
 
   for (final html in [false, true]) {
@@ -477,13 +527,39 @@ void main() {
     probe.expectFilled();
   });
 
-  testWidgets('保留滚动位置时不强制追底', (tester) async {
-    final probe = _TranscriptProbe(tester, _probeSession('保留位置', 30));
-    await probe.mount(jumpToBottom: false);
+  testWidgets('没有追底请求时首次打开仍显示最新消息并填满视口', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('未请求追底', 30));
+    await probe.mount();
     await probe.settle();
-    expect(probe.controller.offset, 0);
-    expect(probe.state._renderEntries.length, 4);
+    probe.expectFilled();
   });
+
+  for (final html in [false, true]) {
+    testWidgets('窗口截断正文按原格式渲染，HTML=$html', (tester) async {
+      final original = _probeSession('截断正文', 1);
+      final probe = _TranscriptProbe(tester, original.copyWith(messages: [
+        original.messages.single.copyWith(
+          content: html ? '<p>正文<strong>加粗内容</strong></p>' : '**加粗正文**\n\n- 列表内容',
+          metadata: {aiSessionMessageContentPreviewMetadataKey: true,
+            aiSessionMessageContentFormatKey: html ? 'html' : 'markdown'},
+        ),
+      ]));
+      await probe.mount();
+      await probe.settle();
+      expect(find.byType(_PlainTextMessageBody), findsNothing);
+      expect(find.byType(html ? _ProgressiveHtmlMessageBody : _SafeMarkdownRichBody), findsWidgets);
+      expect(find.text('加载完整内容'), findsOneWidget);
+      final full = probe.session.messages.single.copyWith(
+        content: html ? '<p>完整<strong>加粗内容</strong></p>' : '**完整加粗内容**',
+        metadata: {aiSessionMessageContentFormatKey: html ? 'html' : 'markdown'},
+      );
+      probe.update(probe.session.copyWith(messages: [full]));
+      await probe.settle();
+      expect(find.text('加载完整内容'), findsNothing);
+      expect(find.byType(_PlainTextMessageBody), findsNothing);
+      expect(find.byType(html ? _ProgressiveHtmlMessageBody : _SafeMarkdownRichBody), findsWidgets);
+    });
+  }
 
   testWidgets('手动滚动期间停止补屏，恢复空闲后继续', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('暂停', 30));

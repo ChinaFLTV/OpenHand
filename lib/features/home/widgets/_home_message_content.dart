@@ -1214,8 +1214,8 @@ const int _markdownDeferredParseThresholdChars = 768;
 const int _markdownStreamingDeferredParseThresholdChars = 160;
 const int _markdownStreamingInitialSyncParseThresholdChars = 8 * kBytesPerKiB;
 const int _markdownStreamingParseMinIntervalMs = 96;
-const int _markdownStreamingPlaceholderMaxLines = 6;
-const double _markdownStreamingPlaceholderMaxHeight = 132;
+const int _richContentPlaceholderMaxLines = 3;
+const int _richContentPlaceholderCharactersPerLine = 72;
 
 /// 进程级 AST LRU 缓存，同时限制条目数和源文本总量，避免长会话挤占内存。
 class _MarkdownAstCache {
@@ -1416,7 +1416,7 @@ final RichContentFrameScheduler _markdownFrameScheduler =
 final RichContentFrameScheduler _markdownWarmupScheduler =
     RichContentFrameScheduler(isPaused: _transcriptRenderPaused);
 
-/// 富文本就绪前展示有界正文，避免历史消息只剩加载骨架。
+/// 等待渲染时使用有界微光占位，不把 Markdown 或 HTML 源码暴露给用户。
 class _RichContentPendingPreview extends StatelessWidget {
   const _RichContentPendingPreview({required this.source, required this.style});
 
@@ -1425,18 +1425,42 @@ class _RichContentPendingPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(
-        maxHeight: _markdownStreamingPlaceholderMaxHeight,
+    final colors = Theme.of(context).colorScheme;
+    final lineHeight = ((style?.fontSize ?? 14) * 1.5).clamp(18.0, 32.0);
+    final lines = (source.length / _richContentPlaceholderCharactersPerLine)
+        .ceil()
+        .clamp(1, _richContentPlaceholderMaxLines);
+    return Semantics(
+      label: openHandLocalizedText(
+        context,
+        zh: '正在加载内容',
+        en: 'Loading content',
       ),
-      child: Text(
-        TranscriptListWindowing.boundedContentPreview(
-          source,
-          maxCharacters: _markdownCollapsedPreviewMaxChars,
+      child: ExcludeSemantics(
+        child: OpenHandSweepShimmer(
+          sweepColor: colors.primary.withValues(alpha: 0.15),
+          maskToChildAlpha: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var index = 0; index < lines; index++)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: lineHeight * 0.18),
+                  child: FractionallySizedBox(
+                    widthFactor: index == lines - 1 ? 0.58 : 0.88,
+                    child: Container(
+                      height: lineHeight * 0.64,
+                      decoration: BoxDecoration(
+                        borderRadius: kOpenHandBorderRadius8,
+                        color: colors.primary.withValues(alpha: 0.08),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
-        style: style,
-        maxLines: _markdownStreamingPlaceholderMaxLines,
-        overflow: TextOverflow.fade,
       ),
     );
   }
@@ -4299,7 +4323,7 @@ class _DeferredHtmlBubbleWebViewState
       child: Align(
         alignment: Alignment.topLeft,
         child: _RichContentPendingPreview(
-          source: _htmlPlainTextPreview(widget.data),
+          source: widget.data,
           style:
               widget.baseTextStyle?.copyWith(color: widget.textColor) ??
               TextStyle(color: widget.textColor),
@@ -5555,7 +5579,7 @@ class _DeferredPreparedHtmlBodyState extends State<_DeferredPreparedHtmlBody> {
           child: Align(
             alignment: Alignment.topLeft,
             child: _RichContentPendingPreview(
-              source: _htmlPlainTextPreview(widget.data),
+              source: widget.data,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),

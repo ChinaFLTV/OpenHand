@@ -151,4 +151,12 @@ class _RenderRichContentLayoutProbe extends RenderProxyBox {
     super.performLayout();
     onLayout();
   }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    // 相邻内容收缩或祖先移动时，本节点可能只重绘、不重新布局。
+    // 重新检查可见性，避免已经进入视口的正文一直停留在占位状态。
+    onLayout();
+    super.paint(context, offset);
+  }
 }

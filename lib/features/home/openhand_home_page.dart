@@ -10457,7 +10457,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         translationService: _translationService,
         onDismissError: _dismissSessionError,
         // 新激活会话首帧直接跳到底部，避免从顶部滚入的抖动。
-        jumpToBottomOnInit: _pendingForcedScrollToBottom,
         fileExplorerVisible: _fileExplorerVisible,
         onFileExplorerToggled:
             _programmingExpertProjectRoot(currentSession) != null

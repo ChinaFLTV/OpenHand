@@ -1049,12 +1049,6 @@ class _MessageBubbleState extends State<_MessageBubble>
 
     final isContentPreview =
         message.metadata[aiSessionMessageContentPreviewMetadataKey] == true;
-    final contentPreviewText =
-        isContentPreview &&
-            resolvedMessageContentFormat == AiMessageContentFormat.html
-        ? (_peekPreparedHtmlRenderData(effectiveContent)?.previewText ??
-              effectiveContent)
-        : effectiveContent;
     final responseVariantBodyMotionKey =
         isAssistantResponse && message.responseVariants.length > 1
         ? Object.hash(
@@ -1171,16 +1165,8 @@ class _MessageBubbleState extends State<_MessageBubble>
                     isToolResult ||
                     showAssistantResponseMetaRow)
                   kOpenHandGap10,
-                if (isContentPreview)
-                  _PlainTextMessageBody(
-                    data: contentPreviewText.isEmpty ? ' ' : contentPreviewText,
-                    textColor: textColor,
-                    backgroundColor: backgroundColor,
-                    style: markdownStyleSheet.styleSheet.p,
-                    onCollapsedChanged: _handleUncontrolledBodyCollapsedChanged,
-                    scrollStateKey: '${message.id}|content-preview',
-                  )
-                else if (isCompressionPoint)
+                // 截断预览仍按消息格式渲染，完整内容按需加载。
+                if (isCompressionPoint)
                   _CompressionCheckpointBody(
                     content: message.content,
                     expanded: _compressionExpanded,

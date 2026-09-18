@@ -105,11 +105,13 @@ class _TranscriptBubbleRegistrar extends StatefulWidget {
   const _TranscriptBubbleRegistrar({
     required this.messageId,
     required this.registry,
+    required this.onLayoutChanged,
     required this.child,
   });
 
   final String messageId;
   final _TranscriptBubbleRegistry registry;
+  final VoidCallback onLayoutChanged;
   final Widget child;
 
   @override
@@ -146,7 +148,11 @@ class _TranscriptBubbleRegistrarState
 
   @override
   Widget build(BuildContext context) {
-    return widget.child;
+    // 负向历史列表的尺寸变化不一定改变滚动范围，不能只依赖滚动指标通知。
+    return _MeasureSize(
+      onChange: (_) => widget.onLayoutChanged(),
+      child: widget.child,
+    );
   }
 }
 
@@ -291,7 +297,6 @@ class _SessionTranscript extends StatefulWidget {
     required this.ttsPlaybackService,
     required this.translationService,
     required this.onDismissError,
-    this.jumpToBottomOnInit = false,
     this.claudeStyle = true,
   });
 
@@ -308,8 +313,6 @@ class _SessionTranscript extends StatefulWidget {
   final AiTtsPlaybackService ttsPlaybackService;
   final AiTranslationService translationService;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
-  // 首帧直接跳到底部，避免加载会话时出现从顶部滚入的动画。
-  final bool jumpToBottomOnInit;
   final bool claudeStyle;
 
   @override
@@ -482,10 +485,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 首帧只挂最新两条；其余消息按帧补齐，正文由可见卡片申请渲染额度。
     _materializeOpenWindow();
     _syncVisibleError();
-    _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
+    _scheduleInitialLayoutSettle();
   }
 
-  void _scheduleInitialLayoutSettle({required bool pinToBottom}) {
+  void _scheduleInitialLayoutSettle() {
     final generation = ++_initialLayoutSettleGeneration;
     final sessionId = widget.session.id;
     // 单调时钟：DateTime.now() 会被 NTP 校时/时区变更跳变，向前跳会提前揭示
@@ -554,7 +557,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           (position.maxScrollExtent - previousMaxScrollExtent!).abs() >
               _scrollToBottomSettleTolerance;
       previousMaxScrollExtent = position.maxScrollExtent;
-      if (pinToBottom && distance > _scrollToBottomSettleTolerance) {
+      // 首次定位独立于后续自动跟随开关，底部锚点不能停在消息之前。
+      if (distance > _scrollToBottomSettleTolerance) {
         stableFrames = 0;
         widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
       } else if (extentChanged &&
@@ -608,7 +612,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _syncWindowStartIndex(forceReset: true);
       _initialRevealPhase = _TranscriptInitialRevealPhase.preparing;
       _materializeOpenWindow();
-      _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
+      _scheduleInitialLayoutSettle();
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
       final previousDisplayMessages = oldWidget.session.displayMessages;
@@ -822,7 +826,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _scheduleViewportFill() {
-    if (_viewportFillQueued) return;
+    if (!mounted || _viewportFillQueued) return;
     _viewportFillQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _viewportFillQueued = false;
@@ -997,8 +1001,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _pinTranscriptToLatestIfOpening() {
-    if (!mounted || !widget.controller.hasClients) return;
-    if (!widget.jumpToBottomOnInit) return;
+    if (!mounted || widget.controller.positions.length != 1) return;
     if (_isTranscriptScrollActive(context)) return;
     if (_initialRevealPhase == _TranscriptInitialRevealPhase.ready &&
         !_staggerFillActive) {
@@ -2631,6 +2634,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final bubble = _TranscriptBubbleRegistrar(
       messageId: message.id,
       registry: _bubbleRegistry,
+      onLayoutChanged: _scheduleViewportFill,
       child: _MessageBubble(
         key: ValueKey<String>(message.id),
         message: message,
