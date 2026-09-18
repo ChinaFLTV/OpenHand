@@ -5979,7 +5979,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           return resolvedDetails;
         }
       } on DingTalkGatewayCommandException catch (error, stack) {
-        if (!error.isRetryable && !error.isCancelled) {
+        if (!error.isRetryable &&
+            !error.isCancelled &&
+            !error.isResourceNotFound) {
           silentLog('dingtalk_gateway', '查询钉钉消息发送状态', error, stack);
         }
       } on TimeoutException {
@@ -6004,7 +6006,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         );
       }
     } on DingTalkGatewayCommandException catch (error, stack) {
-      if (!error.isRetryable && !error.isCancelled) {
+      if (!error.isRetryable &&
+          !error.isCancelled &&
+          !error.isResourceNotFound) {
         silentLog('dingtalk_gateway', '补齐钉钉已发送消息标识', error, stack);
       }
     } on TimeoutException {

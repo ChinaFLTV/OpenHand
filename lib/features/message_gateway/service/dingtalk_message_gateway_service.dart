@@ -241,7 +241,11 @@ class DingTalkMessageGatewayService {
   // 为网络请求和子进程回收保留充足时间，避免反查消息标识频繁超时。
   static const Duration _sentMessageLookupTimeout = Duration(seconds: 15);
   static const Duration _sentMessageStatusTimeout = Duration(seconds: 10);
+  static const Duration _sentMessageStatusUnavailableCooldown = Duration(
+    minutes: 2,
+  );
   static const int _sentMessageLookupLimit = 50;
+  static const int _maxSentMessageStatusUnavailableTasks = 256;
   static const int _messageQueryPageSize = 50;
   static const int _maxParsedMessagesPerPayload = 500;
   static const Duration _minimumMessageQueryWindow = Duration(seconds: 1);
@@ -334,6 +338,8 @@ class DingTalkMessageGatewayService {
       <String, DateTime>{};
   final Set<String> _messageQueryWindowPreserved = <String>{};
   final Map<String, DateTime> _conversationQueryUnavailableUntil =
+      <String, DateTime>{};
+  final Map<String, DateTime> _sentMessageStatusUnavailableUntil =
       <String, DateTime>{};
   StreamController<DingTalkGatewayEvent>? _eventController;
   bool _eventControllerHasBeenListened = false;
@@ -1907,15 +1913,36 @@ class DingTalkMessageGatewayService {
   Future<DingTalkSentMessage?> resolveSentMessageByTaskId(String taskId) async {
     final normalizedTaskId = taskId.trim();
     if (normalizedTaskId.isEmpty) return null;
-    final result = await _runJson(<String>[
-      'chat',
-      'message',
-      'query-send-status',
-      '--open-task-id',
-      normalizedTaskId,
-      '--format',
-      'json',
-    ], timeout: _sentMessageStatusTimeout);
+    final unavailableUntil =
+        _sentMessageStatusUnavailableUntil[normalizedTaskId];
+    if (unavailableUntil != null && DateTime.now().isBefore(unavailableUntil)) {
+      return DingTalkSentMessage(taskId: normalizedTaskId);
+    }
+    _sentMessageStatusUnavailableUntil.remove(normalizedTaskId);
+    late final Object? result;
+    try {
+      result = await _runJson(<String>[
+        'chat',
+        'message',
+        'query-send-status',
+        '--open-task-id',
+        normalizedTaskId,
+        '--format',
+        'json',
+      ], timeout: _sentMessageStatusTimeout);
+    } on DingTalkGatewayCommandException catch (error) {
+      if (!error.isResourceNotFound) rethrow;
+      _sentMessageStatusUnavailableUntil[normalizedTaskId] = DateTime.now().add(
+        _sentMessageStatusUnavailableCooldown,
+      );
+      while (_sentMessageStatusUnavailableUntil.length >
+          _maxSentMessageStatusUnavailableTasks) {
+        _sentMessageStatusUnavailableUntil.remove(
+          _sentMessageStatusUnavailableUntil.keys.first,
+        );
+      }
+      return DingTalkSentMessage(taskId: normalizedTaskId);
+    }
     final resolved = _sentMessageDetails(result);
     return DingTalkSentMessage(
       messageId: resolved?.messageId,
