@@ -97,6 +97,7 @@ import '../model/dingtalk_message_gateway.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
 import 'dingtalk_conversation_detail_labels.dart';
+import 'dingtalk_message_content_transition.dart';
 
 const int _dingtalkTranslationCacheMaxEntries = 64;
 const int _dingtalkClipboardImageMaxBytes = 64 * kBytesPerMiB;
@@ -17109,16 +17110,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 final bubbleAlignment = widget.mine
                     ? Alignment.topRight
                     : Alignment.topLeft;
-                final resizeDuration = widget.streaming
-                    ? Duration.zero
-                    : openHandMotionDuration(context, kOpenHandMotion220);
-                final contentTransitionDuration = widget.streaming
-                    ? Duration.zero
-                    : kOpenHandMotion180;
-                final messageContent = OpenHandFadeSizeSwitcher(
-                  duration: contentTransitionDuration,
-                  layoutAlignment: bubbleAlignment,
-                  fixedCrossAxisSizeFactor: 1,
+                final bubbleContent = DingTalkMessageContentTransition(
+                  expanded: contentExpanded,
+                  streaming: widget.streaming,
+                  alignment: bubbleAlignment,
                   child: !contentExpanded
                       ? _buildCollapsedMessageContent(
                           bubbleColor: bubbleColor,
@@ -17138,25 +17133,17 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                           ),
                         ),
                 );
-                final bubbleContent = resizeDuration == Duration.zero
-                    ? messageContent
-                    : AnimatedSize(
-                        duration: resizeDuration,
-                        curve: kOpenHandSwitchInCurve,
-                        alignment: bubbleAlignment,
-                        child: messageContent,
-                      );
                 final highlightedContent = AnimatedScale(
                   scale: widget.highlighted ? 1.012 : 1,
                   duration: openHandMotionDuration(context, kOpenHandMotion260),
                   curve: kOpenHandEntranceCurve,
                   alignment: bubbleAlignment,
-                  child: contentExpanded
-                      ? bubbleContent
-                      : _buildNavigationHighlight(
-                          context,
-                          child: bubbleContent,
-                        ),
+                  // 高亮层保持挂载，避免收放时销毁内部动画状态。
+                  child: _buildNavigationHighlight(
+                    context,
+                    enabled: !contentExpanded,
+                    child: bubbleContent,
+                  ),
                 );
                 return Align(
                   alignment: alignment,
@@ -17201,6 +17188,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     BuildContext context, {
     required Widget child,
     double bottomInset = 0,
+    bool enabled = true,
   }) {
     final colors = Theme.of(context).colorScheme;
     return Stack(
@@ -17216,7 +17204,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 borderRadius: _messageBubbleBorderRadius,
                 border: Border.all(
                   color: colors.primary.withValues(
-                    alpha: widget.highlighted ? 0.82 : 0,
+                    alpha: enabled && widget.highlighted ? 0.82 : 0,
                   ),
                   width: 1.8,
                 ),
@@ -19901,160 +19889,147 @@ class _DingTalkForwardedChatDialogState
                   ),
                 ),
                 kOpenHandGap5,
-                AnimatedSize(
-                  duration: openHandMotionDuration(context, kOpenHandMotion220),
-                  curve: kOpenHandSwitchInCurve,
-                  alignment: Alignment.topLeft,
-                  child: OpenHandFadeSizeSwitcher(
-                    duration: kOpenHandMotion180,
-                    fixedCrossAxisSizeFactor: 1,
-                    child: !contentExpanded
-                        ? KeyedSubtree(
-                            key: ValueKey<String>('ignored-collapsed:$itemKey'),
-                            child: _buildIgnoredCollapsedContent(
-                              context,
-                              itemKey,
-                            ),
-                          )
-                        : Listener(
-                            key: ValueKey<String>('content-expanded:$itemKey'),
-                            behavior: HitTestBehavior.translucent,
-                            onPointerDown: _handlePointerDown,
-                            onPointerCancel: _handlePointerCancel,
-                            onPointerUp: (event) => _handlePointerUp(
-                              event,
-                              itemKey,
-                              ignored: item.ignoredForAiContext,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (media.isNotEmpty)
-                                  AnimatedOpacity(
-                                    duration: openHandMotionDuration(
-                                      context,
-                                      kOpenHandMotion220,
-                                    ),
-                                    curve: kOpenHandSwitchInCurve,
-                                    opacity: item.ignoredForAiContext
-                                        ? 0.68
-                                        : 1,
-                                    child: _DingTalkMediaRail(
-                                      media: media,
-                                      mine: false,
-                                      loading: widget.controller
-                                          .isMessageMediaCaching(message.id),
-                                      failed: widget.controller
-                                          .isMessageMediaHydrationFailed(
-                                            message.id,
-                                          ),
-                                      onRetry: () => unawaited(
-                                        widget.controller
-                                            .ensureMessageMediaCached(
-                                              conversationId:
-                                                  widget.conversationId,
-                                              messageId: message.id,
-                                              forceRetry: true,
-                                            ),
-                                      ),
-                                      onSaveFile: (media, path) =>
-                                          widget.controller.saveMessageMedia(
+                DingTalkMessageContentTransition(
+                  expanded: contentExpanded,
+                  child: !contentExpanded
+                      ? KeyedSubtree(
+                          key: ValueKey<String>('ignored-collapsed:$itemKey'),
+                          child: _buildIgnoredCollapsedContent(
+                            context,
+                            itemKey,
+                          ),
+                        )
+                      : Listener(
+                          key: ValueKey<String>('content-expanded:$itemKey'),
+                          behavior: HitTestBehavior.translucent,
+                          onPointerDown: _handlePointerDown,
+                          onPointerCancel: _handlePointerCancel,
+                          onPointerUp: (event) => _handlePointerUp(
+                            event,
+                            itemKey,
+                            ignored: item.ignoredForAiContext,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (media.isNotEmpty)
+                                AnimatedOpacity(
+                                  duration: openHandMotionDuration(
+                                    context,
+                                    kOpenHandMotion220,
+                                  ),
+                                  curve: kOpenHandSwitchInCurve,
+                                  opacity: item.ignoredForAiContext ? 0.68 : 1,
+                                  child: _DingTalkMediaRail(
+                                    media: media,
+                                    mine: false,
+                                    loading: widget.controller
+                                        .isMessageMediaCaching(message.id),
+                                    failed: widget.controller
+                                        .isMessageMediaHydrationFailed(
+                                          message.id,
+                                        ),
+                                    onRetry: () => unawaited(
+                                      widget.controller
+                                          .ensureMessageMediaCached(
                                             conversationId:
                                                 widget.conversationId,
                                             messageId: message.id,
-                                            media: media,
-                                            destinationPath: path,
+                                            forceRetry: true,
                                           ),
-                                      onInteractiveTap:
-                                          _cancelPendingActionToggle,
                                     ),
+                                    onSaveFile: (media, path) =>
+                                        widget.controller.saveMessageMedia(
+                                          conversationId: widget.conversationId,
+                                          messageId: message.id,
+                                          media: media,
+                                          destinationPath: path,
+                                        ),
+                                    onInteractiveTap:
+                                        _cancelPendingActionToggle,
                                   ),
-                                if (showText && media.isNotEmpty) kOpenHandGap8,
-                                if (showText)
-                                  Container(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 640,
-                                    ),
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: item.ignoredForAiContext
-                                          ? 10
-                                          : 11,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: contentBackground,
-                                      borderRadius: item.ignoredForAiContext
-                                          ? const BorderRadius.only(
-                                              topLeft: Radius.circular(
-                                                kOpenHandRadius17,
-                                              ),
-                                              topRight: Radius.circular(
-                                                kOpenHandRadius17,
-                                              ),
-                                              bottomLeft: Radius.circular(
-                                                kOpenHandRadius5,
-                                              ),
-                                              bottomRight: Radius.circular(
-                                                kOpenHandRadius17,
-                                              ),
-                                            )
-                                          : const BorderRadius.only(
-                                              topLeft: Radius.circular(4),
-                                              topRight: Radius.circular(
-                                                kOpenHandRadius14,
-                                              ),
-                                              bottomLeft: Radius.circular(
-                                                kOpenHandRadius14,
-                                              ),
-                                              bottomRight: Radius.circular(
-                                                kOpenHandRadius14,
-                                              ),
+                                ),
+                              if (showText && media.isNotEmpty) kOpenHandGap8,
+                              if (showText)
+                                Container(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 640,
+                                  ),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: item.ignoredForAiContext
+                                        ? 10
+                                        : 11,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: contentBackground,
+                                    borderRadius: item.ignoredForAiContext
+                                        ? const BorderRadius.only(
+                                            topLeft: Radius.circular(
+                                              kOpenHandRadius17,
                                             ),
-                                      border: Border.all(
-                                        color: item.ignoredForAiContext
-                                            ? colors.tertiary.withValues(
-                                                alpha: 0.42,
-                                              )
-                                            : colors.outlineVariant.withValues(
-                                                alpha: 0.52,
-                                              ),
-                                      ),
-                                    ),
-                                    child: _DingTalkLinkifiedText(
-                                      text: displayContent,
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: contentForeground,
-                                            height: 1.5,
+                                            topRight: Radius.circular(
+                                              kOpenHandRadius17,
+                                            ),
+                                            bottomLeft: Radius.circular(
+                                              kOpenHandRadius5,
+                                            ),
+                                            bottomRight: Radius.circular(
+                                              kOpenHandRadius17,
+                                            ),
+                                          )
+                                        : const BorderRadius.only(
+                                            topLeft: Radius.circular(4),
+                                            topRight: Radius.circular(
+                                              kOpenHandRadius14,
+                                            ),
+                                            bottomLeft: Radius.circular(
+                                              kOpenHandRadius14,
+                                            ),
+                                            bottomRight: Radius.circular(
+                                              kOpenHandRadius14,
+                                            ),
                                           ),
-                                      linkStyle:
-                                          (theme.textTheme.bodyMedium ??
-                                                  const TextStyle())
-                                              .copyWith(
-                                                color: colors.primary,
-                                                height: 1.5,
-                                                decoration:
-                                                    TextDecoration.underline,
-                                                decorationColor: colors.primary,
-                                                decorationThickness: 1.2,
-                                              ),
-                                      onOpenLink: (href) {
-                                        _cancelPendingActionToggle();
-                                        unawaited(
-                                          _openDingTalkMessageLink(
-                                            context,
-                                            href,
-                                          ),
-                                        );
-                                      },
+                                    border: Border.all(
+                                      color: item.ignoredForAiContext
+                                          ? colors.tertiary.withValues(
+                                              alpha: 0.42,
+                                            )
+                                          : colors.outlineVariant.withValues(
+                                              alpha: 0.52,
+                                            ),
                                     ),
                                   ),
-                                if (item.ignoredForAiContext)
-                                  _buildIgnoredExpandedState(itemKey),
-                              ],
-                            ),
+                                  child: _DingTalkLinkifiedText(
+                                    text: displayContent,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: contentForeground,
+                                      height: 1.5,
+                                    ),
+                                    linkStyle:
+                                        (theme.textTheme.bodyMedium ??
+                                                const TextStyle())
+                                            .copyWith(
+                                              color: colors.primary,
+                                              height: 1.5,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              decorationColor: colors.primary,
+                                              decorationThickness: 1.2,
+                                            ),
+                                    onOpenLink: (href) {
+                                      _cancelPendingActionToggle();
+                                      unawaited(
+                                        _openDingTalkMessageLink(context, href),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              if (item.ignoredForAiContext)
+                                _buildIgnoredExpandedState(itemKey),
+                            ],
                           ),
-                  ),
+                        ),
                 ),
                 _DingTalkMessageActionsPanel(
                   visible: actionsVisible,
