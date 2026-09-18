@@ -75,4 +75,21 @@ void main() {
     expect(selected.current.single.sourceMessageId, 'old');
     expect(selectDingTalkContextMedia(messages, 'missing').current, isEmpty);
   });
+
+  test('上下文快照不包含响应期间后到的附件', () {
+    final messages = [
+      message('earlier', [media('earlier-file', DingTalkMediaKind.file)]),
+      message('source', [media('source-file', DingTalkMediaKind.file)]),
+      message('later', [media('later-file', DingTalkMediaKind.file)]),
+    ];
+
+    final selected = selectDingTalkContextMedia(
+      messages,
+      'source',
+      contextMessageIds: ['earlier', 'source'],
+    );
+
+    expect(selected.current.single.media.resourceId, 'source-file');
+    expect(selected.history.single.media.resourceId, 'earlier-file');
+  });
 }

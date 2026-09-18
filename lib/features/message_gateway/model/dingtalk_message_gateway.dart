@@ -2597,10 +2597,8 @@ normalizeDingTalkConversationMessages(Iterable<DingTalkGatewayMessage> source) {
       .toList(growable: false);
   entries.sort((left, right) {
     final created = left.message.createdAt.compareTo(right.message.createdAt);
-    if (created != 0) return created;
-    final messageId = left.message.id.compareTo(right.message.id);
-    return messageId != 0
-        ? messageId
+    return created != 0
+        ? created
         : left.originalIndex.compareTo(right.originalIndex);
   });
   if (!changed) {

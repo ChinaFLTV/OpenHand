@@ -19,11 +19,24 @@ bool isDingTalkSkippedAiResponse(DingTalkGatewayMessage message) =>
 ({List<DingTalkContextMedia> current, List<DingTalkContextMedia> history})
 selectDingTalkContextMedia(
   List<DingTalkGatewayMessage> messages,
-  String sourceMessageId,
-) {
-  final end = messages.indexWhere((m) => m.id == sourceMessageId);
+  String sourceMessageId, {
+  Iterable<String>? contextMessageIds,
+}) {
+  final contextIds = contextMessageIds
+      ?.map(normalizeDingTalkMessageId)
+      .where((id) => id.isNotEmpty)
+      .toSet();
+  final scopedMessages = contextIds == null
+      ? messages
+      : messages
+            .where(
+              (message) =>
+                  contextIds.contains(normalizeDingTalkMessageId(message.id)),
+            )
+            .toList(growable: false);
+  final end = scopedMessages.indexWhere((m) => m.id == sourceMessageId);
   if (end < 0) return (current: [], history: []);
-  final excluded = messages
+  final excluded = scopedMessages
       .where((m) => m.isExcludedFromAiContext || isDingTalkSkippedAiResponse(m))
       .map((m) => normalizeDingTalkMessageId(m.id))
       .toSet();
@@ -58,10 +71,10 @@ selectDingTalkContextMedia(
       '${item.media.resourceType.name}:${item.media.resourceId}';
   final seen = <String>{};
   final current = mediaFor(
-    messages[end],
+    scopedMessages[end],
   ).where((m) => seen.add(identity(m))).toList();
   final history = selectAiHistoricalAttachments(
-    newestFirst: messages
+    newestFirst: scopedMessages
         .take(end)
         .toList()
         .reversed

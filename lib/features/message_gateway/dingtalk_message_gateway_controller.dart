@@ -4403,11 +4403,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> _ensureIncomingContextMedia(
     DingTalkConversation conversation,
-    String sourceMessageId,
-  ) async {
+    String sourceMessageId, {
+    Iterable<String>? contextMessageIds,
+  }) async {
     final selected = selectDingTalkContextMedia(
       conversation.messages,
       sourceMessageId,
+      contextMessageIds: contextMessageIds,
     );
     final candidates = {
       ...selected.current.map((m) => m.ownerMessageId),
@@ -4652,6 +4654,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     String content,
     String sourceMessageId, {
     required DingTalkResponseDeadline deadline,
+    required List<String> contextMessageIds,
     bool forceResponse = false,
     bool automaticResponse = false,
     int? pollingGeneration,
@@ -4709,6 +4712,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         sourceMessageId,
         fallbackContent: content,
         forceResponse: forceResponse,
+        contextMessageIds: contextMessageIds,
       );
       if (aiContent.isEmpty) return;
       final requestContent = source == null
@@ -4726,22 +4730,27 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               )
           ? detectedMediaRequest
           : null;
-      final contextMessageIds = _pendingAiConversationMessages(
-        conversation,
-        sourceMessageId,
-        forceResponse: forceResponse,
-      ).map((message) => message.id).toSet();
+      final activeContextMessageIds = contextMessageIds.toSet();
       final contextMedia = selectDingTalkContextMedia(
         conversation.messages,
         sourceMessageId,
+        contextMessageIds: contextMessageIds,
       );
       for (final item in [...contextMedia.current, ...contextMedia.history]) {
-        contextMessageIds.addAll([item.ownerMessageId, item.sourceMessageId]);
+        activeContextMessageIds.addAll([
+          item.ownerMessageId,
+          item.sourceMessageId,
+        ]);
       }
-      _activeResponseContextMessageIds[conversation.id] = contextMessageIds;
+      _activeResponseContextMessageIds[conversation.id] =
+          activeContextMessageIds;
       if (forceResponse) {
         await deadline.wait(
-          () => _ensureIncomingContextMedia(conversation, sourceMessageId),
+          () => _ensureIncomingContextMedia(
+            conversation,
+            sourceMessageId,
+            contextMessageIds: contextMessageIds,
+          ),
         );
         if (responseCancelled()) return;
       }
@@ -5041,7 +5050,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         return;
       }
       final attachmentContext = await deadline.wait(
-        () => _attachmentContextForTurn(conversation, sourceMessageId),
+        () => _attachmentContextForTurn(
+          conversation,
+          sourceMessageId,
+          contextMessageIds: contextMessageIds,
+        ),
       );
       if (responseCancelled()) return;
       await deadline.wait(
@@ -5208,7 +5221,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                 if (forceResponse) 'dingtalk_force_response': true,
                 if (correctingToolUse) 'dingtalk_tool_correction': true,
                 'dingtalk_source_message_id': sourceMessageId,
-                'dingtalk_context_message_ids': contextMessageIds.toList(
+                'dingtalk_context_message_ids': activeContextMessageIds.toList(
                   growable: false,
                 ),
               },
@@ -5379,6 +5392,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     String sourceMessageId, {
     required String fallbackContent,
     bool forceResponse = false,
+    Iterable<String>? contextMessageIds,
   }) {
     final sourceIndex = conversation.messages.indexWhere(
       (message) => message.id == sourceMessageId,
@@ -5388,11 +5402,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (source.isAssistant || source.isExcludedFromAiContext) {
       return '';
     }
-    final pending = _pendingAiConversationMessages(
-      conversation,
-      sourceMessageId,
-      forceResponse: forceResponse,
-    );
+    final pending = contextMessageIds == null
+        ? _pendingAiConversationMessages(
+            conversation,
+            sourceMessageId,
+            forceResponse: forceResponse,
+          )
+        : _messagesForAiContextSnapshot(conversation, contextMessageIds);
     if (pending.isEmpty) return fallbackContent.trim();
     if (!forceResponse &&
         pending.length == 1 &&
@@ -5459,6 +5475,32 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               _messageAiContextContent(message).isNotEmpty,
         )
         .toList(growable: false);
+  }
+
+  List<DingTalkGatewayMessage> _messagesForAiContextSnapshot(
+    DingTalkConversation conversation,
+    Iterable<String> messageIds,
+  ) {
+    final messagesById = <String, DingTalkGatewayMessage>{
+      for (final message in conversation.messages)
+        normalizeDingTalkMessageId(message.id): message,
+    };
+    final result = <DingTalkGatewayMessage>[];
+    final seen = <String>{};
+    for (final rawId in messageIds) {
+      final id = normalizeDingTalkMessageId(rawId);
+      final message = messagesById[id];
+      if (!seen.add(id) ||
+          message == null ||
+          message.isAssistant ||
+          message.isExcludedFromAiContext ||
+          isDingTalkSkippedAiResponse(message) ||
+          _messageAiContextContent(message).isEmpty) {
+        continue;
+      }
+      result.add(message);
+    }
+    return result;
   }
 
   String _messageAiContextContent(DingTalkGatewayMessage message) {
@@ -5532,11 +5574,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<AiAttachmentContextInput> _attachmentContextForTurn(
     DingTalkConversation conversation,
-    String sourceMessageId,
-  ) async {
+    String sourceMessageId, {
+    Iterable<String>? contextMessageIds,
+  }) async {
     final selected = selectDingTalkContextMedia(
       conversation.messages,
       sourceMessageId,
+      contextMessageIds: contextMessageIds,
     );
     final paths = <String>{};
     Future<List<AiAttachmentSource>> available(
@@ -6738,30 +6782,7 @@ ${_markdownStructuredFields(response)}''';
         pollingGeneration,
         completer,
       );
-      if (automaticResponse) {
-        final ordered = queue.toList(growable: true);
-        final insertIndex = ordered.indexWhere((item) {
-          if (!item.automaticResponse ||
-              item.pollingGeneration != pollingGeneration) {
-            return false;
-          }
-          final timeOrder = queuedResponse.scheduledAt.compareTo(
-            item.scheduledAt,
-          );
-          return timeOrder < 0 ||
-              timeOrder == 0 && queuedResponse.sequence < item.sequence;
-        });
-        if (insertIndex < 0) {
-          queue.add(queuedResponse);
-        } else {
-          ordered.insert(insertIndex, queuedResponse);
-          queue
-            ..clear()
-            ..addAll(ordered);
-        }
-      } else {
-        queue.add(queuedResponse);
-      }
+      queue.add(queuedResponse);
     }
     _beginResponsePreparing(conversation.id);
     unawaited(
@@ -7115,10 +7136,18 @@ ${_markdownStructuredFields(response)}''';
                 ))) {
           return;
         }
+        var contextMessageIds = _pendingAiConversationMessages(
+          conversation,
+          item.sourceMessageId,
+          forceResponse: item.forceResponse,
+        ).map((message) => message.id).toList(growable: false);
         if (item.automaticResponse) {
           await deadline.wait(
-            () =>
-                _ensureIncomingContextMedia(conversation, item.sourceMessageId),
+            () => _ensureIncomingContextMedia(
+              conversation,
+              item.sourceMessageId,
+              contextMessageIds: contextMessageIds,
+            ),
           );
           if (_isResponseCancelled(conversation.id, responseVersion)) {
             return;
@@ -7142,6 +7171,11 @@ ${_markdownStructuredFields(response)}''';
               item
                 ..sourceMessageId = source.id
                 ..content = _messageAiContextContent(source);
+              contextMessageIds = _pendingAiConversationMessages(
+                conversation,
+                source.id,
+                forceResponse: item.forceResponse,
+              ).map((message) => message.id).toList(growable: false);
             }
           }
           if (source == null ||
@@ -7162,6 +7196,7 @@ ${_markdownStructuredFields(response)}''';
           item.content,
           item.sourceMessageId,
           deadline: deadline,
+          contextMessageIds: contextMessageIds,
           forceResponse: item.forceResponse,
           automaticResponse: item.automaticResponse,
           pollingGeneration: item.pollingGeneration,
