@@ -23,6 +23,7 @@ import '../util/timer_safety.dart';
 import '../util/user_failure_message.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
+import 'image_rasterization.dart';
 import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
@@ -2252,13 +2253,11 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   }) async {
     if (watermarkText.isEmpty) return sourceBytes;
 
-    ui.Codec? codec;
     ui.Image? baseImage;
+    TextPainter? textPainter;
     ui.Image? composedImage;
     try {
-      codec = await ui.instantiateImageCodec(sourceBytes);
-      final frame = await codec.getNextFrame();
-      baseImage = frame.image;
+      baseImage = await decodeFirstImageFrame(sourceBytes);
 
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
@@ -2275,14 +2274,17 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         math.min(imageSize.width, imageSize.height) * 0.02,
       );
 
-      final textPainter = TextPainter(
+      textPainter = TextPainter(
         text: TextSpan(
           text: watermarkText,
           style: TextStyle(
             color: watermarkColor.withValues(
               alpha: clampUnitInterval(watermarkOpacity),
             ),
-            fontSize: watermarkSize.clamp(8.0, imageSize.height * 0.5),
+            fontSize: watermarkSize.clamp(
+              8.0,
+              math.max(8.0, imageSize.height * 0.5),
+            ),
             fontWeight: FontWeight.w600,
             height: 1.1,
             shadows: const [
@@ -2308,7 +2310,11 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       textPainter.paint(canvas, offset);
 
       final picture = recorder.endRecording();
-      composedImage = await picture.toImage(baseImage.width, baseImage.height);
+      composedImage = await rasterizePicture(
+        picture,
+        baseImage.width,
+        baseImage.height,
+      );
       final pngData = await composedImage.toByteData(
         format: ui.ImageByteFormat.png,
       );
@@ -2329,7 +2335,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       silentLog('image_editor', '合成水印', error, stack);
       return null;
     } finally {
-      codec?.dispose();
+      textPainter?.dispose();
       baseImage?.dispose();
       composedImage?.dispose();
     }

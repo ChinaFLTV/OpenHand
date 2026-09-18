@@ -3,5 +3,5 @@
   "version": "0.1.0",
   "platform": "windows-arm64",
   "executable": "ai_jungler.exe",
-  "sha256": "237f05a2ee3ebe04b9edb639f28e17fb91ec6845d9a846a20bdd8d8cd4772f5d"
+  "sha256": "be006e1a72fd18e3f02314c23add1064264db8b509c240e91aa76fb5990c0fe0"
 }

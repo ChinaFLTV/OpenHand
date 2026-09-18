@@ -79,6 +79,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/rolling_hash.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/stable_hash.dart';
@@ -20910,15 +20911,12 @@ class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
       _saveFailed = false;
     });
     try {
-      var suggestedName = p
-          .basename(widget.media.displayName.replaceAll(r'\', '/'))
-          .trim()
-          .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1f]'), '_');
-      if (suggestedName.isEmpty ||
-          suggestedName == '.' ||
-          suggestedName == '/') {
-        suggestedName = '钉钉文件';
-      }
+      final suggestedName = sanitizePortableFileNamePart(
+        p.basename(widget.media.displayName.replaceAll(r'\', '/')),
+        fallback: '钉钉文件',
+        maxCharacters: kPortableFileNameMaxCodeUnits,
+        allowWhitespace: true,
+      );
       final extension = p.extension(suggestedName).replaceFirst('.', '');
       final location = await getSaveLocation(
         suggestedName: suggestedName,

@@ -6,11 +6,15 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/feature_state_card.dart';
+import '../../shared/ui/image_rasterization.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_tap_region.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -22,7 +26,7 @@ import 'web_reverse_dialog_utils.dart';
 ///   - blur：模糊遮挡（对原图局部区域做高斯模糊，用于隐私马赛克）
 ///   - text：文字标签（点空白位置插入）
 /// 用户点"完成"后用 RepaintBoundary.toImage 导出 PNG 字节。
-/// 取消则返回原图字节。
+/// 取消返回 null；选择不标注保存时返回原图字节。
 Future<Uint8List?> showScreenshotMarkupDialog(
   BuildContext context, {
   required Uint8List image,
@@ -88,18 +92,32 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
   _Stroke? _activeStroke;
   _RectShape? _activeRect;
   bool _exporting = false;
+  bool _decodeFailed = false;
 
   @override
   void initState() {
     super.initState();
-    _decode();
+    unawaited(_decode());
   }
 
   Future<void> _decode() async {
-    final codec = await ui.instantiateImageCodec(widget.image);
-    final frame = await codec.getNextFrame();
-    if (!mounted) return;
-    setState(() => _decoded = frame.image);
+    try {
+      final image = await decodeFirstImageFrame(widget.image);
+      if (!mounted) {
+        image.dispose();
+        return;
+      }
+      setState(() => _decoded = image);
+    } catch (error, stack) {
+      silentLog('screenshot_markup', '解码截图', error, stack);
+      if (mounted) setState(() => _decodeFailed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _decoded?.dispose();
+    super.dispose();
   }
 
   @override
@@ -107,57 +125,71 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final img = _decoded;
-    return buildOpenHandToolDialogShell(
-      context: context,
-      maxWidth: kOpenHandDialogWidthFull,
-      maxHeight: kOpenHandDialogHeightTall,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildHeader(),
-          Divider(height: 1, color: cs.outlineVariant),
-          _buildToolbar(cs),
-          Divider(height: 1, color: cs.outlineVariant),
-          Expanded(
-            child: Container(
-              color: const Color(0xFF1E1E1E),
-              alignment: Alignment.center,
-              child: img == null
-                  ? const CircularProgressIndicator()
-                  : InteractiveViewer(
-                      maxScale: 4,
-                      child: RepaintBoundary(
-                        key: _boundary,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onPanStart: _onPanStart,
-                          onPanUpdate: _onPanUpdate,
-                          onPanEnd: _onPanEnd,
-                          onTapUp: (d) {
-                            if (_tool == _MarkupTool.text) {
-                              _addText(d.localPosition);
-                            }
-                          },
-                          child: SizedBox(
-                            width: img.width.toDouble(),
-                            height: img.height.toDouble(),
-                            child: CustomPaint(
-                              painter: _MarkupPainter(
-                                baseImage: img,
-                                strokes: _strokes,
-                                rects: _rects,
-                                texts: _texts,
-                                activeStroke: _activeStroke,
-                                activeRect: _activeRect,
+    return PopScope(
+      canPop: !_exporting,
+      child: buildOpenHandToolDialogShell(
+        context: context,
+        maxWidth: kOpenHandDialogWidthFull,
+        maxHeight: kOpenHandDialogHeightTall,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildHeader(),
+            Divider(height: 1, color: cs.outlineVariant),
+            _buildToolbar(cs),
+            Divider(height: 1, color: cs.outlineVariant),
+            Expanded(
+              child: Container(
+                color: cs.surfaceContainerLowest,
+                alignment: Alignment.center,
+                child: _decodeFailed
+                    ? FeatureStateCard.centered(
+                        icon: Icons.broken_image_outlined,
+                        title:
+                            AppLocalizations.of(
+                              context,
+                            )?.imageEditorLoadFailed ??
+                            '图片加载失败',
+                        body: '',
+                        tone: FeatureStateTone.error,
+                      )
+                    : img == null
+                    ? const CircularProgressIndicator()
+                    : InteractiveViewer(
+                        maxScale: 4,
+                        child: RepaintBoundary(
+                          key: _boundary,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onPanStart: _onPanStart,
+                            onPanUpdate: _onPanUpdate,
+                            onPanEnd: _onPanEnd,
+                            onTapUp: (d) {
+                              if (_tool == _MarkupTool.text) {
+                                _addText(d.localPosition);
+                              }
+                            },
+                            child: SizedBox(
+                              width: img.width.toDouble(),
+                              height: img.height.toDouble(),
+                              child: CustomPaint(
+                                painter: _MarkupPainter(
+                                  baseImage: img,
+                                  strokes: _strokes,
+                                  rects: _rects,
+                                  texts: _texts,
+                                  activeStroke: _activeStroke,
+                                  activeRect: _activeRect,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -170,14 +202,18 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
       iconSize: 22,
       title: loc?.webReverseMarkupTitle ?? 'Screenshot Markup',
       closeTooltip: loc?.commonCancel ?? 'Cancel',
-      onClose: () => Navigator.of(context).pop(),
+      onClose: () {
+        if (!_exporting) Navigator.of(context).pop();
+      },
       actions: [
         OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(context).pop(widget.image),
+          onPressed: _exporting
+              ? null
+              : () => Navigator.of(context).pop(widget.image),
           label: loc?.webReverseMarkupSaveWithout ?? 'Save without markup',
         ),
         OpenHandDialogActionButton.primary(
-          onPressed: _exporting ? null : _export,
+          onPressed: _exporting || _decoded == null ? null : _export,
           icon: _exporting ? Icons.hourglass_top_rounded : Icons.check_rounded,
           label: _exporting
               ? (loc?.webReverseMarkupExporting ?? 'Exporting…')
@@ -354,21 +390,39 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
   }
 
   Future<void> _export() async {
+    if (_exporting || _decoded == null) return;
     setState(() => _exporting = true);
+    ui.Image? image;
     try {
       final boundary =
           _boundary.currentContext?.findRenderObject()
               as RenderRepaintBoundary?;
-      if (boundary == null) {
-        if (mounted) Navigator.of(context).pop(widget.image);
-        return;
-      }
-      final image = await boundary.toImage();
+      if (boundary == null) throw StateError('截图画布尚未就绪。');
+      image = await boundary.toImage();
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      final bytes = byteData?.buffer.asUint8List();
-      if (mounted) Navigator.of(context).pop(bytes ?? widget.image);
-    } catch (_) {
-      if (mounted) Navigator.of(context).pop(widget.image);
+      if (byteData == null) throw StateError('截图编码失败。');
+      final bytes = byteData.buffer.asUint8List(
+        byteData.offsetInBytes,
+        byteData.lengthInBytes,
+      );
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.of(context).pop(bytes);
+      }
+    } catch (error, stack) {
+      silentLog('screenshot_markup', '导出标注截图', error, stack);
+      if (mounted) {
+        replaceOpenHandSnack(
+          context,
+          AppLocalizations.of(
+                context,
+              )?.imageEditorSaveFailed(error.toString()) ??
+              '图片保存失败',
+          kind: OpenHandSnackKind.error,
+        );
+      }
+    } finally {
+      image?.dispose();
+      if (mounted) setState(() => _exporting = false);
     }
   }
 }
@@ -578,6 +632,7 @@ class _MarkupPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, t.position);
+      tp.dispose();
     }
   }
 

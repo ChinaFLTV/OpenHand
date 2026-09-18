@@ -3909,10 +3909,7 @@ void _scheduleHtmlWebViewPermitGrant(void Function() task) {
 final HtmlWebViewMountLimiter _htmlWebViewActiveLimiter =
     HtmlWebViewMountLimiter(scheduleGranted: _scheduleHtmlWebViewPermitGrant);
 final HtmlWebViewMountLimiter _htmlWebViewBootstrapLimiter =
-    HtmlWebViewMountLimiter(
-      maxMounted: _htmlWebViewMaxConcurrentBootstraps,
-      scheduleGranted: _scheduleHtmlWebViewPermitGrant,
-    );
+    HtmlWebViewMountLimiter(scheduleGranted: _scheduleHtmlWebViewPermitGrant);
 
 class _DeferredHtmlBubbleWebView extends StatefulWidget {
   const _DeferredHtmlBubbleWebView({

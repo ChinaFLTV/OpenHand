@@ -288,13 +288,44 @@ Future<int> _checkAbortableResponseLifetime() async {
     stderr.writeln('sendAbortableHttpRequest 未在响应流取消后释放取消监听。');
     return 1;
   }
+  final lateHeaders = Completer<void>();
+  final bodyCancelled = Completer<void>();
+  final lateBody = StreamController<List<int>>(
+    onCancel: bodyCancelled.complete,
+  );
+  final lateClient = _AbortableProbeClient(
+    bodyStream: lateBody.stream,
+    beforeResponse: lateHeaders.future,
+  );
+  try {
+    await sendAbortableHttpRequest(
+      client: lateClient,
+      request: http.Request('GET', Uri.parse('https://example.com/late')),
+      connectionTimeout: const Duration(milliseconds: 10),
+    );
+    stderr.writeln('迟到响应未触发响应头超时。');
+    return 1;
+  } on TimeoutException {
+    lateHeaders.complete();
+    try {
+      await bodyCancelled.future.timeout(const Duration(seconds: 1));
+    } on TimeoutException {
+      stderr.writeln('响应头超时后未释放迟到响应体。');
+      return 1;
+    }
+  } finally {
+    if (!lateHeaders.isCompleted) lateHeaders.complete();
+    unawaited(lateBody.close());
+    lateClient.close();
+  }
   return 0;
 }
 
 final class _AbortableProbeClient extends http.BaseClient {
-  _AbortableProbeClient({this.bodyStream});
+  _AbortableProbeClient({this.bodyStream, this.beforeResponse});
 
   final Stream<List<int>>? bodyStream;
+  final Future<void>? beforeResponse;
   bool requestLifetimeReleased = false;
 
   @override
@@ -305,6 +336,7 @@ final class _AbortableProbeClient extends http.BaseClient {
     unawaited(
       request.abortTrigger!.then<void>((_) => requestLifetimeReleased = true),
     );
+    await beforeResponse;
     return http.StreamedResponse(
       bodyStream ?? Stream<List<int>>.value(const <int>[1, 2, 3]),
       200,

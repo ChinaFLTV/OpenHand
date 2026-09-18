@@ -50,18 +50,21 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
         ..persistentConnection = request.persistentConnection
         ..bodyBytes = request.bodyBytes;
 
+  final responseFuture = Future<http.StreamedResponse>.sync(
+    () => client.send(abortableRequest),
+  );
+  var timedOut = false;
   try {
-    final response = await client
-        .send(abortableRequest)
-        .timeout(
-          connectionTimeout,
-          onTimeout: () {
-            if (!requestLifetime.isCompleted) {
-              requestLifetime.complete();
-            }
-            throw TimeoutException('HTTP 响应头获取超过连接时限。', connectionTimeout);
-          },
-        );
+    final response = await responseFuture.timeout(
+      connectionTimeout,
+      onTimeout: () {
+        timedOut = true;
+        if (!requestLifetime.isCompleted) {
+          requestLifetime.complete();
+        }
+        throw TimeoutException('HTTP 响应头获取超过连接时限。', connectionTimeout);
+      },
+    );
     final responseUrl = response is http.BaseResponseWithUrl
         ? (response as http.BaseResponseWithUrl).url
         : request.url;
@@ -78,6 +81,16 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
     );
   } catch (_) {
     if (!requestLifetime.isCompleted) requestLifetime.complete();
+    if (timedOut) {
+      // 自定义传输可能忽略取消，接管迟到响应，避免未订阅的正文占用连接。
+      unawaited(
+        responseFuture.then<void>((response) async {
+          await runAsyncCleanupBounded(
+            () => response.stream.listen(null).cancel(),
+          );
+        }, onError: (Object _, StackTrace _) {}),
+      );
+    }
     rethrow;
   }
 }

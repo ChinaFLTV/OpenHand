@@ -29,21 +29,26 @@ class NaturalImageSizeResolver {
     final stream = provider.resolve(const ImageConfiguration());
     final listener = ImageStreamListener(
       (ImageInfo info, bool synchronousCall) {
-        final width = info.image.width.toDouble();
-        final height = info.image.height.toDouble();
-        if (width <= 0 || height <= 0) return;
-        final resolved = Size(width, height);
-        if (_size == resolved) return;
-        _size = resolved;
-        if (!synchronousCall) onResolved();
+        try {
+          final width = info.image.width.toDouble();
+          final height = info.image.height.toDouble();
+          if (width <= 0 || height <= 0) return;
+          _size = Size(width, height);
+          // 尺寸只需首帧，及时解绑，避免持续解码动图。
+          _detach();
+          if (!synchronousCall) onResolved();
+        } finally {
+          info.dispose();
+        }
       },
       onError: (Object _, StackTrace? _) {
         // 保持 size 为 null：调用方的 Image 控件自身会渲染 errorBuilder。
+        _detach();
       },
     );
-    stream.addListener(listener);
     _stream = stream;
     _listener = listener;
+    stream.addListener(listener);
   }
 
   void dispose() => _detach();

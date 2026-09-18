@@ -23,7 +23,7 @@ use std::{
     time::Duration,
 };
 use thiserror::Error;
-use tokio::sync::RwLock as AsyncRwLock;
+use tokio::sync::{RwLock as AsyncRwLock, Semaphore};
 use tracing::warn;
 use uuid::Uuid;
 use zeroize::Zeroizing;
@@ -33,10 +33,14 @@ const KEY_FILE: &str = "credential.key";
 const KEY_LENGTH: usize = 32;
 const NONCE_LENGTH: usize = 12;
 const POSTGRES_OPERATION_TIMEOUT: Duration = Duration::from_secs(10);
+const MAX_PENDING_DATABASE_OPERATIONS: usize = 256;
+const DATABASE_QUEUE_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct HuntStore {
     connection: Arc<Mutex<Connection>>,
+    connection_queue: Arc<Semaphore>,
+    connection_access: Arc<Semaphore>,
     cipher: Arc<Aes256Gcm>,
     data_dir: Arc<PathBuf>,
     postgres: Arc<AsyncRwLock<Option<PostgresMirror>>>,
@@ -85,6 +89,8 @@ impl HuntStore {
         Ok(Self {
             data_dir: Arc::new(initialized.0),
             connection: Arc::new(Mutex::new(initialized.1)),
+            connection_queue: Arc::new(Semaphore::new(MAX_PENDING_DATABASE_OPERATIONS)),
+            connection_access: Arc::new(Semaphore::new(1)),
             cipher: Arc::new(initialized.2),
             postgres: Arc::new(AsyncRwLock::new(None)),
         })
@@ -739,8 +745,20 @@ impl HuntStore {
         T: Send + 'static,
         F: FnOnce(&Connection) -> anyhow::Result<T> + Send + 'static,
     {
+        let queue_permit = Arc::clone(&self.connection_queue)
+            .try_acquire_owned()
+            .context("扫描数据库任务队列已满，请稍后重试")?;
+        let access_permit = tokio::time::timeout(
+            DATABASE_QUEUE_TIMEOUT,
+            Arc::clone(&self.connection_access).acquire_owned(),
+        )
+        .await
+        .context("等待扫描数据库访问超过时限")?
+        .context("扫描数据库访问已关闭")?;
         let connection = Arc::clone(&self.connection);
         tokio::task::spawn_blocking(move || {
+            // 在线程池之外排队；调用方取消后，仍由实际操作持有许可直到退出。
+            let _permits = (queue_permit, access_permit);
             let guard = connection
                 .lock()
                 .map_err(|_| anyhow::anyhow!("扫描数据库锁已损坏"))?;
@@ -1008,6 +1026,75 @@ fn ensure_column(
 mod tests {
     use super::*;
     use hunt_core::{CredentialState, ResultCategory, ScanMode, SourceKind, ValidationMode};
+
+    #[tokio::test]
+    async fn bounds_database_queue_and_retains_running_permits_after_cancellation() {
+        let path = temporary_store_path();
+        let store = HuntStore::open(&path).await.unwrap();
+        let worker_store = store.clone();
+        let (started, ready) = tokio::sync::oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::channel();
+        let active = tokio::spawn(async move {
+            worker_store
+                .with_connection(move |_| {
+                    let _ = started.send(());
+                    blocked.recv_timeout(Duration::from_secs(5))?;
+                    Ok(())
+                })
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(5), ready)
+            .await
+            .expect("数据库任务应及时开始")
+            .unwrap();
+
+        let mut waiting = Vec::new();
+        for _ in 1..MAX_PENDING_DATABASE_OPERATIONS {
+            let mut operation = Box::pin(store.with_connection(|_| Ok(())));
+            std::future::poll_fn(|context| {
+                assert!(operation.as_mut().poll(context).is_pending());
+                std::task::Poll::Ready(())
+            })
+            .await;
+            waiting.push(operation);
+        }
+        let error = store
+            .with_connection::<(), _>(|_| panic!("队列满时不能执行数据库操作"))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("任务队列已满"));
+        drop(waiting);
+        active.abort();
+        assert!(active.await.unwrap_err().is_cancelled());
+        assert_eq!(store.connection_access.available_permits(), 0);
+        assert_eq!(
+            store.connection_queue.available_permits(),
+            MAX_PENDING_DATABASE_OPERATIONS - 1,
+            "取消调用方不能提前释放仍在运行的数据库任务许可"
+        );
+
+        release.send(()).unwrap();
+        let value = store
+            .with_connection(|connection| {
+                Ok(connection.query_row("SELECT 1", [], |row| row.get::<_, i32>(0))?)
+            })
+            .await
+            .unwrap();
+        assert_eq!(value, 1);
+        assert!(
+            store
+                .with_connection::<(), _>(|_| anyhow::bail!("模拟操作失败"))
+                .await
+                .is_err()
+        );
+        assert_eq!(store.connection_access.available_permits(), 1);
+        assert_eq!(
+            store.connection_queue.available_permits(),
+            MAX_PENDING_DATABASE_OPERATIONS
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+    }
 
     #[tokio::test]
     async fn creates_private_store_and_default_rules() {

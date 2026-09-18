@@ -74,7 +74,8 @@ export function createTimedAbortController(
 ): TimedAbortController {
   const controller = new AbortController();
   const effectiveTimeoutMs = normalizeAbortTimeoutMs(timeoutMs);
-  let timer: number | null = null;
+  const timers = typeof window === 'undefined' ? globalThis : window;
+  let timer: ReturnType<typeof timers.setTimeout> | null = null;
   let timedOut = false;
 
   const clearExternalAbortListener = () => {
@@ -82,8 +83,8 @@ export function createTimedAbortController(
   };
 
   const clear = () => {
-    if (timer == null || typeof window === 'undefined') return;
-    window.clearTimeout(timer);
+    if (timer == null) return;
+    timers.clearTimeout(timer);
     timer = null;
   };
 
@@ -112,12 +113,8 @@ export function createTimedAbortController(
     });
   }
 
-  if (
-    effectiveTimeoutMs > 0 &&
-    typeof window !== 'undefined' &&
-    !controller.signal.aborted
-  ) {
-    timer = window.setTimeout(() => {
+  if (!controller.signal.aborted) {
+    timer = timers.setTimeout(() => {
       timer = null;
       timedOut = true;
       abortWithReason(new OperationTimeoutError(effectiveTimeoutMs));
@@ -154,16 +151,14 @@ export async function runWithTimeout<T>(
     typeof operation === 'function'
       ? (operation as () => PromiseLike<T> | T)()
       : operation;
-  if (effectiveTimeoutMs <= 0 || typeof window === 'undefined') {
-    return Promise.resolve(runOperation());
-  }
 
-  let timer: number | null = null;
+  const timers = typeof window === 'undefined' ? globalThis : window;
+  let timer: ReturnType<typeof timers.setTimeout> | null = null;
   try {
     return await Promise.race([
       Promise.resolve(runOperation()),
       new Promise<never>((_, reject) => {
-        timer = window.setTimeout(() => {
+        timer = timers.setTimeout(() => {
           timer = null;
           try {
             reject(
@@ -178,7 +173,7 @@ export async function runWithTimeout<T>(
     ]);
   } finally {
     if (timer != null) {
-      window.clearTimeout(timer);
+      timers.clearTimeout(timer);
     }
   }
 }
@@ -246,20 +241,21 @@ export function waitForDelayOrAbort(
   signal: AbortSignal,
 ): Promise<void> {
   const safeDelayMs = normalizeAbortableDelayMs(delayMs);
-  if (safeDelayMs <= 0 || signal.aborted || typeof window === 'undefined') {
+  if (safeDelayMs <= 0 || signal.aborted) {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    let timer: number | null = null;
+    const timers = typeof window === 'undefined' ? globalThis : window;
+    let timer: ReturnType<typeof timers.setTimeout> | null = null;
     const finish = () => {
       if (timer != null) {
-        window.clearTimeout(timer);
+        timers.clearTimeout(timer);
         timer = null;
       }
       signal.removeEventListener('abort', finish);
       resolve();
     };
-    timer = window.setTimeout(finish, safeDelayMs);
+    timer = timers.setTimeout(finish, safeDelayMs);
     signal.addEventListener('abort', finish, { once: true });
   });
 }

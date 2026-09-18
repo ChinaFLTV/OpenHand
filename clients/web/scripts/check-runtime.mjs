@@ -330,6 +330,23 @@ try {
   }, { signal: externalAbort.signal }), { name: 'AbortError' });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
+  replaceGlobal('window', undefined);
+  const { createTimedAbortController, waitForDelayOrAbort } = await server.ssrLoadModule('/src/utils/timed_abort.ts');
+  await assert.rejects(runWithTimeout(new Promise(() => {}), { timeoutMs: 1 }),
+    { name: 'OperationTimeoutError' }, '无窗口环境也必须遵守总时限');
+  const backgroundTimer = createTimedAbortController(1);
+  await new Promise(resolve => backgroundTimer.controller.signal.addEventListener('abort', resolve, { once: true }));
+  assert.equal(backgroundTimer.timedOut, true, '后台请求必须触发超时取消');
+  backgroundTimer.dispose();
+  const backgroundAbort = new AbortController();
+  let delayFinished = false;
+  const backgroundDelay = waitForDelayOrAbort(1000, backgroundAbort.signal).then(() => { delayFinished = true; });
+  await Promise.resolve();
+  assert.equal(delayFinished, false, '无窗口环境不能跳过重试间隔');
+  backgroundAbort.abort();
+  await backgroundDelay;
+  replaceGlobal('window', browser);
+
   const { registerOverlayEscapeLayer } = await server.ssrLoadModule('/src/shared/ui/overlay_escape_stack.ts');
   let closed = 0;
   const removeLayer = registerOverlayEscapeLayer({ canClose: () => true, requestClose: () => closed++ });

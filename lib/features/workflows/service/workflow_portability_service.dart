@@ -9,7 +9,9 @@ import 'package:image/image.dart' as image;
 import 'package:yaml/yaml.dart';
 
 import '../../../app/theme/openhand_theme_preset.dart';
+import '../../../shared/ui/image_rasterization.dart';
 import '../../../shared/util/hex_encoding.dart';
+import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/xml_escape.dart';
 import '../model/workflow_definition.dart';
@@ -18,7 +20,7 @@ import 'workflow_auto_layout.dart';
 
 const int _kMaxYamlDepth = 64;
 const int _kMaxYamlValues = 100000;
-const int _kWorkflowExportFileStemMaxCodeUnits = 80;
+const int _kWorkflowExportFileStemMaxCharacters = 80;
 const double _kNodeWidth = kWorkflowNodeWidth;
 const double _kNodeHeight = kWorkflowNodeHeight;
 const double _kExportPadding = 72;
@@ -101,10 +103,14 @@ WorkflowDefinition decodeWorkflowYaml(String source) {
       throw const WorkflowPortabilityException('YAML 包含的配置项过多。');
     }
     if (value is Map) {
-      return <String, Object?>{
-        for (final entry in value.entries)
-          '${entry.key}': toPlain(entry.value, depth + 1),
-      };
+      final result = <String, Object?>{};
+      for (final entry in value.entries) {
+        if (entry.key is! String) {
+          throw const WorkflowPortabilityException('YAML 对象的键必须为字符串。');
+        }
+        result[entry.key as String] = toPlain(entry.value, depth + 1);
+      }
+      return result;
     }
     if (value is List) {
       return value
@@ -127,7 +133,7 @@ WorkflowDefinition decodeWorkflowYaml(String source) {
     );
   }
   final version = plain['version'];
-  if (version is! num || version.toInt() != _kWorkflowFormatVersion) {
+  if (version != _kWorkflowFormatVersion) {
     throw WorkflowPortabilityException('不支持的工作流配置版本：${version ?? '缺失'}。');
   }
   final workflow = plain['workflow'];
@@ -185,18 +191,14 @@ String workflowExportFileName(
   WorkflowDefinition workflow,
   WorkflowExportFormat format,
 ) {
-  final stem = workflow.name
-      .trim()
-      .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  final safeStem = stem.isEmpty ? 'workflow' : stem;
-  final clipped = clipTextByCodeUnits(
-    safeStem,
-    _kWorkflowExportFileStemMaxCodeUnits,
-    suffix: '',
+  final stem = sanitizePortableFileNamePart(
+    workflow.name,
+    fallback: 'workflow',
+    maxCharacters: _kWorkflowExportFileStemMaxCharacters,
+    maxUtf8Bytes: kPortableFileNameMaxUtf8Bytes - format.extension.length - 1,
+    allowWhitespace: true,
   );
-  return '$clipped.${format.extension}';
+  return '$stem.${format.extension}';
 }
 
 Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
@@ -239,54 +241,44 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
 
   onProgress?.call(0.54, '正在绘制全部节点、注释和连线…');
   final raster = await _renderRaster(workflow, layout);
-  if (format == WorkflowExportFormat.png) {
-    onProgress?.call(0.76, '正在编码 PNG 图片…');
-    final byteData = await raster.toByteData(format: ui.ImageByteFormat.png);
-    raster.dispose();
-    if (byteData == null) {
-      throw const WorkflowPortabilityException('PNG 编码器未返回有效数据。');
-    }
-    onProgress?.call(0.84, '图片已生成，正在写入磁盘…');
-    return WorkflowExportArtifact(
-      bytes: byteData.buffer.asUint8List(
-        byteData.offsetInBytes,
-        byteData.lengthInBytes,
-      ),
-      format: format,
-      width: layout.outputWidth,
-      height: layout.outputHeight,
+  final isPng = format == WorkflowExportFormat.png;
+  ByteData? byteData;
+  try {
+    onProgress?.call(isPng ? 0.76 : 0.74, '正在编码 ${format.typeLabel} 图片…');
+    byteData = await raster.toByteData(
+      format: isPng ? ui.ImageByteFormat.png : ui.ImageByteFormat.rawRgba,
     );
+  } finally {
+    raster.dispose();
   }
-
-  onProgress?.call(0.74, '正在编码 JPEG 图片…');
-  final byteData = await raster.toByteData();
-  raster.dispose();
   if (byteData == null) {
-    throw const WorkflowPortabilityException('JPEG 编码器未返回有效数据。');
+    throw WorkflowPortabilityException('${format.typeLabel} 编码器未返回有效数据。');
   }
-  final rgbaBytes = byteData.buffer.asUint8List(
+  final rasterBytes = byteData.buffer.asUint8List(
     byteData.offsetInBytes,
     byteData.lengthInBytes,
   );
   final outputWidth = layout.outputWidth;
   final outputHeight = layout.outputHeight;
-  final bytes = await Isolate.run(() {
-    final decoded = image.Image.fromBytes(
-      width: outputWidth,
-      height: outputHeight,
-      bytes: rgbaBytes.buffer,
-      bytesOffset: rgbaBytes.offsetInBytes,
-      numChannels: 4,
-      order: image.ChannelOrder.rgba,
-    );
-    return Uint8List.fromList(image.encodeJpg(decoded));
-  });
+  final bytes = isPng
+      ? rasterBytes
+      : await Isolate.run(() {
+          final decoded = image.Image.fromBytes(
+            width: outputWidth,
+            height: outputHeight,
+            bytes: rasterBytes.buffer,
+            bytesOffset: rasterBytes.offsetInBytes,
+            numChannels: 4,
+            order: image.ChannelOrder.rgba,
+          );
+          return Uint8List.fromList(image.encodeJpg(decoded));
+        });
   onProgress?.call(0.84, '图片已生成，正在写入磁盘…');
   return WorkflowExportArtifact(
     bytes: bytes,
     format: format,
-    width: layout.outputWidth,
-    height: layout.outputHeight,
+    width: outputWidth,
+    height: outputHeight,
   );
 }
 
@@ -583,7 +575,7 @@ Future<ui.Image> _renderRaster(
       maxWidth: surface.width - 144 * scale,
       style: TextStyle(color: colors.onSurfaceVariant, fontSize: 20 * scale),
     );
-    return _pictureToImage(
+    return rasterizePicture(
       recorder.endRecording(),
       layout.outputWidth,
       layout.outputHeight,
@@ -683,7 +675,7 @@ Future<ui.Image> _renderRaster(
   for (final node in workflow.nodes) {
     _paintExportNode(canvas, node, layout, colors);
   }
-  return _pictureToImage(
+  return rasterizePicture(
     recorder.endRecording(),
     layout.outputWidth,
     layout.outputHeight,
@@ -830,6 +822,7 @@ void _paintExportNode(
     canvas,
     Offset(labelRight - labelPainter.width, labelBottom - labelPainter.height),
   );
+  labelPainter.dispose();
   if (showOutPort) {
     canvas.drawCircle(
       Offset(rect.right - padding / 2, rect.center.dy),
@@ -853,18 +846,6 @@ void _paintExportNode(
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5 * scale,
     );
-  }
-}
-
-Future<ui.Image> _pictureToImage(
-  ui.Picture picture,
-  int width,
-  int height,
-) async {
-  try {
-    return await picture.toImage(width, height);
-  } finally {
-    picture.dispose();
   }
 }
 
@@ -892,6 +873,7 @@ void _paintIcon(
     canvas,
     Offset(center.dx - painter.width / 2, center.dy - painter.height / 2),
   );
+  painter.dispose();
 }
 
 void _paintText(
@@ -911,6 +893,7 @@ void _paintText(
     ellipsis: '…',
   )..layout(maxWidth: math.max(1, maxWidth));
   painter.paint(canvas, offset);
+  painter.dispose();
 }
 
 String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
