@@ -88,6 +88,66 @@ String _editorCodeThemeLabel(
   };
 }
 
+class _EditorPreferenceDropdown<T> extends StatelessWidget {
+  const _EditorPreferenceDropdown({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final T value;
+  final String label;
+  final IconData icon;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final border = OutlineInputBorder(
+      borderRadius: kOpenHandBorderRadius16,
+      borderSide: BorderSide(color: colors.primary.withValues(alpha: 0.38)),
+    );
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 320),
+      child: Semantics(
+        label: label,
+        child: AnimatedDropdownButtonFormField<T>(
+          initialValue: value,
+          isExpanded: true,
+          borderRadius: kOpenHandBorderRadius16,
+          menuMaxHeight: 360,
+          style: theme.textTheme.titleSmall?.copyWith(color: colors.onSurface),
+          icon: Icon(
+            Icons.unfold_more_rounded,
+            color: colors.primary,
+            size: 20,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: colors.primaryContainer.withValues(alpha: 0.22),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+            prefixIcon: Icon(icon, color: colors.primary, size: 20),
+            border: border,
+            enabledBorder: border,
+            focusedBorder: border.copyWith(
+              borderSide: BorderSide(color: colors.primary, width: 2),
+            ),
+          ),
+          items: items,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
 enum _EditorLspConfigAction { save, install, reset, uninstall }
 
 class _EditorLspConfigDialogResult {
@@ -155,15 +215,22 @@ extension on _SettingsViewState {
               zh: '代码编辑器会把 Tab 转换为空格，并按这个宽度进行整行缩进或反向缩进。',
               en: 'The code editor converts Tab into spaces and uses this width for both indentation and outdent operations.',
             ),
-            control: AnimatedDropdownButton<int>(
+            control: _EditorPreferenceDropdown<int>(
               value: settingsController.editorIndentSpaces,
-              underline: const SizedBox.shrink(),
-              borderRadius: kOpenHandBorderRadius16,
+              label: openHandLocalizedText(
+                context,
+                zh: 'Tab 等效空格数',
+                en: 'Tab Size',
+              ),
+              icon: Icons.format_indent_increase_rounded,
               items: editorIndentSpaceOptions
                   .map(
                     (spaces) => DropdownMenuItem<int>(
                       value: spaces,
-                      child: Text(_editorIndentSpacesLabel(context, spaces)),
+                      child: Text(
+                        _editorIndentSpacesLabel(context, spaces),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   )
                   .toList(growable: false),
@@ -194,10 +261,14 @@ extension on _SettingsViewState {
               zh: '切换代码编辑器的语法高亮配色主题。',
               en: 'Switch the syntax highlighting color theme of the code editor.',
             ),
-            control: AnimatedDropdownButton<EditorCodeTheme>(
+            control: _EditorPreferenceDropdown<EditorCodeTheme>(
               value: settingsController.editorCodeTheme,
-              underline: const SizedBox.shrink(),
-              borderRadius: kOpenHandBorderRadius16,
+              label: openHandLocalizedText(
+                context,
+                zh: '配色方案',
+                en: 'Color Scheme',
+              ),
+              icon: Icons.palette_outlined,
               items: EditorCodeTheme.values
                   .map((theme) {
                     final darkSurface =
@@ -209,7 +280,7 @@ extension on _SettingsViewState {
                     );
                     return DropdownMenuItem<EditorCodeTheme>(
                       value: theme,
-                      child: Text(label),
+                      child: Text(label, overflow: TextOverflow.ellipsis),
                     );
                   })
                   .toList(growable: false),

@@ -10,6 +10,10 @@ class _DataCleanupSection extends StatefulWidget {
 
 class _DataCleanupSectionState extends State<_DataCleanupSection> {
   static const int _maxConcurrentMeasurements = 3;
+  static const double _contentMaxHeight = 520;
+  static const double _contentViewportFraction = 0.55;
+
+  final ScrollController _scrollController = ScrollController();
 
   late final DataCleanupService _service;
   bool _serviceReady = false;
@@ -49,6 +53,12 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       }
       _measureAll();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _measureAll() async {
@@ -374,56 +384,111 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isMeasuring = _measuringCategories.isNotEmpty;
+    final canMeasure = !isMeasuring && _cleaningCategories.isEmpty;
     return _SettingsSubsectionCard(
       title: openHandLocalizedText(context, zh: '数据清理', en: 'Data Cleanup'),
       description: openHandLocalizedText(
         context,
-        zh:
-            '所有体积测算与文件删除都在后台 worker 线程中执行，不会阻塞主线程；'
-            '点击清理后将弹窗二次确认，确认操作不可撤销。',
-        en:
-            'Size measurement and file deletion run on background workers and '
-            'never block the UI thread. A confirmation dialog appears before '
-            'every cleanup; the action cannot be undone.',
+        zh: '测算和清理在后台执行。清理前需确认，确认后不可撤销。',
+        en: 'Measurement and cleanup run in the background. Cleanup requires confirmation and cannot be undone.',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final category in DataCleanupCategory.values) ...[
-            _DataCleanupRow(
-              icon: _categoryIcon(category),
-              title: _categoryTitle(context, category),
-              subtitle: _categorySubtitle(context, category),
-              report: _reports[category],
-              isMeasuring: _measuringCategories.contains(category),
-              isCleaning: _cleaningCategories.contains(category),
-              isDestructive: category == DataCleanupCategory.wipeAll,
-              breakdown: switch (category) {
-                DataCleanupCategory.multimedia => _buildMultimediaBreakdown(
-                  context,
-                ),
-                DataCleanupCategory.speechResources =>
-                  _buildSpeechResourcesBreakdown(context),
-                DataCleanupCategory.appCache => _buildAppCacheBreakdown(
-                  context,
-                ),
-                _ => null,
-              },
-              onClean: () => _onCleanPressed(category),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: math.min(
+                _contentMaxHeight,
+                MediaQuery.sizeOf(context).height * _contentViewportFraction,
+              ),
             ),
-            if (category != DataCleanupCategory.values.last)
-              const Divider(height: 24),
-          ],
-          kOpenHandGap16,
-          const _LedgerAdvancedControls(),
-          kOpenHandGap12,
+            child: PrimaryScrollController.none(
+              child: OpenHandSafeScrollbar(
+                controller: _scrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  primary: false,
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final category in DataCleanupCategory.values) ...[
+                        _DataCleanupRow(
+                          icon: _categoryIcon(category),
+                          title: _categoryTitle(context, category),
+                          subtitle: _categorySubtitle(context, category),
+                          report: _reports[category],
+                          isMeasuring: _measuringCategories.contains(category),
+                          isCleaning: _cleaningCategories.contains(category),
+                          isDestructive:
+                              category == DataCleanupCategory.wipeAll,
+                          breakdown: switch (category) {
+                            DataCleanupCategory.multimedia =>
+                              _buildMultimediaBreakdown(context),
+                            DataCleanupCategory.speechResources =>
+                              _buildSpeechResourcesBreakdown(context),
+                            DataCleanupCategory.appCache =>
+                              _buildAppCacheBreakdown(context),
+                            _ => null,
+                          },
+                          onClean: () => _onCleanPressed(category),
+                        ),
+                        if (category != DataCleanupCategory.values.last)
+                          const Divider(height: 24),
+                      ],
+                      kOpenHandGap16,
+                      const _LedgerAdvancedControls(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const Divider(height: 28),
           Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: _measuringCategories.isNotEmpty ? null : _measureAll,
-              icon: const Icon(Icons.refresh_outlined),
-              label: Text(
-                openHandLocalizedText(context, zh: '重新测算', en: 'Recalculate'),
+            alignment: Alignment.centerLeft,
+            child: MicroPressFeedback(
+              enabled: canMeasure,
+              child: FilledButton.tonalIcon(
+                onPressed: canMeasure ? _measureAll : null,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(144, 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  backgroundColor: colors.primaryContainer,
+                  foregroundColor: colors.onPrimaryContainer,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: kOpenHandBorderRadius16,
+                  ),
+                  textStyle: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                icon: isMeasuring
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 20),
+                label: Text(
+                  isMeasuring
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '测算中…',
+                          en: 'Measuring…',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: '重新测算',
+                          en: 'Recalculate',
+                        ),
+                ),
               ),
             ),
           ),
