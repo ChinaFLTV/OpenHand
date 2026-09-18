@@ -213,9 +213,26 @@ bool _prioritizeDingTalkQueuedResponse<T>(
 
 enum DingTalkConversationResponseState {
   idle,
+  queued,
   active,
   awaitingApproval,
-  failed,
+  failed;
+
+  /// 执行中的任务优先于同会话后续排队项；排队不代表已经占用响应任务。
+  static DingTalkConversationResponseState resolve({
+    required bool hasActiveResponse,
+    required bool hasPendingResponse,
+    required bool awaitingApproval,
+    required bool hasError,
+  }) {
+    if (awaitingApproval) {
+      return DingTalkConversationResponseState.awaitingApproval;
+    }
+    if (hasActiveResponse) return DingTalkConversationResponseState.active;
+    if (hasPendingResponse) return DingTalkConversationResponseState.queued;
+    if (hasError) return DingTalkConversationResponseState.failed;
+    return DingTalkConversationResponseState.idle;
+  }
 }
 
 enum DingTalkGatewayResourceCatalog {
@@ -529,16 +546,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (normalizedId.isEmpty) return DingTalkConversationResponseState.idle;
     final sessionId = _conversations[normalizedId]?.aiSessionId;
     final phase = _sessionController.sendPhaseForSession(sessionId);
-    if (phase == AiSendPhase.awaitingApproval) {
-      return DingTalkConversationResponseState.awaitingApproval;
-    }
-    if (isConversationResponding(normalizedId)) {
-      return DingTalkConversationResponseState.active;
-    }
-    if (_responseErrors[normalizedId]?.trim().isNotEmpty ?? false) {
-      return DingTalkConversationResponseState.failed;
-    }
-    return DingTalkConversationResponseState.idle;
+    return DingTalkConversationResponseState.resolve(
+      hasActiveResponse: _hasActiveConversationResponse(normalizedId),
+      hasPendingResponse: isConversationResponding(normalizedId),
+      awaitingApproval: phase == AiSendPhase.awaitingApproval,
+      hasError: _responseErrors[normalizedId]?.trim().isNotEmpty ?? false,
+    );
   }
 
   void clearResponseError(String conversationId) {
@@ -1241,15 +1254,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
   }
 
-  bool isConversationResponding(String conversationId) {
+  bool _hasActiveConversationResponse(String conversationId) {
     final conversation = _conversations[conversationId];
     final sessionId = conversation?.aiSessionId;
-    final hasActiveResponse =
-        _responseInFlight.contains(conversationId) ||
+    return _responseInFlight.contains(conversationId) ||
         _activeResponseConversationIds.contains(conversationId) ||
         (sessionId != null &&
             !_responseCancellationVersions.containsKey(conversationId) &&
             _sessionController.canStopResponding(sessionId));
+  }
+
+  /// 包含未暂停的排队任务，用于停止按钮和输入保护，不代表实际执行数量。
+  bool isConversationResponding(String conversationId) {
+    conversationId = conversationId.trim();
+    final hasActiveResponse = _hasActiveConversationResponse(conversationId);
     if (_pausedResponseQueueConversationIds.contains(conversationId)) {
       return hasActiveResponse;
     }
@@ -1295,6 +1313,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   String responseStatusText(String conversationId) {
     final normalizedId = conversationId.trim();
     if (normalizedId.isEmpty) return '正在响应…';
+    if (conversationResponseState(normalizedId) ==
+        DingTalkConversationResponseState.queued) {
+      return '等待中，正在排队…';
+    }
     if (_responsePreparingCounts.containsKey(normalizedId) &&
         !_responseInFlight.contains(normalizedId)) {
       return '正在准备消息上下文…';

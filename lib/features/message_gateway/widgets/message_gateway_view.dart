@@ -12718,10 +12718,15 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final telemetryDebugEnabled = context.select<SettingsController, bool>(
       (settings) => settings.telemetryDebugEnabled,
     );
-    final chipAnimationSettings = context
+    final chipPreference = context
         .select<SettingsController, DialogAnimationSettings>(
           (settings) => settings.chipAnimationSettings,
         );
+    final chipAnimationSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.chip,
+      override: chipPreference,
+    );
     final ttsSnapshot = _ttsPlaybackService.state.value;
     return ListenableBuilder(
       listenable: widget.controller,
@@ -13005,26 +13010,33 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                   ),
                                                   AnimatedSwitcher(
                                                     duration:
-                                                        openHandMotionDuration(
-                                                          context,
-                                                          kOpenHandMotion220,
+                                                        chipAnimationSettings
+                                                            .entranceDuration,
+                                                    reverseDuration:
+                                                        chipAnimationSettings
+                                                            .exitDuration,
+                                                    layoutBuilder:
+                                                        (
+                                                          current,
+                                                          previous,
+                                                        ) => buildCollisionSafeAnimatedSwitcherLayout(
+                                                          current,
+                                                          previous,
+                                                          alignment:
+                                                              AlignmentDirectional
+                                                                  .centerEnd,
                                                         ),
-                                                    switchInCurve:
-                                                        kOpenHandEntranceCurve,
-                                                    switchOutCurve:
-                                                        kOpenHandSwitchOutCurve,
                                                     transitionBuilder:
                                                         (
                                                           child,
                                                           animation,
-                                                        ) => FadeTransition(
-                                                          opacity: animation,
-                                                          child:
-                                                              ScaleTransition(
-                                                                scale:
-                                                                    animation,
-                                                                child: child,
-                                                              ),
+                                                        ) => buildAnimationStyleTransition(
+                                                          animation: animation,
+                                                          settings:
+                                                              chipAnimationSettings,
+                                                          profile:
+                                                              kOpenHandLayoutSafeTransitionProfile,
+                                                          child: child,
                                                         ),
                                                     child:
                                                         responseState ==
@@ -13868,6 +13880,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final responding = widget.controller.isConversationResponding(
       conversation.id,
     );
+    final waiting =
+        widget.controller.conversationResponseState(conversation.id) ==
+        DingTalkConversationResponseState.queued;
     return Row(
       key: ValueKey<String>(
         responding ? 'dingtalk-responding-composer' : 'dingtalk-text-composer',
@@ -13885,6 +13900,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             decoration: InputDecoration(
               hintText: _isEditingConversation(conversation)
                   ? '编辑当前钉钉消息内容'
+                  : waiting
+                  ? '正在排队等待，可暂停等待后输入'
                   : responding
                   ? '响应期间暂不可输入新消息'
                   : '以当前钉钉身份发送消息',
@@ -14941,6 +14958,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final responding = widget.controller.isConversationResponding(
       conversation.id,
     );
+    final waiting =
+        widget.controller.conversationResponseState(conversation.id) ==
+        DingTalkConversationResponseState.queued;
     final enabled =
         widget.controller.isServiceEnabled &&
         (responding || (!_attachmentBusy && !widget.controller.isSending));
@@ -14969,8 +14989,12 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         label: AnimatedSwitcher(
           duration: openHandMotionDuration(context, kOpenHandMotion180),
           child: Text(
-            responding ? '停止响应' : '普通发送',
-            key: ValueKey<bool>(responding),
+            waiting
+                ? '暂停等待'
+                : responding
+                ? '停止响应'
+                : '普通发送',
+            key: ValueKey((responding, waiting)),
           ),
         ),
       ),
@@ -16368,6 +16392,7 @@ class _DingTalkConversationStatusCapsule extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final foreground = switch (state) {
+      DingTalkConversationResponseState.queued => OpenHandStatusColors.warning,
       DingTalkConversationResponseState.awaitingApproval => _approvalColor,
       DingTalkConversationResponseState.failed => _failedColor,
       DingTalkConversationResponseState.active =>
@@ -16377,7 +16402,8 @@ class _DingTalkConversationStatusCapsule extends StatelessWidget {
     final label = switch (state) {
       DingTalkConversationResponseState.awaitingApproval => '等待审批',
       DingTalkConversationResponseState.failed => '执行失败',
-      DingTalkConversationResponseState.active => '进行中',
+      DingTalkConversationResponseState.queued => '等待中',
+      DingTalkConversationResponseState.active => '响应中',
       DingTalkConversationResponseState.idle => '',
     };
     final capsule = Container(
@@ -16413,7 +16439,10 @@ class _DingTalkConversationStatusCapsule extends StatelessWidget {
         ],
       ),
     );
-    if (state == DingTalkConversationResponseState.failed) return capsule;
+    if (state == DingTalkConversationResponseState.failed ||
+        state == DingTalkConversationResponseState.queued) {
+      return capsule;
+    }
     return ClipRRect(
       borderRadius: kOpenHandPillBorderRadius,
       child: OpenHandSweepShimmer(
