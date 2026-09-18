@@ -1783,3 +1783,31 @@ class AiSessionMessageResponseVariant {
     return List<String>.unmodifiable(ids);
   }
 }
+
+/// 仅将本轮成功下载的附件交付给最终回复；工具调用卡片不重复计入。
+List<AiMessageAttachment> collectAiDownloadedReplyAttachments(
+  List<AiSessionMessage> messages,
+) {
+  final start = messages.lastIndexWhere(
+    (message) =>
+        !message.isDeleted && message.kind == AiSessionMessageKind.user,
+  );
+  if (start < 0) return const [];
+  final result = <AiMessageAttachment>[];
+  final seen = <String>{};
+  for (final message in messages.skip(start + 1)) {
+    if (message.isDeleted ||
+        !message.kind.isToolResultKind ||
+        message.metadata['status'] != 'success') {
+      continue;
+    }
+    for (final attachment in AiMessageAttachment.listFromMetadata(
+      message.metadata[aiSessionDownloadedFilesMetadataKey],
+    )) {
+      if (!seen.add(attachment.storagePath)) continue;
+      result.add(attachment);
+      if (result.length == aiMessageAttachmentLimit) return result;
+    }
+  }
+  return result;
+}

@@ -221,6 +221,7 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.write => Icons.save_outlined,
       AiBuiltinToolKind.notebookEdit => Icons.book_outlined,
       AiBuiltinToolKind.webFetch => Icons.language_rounded,
+      AiBuiltinToolKind.downloadFile => Icons.download_rounded,
       AiBuiltinToolKind.todoWrite => Icons.checklist_rounded,
       AiBuiltinToolKind.webSearch => Icons.travel_explore_rounded,
       AiBuiltinToolKind.lsp => Icons.code_rounded,

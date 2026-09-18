@@ -44,6 +44,7 @@ import 'search/ai_tool_search_tool.dart';
 import 'skill/ai_skill_manager_tool.dart';
 import 'terminal/ai_machine_terminal_tools.dart';
 import 'voice/ai_end_voice_conversation_tool.dart';
+import 'web/ai_download_file_tool.dart';
 import 'web/ai_web_fetch_tool.dart';
 import 'web/ai_web_search_tool.dart';
 import 'workflow/ai_workflow_tools.dart';
@@ -126,6 +127,7 @@ class AiToolRegistry {
     required http.Client httpClient,
     required WebFetchScraplingBridge scraplingBridge,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
+    String Function(String sessionId)? downloadDirectoryProvider,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
     CronsControllerProvider? cronsControllerProvider,
@@ -194,6 +196,14 @@ class AiToolRegistry {
         httpClient: httpClient,
         scraplingBridge: scraplingBridge,
         hostLookup: hostLookup,
+      ),
+    );
+
+    registry.register(
+      AiDownloadFileTool(
+        httpClient: httpClient,
+        hostLookup: hostLookup,
+        directoryProvider: downloadDirectoryProvider,
       ),
     );
 

@@ -2424,6 +2424,8 @@ class DingTalkGatewayMessage {
 
   DingTalkGatewayMessage copyWith({
     String? id,
+    DingTalkGatewayMessageRole? role,
+    bool? failed,
     String? content,
     String? senderId,
     String? senderOpenDingTalkId,
@@ -2452,7 +2454,7 @@ class DingTalkGatewayMessage {
       id: id ?? this.id,
       conversationId: conversationId,
       conversationType: conversationType,
-      role: role,
+      role: role ?? this.role,
       content: content ?? this.content,
       createdAt: createdAt,
       senderName: senderName,
@@ -2467,7 +2469,7 @@ class DingTalkGatewayMessage {
       forwardedMessageCount:
           forwardedMessageCount ?? this.forwardedMessageCount,
       fromSelf: fromSelf ?? this.fromSelf,
-      failed: failed,
+      failed: failed ?? this.failed,
       mentionedCurrentUser: mentionedCurrentUser ?? this.mentionedCurrentUser,
       readByPeer: readByPeer ?? this.readByPeer,
       aiResponseState: aiResponseState ?? this.aiResponseState,

@@ -1756,8 +1756,12 @@ class _MessageBubbleState extends State<_MessageBubble>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (isUser && attachments.isNotEmpty)
-                _UserMessageAttachmentRail(attachments: attachments),
+              if ((isUser || message.kind == AiSessionMessageKind.assistant) &&
+                  attachments.isNotEmpty)
+                _MessageAttachmentRail(
+                  attachments: attachments,
+                  isUser: isUser,
+                ),
               bubbleShell,
             ],
           ),
@@ -1819,6 +1823,7 @@ const double _responseVariantChipHeight = 26;
 const double _responseVariantArrowWidth = 20;
 const double _responseVariantLabelMinWidth = 28;
 const double _userAttachmentThumbnailExtent = 156;
+const double _assistantAttachmentThumbnailExtent = 220;
 const double _userAttachmentGap = 8;
 const double _userAttachmentBottomSpacing = 10;
 const double _userAttachmentPillMaxWidth = 340;
@@ -6968,25 +6973,31 @@ class _MessageContextCapsule extends StatelessWidget {
   }
 }
 
-class _UserMessageAttachmentRail extends StatelessWidget {
-  const _UserMessageAttachmentRail({required this.attachments});
+class _MessageAttachmentRail extends StatelessWidget {
+  const _MessageAttachmentRail({
+    required this.attachments,
+    required this.isUser,
+  });
 
   final List<AiMessageAttachment> attachments;
+  final bool isUser;
 
   @override
   Widget build(BuildContext context) {
     return _ResponsiveMessageWidth(
-      kind: _MessageBubbleWidthKind.user,
-      alignment: Alignment.centerRight,
+      kind: isUser
+          ? _MessageBubbleWidthKind.user
+          : _MessageBubbleWidthKind.assistant,
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.only(bottom: _userAttachmentBottomSpacing),
         child: Wrap(
-          alignment: WrapAlignment.end,
+          alignment: isUser ? WrapAlignment.end : WrapAlignment.start,
           spacing: _userAttachmentGap,
           runSpacing: _userAttachmentGap,
           children: [
             for (final attachment in attachments)
-              _UserMessageAttachmentTile(attachment: attachment),
+              _MessageAttachmentTile(attachment: attachment, isUser: isUser),
           ],
         ),
       ),
@@ -6994,8 +7005,13 @@ class _UserMessageAttachmentRail extends StatelessWidget {
   }
 }
 
-class _UserMessageAttachmentTile extends StatelessWidget {
-  const _UserMessageAttachmentTile({required this.attachment});
+class _MessageAttachmentTile extends StatelessWidget {
+  const _MessageAttachmentTile({
+    required this.attachment,
+    required this.isUser,
+  });
+
+  final bool isUser;
 
   final AiMessageAttachment attachment;
 
@@ -7017,7 +7033,9 @@ class _UserMessageAttachmentTile extends StatelessWidget {
 
     final child = attachment.isImage
         ? SizedBox.square(
-            dimension: _userAttachmentThumbnailExtent,
+            dimension: isUser
+                ? _userAttachmentThumbnailExtent
+                : _assistantAttachmentThumbnailExtent,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -7033,11 +7051,14 @@ class _UserMessageAttachmentTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                Image.file(
-                  File(attachment.storagePath),
-                  cacheWidth: 320,
-                  cacheHeight: 320,
-                  fit: BoxFit.cover,
+                Image(
+                  image: ResizeImage(
+                    FileImage(File(attachment.storagePath)),
+                    width: isUser ? 320 : 640,
+                    height: isUser ? 320 : 640,
+                    policy: ResizeImagePolicy.fit,
+                  ),
+                  fit: isUser ? BoxFit.cover : BoxFit.contain,
                   gaplessPlayback: true,
                   excludeFromSemantics: true,
                   frameBuilder: openHandCompactImageRevealFrameBuilder,

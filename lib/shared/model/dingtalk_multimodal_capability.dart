@@ -5,6 +5,14 @@ final RegExp _dingTalkMediaGenerationActionPattern = RegExp(
   '(?:生成|制作|创作|绘制|画(?:一|个|张|幅)|合成|创建|做(?:一|个|张|段|首)?|来(?:一|个|张|段|首)|写(?:一|段|首)|generate|create|make|draw|compose|synthesize)',
   caseSensitive: false,
 );
+final RegExp _dingTalkExistingMediaPattern = RegExp(
+  r'(?:搜索|搜一下|搜一张|找一|找张|网上|网络上|现成|下载|直链|https?://|\b(?:search|find|download|online)\b)',
+  caseSensitive: false,
+);
+final RegExp _dingTalkExplicitGenerationPattern = RegExp(
+  r'(?:生成|制作|创作|绘制|合成|创建|\b(?:generate|create|make|draw|compose|synthesize)\b)',
+  caseSensitive: false,
+);
 final RegExp _dingTalkMediaGenerationQuestionPattern = RegExp(
   r'(?:如何|怎么|怎样|为何|为什么|是否支持|能否|可否|可以吗|能不能|支不支持|教程|方法)|\b(?:how|why|can|could|would|does|is)\b',
   caseSensitive: false,
@@ -77,7 +85,9 @@ AiDingTalkMultimodalCapability? detectDingTalkMultimodalGenerationRequest(
   if (text.isEmpty ||
       !_dingTalkMediaGenerationActionPattern.hasMatch(text) ||
       _dingTalkMediaGenerationQuestionPattern.hasMatch(text) ||
-      _dingTalkMediaGenerationNegationPattern.hasMatch(text)) {
+      _dingTalkMediaGenerationNegationPattern.hasMatch(text) ||
+      _dingTalkExistingMediaPattern.hasMatch(text) &&
+          !_dingTalkExplicitGenerationPattern.hasMatch(text)) {
     return null;
   }
   final matched = <AiDingTalkMultimodalCapability>[

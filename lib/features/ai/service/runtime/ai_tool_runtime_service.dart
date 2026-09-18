@@ -257,6 +257,7 @@ enum AiBuiltinToolKind {
   dingtalkImageGeneration,
   dingtalkVideoGeneration,
   dingtalkAudioGeneration,
+  downloadFile,
 }
 
 class AiToolExecutionResult {
@@ -400,6 +401,7 @@ class AiToolRuntimeService {
     List<AiModelConfig> Function()? aiModelsProvider,
     MachineTerminalService? machineTerminalService,
     this._toolOutputDirectoryProvider,
+    String Function(String sessionId)? downloadDirectoryProvider,
     this._subToolExecutionObserver,
   }) : _httpClient =
            httpClient ?? SystemProxyResolver.instance.createHttpClient(),
@@ -416,6 +418,7 @@ class AiToolRuntimeService {
       httpClient: _httpClient,
       scraplingBridge: _scraplingBridge,
       hostLookup: _hostLookup,
+      downloadDirectoryProvider: downloadDirectoryProvider,
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
       cronsControllerProvider: cronsControllerProvider,
@@ -429,6 +432,7 @@ class AiToolRuntimeService {
   static const Set<AiBuiltinToolKind> _nonRetryableSideEffectBuiltinKinds =
       <AiBuiltinToolKind>{
         AiBuiltinToolKind.task,
+        AiBuiltinToolKind.downloadFile,
         AiBuiltinToolKind.bash,
         AiBuiltinToolKind.bashBackground,
         AiBuiltinToolKind.taskOutput,
@@ -2628,6 +2632,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.write => 'Write',
       AiBuiltinToolKind.notebookEdit => 'NotebookEdit',
       AiBuiltinToolKind.webFetch => 'WebFetch',
+      AiBuiltinToolKind.downloadFile => 'DownloadFile',
       AiBuiltinToolKind.todoWrite => 'TodoWrite',
       AiBuiltinToolKind.webSearch => 'WebSearch',
       AiBuiltinToolKind.lsp => 'LSP',
@@ -4654,6 +4659,32 @@ class AiToolRuntimeService {
             'required': <String>['around_chunk_id'],
           },
         ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.downloadFile,
+      name: 'DownloadFile',
+      description:
+          '下载公开 HTTP(S) 直链原始文件到当前会话附件目录。先用 WebSearch/WebFetch 查找实际图片、视频、音频或文档直链，不接受网页。'
+          'attach_to_reply 默认 true，最终回复自动附带文件，仅简短说明，不重复本地链接或路径。中间文件设 false；本工具自身不向外发送消息。',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'url': <String, Object?>{
+            'type': 'string',
+            'description': '文件的 HTTP(S) 直链。',
+          },
+          'attach_to_reply': <String, Object?>{
+            'type': 'boolean',
+            'description': '默认 true；仅作中间资料、不交付用户时设为 false。',
+          },
+          'filename': <String, Object?>{
+            'type': 'string',
+            'description': '可选文件名，默认从响应头或链接提取。',
+          },
+        },
+        'required': <String>['url'],
         'additionalProperties': false,
       },
     ),

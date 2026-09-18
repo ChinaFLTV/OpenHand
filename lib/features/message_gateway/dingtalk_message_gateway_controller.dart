@@ -375,7 +375,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const String _forcedResponseReminder =
       '钉钉网关规则：回复本轮最后一条有效消息；此前消息仅作上下文。直接输出一条适合发送的回复。';
   static const String _responseCompletionReminder =
-      '钉钉回复必须完整、可直接发送。若声明查询、调用、重试或继续，立即完成对应动作；不得以冒号、半句或未闭合结构结束。';
+      '钉钉回复必须完整、可直接发送；若声明查询或调用，立即完成对应动作。'
+      '网上现有资源先查找直链，再用 DownloadFile 下载；附件由网关交付，不重复发送或输出本地路径。';
   static const String _overloadBusyReply = 'AI 当前较忙，请稍后再试。';
   static const String _responseFailureReply = 'AI 响应失败，请稍后重试。';
   static const String _responseTimeoutReply = 'AI 响应超时，已停止本次请求，请稍后重试。';
@@ -5029,7 +5030,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           .map((message) => message.sourceAiMessageId.trim())
           .where((id) => id.isNotEmpty)
           .toSet();
-      final echoCoordinator = _DingTalkEchoCoordinator(
+      late final _DingTalkEchoCoordinator echoCoordinator;
+      echoCoordinator = _DingTalkEchoCoordinator(
         responseRoundId: responseRoundId,
         deliveredSourceMessageIds: deliveredSourceMessageIds,
         requiredToolGroups: echoRequiredToolGroups,
@@ -5063,6 +5065,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           type: type,
           text: text,
           uuid: uuid,
+          cancelSignal: echoCoordinator.cancelSignal,
         ),
         edit: (sourceMessageId, messageId, text) => _editDingTalkEcho(
           conversation: conversation,
@@ -5290,9 +5293,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             }
             try {
               await deadline.wait(
-                () => echoCoordinator.flush().timeout(
-                  const Duration(seconds: 45),
-                ),
+                () =>
+                    session != null &&
+                        collectAiDownloadedReplyAttachments(
+                          session.messages,
+                        ).isNotEmpty
+                    ? echoCoordinator.flush()
+                    : echoCoordinator.flush().timeout(
+                        const Duration(seconds: 45),
+                      ),
               );
             } on TimeoutException {
               if (deadline.timedOut) rethrow;
@@ -5574,20 +5583,28 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     List<AiSessionMessage> sessionMessages,
   ) {
     if (message.isDeleted) return null;
-    if (message.metadata[assistantResponseContinuationMetadataKey] == true ||
-        message.kind == AiSessionMessageKind.assistant &&
-            assistantResponseNeedsContinuation(message.content)) {
+    final hasDownloads =
+        message.metadata[aiSessionDownloadedReplyMetadataKey] == true;
+    if (!hasDownloads &&
+        (message.metadata[assistantResponseContinuationMetadataKey] == true ||
+            message.kind == AiSessionMessageKind.assistant &&
+                assistantResponseNeedsContinuation(message.content))) {
       return null;
     }
     if (_isToolEchoArtifact(message)) return null;
-    if (message.kind == AiSessionMessageKind.assistant &&
+    if (!hasDownloads &&
+        message.kind == AiSessionMessageKind.assistant &&
         isDingTalkMediaInvocationPreamble(message.content)) {
       return null;
     }
     final isToolMessage =
         message.kind == AiSessionMessageKind.toolCall ||
         message.kind == AiSessionMessageKind.hook;
-    if (!isToolMessage && message.content.trim().isEmpty) return null;
+    if (!isToolMessage &&
+        message.content.trim().isEmpty &&
+        message.metadata[aiSessionDownloadedReplyMetadataKey] != true) {
+      return null;
+    }
     if (message.metadata[aiSessionGoalEvaluationMessageMetadataKey] == true) {
       return null;
     }
@@ -5595,9 +5612,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       AiSessionMessageKind.reasoning => DingTalkResponseEchoType.thinking,
       AiSessionMessageKind.status => DingTalkResponseEchoType.process,
       AiSessionMessageKind.assistant =>
-        _isIntermediateAssistantMessage(message, sessionMessages)
-            ? DingTalkResponseEchoType.process
-            : DingTalkResponseEchoType.finalResponse,
+        hasDownloads ||
+                !_isIntermediateAssistantMessage(message, sessionMessages)
+            ? DingTalkResponseEchoType.finalResponse
+            : DingTalkResponseEchoType.process,
       AiSessionMessageKind.toolCall ||
       AiSessionMessageKind.hook => DingTalkResponseEchoType.toolCall,
       _ => null,
@@ -5654,6 +5672,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     required String text,
     required String uuid,
     bool respectEchoTypeSettings = true,
+    Future<void>? cancelSignal,
   }) async {
     if (!isServiceEnabled ||
         !identical(_conversations[conversation.id], conversation)) {
@@ -5669,8 +5688,23 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         (isToolSource && type != DingTalkResponseEchoType.toolCall)) {
       return null;
     }
-    final completeText = _sanitizeDingTalkVisibleText(text).trim();
-    if (completeText.isEmpty) return null;
+    final hasDownloads =
+        source.metadata[aiSessionDownloadedReplyMetadataKey] == true;
+    final completeText = _sanitizeDingTalkVisibleText(
+      hasDownloads ? source.content : text,
+    ).trim();
+    DingTalkSentMessage? fileSent;
+    if (type == DingTalkResponseEchoType.finalResponse && hasDownloads) {
+      fileSent = await _sendDingTalkDownloadedFiles(
+        conversation,
+        source,
+        cancelSignal: cancelSignal,
+      );
+      if (await isCancelSignalCompleted(cancelSignal) || !isServiceEnabled) {
+        return fileSent;
+      }
+    }
+    if (completeText.isEmpty) return fileSent;
     final remoteText = _dingTalkRemoteEchoText(completeText);
     _rememberOutgoingEchoContent(source.id, remoteText);
     final sentAt = DateTime.now();
@@ -5744,6 +5778,92 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       conversationId: sent?.conversationId,
       taskId: taskId.isEmpty ? null : taskId,
     );
+  }
+
+  Future<DingTalkSentMessage?> _sendDingTalkDownloadedFiles(
+    DingTalkConversation conversation,
+    AiSessionMessage source, {
+    Future<void>? cancelSignal,
+  }) async {
+    final cancellation = Completer<void>();
+    _activeMediaGenerationCancellations[conversation.id] = cancellation;
+    final combinedCancel = combineCancelSignals([
+      cancelSignal,
+      cancellation.future,
+    ]);
+    try {
+      final attachments = AiMessageAttachment.listFromMetadata(
+        source.metadata[aiSessionMessageAttachmentsMetadataKey],
+      );
+      final root = p.join(
+        _sessionController.sessionsDirectoryPath,
+        conversation.aiSessionId ?? '',
+        'attachments',
+      );
+      DingTalkSentMessage? lastSent;
+      for (final attachment in attachments) {
+        if (!isServiceEnabled ||
+            !identical(_conversations[conversation.id], conversation) ||
+            await isCancelSignalCompleted(combinedCancel)) {
+          throw StateError('钉钉附件发送已取消。');
+        }
+        final path = attachment.storagePath;
+        if (conversation.messages.any(
+          (message) =>
+              message.isAssistant &&
+              !message.failed &&
+              message.media.any((media) => media.localPath == path),
+        )) {
+          continue;
+        }
+        final size = await _validatedDingTalkMediaFileSize(
+          path,
+          allowedRoot: root,
+          maxBytes: kDingTalkMessageAttachmentMaxBytes,
+        );
+        if (size == null) throw StateError('下载附件已丢失或不可发送：${attachment.name}。');
+        final local = _localFileMessage(
+          conversation,
+          path: path,
+          name: attachment.name,
+          kind: DingTalkMediaKindX.fromFileName(attachment.name),
+          sizeBytes: size,
+        ).copyWith(role: DingTalkGatewayMessageRole.assistant);
+        _rememberUnresolvedOutgoingMessage(local.id);
+        _appendMessage(conversation, local);
+        _notify();
+        try {
+          lastSent = await _service.sendFileWithDetails(
+            conversation: conversation,
+            filePath: path,
+            uuid: _uuid.v4(),
+            cancelSignal: combinedCancel,
+          );
+          _rememberRemoteConversationId(conversation, lastSent?.conversationId);
+          _bindSentMessageId(conversation, local, lastSent?.messageId);
+        } catch (_) {
+          final index = conversation.messages.indexWhere(
+            (message) => message.id == local.id,
+          );
+          if (index >= 0) {
+            conversation.messages[index] = local.copyWith(failed: true);
+          }
+          _unresolvedOutgoingMessageIds.remove(local.id);
+          _queuePersist();
+          _notify();
+          rethrow;
+        }
+      }
+      return lastSent;
+    } finally {
+      if (!cancellation.isCompleted) cancellation.complete();
+      if (identical(
+        _activeMediaGenerationCancellations[conversation.id],
+        cancellation,
+      )) {
+        _activeMediaGenerationCancellations.remove(conversation.id);
+      }
+    }
   }
 
   Future<DingTalkSentMessage?> _sendDingTalkTextWithResolvedId({
@@ -6022,6 +6142,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return _formatDingTalkToolEcho(message, sessionMessages);
     }
     final content = _sanitizeDingTalkVisibleText(message.content).trim();
+    if (content.isEmpty &&
+        message.metadata[aiSessionDownloadedReplyMetadataKey] == true) {
+      return AiMessageAttachment.listFromMetadata(
+        message.metadata[aiSessionMessageAttachmentsMetadataKey],
+      ).map((item) => '[文件] ${item.name}').join('\n');
+    }
     return message.kind == AiSessionMessageKind.reasoning
         ? wrapDingTalkThinkingMarkdown(content)
         : content;
@@ -7918,6 +8044,8 @@ class _DingTalkEchoCoordinator {
   DateTime? _scheduledAt;
   Future<void>? _activeDrain;
   bool _disposed = false;
+  final _cancellation = Completer<void>();
+  Future<void> get cancelSignal => _cancellation.future;
   final Set<String> _deliveryFailures = <String>{};
 
   bool get hasDeliveryFailure => _deliveryFailures.isNotEmpty;
@@ -7937,6 +8065,9 @@ class _DingTalkEchoCoordinator {
     );
     if (roundStartIndex < 0) return;
     final roundStartedAt = session.messages[roundStartIndex].createdAt;
+    final hasDownloadedFiles = collectAiDownloadedReplyAttachments(
+      session.messages,
+    ).isNotEmpty;
     final now = DateTime.now();
     var hasPriorRequiredToolActivity = false;
     final invokedToolNames = <String>{};
@@ -7970,7 +8101,10 @@ class _DingTalkEchoCoordinator {
           _requiredToolGroups.isNotEmpty &&
           !followsRequiredToolActivity;
       final waitsForCompleteContent =
-          _outputEffect == DingTalkMessageOutputEffect.allAtOnce && !terminal;
+          _outputEffect == DingTalkMessageOutputEffect.allAtOnce && !terminal ||
+          hasDownloadedFiles &&
+              resolvedType == DingTalkResponseEchoType.finalResponse &&
+              !finalizing;
       if (state == null &&
           !finalizing &&
           (waitsForRequiredTool || waitsForCompleteContent)) {
@@ -8301,7 +8435,8 @@ class _DingTalkEchoCoordinator {
 
   /// 上游仅在结束前吐出可见正文时，仍分段发送终态，保证钉钉侧真实产生编辑记录。
   List<String>? _fallbackTypewriterFrames(_PendingDingTalkEcho pending) {
-    if (_outputEffect != DingTalkMessageOutputEffect.typewriter ||
+    if (pending.source.metadata[aiSessionDownloadedReplyMetadataKey] == true ||
+        _outputEffect != DingTalkMessageOutputEffect.typewriter ||
         pending.type != DingTalkResponseEchoType.finalResponse ||
         !pending.finalizing ||
         !pending.terminal) {
@@ -8383,6 +8518,7 @@ class _DingTalkEchoCoordinator {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    if (!_cancellation.isCompleted) _cancellation.complete();
     _cancelScheduledDrain();
     for (final sourceId in _states.keys) {
       _markStreaming(sourceId, false);

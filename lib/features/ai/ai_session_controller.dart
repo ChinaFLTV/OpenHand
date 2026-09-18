@@ -430,6 +430,8 @@ class AiSessionController extends ChangeNotifier {
             machineTerminalService: machineTerminalService,
             toolOutputDirectoryProvider:
                 resolvedStore.sessionToolResultsDirectoryPath,
+            downloadDirectoryProvider:
+                resolvedStore.perSessionAttachmentsDirectoryPath,
           );
       initializedToolRuntimeService = resolvedToolRuntimeService;
       resolvedToolRuntimeService.configureSubToolExecutionObserver((
@@ -7793,10 +7795,27 @@ class AiSessionController extends ChangeNotifier {
 
       AiSession syncFinalAssistantMessage(
         AiSession session,
-        String finalReply,
-      ) {
-        final sanitizedContent = _sanitizeVisibleModelContent(finalReply);
-        if (sanitizedContent.isEmpty && assistantMessageId == null) {
+        String finalReply, {
+        bool attachDownloads = false,
+      }) {
+        final sanitizedReply = _sanitizeVisibleModelContent(finalReply);
+        final downloadedFiles = attachDownloads
+            ? collectAiDownloadedReplyAttachments(session.messages)
+            : const <AiMessageAttachment>[];
+        final sanitizedContent = stripAiReplyAttachmentLinks(
+          sanitizedReply,
+          downloadedFiles,
+        );
+        final attachmentMetadata = downloadedFiles.isEmpty
+            ? const <String, Object?>{}
+            : <String, Object?>{
+                aiSessionDownloadedReplyMetadataKey: true,
+                aiSessionMessageAttachmentsMetadataKey:
+                    AiMessageAttachment.listToMetadata(downloadedFiles),
+              };
+        if (sanitizedContent.isEmpty &&
+            assistantMessageId == null &&
+            downloadedFiles.isEmpty) {
           return session;
         }
         final resolvedMessageId = assistantMessageId ?? _idGenerator();
@@ -7816,18 +7835,20 @@ class AiSessionController extends ChangeNotifier {
             metadata: <String, Object?>{
               aiSessionMessageMetadataStreamingKey: false,
               aiSessionMessageContentFormatKey: contentFormatKey,
+              ...attachmentMetadata,
             },
           ),
           update: (message) => message.copyWith(
-            content: sanitizedContent.isEmpty
-                ? message.content
-                : sanitizedContent,
+            content: downloadedFiles.isNotEmpty || sanitizedContent.isNotEmpty
+                ? sanitizedContent
+                : message.content,
             modelId: model.id,
             modelLabel: model.displayName,
             metadata: <String, Object?>{
               ...message.metadata,
               aiSessionMessageMetadataStreamingKey: false,
               aiSessionMessageContentFormatKey: contentFormatKey,
+              ...attachmentMetadata,
             },
           ),
         );
@@ -8770,7 +8791,13 @@ class AiSessionController extends ChangeNotifier {
       final shouldPersistIntermediateAssistantNarration =
           hasMeaningfulNarration ||
           didCancelStream ||
-          imageSummaries.isNotEmpty;
+          imageSummaries.isNotEmpty ||
+          !didCancelStream &&
+              result.toolCalls.isEmpty &&
+              !result.wasTruncated &&
+              collectAiDownloadedReplyAttachments(
+                streamedSession.messages,
+              ).isNotEmpty;
       if (shouldPersistIntermediateAssistantNarration) {
         // 提取图片摘要并回写对应附件，再保存清理后的助手正文。
         if (imageSummaries.isNotEmpty) {
@@ -8782,6 +8809,10 @@ class AiSessionController extends ChangeNotifier {
         streamedSession = syncFinalAssistantMessage(
           streamedSession,
           sanitizedReply,
+          attachDownloads:
+              !didCancelStream &&
+              result.toolCalls.isEmpty &&
+              !result.wasTruncated,
         );
       } else {
         // 仅删除清理后确实为空的中间消息。
@@ -8962,12 +8993,18 @@ class AiSessionController extends ChangeNotifier {
       }
 
       final sanitizedFinalReply = _sanitizeVisibleModelContent(result.reply);
-      if (_shouldFailEmptyPlanContinuationReply(
-        session: workingSession,
-        toolRoundCount: toolRoundCount,
-        finalReply: sanitizedFinalReply,
-        hasToolCalls: result.toolCalls.isNotEmpty,
-      )) {
+      final hasDownloadedReply = workingSession.messages.any(
+        (message) =>
+            message.id == assistantMessageId &&
+            message.metadata[aiSessionDownloadedReplyMetadataKey] == true,
+      );
+      if (!hasDownloadedReply &&
+          _shouldFailEmptyPlanContinuationReply(
+            session: workingSession,
+            toolRoundCount: toolRoundCount,
+            finalReply: sanitizedFinalReply,
+            hasToolCalls: result.toolCalls.isNotEmpty,
+          )) {
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: 'chat_continuation_request',
@@ -9016,6 +9053,7 @@ class AiSessionController extends ChangeNotifier {
 
       if (result.toolCalls.isEmpty) {
         if (isDingTalkGatewayResponse &&
+            !hasDownloadedReply &&
             !result.wasTruncated &&
             !didCancelStream &&
             !workingSession.awaitingPlanApproval &&
@@ -10037,6 +10075,7 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.grep:
       case AiBuiltinToolKind.webFetch:
       case AiBuiltinToolKind.webSearch:
+      case AiBuiltinToolKind.downloadFile:
       case AiBuiltinToolKind.lsp:
       case AiBuiltinToolKind.codebaseSearch:
       case AiBuiltinToolKind.git:

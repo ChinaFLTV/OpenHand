@@ -30,6 +30,43 @@ enum AiAttachmentKind {
 }
 
 const String aiSessionMessageAttachmentsMetadataKey = 'attachments';
+const String aiSessionDownloadedFilesMetadataKey = 'downloaded_files';
+const String aiSessionDownloadedReplyMetadataKey = 'downloaded_reply';
+
+/// 附件由消息卡片展示，移除正文中指向相同本地文件的重复引用。
+String stripAiReplyAttachmentLinks(
+  String content,
+  List<AiMessageAttachment> attachments,
+) {
+  if (attachments.isEmpty || content.isEmpty) return content;
+  final targets = <String>{
+    for (final attachment in attachments) ...[
+      attachment.storagePath,
+      Uri.file(attachment.storagePath).toString(),
+    ],
+  };
+  final targetPattern = targets
+      .expand((target) => [target, Uri.encodeFull(target)])
+      .toSet()
+      .map(RegExp.escape)
+      .join('|');
+  return content
+      .replaceAll(
+        RegExp(
+          '!?\\[[^\\]\\r\\n]*\\]\\(<?(?:$targetPattern)>?(?:[ \t]+["\'][^"\']*["\'])?\\)',
+        ),
+        '',
+      )
+      .replaceAll(
+        RegExp(
+          '<(?:img|audio|video)\\b[^>]*\\bsrc\\s*=\\s*["\'](?:$targetPattern)["\'][^>]*>(?:\\s*</(?:audio|video)>)?',
+          caseSensitive: false,
+        ),
+        '',
+      )
+      .trim();
+}
+
 const int aiMessageAttachmentLimit = 20;
 const int aiMessageAttachmentMaxIdCharacters = 256;
 const int aiMessageAttachmentMaxNameCharacters = 512;

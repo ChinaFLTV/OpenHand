@@ -62,6 +62,7 @@ HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.machineTerminalExec ||
     AiBuiltinToolKind.machineTerminalControl => HarnessToolCategory.shell,
     AiBuiltinToolKind.git => HarnessToolCategory.vcs,
+    AiBuiltinToolKind.downloadFile ||
     AiBuiltinToolKind.webFetch ||
     AiBuiltinToolKind.webSearch => HarnessToolCategory.web,
     AiBuiltinToolKind.lsp ||

@@ -138,7 +138,8 @@ class AiBuiltinToolConfig {
   static int defaultTimeoutSecondsFor(AiBuiltinToolKind kind) {
     return switch (kind) {
       AiBuiltinToolKind.webFetch ||
-      AiBuiltinToolKind.webSearch => defaultNetworkTimeoutSeconds,
+      AiBuiltinToolKind.webSearch ||
+      AiBuiltinToolKind.downloadFile => defaultNetworkTimeoutSeconds,
       _ => defaultTimeoutSeconds,
     };
   }
@@ -525,7 +526,9 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.write ||
       AiBuiltinToolKind.notebookEdit ||
       AiBuiltinToolKind.deleteFile => 40,
-      AiBuiltinToolKind.webSearch || AiBuiltinToolKind.webFetch => 60,
+      AiBuiltinToolKind.webSearch ||
+      AiBuiltinToolKind.webFetch ||
+      AiBuiltinToolKind.downloadFile => 60,
       AiBuiltinToolKind.knowledgeSearch ||
       AiBuiltinToolKind.knowledgeRead => 65,
       AiBuiltinToolKind.workflowList ||
@@ -581,6 +584,7 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.askUserChoice => 51,
       AiBuiltinToolKind.webSearch => 60,
       AiBuiltinToolKind.webFetch => 61,
+      AiBuiltinToolKind.downloadFile => 62,
       AiBuiltinToolKind.knowledgeSearch => 70,
       AiBuiltinToolKind.knowledgeRead => 71,
       AiBuiltinToolKind.workflowList => 74,
@@ -645,6 +649,7 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.write:
       case AiBuiltinToolKind.notebookEdit:
       case AiBuiltinToolKind.webFetch:
+      case AiBuiltinToolKind.downloadFile:
       case AiBuiltinToolKind.webSearch:
       case AiBuiltinToolKind.lsp:
       case AiBuiltinToolKind.codebaseSearch:
