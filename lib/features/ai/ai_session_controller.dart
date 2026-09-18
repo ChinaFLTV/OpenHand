@@ -42,6 +42,7 @@ import '../machine_terminal/index.dart';
 import '../mcp/index.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
+import 'model/ai_attachment_context.dart';
 import 'model/ai_auto_title_fetch_mode.dart';
 import 'model/ai_context_usage.dart';
 import 'model/ai_creation_mode.dart';
@@ -4714,19 +4715,22 @@ class AiSessionController extends ChangeNotifier {
         sourceSessionId: sourceSessionId,
         forkedMessageIdBySourceId: forkedMessageIdBySourceId,
       );
-      final attachments = AiMessageAttachment.listFromMetadata(
-        metadata[aiSessionMessageAttachmentsMetadataKey],
-      );
-      if (attachments.isNotEmpty) {
-        final copiedAttachments = await _attachmentService
-            .copyAttachmentsForFork(
-              targetSessionId: targetSessionId,
-              targetMessageId: forkedMessageId,
-              attachments: attachments,
-              idGenerator: _idGenerator,
-            );
-        metadata[aiSessionMessageAttachmentsMetadataKey] =
-            AiMessageAttachment.listToMetadata(copiedAttachments);
+      for (final attachmentKey in aiAttachmentMetadataKeys) {
+        final attachments = AiMessageAttachment.listFromMetadata(
+          metadata[attachmentKey],
+        );
+        if (attachments.isNotEmpty) {
+          final copiedAttachments = await _attachmentService
+              .copyAttachmentsForFork(
+                targetSessionId: targetSessionId,
+                targetMessageId: forkedMessageId,
+                attachments: attachments,
+                idGenerator: _idGenerator,
+              );
+          metadata[attachmentKey] = AiMessageAttachment.listToMetadata(
+            copiedAttachments,
+          );
+        }
       }
       await _copyPersistedToolOutputForFork(
         metadata,
@@ -6369,6 +6373,7 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionRuntimeContext runtimeContext,
     Map<String, int> callerPreflightTimingsMs = const <String, int>{},
     List<String> attachmentFilePaths = const <String>[],
+    AiAttachmentContextInput? attachmentContext,
     List<String> responseModalities = const <String>[],
     AiCreationRequest creationRequest = AiCreationRequest.none,
     List<AiDenyCommandRule> denyCommandRules = const <AiDenyCommandRule>[],
@@ -6415,6 +6420,7 @@ class AiSessionController extends ChangeNotifier {
         runtimeContext: runtimeContext,
         callerPreflightTimingsMs: callerPreflightTimingsMs,
         attachmentFilePaths: attachmentFilePaths,
+        attachmentContext: attachmentContext,
         responseModalities: responseModalities,
         creationRequest: creationRequest,
         denyCommandRules: denyCommandRules,
@@ -6439,6 +6445,7 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionRuntimeContext runtimeContext,
     Map<String, int> callerPreflightTimingsMs = const <String, int>{},
     List<String> attachmentFilePaths = const <String>[],
+    AiAttachmentContextInput? attachmentContext,
     List<String> responseModalities = const <String>[],
     AiCreationRequest creationRequest = AiCreationRequest.none,
     List<AiDenyCommandRule> denyCommandRules = const <AiDenyCommandRule>[],
@@ -6458,7 +6465,10 @@ class AiSessionController extends ChangeNotifier {
     final normalizedAttachmentPaths = _normalizeAttachmentPaths(
       attachmentFilePaths,
     );
-    if (normalizedContent.isEmpty && normalizedAttachmentPaths.isEmpty) {
+    if (normalizedContent.isEmpty &&
+        normalizedAttachmentPaths.isEmpty &&
+        (attachmentContext?.current.isEmpty ?? true) &&
+        (attachmentContext?.history.isEmpty ?? true)) {
       return false;
     }
     final resolvedSessionId = sessionId ?? _currentSessionId;
@@ -6779,6 +6789,7 @@ class AiSessionController extends ChangeNotifier {
             model: model,
             runtimeContext: runtimeContext,
             attachmentFilePaths: normalizedAttachmentPaths,
+            attachmentContext: attachmentContext,
             userMessageMetadata: nextUserMessageMetadata,
           );
           sendPreflightTimingsMs['prepare_user_turn'] =
@@ -6838,6 +6849,7 @@ class AiSessionController extends ChangeNotifier {
             model: model,
             runtimeContext: runtimeContext,
             attachmentFilePaths: normalizedAttachmentPaths,
+            attachmentContext: attachmentContext,
             userMessageMetadata: nextUserMessageMetadata,
           );
           sendPreflightTimingsMs['prepare_user_turn'] =
@@ -11623,6 +11635,7 @@ $tail''';
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     List<String> attachmentFilePaths = const <String>[],
+    AiAttachmentContextInput? attachmentContext,
     Map<String, Object?> userMessageMetadata = const <String, Object?>{},
   }) async {
     final now = _clock().toUtc();
@@ -11703,19 +11716,39 @@ $tail''';
     }
 
     final userMessageId = _idGenerator();
-    final attachments = await _attachmentService.importAttachments(
-      sessionId: session.id,
-      messageId: userMessageId,
-      filePaths: attachmentFilePaths,
-      idGenerator: _idGenerator,
-      imageSizeLimitBytes: runtimeContext.imageSizeLimitBytes,
-    );
-    final attachmentMetadata = attachments.isEmpty
-        ? const <String, Object?>{}
-        : <String, Object?>{
-            aiSessionMessageAttachmentsMetadataKey:
-                AiMessageAttachment.listToMetadata(attachments),
-          };
+    final contextAttachments = attachmentContext == null
+        ? null
+        : await _attachmentService.importContextAttachments(
+            sessionId: session.id,
+            messageId: userMessageId,
+            context: attachmentContext,
+            reusableAttachments: session.messages.expand(
+              (message) => aiAttachmentMetadataKeys.expand(
+                (key) =>
+                    AiMessageAttachment.listFromMetadata(message.metadata[key]),
+              ),
+            ),
+            idGenerator: _idGenerator,
+            imageSizeLimitBytes: runtimeContext.imageSizeLimitBytes,
+          );
+    final attachments =
+        contextAttachments?.current ??
+        await _attachmentService.importAttachments(
+          sessionId: session.id,
+          messageId: userMessageId,
+          filePaths: attachmentFilePaths,
+          idGenerator: _idGenerator,
+          imageSizeLimitBytes: runtimeContext.imageSizeLimitBytes,
+        );
+    final attachmentMetadata = <String, Object?>{
+      if (attachments.isNotEmpty)
+        aiSessionMessageAttachmentsMetadataKey:
+            AiMessageAttachment.listToMetadata(attachments),
+      if (contextAttachments != null)
+        aiHistoricalAttachmentsMetadataKey: AiMessageAttachment.listToMetadata(
+          contextAttachments.history,
+        ),
+    };
     final isFirstVisibleUserMessage = visibleUserMessageCount == 0;
     final initialRequestCardMetadata =
         _expertInitialRequestCardMetadataForNewTurn(
@@ -11764,7 +11797,9 @@ $tail''';
           !updatedSession.isTitleManuallyEdited &&
           isFirstVisibleUserMessage &&
           content.trim().isNotEmpty,
-      importedAttachments: attachments.isNotEmpty,
+      importedAttachments:
+          attachments.isNotEmpty ||
+          (contextAttachments?.history.isNotEmpty ?? false),
     );
   }
 
@@ -13116,42 +13151,36 @@ $tail''';
         updatedMessages.add(message);
         continue;
       }
-      final raw = message.metadata[aiSessionMessageAttachmentsMetadataKey];
-      if (raw is! List || raw.isEmpty) {
-        updatedMessages.add(message);
-        continue;
-      }
-      final attachments = AiMessageAttachment.listFromMetadata(raw);
-      if (attachments.isEmpty) {
-        updatedMessages.add(message);
-        continue;
-      }
-      var messageChanged = false;
-      final rebuiltAttachments = <AiMessageAttachment>[];
-      for (final attachment in attachments) {
-        final summary = summariesByAttachmentId[attachment.id];
-        if (summary == null || summary.isEmpty || !attachment.isImage) {
-          rebuiltAttachments.add(attachment);
-          continue;
+      Map<String, Object?>? updatedMetadata;
+      for (final key in aiAttachmentMetadataKeys) {
+        final attachments = AiMessageAttachment.listFromMetadata(
+          message.metadata[key],
+        );
+        var changed = false;
+        final updatedAttachments = attachments.map((attachment) {
+          final summary = summariesByAttachmentId[attachment.id]?.trim();
+          if (!attachment.isImage ||
+              summary == null ||
+              summary.isEmpty ||
+              summary == attachment.summaryText.trim()) {
+            return attachment;
+          }
+          changed = true;
+          return attachment.copyWith(summaryText: summary);
+        }).toList();
+        if (changed) {
+          updatedMetadata ??= Map<String, Object?>.from(message.metadata);
+          updatedMetadata[key] = AiMessageAttachment.listToMetadata(
+            updatedAttachments,
+          );
         }
-        if (attachment.summaryText.trim() == summary.trim()) {
-          rebuiltAttachments.add(attachment);
-          continue;
-        }
-        rebuiltAttachments.add(attachment.copyWith(summaryText: summary));
-        messageChanged = true;
       }
-      if (!messageChanged) {
-        updatedMessages.add(message);
-        continue;
-      }
-      sessionChanged = true;
-      final newMetadata = <String, Object?>{
-        ...message.metadata,
-        aiSessionMessageAttachmentsMetadataKey:
-            AiMessageAttachment.listToMetadata(rebuiltAttachments),
-      };
-      updatedMessages.add(message.copyWith(metadata: newMetadata));
+      sessionChanged |= updatedMetadata != null;
+      updatedMessages.add(
+        updatedMetadata == null
+            ? message
+            : message.copyWith(metadata: updatedMetadata),
+      );
     }
     if (!sessionChanged) {
       return session;

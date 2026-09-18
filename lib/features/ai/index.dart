@@ -12,6 +12,7 @@ export 'model/ai_allow_command_rule.dart';
 export 'model/ai_api_dialect.dart';
 export 'model/ai_api_family.dart';
 export 'model/ai_attachment.dart';
+export 'model/ai_attachment_context.dart';
 export 'model/ai_auto_title_fetch_mode.dart';
 export 'model/ai_builtin_tool_config.dart';
 export 'model/ai_command_rule.dart';

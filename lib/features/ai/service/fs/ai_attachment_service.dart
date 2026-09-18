@@ -23,6 +23,7 @@ import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/storage_identifier.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_attachment.dart';
+import '../../model/ai_attachment_context.dart';
 
 class AiAttachmentException implements Exception {
   const AiAttachmentException(this.message);
@@ -148,6 +149,84 @@ class AiAttachmentService {
       }
     } catch (error, stack) {
       silentLog('ai_attachment_service', '尝试删除空附件目录', error, stack);
+    }
+  }
+
+  Future<
+    ({List<AiMessageAttachment> current, List<AiMessageAttachment> history})
+  >
+  importContextAttachments({
+    required String sessionId,
+    required String messageId,
+    required AiAttachmentContextInput context,
+    required String Function() idGenerator,
+    int? imageSizeLimitBytes,
+    Iterable<AiMessageAttachment> reusableAttachments = const [],
+  }) async {
+    final root = _useModernLayout
+        ? _resolveTargetDirectoryPath(
+            sessionId: sessionId,
+            messageId: messageId,
+          )
+        : p.join(_attachmentsDirectoryPath, sessionId);
+    final reusable = <String, AiMessageAttachment>{
+      for (final item in reusableAttachments)
+        if (item.originalSourcePath != null &&
+            p.isWithin(root, item.storagePath))
+          item.originalSourcePath!: item,
+    };
+    Future<List<AiMessageAttachment>> import(
+      List<AiAttachmentSource> sources,
+    ) async {
+      final reused = <String, AiMessageAttachment>{};
+      final pending = <AiAttachmentSource>[];
+      for (final source in sources) {
+        final cached = reusable[source.path];
+        if (cached != null &&
+            await File(
+              cached.storagePath,
+            ).exists().timeout(defaultBoundedFileReadIdleTimeout)) {
+          reused[source.path] = cached;
+        } else {
+          pending.add(source);
+        }
+      }
+      final imported = await importAttachments(
+        sessionId: sessionId,
+        messageId: messageId,
+        filePaths: pending.map((source) => source.path).toList(),
+        idGenerator: idGenerator,
+        imageSizeLimitBytes: imageSizeLimitBytes,
+      );
+      var index = 0;
+      return [
+        for (final source in sources)
+          (() {
+            final item = reused[source.path] ?? imported[index++];
+            return item.copyWith(
+              name: source.name,
+              sourceMessageId: source.messageId,
+              originalSourcePath: source.path,
+              promptText: item.promptText.replaceFirst(item.name, source.name),
+              summaryText: item.summaryText.replaceFirst(
+                item.name,
+                source.name,
+              ),
+            );
+          })(),
+      ];
+    }
+
+    try {
+      final current = await import(context.current);
+      final history = await import(context.history);
+      return (current: current, history: history);
+    } on Object {
+      await deleteMessageAttachments(
+        sessionId: sessionId,
+        messageId: messageId,
+      );
+      rethrow;
     }
   }
 

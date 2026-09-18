@@ -40,6 +40,7 @@ import 'data/dingtalk_message_gateway_store.dart';
 import 'dingtalk_markdown_compat.dart';
 import 'message_gateway_dependencies.dart';
 import 'model/dingtalk_message_gateway.dart';
+import 'service/dingtalk_attachment_context.dart';
 import 'service/dingtalk_message_gateway_service.dart';
 import 'service/dingtalk_response_deadline.dart';
 
@@ -4375,30 +4376,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> _ensureIncomingContextMedia(
     DingTalkConversation conversation,
-    String sourceMessageId, {
-    bool forceResponse = false,
-  }) async {
-    final sourceIndex = conversation.messages.indexWhere(
-      (message) => message.id == sourceMessageId,
+    String sourceMessageId,
+  ) async {
+    final selected = selectDingTalkContextMedia(
+      conversation.messages,
+      sourceMessageId,
     );
-    if (sourceIndex < 0) return;
-    final startIndex = _conversationTurnStartIndex(
-      conversation,
-      sourceIndex,
-      forceResponse: forceResponse,
-    );
-    final candidates = <DingTalkGatewayMessage>[];
-    for (var index = sourceIndex; index >= startIndex; index--) {
-      final message = conversation.messages[index];
-      if (message.isAssistant ||
-          message.isExcludedFromAiContext ||
-          _isSkippedAiResponseMessage(message) ||
-          message.contextualMedia.isEmpty) {
-        continue;
-      }
-      candidates.add(message);
-      if (candidates.length >= 6) break;
-    }
+    final candidates = {
+      ...selected.current.map((m) => m.ownerMessageId),
+      ...selected.history.map((m) => m.ownerMessageId),
+    }.toList();
     if (candidates.isEmpty) return;
     try {
       await forEachIndexWithConcurrencyLimit(
@@ -4411,7 +4398,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           try {
             await ensureMessageMediaCached(
               conversationId: conversation.id,
-              messageId: candidates[index].id,
+              messageId: candidates[index],
             );
           } catch (error, stack) {
             silentLog('dingtalk_gateway', '准备钉钉上下文媒体', error, stack);
@@ -4717,14 +4704,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         sourceMessageId,
         forceResponse: forceResponse,
       ).map((message) => message.id).toSet();
+      final contextMedia = selectDingTalkContextMedia(
+        conversation.messages,
+        sourceMessageId,
+      );
+      for (final item in [...contextMedia.current, ...contextMedia.history]) {
+        contextMessageIds.addAll([item.ownerMessageId, item.sourceMessageId]);
+      }
       _activeResponseContextMessageIds[conversation.id] = contextMessageIds;
       if (forceResponse) {
         await deadline.wait(
-          () => _ensureIncomingContextMedia(
-            conversation,
-            sourceMessageId,
-            forceResponse: true,
-          ),
+          () => _ensureIncomingContextMedia(conversation, sourceMessageId),
         );
         if (responseCancelled()) return;
       }
@@ -5023,11 +5013,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _setResponseError(conversation.id, '未能建立钉钉 AI 会话，请查看运行日志。');
         return;
       }
-      final attachmentPaths = _attachmentPathsForTurn(
-        conversation,
-        sourceMessageId,
-        forceResponse: forceResponse,
+      final attachmentContext = await deadline.wait(
+        () => _attachmentContextForTurn(conversation, sourceMessageId),
       );
+      if (responseCancelled()) return;
       await deadline.wait(
         () => _sessionController.updateSessionFullAccessPermission(
           sessionId!,
@@ -5140,9 +5129,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               content: correctingToolUse ? correctionContent : aiContent,
               model: model,
               runtimeContext: runtimeContext,
-              attachmentFilePaths: correctingToolUse
-                  ? const <String>[]
-                  : attachmentPaths,
+              attachmentContext: attachmentContext,
               denyCommandRules: _settingsController.aiDenyCommandRules,
               requireWriteCommandConfirmation: requireWriteConfirmation,
               confirmWriteCommand: requireWriteConfirmation
@@ -5246,7 +5233,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                 conversation: conversation,
                 capability: mediaRequest,
                 prompt: requestContent,
-                referenceImagePaths: attachmentPaths,
+                referenceImagePaths:
+                    [...attachmentContext.current, ...attachmentContext.history]
+                        .map((item) => item.path)
+                        .where(
+                          (path) =>
+                              aiAttachmentKindForPath(path) ==
+                              AiAttachmentKind.image,
+                        )
+                        .toList(),
                 responseCancelled: responseCancelled,
               ),
             );
@@ -5425,23 +5420,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           (message) =>
               !message.isAssistant &&
               !message.isExcludedFromAiContext &&
-              !_isSkippedAiResponseMessage(message) &&
+              !isDingTalkSkippedAiResponse(message) &&
               _messageAiContextContent(message).isNotEmpty,
         )
         .toList(growable: false);
-  }
-
-  bool _isSkippedAiResponseMessage(DingTalkGatewayMessage message) {
-    return switch (message.aiResponseState) {
-      DingTalkMessageAiResponseState.rejected ||
-      DingTalkMessageAiResponseState.dropped ||
-      DingTalkMessageAiResponseState.cancelled ||
-      DingTalkMessageAiResponseState.failed => true,
-      DingTalkMessageAiResponseState.none ||
-      DingTalkMessageAiResponseState.queued ||
-      DingTalkMessageAiResponseState.responding ||
-      DingTalkMessageAiResponseState.responded => false,
-    };
   }
 
   String _messageAiContextContent(DingTalkGatewayMessage message) {
@@ -5513,49 +5495,49 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     return 0;
   }
 
-  List<String> _attachmentPathsForTurn(
+  Future<AiAttachmentContextInput> _attachmentContextForTurn(
     DingTalkConversation conversation,
-    String sourceMessageId, {
-    bool forceResponse = false,
-  }) {
-    var endIndex = conversation.messages.indexWhere(
-      (message) => message.id == sourceMessageId,
+    String sourceMessageId,
+  ) async {
+    final selected = selectDingTalkContextMedia(
+      conversation.messages,
+      sourceMessageId,
     );
-    if (endIndex < 0) endIndex = conversation.messages.length - 1;
-    if (endIndex < 0) return const <String>[];
-    final startIndex = _conversationTurnStartIndex(
-      conversation,
-      endIndex,
-      forceResponse: forceResponse,
-    );
-    final selected = <String>[];
-    for (var index = endIndex; index >= startIndex; index--) {
-      final message = conversation.messages[index];
-      if (message.isAssistant) {
-        if (forceResponse) continue;
-        break;
-      }
-      if (message.role != DingTalkGatewayMessageRole.user ||
-          message.isExcludedFromAiContext ||
-          _isSkippedAiResponseMessage(message)) {
-        continue;
-      }
-      for (final media in message.contextualMedia.toList().reversed) {
-        final path = media.localPath.trim();
-        if (path.isEmpty || !File(path).existsSync()) continue;
+    final paths = <String>{};
+    Future<List<AiAttachmentSource>> available(
+      List<DingTalkContextMedia> items,
+    ) async {
+      final result = <AiAttachmentSource>[];
+      for (final item in items) {
+        final path = item.media.localPath.trim();
+        if (path.isEmpty || !paths.add(path)) continue;
         try {
-          if (File(path).lengthSync() > aiMessageAttachmentMaxFileBytes) {
+          final stat = await FileStat.stat(
+            path,
+          ).timeout(defaultBoundedFileReadIdleTimeout);
+          if (stat.type != FileSystemEntityType.file ||
+              stat.size > aiMessageAttachmentMaxFileBytes) {
             continue;
           }
-        } catch (_) {
-          continue;
+          result.add(
+            AiAttachmentSource(
+              path: path,
+              name: item.media.displayName,
+              messageId: item.sourceMessageId,
+            ),
+          );
+        } on FileSystemException catch (error, stack) {
+          silentLog('dingtalk_gateway', '读取上下文附件信息', error, stack);
+        } on TimeoutException catch (error, stack) {
+          silentLog('dingtalk_gateway', '读取上下文附件信息超时', error, stack);
         }
-        if (!selected.contains(path)) selected.add(path);
-        if (selected.length >= 6) break;
       }
-      if (selected.length >= 6) break;
+      return result;
     }
-    return selected.reversed.toList(growable: false);
+
+    final current = await available(selected.current);
+    final history = await available(selected.history);
+    return AiAttachmentContextInput(current: current, history: history);
   }
 
   static const Set<String> _terminalToolEchoStatuses = <String>{
@@ -6807,7 +6789,7 @@ ${_markdownStructuredFields(response)}''';
       final candidate = conversation.messages[index];
       if (!candidate.isAssistant &&
           !candidate.isExcludedFromAiContext &&
-          !_isSkippedAiResponseMessage(candidate) &&
+          !isDingTalkSkippedAiResponse(candidate) &&
           candidate.content.trim().isNotEmpty &&
           _canAutomaticallyRespondToMessage(candidate) &&
           _isAutomaticResponseEligible(candidate, pollingGeneration)) {

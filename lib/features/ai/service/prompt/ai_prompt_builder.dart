@@ -25,6 +25,7 @@ import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_allow_command_rule.dart';
 import '../../model/ai_attachment.dart';
+import '../../model/ai_attachment_context.dart';
 import '../../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
 import '../../model/ai_context_usage.dart';
 import '../../model/ai_input_cache_policy.dart';
@@ -242,17 +243,7 @@ class AiPromptBuilder {
     );
     AiSessionMessage? latestUserMessage;
     final historyMessages = <AiSessionMessage>[];
-    // 若 latestUser 之后已经有助手 / 工具消息（即
-    // 当前是工具回合后的“续写轮”），则不再把 latestUser 抽出来追加到末尾，
-    // 而是把它留在自然位置参与 history。否则同一回合内连续的两次 API 调用
-    // 会得到两份截然不同的 messages 序列（前一份把 latestUser 放在工具结果
-    // 之后，后一份把它放在工具结果之前），prefix cache 永远在第二条消息处
-    // 就断裂，导致命中率塌方。
-    // 实现：先把 latestUser 暂存到 historyMessages，扫完之后若发现它身后
-    // 没有任何非 reasoning 的消息，则把它从 history 中剥离、走原来的“追加
-    // 到末尾”路径；若身后有内容，则就地留在自然位置，并通过
-    // latestUserMessageIdForInlineAttachments 把 isLatestUserMessage 语义
-    // （inline 图片 + [Attachment]/id= 块）传递给 _mapHistoryMessages。
+    // 工具续写时保留最新用户消息的原位置，避免打断工具序列和前缀缓存。
     var foundLatestUser = false;
     var latestUserHasSubsequentTurns = false;
     int? latestUserHistoryIndex;
@@ -276,9 +267,37 @@ class AiPromptBuilder {
       // 没有续写场景：把 latestUser 从 history 里剥离，走原来的“附加到末尾”路径。
       historyMessages.removeAt(latestUserHistoryIndex);
     }
-    final latestUserAttachmentAvailability = latestUserMessage == null
-        ? const <String, bool>{}
-        : await _probeAttachmentAvailability(latestUserMessage, session);
+    final attachmentMessages = session.latestCompressionPoint == null
+        ? visibleSessionMessages
+        : _visibleSessionMessagesForPrompt(
+            session: session,
+            sessionMessages: session.messages,
+            runtimeContext: runtimeContext,
+          );
+    final selectedAttachments = selectAiSessionAttachments(
+      attachmentMessages,
+      latestUserMessage,
+    );
+    if (latestUserMessage != null) {
+      // 压缩只收拢正文；最近附件仍可用，并在本轮保留原消息来源。
+      final visibleIds = visibleSessionMessages
+          .map((message) => message.id)
+          .toSet();
+      final compressedIds = selectedAttachments.keys
+          .where((id) => !visibleIds.contains(id))
+          .toList();
+      for (final id in compressedIds) {
+        selectedAttachments
+            .putIfAbsent(latestUserMessage.id, () => [])
+            .addAll(selectedAttachments.remove(id)!);
+      }
+    }
+    final attachmentAvailability = await _probeAttachmentAvailability(
+      selectedAttachments.values
+          .expand((items) => items)
+          .map((item) => item.attachment),
+      session,
+    );
     final historyToolCompressionConfig =
         _ToolCompressionConfig.forConversationHistory(runtimeContext);
     final historyTurns = _sanitizeToolSequence(
@@ -287,10 +306,8 @@ class AiPromptBuilder {
         session,
         model,
         historyToolCompressionConfig,
-        latestUserMessageIdForInlineAttachments: latestUserInline
-            ? latestUserMessage.id
-            : null,
-        latestUserAttachmentAvailability: latestUserAttachmentAvailability,
+        selectedAttachments: selectedAttachments,
+        attachmentAvailability: attachmentAvailability,
       ),
     );
     final reasoningHistorySourceCount = historyMessages.where((message) {
@@ -304,12 +321,11 @@ class AiPromptBuilder {
     final latestUserTurns = (latestUserMessage == null || latestUserInline)
         ? const <AiChatTurn>[]
         : _mapUserMessage(
-            latestUserMessage,
             session: session,
             model: model,
             content: _promptContentForMessage(latestUserMessage),
-            isLatestUserMessage: true,
-            attachmentAvailability: latestUserAttachmentAvailability,
+            attachments: selectedAttachments[latestUserMessage.id] ?? const [],
+            attachmentAvailability: attachmentAvailability,
           );
     final failedTodos = session.todoItems
         .where((item) => AiSessionTodoState.isFailureStatus(item.status))
@@ -3209,8 +3225,8 @@ $identity''';
     AiSession session,
     AiModelConfig model,
     _ToolCompressionConfig compressionConfig, {
-    String? latestUserMessageIdForInlineAttachments,
-    Map<String, bool> latestUserAttachmentAvailability = const <String, bool>{},
+    Map<String, List<AiContextAttachment>> selectedAttachments = const {},
+    Map<String, bool> attachmentAvailability = const <String, bool>{},
     bool preferInlineSystemReminders = false,
     bool preferInlineSystemArtifacts = false,
   }) {
@@ -3281,9 +3297,6 @@ $identity''';
         index += 1;
         continue;
       }
-      final isLatestUserInline =
-          latestUserMessageIdForInlineAttachments != null &&
-          message.id == latestUserMessageIdForInlineAttachments;
       final mapped = _mapNonToolHistoryMessage(
         message,
         session,
@@ -3291,10 +3304,8 @@ $identity''';
         compressionConfig,
         messageIndex: index,
         lastConsumerIndex: stableConsumerBoundary,
-        isLatestUserInline: isLatestUserInline,
-        attachmentAvailability: isLatestUserInline
-            ? latestUserAttachmentAvailability
-            : const <String, bool>{},
+        attachments: selectedAttachments[message.id] ?? const [],
+        attachmentAvailability: attachmentAvailability,
         preferInlineSystemReminders: preferInlineSystemReminders,
         preferInlineSystemArtifacts: preferInlineSystemArtifacts,
       );
@@ -3525,7 +3536,7 @@ $identity''';
     _ToolCompressionConfig compressionConfig, {
     required int messageIndex,
     required int lastConsumerIndex,
-    bool isLatestUserInline = false,
+    List<AiContextAttachment> attachments = const [],
     Map<String, bool> attachmentAvailability = const <String, bool>{},
     bool preferInlineSystemReminders = false,
     bool preferInlineSystemArtifacts = false,
@@ -3537,11 +3548,10 @@ $identity''';
     switch (message.kind) {
       case AiSessionMessageKind.user:
         return _mapUserMessage(
-          message,
           session: session,
           model: model,
           content: promptContent,
-          isLatestUserMessage: isLatestUserInline,
+          attachments: attachments,
           attachmentAvailability: attachmentAvailability,
           stripSystemReminders: true,
         );
@@ -3594,12 +3604,11 @@ $identity''';
     }
   }
 
-  List<AiChatTurn> _mapUserMessage(
-    AiSessionMessage message, {
+  List<AiChatTurn> _mapUserMessage({
     required AiSession session,
     required AiModelConfig model,
     required String content,
-    bool isLatestUserMessage = false,
+    List<AiContextAttachment> attachments = const [],
     Map<String, bool> attachmentAvailability = const <String, bool>{},
     bool stripSystemReminders = false,
     bool inlineSystemReminders = false,
@@ -3608,10 +3617,9 @@ $identity''';
       role: AiChatRole.user,
       content: content,
       parts: _attachmentPartsForMessage(
-        message,
         session,
         model,
-        isLatestUserMessage: isLatestUserMessage,
+        attachments: attachments,
         attachmentAvailability: attachmentAvailability,
       ),
       stripSystemReminders: stripSystemReminders,
@@ -3704,10 +3712,9 @@ $tail''';
   }
 
   Future<Map<String, bool>> _probeAttachmentAvailability(
-    AiSessionMessage message,
+    Iterable<AiMessageAttachment> attachments,
     AiSession session,
   ) async {
-    final attachments = _readAttachments(message.metadata);
     if (attachments.isEmpty) return const <String, bool>{};
     final availability = <String, bool>{};
     final deadline = MonotonicDeadline(
@@ -3746,13 +3753,11 @@ $tail''';
   }
 
   List<AiChatContentPart> _attachmentPartsForMessage(
-    AiSessionMessage message,
     AiSession session,
     AiModelConfig model, {
-    bool isLatestUserMessage = false,
+    List<AiContextAttachment> attachments = const [],
     Map<String, bool> attachmentAvailability = const <String, bool>{},
   }) {
-    final attachments = _readAttachments(message.metadata);
     if (attachments.isEmpty) {
       return const <AiChatContentPart>[];
     }
@@ -3768,15 +3773,10 @@ $tail''';
         modelProfile.isMultimodal != false &&
         modelProfile.supportedModalities.contains(AiModelModality.audio);
     final parts = <AiChatContentPart>[];
-    for (final attachment in attachments) {
+    for (final item in attachments) {
+      final attachment = item.attachment;
+      parts.add(AiChatContentPart.text(item.label));
       if (attachment.isImage) {
-        // 历史图片改用带元数据和摘要的占位文本，限制上下文体积。
-        if (!isLatestUserMessage) {
-          parts.add(
-            AiChatContentPart.text(_composeImagePlaceholder(attachment)),
-          );
-          continue;
-        }
         final summaryText = attachment.summaryText.trim();
         final promptText = attachment.promptText.trim();
         final storagePath = attachment.storagePath.trim();
@@ -3792,7 +3792,6 @@ $tail''';
             attachmentAvailability[storagePath] == true;
         final detailText = summaryText.isNotEmpty ? summaryText : promptText;
         // 始终提供附件标识，以便模型按约定生成匹配的图片摘要。
-        // `[图片附件；图片元数据：{id=...,...}]` placeholders.
         final idLine = 'id=${attachment.id}';
         if (detailText.isNotEmpty) {
           parts.add(
@@ -3839,10 +3838,6 @@ $tail''';
         final metadataText =
             '[Video attachment]\nid=${attachment.id}\n'
             '${attachment.name} (${attachment.mimeType}, ${formatByteSize(attachment.sizeBytes)})';
-        if (!isLatestUserMessage) {
-          parts.add(AiChatContentPart.text(metadataText));
-          continue;
-        }
         final hasLocalVideoFile =
             _isTrustedAttachmentStoragePath(session, attachment) &&
             storagePath.isNotEmpty &&
@@ -3879,10 +3874,6 @@ $tail''';
         final metadataText =
             '[Audio attachment]\nid=${attachment.id}\n'
             '${attachment.name} (${attachment.mimeType}, ${formatByteSize(attachment.sizeBytes)})';
-        if (!isLatestUserMessage) {
-          parts.add(AiChatContentPart.text(metadataText));
-          continue;
-        }
         final hasLocalAudioFile =
             _isTrustedAttachmentStoragePath(session, attachment) &&
             storagePath.isNotEmpty &&
@@ -3920,34 +3911,6 @@ $tail''';
       parts.add(AiChatContentPart.text(promptText));
     }
     return parts;
-  }
-
-  /// 构建历史用户消息中图片附件的文本占位内容。
-  /// `[图片附件；图片元数据：{…};图片路径：{abs};原始图片路径：{abs};图片介绍：{summary}]`
-  String _composeImagePlaceholder(AiMessageAttachment attachment) {
-    final metadata = <String, Object?>{
-      'id': attachment.id,
-      'name': attachment.name,
-      'mime_type': attachment.mimeType,
-      'size_bytes': attachment.sizeBytes,
-      if (attachment.pixelCount != null) 'pixel_count': attachment.pixelCount,
-      if (attachment.compressionRatio != null)
-        'compression_ratio': attachment.compressionRatio,
-    };
-    final metadataText = metadata.entries
-        .map((entry) => '${entry.key}=${entry.value}')
-        .join(', ');
-    final storagePath = attachment.storagePath.trim().isEmpty
-        ? '(unknown)'
-        : attachment.storagePath.trim();
-    final originalSourcePath = attachment.originalSourcePath?.trim();
-    final originalText =
-        (originalSourcePath == null || originalSourcePath.isEmpty)
-        ? '(unknown)'
-        : originalSourcePath;
-    final summary = attachment.summaryText.trim();
-    final summaryText = summary.isEmpty ? '(待补充)' : summary;
-    return '[图片附件；图片元数据：{$metadataText};图片路径：{$storagePath};原始图片路径：{$originalText};图片介绍：{$summaryText}]';
   }
 
   bool _isTrustedAttachmentStoragePath(
@@ -4177,7 +4140,7 @@ $tail''';
   List<AiMessageAttachment> _readAttachments(Map<String, Object?> metadata) {
     return AiMessageAttachment.listFromMetadata(
       metadata[aiSessionMessageAttachmentsMetadataKey],
-    ).take(aiMessageAttachmentLimit).toList(growable: false);
+    );
   }
 
   String _renderUserMemory(

@@ -62,6 +62,7 @@ class AiMessageAttachment {
     final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiMessageAttachment(
       id: stringFromValue(json['id']),
+      sourceMessageId: stringFromValue(json['source_message_id']),
       name: stringFromValue(json['name']),
       storagePath: stringFromValue(json['storage_path']),
       kind: AiAttachmentKind.fromStorage(stringFromValue(json['kind'])),
@@ -82,6 +83,7 @@ class AiMessageAttachment {
   }
   AiMessageAttachment({
     required String id,
+    String sourceMessageId = '',
     required String name,
     required String storagePath,
     required this.kind,
@@ -94,7 +96,11 @@ class AiMessageAttachment {
     String? originalSourcePath,
     int? pixelCount,
     double? compressionRatio,
-  }) : id = _clip(id, aiMessageAttachmentMaxIdCharacters),
+  }) : sourceMessageId = _clip(
+         sourceMessageId,
+         aiMessageAttachmentMaxIdCharacters,
+       ),
+       id = _clip(id, aiMessageAttachmentMaxIdCharacters),
        name = _clip(name, aiMessageAttachmentMaxNameCharacters),
        storagePath = _clip(storagePath, aiMessageAttachmentMaxPathCharacters),
        mimeType = _clip(mimeType, aiMessageAttachmentMaxMimeTypeCharacters),
@@ -113,6 +119,7 @@ class AiMessageAttachment {
        compressionRatio = optionalUnitIntervalFromValue(compressionRatio);
 
   final String id;
+  final String sourceMessageId;
   final String name;
   final String storagePath;
   final AiAttachmentKind kind;
@@ -140,6 +147,7 @@ class AiMessageAttachment {
 
   AiMessageAttachment copyWith({
     String? id,
+    String? sourceMessageId,
     String? name,
     String? storagePath,
     AiAttachmentKind? kind,
@@ -155,6 +163,7 @@ class AiMessageAttachment {
   }) {
     return AiMessageAttachment(
       id: id ?? this.id,
+      sourceMessageId: sourceMessageId ?? this.sourceMessageId,
       name: name ?? this.name,
       storagePath: storagePath ?? this.storagePath,
       kind: kind ?? this.kind,
@@ -173,6 +182,7 @@ class AiMessageAttachment {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'id': id,
+      if (sourceMessageId.isNotEmpty) 'source_message_id': sourceMessageId,
       'name': name,
       'storage_path': storagePath,
       'kind': kind.storageValue,
