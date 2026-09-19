@@ -39,6 +39,10 @@ class _RealHttpOverrides extends HttpOverrides {}
 
 class _PanelOAuth extends McpOAuthService {
   McpOAuthStatus value = McpOAuthStatus.authorized;
+  void update(McpOAuthStatus status) {
+    value = status;
+    notifyListeners();
+  }
   @override
   Future<void> load(McpServer server) async {}
   @override
@@ -293,6 +297,49 @@ void main() {
     }
   });
 
+  testWidgets('授权操作保留退场、屏蔽旧点击，并支持快速反向与减少动态效果', (tester) async {
+    final oauth = _PanelOAuth();
+    Widget panel({bool reduceMotion = false, double scale = 1}) => MaterialApp(
+      theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),
+      home: MediaQuery(data: MediaQueryData(disableAnimations: reduceMotion,
+        textScaler: TextScaler.linear(scale)), child: Scaffold(body:
+        McpOAuthPanel(server: server, service: oauth))),
+    );
+    await tester.pumpWidget(panel());
+    await tester.pumpAndSettle();
+    oauth.update(McpOAuthStatus.required);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(find.text('清除本机授权'), findsOneWidget);
+    expect(find.text('清除本机授权').hitTestable(), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.text('清除本机授权'), findsNothing);
+    for (final status in [McpOAuthStatus.authorizing, McpOAuthStatus.authorized,
+        McpOAuthStatus.authorizing, McpOAuthStatus.required]) {
+      oauth.update(status);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 30));
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(FilledButton), findsOneWidget);
+    await tester.pumpWidget(panel(reduceMotion: true));
+    oauth.update(McpOAuthStatus.authorized);
+    await tester.pumpAndSettle();
+    oauth.update(McpOAuthStatus.required);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('清除本机授权'), findsNothing);
+    await tester.binding.setSurfaceSize(const Size(360, 700));
+    oauth.update(McpOAuthStatus.authorized);
+    await tester.pumpWidget(panel(scale: 2));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    oauth.dispose();
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('授权卡片在窄屏与宽屏均无溢出，状态及动作可见', (tester) async {
     final fontPath = Platform.environment['OPENHAND_TEST_FONT'];
     if (fontPath != null) {
@@ -325,6 +372,7 @@ void main() {
       final primary = tester.getRect(find.widgetWithText(FilledButton, busy ? '授权进行中' : '重新授权'));
       final secondary = tester.getRect(find.widgetWithText(FilledButton, busy ? '取消授权' : '清除本机授权'));
       expect(primary.size, secondary.size);
+      expect(primary.height, lessThanOrEqualTo(40));
       if (width == 820) {
         expect(primary.left, greaterThan(tester.getRect(subtitle).right));
         expect(primary.center.dy, closeTo((tester.getRect(title).top + tester.getRect(subtitle).bottom) / 2, 1));

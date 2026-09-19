@@ -1793,51 +1793,56 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                       onChanged: (value) =>
                           setState(() => _oauthEnabled = value),
                     ),
-                    OpenHandVerticalRevealSwitcher(
-                      child: !_oauthEnabled
-                          ? null
-                          : Column(
-                              key: const ValueKey('mcp-oauth-settings'),
-                              children: [
-                                kOpenHandGap14,
-                                TextFormField(
-                                  controller: _oauthClientId,
-                                  enabled: !_isSaving,
-                                  onChanged: (_) => setState(() {}),
-                                  decoration: const InputDecoration(
-                                    labelText: '客户端 ID（可选）',
-                                    helperText: '留空时自动注册；预注册客户端需支持本机动态端口回调。',
-                                  ),
-                                ),
-                                kOpenHandGap14,
-                                TextFormField(
-                                  controller: _oauthScope,
-                                  enabled: !_isSaving,
-                                  onChanged: (_) => setState(() {}),
-                                  decoration: const InputDecoration(
-                                    labelText: '授权范围（可选）',
-                                    helperText: '多个权限以空格分隔；留空使用服务声明的权限。',
-                                  ),
-                                ),
-                                kOpenHandGap14,
-                                McpOAuthPanel(
-                                  server: _oauthServer,
-                                  onAuthorized: () {
-                                    final initial = widget.initialServer;
-                                    if (initial != null &&
-                                        initial.oauthKey ==
-                                            _oauthServer.oauthKey &&
-                                        initial.usesOAuth) {
-                                      unawaited(
-                                        context
-                                            .read<McpController>()
-                                            .reconnectServer(initial.name),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ],
+                    AnimatedAppearance(
+                      settings: openHandMotionSettingsOf(
+                        context,
+                        OpenHandMotionSettingsScope.dialog,
+                      ),
+                      present: _oauthEnabled,
+                      child: IgnorePointer(
+                        ignoring: !_oauthEnabled,
+                        child: Column(
+                          key: const ValueKey('mcp-oauth-settings'),
+                          children: [
+                            kOpenHandGap14,
+                            TextFormField(
+                              controller: _oauthClientId,
+                              enabled: !_isSaving,
+                              onChanged: (_) => setState(() {}),
+                              decoration: const InputDecoration(
+                                labelText: '客户端 ID（可选）',
+                                helperText: '留空时自动注册；预注册客户端需支持本机动态端口回调。',
+                              ),
                             ),
+                            kOpenHandGap14,
+                            TextFormField(
+                              controller: _oauthScope,
+                              enabled: !_isSaving,
+                              onChanged: (_) => setState(() {}),
+                              decoration: const InputDecoration(
+                                labelText: '授权范围（可选）',
+                                helperText: '多个权限以空格分隔；留空使用服务声明的权限。',
+                              ),
+                            ),
+                            kOpenHandGap14,
+                            McpOAuthPanel(
+                              server: _oauthServer,
+                              onAuthorized: () {
+                                final initial = widget.initialServer;
+                                if (initial != null &&
+                                    initial.oauthKey == _oauthServer.oauthKey &&
+                                    initial.usesOAuth) {
+                                  unawaited(
+                                    context
+                                        .read<McpController>()
+                                        .reconnectServer(initial.name),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -10004,10 +10009,25 @@ class _McpServerCardState extends State<_McpServerCard> {
                   ],
                 ),
                 kOpenHandGap16,
-                if (server.usesOAuth) ...[
-                  McpOAuthPanel(server: server, onAuthorized: onReconnect),
-                  kOpenHandGap16,
-                ] else if (healthStatus.requiresAuthorization) ...[
+                AnimatedAppearance(
+                  settings: openHandMotionSettingsOf(
+                    context,
+                    OpenHandMotionSettingsScope.dialog,
+                  ),
+                  present: server.usesOAuth,
+                  child: IgnorePointer(
+                    ignoring: !server.usesOAuth,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: McpOAuthPanel(
+                        server: server,
+                        onAuthorized: onReconnect,
+                      ),
+                    ),
+                  ),
+                ),
+                if (!server.usesOAuth &&
+                    healthStatus.requiresAuthorization) ...[
                   Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: FilledButton.tonalIcon(
