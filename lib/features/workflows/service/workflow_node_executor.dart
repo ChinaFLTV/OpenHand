@@ -160,7 +160,14 @@ class WorkflowNodeExecutionEvent {
   final String? error;
 }
 
-enum WorkflowLlmMessageKind { user, reasoning, assistant, toolCall, toolResult }
+enum WorkflowLlmMessageKind {
+  user,
+  reasoning,
+  process,
+  assistant,
+  toolCall,
+  toolResult,
+}
 
 class WorkflowLlmConversationMessage {
   const WorkflowLlmConversationMessage({
@@ -1044,7 +1051,11 @@ class WorkflowNodeExecutor {
         resources.cancellation?.throwIfCancelled();
         final raw = completion.reply.trim();
         if (raw.isEmpty) {
-          throw const WorkflowNodeExecutionException('模型返回内容为空。');
+          throw WorkflowNodeExecutionException(
+            completion.processMessages.isEmpty
+                ? '模型返回内容为空。'
+                : '模型仅返回过程响应，未提供正式结果。',
+          );
         }
         final separated = _separateLlmReasoning(raw, reasoningFormat);
         final reasoning = <String>[
@@ -1280,7 +1291,7 @@ class WorkflowNodeExecutor {
       final createdAt = DateTime.now().toUtc();
       messages.add(
         WorkflowLlmConversationMessage(
-          id: '${createdAt.microsecondsSinceEpoch}-${kind.name}-${toolCallId ?? ''}',
+          id: '${createdAt.microsecondsSinceEpoch}-${messages.length}-${kind.name}-${toolCallId ?? ''}',
           kind: kind,
           content: text,
           createdAt: createdAt,
@@ -1298,7 +1309,15 @@ class WorkflowNodeExecutor {
     for (final content in reasoning) {
       add(WorkflowLlmMessageKind.reasoning, content);
     }
-    add(WorkflowLlmMessageKind.assistant, separated.text);
+    for (final process in completion.processMessages) {
+      add(WorkflowLlmMessageKind.process, process);
+    }
+    add(
+      completion.toolCalls.isEmpty
+          ? WorkflowLlmMessageKind.assistant
+          : WorkflowLlmMessageKind.process,
+      separated.text,
+    );
     for (final call in completion.toolCalls) {
       add(
         WorkflowLlmMessageKind.toolCall,

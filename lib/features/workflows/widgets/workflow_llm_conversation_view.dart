@@ -404,7 +404,9 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
   static const Duration _tapMaxDuration = Duration(milliseconds: 350);
 
   late bool _expanded = switch (widget.message.kind) {
-    WorkflowLlmMessageKind.user || WorkflowLlmMessageKind.assistant => true,
+    WorkflowLlmMessageKind.user ||
+    WorkflowLlmMessageKind.process ||
+    WorkflowLlmMessageKind.assistant => true,
     WorkflowLlmMessageKind.reasoning ||
     WorkflowLlmMessageKind.toolCall ||
     WorkflowLlmMessageKind.toolResult => false,
@@ -445,6 +447,11 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
         '思考过程',
         Icons.psychology_outlined,
         colors.tertiary,
+      ),
+      WorkflowLlmMessageKind.process => (
+        '过程响应',
+        Icons.chat_bubble_outline_rounded,
+        OpenHandStatusColors.info,
       ),
       WorkflowLlmMessageKind.assistant => (
         '助手',
@@ -696,6 +703,7 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
     final canTransform = switch (widget.message.kind) {
       WorkflowLlmMessageKind.user ||
       WorkflowLlmMessageKind.reasoning ||
+      WorkflowLlmMessageKind.process ||
       WorkflowLlmMessageKind.assistant => true,
       WorkflowLlmMessageKind.toolCall ||
       WorkflowLlmMessageKind.toolResult => false,
@@ -706,6 +714,7 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
         widget.message.kind == WorkflowLlmMessageKind.toolResult;
     final canShowRaw =
         widget.message.kind == WorkflowLlmMessageKind.reasoning ||
+        widget.message.kind == WorkflowLlmMessageKind.process ||
         widget.message.kind == WorkflowLlmMessageKind.assistant;
     return Align(
       alignment: alignment,
@@ -893,6 +902,7 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
     return switch (message.kind) {
       WorkflowLlmMessageKind.user => '用户',
       WorkflowLlmMessageKind.reasoning => '思考过程',
+      WorkflowLlmMessageKind.process => '过程响应',
       WorkflowLlmMessageKind.assistant => '助手',
       WorkflowLlmMessageKind.toolCall => '工具调用',
       WorkflowLlmMessageKind.toolResult => '工具返回',

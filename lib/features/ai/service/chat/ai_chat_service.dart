@@ -172,6 +172,7 @@ class AiChatCompletion {
   const AiChatCompletion({
     required this.reply,
     this.reasoningContent,
+    this.processMessages = const <String>[],
     this.usage,
     this.rawResponse,
     this.toolCalls = const <AiToolCall>[],
@@ -186,6 +187,9 @@ class AiChatCompletion {
   });
 
   final String reply;
+
+  /// 协议明确标记的过程响应，不属于最终正文。
+  final List<String> processMessages;
 
   /// 支持扩展思考的模型返回的推理内容；不可用时为 null。
   final String? reasoningContent;
@@ -912,6 +916,7 @@ class AiChatService implements AiChatClient {
         return AiChatCompletion(
           reply: dsmlExtraction.sanitizedText,
           reasoningContent: response.reasoning,
+          processMessages: response.processMessages,
           usage: response.usage,
           rawResponse: response.rawResponse,
           toolCalls: response.toolCalls.isNotEmpty

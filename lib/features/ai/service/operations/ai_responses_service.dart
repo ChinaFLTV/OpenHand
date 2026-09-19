@@ -47,6 +47,7 @@ class AiResponsesResult {
     required this.text,
     required this.rawResponse,
     this.reasoning,
+    this.processMessages = const <String>[],
     this.usage,
     this.toolCalls = const <AiToolCall>[],
     this.finishReason,
@@ -63,6 +64,7 @@ class AiResponsesResult {
   final String text;
   final String rawResponse;
   final String? reasoning;
+  final List<String> processMessages;
   final AiTokenUsage? usage;
   final List<AiToolCall> toolCalls;
   final String? finishReason;
@@ -225,6 +227,7 @@ class AiResponsesParsedPayload {
   const AiResponsesParsedPayload({
     required this.text,
     this.reasoning,
+    this.processMessages = const <String>[],
     this.usage,
     this.toolCalls = const <AiToolCall>[],
     this.finishReason,
@@ -232,6 +235,7 @@ class AiResponsesParsedPayload {
 
   final String text;
   final String? reasoning;
+  final List<String> processMessages;
   final AiTokenUsage? usage;
   final List<AiToolCall> toolCalls;
   final String? finishReason;
@@ -644,7 +648,9 @@ class AiResponsesService {
       }
     }
     final parsed = await parseResponsePayload(decoded);
-    if (parsed.text.isEmpty && parsed.toolCalls.isEmpty) {
+    if (parsed.text.isEmpty &&
+        parsed.toolCalls.isEmpty &&
+        parsed.processMessages.isEmpty) {
       throw AiResponsesPayloadException(
         aiResponsesEmptyOutputMessage,
         request: request,
@@ -658,6 +664,7 @@ class AiResponsesService {
       text: parsed.text,
       rawResponse: response.body,
       reasoning: parsed.reasoning,
+      processMessages: parsed.processMessages,
       usage: parsed.usage,
       toolCalls: parsed.toolCalls,
       finishReason: parsed.finishReason,
@@ -883,6 +890,7 @@ class AiResponsesService {
     final payload = stringKeyedMapFromValue(decoded);
     final textBuffer = StringBuffer();
     final reasoningBuffer = StringBuffer();
+    final processMessages = <String>[];
     final toolCalls = <AiToolCall>[];
     final directText = _responseTextValue(
       payload['output_text'] ?? payload['text'],
@@ -902,6 +910,13 @@ class AiResponsesService {
         if (itemType == 'function_call') {
           final toolCall = _toolCallFromResponseItem(item);
           if (toolCall != null) toolCalls.add(toolCall);
+          continue;
+        }
+        if (itemType == 'message' && item['phase'] == 'commentary') {
+          final processBuffer = StringBuffer();
+          _appendResponseText(processBuffer, item['content']);
+          final process = processBuffer.toString().trim();
+          if (process.isNotEmpty) processMessages.add(process);
           continue;
         }
         final mediaMarkdown = await _mediaMarkdownFromResponsePart(
@@ -939,10 +954,12 @@ class AiResponsesService {
       }
     }
 
-    if (textBuffer.isEmpty && directText.isNotEmpty) {
+    if (textBuffer.isEmpty &&
+        processMessages.isEmpty &&
+        directText.isNotEmpty) {
       textBuffer.write(directText);
     }
-    if (textBuffer.isEmpty) {
+    if (textBuffer.isEmpty && processMessages.isEmpty) {
       _appendResponseText(textBuffer, _parseChatChoiceText(payload));
     }
     if (toolCalls.isEmpty) {
@@ -951,6 +968,7 @@ class AiResponsesService {
     final usage = _parseUsage(payload['usage']);
     return AiResponsesParsedPayload(
       text: textBuffer.toString().trim(),
+      processMessages: List<String>.unmodifiable(processMessages),
       reasoning: nullIfBlank(reasoningBuffer.toString()),
       usage: usage,
       toolCalls: List<AiToolCall>.unmodifiable(toolCalls),
