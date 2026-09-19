@@ -220,6 +220,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       );
   late List<WorkflowDevelopmentParameter> _developmentParameters;
   String? _selectedNodeId;
+  String? _hoveredNodeId;
   String? _selectedConnectionId;
   String? _selectedAnnotationId;
   String? _editingAnnotationId;
@@ -1251,145 +1252,158 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       top: node.y,
       width: _nodeWidth + _nodeAddButtonHitSize / 2,
       height: nodeHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            width: _nodeWidth,
-            height: nodeHeight,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => _selectNode(node.id),
-              onPanUpdate: _organizingNodes
-                  ? null
-                  : (details) => _moveNode(node, details.delta),
-              child: AnimatedScale(
-                scale: connectionTarget ? 1.015 : 1,
-                duration: openHandMotionDuration(context, kOpenHandMotion180),
-                curve: kOpenHandSwitchInCurve,
-                child: AnimatedContainer(
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hoveredNodeId = node.id),
+        onExit: (_) {
+          if (_hoveredNodeId == node.id) {
+            setState(() => _hoveredNodeId = null);
+          }
+        },
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: 0,
+              top: 0,
+              width: _nodeWidth,
+              height: nodeHeight,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _selectNode(node.id),
+                onPanUpdate: _organizingNodes
+                    ? null
+                    : (details) => _moveNode(node, details.delta),
+                child: AnimatedScale(
+                  scale: connectionTarget ? 1.015 : 1,
                   duration: openHandMotionDuration(context, kOpenHandMotion180),
                   curve: kOpenHandSwitchInCurve,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: connectionTarget
-                        ? (connectionTargetValid
-                              ? theme.colorScheme.primaryContainer.withValues(
-                                  alpha: 0.46,
-                                )
-                              : theme.colorScheme.errorContainer.withValues(
-                                  alpha: 0.34,
-                                ))
-                        : executionColor != null
-                        ? Color.alphaBlend(
-                            executionColor.withValues(alpha: 0.11),
-                            idleColor,
-                          )
-                        : selected
-                        ? theme.colorScheme.primaryContainer.withValues(
-                            alpha: 0.38,
-                          )
-                        : idleColor,
-                    borderRadius: BorderRadius.circular(kOpenHandRadius18),
-                    border: Border.all(
+                  child: AnimatedContainer(
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion180,
+                    ),
+                    curve: kOpenHandSwitchInCurve,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
                       color: connectionTarget
                           ? (connectionTargetValid
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.error)
-                          : executionColor ??
-                                (selected
-                                    ? descriptor.color
-                                    : controlFlowNode
-                                    ? descriptor.color.withValues(alpha: 0.42)
-                                    : theme.colorScheme.outlineVariant),
-                      width:
-                          connectionTarget || selected || executionColor != null
-                          ? 2
-                          : 1,
-                    ),
-                    boxShadow: <BoxShadow>[
-                      BoxShadow(
-                        color:
-                            (connectionTarget
-                                    ? (connectionTargetValid
-                                          ? theme.colorScheme.primary
-                                          : theme.colorScheme.error)
-                                    : executionColor ??
-                                          theme.colorScheme.shadow)
-                                .withValues(
-                                  alpha: connectionTarget
-                                      ? 0.2
-                                      : selected
-                                      ? 0.18
-                                      : 0.09,
-                                ),
-                        blurRadius: connectionTarget || selected ? 24 : 14,
-                        offset: const Offset(0, 7),
+                                ? theme.colorScheme.primaryContainer.withValues(
+                                    alpha: 0.46,
+                                  )
+                                : theme.colorScheme.errorContainer.withValues(
+                                    alpha: 0.34,
+                                  ))
+                          : executionColor != null
+                          ? Color.alphaBlend(
+                              executionColor.withValues(alpha: 0.11),
+                              idleColor,
+                            )
+                          : selected
+                          ? theme.colorScheme.primaryContainer.withValues(
+                              alpha: 0.38,
+                            )
+                          : idleColor,
+                      borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                      border: Border.all(
+                        color: connectionTarget
+                            ? (connectionTargetValid
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.error)
+                            : executionColor ??
+                                  (selected
+                                      ? descriptor.color
+                                      : controlFlowNode
+                                      ? descriptor.color.withValues(alpha: 0.42)
+                                      : theme.colorScheme.outlineVariant),
+                        width:
+                            connectionTarget ||
+                                selected ||
+                                executionColor != null
+                            ? 2
+                            : 1,
                       ),
-                    ],
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color:
+                              (connectionTarget
+                                      ? (connectionTargetValid
+                                            ? theme.colorScheme.primary
+                                            : theme.colorScheme.error)
+                                      : executionColor ??
+                                            theme.colorScheme.shadow)
+                                  .withValues(
+                                    alpha: connectionTarget
+                                        ? 0.2
+                                        : selected
+                                        ? 0.18
+                                        : 0.09,
+                                  ),
+                          blurRadius: connectionTarget || selected ? 24 : 14,
+                          offset: const Offset(0, 7),
+                        ),
+                      ],
+                    ),
+                    child: _buildNodeCardContent(
+                      context,
+                      node,
+                      descriptor,
+                      execution,
+                    ),
                   ),
-                  child: _buildNodeCardContent(
+                ),
+              ),
+            ),
+            if (workflowNodeHasBranches(node))
+              Positioned(
+                left: 14,
+                bottom: 2,
+                child: WorkflowNodeElapsedBadge(event: execution),
+              ),
+            if (node.kind != WorkflowNodeKind.start)
+              Positioned(
+                left: -5,
+                top: nodeHeight / 2 - 5,
+                child: AnimatedContainer(
+                  duration: openHandMotionDuration(context, kOpenHandMotion180),
+                  width: connectionTarget ? 10 : 8,
+                  height: connectionTarget ? 10 : 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: connectionTarget
+                        ? (connectionTargetValid
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.error)
+                        : theme.colorScheme.outline,
+                    border: Border.all(
+                      color: theme.colorScheme.surface,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+            if (workflowNodeHasBranches(node))
+              for (final branch in workflowNodeBranches(node).indexed)
+                Positioned(
+                  left: _nodeWidth - _nodeAddButtonHitSize / 2,
+                  top:
+                      _conditionBranchStart +
+                      branch.$1 * _conditionBranchSpacing -
+                      _nodeAddButtonHitSize / 2,
+                  child: _buildAddNodeButton(
                     context,
                     node,
-                    descriptor,
-                    execution,
+                    sourceHandleId: branch.$2.id,
+                    tooltip: '从 ${branch.$2.label} 分支添加或连接节点',
                   ),
-                ),
-              ),
-            ),
-          ),
-          if (workflowNodeHasBranches(node))
-            Positioned(
-              left: 14,
-              bottom: 2,
-              child: WorkflowNodeElapsedBadge(event: execution),
-            ),
-          if (node.kind != WorkflowNodeKind.start)
-            Positioned(
-              left: -5,
-              top: nodeHeight / 2 - 5,
-              child: AnimatedContainer(
-                duration: openHandMotionDuration(context, kOpenHandMotion180),
-                width: connectionTarget ? 10 : 8,
-                height: connectionTarget ? 10 : 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: connectionTarget
-                      ? (connectionTargetValid
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.error)
-                      : theme.colorScheme.outline,
-                  border: Border.all(
-                    color: theme.colorScheme.surface,
-                    width: 1.5,
-                  ),
-                ),
-              ),
-            ),
-          if (workflowNodeHasBranches(node))
-            for (final branch in workflowNodeBranches(node).indexed)
+                )
+            else if (!isWorkflowTerminalNodeKind(node.kind))
               Positioned(
                 left: _nodeWidth - _nodeAddButtonHitSize / 2,
-                top:
-                    _conditionBranchStart +
-                    branch.$1 * _conditionBranchSpacing -
-                    _nodeAddButtonHitSize / 2,
-                child: _buildAddNodeButton(
-                  context,
-                  node,
-                  sourceHandleId: branch.$2.id,
-                  tooltip: '从 ${branch.$2.label} 分支添加或连接节点',
-                ),
-              )
-          else if (!isWorkflowTerminalNodeKind(node.kind))
-            Positioned(
-              left: _nodeWidth - _nodeAddButtonHitSize / 2,
-              top: (nodeHeight - _nodeAddButtonHitSize) / 2,
-              child: _buildAddNodeButton(context, node),
-            ),
-        ],
+                top: (nodeHeight - _nodeAddButtonHitSize) / 2,
+                child: _buildAddNodeButton(context, node),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1444,216 +1458,230 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           return SizedBox(
             width: animatedWidth + _nodeAddButtonHitSize / 2,
             height: animatedHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  width: animatedWidth,
-                  height: animatedHeight,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTapUp: (details) {
-                      final position =
-                          details.localPosition + Offset(node.x, node.y);
-                      final connectionId = _hitTestConnection(position);
-                      connectionId == null
-                          ? _selectNode(node.id)
-                          : _selectConnection(connectionId);
-                    },
-                    onPanUpdate: _organizingNodes
-                        ? null
-                        : (details) => _moveNode(node, details.delta),
-                    child: AnimatedContainer(
-                      duration: openHandMotionDuration(
-                        context,
-                        kOpenHandMotion180,
-                      ),
-                      curve: kOpenHandSwitchInCurve,
-                      decoration: BoxDecoration(
-                        color: Color.alphaBlend(
-                          descriptor.color.withValues(alpha: 0.055),
-                          theme.colorScheme.surfaceContainerLow,
+            child: MouseRegion(
+              onEnter: (_) => setState(() => _hoveredNodeId = node.id),
+              onExit: (_) {
+                if (_hoveredNodeId == node.id) {
+                  setState(() => _hoveredNodeId = null);
+                }
+              },
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    width: animatedWidth,
+                    height: animatedHeight,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapUp: (details) {
+                        final position =
+                            details.localPosition + Offset(node.x, node.y);
+                        final connectionId = _hitTestConnection(position);
+                        connectionId == null
+                            ? _selectNode(node.id)
+                            : _selectConnection(connectionId);
+                      },
+                      onPanUpdate: _organizingNodes
+                          ? null
+                          : (details) => _moveNode(node, details.delta),
+                      child: AnimatedContainer(
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion180,
                         ),
-                        borderRadius: BorderRadius.circular(kOpenHandRadius20),
-                        boxShadow: selected || connectionTarget
-                            ? <BoxShadow>[
-                                BoxShadow(
-                                  color: borderColor.withValues(alpha: 0.16),
-                                  blurRadius: 22,
-                                  offset: const Offset(0, 7),
-                                ),
-                              ]
-                            : const <BoxShadow>[],
-                      ),
-                      foregroundDecoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(kOpenHandRadius20),
-                        border: Border.all(
-                          color: borderColor,
-                          width: selected || connectionTarget ? 2 : 1.2,
-                        ),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            top: _containerHeaderHeight,
-                            child: ColoredBox(
-                              color: theme.colorScheme.surfaceContainerLowest
-                                  .withValues(alpha: 0.7),
-                              child: CustomPaint(
-                                painter: _WorkflowConnectionPainter(
-                                  nodes: _nodes,
-                                  connections: _connections,
-                                  scopeParentId: node.id,
-                                  canvasOrigin: Offset(
-                                    node.x,
-                                    node.y + _containerHeaderHeight,
-                                  ),
-                                  selectedConnectionId: _selectedConnectionId,
-                                  draftSourceNodeId: _connectingSourceNodeId,
-                                  draftSourceHandleId:
-                                      _connectingSourceHandleId,
-                                  draftTargetNodeId: _connectionTargetNodeId,
-                                  draftEnd: _connectionDragPosition,
-                                  draftValid:
-                                      _connectionTargetNodeId != null &&
-                                      _connectionTargetError == null,
-                                  color: descriptor.color,
-                                  errorColor: theme.colorScheme.error,
-                                  mutedColor: theme.colorScheme.outline,
-                                ),
-                              ),
-                            ),
+                        curve: kOpenHandSwitchInCurve,
+                        decoration: BoxDecoration(
+                          color: Color.alphaBlend(
+                            descriptor.color.withValues(alpha: 0.055),
+                            theme.colorScheme.surfaceContainerLow,
                           ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: descriptor.color.withValues(
-                                      alpha: 0.15,
-                                    ),
-                                    borderRadius: BorderRadius.circular(
-                                      kOpenHandRadius10,
-                                    ),
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius20,
+                          ),
+                          boxShadow: selected || connectionTarget
+                              ? <BoxShadow>[
+                                  BoxShadow(
+                                    color: borderColor.withValues(alpha: 0.16),
+                                    blurRadius: 22,
+                                    offset: const Offset(0, 7),
                                   ),
-                                  child: Icon(
-                                    descriptor.icon,
+                                ]
+                              : const <BoxShadow>[],
+                        ),
+                        foregroundDecoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius20,
+                          ),
+                          border: Border.all(
+                            color: borderColor,
+                            width: selected || connectionTarget ? 2 : 1.2,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              top: _containerHeaderHeight,
+                              child: ColoredBox(
+                                color: theme.colorScheme.surfaceContainerLowest
+                                    .withValues(alpha: 0.7),
+                                child: CustomPaint(
+                                  painter: _WorkflowConnectionPainter(
+                                    nodes: _nodes,
+                                    connections: _connections,
+                                    scopeParentId: node.id,
+                                    canvasOrigin: Offset(
+                                      node.x,
+                                      node.y + _containerHeaderHeight,
+                                    ),
+                                    selectedConnectionId: _selectedConnectionId,
+                                    draftSourceNodeId: _connectingSourceNodeId,
+                                    draftSourceHandleId:
+                                        _connectingSourceHandleId,
+                                    draftTargetNodeId: _connectionTargetNodeId,
+                                    draftEnd: _connectionDragPosition,
+                                    draftValid:
+                                        _connectionTargetNodeId != null &&
+                                        _connectionTargetError == null,
                                     color: descriptor.color,
-                                    size: 20,
+                                    errorColor: theme.colorScheme.error,
+                                    mutedColor: theme.colorScheme.outline,
                                   ),
                                 ),
-                                kOpenHandHGap10,
-                                Expanded(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        node.title.trim().isEmpty
-                                            ? descriptor.label
-                                            : node.title.trim(),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                      ),
-                                      Text(
-                                        '$childCount 个内部节点 · ${workflowNodeSummary(node)}',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (execution != null)
-                                  _WorkflowNodeStatusBadge(event: execution)
-                                else
-                                  Icon(
-                                    Icons.drag_indicator_rounded,
-                                    size: 18,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                              ],
+                              ),
                             ),
-                          ),
-                          Positioned(
-                            left: 28,
-                            top: startCenterY - _containerStartNodeSize / 2,
-                            child: Container(
-                              width: _containerStartNodeSize,
-                              height: _containerStartNodeSize,
-                              decoration: BoxDecoration(
-                                color: descriptor.color.withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(
-                                  kOpenHandRadius14,
-                                ),
-                                border: Border.all(
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: descriptor.color.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      borderRadius: BorderRadius.circular(
+                                        kOpenHandRadius10,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      descriptor.icon,
+                                      color: descriptor.color,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  kOpenHandHGap10,
+                                  Expanded(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          node.title.trim().isEmpty
+                                              ? descriptor.label
+                                              : node.title.trim(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                        ),
+                                        Text(
+                                          '$childCount 个内部节点 · ${workflowNodeSummary(node)}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (execution != null)
+                                    _WorkflowNodeStatusBadge(event: execution)
+                                  else
+                                    Icon(
+                                      Icons.drag_indicator_rounded,
+                                      size: 18,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Positioned(
+                              left: 28,
+                              top: startCenterY - _containerStartNodeSize / 2,
+                              child: Container(
+                                width: _containerStartNodeSize,
+                                height: _containerStartNodeSize,
+                                decoration: BoxDecoration(
                                   color: descriptor.color.withValues(
-                                    alpha: 0.5,
+                                    alpha: 0.16,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    kOpenHandRadius14,
+                                  ),
+                                  border: Border.all(
+                                    color: descriptor.color.withValues(
+                                      alpha: 0.5,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              child: Icon(
-                                Icons.home_rounded,
-                                size: 20,
-                                color: descriptor.color,
+                                child: Icon(
+                                  Icons.home_rounded,
+                                  size: 20,
+                                  color: descriptor.color,
+                                ),
                               ),
                             ),
-                          ),
-                          Positioned(
-                            left: 14,
-                            bottom: 12,
-                            child: WorkflowNodeElapsedBadge(event: execution),
-                          ),
-                          Positioned(
-                            left: 76,
-                            top: startCenterY - _nodeAddButtonHitSize / 2,
-                            child: _buildAddNodeButton(
-                              context,
-                              node,
-                              sourceHandleId: workflowContainerStartHandleId,
-                              tooltip: '添加内部工作流的第一个节点',
+                            Positioned(
+                              left: 14,
+                              bottom: 12,
+                              child: WorkflowNodeElapsedBadge(event: execution),
                             ),
-                          ),
-                        ],
+                            Positioned(
+                              left: 76,
+                              top: startCenterY - _nodeAddButtonHitSize / 2,
+                              child: _buildAddNodeButton(
+                                context,
+                                node,
+                                sourceHandleId: workflowContainerStartHandleId,
+                                tooltip: '添加内部工作流的第一个节点',
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Positioned(
-                  left: -5,
-                  top: _containerHeaderHeight / 2 - 5,
-                  child: _buildInputPort(
-                    context,
-                    connectionTarget: connectionTarget,
-                    connectionTargetValid: connectionTargetValid,
+                  Positioned(
+                    left: -5,
+                    top: _containerHeaderHeight / 2 - 5,
+                    child: _buildInputPort(
+                      context,
+                      connectionTarget: connectionTarget,
+                      connectionTargetValid: connectionTargetValid,
+                    ),
                   ),
-                ),
-                Positioned(
-                  left: animatedWidth - _nodeAddButtonHitSize / 2,
-                  top: (_containerHeaderHeight - _nodeAddButtonHitSize) / 2,
-                  child: _buildAddNodeButton(
-                    context,
-                    node,
-                    tooltip: '添加或连接循环结束后的节点',
+                  Positioned(
+                    left: animatedWidth - _nodeAddButtonHitSize / 2,
+                    top: (_containerHeaderHeight - _nodeAddButtonHitSize) / 2,
+                    child: _buildAddNodeButton(
+                      context,
+                      node,
+                      tooltip: '添加或连接循环结束后的节点',
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -1808,70 +1836,95 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     final connecting =
         source.id == _connectingSourceNodeId &&
         sourceHandleId == _connectingSourceHandleId;
-    return Tooltip(
-      message: tooltip,
-      child: MouseRegion(
-        cursor: connecting
-            ? SystemMouseCursors.grabbing
-            : SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onPanStart: (details) => _startConnectionDrag(
-            source,
-            details.globalPosition,
-            sourceHandleId: sourceHandleId,
-          ),
-          onPanUpdate: (details) =>
-              _updateConnectionDrag(details.globalPosition),
-          onPanEnd: (_) => _finishConnectionDrag(),
-          onPanCancel: _cancelConnectionDrag,
-          child: SizedBox.square(
-            dimension: _nodeAddButtonHitSize,
-            child: Center(
-              child: AnimatedScale(
-                scale: connecting ? 0.92 : 1,
-                duration: openHandMotionDuration(context, kOpenHandMotion120),
-                curve: kOpenHandSwitchInCurve,
-                child: AnimatedContainer(
-                  duration: openHandMotionDuration(context, kOpenHandMotion180),
-                  width: _nodeAddButtonSize,
-                  height: _nodeAddButtonSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: connecting
-                        ? theme.colorScheme.primaryContainer
-                        : theme.colorScheme.primary,
-                    border: Border.all(
-                      color: connecting
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.primary.withValues(alpha: 0.7),
-                    ),
-                    boxShadow: <BoxShadow>[
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withValues(
-                          alpha: connecting ? 0.28 : 0.18,
-                        ),
-                        blurRadius: connecting ? 12 : 7,
+    final visible =
+        !_workflowTesting &&
+        (_hoveredNodeId == source.id ||
+            _selectedNodeId == source.id ||
+            connecting);
+    return ExcludeFocus(
+      excluding: !visible,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: AnimatedOpacity(
+          key: ValueKey(('node-add-visibility', source.id, sourceHandleId)),
+          opacity: visible ? 1 : 0,
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
+          curve: kOpenHandSwitchInCurve,
+          child: Tooltip(
+            message: tooltip,
+            child: MouseRegion(
+              cursor: connecting
+                  ? SystemMouseCursors.grabbing
+                  : SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: (details) => _startConnectionDrag(
+                  source,
+                  details.globalPosition,
+                  sourceHandleId: sourceHandleId,
+                ),
+                onPanUpdate: (details) =>
+                    _updateConnectionDrag(details.globalPosition),
+                onPanEnd: (_) => _finishConnectionDrag(),
+                onPanCancel: _cancelConnectionDrag,
+                child: SizedBox.square(
+                  dimension: _nodeAddButtonHitSize,
+                  child: Center(
+                    child: AnimatedScale(
+                      scale: connecting ? 0.92 : 1,
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion120,
                       ),
-                    ],
-                  ),
-                  child: Builder(
-                    builder: (buttonContext) => Material(
-                      color: Colors.transparent,
-                      shape: const CircleBorder(),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () => _showAddNodeMenu(
-                          buttonContext,
-                          source,
-                          sourceHandleId: sourceHandleId,
+                      curve: kOpenHandSwitchInCurve,
+                      child: AnimatedContainer(
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion180,
                         ),
-                        child: Icon(
-                          Icons.add_rounded,
-                          size: 17,
+                        width: _nodeAddButtonSize,
+                        height: _nodeAddButtonSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
                           color: connecting
-                              ? theme.colorScheme.onPrimaryContainer
-                              : theme.colorScheme.onPrimary,
+                              ? theme.colorScheme.primaryContainer
+                              : theme.colorScheme.primary,
+                          border: Border.all(
+                            color: connecting
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.primary.withValues(
+                                    alpha: 0.7,
+                                  ),
+                          ),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: connecting ? 0.28 : 0.18,
+                              ),
+                              blurRadius: connecting ? 12 : 7,
+                            ),
+                          ],
+                        ),
+                        child: Builder(
+                          builder: (buttonContext) => Material(
+                            color: Colors.transparent,
+                            shape: const CircleBorder(),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap: () => _showAddNodeMenu(
+                                buttonContext,
+                                source,
+                                sourceHandleId: sourceHandleId,
+                              ),
+                              child: Icon(
+                                Icons.add_rounded,
+                                size: 17,
+                                color: connecting
+                                    ? theme.colorScheme.onPrimaryContainer
+                                    : theme.colorScheme.onPrimary,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),

@@ -54,6 +54,31 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     final state = key.currentState!;
     final controller = state._transformationController;
+    final addButton = find.byKey(const ValueKey<(String, String, String?)>(('node-add-visibility', 'start', null)));
+    double addOpacity() => tester.widget<AnimatedOpacity>(addButton).opacity;
+    expect(addOpacity(), 0);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(10, 10));
+    await mouse.moveTo(tester.getCenter(find.byKey(const ValueKey('start'))));
+    await tester.pump();
+    expect(addOpacity(), 1);
+    await mouse.moveTo(tester.getCenter(addButton));
+    await tester.pump();
+    expect(addOpacity(), 1);
+    await mouse.moveTo(const Offset(10, 10));
+    await tester.pump();
+    expect(addOpacity(), 0);
+    state.setState(() => state._selectedNodeId = 'start');
+    await tester.pump();
+    expect(addOpacity(), 1);
+    state.setState(() {
+      state._selectedNodeId = null;
+      state._connectingSourceNodeId = 'start';
+    });
+    await tester.pump();
+    expect(addOpacity(), 1);
+    state.setState(() => state._connectingSourceNodeId = null);
+    await mouse.removePointer();
     state._addAnnotation(const Size(1000, 800));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
@@ -66,6 +91,8 @@ void main() {
       );
     });
     await tester.pump();
+
+    expect(addOpacity(), 0);
 
     // 节点和注释上的拖拽也应交给画布，不能改动内容。
     for (final position in [const Offset(700, 250), const Offset(280, 290), const Offset(480, 490)]) {
