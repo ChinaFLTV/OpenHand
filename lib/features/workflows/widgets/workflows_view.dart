@@ -41,6 +41,9 @@ const XTypeGroup _workflowYamlTypeGroup = XTypeGroup(
 const Uuid _workflowUuid = Uuid();
 const double _workflowGridSpacing = 14;
 const double _workflowTwoColumnMinWidth = 920;
+const double _workflowCardInlineActionsMinWidth = 600;
+const double _workflowCardTextHeight = 1.3;
+const double _workflowCardPreviewHeight = 128;
 
 class WorkflowsView extends StatefulWidget {
   const WorkflowsView({super.key});
@@ -165,6 +168,7 @@ class _WorkflowsViewState extends State<WorkflowsView> {
                       children: [
                         for (final workflow in snapshot.workflows)
                           SizedBox(
+                            key: ValueKey(workflow.id),
                             width: cardWidth,
                             child: AppearOnce(
                               child: RepaintBoundary(
@@ -578,223 +582,251 @@ class _WorkflowCard extends StatelessWidget {
     final tags = workflow.tags.toSet();
     final colors = theme.colorScheme;
     final actionButtonStyle = _workflowCardActionButtonStyle(theme);
-    return Card(
-      key: ValueKey<String>('workflow-card-${workflow.id}'),
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: kOpenHandBorderRadius22,
-        side: BorderSide(color: colors.outlineVariant),
-      ),
-      child: InkWell(
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
+    final textScaler = MediaQuery.textScalerOf(context);
+    final descriptionHeight =
+        textScaler.scale(theme.textTheme.bodySmall!.fontSize!) *
+        _workflowCardTextHeight *
+        2;
+    final tagHeight =
+        textScaler.scale(theme.textTheme.labelSmall!.fontSize!) *
+            _workflowCardTextHeight +
+        10;
+    final heading = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: colors.primaryContainer,
+            borderRadius: BorderRadius.circular(kOpenHandRadius13),
+          ),
+          child: Icon(
+            Icons.account_tree_rounded,
+            color: colors.onPrimaryContainer,
+          ),
+        ),
+        kOpenHandHGap12,
+        Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: colors.primaryContainer,
-                      borderRadius: BorderRadius.circular(kOpenHandRadius13),
-                    ),
-                    child: Icon(
-                      Icons.account_tree_rounded,
-                      color: colors.onPrimaryContainer,
-                    ),
-                  ),
-                  kOpenHandHGap12,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          workflow.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        kOpenHandGap3,
-                        Text(
-                          '${workflow.nodes.length} 个节点 · ${workflow.connections.length} 条连接',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                        if (workflow.description.trim().isNotEmpty) ...[
-                          kOpenHandGap6,
-                          Text(
-                            workflow.description.trim(),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurface,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                        OpenHandAnimatedChipWrap(
-                          topSpacing: 8,
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: [
-                            for (final tag in tags.take(5))
-                              _WorkflowTagChip(
-                                key: ValueKey(('tag', tag)),
-                                label: tag,
-                              ),
-                            if (tags.length > 5)
-                              _WorkflowTagChip(
-                                key: const ValueKey('more-tags'),
-                                label: '+${tags.length - 5}',
-                                compact: true,
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  kOpenHandHGap8,
-                  IconButton.filledTonal(
-                    key: ValueKey<String>('workflow-enabled-${workflow.id}'),
-                    tooltip: toggling
-                        ? '正在更新工作流状态'
-                        : workflow.enabled
-                        ? '停用工作流'
-                        : '启用工作流',
-                    onPressed: toggling ? null : onToggleEnabled,
-                    style: _workflowCardEnabledButtonStyle(
-                      theme,
-                      enabled: workflow.enabled,
-                    ),
-                    icon: AnimatedSwitcher(
-                      duration: openHandMotionDuration(
-                        context,
-                        kOpenHandMotion180,
-                      ),
-                      child: toggling
-                          ? const SizedBox.square(
-                              key: ValueKey<String>('workflow-enabled-busy'),
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(
-                              workflow.enabled
-                                  ? Icons.stop_rounded
-                                  : Icons.play_arrow_rounded,
-                              key: ValueKey<bool>(workflow.enabled),
-                            ),
-                    ),
-                  ),
-                  kOpenHandHGap8,
-                  IconButton.filledTonal(
-                    key: ValueKey<String>('workflow-details-${workflow.id}'),
-                    tooltip: '查看工作流详情',
-                    style: actionButtonStyle,
-                    onPressed: onDetails,
-                    icon: const Icon(Icons.info_outline_rounded),
-                  ),
-                  kOpenHandHGap8,
-                  AnimatedPopupMenuButton<WorkflowExportFormat>(
-                    key: ValueKey<String>('workflow-export-${workflow.id}'),
-                    tooltip: '导出工作流',
-                    position: PopupMenuPosition.under,
-                    style: actionButtonStyle,
-                    buttonConstraints: const BoxConstraints.tightFor(
-                      width: _workflowCardActionSize,
-                      height: _workflowCardActionSize,
-                    ),
-                    icon: const Icon(Icons.file_download_outlined),
-                    onSelected: onExport,
-                    itemBuilder: (context) => [
-                      for (final format in WorkflowExportFormat.values)
-                        PopupMenuItem<WorkflowExportFormat>(
-                          key: ValueKey<String>(
-                            'workflow-export-option-${format.extension}',
-                          ),
-                          value: format,
-                          child: _WorkflowExportMenuItem(format: format),
-                        ),
-                    ],
-                  ),
-                  kOpenHandHGap8,
-                  IconButton.filledTonal(
-                    key: ValueKey<String>('workflow-open-${workflow.id}'),
-                    tooltip: '编辑工作流',
-                    style: actionButtonStyle,
-                    onPressed: onOpen,
-                    icon: const Icon(Icons.edit_rounded),
-                  ),
-                  kOpenHandHGap8,
-                  IconButton.filledTonal(
-                    key: ValueKey<String>('workflow-delete-${workflow.id}'),
-                    tooltip: '删除工作流',
-                    style: actionButtonStyle,
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete_outline_rounded),
-                  ),
-                ],
-              ),
-              kOpenHandGap16,
-              SizedBox(
-                key: ValueKey<String>('workflow-minimap-${workflow.id}'),
-                height: 128,
-                child: WorkflowMiniMap(
-                  nodes: workflow.nodes,
-                  connections: workflow.connections,
-                  annotations: workflow.annotations,
+              Text(
+                workflow.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              kOpenHandGap14,
-              Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 15,
-                    color: colors.onSurfaceVariant,
-                  ),
-                  kOpenHandHGap6,
-                  Expanded(
-                    child: Text(
-                      '更新于 ${formatYearMonthDayHmLocal(workflow.updatedAt)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
+              kOpenHandGap3,
+              Text(
+                '${workflow.nodes.length} 个节点 · ${workflow.connections.length} 条连接',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
               ),
             ],
           ),
         ),
-      ),
+      ],
+    );
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton.filledTonal(
+          key: ValueKey<String>('workflow-enabled-${workflow.id}'),
+          tooltip: toggling
+              ? '正在更新工作流状态'
+              : workflow.enabled
+              ? '停用工作流'
+              : '启用工作流',
+          onPressed: toggling ? null : onToggleEnabled,
+          style: _workflowCardEnabledButtonStyle(
+            theme,
+            enabled: workflow.enabled,
+          ),
+          icon: AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
+            child: toggling
+                ? const SizedBox.square(
+                    key: ValueKey<String>('workflow-enabled-busy'),
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    workflow.enabled
+                        ? Icons.stop_rounded
+                        : Icons.play_arrow_rounded,
+                    key: ValueKey<bool>(workflow.enabled),
+                  ),
+          ),
+        ),
+        kOpenHandHGap8,
+        IconButton.filledTonal(
+          key: ValueKey<String>('workflow-details-${workflow.id}'),
+          tooltip: '查看工作流详情',
+          style: actionButtonStyle,
+          onPressed: onDetails,
+          icon: const Icon(Icons.info_outline_rounded),
+        ),
+        kOpenHandHGap8,
+        AnimatedPopupMenuButton<WorkflowExportFormat>(
+          key: ValueKey<String>('workflow-export-${workflow.id}'),
+          tooltip: '导出工作流',
+          position: PopupMenuPosition.under,
+          style: actionButtonStyle,
+          buttonConstraints: const BoxConstraints.tightFor(
+            width: _workflowCardActionSize,
+            height: _workflowCardActionSize,
+          ),
+          icon: const Icon(Icons.file_download_outlined),
+          onSelected: onExport,
+          itemBuilder: (context) => [
+            for (final format in WorkflowExportFormat.values)
+              PopupMenuItem<WorkflowExportFormat>(
+                key: ValueKey<String>(
+                  'workflow-export-option-${format.extension}',
+                ),
+                value: format,
+                child: _WorkflowExportMenuItem(format: format),
+              ),
+          ],
+        ),
+        kOpenHandHGap8,
+        IconButton.filledTonal(
+          key: ValueKey<String>('workflow-open-${workflow.id}'),
+          tooltip: '编辑工作流',
+          style: actionButtonStyle,
+          onPressed: onOpen,
+          icon: const Icon(Icons.edit_rounded),
+        ),
+        kOpenHandHGap8,
+        IconButton.filledTonal(
+          key: ValueKey<String>('workflow-delete-${workflow.id}'),
+          tooltip: '删除工作流',
+          style: actionButtonStyle,
+          onPressed: onDelete,
+          icon: const Icon(Icons.delete_outline_rounded),
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compactActions =
+            constraints.maxWidth < _workflowCardInlineActionsMinWidth;
+        return Card(
+          key: ValueKey<String>('workflow-card-${workflow.id}'),
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: kOpenHandBorderRadius22,
+            side: BorderSide(color: colors.outlineVariant),
+          ),
+          child: InkWell(
+            onTap: onOpen,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (compactActions) ...[
+                    heading,
+                    kOpenHandGap12,
+                    Align(alignment: Alignment.centerRight, child: actions),
+                  ] else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: heading),
+                        kOpenHandHGap8,
+                        actions,
+                      ],
+                    ),
+                  kOpenHandGap6,
+                  SizedBox(
+                    height: descriptionHeight,
+                    child: Text(
+                      workflow.description.trim(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurface,
+                        height: _workflowCardTextHeight,
+                      ),
+                    ),
+                  ),
+                  kOpenHandGap8,
+                  SizedBox(
+                    height: tagHeight,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: OpenHandAnimatedChipWrap(
+                        spacing: 6,
+                        children: [
+                          for (final tag in tags)
+                            _WorkflowTagChip(
+                              key: ValueKey(('tag', tag)),
+                              label: tag,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  kOpenHandGap16,
+                  SizedBox(
+                    key: ValueKey<String>('workflow-minimap-${workflow.id}'),
+                    height: _workflowCardPreviewHeight,
+                    child: WorkflowMiniMap(
+                      nodes: workflow.nodes,
+                      connections: workflow.connections,
+                      annotations: workflow.annotations,
+                    ),
+                  ),
+                  kOpenHandGap14,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.schedule_rounded,
+                        size: 15,
+                        color: colors.onSurfaceVariant,
+                      ),
+                      kOpenHandHGap6,
+                      Expanded(
+                        child: Text(
+                          '更新于 ${formatYearMonthDayHmLocal(workflow.updatedAt)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _WorkflowTagChip extends StatelessWidget {
-  const _WorkflowTagChip({
-    super.key,
-    required this.label,
-    this.compact = false,
-  });
+  const _WorkflowTagChip({super.key, required this.label});
 
   final String label;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
       constraints: const BoxConstraints(maxWidth: 132),
-      padding: EdgeInsets.symmetric(horizontal: compact ? 7 : 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: colors.primaryContainer.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(kOpenHandRadius10),
@@ -806,6 +838,7 @@ class _WorkflowTagChip extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: colors.onPrimaryContainer,
+          height: _workflowCardTextHeight,
           fontWeight: FontWeight.w700,
         ),
       ),
