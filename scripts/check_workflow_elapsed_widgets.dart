@@ -25,6 +25,9 @@ void main() {
       ));
     WorkflowNodeExecutionEvent event(WorkflowNodeExecutionPhase phase, [int milliseconds = 0]) =>
       WorkflowNodeExecutionEvent(nodeId: '节点', phase: phase, duration: Duration(milliseconds: milliseconds));
+    String displayedTime() => tester.widgetList<Text>(
+      find.descendant(of: find.byType(WorkflowNodeElapsedBadge), matching: find.byType(Text)),
+    ).map((text) => text.data ?? '').join();
     int milliseconds() {
       final semantics = tester.widgetList<Semantics>(find.byType(Semantics))
           .map((widget) => widget.properties.label ?? '')
@@ -46,6 +49,7 @@ void main() {
     await tester.pumpWidget(scene(finished));
     await tester.pumpAndSettle();
     expect(milliseconds(), 12345);
+    expect(displayedTime(), '12.345 秒');
     await tester.pump(const Duration(seconds: 2));
     expect(milliseconds(), 12345);
     expect(tester.binding.transientCallbackCount, 0);
@@ -59,6 +63,7 @@ void main() {
     expect(tester.binding.transientCallbackCount, 0);
     await tester.pumpWidget(scene(event(WorkflowNodeExecutionPhase.failed, 900), reduce: true));
     expect(milliseconds(), 900);
+    expect(displayedTime(), '0.900 秒');
     expect(find.descendant(of: find.byType(WorkflowNodeElapsedBadge), matching: find.byType(SlideTransition)), findsNothing);
     await tester.pumpWidget(scene(null));
     await tester.pumpAndSettle();

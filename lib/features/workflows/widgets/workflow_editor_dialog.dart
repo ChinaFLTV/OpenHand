@@ -1340,11 +1340,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               ),
             ),
           ),
-          Positioned(
-            left: 14,
-            bottom: workflowNodeHasBranches(node) ? 2 : 12,
-            child: WorkflowNodeElapsedBadge(event: execution),
-          ),
+          if (workflowNodeHasBranches(node))
+            Positioned(
+              left: 14,
+              bottom: 2,
+              child: WorkflowNodeElapsedBadge(event: execution),
+            ),
           if (node.kind != WorkflowNodeKind.start)
             Positioned(
               left: -5,
@@ -1772,6 +1773,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         if (!workflowNodeHasBranches(node))
           Row(
             children: [
+              WorkflowNodeElapsedBadge(event: execution),
               const Spacer(),
               Text(
                 descriptor.label,

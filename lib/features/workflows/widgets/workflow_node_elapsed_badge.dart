@@ -9,8 +9,8 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/workflow_node_executor.dart';
 
-const _refreshInterval = kOpenHandMinPeriodicTimerInterval;
-const _digitDuration = Duration(milliseconds: 180);
+const _refreshInterval = Duration(milliseconds: 100);
+const _digitDuration = Duration(milliseconds: 80);
 
 /// 独立刷新耗时，避免计时触发画布和连线重建。
 class WorkflowNodeElapsedBadge extends StatefulWidget {
@@ -75,7 +75,7 @@ class _WorkflowNodeElapsedBadgeState extends State<WorkflowNodeElapsedBadge> {
         () => _elapsed =
             (widget.event?.duration ?? Duration.zero) + _stopwatch.elapsed,
       );
-    });
+    }, min: _refreshInterval);
   }
 
   @override
@@ -97,7 +97,7 @@ class _WorkflowNodeElapsedBadgeState extends State<WorkflowNodeElapsedBadge> {
       OpenHandMotionSettingsScope.chip,
     );
     final colors = Theme.of(context).colorScheme;
-    final text = (_elapsed.inMilliseconds / 1000).toStringAsFixed(1);
+    final text = (_elapsed.inMilliseconds / 1000).toStringAsFixed(3);
     final duration = settings.disablesAnimation
         ? Duration.zero
         : Duration(

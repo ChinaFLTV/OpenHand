@@ -170,6 +170,11 @@ void main() {
       final badge = find.descendant(of: card, matching: find.byType(WorkflowNodeElapsedBadge));
       final cardRect = tester.getRect(card);
       final badgeRect = tester.getRect(badge);
+      if (!workflowNodeHasBranches(node) && !isWorkflowContainerKind(node.kind)) {
+        final descriptor = workflowNodeDescriptor(node.kind, Theme.of(tester.element(card)).colorScheme);
+        final label = find.descendant(of: card, matching: find.text(descriptor.label)).last;
+        expect(tester.getCenter(label).dy, closeTo(badgeRect.center.dy, 0.01));
+      }
       expect(cardRect.contains(badgeRect.topLeft), isTrue);
       expect(cardRect.contains(badgeRect.bottomRight), isTrue);
     }
