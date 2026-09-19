@@ -42,6 +42,7 @@ import 'workflow_development_parameter_dialog.dart';
 import 'workflow_human_intervention_dialog.dart';
 import 'workflow_minimap.dart';
 import 'workflow_node_configuration_panel.dart';
+import 'workflow_node_elapsed_badge.dart';
 import 'workflow_test_dialog.dart';
 
 const double _canvasWidth = kWorkflowCanvasWidth;
@@ -1241,6 +1242,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           )
         : theme.colorScheme.surfaceContainerHigh;
     return AnimatedPositioned(
+      key: ValueKey(node.id),
       duration: _organizingNodes
           ? openHandMotionDuration(context, kOpenHandMotion260)
           : Duration.zero,
@@ -1338,6 +1340,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               ),
             ),
           ),
+          Positioned(
+            left: 14,
+            bottom: workflowNodeHasBranches(node) ? 2 : 12,
+            child: WorkflowNodeElapsedBadge(event: execution),
+          ),
           if (node.kind != WorkflowNodeKind.start)
             Positioned(
               left: -5,
@@ -1412,6 +1419,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                   ? descriptor.color
                   : descriptor.color.withValues(alpha: 0.5));
     return AnimatedPositioned(
+      key: ValueKey(node.id),
       duration: _organizingNodes
           ? openHandMotionDuration(context, kOpenHandMotion260)
           : Duration.zero,
@@ -1605,6 +1613,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                                 color: descriptor.color,
                               ),
                             ),
+                          ),
+                          Positioned(
+                            left: 14,
+                            bottom: 12,
+                            child: WorkflowNodeElapsedBadge(event: execution),
                           ),
                           Positioned(
                             left: 76,
@@ -3191,6 +3204,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     _synchronizeDevelopmentStartParameters();
     setState(() {
       _testing = true;
+      _nodeExecutions.clear();
       _nodeTestCancellation = cancellation;
       _testResult = null;
       _testError = null;
@@ -3201,7 +3215,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         node: node,
         workflowNodes: _nodes,
         workflowConnections: _connections,
-        resources: _buildExecutionResources(cancellation: cancellation),
+        resources: _buildExecutionResources(
+          cancellation: cancellation,
+          onNodeExecution: (event) {
+            if (!mounted || !identical(_nodeTestCancellation, cancellation)) {
+              return;
+            }
+            setState(() => _nodeExecutions[event.nodeId] = event);
+          },
+        ),
         variables: resolveWorkflowDevelopmentParameterValues(
           _developmentParameters,
         ),

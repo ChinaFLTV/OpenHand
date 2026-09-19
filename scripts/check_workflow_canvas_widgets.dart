@@ -59,7 +59,12 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     final fingerprint = state._currentDraftFingerprint();
     final historyIndex = state._historyIndex;
-    state.setState(() => state._workflowTesting = true);
+    state.setState(() {
+      state._workflowTesting = true;
+      state._nodeExecutions['start'] = const WorkflowNodeExecutionEvent(
+        nodeId: 'start', phase: WorkflowNodeExecutionPhase.running,
+      );
+    });
     await tester.pump();
 
     // 节点和注释上的拖拽也应交给画布，不能改动内容。
@@ -72,6 +77,8 @@ void main() {
       expect(controller.value.getTranslation().x, greaterThan(0));
       expect(state._currentDraftFingerprint(), fingerprint);
     }
+    expect(find.byType(WorkflowNodeElapsedBadge), findsOneWidget);
+    expect(tester.takeException(), isNull);
     final beforeScroll = controller.value.getMaxScaleOnAxis();
     await tester.sendEventToBinding(PointerScrollEvent(
       position: const Offset(600, 350), scrollDelta: const Offset(0, -100),
@@ -141,6 +148,32 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(state._nodes.single.x, greaterThan(250));
     expect(controller.value, Matrix4.identity());
+    state.setState(() {
+      state._nodes = [
+        state._nodes.single,
+        const WorkflowNode(id: 'condition', kind: WorkflowNodeKind.condition,
+          title: '分支', x: 600, y: 200),
+        const WorkflowNode(id: 'loop', kind: WorkflowNodeKind.loop,
+          title: '循环', x: 100, y: 430),
+      ];
+      for (final node in state._nodes) {
+        state._nodeExecutions[node.id] = WorkflowNodeExecutionEvent(
+          nodeId: node.id, phase: WorkflowNodeExecutionPhase.running,
+        );
+      }
+    });
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(WorkflowNodeElapsedBadge), findsNWidgets(3));
+    for (final node in state._nodes) {
+      final card = find.byKey(ValueKey(node.id));
+      final badge = find.descendant(of: card, matching: find.byType(WorkflowNodeElapsedBadge));
+      final cardRect = tester.getRect(card);
+      final badgeRect = tester.getRect(badge);
+      expect(cardRect.contains(badgeRect.topLeft), isTrue);
+      expect(cardRect.contains(badgeRect.bottomRight), isTrue);
+    }
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
