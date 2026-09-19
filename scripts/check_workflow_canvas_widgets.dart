@@ -206,6 +206,27 @@ void main() {
       expect(cardRect.contains(badgeRect.bottomRight), isTrue);
     }
     expect(tester.takeException(), isNull);
+    for (final fontSize in [12.0, 13.0, 14.0]) {
+      for (final phase in [WorkflowNodeExecutionPhase.running, WorkflowNodeExecutionPhase.succeeded]) {
+        final node = WorkflowNode(id: 'llm-layout', kind: WorkflowNodeKind.llm,
+          title: '获取机型测试结论', x: 0, y: 0,
+          settings: {'prompt': '结合已有测试数据生成详细的机型对比结论。' * 20});
+        await tester.pumpWidget(MaterialApp(
+          theme: ThemeData(textTheme: TextTheme(bodySmall: TextStyle(fontSize: fontSize))),
+          home: Scaffold(body: Center(child: SizedBox(width: 214, height: 98,
+            child: Builder(builder: (context) => state._buildNodeCardContent(
+              context, node, workflowNodeDescriptor(node.kind, Theme.of(context).colorScheme),
+              WorkflowNodeExecutionEvent(nodeId: node.id, phase: phase, duration: const Duration(milliseconds: 26327)),
+            )),
+          ))),
+        ));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.takeException(), isNull, reason: '节点摘要字号 \$fontSize，状态 \$phase');
+        final badge = tester.getRect(find.byType(WorkflowNodeElapsedBadge));
+        final label = tester.getRect(find.text('LLM'));
+        expect(badge.center.dy, closeTo(label.center.dy, 0.01));
+      }
+    }
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));

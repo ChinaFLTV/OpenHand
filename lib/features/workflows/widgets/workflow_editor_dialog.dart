@@ -1786,17 +1786,21 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
             ),
           ),
         ] else ...[
-          kOpenHandGap12,
-          Text(
-            workflowNodeSummary(node),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              height: 1.4,
-              color: theme.colorScheme.onSurfaceVariant,
+          kOpenHandGap8,
+          Expanded(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Text(
+                workflowNodeSummary(node),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  height: 1.4,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ),
-          const Spacer(),
         ],
         if (!workflowNodeHasBranches(node))
           Row(
