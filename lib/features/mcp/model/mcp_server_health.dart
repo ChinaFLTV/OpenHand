@@ -21,6 +21,7 @@ class McpServerHealth {
   const McpServerHealth({
     this.status = McpServerHealthStatus.idle,
     this.errorMessage,
+    this.requiresAuthorization = false,
     this.lastCheckedAt,
     this.latencyMs,
     this.consecutiveFailures = 0,
@@ -30,6 +31,7 @@ class McpServerHealth {
 
   final McpServerHealthStatus status;
   final String? errorMessage;
+  final bool requiresAuthorization;
   final DateTime? lastCheckedAt;
 
   /// 最近一次健康探测的 RTT，单位毫秒；仅在 [status] 为 [McpServerHealthStatus.healthy] 时有意义。
@@ -56,6 +58,7 @@ class McpServerHealth {
   McpServerHealth copyWith({
     McpServerHealthStatus? status,
     String? errorMessage,
+    bool? requiresAuthorization,
     bool clearErrorMessage = false,
     DateTime? lastCheckedAt,
     int? latencyMs,
@@ -66,6 +69,8 @@ class McpServerHealth {
   }) {
     return McpServerHealth(
       status: status ?? this.status,
+      requiresAuthorization:
+          requiresAuthorization ?? this.requiresAuthorization,
       errorMessage: clearErrorMessage
           ? null
           : errorMessage ?? this.errorMessage,

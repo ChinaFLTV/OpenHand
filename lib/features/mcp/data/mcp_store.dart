@@ -331,6 +331,27 @@ class McpStore {
         )) {
       throw FormatException('MCP 服务 ${server.name} 的参数配置无效。');
     }
+    final oauth = server.extraFields['oauth'];
+    if (oauth != null) {
+      if (oauth is! Map ||
+          oauth['enabled'] is! bool ||
+          (oauth['clientId'] != null &&
+              (oauth['clientId'] is! String ||
+                  (oauth['clientId'] as String).length >
+                      kMcpMaxHeaderValueCharacters)) ||
+          (oauth['scope'] != null &&
+              (oauth['scope'] is! String ||
+                  (oauth['scope'] as String).length >
+                      kMcpMaxHeaderValueCharacters))) {
+        throw const FormatException('MCP OAuth 配置格式无效。');
+      }
+      if (oauth['enabled'] == true &&
+          server.headers.keys.any(
+            (key) => key.toLowerCase() == 'authorization',
+          )) {
+        throw const FormatException('OAuth 与 Authorization Header 不能同时配置。');
+      }
+    }
     _validateHeaders(server.headers);
     _validateEnvironment(server.environment);
     _validateVisibleTemplateIds(server.visibleTemplateIds);

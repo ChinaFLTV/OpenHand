@@ -43,6 +43,7 @@ import 'model/mcp_server_ops.dart';
 import 'model/mcp_tool.dart';
 import 'service/mcp_keyword_index.dart';
 import 'service/mcp_keyword_tokenizer.dart';
+import 'service/mcp_oauth_service.dart';
 import 'service/mcp_ops_endpoint.dart';
 import 'service/mcp_server_ops_runtime.dart';
 import 'service/mcp_stdio_process_manager.dart';
@@ -605,6 +606,9 @@ class McpController extends ChangeNotifier {
     _pageActivationWorkDebouncer.dispose();
     _opsPersistenceDebouncer.dispose();
     _healthCheckTimer?.cancel();
+    for (final server in _servers.where((server) => server.usesOAuth)) {
+      McpOAuthService.instance.cancel(server);
+    }
     _opsSnapshotNotifyTimer?.cancel();
     _activeToolRefreshes.clear();
     _activeHealthChecks.clear();
@@ -2198,6 +2202,26 @@ class McpController extends ChangeNotifier {
       _reconcileHealthCheckTimer();
       notifyListeners();
 
+      final retainedOAuthKeys = nextServers
+          .where((server) => server.usesOAuth)
+          .map((server) => server.oauthKey)
+          .toSet();
+      for (final previous in previousServers.where(
+        (server) => server.usesOAuth,
+      )) {
+        if (!retainedOAuthKeys.contains(previous.oauthKey)) {
+          try {
+            await McpOAuthService.instance.forget(previous);
+          } catch (error, stack) {
+            silentLog('mcp', '清理已移除服务的授权凭证', error, stack);
+          }
+        } else if (!nextServers.any(
+          (server) => server.enabled && server.oauthKey == previous.oauthKey,
+        )) {
+          McpOAuthService.instance.cancel(previous);
+        }
+      }
+
       // 配置落盘后立即更新页面，运行时与磁盘缓存收尾不阻塞列表变化。
       try {
         await _reconcileStdioProcesses(previousServers, nextServers);
@@ -2591,6 +2615,9 @@ class McpController extends ChangeNotifier {
         expected.command == current.command &&
         listEquals(expected.args, current.args) &&
         mapEquals(expected.headers, current.headers) &&
+        expected.usesOAuth == current.usesOAuth &&
+        expected.oauthClientId == current.oauthClientId &&
+        expected.oauthScope == current.oauthScope &&
         mapEquals(expected.environment, current.environment);
   }
 

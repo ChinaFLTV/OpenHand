@@ -30,6 +30,7 @@ import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_tool.dart';
+import 'mcp_oauth_service.dart';
 import 'mcp_ops_endpoint.dart';
 import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
@@ -365,6 +366,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             error,
             fallback: 'MCP 服务健康检查失败，请稍后重试。',
           ),
+          requiresAuthorization: error is McpOAuthRequiredException,
           lastCheckedAt: checkedAt,
         );
       } catch (error, stack) {
@@ -891,23 +893,32 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }) async {
     final sessionId = nullIfBlank(session.sessionId);
     if (sessionId == null || _isDisposed) return;
-    final headers = _mergeRequestHeaders(
-      baseHeaders: const <String, String>{
-        'accept': kApplicationJsonMimeType,
-        ..._mcpFreshRequestHeaders,
-      },
-      extraHeaders: customHeaders ?? server.headers,
-      protectedHeaderNames: const <String>{
-        'accept',
-        'cache-control',
-        'pragma',
-        kMcpProtocolVersionHeader,
-        kMcpSessionIdHeader,
-      },
-    );
-    headers[kMcpProtocolVersionHeader] = session.protocolVersion;
-    headers[kMcpSessionIdHeader] = sessionId;
+    if (server.usesOAuth &&
+        (isCrossOriginRedirect(_parseServerUri(server.url), session.uri) ||
+            McpOAuthService.instance.status(server) !=
+                McpOAuthStatus.authorized)) {
+      return;
+    }
     try {
+      final headers = _mergeRequestHeaders(
+        baseHeaders: const <String, String>{
+          'accept': kApplicationJsonMimeType,
+          ..._mcpFreshRequestHeaders,
+        },
+        extraHeaders: await McpOAuthService.instance.headers(
+          server,
+          customHeaders ?? server.headers,
+        ),
+        protectedHeaderNames: const <String>{
+          'accept',
+          'cache-control',
+          'pragma',
+          kMcpProtocolVersionHeader,
+          kMcpSessionIdHeader,
+        },
+      );
+      headers[kMcpProtocolVersionHeader] = session.protocolVersion;
+      headers[kMcpSessionIdHeader] = sessionId;
       final response = await _sendRequestWithRedirects(
         client: _client,
         method: 'DELETE',
@@ -937,16 +948,21 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, String>? customHeaders,
     Future<void>? cancelSignal,
   }) async {
-    final session = await _LegacySseSession.connect(
-      client: _client,
-      sseUri: _parseServerUri(server.url),
-      headers: customHeaders ?? server.headers,
-      sensitiveHeaderNames: _sensitiveHeaderNames(
-        customHeaders ?? server.headers,
+    final session = await McpOAuthService.instance.request(
+      server,
+      customHeaders ?? server.headers,
+      (authorizedHeaders) => _LegacySseSession.connect(
+        server: server,
+        client: _client,
+        sseUri: _parseServerUri(server.url),
+        headers: authorizedHeaders,
+        sensitiveHeaderNames: _sensitiveHeaderNames(
+          customHeaders ?? server.headers,
+        ),
+        endpointTimeout: _legacyEndpointTimeout,
+        requestTimeout: _requestTimeout,
+        cancelSignal: cancelSignal,
       ),
-      endpointTimeout: _legacyEndpointTimeout,
-      requestTimeout: _requestTimeout,
-      cancelSignal: cancelSignal,
     );
     try {
       final initializeResult = _extractResult(
@@ -1266,6 +1282,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, String>? customHeaders,
     Future<void>? cancelSignal,
   }) async {
+    if (server.usesOAuth &&
+        isCrossOriginRedirect(_parseServerUri(server.url), uri)) {
+      throw const McpToolDiscoveryException('OAuth MCP 会话不能切换到其他来源。');
+    }
     final headers = _mergeRequestHeaders(
       baseHeaders: const <String, String>{
         kContentTypeHeaderName: kApplicationJsonMimeType,
@@ -1292,18 +1312,22 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     final effectiveRequestTimeout = requestTimeout ?? _requestTimeout;
-    final response = await _sendRequestWithRedirects(
-      client: _client,
-      method: 'POST',
-      uri: uri,
-      headers: headers,
-      body: jsonEncode(payload),
-      requestTimeout: effectiveRequestTimeout,
-      maxRedirects: _maxRedirects,
-      additionalSensitiveHeaderNames: _sensitiveHeaderNames(
-        customHeaders ?? server.headers,
+    final response = await McpOAuthService.instance.request(
+      server,
+      headers,
+      (authorizedHeaders) => _sendRequestWithRedirects(
+        client: _client,
+        method: 'POST',
+        uri: uri,
+        headers: authorizedHeaders,
+        body: jsonEncode(payload),
+        requestTimeout: effectiveRequestTimeout,
+        maxRedirects: _maxRedirects,
+        additionalSensitiveHeaderNames: _sensitiveHeaderNames(
+          customHeaders ?? server.headers,
+        ),
+        cancelSignal: cancelSignal,
       ),
-      cancelSignal: cancelSignal,
     );
     final responseUri = response.request?.url ?? uri;
     final responseSessionId = readResponseHeader(
@@ -1899,8 +1923,8 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
   required int maxRedirects,
   Set<String> additionalSensitiveHeaderNames = const <String>{},
   Future<void>? cancelSignal,
-}) {
-  return sendHttpRequestFollowingRedirects(
+}) async {
+  final response = await sendHttpRequestFollowingRedirects(
     client: client,
     method: method,
     uri: uri,
@@ -1926,6 +1950,22 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
       );
     },
   );
+  final insufficientScope =
+      response.statusCode == HttpStatus.forbidden &&
+      (response.headers['www-authenticate']?.contains('insufficient_scope') ??
+          false);
+  if (response.statusCode == HttpStatus.unauthorized || insufficientScope) {
+    McpOAuthService.instance.rejected(
+      uri,
+      headers,
+      response.headers['www-authenticate'],
+    );
+    await _drainMcpHttpResponse(response, timeout: requestTimeout);
+    throw McpOAuthRequiredException(
+      insufficientScope ? 'MCP 权限不足，请调整授权范围后重新授权。' : 'MCP 身份验证失败，请授权或更新访问凭证。',
+    );
+  }
+  return response;
 }
 
 String _mcpServerResponseDetail(Object? response) {
@@ -2026,6 +2066,7 @@ class _JsonRpcHttpResponse {
 class _LegacySseSession {
   _LegacySseSession._({
     required this._client,
+    required this._server,
     required this._endpointUri,
     required this._headers,
     required this._sensitiveHeaderNames,
@@ -2035,6 +2076,7 @@ class _LegacySseSession {
   });
 
   final http.Client _client;
+  final McpServer _server;
   final Uri _endpointUri;
   final Map<String, String> _headers;
   final Set<String> _sensitiveHeaderNames;
@@ -2044,6 +2086,7 @@ class _LegacySseSession {
   String instructions = '';
 
   static Future<_LegacySseSession> connect({
+    required McpServer server,
     required http.Client client,
     required Uri sseUri,
     required Map<String, String> headers,
@@ -2192,10 +2235,18 @@ class _LegacySseSession {
       final endpointUri = await endpointCompleter.future.timeout(
         endpointTimeout,
       );
+      final endpointHeaders = Map<String, String>.from(headers);
+      if (isCrossOriginRedirect(sseUri, endpointUri)) {
+        stripSensitiveRedirectHeaders(
+          endpointHeaders,
+          additionalNames: sensitiveHeaderNames,
+        );
+      }
       return _LegacySseSession._(
+        server: server,
         client: client,
         endpointUri: endpointUri,
-        headers: headers,
+        headers: endpointHeaders,
         sensitiveHeaderNames: sensitiveHeaderNames,
         messages: messages,
         subscription: subscription,
@@ -2274,28 +2325,36 @@ class _LegacySseSession {
     Duration? timeout,
     Future<void>? cancelSignal,
   }) async {
+    if (_server.usesOAuth &&
+        isCrossOriginRedirect(Uri.parse(_server.url), _endpointUri)) {
+      throw const McpToolDiscoveryException('OAuth SSE 消息端点不能切换到其他来源。');
+    }
     final effectiveTimeout = timeout ?? _requestTimeout;
-    final response = await _sendRequestWithRedirects(
-      client: _client,
-      method: 'POST',
-      uri: _endpointUri,
-      headers: _mergeRequestHeaders(
-        baseHeaders: const <String, String>{
-          kContentTypeHeaderName: kApplicationJsonMimeType,
-          ..._mcpFreshRequestHeaders,
-        },
-        extraHeaders: _headers,
-        protectedHeaderNames: const <String>{
-          kContentTypeHeaderName,
-          'cache-control',
-          'pragma',
-        },
+    final response = await McpOAuthService.instance.request(
+      _server,
+      _headers,
+      (authorizedHeaders) => _sendRequestWithRedirects(
+        client: _client,
+        method: 'POST',
+        uri: _endpointUri,
+        headers: _mergeRequestHeaders(
+          baseHeaders: const <String, String>{
+            kContentTypeHeaderName: kApplicationJsonMimeType,
+            ..._mcpFreshRequestHeaders,
+          },
+          extraHeaders: authorizedHeaders,
+          protectedHeaderNames: const <String>{
+            kContentTypeHeaderName,
+            'cache-control',
+            'pragma',
+          },
+        ),
+        body: jsonEncode(payload),
+        requestTimeout: effectiveTimeout,
+        maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
+        additionalSensitiveHeaderNames: _sensitiveHeaderNames,
+        cancelSignal: cancelSignal,
       ),
-      body: jsonEncode(payload),
-      requestTimeout: effectiveTimeout,
-      maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
-      additionalSensitiveHeaderNames: _sensitiveHeaderNames,
-      cancelSignal: cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {
       final body = await _readMcpHttpErrorBodyBestEffort(

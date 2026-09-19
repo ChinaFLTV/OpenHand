@@ -91,12 +91,14 @@ import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_server_ops.dart';
 import '../model/mcp_tool.dart';
+import '../service/mcp_oauth_service.dart';
 import '../service/mcp_ops_endpoint.dart';
 import '../service/mcp_stdio_io_utils.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
 import 'mcp_keyword_index_progress_dialog.dart';
 import 'mcp_market_dialog.dart';
+import 'mcp_oauth_panel.dart';
 import 'mcp_payload_format.dart';
 import 'mcp_stdio_dialogs.dart';
 
@@ -1558,6 +1560,26 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
   late final Set<String> _visibleTemplateIds;
   late McpServerType _type;
   late bool _enabled;
+  late bool _oauthEnabled;
+  late final TextEditingController _oauthClientId;
+  late final TextEditingController _oauthScope;
+
+  McpServer get _oauthServer => McpServer(
+    name: _nameController.text.trim(),
+    type: _type,
+    enabled: _enabled,
+    url: _urlController.text.trim(),
+    extraFields: _oauthExtraFields,
+  );
+
+  Map<String, Object?> get _oauthExtraFields => {
+    ...?widget.initialServer?.extraFields,
+    kMcpOAuthConfigKey: {
+      'enabled': _oauthEnabled && _type != McpServerType.stdio,
+      'clientId': _oauthClientId.text.trim(),
+      'scope': _oauthScope.text.trim(),
+    },
+  };
   bool _isSaving = false;
   String? _errorMessage;
   String? _visibilityErrorMessage;
@@ -1585,10 +1607,19 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
     };
     _type = widget.initialServer?.type ?? McpServerType.streamableHttp;
     _enabled = widget.initialServer?.enabled ?? true;
+    _oauthEnabled = widget.initialServer?.usesOAuth ?? false;
+    _oauthClientId = TextEditingController(
+      text: widget.initialServer?.oauthClientId ?? '',
+    );
+    _oauthScope = TextEditingController(
+      text: widget.initialServer?.oauthScope ?? '',
+    );
   }
 
   @override
   void dispose() {
+    _oauthClientId.dispose();
+    _oauthScope.dispose();
     _nameController.dispose();
     _urlController.dispose();
     _commandController.dispose();
@@ -1717,6 +1748,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                 title: l10n.mcpUrlField,
                 child: TextFormField(
                   controller: _urlController,
+                  onChanged: (_) => setState(() {}),
                   enabled: !_isSaving,
                   decoration: InputDecoration(labelText: l10n.mcpUrlField),
                   validator: (value) {
@@ -1743,6 +1775,71 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                     }
                     return null;
                   },
+                ),
+              ),
+              kOpenHandGap14,
+              OpenHandDialogSectionCard(
+                icon: Icons.shield_rounded,
+                accent: OpenHandStatusColors.info,
+                title: '身份验证',
+                child: Column(
+                  children: [
+                    OpenHandAnimatedSwitchTile(
+                      icon: Icons.fingerprint_rounded,
+                      title: 'OAuth 浏览器授权',
+                      description: '适用于需要登录授权的远程 MCP 服务。关闭时使用下方配置的请求 Header。',
+                      value: _oauthEnabled,
+                      enabled: !_isSaving,
+                      onChanged: (value) =>
+                          setState(() => _oauthEnabled = value),
+                    ),
+                    OpenHandVerticalRevealSwitcher(
+                      child: !_oauthEnabled
+                          ? null
+                          : Column(
+                              key: const ValueKey('mcp-oauth-settings'),
+                              children: [
+                                kOpenHandGap14,
+                                TextFormField(
+                                  controller: _oauthClientId,
+                                  enabled: !_isSaving,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: const InputDecoration(
+                                    labelText: '客户端 ID（可选）',
+                                    helperText: '留空时自动注册；预注册客户端需支持本机动态端口回调。',
+                                  ),
+                                ),
+                                kOpenHandGap14,
+                                TextFormField(
+                                  controller: _oauthScope,
+                                  enabled: !_isSaving,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: const InputDecoration(
+                                    labelText: '授权范围（可选）',
+                                    helperText: '多个权限以空格分隔；留空使用服务声明的权限。',
+                                  ),
+                                ),
+                                kOpenHandGap14,
+                                McpOAuthPanel(
+                                  server: _oauthServer,
+                                  onAuthorized: () {
+                                    final initial = widget.initialServer;
+                                    if (initial != null &&
+                                        initial.oauthKey ==
+                                            _oauthServer.oauthKey &&
+                                        initial.usesOAuth) {
+                                      unawaited(
+                                        context
+                                            .read<McpController>()
+                                            .reconnectServer(initial.name),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
                 ),
               ),
               kOpenHandGap14,
@@ -1853,6 +1950,11 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
   }
 
   Future<void> _handleSave() async {
+    if (McpOAuthService.instance.status(_oauthServer) ==
+        McpOAuthStatus.authorizing) {
+      setState(() => _errorMessage = '请先完成或取消正在进行的 OAuth 授权。');
+      return;
+    }
     final l10n = AppLocalizations.of(context)!;
     final useUrlField =
         _type == McpServerType.streamableHttp || _type == McpServerType.sse;
@@ -1880,6 +1982,16 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
       setState(() {
         _headerErrorMessage = headerParseResult.errorMessage;
       });
+      return;
+    }
+    if (_oauthEnabled &&
+        useUrlField &&
+        headerParseResult.headers.keys.any(
+          (key) => key.toLowerCase() == 'authorization',
+        )) {
+      setState(
+        () => _errorMessage = 'OAuth 会自动管理 Authorization，请移除重复的鉴权 Header。',
+      );
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
@@ -1911,6 +2023,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
           command: _commandController.text,
           args: args,
           headers: headerParseResult.headers,
+          extraFields: _oauthExtraFields,
         ) ??
         McpServer(
           name: normalizedName,
@@ -1921,6 +2034,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
           command: _commandController.text,
           args: args,
           headers: headerParseResult.headers,
+          extraFields: _oauthExtraFields,
         );
 
     late final bool saved;
@@ -9890,6 +10004,20 @@ class _McpServerCardState extends State<_McpServerCard> {
                   ],
                 ),
                 kOpenHandGap16,
+                if (server.usesOAuth) ...[
+                  McpOAuthPanel(server: server, onAuthorized: onReconnect),
+                  kOpenHandGap16,
+                ] else if (healthStatus.requiresAuthorization) ...[
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: FilledButton.tonalIcon(
+                      onPressed: onTap,
+                      icon: const Icon(Icons.fingerprint_rounded),
+                      label: const Text('配置身份验证'),
+                    ),
+                  ),
+                  kOpenHandGap16,
+                ],
                 _McpHorizontalChipStrip(
                   children: [
                     _McpServerToggleChip(
@@ -10115,6 +10243,8 @@ class _McpServerCardState extends State<_McpServerCard> {
                       label: _localizedText(context, zh: '健康', en: 'Health'),
                       value: healthStatus.isChecking
                           ? _localizedText(context, zh: '检测中', en: 'Checking')
+                          : healthStatus.requiresAuthorization
+                          ? '等待授权'
                           : healthStatus.isHealthy
                           ? _localizedText(context, zh: '健康', en: 'Healthy')
                           : healthStatus.lastCheckedAt == null
@@ -15867,6 +15997,9 @@ String _healthStatusSummary(
   if (checkedAt == null) {
     return _localizedText(context, zh: '未检测', en: 'Unchecked');
   }
+  if (healthStatus.requiresAuthorization) {
+    return '等待授权 · ${_formatStatusTime(context, checkedAt)}';
+  }
   final statusLabel = healthStatus.isHealthy
       ? _localizedText(context, zh: '健康', en: 'Healthy')
       : _localizedText(context, zh: '异常', en: 'Unhealthy');
@@ -15881,6 +16014,7 @@ Color _healthStatusDotColor(
   if (!server.enabled) {
     return colorScheme.outlineVariant;
   }
+  if (healthStatus.requiresAuthorization) return OpenHandStatusColors.warning;
   return switch (healthStatus.status) {
     McpServerHealthStatus.healthy => const Color(0xFF56C271),
     McpServerHealthStatus.unhealthy => colorScheme.error,
