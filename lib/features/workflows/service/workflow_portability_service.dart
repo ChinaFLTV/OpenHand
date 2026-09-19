@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:math' as math;
@@ -18,6 +19,7 @@ import '../model/workflow_definition.dart';
 import '../workflow_node_presentation.dart';
 import 'workflow_auto_layout.dart';
 
+const Duration _kYamlExportTimeout = Duration(seconds: 30);
 const int _kMaxYamlDepth = 64;
 const int _kMaxYamlValues = 100000;
 const int _kWorkflowExportFileStemMaxCharacters = 80;
@@ -179,12 +181,58 @@ Future<WorkflowDefinition> decodeWorkflowYamlInIsolate(String source) {
 }
 
 String encodeWorkflowYaml(WorkflowDefinition workflow) {
-  final buffer = StringBuffer()
+  final writer = _WorkflowYamlWriter();
+  writer.buffer
     ..writeln('format: $_kWorkflowFormat')
     ..writeln('version: $_kWorkflowFormatVersion')
     ..writeln('workflow:');
-  _writeYamlValue(buffer, workflow.toJson(), 1);
-  return buffer.toString();
+  writer.write(workflow.toJson(), 1);
+  final encoded = writer.buffer.toString();
+  if (utf8ByteLength(encoded) > maxWorkflowEncodedBytes) {
+    throw const WorkflowPortabilityException('导出的 YAML 超过 4 MiB 安全上限。');
+  }
+  return encoded;
+}
+
+// 使用独立入口，仅传入工作流数据，避免捕获页面状态和图像导出上下文。
+void _encodeWorkflowYamlWorker((WorkflowDefinition, SendPort) request) {
+  final bytes = Uint8List.fromList(utf8.encode(encodeWorkflowYaml(request.$1)));
+  Isolate.exit(request.$2, bytes);
+}
+
+Future<Uint8List> _encodeWorkflowYamlInIsolate(
+  WorkflowDefinition workflow,
+) async {
+  final replies = ReceivePort();
+  Isolate? worker;
+  var closed = false;
+  try {
+    final spawning =
+        Isolate.spawn(
+          _encodeWorkflowYamlWorker,
+          (workflow, replies.sendPort),
+          onError: replies.sendPort,
+          onExit: replies.sendPort,
+          debugName: 'workflow-yaml-export',
+        ).then((isolate) {
+          if (closed) isolate.kill(priority: Isolate.immediate);
+          return worker = isolate;
+        });
+    await spawning.timeout(_kYamlExportTimeout);
+    final result = await replies.first.timeout(_kYamlExportTimeout);
+    if (result is Uint8List) return result;
+    throw WorkflowPortabilityException(
+      result is List && result.isNotEmpty
+          ? '生成 YAML 失败：${result.first}'
+          : 'YAML 导出任务提前结束，未返回文件内容。',
+    );
+  } on TimeoutException {
+    throw const WorkflowPortabilityException('生成 YAML 超时，后台任务已终止，请重试。');
+  } finally {
+    closed = true;
+    worker?.kill(priority: Isolate.immediate);
+    replies.close();
+  }
 }
 
 String workflowExportFileName(
@@ -214,8 +262,7 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
   }
   if (format == WorkflowExportFormat.yaml) {
     onProgress?.call(0.62, '正在生成 YAML 配置…');
-    final encoded = await Isolate.run(() => encodeWorkflowYaml(workflow));
-    final bytes = Uint8List.fromList(utf8.encode(encoded));
+    final bytes = await _encodeWorkflowYamlInIsolate(workflow);
     onProgress?.call(0.84, '配置文件已生成，正在写入磁盘…');
     return WorkflowExportArtifact(
       bytes: bytes,
@@ -282,49 +329,66 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
   );
 }
 
-void _writeYamlValue(StringBuffer buffer, Object? value, int depth) {
-  final indent = '  ' * depth;
-  if (value is Map) {
-    if (value.isEmpty) {
-      buffer.writeln('$indent{}');
+class _WorkflowYamlWriter {
+  final buffer = StringBuffer();
+  int _values = 0;
+
+  void _check(int depth) {
+    if (depth > _kMaxYamlDepth || ++_values > _kMaxYamlValues) {
+      throw const WorkflowPortabilityException('工作流嵌套过深或配置项过多，无法导出 YAML。');
+    }
+    if (buffer.length > maxWorkflowEncodedBytes) {
+      throw const WorkflowPortabilityException('导出的 YAML 超过 4 MiB 安全上限。');
+    }
+  }
+
+  void write(Object? value, int depth) {
+    _check(depth);
+    final indent = '  ' * depth;
+    if (value is Map) {
+      if (value.isEmpty) {
+        buffer.writeln('$indent{}');
+        return;
+      }
+      for (final entry in value.entries) {
+        _check(depth);
+        final key = _yamlScalar('${entry.key}');
+        if (_isYamlCollection(entry.value)) {
+          if ((entry.value is Map && (entry.value as Map).isEmpty) ||
+              (entry.value is List && (entry.value as List).isEmpty)) {
+            buffer.writeln('$indent$key: ${entry.value is Map ? '{}' : '[]'}');
+          } else {
+            buffer.writeln('$indent$key:');
+            write(entry.value, depth + 1);
+          }
+        } else {
+          buffer.writeln('$indent$key: ${_yamlScalar(entry.value)}');
+        }
+      }
       return;
     }
-    for (final entry in value.entries) {
-      final key = _yamlScalar('${entry.key}');
-      if (_isYamlCollection(entry.value)) {
-        if ((entry.value is Map && (entry.value as Map).isEmpty) ||
-            (entry.value is List && (entry.value as List).isEmpty)) {
-          buffer.writeln('$indent$key: ${entry.value is Map ? '{}' : '[]'}');
-        } else {
-          buffer.writeln('$indent$key:');
-          _writeYamlValue(buffer, entry.value, depth + 1);
-        }
-      } else {
-        buffer.writeln('$indent$key: ${_yamlScalar(entry.value)}');
+    if (value is List) {
+      if (value.isEmpty) {
+        buffer.writeln('$indent[]');
+        return;
       }
-    }
-    return;
-  }
-  if (value is List) {
-    if (value.isEmpty) {
-      buffer.writeln('$indent[]');
+      for (final item in value) {
+        _check(depth);
+        if (_isYamlCollection(item)) {
+          if ((item is Map && item.isEmpty) || (item is List && item.isEmpty)) {
+            buffer.writeln('$indent- ${item is Map ? '{}' : '[]'}');
+          } else {
+            buffer.writeln('$indent-');
+            write(item, depth + 1);
+          }
+        } else {
+          buffer.writeln('$indent- ${_yamlScalar(item)}');
+        }
+      }
       return;
     }
-    for (final item in value) {
-      if (_isYamlCollection(item)) {
-        if ((item is Map && item.isEmpty) || (item is List && item.isEmpty)) {
-          buffer.writeln('$indent- ${item is Map ? '{}' : '[]'}');
-        } else {
-          buffer.writeln('$indent-');
-          _writeYamlValue(buffer, item, depth + 1);
-        }
-      } else {
-        buffer.writeln('$indent- ${_yamlScalar(item)}');
-      }
-    }
-    return;
+    buffer.writeln('$indent${_yamlScalar(value)}');
   }
-  buffer.writeln('$indent${_yamlScalar(value)}');
 }
 
 bool _isYamlCollection(Object? value) => value is Map || value is List;
