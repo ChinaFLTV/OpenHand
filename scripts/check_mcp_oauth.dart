@@ -19,6 +19,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:openhand/features/mcp/widgets/mcp_oauth_panel.dart';
+import 'package:openhand/app/theme/openhand_theme.dart';
+import 'package:openhand/app/theme/openhand_theme_preset.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -32,6 +34,14 @@ const server = McpServer(name: '通用服务', type: McpServerType.streamableHtt
   extraFields: {'oauth': {'enabled': true}});
 
 class _RealHttpOverrides extends HttpOverrides {}
+
+class _PanelOAuth extends McpOAuthService {
+  McpOAuthStatus value = McpOAuthStatus.authorized;
+  @override
+  Future<void> load(McpServer server) async {}
+  @override
+  McpOAuthStatus status(McpServer server) => value;
+}
 
 class Fixture {
   Map<String, dynamic>? saved;
@@ -260,30 +270,46 @@ void main() {
         }
       });
     }
-    final f = Fixture();
-    f.saved = {'access_token': 'valid', 'expires_at': DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch};
-    await f.oauth.load(server);
+    final baseTheme = OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+    final theme = fontPath == null ? baseTheme : baseTheme.copyWith(textTheme: baseTheme.textTheme.apply(fontFamily: '测试字体'));
+    final oauth = _PanelOAuth();
+    for (final status in [McpOAuthStatus.authorized, McpOAuthStatus.authorizing]) {
+    oauth.value = status;
     for (final width in [360.0, 820.0]) {
       await tester.binding.setSurfaceSize(Size(width, 500));
-      await tester.pumpWidget(MaterialApp(theme: ThemeData(fontFamily: fontPath == null ? null : '测试字体'), home: Scaffold(body: RepaintBoundary(
+      await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(body: RepaintBoundary(
         key: const ValueKey('截图'), child: Padding(padding: const EdgeInsets.all(16),
-          child: McpOAuthPanel(server: server, service: f.oauth),
+          child: McpOAuthPanel(server: server, service: oauth),
         ),
       ))));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('OAuth · 授权有效'), findsOneWidget);
-      expect(find.text('重新授权'), findsOneWidget);
+      final busy = status == McpOAuthStatus.authorizing;
+      final title = find.text(busy ? 'OAuth · 等待浏览器授权' : 'OAuth · 授权有效');
+      final subtitle = find.text(busy ? '请在系统浏览器中完成授权，完成后自动连接。' : '使用浏览器安全授权，访问令牌到期时自动尝试刷新。');
+      final primary = tester.getRect(find.widgetWithText(FilledButton, busy ? '授权进行中' : '重新授权'));
+      final secondary = tester.getRect(find.widgetWithText(FilledButton, busy ? '取消授权' : '清除本机授权'));
+      expect(primary.size, secondary.size);
+      if (width == 820) {
+        expect(primary.left, greaterThan(tester.getRect(subtitle).right));
+        expect(primary.center.dy, closeTo((tester.getRect(title).top + tester.getRect(subtitle).bottom) / 2, 1));
+        expect(primary.center.dy, secondary.center.dy);
+      } else {
+        expect(primary.top, greaterThan(tester.getRect(subtitle).bottom));
+      }
       if (width == 820 && fontPath != null) {
         await tester.runAsync(() async {
         final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('截图')));
         final image = await boundary.toImage();
         final bytes = await image.toByteData(format: ImageByteFormat.png);
-        await File('/tmp/openhand-oauth-panel.png').writeAsBytes(bytes!.buffer.asUint8List());
+        await File('/tmp/openhand-oauth-panel-'+status.name+'.png').writeAsBytes(bytes!.buffer.asUint8List());
         image.dispose();
         });
       }
     }
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    oauth.dispose();
     await tester.binding.setSurfaceSize(null);
   });
 }

@@ -387,6 +387,7 @@ class OpenHandDialogSectionCard extends StatelessWidget {
     this.trailing,
     this.accent,
     this.onHeaderTap,
+    this.contentSpacing = 14,
     this.padding = const EdgeInsets.fromLTRB(16, 14, 16, 16),
   });
 
@@ -398,6 +399,7 @@ class OpenHandDialogSectionCard extends StatelessWidget {
   final Color? accent;
   final VoidCallback? onHeaderTap;
   final EdgeInsetsGeometry padding;
+  final double contentSpacing;
 
   @override
   Widget build(BuildContext context) {
@@ -480,7 +482,7 @@ class OpenHandDialogSectionCard extends StatelessWidget {
                   child: header,
                 ),
               ),
-            kOpenHandGap14,
+            SizedBox(height: contentSpacing),
             child,
           ],
         ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -117,71 +118,98 @@ class _McpOAuthPanelState extends State<McpOAuthPanel> {
               McpOAuthStatus.authorized => '授权有效',
               McpOAuthStatus.expired => '授权过期或失效',
             };
-      return OpenHandDialogSectionCard(
-        icon: authorized
-            ? Icons.verified_user_rounded
-            : Icons.fingerprint_rounded,
-        accent: color,
-        title: 'OAuth · $label',
-        subtitle: busy ? '请在系统浏览器中完成授权，完成后自动连接。' : '使用浏览器安全授权，访问令牌到期时自动尝试刷新。',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                FilledButton.icon(
-                  onPressed: _loading || busy ? null : _authorize,
-                  icon: Icon(
-                    busy
-                        ? Icons.hourglass_top_rounded
-                        : Icons.open_in_browser_rounded,
-                  ),
-                  label: Text(
-                    busy
-                        ? '授权进行中'
-                        : authorized || status == McpOAuthStatus.expired
-                        ? '重新授权'
-                        : '浏览器授权',
-                  ),
-                ),
-                if (busy)
-                  TextButton.icon(
-                    onPressed: () => _oauth.cancel(widget.server),
-                    icon: const Icon(Icons.close_rounded),
-                    label: const Text('取消授权'),
-                  ),
-                if (!busy && authorized)
-                  TextButton.icon(
-                    onPressed: () async {
-                      try {
-                        await _oauth.forget(widget.server);
-                      } catch (_) {
-                        if (mounted) setState(() => _error = '清除本机授权失败，请重试。');
-                      }
-                    },
-                    icon: const Icon(Icons.link_off_rounded),
-                    label: const Text('清除本机授权'),
-                  ),
-              ],
-            ),
-            OpenHandVerticalRevealSwitcher(
-              child: _error == null
-                  ? null
-                  : Padding(
-                      key: ValueKey(_error),
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
+      final colors = Theme.of(context).colorScheme;
+      final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+      final actionWidth = 160.0 * (scale < 1 ? 1.0 : scale);
+      final secondaryStyle = FilledButton.styleFrom(
+        backgroundColor: colors.secondaryContainer,
+        foregroundColor: colors.onSecondaryContainer,
+      );
+      final actions = Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children:
+            [
+                  FilledButton.icon(
+                    onPressed: _loading || busy ? null : _authorize,
+                    icon: Icon(
+                      busy
+                          ? Icons.hourglass_top_rounded
+                          : Icons.open_in_browser_rounded,
                     ),
+                    label: Text(
+                      busy
+                          ? '授权进行中'
+                          : authorized || status == McpOAuthStatus.expired
+                          ? '重新授权'
+                          : '浏览器授权',
+                    ),
+                  ),
+                  if (busy)
+                    FilledButton.icon(
+                      style: secondaryStyle,
+                      onPressed: () => _oauth.cancel(widget.server),
+                      icon: const Icon(Icons.close_rounded),
+                      label: const Text('取消授权'),
+                    ),
+                  if (!busy && authorized)
+                    FilledButton.icon(
+                      style: secondaryStyle,
+                      onPressed: () async {
+                        try {
+                          await _oauth.forget(widget.server);
+                        } catch (_) {
+                          if (mounted) setState(() => _error = '清除本机授权失败，请重试。');
+                        }
+                      },
+                      icon: const Icon(Icons.link_off_rounded),
+                      label: const Text('清除本机授权'),
+                    ),
+                ]
+                .map((button) => SizedBox(width: actionWidth, child: button))
+                .toList(growable: false),
+      );
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final inline =
+              constraints.maxWidth >= 720.0 * (scale < 1 ? 1.0 : scale);
+          return OpenHandAnimatedDialogSize(
+            child: OpenHandDialogSectionCard(
+              icon: authorized
+                  ? Icons.verified_user_rounded
+                  : Icons.fingerprint_rounded,
+              accent: color,
+              title: 'OAuth · $label',
+              subtitle: busy
+                  ? '请在系统浏览器中完成授权，完成后自动连接。'
+                  : '使用浏览器安全授权，访问令牌到期时自动尝试刷新。',
+              trailing: inline ? actions : null,
+              contentSpacing: 0,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!inline)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: actions,
+                    ),
+                  OpenHandVerticalRevealSwitcher(
+                    child: _error == null
+                        ? null
+                        : Padding(
+                            key: ValueKey(_error),
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              _error!,
+                              style: TextStyle(color: colors.error),
+                            ),
+                          ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       );
     },
   );
