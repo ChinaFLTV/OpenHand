@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server.dart';
+import '../service/mcp_oauth_callback_page.dart';
 import '../service/mcp_oauth_service.dart';
 import '../service/mcp_tool_discovery_exception.dart';
 
@@ -79,7 +81,16 @@ class _McpOAuthPanelState extends State<McpOAuthPanel> {
       _ownsAuthorization = true;
     });
     try {
-      await _oauth.authorize(server);
+      await _oauth.authorize(
+        server,
+        callbackPage: McpOAuthCallbackPage(
+          colors: Theme.of(context).colorScheme,
+          animation: openHandMotionSettingsOf(
+            context,
+            OpenHandMotionSettingsScope.dialog,
+          ),
+        ),
+      );
       if (mounted && server.oauthKey == widget.server.oauthKey) {
         widget.onAuthorized?.call();
       }

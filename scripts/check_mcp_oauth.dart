@@ -27,6 +27,8 @@ import 'package:http/testing.dart';
 import 'package:http/io_client.dart';
 import 'package:openhand/features/mcp/model/mcp_server.dart';
 import 'package:openhand/features/mcp/service/mcp_oauth_service.dart';
+import 'package:openhand/features/mcp/service/mcp_oauth_callback_page.dart';
+import 'package:openhand/app/model/dialog_animation_settings.dart';
 import 'package:openhand/features/mcp/service/mcp_tool_discovery_service.dart';
 
 const server = McpServer(name: '通用服务', type: McpServerType.streamableHttp,
@@ -70,7 +72,17 @@ class Fixture {
       try {
         final invalid = await client.get(callback.replace(queryParameters: {'state': '伪造状态', 'code': 'stolen'}));
         expect(invalid.statusCode, 400);
-        await client.get(callback.replace(queryParameters: {'state': params['state']!, 'code': 'accepted', 'iss': 'https://issuer.example'}));
+        expect(invalid.headers['content-type'], contains('text/html'));
+        expect(invalid.headers['cache-control'], 'no-store');
+        expect(invalid.headers['referrer-policy'], 'no-referrer');
+        expect(invalid.headers['content-security-policy'], contains("default-src 'none'"));
+        expect(invalid.body, contains('此授权回调无效'));
+        expect(invalid.body, isNot(contains('stolen')));
+        final result = await client.get(callback.replace(queryParameters: {'state': params['state']!, 'code': 'accepted', 'iss': 'https://issuer.example'}));
+        expect(result.body, contains('授权信息已接收'));
+        expect(result.body, contains('history.replaceState'));
+        expect(result.body, isNot(contains(params['state']!)));
+        expect(result.body, isNot(contains('code=accepted')));
       } finally { client.close(); }
       return true;
     },
@@ -255,6 +267,29 @@ void main() {
       service.dispose();
       client.close();
       await events.close();
+    }
+  });
+
+  test('回调页面继承主题、关闭动效并转义服务名称', () async {
+    final output = Platform.environment['OPENHAND_CALLBACK_PREVIEW'];
+    for (final dark in [false, true]) {
+      final colors = (dark ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen)).colorScheme;
+      final page = McpOAuthCallbackPage(colors: colors, animation: const DialogAnimationSettings(entranceStyle: DialogAnimationStyle.none, exitStyle: DialogAnimationStyle.none));
+      for (final status in McpOAuthCallbackStatus.values) {
+        final html = page.render(status: status, serverName: '<script>危险名称</script>', nonce: 'nonce-test');
+        expect(html, contains('--duration:0ms'));
+        expect(html, contains(dark ? 'color-scheme:dark' : 'color-scheme:light'));
+        expect(html, contains('&lt;script&gt;'));
+        expect(html, isNot(contains('<script>危险名称</script>')));
+        expect(html, isNot(contains('https://')));
+        expect(html, contains('prefers-reduced-motion'));
+        if (output != null) {
+          await Directory(output).create(recursive: true);
+          await File(output+'/'+(dark ? 'dark' : 'light')+'-'+status.name+'.html').writeAsString(
+            McpOAuthCallbackPage(colors: colors).render(status: status, serverName: '云端工作空间 MCP', nonce: 'nonce-preview'),
+          );
+        }
+      }
     }
   });
 

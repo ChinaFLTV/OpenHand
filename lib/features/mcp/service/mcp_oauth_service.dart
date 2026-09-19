@@ -15,6 +15,7 @@ import '../../../shared/net/bounded_server_bind.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server.dart';
+import 'mcp_oauth_callback_page.dart';
 import 'mcp_tool_discovery_exception.dart';
 
 const kMcpOAuthConfigKey = 'oauth';
@@ -296,7 +297,10 @@ class McpOAuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> authorize(McpServer server) async {
+  Future<void> authorize(
+    McpServer server, {
+    McpOAuthCallbackPage? callbackPage,
+  }) async {
     final key = server.oauthKey;
     if (_pending.containsKey(key)) return;
     if (_pending.length >= 4) {
@@ -344,27 +348,48 @@ class McpOAuthService extends ChangeNotifier {
       final verifier = _random();
       final state = _random();
       final issuer = metadata['issuer'] as String;
+      var lastCallbackStatus = McpOAuthCallbackStatus.cancelled;
       subscription = listener.listen((request) async {
         final params = request.uri.queryParameters;
+        final nonce = _random();
+        request.response.headers
+          ..contentType = ContentType.html
+          ..set('Cache-Control', 'no-store')
+          ..set('Referrer-Policy', 'no-referrer')
+          ..set('X-Content-Type-Options', 'nosniff')
+          ..set(
+            'Content-Security-Policy',
+            "default-src 'none'; style-src 'nonce-$nonce'; script-src 'nonce-$nonce'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          );
+        var pageStatus = lastCallbackStatus == McpOAuthCallbackStatus.received
+            ? McpOAuthCallbackStatus.alreadyReceived
+            : lastCallbackStatus;
         if (request.method != 'GET' ||
             request.uri.path != '/oauth/callback' ||
             params['state'] != state ||
             (params['iss'] != null && params['iss'] != issuer)) {
           request.response.statusCode = HttpStatus.badRequest;
-          request.response.write('授权回调无效，请返回应用重试。');
+          pageStatus = McpOAuthCallbackStatus.invalid;
         } else if (!completion.isCompleted) {
-          request.response.headers.contentType = ContentType.text;
-          request.response.headers.set('Cache-Control', 'no-store');
           if (params['error'] != null || (params['code'] ?? '').isEmpty) {
             completion.completeError(
               const McpOAuthRequiredException('授权未完成，请返回应用重新授权。'),
             );
-            request.response.write('授权未完成，请返回 OpenHand。');
+            pageStatus = McpOAuthCallbackStatus.cancelled;
+            lastCallbackStatus = pageStatus;
           } else {
             completion.complete(params['code']!);
-            request.response.write('已收到授权，请返回 OpenHand。');
+            pageStatus = McpOAuthCallbackStatus.received;
+            lastCallbackStatus = pageStatus;
           }
         }
+        request.response.write(
+          (callbackPage ?? McpOAuthCallbackPage.fallback).render(
+            status: pageStatus,
+            serverName: server.name,
+            nonce: nonce,
+          ),
+        );
         try {
           await request.response.close();
         } on SocketException {
