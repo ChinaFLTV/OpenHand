@@ -2218,6 +2218,24 @@ String? validateWorkflowParameters(
           conditionalNodeIds: conditionalNodeIds,
         );
         if (availability == _WorkflowParameterAvailability.available) {
+          final match = workflowTemplatePlaceholderPattern.firstMatch(
+            usage.value,
+          );
+          final pureReference = match != null
+              ? match.start == 0 && match.end == usage.value.length
+              : usage.allowDirectReference && usage.value.trim() == reference;
+          if (pureReference &&
+              usage.expectedType != null &&
+              reference == name) {
+            final sourceType = source
+                .declaredParameterFields()
+                .where((field) => field.name.trim() == name)
+                .firstOrNull
+                ?.type;
+            if (sourceType != null && sourceType != usage.expectedType) {
+              return '节点“${_workflowNodeName(target)}”的${usage.label}类型为 ${usage.expectedType!.label}，与引用的上游节点“${_workflowNodeName(source)}”参数“$reference”的类型 ${sourceType.label} 不一致。请修改参数类型或引用后再保存。';
+            }
+          }
           continue;
         }
         final sourceName = _workflowNodeName(source);
@@ -2248,6 +2266,7 @@ class _WorkflowParameterUsage {
     required this.value,
     required this.label,
     this.allowDirectReference = false,
+    this.expectedType,
     this.afterNestedScope = false,
     this.localNames = const <String>{},
   });
@@ -2255,6 +2274,7 @@ class _WorkflowParameterUsage {
   final String value;
   final String label;
   final bool allowDirectReference;
+  final WorkflowOutputType? expectedType;
   final bool afterNestedScope;
   final Set<String> localNames;
 }
@@ -2475,6 +2495,7 @@ List<_WorkflowParameterUsage> _workflowParameterUsages(WorkflowNode node) {
     String value,
     String label, {
     bool allowDirectReference = false,
+    WorkflowOutputType? expectedType,
     bool afterNestedScope = false,
     Set<String> localNames = const <String>{},
   }) {
@@ -2484,6 +2505,7 @@ List<_WorkflowParameterUsage> _workflowParameterUsages(WorkflowNode node) {
         value: value,
         label: label,
         allowDirectReference: allowDirectReference,
+        expectedType: expectedType,
         afterNestedScope: afterNestedScope,
         localNames: localNames,
       ),
@@ -2494,9 +2516,21 @@ List<_WorkflowParameterUsage> _workflowParameterUsages(WorkflowNode node) {
     for (final field in fields) {
       final name = field.name.trim();
       final label = name.isEmpty ? fieldLabel : '$fieldLabel“$name”';
-      add(field.value, label);
+      add(
+        field.value,
+        label,
+        expectedType: field.valueMode == WorkflowValueMode.literal
+            ? field.type
+            : null,
+      );
+
       if (field.valueSource == WorkflowValueSource.variable) {
-        add(field.defaultValue, label, allowDirectReference: true);
+        add(
+          field.defaultValue,
+          label,
+          allowDirectReference: true,
+          expectedType: field.type,
+        );
       }
     }
   }
