@@ -330,72 +330,75 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                   _configurationWidth,
                   math.max(340.0, constraints.maxWidth * 0.38),
                 );
-                return AbsorbPointer(
-                  absorbing: _workflowTesting,
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildCanvas(context)),
-                      AnimatedContainer(
-                        duration: openHandMotionDuration(
-                          context,
-                          kOpenHandMotion260,
-                        ),
-                        curve: kOpenHandSwitchInCurve,
-                        width: _selectedNode == null ? 0 : panelWidth,
-                        clipBehavior: Clip.hardEdge,
-                        decoration: const BoxDecoration(),
-                        child: _selectedNode == null
-                            ? const SizedBox.shrink()
-                            : OverflowBox(
-                                alignment: Alignment.centerLeft,
-                                minWidth: panelWidth,
-                                maxWidth: panelWidth,
-                                child: WorkflowNodeConfigurationPanel(
-                                  node: _selectedNode!,
-                                  catalog: _catalog,
-                                  availableReferences: _availableReferencesFor(
-                                    _selectedNode!,
+                return Row(
+                  children: [
+                    Expanded(child: _buildCanvas(context)),
+                    ExcludeFocus(
+                      excluding: _workflowTesting,
+                      child: AbsorbPointer(
+                        absorbing: _workflowTesting,
+                        child: AnimatedContainer(
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion260,
+                          ),
+                          curve: kOpenHandSwitchInCurve,
+                          width: _selectedNode == null ? 0 : panelWidth,
+                          clipBehavior: Clip.hardEdge,
+                          decoration: const BoxDecoration(),
+                          child: _selectedNode == null
+                              ? const SizedBox.shrink()
+                              : OverflowBox(
+                                  alignment: Alignment.centerLeft,
+                                  minWidth: panelWidth,
+                                  maxWidth: panelWidth,
+                                  child: WorkflowNodeConfigurationPanel(
+                                    node: _selectedNode!,
+                                    catalog: _catalog,
+                                    availableReferences:
+                                        _availableReferencesFor(_selectedNode!),
+                                    nestedOutputReferences:
+                                        _nestedOutputReferencesFor(
+                                          _selectedNode!,
+                                        ),
+                                    reservedParameterNames:
+                                        _reservedParameterNamesFor(
+                                          _selectedNode!,
+                                        ),
+                                    onRefreshCodeRuntimes: () =>
+                                        unawaited(_refreshCodeRuntimes()),
+                                    refreshingCodeRuntimes:
+                                        _refreshingCodeRuntimes,
+                                    onChanged: _updateNode,
+                                    onClose: () => setState(() {
+                                      _selectedNodeId = null;
+                                    }),
+                                    onDelete: _deleteSelectedNode,
+                                    onRun: _testSelectedNode,
+                                    testing: _testing,
+                                    testResult: _testResult,
+                                    testError: _testError,
+                                    testStatus: _testStatus,
+                                    conversation:
+                                        _llmConversations[_selectedNode!.id],
+                                    showConversation:
+                                        _conversationNodeId ==
+                                        _selectedNode!.id,
+                                    onConversationModeChanged: (show) {
+                                      setState(() {
+                                        _conversationNodeId = show
+                                            ? _selectedNode!.id
+                                            : null;
+                                      });
+                                    },
+                                    ttsPlaybackService: _ttsPlaybackService,
+                                    translationService: _translationService,
                                   ),
-                                  nestedOutputReferences:
-                                      _nestedOutputReferencesFor(
-                                        _selectedNode!,
-                                      ),
-                                  reservedParameterNames:
-                                      _reservedParameterNamesFor(
-                                        _selectedNode!,
-                                      ),
-                                  onRefreshCodeRuntimes: () =>
-                                      unawaited(_refreshCodeRuntimes()),
-                                  refreshingCodeRuntimes:
-                                      _refreshingCodeRuntimes,
-                                  onChanged: _updateNode,
-                                  onClose: () => setState(() {
-                                    _selectedNodeId = null;
-                                  }),
-                                  onDelete: _deleteSelectedNode,
-                                  onRun: _testSelectedNode,
-                                  testing: _testing,
-                                  testResult: _testResult,
-                                  testError: _testError,
-                                  testStatus: _testStatus,
-                                  conversation:
-                                      _llmConversations[_selectedNode!.id],
-                                  showConversation:
-                                      _conversationNodeId == _selectedNode!.id,
-                                  onConversationModeChanged: (show) {
-                                    setState(() {
-                                      _conversationNodeId = show
-                                          ? _selectedNode!.id
-                                          : null;
-                                    });
-                                  },
-                                  ttsPlaybackService: _ttsPlaybackService,
-                                  translationService: _translationService,
                                 ),
-                              ),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -668,87 +671,98 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                   maxScale: 2.2,
                   boundaryMargin: const EdgeInsets.all(320),
                   onInteractionStart: (_) => _stopViewportAnimation(),
-                  child: SizedBox(
-                    key: _canvasSurfaceKey,
-                    width: _canvasWidth,
-                    height: _canvasHeight,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _WorkflowGridPainter(
-                              color: theme.colorScheme.outlineVariant,
-                              majorColor: theme.colorScheme.outline,
-                            ),
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTapUp: (details) =>
-                                _selectCanvasAt(details.localPosition),
-                            child: CustomPaint(
-                              painter: _WorkflowConnectionPainter(
-                                nodes: _nodes,
-                                connections: _connections,
-                                scopeParentId: null,
-                                canvasOrigin: Offset.zero,
-                                selectedConnectionId: _selectedConnectionId,
-                                draftSourceNodeId: _connectingSourceNodeId,
-                                draftSourceHandleId: _connectingSourceHandleId,
-                                draftTargetNodeId: _connectionTargetNodeId,
-                                draftEnd: _connectionDragPosition,
-                                draftValid:
-                                    _connectionTargetNodeId != null &&
-                                    _connectionTargetError == null,
-                                color: theme.colorScheme.primary,
-                                errorColor: theme.colorScheme.error,
-                                mutedColor: theme.colorScheme.outline,
+                  // 只锁定画布内容编辑，保留外层视口的平移与缩放手势。
+                  child: ExcludeFocus(
+                    excluding: _workflowTesting,
+                    child: IgnorePointer(
+                      ignoring: _workflowTesting,
+                      child: SizedBox(
+                        key: _canvasSurfaceKey,
+                        width: _canvasWidth,
+                        height: _canvasHeight,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: _WorkflowGridPainter(
+                                  color: theme.colorScheme.outlineVariant,
+                                  majorColor: theme.colorScheme.outline,
+                                ),
                               ),
                             ),
-                          ),
+                            Positioned.fill(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTapUp: (details) =>
+                                    _selectCanvasAt(details.localPosition),
+                                child: CustomPaint(
+                                  painter: _WorkflowConnectionPainter(
+                                    nodes: _nodes,
+                                    connections: _connections,
+                                    scopeParentId: null,
+                                    canvasOrigin: Offset.zero,
+                                    selectedConnectionId: _selectedConnectionId,
+                                    draftSourceNodeId: _connectingSourceNodeId,
+                                    draftSourceHandleId:
+                                        _connectingSourceHandleId,
+                                    draftTargetNodeId: _connectionTargetNodeId,
+                                    draftEnd: _connectionDragPosition,
+                                    draftValid:
+                                        _connectionTargetNodeId != null &&
+                                        _connectionTargetError == null,
+                                    color: theme.colorScheme.primary,
+                                    errorColor: theme.colorScheme.error,
+                                    mutedColor: theme.colorScheme.outline,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            for (final annotation in _annotations)
+                              Positioned(
+                                key: ValueKey<String>(
+                                  'workflow-annotation-${annotation.id}',
+                                ),
+                                left: annotation.x,
+                                top: annotation.y,
+                                width: annotation.width,
+                                height: annotation.height,
+                                child: WorkflowAnnotationCard(
+                                  annotation: annotation,
+                                  selected:
+                                      annotation.id == _selectedAnnotationId,
+                                  onSelect: () =>
+                                      _selectAnnotation(annotation.id),
+                                  onChanged: _updateAnnotation,
+                                  onMove: (delta) =>
+                                      _moveAnnotation(annotation.id, delta),
+                                  onResize: (delta) =>
+                                      _resizeAnnotation(annotation.id, delta),
+                                  onDuplicate: () =>
+                                      _duplicateAnnotation(annotation.id),
+                                  onDelete: () =>
+                                      _deleteAnnotation(annotation.id),
+                                  onEditingChanged: (editing) {
+                                    if (editing) {
+                                      _editingAnnotationId = annotation.id;
+                                    } else if (_editingAnnotationId ==
+                                        annotation.id) {
+                                      _editingAnnotationId = null;
+                                    }
+                                  },
+                                ),
+                              ),
+                            for (final node in _nodes.where(
+                              (item) => item.isContainer,
+                            ))
+                              _buildNodeCard(context, node),
+                            for (final node in _nodes.where(
+                              (item) => !item.isContainer,
+                            ))
+                              _buildNodeCard(context, node),
+                          ],
                         ),
-                        for (final annotation in _annotations)
-                          Positioned(
-                            key: ValueKey<String>(
-                              'workflow-annotation-${annotation.id}',
-                            ),
-                            left: annotation.x,
-                            top: annotation.y,
-                            width: annotation.width,
-                            height: annotation.height,
-                            child: WorkflowAnnotationCard(
-                              annotation: annotation,
-                              selected: annotation.id == _selectedAnnotationId,
-                              onSelect: () => _selectAnnotation(annotation.id),
-                              onChanged: _updateAnnotation,
-                              onMove: (delta) =>
-                                  _moveAnnotation(annotation.id, delta),
-                              onResize: (delta) =>
-                                  _resizeAnnotation(annotation.id, delta),
-                              onDuplicate: () =>
-                                  _duplicateAnnotation(annotation.id),
-                              onDelete: () => _deleteAnnotation(annotation.id),
-                              onEditingChanged: (editing) {
-                                if (editing) {
-                                  _editingAnnotationId = annotation.id;
-                                } else if (_editingAnnotationId ==
-                                    annotation.id) {
-                                  _editingAnnotationId = null;
-                                }
-                              },
-                            ),
-                          ),
-                        for (final node in _nodes.where(
-                          (item) => item.isContainer,
-                        ))
-                          _buildNodeCard(context, node),
-                        for (final node in _nodes.where(
-                          (item) => !item.isContainer,
-                        ))
-                          _buildNodeCard(context, node),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -857,6 +871,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                             scale: _transformationController.value
                                 .getMaxScaleOnAxis(),
                             showMiniMap: _showMiniMap,
+                            readOnly: _workflowTesting,
                             canOrganize: _nodes.isNotEmpty && !_organizingNodes,
                             onAddAnnotation: () => _addAnnotation(viewportSize),
                             onOrganize: () => _organizeNodes(viewportSize),
@@ -2812,6 +2827,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   void _restoreHistory(int index) {
+    if (_workflowTesting) return;
     if (index < 0 || index >= _history.length || index == _historyIndex) return;
     final snapshot = _history[index].snapshot;
     setState(() {
@@ -3233,11 +3249,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     final inputs = await showWorkflowTestInputDialog(context, start);
     if (!mounted || inputs == null) return;
 
+    _canvasFocusNode.requestFocus();
     var observedSteps = 0;
     var observedWarnings = 0;
     final warningNodeIds = <String>{};
     setState(() {
       _workflowTesting = true;
+      _clearConnectionDragState();
+      _editingAnnotationId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -4290,6 +4309,7 @@ class _CanvasToolbar extends StatelessWidget {
   const _CanvasToolbar({
     required this.scale,
     required this.showMiniMap,
+    required this.readOnly,
     required this.canOrganize,
     required this.canDelete,
     required this.canUndo,
@@ -4310,6 +4330,7 @@ class _CanvasToolbar extends StatelessWidget {
 
   final double scale;
   final bool showMiniMap;
+  final bool readOnly;
   final bool canOrganize;
   final bool canDelete;
   final bool canUndo;
@@ -4372,13 +4393,13 @@ class _CanvasToolbar extends StatelessWidget {
               key: const ValueKey<String>('workflow-add-annotation'),
               tooltip: '添加工作流注释',
               icon: Icons.note_add_outlined,
-              onPressed: onAddAnnotation,
+              onPressed: readOnly ? null : onAddAnnotation,
             ),
             _ToolbarButton(
               key: const ValueKey<String>('workflow-organize-nodes'),
               tooltip: '整理节点布局',
               icon: Icons.auto_fix_high_rounded,
-              onPressed: canOrganize ? onOrganize : null,
+              onPressed: !readOnly && canOrganize ? onOrganize : null,
             ),
             _ToolbarButton(
               tooltip: showMiniMap ? '隐藏缩略导航图' : '显示缩略导航图',
@@ -4394,7 +4415,7 @@ class _CanvasToolbar extends StatelessWidget {
             _ToolbarButton(
               tooltip: '删除所选节点、连线或注释',
               icon: Icons.delete_outline_rounded,
-              onPressed: canDelete ? onDelete : null,
+              onPressed: !readOnly && canDelete ? onDelete : null,
             ),
             Container(
               width: 1,
@@ -4405,12 +4426,12 @@ class _CanvasToolbar extends StatelessWidget {
             _ToolbarButton(
               tooltip: '撤销（⌘/Ctrl+Z）',
               icon: Icons.undo_rounded,
-              onPressed: canUndo ? onUndo : null,
+              onPressed: !readOnly && canUndo ? onUndo : null,
             ),
             _ToolbarButton(
               tooltip: '重做（⌘/Ctrl+Shift+Z 或 Ctrl+Y）',
               icon: Icons.redo_rounded,
-              onPressed: canRedo ? onRedo : null,
+              onPressed: !readOnly && canRedo ? onRedo : null,
             ),
             Container(
               width: 1,
@@ -4420,6 +4441,7 @@ class _CanvasToolbar extends StatelessWidget {
             ),
             AnimatedPopupMenuButton<int>(
               tooltip: '变更历史',
+              enabled: !readOnly,
               icon: const Icon(Icons.history_rounded, size: 19),
               padding: EdgeInsets.zero,
               style: IconButton.styleFrom(
