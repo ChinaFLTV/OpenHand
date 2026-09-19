@@ -34,9 +34,9 @@ import 'workflow_editor_dialog.dart';
 import 'workflow_export_progress_dialog.dart';
 import 'workflow_minimap.dart';
 
-const XTypeGroup _workflowYamlTypeGroup = XTypeGroup(
-  label: 'OpenHand 工作流 YAML',
-  extensions: <String>['yaml', 'yml'],
+const XTypeGroup _workflowConfigurationTypeGroup = XTypeGroup(
+  label: 'OpenHand 工作流 JSON / YAML',
+  extensions: <String>['json', 'yaml', 'yml'],
 );
 const Uuid _workflowUuid = Uuid();
 const double _workflowGridSpacing = 14;
@@ -246,12 +246,14 @@ class _WorkflowsViewState extends State<WorkflowsView> {
     OpenHandDialogSession<void>? loadingDialog;
     try {
       final selected = await openFile(
-        acceptedTypeGroups: const <XTypeGroup>[_workflowYamlTypeGroup],
+        acceptedTypeGroups: const <XTypeGroup>[_workflowConfigurationTypeGroup],
       );
       if (selected == null || !mounted) return;
       final extension = path.extension(selected.path).toLowerCase();
-      if (extension != '.yaml' && extension != '.yml') {
-        throw const WorkflowPortabilityException('请选择 .yaml 或 .yml 配置文件。');
+      if (!const ['.json', '.yaml', '.yml'].contains(extension)) {
+        throw const WorkflowPortabilityException(
+          '请选择 .json、.yaml 或 .yml 配置文件。',
+        );
       }
       loadingDialog = showOpenHandTrackedLoadingDialog(
         context: context,
@@ -261,7 +263,9 @@ class _WorkflowsViewState extends State<WorkflowsView> {
         File(selected.path),
         maxBytes: maxWorkflowEncodedBytes,
       );
-      final imported = await decodeWorkflowYamlInIsolate(source);
+      final imported = extension == '.json'
+          ? await decodeWorkflowJsonInIsolate(source)
+          : await decodeWorkflowYamlInIsolate(source);
       await loadingDialog.dismiss(logTag: '工作流导入', logAction: '关闭工作流导入加载弹窗');
       loadingDialog = null;
       if (!mounted) return;
@@ -897,6 +901,7 @@ class _WorkflowExportMenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final icon = switch (format) {
+      WorkflowExportFormat.json ||
       WorkflowExportFormat.yaml => Icons.data_object_rounded,
       WorkflowExportFormat.png => Icons.image_outlined,
       WorkflowExportFormat.jpeg => Icons.photo_outlined,

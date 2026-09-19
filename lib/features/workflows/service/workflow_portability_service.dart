@@ -19,7 +19,7 @@ import '../model/workflow_definition.dart';
 import '../workflow_node_presentation.dart';
 import 'workflow_auto_layout.dart';
 
-const Duration _kYamlExportTimeout = Duration(seconds: 30);
+const Duration _kConfigurationExportTimeout = Duration(seconds: 30);
 const int _kMaxYamlDepth = 64;
 const int _kMaxYamlValues = 100000;
 const int _kWorkflowExportFileStemMaxCharacters = 80;
@@ -47,6 +47,7 @@ const String _kWorkflowFormat = 'openhand-workflow';
 const int _kWorkflowFormatVersion = 1;
 
 enum WorkflowExportFormat {
+  json('JSON 配置文件', 'json', 'JSON'),
   yaml('YAML 配置文件', 'yaml', 'YAML'),
   png('PNG 图片', 'png', 'PNG'),
   jpeg('JPEG 图片', 'jpeg', 'JPEG'),
@@ -82,33 +83,44 @@ class WorkflowPortabilityException implements Exception {
   String toString() => message;
 }
 
-WorkflowDefinition decodeWorkflowYaml(String source) {
+WorkflowDefinition decodeWorkflowYaml(String source) =>
+    _decodeWorkflowConfiguration(source, json: false);
+
+WorkflowDefinition decodeWorkflowJson(String source) =>
+    _decodeWorkflowConfiguration(source, json: true);
+
+WorkflowDefinition _decodeWorkflowConfiguration(
+  String source, {
+  required bool json,
+}) {
   if (source.trim().isEmpty) {
     throw const WorkflowPortabilityException('配置文件内容为空。');
   }
   Object? loaded;
   try {
-    loaded = loadYaml(source);
+    loaded = json ? jsonDecode(source) : loadYaml(source);
   } on YamlException catch (error) {
     throw WorkflowPortabilityException('YAML 语法无效：${error.message}');
+  } on FormatException catch (error) {
+    throw WorkflowPortabilityException('JSON 语法无效：${error.message}');
   } catch (error) {
-    throw WorkflowPortabilityException('无法解析 YAML：$error');
+    throw WorkflowPortabilityException('无法解析配置：$error');
   }
 
   var valueCount = 0;
   Object? toPlain(Object? value, int depth) {
     if (depth > _kMaxYamlDepth) {
-      throw const WorkflowPortabilityException('YAML 嵌套层级过深。');
+      throw const WorkflowPortabilityException('配置嵌套层级过深。');
     }
     valueCount += 1;
     if (valueCount > _kMaxYamlValues) {
-      throw const WorkflowPortabilityException('YAML 包含的配置项过多。');
+      throw const WorkflowPortabilityException('配置包含的配置项过多。');
     }
     if (value is Map) {
       final result = <String, Object?>{};
       for (final entry in value.entries) {
         if (entry.key is! String) {
-          throw const WorkflowPortabilityException('YAML 对象的键必须为字符串。');
+          throw const WorkflowPortabilityException('配置对象的键必须为字符串。');
         }
         result[entry.key as String] = toPlain(entry.value, depth + 1);
       }
@@ -122,16 +134,16 @@ WorkflowDefinition decodeWorkflowYaml(String source) {
     if (value == null || value is String || value is num || value is bool) {
       return value;
     }
-    throw WorkflowPortabilityException('YAML 包含不支持的数据类型：${value.runtimeType}。');
+    throw WorkflowPortabilityException('配置包含不支持的数据类型：${value.runtimeType}。');
   }
 
   final plain = toPlain(loaded, 0);
   if (plain is! Map<String, Object?>) {
-    throw const WorkflowPortabilityException('YAML 根节点必须是对象。');
+    throw const WorkflowPortabilityException('配置根节点必须是对象。');
   }
   if ('${plain['format'] ?? ''}'.trim() != _kWorkflowFormat) {
     throw const WorkflowPortabilityException(
-      '配置格式无效，仅支持由 OpenHand 导出的工作流 YAML。',
+      '配置格式无效，仅支持由 OpenHand 导出的工作流 JSON 或 YAML。',
     );
   }
   final version = plain['version'];
@@ -180,6 +192,21 @@ Future<WorkflowDefinition> decodeWorkflowYamlInIsolate(String source) {
   return Isolate.run<WorkflowDefinition>(() => decodeWorkflowYaml(source));
 }
 
+Future<WorkflowDefinition> decodeWorkflowJsonInIsolate(String source) =>
+    Isolate.run<WorkflowDefinition>(() => decodeWorkflowJson(source));
+
+String encodeWorkflowJson(WorkflowDefinition workflow) {
+  final encoded = const JsonEncoder.withIndent('  ').convert({
+    'format': _kWorkflowFormat,
+    'version': _kWorkflowFormatVersion,
+    'workflow': workflow.toJson(),
+  });
+  if (utf8ByteLength(encoded) > maxWorkflowEncodedBytes) {
+    throw const WorkflowPortabilityException('导出的 JSON 超过 4 MiB 安全上限。');
+  }
+  return encoded;
+}
+
 String encodeWorkflowYaml(WorkflowDefinition workflow) {
   final writer = _WorkflowYamlWriter();
   writer.buffer
@@ -195,13 +222,22 @@ String encodeWorkflowYaml(WorkflowDefinition workflow) {
 }
 
 // 使用独立入口，仅传入工作流数据，避免捕获页面状态和图像导出上下文。
-void _encodeWorkflowYamlWorker((WorkflowDefinition, SendPort) request) {
-  final bytes = Uint8List.fromList(utf8.encode(encodeWorkflowYaml(request.$1)));
+void _encodeWorkflowConfigurationWorker(
+  (WorkflowDefinition, SendPort, WorkflowExportFormat) request,
+) {
+  final bytes = Uint8List.fromList(
+    utf8.encode(
+      request.$3 == WorkflowExportFormat.json
+          ? encodeWorkflowJson(request.$1)
+          : encodeWorkflowYaml(request.$1),
+    ),
+  );
   Isolate.exit(request.$2, bytes);
 }
 
-Future<Uint8List> _encodeWorkflowYamlInIsolate(
+Future<Uint8List> _encodeWorkflowConfigurationInIsolate(
   WorkflowDefinition workflow,
+  WorkflowExportFormat format,
 ) async {
   final replies = ReceivePort();
   Isolate? worker;
@@ -209,25 +245,25 @@ Future<Uint8List> _encodeWorkflowYamlInIsolate(
   try {
     final spawning =
         Isolate.spawn(
-          _encodeWorkflowYamlWorker,
-          (workflow, replies.sendPort),
+          _encodeWorkflowConfigurationWorker,
+          (workflow, replies.sendPort, format),
           onError: replies.sendPort,
           onExit: replies.sendPort,
-          debugName: 'workflow-yaml-export',
+          debugName: 'workflow-configuration-export',
         ).then((isolate) {
           if (closed) isolate.kill(priority: Isolate.immediate);
           return worker = isolate;
         });
-    await spawning.timeout(_kYamlExportTimeout);
-    final result = await replies.first.timeout(_kYamlExportTimeout);
+    await spawning.timeout(_kConfigurationExportTimeout);
+    final result = await replies.first.timeout(_kConfigurationExportTimeout);
     if (result is Uint8List) return result;
     throw WorkflowPortabilityException(
       result is List && result.isNotEmpty
-          ? '生成 YAML 失败：${result.first}'
-          : 'YAML 导出任务提前结束，未返回文件内容。',
+          ? '生成配置失败：${result.first}'
+          : '配置导出任务提前结束，未返回文件内容。',
     );
   } on TimeoutException {
-    throw const WorkflowPortabilityException('生成 YAML 超时，后台任务已终止，请重试。');
+    throw const WorkflowPortabilityException('生成配置超时，后台任务已终止，请重试。');
   } finally {
     closed = true;
     worker?.kill(priority: Isolate.immediate);
@@ -260,9 +296,10 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
       workflow.annotations.length > maxWorkflowAnnotationCount) {
     throw const WorkflowPortabilityException('工作流规模超过导出安全上限。');
   }
-  if (format == WorkflowExportFormat.yaml) {
-    onProgress?.call(0.62, '正在生成 YAML 配置…');
-    final bytes = await _encodeWorkflowYamlInIsolate(workflow);
+  if (format == WorkflowExportFormat.yaml ||
+      format == WorkflowExportFormat.json) {
+    onProgress?.call(0.62, '正在生成 ${format.typeLabel} 配置…');
+    final bytes = await _encodeWorkflowConfigurationInIsolate(workflow, format);
     onProgress?.call(0.84, '配置文件已生成，正在写入磁盘…');
     return WorkflowExportArtifact(
       bytes: bytes,

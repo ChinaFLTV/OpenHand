@@ -43,8 +43,10 @@ void main() {
     for (final invalid in [settings, {'超大文本': '文' * maxWorkflowEncodedBytes}]) {
       final workflow = base.copyWith(nodes: [WorkflowNode(id: '节点', kind: WorkflowNodeKind.llm,
         title: '节点', x: 0, y: 0, settings: invalid)]);
-      await expectLater(buildWorkflowExportArtifact(workflow, WorkflowExportFormat.yaml).timeout(const Duration(seconds: 10)),
-        throwsA(isA<WorkflowPortabilityException>()));
+      for (final format in [WorkflowExportFormat.json, WorkflowExportFormat.yaml]) {
+        await expectLater(buildWorkflowExportArtifact(workflow, format).timeout(const Duration(seconds: 10)),
+          throwsA(isA<WorkflowPortabilityException>()));
+      }
     }
   });
   testWidgets('导出弹窗完成真实后台编码后进入成功状态', (tester) async {
@@ -72,7 +74,7 @@ void main() {
     expect(decodeWorkflowYaml(output.readAsStringSync()).id, workflow.id);
     await tester.pumpWidget(const SizedBox.shrink());
   });
-  test('YAML 后台导出不捕获进度回调中的主线程资源', () async {
+  test('JSON 与 YAML 后台导出往返一致，不捕获主线程资源', () async {
     final port = ReceivePort();
     addTearDown(port.close);
     final workflow = WorkflowDefinition(id: '导出', name: '测试流程',
@@ -81,12 +83,22 @@ void main() {
         title: '生成结论', x: 20, y: 30,
         settings: {'prompt': '多行提示词\\n中文与符号：[] {}', 'array': [1, true, null], 'object': {'内容': '测试'}})],
     );
+    expect(WorkflowExportFormat.values.first, WorkflowExportFormat.json);
+    for (final source in ['{broken', '[]', '{}', '{"format":"openhand-workflow","version":999,"workflow":{}}', 'format: openhand-workflow']) {
+      expect(() => decodeWorkflowJson(source), throwsA(isA<WorkflowPortabilityException>()));
+    }
+    for (final format in [WorkflowExportFormat.json, WorkflowExportFormat.yaml]) {
     final progress = <double>[];
-    final artifact = await buildWorkflowExportArtifact(workflow, WorkflowExportFormat.yaml,
+    final artifact = await buildWorkflowExportArtifact(workflow, format,
       onProgress: (value, message) { progress.add(value); port.sendPort.send(message); },
     ).timeout(const Duration(seconds: 10));
-    expect(decodeWorkflowYaml(utf8.decode(artifact.bytes)).toJson(), WorkflowDefinition.fromJson(workflow.toJson()).toJson());
+    final imported = format == WorkflowExportFormat.json
+        ? await decodeWorkflowJsonInIsolate(utf8.decode(artifact.bytes))
+        : await decodeWorkflowYamlInIsolate(utf8.decode(artifact.bytes));
+    expect(imported.toJson(), WorkflowDefinition.fromJson(workflow.toJson()).toJson());
+    expect(workflowExportFileName(workflow, format), endsWith('.\${format.extension}'));
     expect(progress, [0.12, 0.62, 0.84]);
+    }
   });
 }
 ''';
