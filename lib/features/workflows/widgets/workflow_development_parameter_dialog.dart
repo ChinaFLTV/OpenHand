@@ -18,6 +18,7 @@ import '../service/workflow_development_parameters.dart';
 import '../workflow_node_presentation.dart';
 import 'workflow_parameter_reference_field.dart';
 
+const _developmentParameterContentPadding = EdgeInsets.fromLTRB(22, 18, 22, 22);
 const double _developmentParameterActionSize = 44;
 const double _developmentParameterFieldHeight = 52;
 const double _developmentParameterListMaxHeight = 640;
@@ -440,7 +441,7 @@ class _WorkflowDevelopmentParameterDialogState
                       // 弹窗转场期间避免列表项的独立 layer 脱离后参与布局，
                       // 参数列表高度受限且可见项很少，关闭分层不会造成性能负担。
                       addRepaintBoundaries: false,
-                      padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
+                      padding: _developmentParameterContentPadding,
                       itemCount: _parameterGroups.length,
                       separatorBuilder: (_, _) => kOpenHandGap10,
                       itemBuilder: (context, index) {
@@ -514,7 +515,7 @@ class _DevelopmentParameterEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+      padding: _developmentParameterContentPadding,
       child: Container(
         alignment: Alignment.center,
         padding: const EdgeInsets.all(24),
