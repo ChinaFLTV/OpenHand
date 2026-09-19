@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_appearance.dart';
+import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -11,6 +12,14 @@ import '../service/workflow_node_executor.dart';
 
 const _refreshInterval = Duration(milliseconds: 100);
 const _digitDuration = Duration(milliseconds: 80);
+const _badgeFontSize = 10.0;
+const _badgeVerticalInsets = 8.0;
+const _badgeTransition = OpenHandAnimationTransitionProfile(
+  alignment: Alignment.centerLeft,
+  springScaleBegin: 0.82,
+  elasticScaleBegin: 0.82,
+  slideMode: OpenHandSlideTransitionMode.paintOffset,
+);
 
 /// 独立刷新耗时，避免计时触发画布和连线重建。
 class WorkflowNodeElapsedBadge extends StatefulWidget {
@@ -27,6 +36,11 @@ class _WorkflowNodeElapsedBadgeState extends State<WorkflowNodeElapsedBadge> {
   final _stopwatch = Stopwatch();
   Timer? _timer;
   Duration _elapsed = Duration.zero;
+
+  bool get _visible =>
+      widget.event != null &&
+      widget.event!.phase != WorkflowNodeExecutionPhase.pending &&
+      widget.event!.phase != WorkflowNodeExecutionPhase.skipped;
 
   bool get _running =>
       widget.event?.phase == WorkflowNodeExecutionPhase.running;
@@ -52,7 +66,8 @@ class _WorkflowNodeElapsedBadgeState extends State<WorkflowNodeElapsedBadge> {
     _stopwatch
       ..stop()
       ..reset();
-    _elapsed = widget.event?.duration ?? Duration.zero;
+    // 退场期间保留最后的耗时，避免先归零、缩短后再消失。
+    if (_visible) _elapsed = widget.event!.duration;
     if (_running) _stopwatch.start();
   }
 
@@ -87,11 +102,6 @@ class _WorkflowNodeElapsedBadgeState extends State<WorkflowNodeElapsedBadge> {
 
   @override
   Widget build(BuildContext context) {
-    final phase = widget.event?.phase;
-    final visible =
-        phase != null &&
-        phase != WorkflowNodeExecutionPhase.pending &&
-        phase != WorkflowNodeExecutionPhase.skipped;
     final settings = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.chip,
@@ -107,7 +117,7 @@ class _WorkflowNodeElapsedBadgeState extends State<WorkflowNodeElapsedBadge> {
             ),
           );
     final style = TextStyle(
-      fontSize: 10,
+      fontSize: _badgeFontSize,
       height: 1,
       fontWeight: FontWeight.w700,
       fontFeatures: const [FontFeature.tabularFigures()],
@@ -115,70 +125,86 @@ class _WorkflowNodeElapsedBadgeState extends State<WorkflowNodeElapsedBadge> {
     );
     return IgnorePointer(
       child: RepaintBoundary(
-        child: AnimatedAppearance(
-          settings: settings,
-          present: visible,
-          collapseSize: false,
-          child: Semantics(
-            label: '执行耗时 ${_elapsed.inMilliseconds} 毫秒',
-            child: ExcludeSemantics(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                decoration: BoxDecoration(
-                  color: colors.secondaryContainer.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: colors.secondary.withValues(alpha: 0.24),
+        child: SizedBox(
+          height:
+              math.max(
+                _badgeFontSize,
+                MediaQuery.textScalerOf(context).scale(_badgeFontSize),
+              ) +
+              _badgeVerticalInsets,
+          child: AnimatedAppearance(
+            settings: settings,
+            present: _visible,
+            onDismissed: () {
+              if (mounted && !_visible) setState(() {});
+            },
+            collapseSize: false,
+            transitionProfile: _badgeTransition,
+            child: Semantics(
+              label: '执行耗时 ${_elapsed.inMilliseconds} 毫秒',
+              child: ExcludeSemantics(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 3,
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.timer_outlined,
-                      size: 10,
-                      color: colors.onSecondaryContainer,
+                  decoration: BoxDecoration(
+                    color: colors.secondaryContainer.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: colors.secondary.withValues(alpha: 0.24),
                     ),
-                    const SizedBox(width: 3),
-                    for (var index = 0; index < text.length; index++)
-                      if (duration == Duration.zero)
-                        Text(text[index], style: style)
-                      else
-                        ClipRect(
-                          key: ValueKey(text.length - index),
-                          child: AnimatedSwitcher(
-                            duration: duration,
-                            transitionBuilder: (child, animation) =>
-                                FadeTransition(
-                                  opacity: OpenHandBoundedDoubleAnimation(
-                                    animation,
-                                  ),
-                                  child: SlideTransition(
-                                    position:
-                                        Tween<Offset>(
-                                          begin:
-                                              child.key == ValueKey(text[index])
-                                              ? const Offset(0, 0.8)
-                                              : const Offset(0, -0.8),
-                                          end: Offset.zero,
-                                        ).animate(
-                                          openHandCurveAnimation(
-                                            parent: animation,
-                                            curve: settings.curve.curve,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.timer_outlined,
+                        size: 10,
+                        color: colors.onSecondaryContainer,
+                      ),
+                      const SizedBox(width: 3),
+                      for (var index = 0; index < text.length; index++)
+                        if (duration == Duration.zero)
+                          Text(text[index], style: style)
+                        else
+                          ClipRect(
+                            key: ValueKey(text.length - index),
+                            child: AnimatedSwitcher(
+                              duration: duration,
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                    opacity: OpenHandBoundedDoubleAnimation(
+                                      animation,
+                                    ),
+                                    child: SlideTransition(
+                                      position:
+                                          Tween<Offset>(
+                                            begin:
+                                                child.key ==
+                                                    ValueKey(text[index])
+                                                ? const Offset(0, 0.8)
+                                                : const Offset(0, -0.8),
+                                            end: Offset.zero,
+                                          ).animate(
+                                            openHandCurveAnimation(
+                                              parent: animation,
+                                              curve: settings.curve.curve,
+                                            ),
                                           ),
-                                        ),
-                                    child: child,
+                                      child: child,
+                                    ),
                                   ),
-                                ),
-                            child: Text(
-                              text[index],
-                              key: ValueKey(text[index]),
-                              style: style,
+                              child: Text(
+                                text[index],
+                                key: ValueKey(text[index]),
+                                style: style,
+                              ),
                             ),
                           ),
-                        ),
-                    Text(' 秒', style: style),
-                  ],
+                      Text(' 秒', style: style),
+                    ],
+                  ),
                 ),
               ),
             ),

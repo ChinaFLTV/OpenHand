@@ -12,6 +12,7 @@ const _checks = '''
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/workflows/widgets/workflow_node_elapsed_badge.dart';
+import 'package:openhand/shared/ui/animated_appearance.dart';
 import 'package:openhand/features/workflows/service/workflow_node_executor.dart';
 
 void main() {
@@ -53,6 +54,26 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     expect(milliseconds(), 12345);
     expect(tester.binding.transientCallbackCount, 0);
+
+    final shownHeight = tester.getSize(find.byType(WorkflowNodeElapsedBadge)).height;
+    await tester.pumpWidget(scene(null));
+    expect(tester.widget<AnimatedAppearance>(find.byType(AnimatedAppearance)).present, isFalse);
+    expect(displayedTime(), '12.345 秒');
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(displayedTime(), '12.345 秒');
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    expect(tester.getSize(find.byType(WorkflowNodeElapsedBadge)).height, shownHeight);
+    await tester.pumpAndSettle();
+    expect(displayedTime(), isEmpty);
+    expect(tester.getSize(find.byType(WorkflowNodeElapsedBadge)).height, shownHeight);
+    await tester.pumpWidget(scene(finished));
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    await tester.pumpWidget(scene(null));
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.pumpWidget(scene(finished));
+    await tester.pumpAndSettle();
+    expect(displayedTime(), '12.345 秒');
 
     await tester.pumpWidget(scene(event(WorkflowNodeExecutionPhase.running), reduce: true));
     expect(milliseconds(), lessThan(100));
