@@ -223,6 +223,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         expect(tester.takeException(), isNull, reason: '节点摘要字号 \$fontSize，状态 \$phase');
         final badge = tester.getRect(find.byType(WorkflowNodeElapsedBadge));
+        final summary = tester.getRect(find.text(workflowNodeSummary(node)));
+        expect(badge.top - summary.bottom, greaterThanOrEqualTo(6));
         final label = tester.getRect(find.text('LLM'));
         expect(badge.center.dy, closeTo(label.center.dy, 0.01));
       }

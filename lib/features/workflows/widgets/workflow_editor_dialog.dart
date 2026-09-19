@@ -1801,6 +1801,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               ),
             ),
           ),
+          kOpenHandGap6,
         ],
         if (!workflowNodeHasBranches(node))
           Row(
