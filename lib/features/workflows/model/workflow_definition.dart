@@ -326,7 +326,7 @@ $secondInputJson="\${$secondInput:-null}"
 # 在这里编写业务逻辑；可使用上面的参数变量。
 result_value="$firstInputJson"
 
-# 返回值模板：保持为 JSON 对象，可按需新增或调整输出字段。
+# 输出参数模板：保持为 JSON 对象，可按需新增或调整输出字段。
 result_json=\$(cat <<EOF
 {
   $outputKey: \$result_value
@@ -344,7 +344,7 @@ $secondInputVariable = \$inputObject.$secondInput
     '$outputName' = "$firstInputVariable$secondInputVariable"
 }
 
-# 返回值通过 \$result 交给工作流，必须是键值对象。''',
+# 输出参数通过 \$result 交给工作流，必须是键值对象。''',
   };
 }
 

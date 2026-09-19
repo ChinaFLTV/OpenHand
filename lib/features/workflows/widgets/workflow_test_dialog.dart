@@ -957,13 +957,13 @@ class _WorkflowTestNodeRecord extends StatelessWidget {
             ),
             kOpenHandGap8,
             _WorkflowTestDetailBlock(
-              label: '返回值',
+              label: '输出参数',
               value: returnValue,
               descriptions: outputDescriptions,
-              copyTooltipPrefix: '复制返回值',
+              copyTooltipPrefix: '复制输出参数',
               emptyLabel: event.phase == WorkflowNodeExecutionPhase.failed
                   ? '无可展示失败详情'
-                  : '无可展示返回值',
+                  : '无可展示输出参数',
             ),
           ],
         ),
