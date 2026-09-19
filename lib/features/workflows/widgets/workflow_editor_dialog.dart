@@ -3213,19 +3213,16 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     return List<WorkflowParameterReference>.unmodifiable(references);
   }
 
-  void _mergeDevelopmentNodeOutput(
-    WorkflowNode node,
-    WorkflowNodeExecutionResult result,
-  ) {
+  void _mergeDevelopmentNodeOutput(WorkflowNode node, Object? output) {
     final outputFields = node.outputParameterFields();
     if (outputFields.isEmpty) return;
     final values = <String, Object?>{};
-    if (result.output case final Map output) {
+    if (output case final Map output) {
       for (final entry in output.entries) {
         values['${entry.key}'] = entry.value;
       }
     } else if (outputFields.length == 1) {
-      values[outputFields.single.name.trim()] = result.output;
+      values[outputFields.single.name.trim()] = output;
     }
     if (values.isEmpty) return;
     final existingByName = <String, WorkflowDevelopmentParameter>{
@@ -3244,7 +3241,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         value: workflowDevelopmentParameterValueText(values[name]),
       );
       final existing = existingByName[name];
-      if (existing == null) {
+      if (existing?.source == WorkflowDevelopmentParameterSource.startInput) {
+        next[next.indexWhere((item) => item.id == existing!.id)] = existing!
+            .copyWith(value: parameter.value);
+      } else if (existing == null) {
         next.add(parameter);
       } else {
         next[next.indexWhere((item) => item.id == existing.id)] = parameter;
@@ -3291,7 +3291,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       );
       if (!mounted || !identical(_nodeTestCancellation, cancellation)) return;
       setState(() {
-        _mergeDevelopmentNodeOutput(node, result);
+        _mergeDevelopmentNodeOutput(node, result.output);
         _testResult = _formatExecutionResult(result);
         _testError = null;
         _testStatus = _workflowTestResultStatus(result);
@@ -3331,6 +3331,20 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     final inputs = await showWorkflowTestInputDialog(context, start);
     if (!mounted || inputs == null) return;
 
+    _synchronizeDevelopmentStartParameters();
+    _developmentParameters = _developmentParameters
+        .map((parameter) {
+          return parameter.source ==
+                      WorkflowDevelopmentParameterSource.startInput &&
+                  inputs.containsKey(parameter.name)
+              ? parameter.copyWith(
+                  value: workflowDevelopmentParameterValueText(
+                    inputs[parameter.name],
+                  ),
+                )
+              : parameter;
+        })
+        .toList(growable: false);
     _canvasFocusNode.requestFocus();
     var observedSteps = 0;
     var observedWarnings = 0;
@@ -3389,7 +3403,19 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                     error: event.error,
                   )
                 : event;
-            setState(() => _nodeExecutions[event.nodeId] = displayEvent);
+            setState(() {
+              _nodeExecutions[event.nodeId] = displayEvent;
+              if (event.phase == WorkflowNodeExecutionPhase.succeeded ||
+                  event.phase == WorkflowNodeExecutionPhase.warning &&
+                      event.output != null) {
+                final node = _nodes
+                    .where((node) => node.id == event.nodeId)
+                    .firstOrNull;
+                if (node != null) {
+                  _mergeDevelopmentNodeOutput(node, event.output);
+                }
+              }
+            });
           },
         ),
       );

@@ -127,6 +127,7 @@ class _WorkflowDevelopmentParameterDialogState
   );
   late final ScrollController _scrollController = ScrollController();
   bool _refreshing = false;
+  bool _clearing = false;
   bool _closeConfirmationOpen = false;
   bool _validationRequested = false;
   bool _listReady = false;
@@ -161,6 +162,33 @@ class _WorkflowDevelopmentParameterDialogState
       if (mounted) setState(() => _parameters = List.of(parameters));
     } finally {
       if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
+  Future<void> _clearParameters() async {
+    if (_clearing || _refreshing || _parameters.isEmpty) return;
+    setState(() => _clearing = true);
+    try {
+      final confirmed = await showOpenHandConfirmDialog(
+        context: context,
+        title: '清空全部临时变量？',
+        message: '将移除当前列表中的全部临时参数及其值，保存后生效。节点参数定义不受影响；刷新列表会重新载入开始节点的空参数。',
+        cancelLabel: '保留变量',
+        confirmLabel: '清空变量',
+        destructive: true,
+        icon: Icon(
+          Icons.delete_sweep_rounded,
+          color: Theme.of(context).colorScheme.error,
+        ),
+      );
+      if (mounted && confirmed) {
+        setState(() {
+          _parameters = [];
+          _validationRequested = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _clearing = false);
     }
   }
 
@@ -346,6 +374,15 @@ class _WorkflowDevelopmentParameterDialogState
                       : _addParameter,
                   style: actionStyle,
                   icon: const Icon(Icons.add_rounded),
+                ),
+                kOpenHandHGap8,
+                IconButton.filledTonal(
+                  tooltip: '清空变量',
+                  onPressed: _parameters.isEmpty || _clearing || _refreshing
+                      ? null
+                      : _clearParameters,
+                  style: actionStyle,
+                  icon: const Icon(Icons.delete_sweep_rounded),
                 ),
                 kOpenHandHGap8,
                 IconButton.filledTonal(
@@ -959,8 +996,10 @@ class _DevelopmentParameterItem extends StatelessWidget {
                 descriptionRow,
               ],
               kOpenHandGap10,
-              SizedBox(
-                height: _developmentParameterFieldHeight,
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: _developmentParameterFieldHeight,
+                ),
                 child: AnimatedDropdownButtonFormField<WorkflowValueMode>(
                   initialValue: WorkflowValueMode.literal,
                   isExpanded: true,
@@ -988,6 +1027,7 @@ class _DevelopmentParameterItem extends StatelessWidget {
                 decoration: decoration.copyWith(
                   labelText: '参数值',
                   hintText: references.isEmpty ? '输入参数值' : '输入参数值，按 / 引用可用参数',
+                  hintMaxLines: 3,
                 ),
                 onChanged: onValueChanged,
               ),

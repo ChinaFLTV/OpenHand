@@ -53,6 +53,25 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     final state = key.currentState!;
+    final outputNode = WorkflowNode(id: 'outputs', kind: WorkflowNodeKind.codeExecution,
+      title: '输出检查', x: 0, y: 0, settings: {
+        WorkflowSettingKeys.outputFields: [
+          const WorkflowOutputField(id: 'data', name: 'data', type: WorkflowOutputType.object).toJson(),
+        ],
+      });
+    state._mergeDevelopmentNodeOutput(outputNode, {'data': {'items': [1, 2], 'enabled': false}});
+    expect(resolveWorkflowDevelopmentParameterValues(state._developmentParameters)['data'], {'items': [1, 2], 'enabled': false});
+    state._mergeDevelopmentNodeOutput(outputNode, {'data': {'items': []}});
+    expect(state._developmentParameters.where((item) => item.name == 'data').length, 1);
+    expect(resolveWorkflowDevelopmentParameterValues(state._developmentParameters)['data'], {'items': []});
+    state._developmentParameters = [const WorkflowDevelopmentParameter(
+      id: 'start-data', field: WorkflowOutputField(id: 'data', name: 'data', type: WorkflowOutputType.object),
+      source: WorkflowDevelopmentParameterSource.startInput, ownerNodeId: 'start',
+    )];
+    state._mergeDevelopmentNodeOutput(outputNode, {'data': {'ok': true}});
+    expect(state._developmentParameters.single.source, WorkflowDevelopmentParameterSource.startInput);
+    expect(resolveWorkflowDevelopmentParameterValues(state._developmentParameters)['data'], {'ok': true});
+    state._developmentParameters = [];
     final controller = state._transformationController;
     final addButton = find.byKey(const ValueKey<(String, String, String?)>(('node-add-visibility', 'start', null)));
     double addOpacity() => tester.widget<AnimatedOpacity>(addButton).opacity;
