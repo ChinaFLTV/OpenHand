@@ -112,12 +112,35 @@ class _McpOAuthPanelState extends State<McpOAuthPanel> {
     }
   }
 
+  Future<void> _refreshToken() async {
+    final server = widget.server;
+    setState(() => _error = null);
+    try {
+      await _oauth.refresh(server);
+      if (mounted &&
+          server.oauthKey == widget.server.oauthKey &&
+          widget.server.usesOAuth) {
+        widget.onAuthorized?.call();
+      }
+    } catch (error) {
+      if (mounted && server.oauthKey == widget.server.oauthKey) {
+        setState(
+          () => _error = error is McpToolDiscoveryException
+              ? error.message
+              : '刷新令牌失败，请检查网络后重试。',
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _oauth,
     builder: (context, _) {
       final status = _oauth.status(widget.server);
       final busy = status == McpOAuthStatus.authorizing;
+      final refreshing = _oauth.isRefreshing(widget.server);
+      final canRefresh = _oauth.canRefresh(widget.server);
       final authorized = status == McpOAuthStatus.authorized;
       final color = authorized
           ? OpenHandStatusColors.success
@@ -154,11 +177,11 @@ class _McpOAuthPanelState extends State<McpOAuthPanel> {
         children: [
           _OAuthActionTransition(
             child: SizedBox(
-              key: ValueKey((_loading, status)),
+              key: ValueKey((_loading, status, refreshing)),
               width: actionWidth,
               child: FilledButton.icon(
                 style: actionStyle(colors.primary),
-                onPressed: _loading || busy ? null : _authorize,
+                onPressed: _loading || busy || refreshing ? null : _authorize,
                 icon: Icon(
                   busy
                       ? Icons.hourglass_top_rounded
@@ -173,6 +196,29 @@ class _McpOAuthPanelState extends State<McpOAuthPanel> {
                 ),
               ),
             ),
+          ),
+          _OAuthActionTransition(
+            child: busy || !canRefresh
+                ? null
+                : Padding(
+                    key: ValueKey(('刷新', refreshing)),
+                    padding: const EdgeInsetsDirectional.only(start: 10),
+                    child: SizedBox(
+                      width: actionWidth,
+                      child: FilledButton.icon(
+                        style: actionStyle(colors.tertiary),
+                        onPressed: _loading || refreshing
+                            ? null
+                            : _refreshToken,
+                        icon: Icon(
+                          refreshing
+                              ? Icons.hourglass_top_rounded
+                              : Icons.refresh_rounded,
+                        ),
+                        label: Text(refreshing ? '正在刷新' : '刷新令牌'),
+                      ),
+                    ),
+                  ),
           ),
           _OAuthActionTransition(
             child: !busy && !authorized
@@ -208,7 +254,8 @@ class _McpOAuthPanelState extends State<McpOAuthPanel> {
       return LayoutBuilder(
         builder: (context, constraints) {
           final inline =
-              constraints.maxWidth >= 720.0 * (scale < 1 ? 1.0 : scale);
+              constraints.maxWidth >=
+              (canRefresh && !busy ? 900.0 : 720.0) * (scale < 1 ? 1.0 : scale);
           return OpenHandAnimatedDialogSize(
             child: OpenHandDialogSectionCard(
               icon: authorized
@@ -218,7 +265,13 @@ class _McpOAuthPanelState extends State<McpOAuthPanel> {
               title: 'OAuth · $label',
               subtitle: busy
                   ? '请在系统浏览器中完成授权，完成后自动连接。'
-                  : '使用浏览器安全授权，访问令牌到期时自动尝试刷新。',
+                  : refreshing
+                  ? '正在更新访问令牌，请稍候。'
+                  : canRefresh
+                  ? '支持自动刷新，也可手动更新访问令牌。'
+                  : status == McpOAuthStatus.required
+                  ? '授权后将根据服务支持情况自动刷新访问令牌。'
+                  : '当前授权未提供刷新令牌，失效后需重新授权。',
               trailing: inline ? actions : null,
               contentSpacing: 0,
               child: Column(

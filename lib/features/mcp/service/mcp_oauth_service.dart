@@ -143,8 +143,47 @@ class McpOAuthService extends ChangeNotifier {
     return McpOAuthStatus.authorized;
   }
 
+  bool canRefresh(McpServer server) {
+    final token = _records[server.oauthKey]?['refresh_token'];
+    return server.usesOAuth && token is String && token.trim().isNotEmpty;
+  }
+
+  bool isRefreshing(McpServer server) =>
+      _refreshes.containsKey(server.oauthKey);
+
+  /// 手动与自动刷新共用任务，避免轮换令牌被并发消费。
+  Future<void> refresh(McpServer server) async {
+    await load(server);
+    if (_pending.containsKey(server.oauthKey)) {
+      throw const McpOAuthRequiredException('请先完成浏览器授权。');
+    }
+    if (!canRefresh(server)) {
+      throw const McpOAuthRequiredException('当前授权无法刷新，请重新授权。');
+    }
+    await _refreshShared(server, _records[server.oauthKey]!);
+  }
+
+  Future<Map<String, dynamic>> _refreshShared(
+    McpServer server,
+    Map<String, dynamic> record,
+  ) {
+    final key = server.oauthKey;
+    final pending = _refreshes[key];
+    if (pending != null) return pending;
+    final task = _refresh(server, record).whenComplete(() {
+      _refreshes.remove(key);
+      notifyListeners();
+    });
+    _refreshes[key] = task;
+    notifyListeners();
+    return task;
+  }
+
   bool _valid(Map<String, dynamic> record) {
-    final refreshAt = record['refresh_at'] ?? record['expires_at'];
+    final refreshToken = record['refresh_token'];
+    final refreshAt = refreshToken is String && refreshToken.trim().isNotEmpty
+        ? record['refresh_at'] ?? record['expires_at']
+        : record['expires_at'];
     return record['access_token'] is String &&
         (refreshAt == null ||
             (refreshAt is num &&
@@ -162,14 +201,11 @@ class McpOAuthService extends ChangeNotifier {
     if (record == null || _pending.containsKey(key)) {
       throw const McpOAuthRequiredException();
     }
-    if (_rejected.contains(key) || !_valid(record)) {
-      if (record['refresh_token'] == null) {
+    if (isRefreshing(server) || _rejected.contains(key) || !_valid(record)) {
+      if (!canRefresh(server)) {
         throw const McpOAuthRequiredException('OAuth 授权已失效，请重新授权。');
       }
-      record = await (_refreshes[key] ??= _refresh(
-        server,
-        record,
-      )).whenComplete(() => _refreshes.remove(key));
+      record = await _refreshShared(server, record);
     }
     return {
       for (final entry in headers.entries)

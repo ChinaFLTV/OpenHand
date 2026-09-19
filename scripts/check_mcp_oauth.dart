@@ -39,6 +39,21 @@ class _RealHttpOverrides extends HttpOverrides {}
 
 class _PanelOAuth extends McpOAuthService {
   McpOAuthStatus value = McpOAuthStatus.authorized;
+  bool supportsRefresh = false;
+  bool refreshing = false;
+  Completer<void>? refreshGate;
+  @override
+  bool canRefresh(McpServer server) => supportsRefresh;
+  @override
+  bool isRefreshing(McpServer server) => refreshing;
+  @override
+  Future<void> refresh(McpServer server) async {
+    refreshing = true;
+    notifyListeners();
+    await refreshGate?.future;
+    refreshing = false;
+    notifyListeners();
+  }
   void update(McpOAuthStatus status) {
     value = status;
     notifyListeners();
@@ -53,6 +68,9 @@ class Fixture {
   Map<String, dynamic>? saved;
   int refreshes = 0;
   bool invalidGrant = false;
+  bool issueRefreshToken = true;
+  bool rotateRefreshToken = true;
+  bool refreshUnavailable = false;
   bool pkce = true;
   String authMethod = 'none';
   String resourceId = server.url;
@@ -120,12 +138,13 @@ class Fixture {
         refreshes++;
         if (!refreshStarted.isCompleted) refreshStarted.complete();
         await refreshGate?.future;
+        if (refreshUnavailable) return json({'error': 'temporarily_unavailable'}, 503);
         if (invalidGrant) return json({'error': 'invalid_grant'}, 400);
-        return json({'access_token': 'rotated', 'refresh_token': 'refresh2', 'token_type': 'Bearer', 'expires_in': 3600});
+        return json({'access_token': 'rotated', if (rotateRefreshToken) 'refresh_token': 'refresh2', 'token_type': 'Bearer', 'expires_in': 3600});
       }
       expect(body['code'], 'accepted');
       expect(base64Url.encode(sha256.convert(ascii.encode(body['code_verifier']!)).bytes).replaceAll('=', ''), browserUrl!.queryParameters['code_challenge']);
-      return json({'access_token': 'initial', 'refresh_token': 'refresh1', 'token_type': 'Bearer', 'expires_in': 3600});
+      return json({'access_token': 'initial', if (issueRefreshToken) 'refresh_token': 'refresh1', 'token_type': 'Bearer', 'expires_in': 3600});
     }
     throw StateError('意外的请求路径');
   }
@@ -152,6 +171,61 @@ void main() {
     expect(f.refreshes, 1);
     expect(results.every((h) => h['Authorization'] == 'Bearer rotated'), isTrue);
     expect(f.saved!['refresh_token'], 'refresh2');
+  });
+
+  test('有效令牌可手动刷新，并与自动刷新合并', () async {
+    final f = Fixture();
+    await f.oauth.authorize(server);
+    expect(f.oauth.canRefresh(server), isTrue);
+    f.refreshGate = Completer<void>();
+    final manual = f.oauth.refresh(server);
+    await f.refreshStarted.future;
+    expect(f.oauth.isRefreshing(server), isTrue);
+    final duplicate = f.oauth.refresh(server);
+    final automatic = f.oauth.headers(server, {});
+    f.refreshGate!.complete();
+    await Future.wait([manual, duplicate]);
+    expect((await automatic)['Authorization'], 'Bearer rotated');
+    expect(f.refreshes, 1);
+    expect(f.oauth.isRefreshing(server), isFalse);
+  });
+
+  test('临近到期自动刷新，服务未轮换时保留刷新令牌', () async {
+    final f = Fixture()..rotateRefreshToken = false;
+    await f.oauth.authorize(server);
+    f.saved!['refresh_at'] = 0;
+    final restored = McpOAuthService(read: (_) async => f.saved,
+      write: (_, value) async { f.saved = value; }, clientFactory: () => MockClient(f.handle));
+    addTearDown(restored.dispose);
+    expect((await restored.headers(server, {}))['Authorization'], 'Bearer rotated');
+    expect(f.refreshes, 1);
+    expect(f.saved!['refresh_token'], 'refresh1');
+  });
+
+  test('未签发刷新令牌时保留尚未到期的访问令牌并拒绝手动刷新', () async {
+    final f = Fixture()..issueRefreshToken = false;
+    await f.oauth.authorize(server);
+    f.saved!['refresh_at'] = 0;
+    final restored = McpOAuthService(read: (_) async => f.saved,
+      write: (_, value) async { f.saved = value; }, clientFactory: () => MockClient(f.handle));
+    addTearDown(restored.dispose);
+    await restored.load(server);
+    expect(restored.canRefresh(server), isFalse);
+    expect((await restored.headers(server, {}))['Authorization'], 'Bearer initial');
+    await expectLater(restored.refresh(server), throwsA(isA<McpOAuthRequiredException>()));
+    expect(f.refreshes, 0);
+  });
+
+  test('刷新暂时失败保留有效授权，结束忙碌状态并允许重试', () async {
+    final f = Fixture()..refreshUnavailable = true;
+    await f.oauth.authorize(server);
+    await expectLater(f.oauth.refresh(server), throwsA(isA<Exception>()));
+    expect(f.oauth.isRefreshing(server), isFalse);
+    expect(f.oauth.status(server), McpOAuthStatus.authorized);
+    expect(f.oauth.canRefresh(server), isTrue);
+    f.refreshUnavailable = false;
+    await f.oauth.refresh(server);
+    expect(f.refreshes, 2);
   });
 
   test('刷新令牌被撤销后停止自动刷新，明确要求重新授权', () async {
@@ -299,6 +373,37 @@ void main() {
     }
   });
 
+  testWidgets('刷新按钮按能力显示，刷新期间禁用并在成功后重连', (tester) async {
+    final oauth = _PanelOAuth()..supportsRefresh = true;
+    var reconnects = 0;
+    for (final width in [360.0, 820.0, 1100.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 700));
+      await tester.pumpWidget(MaterialApp(theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),
+        home: Scaffold(body: McpOAuthPanel(server: server, service: oauth,
+          onAuthorized: () => reconnects++))));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('刷新令牌'), findsOneWidget);
+      expect(tester.getSize(find.widgetWithText(FilledButton, '刷新令牌')),
+        tester.getSize(find.widgetWithText(FilledButton, '重新授权')));
+    }
+    oauth.refreshGate = Completer<void>();
+    await tester.tap(find.text('刷新令牌'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, '正在刷新')).onPressed, isNull);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, '重新授权')).onPressed, isNull);
+    oauth.refreshGate!.complete();
+    await tester.pumpAndSettle();
+    expect(reconnects, 1);
+    oauth.supportsRefresh = false;
+    oauth.update(McpOAuthStatus.expired);
+    await tester.pumpAndSettle();
+    expect(find.text('刷新令牌'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    oauth.dispose();
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('授权操作保留退场、屏蔽旧点击，并支持快速反向与减少动态效果', (tester) async {
     final oauth = _PanelOAuth();
     Widget panel({bool reduceMotion = false, double scale = 1}) => MaterialApp(
@@ -357,9 +462,11 @@ void main() {
     final baseTheme = OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
     final theme = fontPath == null ? baseTheme : baseTheme.copyWith(textTheme: baseTheme.textTheme.apply(fontFamily: '测试字体'));
     final oauth = _PanelOAuth();
+    for (final supportsRefresh in [false, true]) {
+    oauth.supportsRefresh = supportsRefresh;
     for (final status in [McpOAuthStatus.authorized, McpOAuthStatus.authorizing]) {
     oauth.value = status;
-    for (final width in [360.0, 820.0]) {
+    for (final width in [360.0, 820.0, 1100.0]) {
       await tester.binding.setSurfaceSize(Size(width, 500));
       await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(body: RepaintBoundary(
         key: const ValueKey('截图'), child: Padding(padding: const EdgeInsets.all(16),
@@ -370,27 +477,28 @@ void main() {
       expect(tester.takeException(), isNull);
       final busy = status == McpOAuthStatus.authorizing;
       final title = find.text(busy ? 'OAuth · 等待浏览器授权' : 'OAuth · 授权有效');
-      final subtitle = find.text(busy ? '请在系统浏览器中完成授权，完成后自动连接。' : '使用浏览器安全授权，访问令牌到期时自动尝试刷新。');
+      final subtitle = find.text(busy ? '请在系统浏览器中完成授权，完成后自动连接。' : supportsRefresh ? '支持自动刷新，也可手动更新访问令牌。' : '当前授权未提供刷新令牌，失效后需重新授权。');
       final primary = tester.getRect(find.widgetWithText(FilledButton, busy ? '授权进行中' : '重新授权'));
       final secondary = tester.getRect(find.widgetWithText(FilledButton, busy ? '取消授权' : '清除本机授权'));
       expect(primary.size, secondary.size);
       expect(primary.height, lessThanOrEqualTo(40));
-      if (width == 820) {
+      if (width >= (supportsRefresh && !busy ? 932 : 752)) {
         expect(primary.left, greaterThan(tester.getRect(subtitle).right));
         expect(primary.center.dy, closeTo((tester.getRect(title).top + tester.getRect(subtitle).bottom) / 2, 1));
         expect(primary.center.dy, secondary.center.dy);
       } else {
         expect(primary.top, greaterThan(tester.getRect(subtitle).bottom));
       }
-      if (width == 820 && fontPath != null) {
+      if (width == 1100 && fontPath != null) {
         await tester.runAsync(() async {
         final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('截图')));
         final image = await boundary.toImage();
         final bytes = await image.toByteData(format: ImageByteFormat.png);
-        await File('/tmp/openhand-oauth-panel-'+status.name+'.png').writeAsBytes(bytes!.buffer.asUint8List());
+        await File('/tmp/openhand-oauth-panel-'+status.name+'-'+supportsRefresh.toString()+'.png').writeAsBytes(bytes!.buffer.asUint8List());
         image.dispose();
         });
       }
+    }
     }
     }
     await tester.pumpWidget(const SizedBox.shrink());
