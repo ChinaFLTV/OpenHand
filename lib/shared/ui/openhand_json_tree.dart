@@ -228,6 +228,7 @@ class OpenHandJsonTreeView extends StatefulWidget {
     this.label,
     this.error = false,
     this.enableFullView = true,
+    this.showCopyButton = true,
     this.bodyMaxHeight,
     this.logTag = 'json_tree',
     this.loadFullText,
@@ -240,6 +241,7 @@ class OpenHandJsonTreeView extends StatefulWidget {
     this.label,
     this.error = false,
     this.enableFullView = true,
+    this.showCopyButton = true,
     this.bodyMaxHeight,
     this.logTag = 'json_tree',
     this.loadFullText,
@@ -251,6 +253,7 @@ class OpenHandJsonTreeView extends StatefulWidget {
   final String? label;
   final bool error;
   final bool enableFullView;
+  final bool showCopyButton;
   final double? bodyMaxHeight;
   final String logTag;
   final OpenHandJsonFullTextLoader? loadFullText;
@@ -516,42 +519,45 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
                       ),
                       kOpenHandHGap4,
                     ],
-                    IconButton(
-                      constraints: const BoxConstraints.tightFor(
-                        width: 30,
-                        height: 30,
+                    if (widget.showCopyButton)
+                      IconButton(
+                        constraints: const BoxConstraints.tightFor(
+                          width: 30,
+                          height: 30,
+                        ),
+                        padding: EdgeInsets.zero,
+                        tooltip: _copied
+                            ? openHandLocalizedText(
+                                context,
+                                zh: '已复制',
+                                zhHant: '已複製',
+                                en: 'Copied',
+                                fr: 'Copié',
+                                de: 'Kopiert',
+                                ja: 'コピー済み',
+                              )
+                            : openHandLocalizedText(
+                                context,
+                                zh: document == null ? '复制文本' : '复制 JSON',
+                                zhHant: document == null ? '複製文字' : '複製 JSON',
+                                en: document == null
+                                    ? 'Copy text'
+                                    : 'Copy JSON',
+                                fr: document == null
+                                    ? 'Copier le texte'
+                                    : 'Copier le JSON',
+                                de: document == null
+                                    ? 'Text kopieren'
+                                    : 'JSON kopieren',
+                                ja: document == null ? 'テキストをコピー' : 'JSON をコピー',
+                              ),
+                        onPressed: _copy,
+                        icon: Icon(
+                          _copied ? Icons.check_rounded : Icons.copy_rounded,
+                          size: 16,
+                          color: _copied ? colorScheme.primary : null,
+                        ),
                       ),
-                      padding: EdgeInsets.zero,
-                      tooltip: _copied
-                          ? openHandLocalizedText(
-                              context,
-                              zh: '已复制',
-                              zhHant: '已複製',
-                              en: 'Copied',
-                              fr: 'Copié',
-                              de: 'Kopiert',
-                              ja: 'コピー済み',
-                            )
-                          : openHandLocalizedText(
-                              context,
-                              zh: document == null ? '复制文本' : '复制 JSON',
-                              zhHant: document == null ? '複製文字' : '複製 JSON',
-                              en: document == null ? 'Copy text' : 'Copy JSON',
-                              fr: document == null
-                                  ? 'Copier le texte'
-                                  : 'Copier le JSON',
-                              de: document == null
-                                  ? 'Text kopieren'
-                                  : 'JSON kopieren',
-                              ja: document == null ? 'テキストをコピー' : 'JSON をコピー',
-                            ),
-                      onPressed: _copy,
-                      icon: Icon(
-                        _copied ? Icons.check_rounded : Icons.copy_rounded,
-                        size: 16,
-                        color: _copied ? colorScheme.primary : null,
-                      ),
-                    ),
                   ],
                 ),
               ),
