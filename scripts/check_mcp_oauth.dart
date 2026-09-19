@@ -280,17 +280,19 @@ void main() {
       final colors = (dark ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen)).colorScheme;
       final page = McpOAuthCallbackPage(colors: colors, animation: const DialogAnimationSettings(entranceStyle: DialogAnimationStyle.none, exitStyle: DialogAnimationStyle.none));
       for (final status in McpOAuthCallbackStatus.values) {
-        final html = page.render(status: status, serverName: '<script>危险名称</script>', nonce: 'nonce-test');
+        final html = await page.render(status: status, serverName: '<script>危险名称</script>', nonce: 'nonce-test');
         expect(html, contains('--duration:0ms'));
         expect(html, contains(dark ? 'color-scheme:dark' : 'color-scheme:light'));
         expect(html, contains('&lt;script&gt;'));
         expect(html, isNot(contains('<script>危险名称</script>')));
         expect(html, isNot(contains('https://')));
         expect(html, contains('prefers-reduced-motion'));
+        expect(html, isNot(contains('gradient(')));
+        expect(html, contains('<img class="brand-mark" src="data:image/png;base64,'));
         if (output != null) {
           await Directory(output).create(recursive: true);
           await File(output+'/'+(dark ? 'dark' : 'light')+'-'+status.name+'.html').writeAsString(
-            McpOAuthCallbackPage(colors: colors).render(status: status, serverName: '云端工作空间 MCP', nonce: 'nonce-preview'),
+            await McpOAuthCallbackPage(colors: colors).render(status: status, serverName: '云端工作空间 MCP', nonce: 'nonce-preview'),
           );
         }
       }

@@ -359,7 +359,7 @@ class McpOAuthService extends ChangeNotifier {
           ..set('X-Content-Type-Options', 'nosniff')
           ..set(
             'Content-Security-Policy',
-            "default-src 'none'; style-src 'nonce-$nonce'; script-src 'nonce-$nonce'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+            "default-src 'none'; img-src data:; style-src 'nonce-$nonce'; script-src 'nonce-$nonce'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
           );
         var pageStatus = lastCallbackStatus == McpOAuthCallbackStatus.received
             ? McpOAuthCallbackStatus.alreadyReceived
@@ -384,7 +384,7 @@ class McpOAuthService extends ChangeNotifier {
           }
         }
         request.response.write(
-          (callbackPage ?? McpOAuthCallbackPage.fallback).render(
+          await (callbackPage ?? McpOAuthCallbackPage.fallback).render(
             status: pageStatus,
             serverName: server.name,
             nonce: nonce,

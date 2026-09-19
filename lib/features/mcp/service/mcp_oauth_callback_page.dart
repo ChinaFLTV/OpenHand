@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/theme/openhand_theme.dart';
@@ -22,11 +23,19 @@ class McpOAuthCallbackPage {
     colors: OpenHandTheme.light(OpenHandThemePreset.deepSeaBlue).colorScheme,
   );
 
-  String render({
+  static final Future<String> _logoDataUri = rootBundle
+      .load('assets/branding/openhand_logo.png')
+      .then(
+        (data) =>
+            'data:image/png;base64,${base64Encode(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes))}',
+      );
+
+  Future<String> render({
     required McpOAuthCallbackStatus status,
     required String serverName,
     required String nonce,
-  }) {
+  }) async {
+    final logoDataUri = await _logoDataUri;
     final received =
         status == McpOAuthCallbackStatus.received ||
         status == McpOAuthCallbackStatus.alreadyReceived;
@@ -85,12 +94,10 @@ class McpOAuthCallbackPage {
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer"><title>$title · OpenHand</title>
 <style nonce="$nonce">
-:root{color-scheme:${colors.brightness == Brightness.dark ? 'dark' : 'light'};--bg:${css(colors.surface)};--panel:${css(colors.surfaceContainerLow)};--ink:${css(colors.onSurface)};--muted:${css(colors.onSurfaceVariant)};--line:${css(colors.outlineVariant)};--accent:${css(accent)};--soft:${css(accentContainer)};--on-soft:${css(onAccentContainer)};--primary:${css(colors.primary)};--on-primary:${css(colors.onPrimary)};--secondary:${css(colors.secondaryContainer)};--duration:${duration}ms}
+:root{color-scheme:${colors.brightness == Brightness.dark ? 'dark' : 'light'};--bg:${css(colors.surface)};--panel:${css(colors.surfaceContainerLow)};--ink:${css(colors.onSurface)};--muted:${css(colors.onSurfaceVariant)};--line:${css(colors.outlineVariant)};--accent:${css(accent)};--soft:${css(accentContainer)};--on-soft:${css(onAccentContainer)};--primary:${css(colors.primary)};--on-primary:${css(colors.onPrimary)};--duration:${duration}ms}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;min-height:100svh;display:grid;place-items:center;padding:40px 24px;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased;line-height:1.6;isolation:isolate}
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 14% 18%,color-mix(in srgb,var(--soft) 60%,transparent),transparent 50%),radial-gradient(ellipse at 90% 85%,color-mix(in srgb,var(--secondary) 55%,transparent),transparent 48%)}
-main{width:min(100%,700px)}.brand{display:flex;align-items:center;gap:10px;margin:0 0 22px 6px;font-size:18px;font-weight:750;letter-spacing:-.5px}.brand-mark{display:grid;place-items:center;width:32px;height:32px;border-radius:11px;background:var(--primary);color:var(--on-primary)}.brand span:last-child{margin-left:auto;font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:550}
+main{width:min(100%,700px)}.brand{display:flex;align-items:center;gap:10px;margin:0 0 22px 6px;font-size:18px;font-weight:750;letter-spacing:-.5px}.brand-mark{display:block;width:32px;height:32px;object-fit:contain;border-radius:8px}.brand span:last-child{margin-left:auto;font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:550}
 .card{position:relative;overflow:hidden;padding:44px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:32px;background:var(--panel);box-shadow:0 24px 72px color-mix(in srgb,var(--ink) 8%,transparent);animation:enter var(--duration) $curve both}
-.card::before{content:"";position:absolute;top:0;left:40px;right:40px;height:3px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.65}
 .status-icon{width:76px;height:76px;display:grid;place-items:center;border-radius:25px;color:var(--on-soft);background:var(--soft);box-shadow:0 0 0 9px color-mix(in srgb,var(--soft) 35%,transparent);margin:8px 0 32px}.status-icon svg{width:40px;height:40px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .eyebrow{margin:0 0 8px;color:var(--accent);font-size:12px;font-weight:750;letter-spacing:.13em}h1{margin:0;font-size:clamp(26px,5vw,36px);line-height:1.3;letter-spacing:-.04em;font-weight:750}.description{max-width:490px;margin:16px 0 26px;color:var(--muted);font-size:15px;line-height:1.85}
 .service{display:flex;align-items:center;gap:10px;min-width:0;padding:14px 18px;border:1px solid var(--line);border-radius:16px;font-size:14px;background:color-mix(in srgb,var(--bg) 55%,var(--panel))}.service svg{width:18px;height:18px;flex:none;color:var(--accent)}.service-label{color:var(--muted);flex:none}.service-name{min-width:0;overflow-wrap:anywhere;font-weight:650}
@@ -104,7 +111,7 @@ ${duration == 0 ? 'button:hover,button:active{transform:none}' : ''}
 <script nonce="$nonce">history.replaceState(null,'',location.pathname);</script>
 </head>
 <body><main>
-<header class="brand"><span class="brand-mark" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 12V7a2 2 0 0 1 4 0v5m0-5a2 2 0 0 1 4 0v5m0-3a2 2 0 0 1 4 0v7a6 6 0 0 1-11 3l-4-6a2 2 0 0 1 3-2l2 2"/></svg></span><span>OpenHand</span><span>MCP 授权</span></header>
+<header class="brand"><img class="brand-mark" src="$logoDataUri" alt="" width="32" height="32"><span>OpenHand</span><span>MCP 授权</span></header>
 <section class="card" aria-labelledby="title">
 <div class="status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 3.5 6v5.5c0 5 4 8 8.5 10 4.5-2 8.5-5 8.5-10V6Z"/>$iconPath</svg></div>
 <p class="eyebrow">${received ? '已交回应用' : '等待重新授权'}</p><h1 id="title">$title</h1>
