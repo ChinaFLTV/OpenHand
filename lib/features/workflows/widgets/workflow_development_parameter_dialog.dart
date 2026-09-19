@@ -173,7 +173,7 @@ class _WorkflowDevelopmentParameterDialogState
       final confirmed = await showOpenHandConfirmDialog(
         context: context,
         title: '清空全部临时变量？',
-        message: '将移除当前列表中的全部临时参数及其值，保存后生效。节点参数定义不受影响；刷新列表会重新载入开始节点的空参数。',
+        message: '将清空全部参数取值，并移除其他临时变量；开始节点的全部输入参数会保留，保存后生效。节点参数定义不受影响。',
         cancelLabel: '保留变量',
         confirmLabel: '清空变量',
         destructive: true,
@@ -184,7 +184,14 @@ class _WorkflowDevelopmentParameterDialogState
       );
       if (mounted && confirmed) {
         setState(() {
-          _parameters = [];
+          _parameters = _parameters
+              .where(
+                (parameter) =>
+                    parameter.source ==
+                    WorkflowDevelopmentParameterSource.startInput,
+              )
+              .map((parameter) => parameter.copyWith(value: ''))
+              .toList(growable: false);
           _validationRequested = false;
         });
       }

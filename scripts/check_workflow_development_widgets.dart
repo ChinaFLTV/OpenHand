@@ -26,12 +26,21 @@ Future<void> main() async {
 
 const _checks = '''
 void main() {
-  testWidgets('清空参数需确认，取消保留，保存空列表；取值方式不裁切', (tester) async {
+  testWidgets('清空参数需确认，取消保留，保留全部开始输入并置空；取值方式不裁切', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1100, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final parameters = [WorkflowDevelopmentParameter(
       id: 'input', field: const WorkflowOutputField(id: 'input', name: 'model'),
       source: WorkflowDevelopmentParameterSource.startInput, ownerNodeId: 'start', value: '测试机型',
+    ), const WorkflowDevelopmentParameter(
+      id: 'input2', field: WorkflowOutputField(id: 'input2', name: 'extra', required: true),
+      source: WorkflowDevelopmentParameterSource.startInput, ownerNodeId: 'start',
+    ), const WorkflowDevelopmentParameter(
+      id: 'output', field: WorkflowOutputField(id: 'output', name: 'result'),
+      source: WorkflowDevelopmentParameterSource.nodeOutput, ownerNodeId: 'other', value: '结果',
+    ), const WorkflowDevelopmentParameter(
+      id: 'manual', field: WorkflowOutputField(id: 'manual', name: 'temporary'),
+      source: WorkflowDevelopmentParameterSource.manual, value: '临时值',
     )];
     List<WorkflowDevelopmentParameter>? saved;
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (context) =>
@@ -47,10 +56,10 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 1.5;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpAndSettle();
-    expect(find.text('字面量拼接'), findsOneWidget);
-    final mode = find.byType(AnimatedDropdownButtonFormField<WorkflowValueMode>);
+    expect(find.text('字面量拼接'), findsWidgets);
+    final mode = find.byType(AnimatedDropdownButtonFormField<WorkflowValueMode>).first;
     final modeRect = tester.getRect(mode);
-    final textRect = tester.getRect(find.text('字面量拼接'));
+    final textRect = tester.getRect(find.text('字面量拼接').first);
     expect(modeRect.contains(textRect.topLeft), isTrue);
     expect(modeRect.contains(textRect.bottomRight), isTrue);
     await tester.tap(find.byTooltip('清空变量'));
@@ -66,7 +75,10 @@ void main() {
     expect(find.text('测试机型'), findsNothing);
     await tester.tap(find.byTooltip('保存参数列表'));
     await tester.pumpAndSettle();
-    expect(saved, isEmpty);
+    expect(saved!.map((parameter) => parameter.id), ['input', 'input2']);
+    expect(saved!.every((parameter) => parameter.value.isEmpty), isTrue);
+    expect(saved!.last.field.required, isTrue);
+    expect(saved!.every((parameter) => parameter.ownerNodeId == 'start'), isTrue);
     expect(tester.takeException(), isNull);
   });
 }
