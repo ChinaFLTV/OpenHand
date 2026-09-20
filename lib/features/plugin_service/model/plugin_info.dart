@@ -140,6 +140,20 @@ class PluginInfo {
   /// 错误信息
   final String? errorMessage;
 
+  /// 桌面与 Web 共用的当前诊断，空白消息过滤，重复消息保留较高等级。
+  List<({bool isError, String message})> get diagnostics {
+    final error = errorMessage?.trim() ?? '';
+    final warning = (metadata['update_check_error'] as String?)?.trim() ?? '';
+    return [
+      if (error.isNotEmpty)
+        (isError: true, message: error)
+      else if (status == PluginStatus.error)
+        (isError: true, message: '插件状态异常，暂无详细信息。请重新扫描或查看运行日志。'),
+      if (warning.isNotEmpty && warning != error)
+        (isError: false, message: warning),
+    ];
+  }
+
   bool get isInstalled => status == PluginStatus.installed;
   bool get isBusy =>
       status == PluginStatus.installing ||

@@ -22,6 +22,7 @@ import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_notice_actions.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -53,6 +54,7 @@ const String _pluginIconAssetDirectory = 'assets/icons/plugins';
 const String _pluginFallbackIconAsset =
     '$_pluginIconAssetDirectory/blutter.svg';
 const double _kPluginIconSize = 21;
+const double _kPluginDiagnosticsPillWidth = 112;
 const double _kPluginDetailMetricMinWidth = 168;
 const double _kPluginDetailMetricGap = 10;
 const Color _kPluginAccentPlaywright = Color(0xff2ead33);
@@ -342,7 +344,13 @@ class _PluginServiceViewState extends State<PluginServiceView> {
       successSignal: controller.operationSuccessSignal,
       body: _buildBody(context, controller),
       notices: [
-        if (controller.errorMessage != null && controller.plugins.isNotEmpty)
+        if (controller.errorMessage != null &&
+            controller.plugins.isNotEmpty &&
+            !controller.plugins.any(
+              (plugin) => plugin.diagnostics.any(
+                (item) => item.message == controller.errorMessage?.trim(),
+              ),
+            ))
           OpenHandInlineNoticeFactory.error(
             context,
             controller.errorMessage!,
@@ -577,29 +585,6 @@ class _PluginCard extends StatelessWidget {
             ),
             _PluginMetaRow(plugin: plugin),
             _DependencyRow(plugin: plugin, controller: controller),
-            OpenHandInlineNoticeSlot(
-              child:
-                  plugin.status == PluginStatus.error &&
-                      plugin.errorMessage != null
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 280),
-                        child: OpenHandInlineNoticeFactory.error(
-                          context,
-                          plugin.errorMessage!,
-                          copyText: plugin.errorMessage,
-                          onDismiss: () =>
-                              controller.clearPluginError(plugin.id),
-                          messageStyle: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onErrorContainer,
-                            fontFamily: kOpenHandMonospaceFontFamily,
-                          ),
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
           ],
         ),
       ),
@@ -618,6 +603,7 @@ class _PluginCard extends StatelessWidget {
       runSpacing: 6,
       alignment: WrapAlignment.end,
       children: [
+        _PluginDiagnosticsPill(plugin: plugin, controller: controller),
         // 详情
         IconButton.filledTonal(
           tooltip: l10n.commonDetails,
@@ -949,6 +935,190 @@ class _PluginCard extends StatelessWidget {
     showAnimatedDialog(
       context: context,
       builder: (ctx) => _PluginMcpDialog(plugin: plugin),
+    );
+  }
+}
+
+// 固定占位，不随消息出现、消失或长度变化挤动操作区和后续卡片。
+class _PluginDiagnosticsPill extends StatelessWidget {
+  const _PluginDiagnosticsPill({
+    required this.plugin,
+    required this.controller,
+  });
+
+  final PluginInfo plugin;
+  final PluginServiceController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final diagnostics = plugin.diagnostics;
+    final hasError = diagnostics.any((item) => item.isError);
+    final color = hasError
+        ? Theme.of(context).colorScheme.error
+        : diagnostics.isNotEmpty
+        ? OpenHandStatusColors.warning
+        : Theme.of(context).colorScheme.onSurfaceVariant;
+    final label = openHandLocalizedText(context, zh: '诊断', en: 'Diagnostics');
+    return SizedBox(
+      width: _kPluginDiagnosticsPillWidth,
+      height: 40,
+      child: TextButton.icon(
+        style: TextButton.styleFrom(
+          foregroundColor: color,
+          backgroundColor: color.withValues(alpha: 0.10),
+          side: BorderSide(color: color.withValues(alpha: 0.24)),
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+        ),
+        icon: Icon(
+          hasError
+              ? Icons.error_outline_rounded
+              : diagnostics.isNotEmpty
+              ? Icons.warning_amber_rounded
+              : Icons.fact_check_outlined,
+          size: 16,
+        ),
+        label: Text(
+          '$label ${diagnostics.length}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        onPressed: () => showAnimatedDialog<void>(
+          context: context,
+          builder: (_) => _PluginDiagnosticsDialog(
+            pluginId: plugin.id,
+            pluginName: plugin.name,
+            controller: controller,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PluginDiagnosticsDialog extends StatelessWidget {
+  const _PluginDiagnosticsDialog({
+    required this.pluginId,
+    required this.pluginName,
+    required this.controller,
+  });
+
+  final String pluginId;
+  final String pluginName;
+  final PluginServiceController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final theme = Theme.of(context);
+        final plugin = controller.pluginById(pluginId);
+        final diagnostics = plugin?.diagnostics ?? [];
+        final errors = diagnostics.where((item) => item.isError).length;
+        final warnings = diagnostics.length - errors;
+        final errorLabel = openHandLocalizedText(
+          context,
+          zh: '错误',
+          en: 'Errors',
+        );
+        final warningLabel = openHandLocalizedText(
+          context,
+          zh: '警告',
+          en: 'Warnings',
+        );
+        return buildOpenHandToolDialogShell(
+          context: context,
+          maxWidth: kOpenHandDialogWidthCompact,
+          maxHeight: kOpenHandDialogHeightCompact,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              buildOpenHandToolDialogHeader(
+                context: context,
+                icon: Icons.fact_check_outlined,
+                title:
+                    '$pluginName · ${openHandLocalizedText(context, zh: '诊断消息', en: 'Diagnostics')}',
+                subtitle: '$errorLabel $errors · $warningLabel $warnings',
+                iconColor: theme.colorScheme.primary,
+                actions: [
+                  OpenHandNoticeActionButtons(
+                    copyText: diagnostics
+                        .map(
+                          (item) =>
+                              '${item.isError ? errorLabel : warningLabel}\n${item.message}',
+                        )
+                        .join('\n\n'),
+                    showClose: false,
+                  ),
+                ],
+              ),
+              Divider(height: 1, color: theme.colorScheme.outlineVariant),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (diagnostics.isEmpty)
+                        OpenHandDialogSectionCard(
+                          icon: plugin == null
+                              ? Icons.info_outline_rounded
+                              : Icons.check_circle_outline_rounded,
+                          title: plugin == null
+                              ? openHandLocalizedText(
+                                  context,
+                                  zh: '插件已不在当前列表中',
+                                  en: 'Plugin is no longer listed',
+                                )
+                              : openHandLocalizedText(
+                                  context,
+                                  zh: '当前没有错误或警告',
+                                  en: 'No current errors or warnings',
+                                ),
+                          accent: plugin == null
+                              ? theme.colorScheme.primary
+                              : OpenHandStatusColors.success,
+                          child: Text(
+                            openHandLocalizedText(
+                              context,
+                              zh: '诊断信息随插件状态自动更新。',
+                              en: 'Diagnostics update with the plugin status.',
+                            ),
+                          ),
+                        ),
+                      for (final item in diagnostics)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: OpenHandDialogSectionCard(
+                            icon: item.isError
+                                ? Icons.error_outline_rounded
+                                : Icons.warning_amber_rounded,
+                            title: item.isError ? errorLabel : warningLabel,
+                            accent: item.isError
+                                ? theme.colorScheme.error
+                                : OpenHandStatusColors.warning,
+                            trailing: OpenHandNoticeActionButtons(
+                              copyText: item.message,
+                              showClose: false,
+                            ),
+                            child: SelectableText(
+                              item.message,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -28,8 +28,21 @@ export interface PluginSummary {
   dependents: string[];
   supports_uninstall: boolean;
   error_message: string | null;
+  diagnostics?: PluginDiagnostic[];
   has_update: boolean;
   template_associations?: TemplateAssociation[];
+}
+
+export interface PluginDiagnostic {
+  severity: 'error' | 'warning';
+  message: string;
+}
+
+export function pluginDiagnostics(plugin: PluginSummary): PluginDiagnostic[] {
+  if (plugin.diagnostics != null) return plugin.diagnostics;
+  // 兼容尚未提供结构化诊断的服务端。
+  const message = plugin.error_message?.trim();
+  return message ? [{ severity: 'error', message }] : [];
 }
 
 interface TemplateAssociation {

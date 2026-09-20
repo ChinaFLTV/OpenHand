@@ -3733,6 +3733,13 @@ class WebMessagePlatformService {
       'dependents': p.dependents,
       'supports_uninstall': p.supportsUninstall,
       'error_message': p.errorMessage,
+      'diagnostics': [
+        for (final diagnostic in p.diagnostics)
+          {
+            'severity': diagnostic.isError ? 'error' : 'warning',
+            'message': diagnostic.message,
+          },
+      ],
       'has_update': p.hasUpdate,
       'template_associations': _templateAssociationsForPlugin(p.id),
     };

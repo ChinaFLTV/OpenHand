@@ -3,10 +3,13 @@ import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
 import { ErrorBanner } from '../../../components/StatusBanner';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import { PluginDiagnosticsDialog } from './PluginDiagnosticsDialog';
+import { DialogGlyph } from '../../../components/DialogChrome';
 import {
   type PluginSummary,
   type PluginStatus,
   listPlugins,
+  pluginDiagnostics,
   installPlugin,
   updatePlugin,
   uninstallPlugin,
@@ -109,6 +112,7 @@ export function PluginsPage() {
   const [loading, setLoading] = useState(true);
   const [operating, setOperating] = useState<string | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState<string | null>(null);
+  const [diagnosticTarget, setDiagnosticTarget] = useState<{ id: string; name: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     pluginId: string;
     pluginName: string;
@@ -256,6 +260,10 @@ export function PluginsPage() {
             <ul class="space-y-3">
               {plugins.map((plugin, idx) => {
                 const badge = statusBadge(plugin.status);
+                const diagnostics = pluginDiagnostics(plugin);
+                const diagnosticColor = diagnostics.some((item) => item.severity === 'error')
+                  ? 'var(--m3-error)'
+                  : diagnostics.length ? STATUS_WARNING_COLOR : 'var(--m3-on-surface-variant)';
                 const isChecking = checkingUpdate === plugin.id;
                 const isBusy = operating === plugin.id ||
                   isChecking ||
@@ -265,7 +273,7 @@ export function PluginsPage() {
                 return (
                   <Appear key={plugin.id} variant="up" index={idx}>
                     <li class="oh-toolbox-card">
-                    <div class="flex items-start justify-between gap-3">
+                    <div class="flex flex-col sm:flex-row items-start justify-between gap-3">
                       <div class="flex items-start gap-3 flex-1 min-w-0">
                         <span style={{ fontSize: 24 }}>{pluginIcon(plugin.id)}</span>
                         <div class="flex-1 min-w-0">
@@ -339,14 +347,26 @@ export function PluginsPage() {
                               })}
                             </div>
                           ) : null}
-                          {plugin.error_message ? (
-                            <p class="text-xs mt-2 oh-text-error">
-                              {plugin.error_message}
-                            </p>
-                          ) : null}
                         </div>
                       </div>
-                      <div class="flex items-center gap-2 flex-shrink-0">
+                      <div class="flex items-center flex-wrap gap-2 shrink-0 sm:max-w-[45%]">
+                        <button
+                          type="button"
+                          class="oh-tap-press inline-flex items-center justify-center gap-1.5 rounded-full text-xs font-semibold"
+                          style={{
+                            width: 112,
+                            height: 36,
+                            color: diagnosticColor,
+                            background: `color-mix(in srgb, ${diagnosticColor} 10%, transparent)`,
+                            border: `1px solid color-mix(in srgb, ${diagnosticColor} 24%, transparent)`,
+                          }}
+                          aria-haspopup="dialog"
+                          aria-label={`${plugin.name} · ${t('plugins.diagnostics', '诊断消息')} ${diagnostics.length}`}
+                          onClick={() => setDiagnosticTarget({ id: plugin.id, name: plugin.name })}
+                        >
+                          <DialogGlyph name={diagnostics.length ? 'alert' : 'file'} size={16} />
+                          <span class="truncate">{t('plugins.diagnosticPill', '诊断')} {diagnostics.length}</span>
+                        </button>
                         {plugin.status === 'installed' ? (
                           <button
                             type="button"
@@ -438,6 +458,13 @@ export function PluginsPage() {
         ) : null}
       </div>
 
+      {diagnosticTarget ? (
+        <PluginDiagnosticsDialog
+          plugin={plugins?.find((plugin) => plugin.id === diagnosticTarget.id)}
+          pluginName={diagnosticTarget.name}
+          onClose={() => setDiagnosticTarget(null)}
+        />
+      ) : null}
       {confirmAction ? (
         <ConfirmDialog
           title={confirmActionLabel}
