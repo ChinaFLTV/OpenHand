@@ -3,9 +3,12 @@ import { t } from '../../i18n';
 export const DECISION_REQUEST = 'openhand-decision-request';
 export const DECISION_RESULT = 'openhand-decision';
 const decisionResultFence = /^ {0,3}(?:`{3,}|~{3,})openhand-decision[ \t]*\r?$/m;
+const decisionRequestFence = /^ {0,3}(?:`{3,}|~{3,})openhand-decision-request[ \t]*\r?$/m;
 
-export function isDecisionResultMessage(message: { role: string; content: string }): boolean {
-  return message.role === 'assistant' && message.content.includes(DECISION_RESULT) && decisionResultFence.test(message.content);
+export function isStructuredDecisionMessage(message: { role: string; content: string }): boolean {
+  if (!message.content.includes(DECISION_RESULT)) return false;
+  return message.role === 'user' ? decisionRequestFence.test(message.content)
+    : message.role === 'assistant' && decisionResultFence.test(message.content);
 }
 export const DECISION_MAX_CHARACTERS = 1024 * 1024;
 export const DECISION_MAX_QUESTIONS = 128;

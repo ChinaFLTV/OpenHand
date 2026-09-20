@@ -1508,7 +1508,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         ),
         if (!isGoalRuntimeMessage &&
             !message.isToolMessage &&
-            !message.isDecisionResult &&
+            !message.isStructuredDecision &&
             widget.speechEnabled &&
             widget.onToggleSpeech != null)
           _MessageActionSpec(
@@ -1523,7 +1523,7 @@ class _MessageBubbleState extends State<_MessageBubble>
           ),
         if (!isGoalRuntimeMessage &&
             !message.isToolMessage &&
-            !message.isDecisionResult &&
+            !message.isStructuredDecision &&
             widget.translationEnabled &&
             widget.onToggleTranslation != null)
           _MessageActionSpec(

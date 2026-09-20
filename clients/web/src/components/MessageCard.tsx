@@ -17,7 +17,7 @@ import { t, tDuration, tNumber } from '../i18n';
 import { formatCreationOptionDetail } from '../shared/ui/creation_option_labels';
 import { Markdown, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
 import { decisionRequestToMarkdown } from '../shared/util/decision_request_markdown';
-import { isDecisionResultMessage } from '../shared/util/decision';
+import { isStructuredDecisionMessage } from '../shared/util/decision';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
 import {
   MediaPreviewDialog,
@@ -2642,7 +2642,7 @@ function MessageCardImpl({
     : associatedKbReferenceMetadata;
   const textActionKindSupported =
     !isToolMessage(message) &&
-    !isDecisionResultMessage(message) &&
+    !isStructuredDecisionMessage(message) &&
     !goalMessageView &&
     (isUserBubble || message.kind === 'reasoning' || isFormalAssistantResponse);
   const textMessageActionSupported =

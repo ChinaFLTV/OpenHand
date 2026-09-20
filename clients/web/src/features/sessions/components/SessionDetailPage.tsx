@@ -1,5 +1,5 @@
 import { DecisionComposerForm } from '../../../components/DecisionComposerForm';
-import { initialDecisionDraft, isDecisionResultMessage } from '../../../shared/util/decision';
+import { initialDecisionDraft, isStructuredDecisionMessage } from '../../../shared/util/decision';
 import { useVoiceConversation } from '../../../hooks/useVoiceConversation';
 import { collectGalleryMedia } from '../../../components/MessageMedia';
 import type { ImageGalleryEntry } from '../../../components/image_gallery';
@@ -3277,7 +3277,7 @@ export function SessionDetailPage() {
       if (!full) return;
       m = full;
     }
-    if (isDecisionResultMessage(m)) return;
+    if (isStructuredDecisionMessage(m)) return;
     const source = m.content ?? '';
     const settingsFingerprint =
       auth.meta?.message_content_settings?.translation_settings_fingerprint ?? '';
@@ -3362,7 +3362,7 @@ export function SessionDetailPage() {
   });
 
   const handleToggleMessageTts = useCallback(async (m: SessionMessage) => {
-    if (isToolMessage(m) || isDecisionResultMessage(m)) return;
+    if (isToolMessage(m) || isStructuredDecisionMessage(m)) return;
     if (!sessionId) return;
     const requestSessionId = sessionId;
     try {

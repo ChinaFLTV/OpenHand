@@ -7413,7 +7413,7 @@ class WebMessagePlatformService {
   }
 
   bool _messageSupportsWebTextAction(AiSessionMessage message) {
-    if (message.isDecisionResult) return false;
+    if (message.isStructuredDecision) return false;
     if (message.content.trim().isEmpty) return false;
     if (_boolishWebValue(
       message.metadata[aiSessionMessageMetadataStreamingKey],

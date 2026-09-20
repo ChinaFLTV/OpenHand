@@ -551,9 +551,11 @@ class AiSessionMessage {
   final AiSessionMessageRole role;
 
   /// 工具调用、结果及文件变动汇总不提供正文类操作。
-  bool get isDecisionResult =>
-      kind == AiSessionMessageKind.assistant &&
-      DecisionPayload.containsResult(content);
+  bool get isStructuredDecision => switch (kind) {
+    AiSessionMessageKind.user => DecisionPayload.containsRequest(content),
+    AiSessionMessageKind.assistant => DecisionPayload.containsResult(content),
+    _ => false,
+  };
 
   bool get isToolMessage =>
       role == AiSessionMessageRole.tool ||

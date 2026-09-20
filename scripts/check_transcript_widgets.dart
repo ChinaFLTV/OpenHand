@@ -1088,7 +1088,7 @@ void main() {
     expect(probe.state._renderEntries.last.id, '新回复');
   });
 
-  testWidgets('三类 AI 决策结果禁用朗读翻译，原始视图与执行入口一致', (tester) async {
+  testWidgets('三类决策请求和结果禁用朗读翻译，原始视图与执行入口一致', (tester) async {
     final original = _probeSession('决策操作限制', 1);
     final probe = _TranscriptProbe(tester, original);
     await probe.mount(size: const Size(1200, 1400), textActions: true);
@@ -1105,7 +1105,7 @@ void main() {
         }},
       });
       final message = AiSessionMessage.assistant(id: '结果', content: source, createdAt: original.createdAt);
-      expect(message.isDecisionResult, isTrue);
+      expect(message.isStructuredDecision, isTrue);
       probe.update(original.copyWith(messages: [message]));
       probe.state.setState(() => probe.state._selectedMessageId = message.id);
       await probe.settle();
@@ -1123,10 +1123,35 @@ void main() {
       expect(find.text('显示渲染'), findsOneWidget);
       await tester.tap(find.text('显示渲染'));
       await probe.settle();
+      final request = AiSessionMessage.user(id: '用户请求', createdAt: original.createdAt,
+        content: DecisionPayload.encode(DecisionPayload.requestLanguage, {
+          'state': '待评估内容', 'questions': {'决策': {'type': type, 'instructions': '判断内容',
+            if (type == 'choice') 'criteria': {'甲': null, '乙': null},
+            if (type == 'score') 'criteria': ['低', '高'],
+          }},
+        }));
+      expect(request.isStructuredDecision, isTrue);
+      probe.update(original.copyWith(messages: [request]));
+      probe.state.setState(() => probe.state._selectedMessageId = request.id);
+      await probe.settle();
+      expect(probe.state._messageSupportsSpeech(request, probe.settings), isFalse);
+      expect(probe.state._isMessageTranslatable(request, probe.settings), isFalse);
+      await probe.state._toggleMessageSpeech(request, probe.settings.aiTtsSettings);
+      await probe.state._toggleMessageTranslation(request, probe.settings.aiTranslationSettings);
+      expect(find.text('朗读'), findsNothing);
+      expect(find.text('翻译'), findsNothing);
+      expect(find.text('复制'), findsOneWidget);
+      expect(find.text('编辑'), findsOneWidget);
+      await tester.tap(find.text('显示原始'));
+      await probe.settle();
+      expect(find.text('朗读'), findsNothing);
+      expect(find.text('翻译'), findsNothing);
+      await tester.tap(find.text('显示渲染'));
+      await probe.settle();
     }
     for (final content in ['普通回复提到 openhand-decision', '```openhand-decision-request\n{}\n```', '```openhand-decision-extra\n{}\n```']) {
       final message = AiSessionMessage.assistant(id: '普通', content: content, createdAt: original.createdAt);
-      expect(message.isDecisionResult, isFalse);
+      expect(message.isStructuredDecision, isFalse);
     }
     final normal = AiSessionMessage.assistant(id: '普通', content: '普通助手回复', createdAt: original.createdAt);
     probe.update(original.copyWith(messages: [normal]));
@@ -1134,7 +1159,14 @@ void main() {
     await probe.settle();
     expect(find.text('朗读'), findsOneWidget);
     expect(find.text('翻译'), findsOneWidget);
-    expect(AiSessionMessage.user(id: '用户', content: '```openhand-decision\n{}\n```', createdAt: original.createdAt).isDecisionResult, isFalse);
+    final normalUser = AiSessionMessage.user(id: '普通用户', content: '普通用户消息提到 openhand-decision-request', createdAt: original.createdAt);
+    probe.update(original.copyWith(messages: [normalUser]));
+    probe.state.setState(() => probe.state._selectedMessageId = normalUser.id);
+    await probe.settle();
+    expect(normalUser.isStructuredDecision, isFalse);
+    expect(find.text('朗读'), findsOneWidget);
+    expect(find.text('翻译'), findsOneWidget);
+    expect(AiSessionMessage.user(id: '用户', content: '```openhand-decision\n{}\n```', createdAt: original.createdAt).isStructuredDecision, isFalse);
     expect(DecisionPayload.containsResult('前文\n  ~~~openhand-decision\r\n{}\r\n~~~'), isTrue);
   });
 

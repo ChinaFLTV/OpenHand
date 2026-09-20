@@ -1694,7 +1694,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessage message,
     AiTtsSettings settings,
   ) async {
-    if (message.isToolMessage || message.isDecisionResult) return;
+    if (message.isToolMessage || message.isStructuredDecision) return;
     final settingsController = context.read<SettingsController>();
     try {
       await widget.ttsPlaybackService.toggleMessage(
@@ -1724,7 +1724,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiTranslationSettings settings,
   ) async {
     if (message.isToolMessage ||
-        message.isDecisionResult ||
+        message.isStructuredDecision ||
         _messageHasMultimediaContent(message)) {
       return;
     }
@@ -2079,7 +2079,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     SettingsController settings,
   ) {
     if (message.isToolMessage ||
-        message.isDecisionResult ||
+        message.isStructuredDecision ||
         message.metadata[aiSessionMessageMetadataStreamingKey] == true) {
       return false;
     }
@@ -2114,7 +2114,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessage message,
     AiTranslationSettings settings,
   ) {
-    if (!settings.enabled || message.isDecisionResult) return null;
+    if (!settings.enabled || message.isStructuredDecision) return null;
     final content = switch (message.kind) {
       AiSessionMessageKind.assistant =>
         _parseHeAnnotation(message.content)?.strippedContent ?? message.content,
@@ -2187,7 +2187,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessage message,
     SettingsController settings,
   ) {
-    if (message.isToolMessage || message.isDecisionResult) return false;
+    if (message.isToolMessage || message.isStructuredDecision) return false;
     return switch (message.kind) {
       AiSessionMessageKind.user || AiSessionMessageKind.reasoning => true,
       AiSessionMessageKind.assistant =>

@@ -11,6 +11,13 @@ abstract final class DecisionPayload {
     r'^ {0,3}(?:`{3,}|~{3,})openhand-decision[ \t]*\r?$',
     multiLine: true,
   );
+  static final _requestFence = RegExp(
+    r'^ {0,3}(?:`{3,}|~{3,})openhand-decision-request[ \t]*\r?$',
+    multiLine: true,
+  );
+
+  static bool containsRequest(String content) =>
+      content.contains(requestLanguage) && _requestFence.hasMatch(content);
 
   static bool containsResult(String content) =>
       content.contains(resultLanguage) && _resultFence.hasMatch(content);

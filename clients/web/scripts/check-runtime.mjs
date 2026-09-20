@@ -26,15 +26,22 @@ function deferred() {
 try {
   const { syncLangFromAppPreferences } = await server.ssrLoadModule('/src/i18n/index.ts');
   syncLangFromAppPreferences('zh_Hans');
-  const { isDecisionResultMessage } = await server.ssrLoadModule('/src/shared/util/decision.ts');
+  const { isStructuredDecisionMessage } = await server.ssrLoadModule('/src/shared/util/decision.ts');
   for (const type of ['noul', 'choice', 'score']) {
     const content = '```openhand-decision\n' + JSON.stringify({ answers: { 决策: { type } } }) + '\n```';
-    assert.equal(isDecisionResultMessage({ role: 'assistant', content }), true);
-    assert.equal(isDecisionResultMessage({ role: 'user', content }), false);
+    assert.equal(isStructuredDecisionMessage({ role: 'assistant', content }), true);
+    assert.equal(isStructuredDecisionMessage({ role: 'user', content }), false);
+    const request = content.replace('openhand-decision', 'openhand-decision-request');
+    assert.equal(isStructuredDecisionMessage({ role: 'user', content: request }), true);
+    assert.equal(isStructuredDecisionMessage({ role: 'assistant', content: request }), false);
   }
-  assert.equal(isDecisionResultMessage({ role: 'assistant', content: '说明\n  ~~~openhand-decision\r\n{}\r\n~~~' }), true);
+  assert.equal(isStructuredDecisionMessage({ role: 'assistant', content: '说明\n  ~~~openhand-decision\r\n{}\r\n~~~' }), true);
+  assert.equal(isStructuredDecisionMessage({ role: 'user', content: '说明\n  ~~~openhand-decision-request\r\n{}\r\n~~~' }), true);
+  for (const content of ['普通用户消息提到 openhand-decision-request', '```openhand-decision-request-extra\n{}\n```']) {
+    assert.equal(isStructuredDecisionMessage({ role: 'user', content }), false);
+  }
   for (const content of ['普通回复提到 openhand-decision', '```openhand-decision-request\n{}\n```', '```openhand-decision-extra\n{}\n```']) {
-    assert.equal(isDecisionResultMessage({ role: 'assistant', content }), false);
+    assert.equal(isStructuredDecisionMessage({ role: 'assistant', content }), false);
   }
   const { decisionRequestToMarkdown } = await server.ssrLoadModule('/src/shared/util/decision_request_markdown.ts');
   const requestPayload = { state: '待评估 <script>内容</script>', questions: {
