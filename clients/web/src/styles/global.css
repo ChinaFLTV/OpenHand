@@ -11617,3 +11617,19 @@ button.oh-json-tree-row { cursor: pointer; }
 
 .oh-decision-type { flex: 1; min-height: 42px; padding: .5rem 1rem; border-radius: 999px; border: 1px solid var(--m3-outline-variant); background: var(--m3-surface-container-low); font-weight: 650; }
 .oh-decision-actions .oh-dialog-action-button { min-height: 44px; min-width: 112px; border-radius: 14px; }
+.oh-decision-composer { display: flex; flex-direction: column; gap: .75rem; padding: 1rem; border: 1px solid var(--m3-outline-variant); border-radius: 1rem; background: color-mix(in srgb, var(--m3-surface-container-highest) 72%, transparent); }
+.oh-decision-composer-heading { display: flex; align-items: center; gap: .5rem; color: var(--m3-on-surface); }
+.oh-decision-composer-heading > span:last-child { margin-left: auto; font-size: .75rem; opacity: .68; }
+.oh-decision-composer-icon { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: .65rem; color: var(--m3-on-primary-container); background: var(--m3-primary-container); }
+.oh-decision-composer label { display: block; font-size: .78rem; font-weight: 650; color: var(--m3-on-surface-variant); }
+.oh-decision-field { display: block; width: 100%; margin-top: .4rem; min-height: 2.5rem; padding: .65rem .75rem; border: 1px solid var(--m3-outline-variant); border-radius: .75rem; background: var(--m3-surface); color: var(--m3-on-surface); }
+.oh-decision-field:focus, .oh-decision-input:focus { outline: 2px solid color-mix(in srgb, var(--m3-primary) 50%, transparent); outline-offset: 1px; }
+.oh-decision-type-group { display: flex; flex-wrap: wrap; gap: .5rem; }
+.oh-decision-type { flex: 0 0 auto; min-width: 5rem; }
+.oh-decision-type[aria-pressed='true'] { color: var(--m3-on-primary-container); background: var(--m3-primary-container); border-color: var(--m3-primary); }
+.oh-decision-criteria { display: flex; flex-direction: column; gap: .5rem; }
+.oh-decision-criterion { display: flex; align-items: center; gap: .5rem; }
+.oh-decision-criterion > span { width: 1.5rem; text-align: center; font-size: .8rem; opacity: .7; }
+.oh-decision-remove { flex: 0 0 2rem; width: 2rem; height: 2rem; border: 0; border-radius: 50%; color: var(--m3-error); background: transparent; font-size: 1.2rem; }
+.oh-decision-add { align-self: flex-start; min-height: 2.25rem; padding: .35rem .7rem; border: 1px dashed var(--m3-outline); border-radius: .7rem; color: var(--m3-primary); background: transparent; }
+@media (max-width: 560px) { .oh-decision-composer-heading > span:last-child { display: none; } .oh-decision-type { flex: 1 1 30%; min-width: 0; } }

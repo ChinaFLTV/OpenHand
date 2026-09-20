@@ -316,6 +316,31 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   @override
   void didUpdateWidget(covariant _ComposerPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final wasDecisionModel =
+        oldWidget.selectedModel
+            ?.profileFor(oldWidget.selectedModel!.modelId)
+            .supportsDecisions ==
+        true;
+    final isDecisionModel =
+        widget.selectedModel
+            ?.profileFor(widget.selectedModel!.modelId)
+            .supportsDecisions ==
+        true;
+    if (wasDecisionModel && !isDecisionModel) {
+      final text = widget.controller.text;
+      try {
+        final request = DecisionPayload.request(text);
+        final state = request['state'];
+        if (state is String) {
+          widget.controller.value = TextEditingValue(
+            text: state,
+            selection: TextSelection.collapsed(offset: state.length),
+          );
+        }
+      } on FormatException {
+        // 普通模型继续使用当前文本，不阻断模型切换。
+      }
+    }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_handleTextChangedForAtMention);
       oldWidget.controller.removeListener(_handleTextChangedForSlashSkill);
@@ -1815,36 +1840,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           kOpenHandGap8,
         ],
         if (widget.selectedModel
-                ?.profileFor(widget.selectedModel!.modelId)
-                .supportsDecisions ==
-            true) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Jev 决策 · 直接输入陈述可判断成立概率，分类或评分请先配置。',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              TextButton.icon(
-                icon: const Icon(Icons.account_tree_rounded),
-                label: const Text('决策配置'),
-                onPressed: !modeToggleEnabled
-                    ? null
-                    : () async {
-                        final draft = await showDecisionRequestDialog(
-                          context,
-                          widget.controller.text,
-                        );
-                        if (!mounted || draft == null) return;
-                        widget.controller.text = draft;
-                        widget.focusNode.requestFocus();
-                      },
-              ),
-            ],
+                    ?.profileFor(widget.selectedModel!.modelId)
+                    .supportsDecisions ==
+                true &&
+            !voiceActive)
+          _DecisionComposerForm(
+            key: ValueKey(widget.selectedModel!.modelId),
+            controller: widget.controller,
+            enabled: modeToggleEnabled,
           ),
-          kOpenHandGap8,
-        ],
         if (widget.attachments.drafts.isNotEmpty) ...[
           _ReorderableAttachmentWrap(
             attachments: widget.attachments.drafts,
@@ -1878,6 +1882,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     snapshot: voiceSnapshot,
                     onForceSend: widget.voiceConversationService.forceSend,
                   )
+                : _isDecisionModel
+                ? const SizedBox.shrink()
                 : SizedBox(
                     key: const ValueKey<String>('composer-input-text'),
                     height: widget.composerHeight,
@@ -2471,6 +2477,254 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             actionRow,
           ],
         ),
+      ),
+    );
+  }
+
+  bool get _isDecisionModel =>
+      widget.selectedModel
+          ?.profileFor(widget.selectedModel!.modelId)
+          .supportsDecisions ==
+      true;
+}
+
+class _DecisionComposerForm extends StatefulWidget {
+  const _DecisionComposerForm({
+    super.key,
+    required this.controller,
+    required this.enabled,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+
+  @override
+  State<_DecisionComposerForm> createState() => _DecisionComposerFormState();
+}
+
+class _DecisionComposerFormState extends State<_DecisionComposerForm> {
+  late final TextEditingController _state;
+  late final TextEditingController _question;
+  final List<TextEditingController> _criteria = [];
+  String _type = 'noul';
+
+  @override
+  void initState() {
+    super.initState();
+    _state = TextEditingController();
+    _question = TextEditingController(text: DecisionPayload.defaultQuestion);
+    _loadDraft(widget.controller.text);
+    _state.addListener(_writeDraft);
+    _question.addListener(_writeDraft);
+  }
+
+  void _loadDraft(String text) {
+    try {
+      final request = DecisionPayload.request(text);
+      final questions = request['questions'] as Map;
+      final question = questions.values.first as Map;
+      _state.text = request['state'] is String
+          ? request['state'] as String
+          : '';
+      _question.text = question['instructions'] is String
+          ? question['instructions'] as String
+          : DecisionPayload.defaultQuestion;
+      _type = question['type'] as String? ?? 'noul';
+      final criteria = question['criteria'];
+      final values = criteria is Map
+          ? criteria.keys.whereType<String>().toList()
+          : criteria is List
+          ? criteria.whereType<String>().toList()
+          : <String>[];
+      for (final value in values) {
+        _criteria.add(
+          TextEditingController(text: value)..addListener(_writeDraft),
+        );
+      }
+    } on FormatException {
+      _state.text = text.trim();
+    }
+  }
+
+  @override
+  void dispose() {
+    _state.dispose();
+    _question.dispose();
+    for (final controller in _criteria) {
+      controller.removeListener(_writeDraft);
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _writeDraft() {
+    if (!mounted) return;
+    final values = _criteria
+        .map((controller) => controller.text.trim())
+        .toList();
+    final question = <String, Object?>{
+      'type': _type,
+      'instructions': _question.text.trim(),
+      if (_type == 'choice')
+        'criteria': {
+          for (final value in values.where((value) => value.isNotEmpty))
+            value: null,
+        },
+      if (_type == 'score')
+        'criteria': values.where((value) => value.isNotEmpty).toList(),
+    };
+    final payload = {
+      'state': _state.text,
+      'questions': {'决策': question},
+    };
+    final encoded = DecisionPayload.encode(
+      DecisionPayload.requestLanguage,
+      payload,
+    );
+    widget.controller.value = TextEditingValue(
+      text: encoded,
+      selection: TextSelection.collapsed(offset: encoded.length),
+    );
+  }
+
+  void _setType(String type) {
+    setState(() {
+      _type = type;
+    });
+    if (_type != 'noul' && _criteria.isEmpty) _addCriteria();
+    if (_type == 'score' && _criteria.length == 1) _addCriteria();
+    _writeDraft();
+  }
+
+  void _addCriteria() {
+    if (_criteria.length >= (_type == 'choice' ? 255 : 10)) return;
+    final controller = TextEditingController();
+    controller.addListener(_writeDraft);
+    setState(() => _criteria.add(controller));
+  }
+
+  void _removeCriteria(int index) {
+    final controller = _criteria.removeAt(index);
+    controller.removeListener(_writeDraft);
+    controller.dispose();
+    setState(() {});
+    _writeDraft();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isChoice = _type == 'choice';
+    final isScore = _type == 'score';
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: .55),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.account_tree_rounded, color: colors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '结构化决策',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              Text('发送时调用模型', style: Theme.of(context).textTheme.labelSmall),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _state,
+            enabled: widget.enabled,
+            minLines: 3,
+            maxLines: 7,
+            decoration: const InputDecoration(
+              labelText: '待评估内容',
+              alignLabelWithHint: true,
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _question,
+            enabled: widget.enabled,
+            maxLines: 3,
+            decoration: const InputDecoration(labelText: '需要模型回答的问题'),
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'noul',
+                label: Text('判断'),
+                icon: Icon(Icons.check_rounded),
+              ),
+              ButtonSegment(
+                value: 'choice',
+                label: Text('选择'),
+                icon: Icon(Icons.list_rounded),
+              ),
+              ButtonSegment(
+                value: 'score',
+                label: Text('评分'),
+                icon: Icon(Icons.star_border_rounded),
+              ),
+            ],
+            selected: {_type},
+            onSelectionChanged: widget.enabled
+                ? (value) => _setType(value.first)
+                : null,
+          ),
+          if (isChoice || isScore) ...[
+            const SizedBox(height: 12),
+            for (var index = 0; index < _criteria.length; index++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Text('${index + 1}', textAlign: TextAlign.center),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _criteria[index],
+                        enabled: widget.enabled,
+                        decoration: InputDecoration(
+                          labelText: isChoice ? '候选项' : '评分等级（从低到高）',
+                          hintText: isChoice ? '例如：技术团队' : '例如：一般',
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '删除此项',
+                      onPressed:
+                          widget.enabled && _criteria.length > (isScore ? 2 : 1)
+                          ? () => _removeCriteria(index)
+                          : null,
+                      icon: const Icon(Icons.remove_circle_outline_rounded),
+                    ),
+                  ],
+                ),
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: widget.enabled ? _addCriteria : null,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(isScore ? '添加评分等级' : '添加候选项'),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
