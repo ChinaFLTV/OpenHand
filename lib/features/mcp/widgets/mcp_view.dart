@@ -12926,12 +12926,15 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
           ),
         ),
         kOpenHandGap4,
-        ClipRect(
-          child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: kOpenHandSwitchInCurve,
-            alignment: Alignment.topLeft,
-            height: _expanded
+        AnimatedSize(
+          duration: openHandMotionDuration(context, kOpenHandMotion220),
+          curve: kOpenHandSwitchInCurve,
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            // 空态按文字实际高度收缩，不保留工具胶囊或展开列表的占位。
+            height: filteredTools.isEmpty
+                ? null
+                : _expanded
                 ? _mcpToolPreviewExpandedHeight
                 : _mcpChipStripHeight,
             width: double.infinity,
@@ -13061,6 +13064,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
     return Align(
       key: key,
       alignment: Alignment.topLeft,
+      heightFactor: 1,
       child: Text(
         label,
         maxLines: 2,
