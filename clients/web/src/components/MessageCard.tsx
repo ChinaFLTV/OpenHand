@@ -2830,7 +2830,7 @@ function MessageCardImpl({
               border: style.border,
               cursor: hasAnyAction ? 'pointer' : 'default',
               overflowWrap: 'anywhere',
-              transition: 'box-shadow 220ms ease-out, border-color 220ms ease-out',
+              transition: 'border-color 220ms ease-out',
             }}
             onPointerDown={(ev) => {
               if (!hasAnyAction) return;

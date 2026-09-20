@@ -240,6 +240,10 @@ class OpenHandHighlightedCodeBlockBuilder extends MarkdownElementBuilder {
       final card = OpenHandDecisionCard.fromJson(content);
       if (card != null) return RepaintBoundary(child: card);
     }
+    if (language == DecisionPayload.requestLanguage) {
+      final card = OpenHandDecisionRequestCard.fromJson(content);
+      if (card != null) return RepaintBoundary(child: card);
+    }
     if (_looksLikeInlineDiffCodeBlock(language: language, content: content)) {
       return RepaintBoundary(
         child: _InlineCodexDiffPanel(

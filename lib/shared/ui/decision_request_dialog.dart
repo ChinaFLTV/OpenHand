@@ -3,8 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../util/decision_payload.dart';
+import '../util/localized_text.dart';
 import 'animated_dialog.dart';
+import 'decision_copy.dart';
 import 'openhand_dialog_action_button.dart';
+import 'openhand_spacing.dart';
 
 Future<String?> showDecisionRequestDialog(
   BuildContext context,
@@ -23,38 +26,42 @@ class _DecisionRequestDialog extends StatefulWidget {
 
 class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
   late final TextEditingController _state;
-  final _question = TextEditingController(
-    text: DecisionPayload.defaultQuestion,
-  );
+  late final TextEditingController _question;
   final _criteriaByType = {
-    'noul': TextEditingController(),
-    'choice': TextEditingController(),
-    'score': TextEditingController(),
+    DecisionPayload.typeNoul: TextEditingController(),
+    DecisionPayload.typeChoice: TextEditingController(),
+    DecisionPayload.typeScore: TextEditingController(),
   };
-  String _type = 'noul';
+  String _type = DecisionPayload.typeNoul;
   TextEditingController get _criteria => _criteriaByType[_type]!;
   bool _advanced = false;
+  bool _seededDefaultQuestion = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _state = TextEditingController(text: widget.initialText);
+    _question = TextEditingController(
+      text: DecisionPayload.defaultQuestionForType(_type),
+    );
     if (widget.initialText.contains(DecisionPayload.requestLanguage) ||
         widget.initialText.trimLeft().startsWith('{')) {
       try {
         final request = DecisionPayload.request(widget.initialText);
         final questions = request['questions'] as Map;
-        final question = questions.length == 1 ? questions['决策'] : null;
+        final question = questions.length == 1
+            ? questions[DecisionPayload.simpleQuestionKey]
+            : null;
         final criteria = question is Map ? question['criteria'] : null;
         final simpleCriteria =
             criteria == null ||
             (question is Map &&
-                question['type'] == 'choice' &&
+                question['type'] == DecisionPayload.typeChoice &&
                 criteria is Map &&
                 criteria.values.every((value) => value == null)) ||
             (question is Map &&
-                question['type'] == 'score' &&
+                question['type'] == DecisionPayload.typeScore &&
                 criteria is List &&
                 criteria.every((value) => value is String));
         if (question is Map &&
@@ -75,8 +82,20 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
         }
       } on FormatException {
         _advanced = true;
-        _error = '现有决策草稿格式不完整，请修正配置。';
+        _error = 'draft';
       }
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_seededDefaultQuestion || _advanced) return;
+    _seededDefaultQuestion = true;
+    final copy = DecisionCopy.of(context);
+    if (_question.text.trim().isEmpty ||
+        DecisionPayload.isBuiltInQuestion(_question.text)) {
+      _question.text = copy.defaultQuestionFor(_type);
     }
   }
 
@@ -91,6 +110,7 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
   }
 
   void _apply() {
+    final copy = DecisionCopy.of(context);
     if (_advanced) {
       try {
         final request = DecisionPayload.request(_state.text);
@@ -107,19 +127,20 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .toList();
-    if (_type == 'choice' && options.toSet().length != options.length) {
-      setState(() => _error = '候选项不能重复。');
+    if (_type == DecisionPayload.typeChoice &&
+        options.toSet().length != options.length) {
+      setState(() => _error = copy.duplicateOptions);
       return;
     }
     final payload = {
       'state': _state.text.trim(),
       'questions': {
-        '决策': {
+        DecisionPayload.simpleQuestionKey: {
           'type': _type,
           'instructions': _question.text.trim(),
-          if (_type == 'choice')
+          if (_type == DecisionPayload.typeChoice)
             'criteria': {for (final option in options) option: null},
-          if (_type == 'score') 'criteria': options,
+          if (_type == DecisionPayload.typeScore) 'criteria': options,
         },
       },
     };
@@ -138,9 +159,10 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final copy = DecisionCopy.of(context);
     return buildOpenHandAlertDialog(
-      icon: Icon(Icons.account_tree_rounded, color: colors.primary),
-      title: const Text('配置结构化决策'),
+      icon: Icon(Icons.fact_check_rounded, color: colors.primary),
+      title: Text(copy.dialogTitle),
       content: SizedBox(
         width: 580,
         child: SingleChildScrollView(
@@ -152,11 +174,9 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: colors.tertiaryContainer,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: kOpenHandBorderRadius16,
                 ),
-                child: const Text(
-                  '先提供待评估内容，再定义要选择、评分或判断的问题。配置会写入草稿，点击发送后才调用模型。',
-                ),
+                child: Text(copy.dialogBody),
               ),
               const SizedBox(height: 16),
               if (!_advanced) ...[
@@ -164,25 +184,23 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    for (final entry in const {
-                      'noul': '判断',
-                      'choice': '选择',
-                      'score': '评分',
-                    }.entries)
+                    for (final type in const [
+                      DecisionPayload.typeNoul,
+                      DecisionPayload.typeChoice,
+                      DecisionPayload.typeScore,
+                    ])
                       ChoiceChip(
-                        label: Text(entry.value),
-                        selected: _type == entry.key,
+                        label: Text(copy.typeLabel(type)),
+                        selected: _type == type,
                         onSelected: (_) {
-                          if (_type == entry.key) return;
-                          final question = DecisionPayload.questionForType(
-                            entry.key,
-                            current: _question.text,
-                          );
+                          if (_type == type) return;
                           setState(() {
-                            _type = entry.key;
-                            if (_question.text != question) {
-                              _question.text = question;
-                            }
+                            _type = type;
+                            _question.text = DecisionPayload.questionForType(
+                              _type,
+                              current: _question.text,
+                              localizedDefault: copy.defaultQuestionFor(_type),
+                            );
                             _error = null;
                           });
                         },
@@ -197,7 +215,9 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
                 maxLines: _advanced ? 16 : 7,
                 maxLength: DecisionPayload.maxCharacters,
                 decoration: InputDecoration(
-                  labelText: _advanced ? '完整决策配置（JSON）' : '待评估内容',
+                  labelText: _advanced
+                      ? copy.advancedJsonLabel
+                      : copy.stateLabel,
                   alignLabelWithHint: true,
                 ),
               ),
@@ -207,9 +227,9 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
                   controller: _question,
                   minLines: 1,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: '需要模型回答的问题'),
+                  decoration: InputDecoration(labelText: copy.questionLabel),
                 ),
-                if (_type != 'noul') ...[
+                if (_type != DecisionPayload.typeNoul) ...[
                   const SizedBox(height: 12),
                   TextField(
                     key: ValueKey(_type),
@@ -217,9 +237,9 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
                     minLines: 3,
                     maxLines: 7,
                     decoration: InputDecoration(
-                      labelText: _type == 'choice'
-                          ? '候选项，每行一个'
-                          : '评分等级，从低到高每行一个（2—10 级）',
+                      labelText: _type == DecisionPayload.typeChoice
+                          ? copy.choiceLinesLabel
+                          : copy.scoreLinesLabel,
                     ),
                   ),
                 ],
@@ -227,7 +247,10 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: Text(_error!, style: TextStyle(color: colors.error)),
+                  child: Text(
+                    _error == 'draft' ? copy.invalidDraft : _error!,
+                    style: TextStyle(color: colors.error),
+                  ),
                 ),
             ],
           ),
@@ -235,10 +258,13 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
-          label: '取消',
+          label: openHandCancelLabel(context),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        OpenHandDialogActionButton.primary(label: '应用到草稿', onPressed: _apply),
+        OpenHandDialogActionButton.primary(
+          label: copy.applyToDraft,
+          onPressed: _apply,
+        ),
       ],
     );
   }

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../shared/util/decision_payload.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/localized_text.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../chat/ai_chat_service.dart';
@@ -27,10 +28,28 @@ class AiDecisionsService {
   }) async {
     final turn = messages.lastWhere(
       (item) => item.role == AiChatRole.user,
-      orElse: () => throw const FormatException('请输入待评估内容。'),
+      orElse: () => throw FormatException(
+        openHandAmbientText(
+          zh: '请输入待评估内容。',
+          zhHant: '請輸入待評估內容。',
+          en: 'Enter the content to evaluate.',
+          fr: 'Saisissez le contenu à évaluer.',
+          de: 'Geben Sie den zu bewertenden Inhalt ein.',
+          ja: '評価対象を入力してください。',
+        ),
+      ),
     );
     if (turn.parts.any((part) => part.kind != AiChatContentPartKind.text)) {
-      throw const FormatException('Jev 仅接收文本，请先将附件转成文本。');
+      throw FormatException(
+        openHandAmbientText(
+          zh: 'Jev 仅接收文本，请先将附件转成文本。',
+          zhHant: 'Jev 僅接收文字，請先將附件轉成文字。',
+          en: 'Jev accepts text only. Convert attachments to text first.',
+          fr: 'Jev n’accepte que du texte. Convertissez d’abord les pièces jointes.',
+          de: 'Jev akzeptiert nur Text. Wandeln Sie Anhänge zuerst in Text um.',
+          ja: 'Jev はテキストのみ受け付けます。先に添付をテキストへ変換してください。',
+        ),
+      );
     }
     final request = DecisionPayload.request(
       turn.effectiveParts.map((part) => part.text ?? '').join('\n\n'),
@@ -74,7 +93,7 @@ class AiDecisionsService {
       final raw = utf8.decode(response.bodyBytes);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw AiChatException(
-          '决策接口请求失败（${response.statusCode}）：${AiOperationHttp.extractErrorMessage(raw)}',
+          '${openHandAmbientText(zh: '决策接口请求失败', zhHant: '決策介面請求失敗', en: 'Decision API request failed', fr: 'Échec de la requête API de décision', de: 'Anfrage an die Entscheidungs-API fehlgeschlagen', ja: '意思決定 API のリクエストに失敗しました')}（${response.statusCode}）：${AiOperationHttp.extractErrorMessage(raw)}',
           telemetry: AiChatRequestTelemetry(
             requestUrl: uri.toString(),
             requestMethod: endpoint.method,
@@ -86,7 +105,18 @@ class AiDecisionsService {
         );
       }
       final decoded = jsonDecode(raw);
-      if (decoded is! Map) throw const FormatException('决策接口响应必须是 JSON 对象。');
+      if (decoded is! Map) {
+        throw FormatException(
+          openHandAmbientText(
+            zh: '决策接口响应必须是 JSON 对象。',
+            zhHant: '決策介面回應必須是 JSON 物件。',
+            en: 'The decision API response must be a JSON object.',
+            fr: 'La réponse de l’API de décision doit être un objet JSON.',
+            de: 'Die Antwort der Entscheidungs-API muss ein JSON-Objekt sein.',
+            ja: '意思決定 API の応答は JSON オブジェクトである必要があります。',
+          ),
+        );
+      }
       final result = DecisionPayload.result(
         stringKeyedMapFromValue(decoded),
         request['questions'] as Map<String, Object?>,

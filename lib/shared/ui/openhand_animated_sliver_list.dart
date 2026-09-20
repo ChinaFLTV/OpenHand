@@ -14,10 +14,12 @@ class OpenHandAnimatedSliverList extends StatefulWidget {
     super.key,
     required this.children,
     required this.settings,
+    this.onRemoved,
   });
 
   final List<Widget> children;
   final DialogAnimationSettings settings;
+  final ValueChanged<Key>? onRemoved;
 
   @override
   State<OpenHandAnimatedSliverList> createState() =>
@@ -42,7 +44,11 @@ class _OpenHandAnimatedSliverListState
         entry.removal?.cancel();
         entry.removal = null;
       }
-      _entries.removeWhere((entry) => !entry.present);
+      _entries.removeWhere((entry) {
+        if (entry.present) return false;
+        _notifyRemoved(entry);
+        return true;
+      });
     }
   }
 
@@ -52,10 +58,19 @@ class _OpenHandAnimatedSliverListState
     final previous = {for (final entry in _entries) entry.child.key!: entry};
     final nextKeys = widget.children.map((child) => child.key!).toSet();
     assert(nextKeys.length == widget.children.length);
+    final oldOrder = _entries
+        .where((entry) => entry.present && nextKeys.contains(entry.child.key))
+        .map((entry) => entry.child.key!)
+        .toList();
+    final newOrder = widget.children
+        .where((child) => previous[child.key]?.present == true)
+        .map((child) => child.key!)
+        .toList();
     _reordering =
-        nextKeys.length == previous.length &&
-        nextKeys.containsAll(previous.keys) &&
-        _entries.every((entry) => entry.present);
+        oldOrder.length == newOrder.length &&
+        Iterable<int>.generate(
+          oldOrder.length,
+        ).any((index) => oldOrder[index] != newOrder[index]);
     final next = <_ListEntry>[];
     for (final child in widget.children) {
       final entry = previous[child.key] ?? _ListEntry(child, entering: true);
@@ -75,6 +90,7 @@ class _OpenHandAnimatedSliverListState
           : Duration.zero;
       if (duration == Duration.zero) {
         entry.removal?.cancel();
+        _notifyRemoved(entry);
         continue;
       }
       next.insert(index.clamp(0, next.length), entry);
@@ -93,7 +109,11 @@ class _OpenHandAnimatedSliverListState
           }
           entry.removal = startSafeTimer(widget.settings.exitDuration, () {
             if (!mounted || entry.present) return;
-            setState(() => _entries.remove(entry));
+            setState(() {
+              _reordering = false;
+              _entries.remove(entry);
+            });
+            _notifyRemoved(entry);
           });
         });
       }
@@ -105,8 +125,18 @@ class _OpenHandAnimatedSliverListState
   void dispose() {
     for (final entry in _entries) {
       entry.removal?.cancel();
+      _notifyRemoved(entry);
     }
     super.dispose();
+  }
+
+  void _notifyRemoved(_ListEntry entry) {
+    final callback = widget.onRemoved;
+    if (callback == null) return;
+    // 等退场视图卸载后再释放其依赖，避免输入框仍在读取控制器。
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => callback(entry.child.key!),
+    );
   }
 
   @override

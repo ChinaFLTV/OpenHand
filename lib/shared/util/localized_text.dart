@@ -1585,6 +1585,24 @@ String openHandCodeFenceLanguageLabel(BuildContext context, String? language) {
       de: 'Shell',
       ja: 'シェル',
     ),
+    'openhand-decision-request' => openHandLocalizedText(
+      context,
+      zh: '决策请求',
+      zhHant: '決策請求',
+      en: 'Decision request',
+      fr: 'Requête de décision',
+      de: 'Entscheidungsanfrage',
+      ja: '意思決定リクエスト',
+    ),
+    'openhand-decision' => openHandLocalizedText(
+      context,
+      zh: '决策结果',
+      zhHant: '決策結果',
+      en: 'Decision result',
+      fr: 'Résultat de décision',
+      de: 'Entscheidungsergebnis',
+      ja: '意思決定の結果',
+    ),
     _ => language!.trim(),
   };
 }

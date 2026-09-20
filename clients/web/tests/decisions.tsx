@@ -4,7 +4,8 @@ import { act } from 'preact/test-utils';
 import { Markdown } from '../src/components/Markdown';
 import { DecisionCard } from '../src/components/DecisionCard';
 import { DecisionRequestDialog } from '../src/components/DecisionRequestDialog';
-import { decisionJsonDraft, decisionDraft, initialDecisionDraft, parseDecisionResult } from '../src/shared/util/decision';
+import { t } from '../src/i18n';
+import { decisionJsonDraft, decisionDraft, initialDecisionDraft, parseDecisionRequest, parseDecisionResult } from '../src/shared/util/decision';
 import '../src/styles/global.css';
 
 // 固定合成样例仅用于交互验证，不代表真实模型输出。
@@ -29,19 +30,24 @@ try {
   const advanced = decisionJsonDraft(JSON.stringify({ state: { 内容: '批量' }, questions: fixture.questions }));
   verify(initialDecisionDraft(advanced).advanced?.includes('财务'), '复杂配置保留问题名称和结构');
   verify(parseDecisionResult(JSON.stringify(fixture)), '三类响应均能解析');
+  verify(parseDecisionRequest(JSON.stringify({ state: '待判断内容', questions: { 判断: { type: 'noul', instructions: '是否紧急？' } } })), '请求载荷可解析');
   verify(parseDecisionResult(JSON.stringify({ ...fixture, answers: { ...fixture.answers, 判断: { type: 'noul', noul: 2 } } })) === null, '无效概率不能显示为正常结果');
   await act(async () => render(<DecisionCard text={JSON.stringify(fixture)} />, root));
-  verify(root.querySelectorAll('progress').length === 6, '决策卡片展示完整分布');
+  verify(root.querySelectorAll('.oh-decision-bar-fill').length === 6, '决策卡片展示完整分布');
   await act(async () => root.querySelector<HTMLButtonElement>('button')!.click());
   verify(root.querySelector('button')?.getAttribute('aria-expanded') === 'false', '概率分布可折叠');
   await act(async () => render(<Markdown source={'```openhand-decision\n' + JSON.stringify(fixture) + '\n```'} />, root));
   await wait(200);
-  verify(root.querySelectorAll('progress').length === 6, '实际 Markdown 消息入口渲染决策卡片');
+  verify(root.querySelectorAll('.oh-decision-bar-fill').length === 6, '实际 Markdown 消息入口渲染决策卡片');
+  const requestFence = '```openhand-decision-request\n' + JSON.stringify({ state: '待判断内容', questions: { 判断: { type: 'noul', instructions: '是否紧急？' } } }) + '\n```';
+  await act(async () => render(<Markdown source={requestFence} />, root));
+  await wait(200);
+  verify(root.querySelector('.oh-decision-request'), '请求围栏渲染为决策请求卡片');
   let applied = '';
   let closed = false;
   await act(async () => render(<DecisionRequestDialog initialText={draft} onApply={(text) => { applied = text; }} onClose={() => { closed = true; render(null, root); }} />, root));
   await wait(100);
-  const apply = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '应用到草稿');
+  const apply = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === t('decision.dialog.apply', '应用到草稿'));
   verify(apply, '真实弹窗提供应用操作');
   await act(async () => apply!.click());
   await wait(1800);

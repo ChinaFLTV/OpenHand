@@ -2560,27 +2560,53 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
   late final TextEditingController _state;
   late final TextEditingController _question;
   final _criteriaByType = <String, List<TextEditingController>>{
-    'noul': [],
-    'choice': [],
-    'score': [],
+    DecisionPayload.typeNoul: [],
+    DecisionPayload.typeChoice: [],
+    DecisionPayload.typeScore: [],
   };
-  String _type = 'noul';
+  String _type = DecisionPayload.typeNoul;
+  final _retiredCriteria = <TextEditingController>{};
+  Set<TextEditingController> _displayedCriteria = {};
+  bool _seededDefaultQuestion = false;
   List<TextEditingController> get _criteria => _criteriaByType[_type]!;
 
   @override
   void initState() {
     super.initState();
     _state = TextEditingController();
-    _question = TextEditingController(text: DecisionPayload.defaultQuestion);
+    _question = TextEditingController();
     _loadDraft(widget.controller.text);
-    for (final type in ['choice', 'score']) {
+    for (final type in const [
+      DecisionPayload.typeChoice,
+      DecisionPayload.typeScore,
+    ]) {
       final criteria = _criteriaByType[type]!;
-      while (criteria.length < (type == 'score' ? 2 : 1)) {
+      while (criteria.length <
+          (type == DecisionPayload.typeScore
+              ? DecisionPayload.minScoreLevels
+              : 1)) {
         criteria.add(TextEditingController()..addListener(_writeDraft));
       }
     }
     _state.addListener(_writeDraft);
     _question.addListener(_writeDraft);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_seededDefaultQuestion) return;
+    _seededDefaultQuestion = true;
+    final copy = DecisionCopy.of(context);
+    if (_question.text.trim().isEmpty ||
+        DecisionPayload.isBuiltInQuestion(_question.text)) {
+      _question.removeListener(_writeDraft);
+      _question.text = copy.defaultQuestionFor(_type);
+      _question.addListener(_writeDraft);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _writeDraft();
+      });
+    }
   }
 
   void _loadDraft(String text) {
@@ -2591,7 +2617,7 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
       _state.text = request['state'] is String
           ? request['state'] as String
           : '';
-      _type = question['type'] as String? ?? 'noul';
+      _type = question['type'] as String? ?? DecisionPayload.typeNoul;
       _question.text = question['instructions'] is String
           ? question['instructions'] as String
           : DecisionPayload.questionForType(_type);
@@ -2619,6 +2645,9 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
       controller.removeListener(_writeDraft);
       controller.dispose();
     }
+    for (final controller in _retiredCriteria) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -2630,22 +2659,23 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
     final question = <String, Object?>{
       'type': _type,
       'instructions': _question.text.trim(),
-      if (_type == 'choice')
+      if (_type == DecisionPayload.typeChoice)
         'criteria': {
           for (final value in values.where((value) => value.isNotEmpty))
             value: null,
         },
-      if (_type == 'score')
+      if (_type == DecisionPayload.typeScore)
         'criteria': values.where((value) => value.isNotEmpty).toList(),
     };
     final payload = {
       'state': _state.text,
-      'questions': {'决策': question},
+      'questions': {DecisionPayload.simpleQuestionKey: question},
     };
     final encoded = DecisionPayload.encode(
       DecisionPayload.requestLanguage,
       payload,
     );
+    if (widget.controller.text == encoded) return;
     widget.controller.value = TextEditingValue(
       text: encoded,
       selection: TextSelection.collapsed(offset: encoded.length),
@@ -2654,9 +2684,11 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
 
   void _setType(String type) {
     if (type == _type) return;
+    final copy = DecisionCopy.of(context);
     final question = DecisionPayload.questionForType(
       type,
       current: _question.text,
+      localizedDefault: copy.defaultQuestionFor(type),
     );
     setState(() {
       _type = type;
@@ -2666,77 +2698,137 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
   }
 
   void _addCriteria() {
-    if (_criteria.length >= (_type == 'choice' ? 255 : 10)) return;
+    if (!widget.enabled || _type == DecisionPayload.typeNoul) return;
+    if (_criteria.length >=
+        (_type == DecisionPayload.typeChoice
+            ? DecisionPayload.maxCriteria
+            : DecisionPayload.maxScoreLevels)) {
+      return;
+    }
     final controller = TextEditingController();
     controller.addListener(_writeDraft);
     setState(() => _criteria.add(controller));
   }
 
   void _removeCriteria(int index) {
-    if (_criteria.length <= (_type == 'score' ? 2 : 1)) return;
+    if (!widget.enabled || index < 0 || index >= _criteria.length) return;
+    if (_criteria.length <=
+        (_type == DecisionPayload.typeScore
+            ? DecisionPayload.minScoreLevels
+            : 1)) {
+      return;
+    }
     final controller = _criteria.removeAt(index);
     controller.removeListener(_writeDraft);
-    controller.dispose();
+    if (_displayedCriteria.contains(controller)) {
+      _retiredCriteria.add(controller);
+    } else {
+      controller.dispose();
+    }
     setState(() {});
+    _writeDraft();
+  }
+
+  void _moveCriteria(int index, int direction) {
+    final target = index + direction;
+    if (!widget.enabled ||
+        index < 0 ||
+        index >= _criteria.length ||
+        target < 0 ||
+        target >= _criteria.length)
+      return;
+    setState(() => _criteria.insert(target, _criteria.removeAt(index)));
     _writeDraft();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final isChoice = _type == 'choice';
-    final isScore = _type == 'score';
+    final copy = DecisionCopy.of(context);
+    final isChoice = _type == DecisionPayload.typeChoice;
+    final isScore = _type == DecisionPayload.typeScore;
+    _displayedCriteria = _criteria.toSet();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.listItem,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Icon(Icons.account_tree_rounded, color: colors.primary),
-            const SizedBox(width: 8),
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: kOpenHandBorderRadius10,
+              ),
+              child: Icon(
+                Icons.fact_check_rounded,
+                color: colors.onPrimaryContainer,
+                size: 18,
+              ),
+            ),
+            kOpenHandHGap8,
             Expanded(
-              child: Text(
-                '结构化决策',
-                style: Theme.of(context).textTheme.titleSmall,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    copy.requestTitle,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    copy.composerHint,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         TextField(
           controller: _state,
           enabled: widget.enabled,
           minLines: 2,
           maxLines: 5,
-          decoration: const InputDecoration(
-            labelText: '待评估内容',
+          decoration: InputDecoration(
+            labelText: copy.stateLabel,
             alignLabelWithHint: true,
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         TextField(
           controller: _question,
           enabled: widget.enabled,
           minLines: 1,
           maxLines: 3,
-          decoration: const InputDecoration(labelText: '需要模型回答的问题'),
+          decoration: InputDecoration(labelText: copy.questionLabel),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         SegmentedButton<String>(
-          segments: const [
+          segments: [
             ButtonSegment(
-              value: 'noul',
-              label: Text('判断'),
-              icon: Icon(Icons.check_rounded),
+              value: DecisionPayload.typeNoul,
+              label: Text(copy.typeNoul),
+              icon: const Icon(Icons.check_rounded),
             ),
             ButtonSegment(
-              value: 'choice',
-              label: Text('选择'),
-              icon: Icon(Icons.list_rounded),
+              value: DecisionPayload.typeChoice,
+              label: Text(copy.typeChoice),
+              icon: const Icon(Icons.list_rounded),
             ),
             ButtonSegment(
-              value: 'score',
-              label: Text('评分'),
-              icon: Icon(Icons.star_border_rounded),
+              value: DecisionPayload.typeScore,
+              label: Text(copy.typeScore),
+              icon: const Icon(Icons.star_border_rounded),
             ),
           ],
           selected: {_type},
@@ -2745,48 +2837,155 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
               : null,
         ),
         if (isChoice || isScore) ...[
-          const SizedBox(height: 12),
-          for (var index = 0; index < _criteria.length; index++)
-            Padding(
-              key: ObjectKey(_criteria[index]),
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
+          kOpenHandGap12,
+          CustomScrollView(
+            shrinkWrap: true,
+            primary: false,
+            physics: const NeverScrollableScrollPhysics(),
+            slivers: [
+              OpenHandAnimatedSliverList(
+                key: ValueKey(_type),
+                settings: motion,
+                onRemoved: (key) {
+                  if (!mounted) return;
+                  final controller =
+                      (key as ObjectKey).value as TextEditingController;
+                  if (_retiredCriteria.remove(controller)) controller.dispose();
+                },
                 children: [
-                  SizedBox(
-                    width: 28,
-                    child: Text('${index + 1}', textAlign: TextAlign.center),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _criteria[index],
-                      enabled: widget.enabled,
-                      decoration: InputDecoration(
-                        labelText: isChoice ? '候选项' : '评分等级（从低到高）',
-                        hintText: isChoice ? '例如：技术团队' : '例如：一般',
+                  for (final (index, controller) in _criteria.indexed)
+                    Padding(
+                      key: ObjectKey(controller),
+                      padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: 28,
+                              child: Center(
+                                child: Text(
+                                  '${index + 1}',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            kOpenHandHGap8,
+                            Expanded(
+                              child: TextField(
+                                controller: controller,
+                                enabled: widget.enabled,
+                                decoration: InputDecoration(
+                                  labelText: isChoice
+                                      ? copy.choiceItemLabel
+                                      : copy.scoreItemLabel,
+                                  hintText: isChoice
+                                      ? copy.choiceHint
+                                      : copy.scoreHint,
+                                ),
+                              ),
+                            ),
+                            kOpenHandHGap8,
+                            SizedBox(
+                              width: 36,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: IconButton.filledTonal(
+                                      tooltip: copy.moveUp,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      style: IconButton.styleFrom(
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: widget.enabled && index > 0
+                                          ? () => _moveCriteria(
+                                              _criteria.indexOf(controller),
+                                              -1,
+                                            )
+                                          : null,
+                                      icon: const Icon(
+                                        Icons.keyboard_arrow_up_rounded,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Expanded(
+                                    child: IconButton.filledTonal(
+                                      tooltip: copy.moveDown,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      style: IconButton.styleFrom(
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed:
+                                          widget.enabled &&
+                                              index < _criteria.length - 1
+                                          ? () => _moveCriteria(
+                                              _criteria.indexOf(controller),
+                                              1,
+                                            )
+                                          : null,
+                                      icon: const Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            kOpenHandHGap8,
+                            IconButton.filledTonal(
+                              tooltip: openHandDeleteLabel(context),
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size(48, 0),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                foregroundColor: colors.error,
+                                backgroundColor: colors.errorContainer
+                                    .withValues(alpha: 0.45),
+                              ),
+                              onPressed:
+                                  widget.enabled &&
+                                      _criteria.length >
+                                          (isScore
+                                              ? DecisionPayload.minScoreLevels
+                                              : 1)
+                                  ? () => _removeCriteria(
+                                      _criteria.indexOf(controller),
+                                    )
+                                  : null,
+                              icon: const Icon(
+                                Icons.remove_circle_outline_rounded,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: '删除此项',
-                    onPressed:
-                        widget.enabled && _criteria.length > (isScore ? 2 : 1)
-                        ? () => _removeCriteria(index)
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline_rounded),
-                  ),
                 ],
               ),
-            ),
+            ],
+          ),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed:
-                  widget.enabled && _criteria.length < (isScore ? 10 : 255)
+                  widget.enabled &&
+                      _criteria.length <
+                          (isScore
+                              ? DecisionPayload.maxScoreLevels
+                              : DecisionPayload.maxCriteria)
                   ? _addCriteria
                   : null,
               icon: const Icon(Icons.add_rounded),
-              label: Text(isScore ? '添加评分等级' : '添加候选项'),
+              label: Text(isScore ? copy.addScore : copy.addChoice),
             ),
           ),
         ],

@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:openhand/l10n/app_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -28,25 +29,33 @@ import 'package:openhand/features/ai/service/model_registry/ai_model_scanner.dar
 import 'package:openhand/shared/util/decision_payload.dart';
 import 'package:openhand/shared/ui/decision_card.dart';
 import 'package:openhand/shared/ui/decision_request_dialog.dart';
+import 'package:openhand/l10n/app_localizations.dart';
 
 AiModelConfig config({String base = 'https://api.typesafe.ai/v1', String id = 'jev-latest'}) => AiModelConfig(id: '测试', baseUrl: base, authScheme: AiAuthScheme.bearer, token: '测试令牌', modelId: id, protocolType: AiProtocolType.openai);
 const question = {'判断': {'type': 'noul', 'instructions': '成立吗？'}};
 const response = {'model': 'jev-1.13.0', 'answers': {'判断': {'type': 'noul', 'noul': 0.8}}, 'usage': {'input_tokens': 12, 'output_tokens': 3}};
 List<AiChatTurn> turns() => [const AiChatTurn(role: AiChatRole.system, content: '不得发送的系统提示词'), AiChatTurn(role: AiChatRole.user, content: DecisionPayload.encode(DecisionPayload.requestLanguage, {'state': '待判断内容', 'questions': question}))];
+Widget app({required Widget home}) => MaterialApp(
+  locale: const Locale('zh'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  home: home,
+);
 
 void main() {
   test('三类默认问题按类型更新，自定义问题保留', () {
     expect(DecisionPayload.defaultQuestions.values.toSet(), hasLength(3));
+    expect(DecisionPayload.builtInQuestionTexts.length, greaterThanOrEqualTo(9));
     for (final type in DecisionPayload.defaultQuestions.keys) {
       final expected = DecisionPayload.defaultQuestions[type];
-      for (final current in ['', '  ', ...DecisionPayload.defaultQuestions.values]) {
+      for (final current in ['', '  ', ...DecisionPayload.defaultQuestions.values, ...DecisionPayload.builtInQuestionTexts]) {
         expect(DecisionPayload.questionForType(type, current: current), expected);
       }
       expect(DecisionPayload.questionForType(type, current: '  该请求是否需要人工处理？  '), '  该请求是否需要人工处理？  ');
     }
   });
   testWidgets('决策弹窗切换类型同步默认问题且不覆盖自定义内容', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) => TextButton(
+    await tester.pumpWidget(app(home: Builder(builder: (context) => TextButton(
       onPressed: () => showDecisionRequestDialog(context, '待评估内容'), child: const Text('打开'),
     ))));
     await tester.tap(find.text('打开'));
@@ -72,7 +81,7 @@ void main() {
         'criteria': {'甲': null, '乙': null},
       }},
     });
-    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) => TextButton(
+    await tester.pumpWidget(app(home: Builder(builder: (context) => TextButton(
       onPressed: () async { applied = await showDecisionRequestDialog(context, draft); }, child: const Text('打开'),
     ))));
     await tester.tap(find.text('打开'));
@@ -194,7 +203,7 @@ void main() {
     final request = {'state': {'内容': '批量'}, 'questions': {'分类': {'type': 'choice', 'instructions': '分类', 'criteria': {'甲': '详细标准', '乙': null}}, '判断': {'type': 'noul', 'instructions': '成立吗？'}}};
     final original = DecisionPayload.encode(DecisionPayload.requestLanguage, request);
     String? updated;
-    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) => TextButton(onPressed: () async { updated = await showDecisionRequestDialog(context, original); }, child: const Text('打开')))));
+    await tester.pumpWidget(app(home: Builder(builder: (context) => TextButton(onPressed: () async { updated = await showDecisionRequestDialog(context, original); }, child: const Text('打开')))));
     await tester.tap(find.text('打开'));
     await tester.pumpAndSettle();
     expect(find.text('完整决策配置（JSON）'), findsOneWidget);
@@ -209,8 +218,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     String? draft;
     final key = GlobalKey();
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: RepaintBoundary(key: key, child: Builder(builder: (context) => ListView(children: [
+    await tester.pumpWidget(app(home: Scaffold(body: RepaintBoundary(key: key, child: Builder(builder: (context) => ListView(children: [
       OpenHandDecisionCard(data: DecisionPayload.result(Map<String,Object?>.from(response), question)),
+      OpenHandDecisionRequestCard(data: DecisionPayload.request(DecisionPayload.encode(DecisionPayload.requestLanguage, {'state': '一加一等于二', 'questions': question}))),
       TextButton(onPressed: () async { draft = await showDecisionRequestDialog(context, '一加一等于二'); }, child: const Text('配置')),
     ]))))));
     await tester.pumpAndSettle();

@@ -1,5 +1,5 @@
-import { DecisionCard } from './DecisionCard';
-import { DECISION_RESULT } from '../shared/util/decision';
+import { DecisionCard, DecisionRequestCard } from './DecisionCard';
+import { DECISION_REQUEST, DECISION_RESULT, decisionFenceLanguageLabel } from '../shared/util/decision';
 // Markdown 渲染组件：按需加载插件，限制长内容解析，并为批量挂载分帧调度。
 
 import { memo } from 'preact/compat';
@@ -1020,7 +1020,7 @@ function CodeBlockSurface({
   return (
     <div class="oh-code-block">
       <div class="oh-code-block-header">
-        {lang && <span class="oh-code-block-lang">{lang}</span>}
+        {lang && <span class="oh-code-block-lang">{decisionFenceLanguageLabel(lang) ?? lang}</span>}
         <span style={{ flex: 1 }} />
         {isMermaid ? (
           <button
@@ -1295,6 +1295,7 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
             ?.replace('language-', '') || null;
           const plainText = extractMarkdownCodeText(children);
           if (lang === DECISION_RESULT) return <DecisionCard text={plainText} />;
+          if (lang === DECISION_REQUEST) return <DecisionRequestCard text={plainText} />;
           return (
             <CodeBlockSurface
               lang={lang}

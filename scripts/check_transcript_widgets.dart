@@ -1090,7 +1090,12 @@ void main() {
     tester.view.physicalSize = const Size(1000, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _DecisionComposerForm(controller: controller, enabled: true))));
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      supportedLocales: const [Locale('zh'), Locale('en')],
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      home: Scaffold(body: _DecisionComposerForm(controller: controller, enabled: true)),
+    ));
     final form = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
     for (final custom in [false, true]) {
       if (custom) form._question.text = '应由哪个团队处理？';
@@ -1127,7 +1132,11 @@ void main() {
       }}},
     ));
     addTearDown(controller.dispose);
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      supportedLocales: const [Locale('zh'), Locale('en')],
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      home: Scaffold(body: SingleChildScrollView(
       child: _DecisionComposerForm(controller: controller, enabled: true),
     ))));
     final form = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
@@ -1156,6 +1165,89 @@ void main() {
     await tester.pumpAndSettle();
     expect(form._criteria.map((item) => item.text), ['低', '最高']);
     expect(activeQuestion()['criteria'], ['低', '最高']);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('决策条目等高操作、排序与增删动画保持内容和资源一致', (tester) async {
+    tester.view.physicalSize = const Size(800, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = TextEditingController(text: DecisionPayload.encode(
+      DecisionPayload.requestLanguage, {'state': '评估内容', 'questions': {'决策': {
+        'type': 'score', 'instructions': '评分', 'criteria': ['低', '中', '高'],
+      }}},
+    ));
+    addTearDown(controller.dispose);
+    var reduceMotion = false;
+    late StateSetter rebuild;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: StatefulBuilder(builder: (context, setState) {
+        rebuild = setState;
+        return MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
+          child: Scaffold(body: SingleChildScrollView(child: _DecisionComposerForm(controller: controller, enabled: true))));
+      }),
+    ));
+    await tester.pumpAndSettle();
+    final form = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
+    final original = form._criteria.toList();
+    Finder field(TextEditingController value) => find.byWidgetPredicate((widget) => widget is TextField && widget.controller == value);
+    List<Object?> payload() => ((DecisionPayload.request(controller.text)['questions'] as Map).values.single as Map)['criteria'] as List;
+    final row = find.ancestor(of: field(original[0]), matching: find.byType(Row)).first;
+    final remove = find.descendant(of: row, matching: find.byType(IconButton)).last;
+    expect(tester.getSize(remove).height, closeTo(tester.getSize(field(original[0])).height, .1));
+    expect(tester.widget<IconButton>(find.byWidgetPredicate((widget) => widget is IconButton && widget.tooltip == '上移').first).onPressed, isNull);
+    expect(tester.widget<IconButton>(find.byWidgetPredicate((widget) => widget is IconButton && widget.tooltip == '下移').last).onPressed, isNull);
+    final before = tester.getTopLeft(field(original[0])).dy;
+    await tester.tap(find.byTooltip('下移').first);
+    await tester.pump();
+    expect(payload(), ['中', '低', '高']);
+    expect(tester.getTopLeft(field(original[0])).dy, closeTo(before, 1), reason: '排序首帧从旧位置开始');
+    await tester.pump(const Duration(milliseconds: 80));
+    final moving = tester.getTopLeft(field(original[0])).dy;
+    expect(moving, greaterThan(before));
+    form._moveCriteria(1, -1);
+    await tester.pump();
+    expect(tester.getTopLeft(field(original[0])).dy, closeTo(moving, 1), reason: '反向移动接续当前位置');
+    await tester.pumpAndSettle();
+    expect(form._criteria, orderedEquals(original));
+    form._removeCriteria(1);
+    await tester.pump();
+    expect(payload(), ['低', '高']);
+    expect(field(original[1]), findsOneWidget, reason: '删除视图保留到退场结束');
+    expect(form._retiredCriteria, hasLength(1));
+    final duringRemoval = tester.getTopLeft(field(original[0])).dy;
+    form._moveCriteria(0, 1);
+    await tester.pump();
+    expect(tester.getTopLeft(field(original[0])).dy, closeTo(duringRemoval, 1), reason: '退场期间排序仍从当前位置衔接');
+    expect(payload(), ['高', '低']);
+    await tester.pumpAndSettle();
+    expect(field(original[1]), findsNothing);
+    expect(form._retiredCriteria, hasLength(0));
+    form._moveCriteria(0, 1);
+    await tester.pumpAndSettle();
+    form._addCriteria();
+    await tester.pump();
+    final added = form._criteria.last;
+    final list = find.byType(CustomScrollView);
+    final startHeight = tester.getSize(list).height;
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(tester.getSize(list).height, greaterThan(startHeight));
+    await tester.pumpAndSettle();
+    added.text = '最高';
+    rebuild(() => reduceMotion = true);
+    await tester.pumpAndSettle();
+    form._moveCriteria(2, -1);
+    await tester.pump();
+    expect(payload(), ['低', '最高', '高']);
+    form._removeCriteria(1);
+    await tester.pumpAndSettle();
+    expect(form._retiredCriteria, hasLength(0));
+    form._addCriteria();
+    form._removeCriteria(2);
+    expect(form._retiredCriteria, hasLength(0), reason: '同帧增删未挂载条目直接释放');
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
   });

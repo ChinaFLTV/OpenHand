@@ -24,6 +24,8 @@ function deferred() {
 }
 
 try {
+  const { syncLangFromAppPreferences } = await server.ssrLoadModule('/src/i18n/index.ts');
+  syncLangFromAppPreferences('zh_Hans');
   const { DEFAULT_DECISION_QUESTIONS, decisionQuestionForType, decisionDraft, initialDecisionDraft } = await server.ssrLoadModule('/src/shared/util/decision.ts');
   assert.equal(new Set(Object.values(DEFAULT_DECISION_QUESTIONS)).size, 3);
   for (const type of Object.keys(DEFAULT_DECISION_QUESTIONS)) {

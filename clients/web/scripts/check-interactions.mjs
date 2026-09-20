@@ -107,15 +107,16 @@ try {
   function nodes(node, predicate) {
     if (!node || typeof node !== 'object') return [];
     if (Array.isArray(node)) return node.flatMap(child => nodes(child, predicate));
+    if (node.props?.className === 'oh-decision-criteria-list') return nodes(node.props.items.map(node.props.renderItem), predicate);
     return [...(predicate(node) ? [node] : []), ...nodes(node.props?.children, predicate)];
   }
   const fields = () => nodes(form, node => node.type === 'input' && node.props.placeholder);
   const selectType = (label) => {
-    nodes(form, node => node.type === 'button' && node.props.children === label)[0].props.onClick();
+    nodes(form, node => node.type === 'button' && node.props.class?.split(' ').includes('oh-decision-type'))[['判断', '选择', '评分'].indexOf(label)].props.onClick();
     renderDecision();
   };
   const addCriterion = () => {
-    nodes(form, node => node.props?.class === 'oh-decision-add oh-tap-press')[0].props.onClick();
+    nodes(form, node => node.props?.class?.split(' ').includes('oh-decision-add'))[0].props.onClick();
     renderDecision();
   };
   const editCriterion = (index, value) => {
@@ -131,6 +132,15 @@ try {
   editCriterion(0, '低');
   editCriterion(1, '高');
   assert.equal(initialDecisionDraft(draftText).criteria, '低\n高');
+  const moveButtons = () => nodes(form, node => node.type === 'button' && node.props.children === '⌄');
+  assert.equal(moveButtons()[1].props.disabled, true, '末项不能下移');
+  moveButtons()[0].props.onClick();
+  renderDecision();
+  assert.deepEqual(fields().map(node => node.props.value), ['高', '低']);
+  assert.equal(initialDecisionDraft(draftText).criteria, '高\n低', '排序立即同步请求顺序');
+  nodes(form, node => node.type === 'button' && node.props.children === '⌃')[1].props.onClick();
+  renderDecision();
+  assert.deepEqual(fields().map(node => node.props.value), ['低', '高']);
   addCriterion();
   selectType('判断');
   assert.equal(fields().length, 0);
@@ -140,14 +150,14 @@ try {
   assert.equal(fields()[0].props.value, '候选 0');
   assert.equal(fields()[30].props.value, '');
   editCriterion(0, '修改后的候选');
-  nodes(form, node => node.props?.['aria-label'] === '删除此项')[1].props.onClick();
+  nodes(form, node => node.props?.class?.split(' ').includes('oh-decision-remove'))[1].props.onClick();
   renderDecision();
   selectType('评分');
   assert.deepEqual(fields().map(node => node.props.value), ['低', '高', '']);
   assert.equal(initialDecisionDraft(draftText).criteria, '低\n高');
   for (let i = 0; i < 7; i++) addCriterion();
   assert.equal(fields().length, 10);
-  assert.equal(nodes(form, node => node.props?.class === 'oh-decision-add oh-tap-press')[0].props.disabled, true);
+  assert.equal(nodes(form, node => node.props?.class?.split(' ').includes('oh-decision-add'))[0].props.disabled, true);
   const settledPublishes = publishes;
   renderDecision();
   assert.equal(publishes, settledPublishes, '草稿回传不能形成重复更新');
