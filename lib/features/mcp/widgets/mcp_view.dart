@@ -124,7 +124,7 @@ const double _mcpServerCardSpacing = 14;
 const double _mcpServerCardHoverClearance = 6;
 const double _mcpTemplateChipLabelMaxWidth = 280;
 const double _mcpChipStripHeight = 40;
-const double _mcpToolPreviewExpandedHeight = 160;
+const double _mcpToolPreviewExpandedMaxHeight = 160;
 const double _mcpToolChipMaxWidth = 360;
 const double _mcpScrollCorrectionEpsilon = 0.5;
 const double _mcpListBottomAnchorThreshold = 2;
@@ -10647,11 +10647,13 @@ class _McpHorizontalChipStrip extends StatefulWidget {
     super.key,
     this.items = const <_McpChipStripItem>[],
     this.children = const <Widget>[],
+    this.onOverflowChanged,
   }) : assert(items.length + children.length > 0),
        assert(items.length == 0 || children.length == 0);
 
   final List<_McpChipStripItem> items;
   final List<Widget> children;
+  final ValueChanged<bool>? onOverflowChanged;
 
   List<_McpChipStripItem> get resolvedItems {
     if (items.isNotEmpty) return items;
@@ -10669,13 +10671,15 @@ class _McpHorizontalChipStrip extends StatefulWidget {
 class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
   final ScrollController _scrollController = ScrollController();
   late List<_McpChipStripItem> _displayedItems;
-  bool _scrollCorrectionScheduled = false;
+  bool _scrollMetricsSyncScheduled = false;
+  bool? _lastOverflow;
   bool _readyForItemTransitions = false;
 
   @override
   void initState() {
     super.initState();
     _displayedItems = List<_McpChipStripItem>.of(widget.resolvedItems);
+    _scheduleScrollMetricsSync();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _readyForItemTransitions = true);
     });
@@ -10706,7 +10710,7 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
       }
     }
     _displayedItems = merged;
-    if (geometryChanged) _scheduleScrollCorrection();
+    if (geometryChanged) _scheduleScrollMetricsSync();
   }
 
   void _removeDismissedItem(String itemId) {
@@ -10719,16 +10723,24 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
         _displayedItems = nextItems;
       }
     });
-    _scheduleScrollCorrection();
+    _scheduleScrollMetricsSync();
   }
 
-  void _scheduleScrollCorrection() {
-    if (_scrollCorrectionScheduled) return;
-    _scrollCorrectionScheduled = true;
+  void _scheduleScrollMetricsSync() {
+    if (_scrollMetricsSyncScheduled) return;
+    _scrollMetricsSyncScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollCorrectionScheduled = false;
+      _scrollMetricsSyncScheduled = false;
       if (!mounted || !_scrollController.hasClients) return;
       final position = _scrollController.position;
+      if (!position.hasContentDimensions) return;
+      final overflow =
+          position.maxScrollExtent - position.minScrollExtent >
+          _mcpScrollCorrectionEpsilon;
+      if (_lastOverflow != overflow) {
+        _lastOverflow = overflow;
+        widget.onOverflowChanged?.call(overflow);
+      }
       final target = position.pixels.clamp(
         position.minScrollExtent,
         position.maxScrollExtent,
@@ -10771,44 +10783,50 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
     return SizedBox(
       width: double.infinity,
       height: _mcpChipStripHeight,
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        primary: false,
-        physics: const ClampingScrollPhysics(),
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final item in _displayedItems)
-              AnimatedAppearance(
-                key: ValueKey<String>('mcp-chip-appearance-${item.id}'),
-                settings: settings,
-                present: currentIds.contains(item.id),
-                animateInitialAppearance: _readyForItemTransitions,
-                collapseAxis: Axis.horizontal,
-                onDismissed: () => _removeDismissedItem(item.id),
-                child: ExcludeSemantics(
-                  excluding: !currentIds.contains(item.id),
-                  child: ExcludeFocus(
+      child: NotificationListener<ScrollMetricsNotification>(
+        onNotification: (notification) {
+          if (notification.depth == 0) _scheduleScrollMetricsSync();
+          return false;
+        },
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          primary: false,
+          physics: const ClampingScrollPhysics(),
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final item in _displayedItems)
+                AnimatedAppearance(
+                  key: ValueKey<String>('mcp-chip-appearance-${item.id}'),
+                  settings: settings,
+                  present: currentIds.contains(item.id),
+                  animateInitialAppearance: _readyForItemTransitions,
+                  collapseAxis: Axis.horizontal,
+                  onDismissed: () => _removeDismissedItem(item.id),
+                  child: ExcludeSemantics(
                     excluding: !currentIds.contains(item.id),
-                    child: TooltipVisibility(
-                      visible: currentIds.contains(item.id),
-                      child: IgnorePointer(
-                        ignoring: !currentIds.contains(item.id),
-                        child: _McpAnimatedChipContent(
-                          contentKey: item.contentKey ?? item.id,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              right: item.trailingSpacing ? 10 : 0,
+                    child: ExcludeFocus(
+                      excluding: !currentIds.contains(item.id),
+                      child: TooltipVisibility(
+                        visible: currentIds.contains(item.id),
+                        child: IgnorePointer(
+                          ignoring: !currentIds.contains(item.id),
+                          child: _McpAnimatedChipContent(
+                            contentKey: item.contentKey ?? item.id,
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: item.trailingSpacing ? 10 : 0,
+                              ),
+                              child: item.child,
                             ),
-                            child: item.child,
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -12803,6 +12821,7 @@ class _McpToolPreview extends StatefulWidget {
 class _McpToolPreviewState extends State<_McpToolPreview> {
   final _expandedScrollController = ScrollController();
   bool _expanded = false;
+  bool _collapsedOverflow = false;
 
   @override
   void didUpdateWidget(covariant _McpToolPreview oldWidget) {
@@ -12839,7 +12858,9 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
         ? 0
         : filteredTools.length - previewTools.length;
     final canToggleExpansion =
-        _expanded || filteredTools.length > _mcpToolPreviewCollapsedLimit;
+        _expanded ||
+        filteredTools.length > _mcpToolPreviewCollapsedLimit ||
+        (filteredTools.isNotEmpty && _collapsedOverflow);
     final emptyLabel = keyword.isNotEmpty
         ? _localizedText(context, zh: '没有匹配的 Tool', en: 'No matching tools')
         : widget.toolCatalog.isLoading
@@ -12870,11 +12891,136 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
       override: preference,
     );
     final animationDuration = chipSettings.entranceDuration;
+    final sizeDuration = _expanded
+        ? chipSettings.entranceDuration
+        : chipSettings.exitDuration;
+    final toolsContent = Container(
+      width: double.infinity,
+      // 工具较少时按内容收缩，较多时限制高度并在内部滚动。
+      constraints: _expanded && filteredTools.isNotEmpty
+          ? const BoxConstraints(maxHeight: _mcpToolPreviewExpandedMaxHeight)
+          : null,
+      child: _expanded
+          ? OpenHandSafeScrollbar(
+              controller: _expandedScrollController,
+              child: SingleChildScrollView(
+                controller: _expandedScrollController,
+                primary: false,
+                padding: const EdgeInsets.only(right: 12),
+                child: AnimatedSwitcher(
+                  duration: animationDuration,
+                  reverseDuration: chipSettings.exitDuration,
+                  transitionBuilder: (child, animation) =>
+                      buildAnimationStyleTransition(
+                        animation: animation,
+                        settings: chipSettings,
+                        profile: kOpenHandLayoutSafeTransitionProfile,
+                        child: child,
+                      ),
+                  child: filteredTools.isEmpty
+                      ? _buildEmptyState(
+                          context,
+                          key: ValueKey<String>(
+                            'mcp-tools-empty-${widget.toolCatalog.status}-$keyword',
+                          ),
+                          label: emptyLabel,
+                        )
+                      : Align(
+                          key: const ValueKey('mcp-tools-expanded'),
+                          alignment: Alignment.topLeft,
+                          child: OpenHandAnimatedChipWrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              for (final tool in previewTools)
+                                KeyedSubtree(
+                                  key: ValueKey(tool.id),
+                                  child: _buildToolChip(context, tool),
+                                ),
+                            ],
+                          ),
+                        ),
+                ),
+              ),
+            )
+          : AnimatedSwitcher(
+              duration: animationDuration,
+              reverseDuration: chipSettings.exitDuration,
+              transitionBuilder: (child, animation) =>
+                  buildAnimationStyleTransition(
+                    animation: animation,
+                    settings: chipSettings,
+                    profile: kOpenHandLayoutSafeTransitionProfile,
+                    child: child,
+                  ),
+              child: filteredTools.isEmpty
+                  ? _buildEmptyState(
+                      context,
+                      key: ValueKey<String>(
+                        'mcp-tools-empty-${widget.toolCatalog.status}-$keyword',
+                      ),
+                      label: emptyLabel,
+                    )
+                  : _McpHorizontalChipStrip(
+                      key: const ValueKey<String>('mcp-tools-collapsed-strip'),
+                      onOverflowChanged: (overflow) {
+                        if (!_expanded && _collapsedOverflow != overflow) {
+                          setState(() => _collapsedOverflow = overflow);
+                        }
+                      },
+                      items: [
+                        for (final tool in previewTools)
+                          _McpChipStripItem(
+                            id: 'mcp-tool-${tool.id}',
+                            trailingSpacing:
+                                tool != previewTools.last ||
+                                hiddenToolCount > 0,
+                            contentKey: Object.hash(
+                              tool.name,
+                              tool.metadataWarning,
+                            ),
+                            child: _buildToolChip(context, tool),
+                          ),
+                        if (hiddenToolCount > 0)
+                          _McpChipStripItem(
+                            id: 'mcp-tool-overflow',
+                            trailingSpacing: false,
+                            contentKey: hiddenToolCount,
+                            child: Chip(
+                              avatar: Icon(
+                                Icons.more_horiz_rounded,
+                                color: Theme.of(context).colorScheme.secondary,
+                              ),
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.secondary.withValues(alpha: 0.12),
+                              side: BorderSide(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.secondary.withValues(alpha: 0.32),
+                              ),
+                              label: Text(
+                                _localizedText(
+                                  context,
+                                  zh: '还有 $hiddenToolCount 个',
+                                  en: '+$hiddenToolCount more',
+                                  zhHant: '還有 $hiddenToolCount 個',
+                                  fr: '+$hiddenToolCount autres',
+                                  de: '+$hiddenToolCount weitere',
+                                  ja: 'ほか $hiddenToolCount 件',
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: _mcpChipStripHeight,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: _mcpChipStripHeight),
           child: Row(
             children: [
               Expanded(
@@ -12900,158 +13046,53 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                 ),
               ),
               if (canToggleExpansion)
-                TextButton.icon(
-                  onPressed: () {
-                    dismissOpenHandTooltipsSafely(
-                      debugLabel: '切换MCP工具展开状态前收起工具提示',
-                    );
-                    setState(() => _expanded = !_expanded);
-                  },
-                  icon: AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0.0,
-                    duration: openHandMotionDuration(
-                      context,
-                      kOpenHandMotion220,
+                Semantics(
+                  expanded: _expanded,
+                  child: TextButton.icon(
+                    style: TextButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary.withValues(
+                        alpha: 0.08,
+                      ),
+                      shape: const StadiumBorder(),
                     ),
-                    curve: kOpenHandSwitchInCurve,
-                    child: const Icon(Icons.expand_more_rounded),
-                  ),
-                  label: Text(
-                    _expanded
-                        ? _localizedText(context, zh: '收起', en: 'Collapse')
-                        : _localizedText(context, zh: '展开', en: 'Expand'),
+                    onPressed: () {
+                      dismissOpenHandTooltipsSafely(
+                        debugLabel: '切换MCP工具展开状态前收起工具提示',
+                      );
+                      setState(() => _expanded = !_expanded);
+                    },
+                    icon: AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0.0,
+                      duration: _expanded
+                          ? chipSettings.entranceDuration
+                          : chipSettings.exitDuration,
+                      curve: _expanded
+                          ? chipSettings.curve.curve
+                          : chipSettings.curve.reverseCurve,
+                      child: const Icon(Icons.expand_more_rounded),
+                    ),
+                    label: Text(
+                      _expanded
+                          ? _localizedText(context, zh: '收起', en: 'Collapse')
+                          : _localizedText(context, zh: '展开', en: 'Expand'),
+                    ),
                   ),
                 ),
             ],
           ),
         ),
-        kOpenHandGap4,
-        AnimatedSize(
-          duration: openHandMotionDuration(context, kOpenHandMotion220),
-          curve: kOpenHandSwitchInCurve,
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            // 空态按文字实际高度收缩，不保留工具胶囊或展开列表的占位。
-            height: filteredTools.isEmpty
-                ? null
-                : _expanded
-                ? _mcpToolPreviewExpandedHeight
-                : _mcpChipStripHeight,
-            width: double.infinity,
-            child: _expanded
-                ? OpenHandSafeScrollbar(
-                    controller: _expandedScrollController,
-                    child: SingleChildScrollView(
-                      controller: _expandedScrollController,
-                      primary: false,
-                      padding: const EdgeInsets.only(right: 12),
-                      child: AnimatedSwitcher(
-                        duration: animationDuration,
-                        reverseDuration: chipSettings.exitDuration,
-                        transitionBuilder: (child, animation) =>
-                            buildAnimationStyleTransition(
-                              animation: animation,
-                              settings: chipSettings,
-                              profile: kOpenHandLayoutSafeTransitionProfile,
-                              child: child,
-                            ),
-                        child: filteredTools.isEmpty
-                            ? _buildEmptyState(
-                                context,
-                                key: ValueKey<String>(
-                                  'mcp-tools-empty-${widget.toolCatalog.status}-$keyword',
-                                ),
-                                label: emptyLabel,
-                              )
-                            : Align(
-                                key: const ValueKey('mcp-tools-expanded'),
-                                alignment: Alignment.topLeft,
-                                child: OpenHandAnimatedChipWrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: [
-                                    for (final tool in previewTools)
-                                      KeyedSubtree(
-                                        key: ValueKey(tool.id),
-                                        child: _buildToolChip(context, tool),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                      ),
-                    ),
-                  )
-                : AnimatedSwitcher(
-                    duration: animationDuration,
-                    reverseDuration: chipSettings.exitDuration,
-                    transitionBuilder: (child, animation) =>
-                        buildAnimationStyleTransition(
-                          animation: animation,
-                          settings: chipSettings,
-                          profile: kOpenHandLayoutSafeTransitionProfile,
-                          child: child,
-                        ),
-                    child: filteredTools.isEmpty
-                        ? _buildEmptyState(
-                            context,
-                            key: ValueKey<String>(
-                              'mcp-tools-empty-${widget.toolCatalog.status}-$keyword',
-                            ),
-                            label: emptyLabel,
-                          )
-                        : _McpHorizontalChipStrip(
-                            key: const ValueKey<String>(
-                              'mcp-tools-collapsed-strip',
-                            ),
-                            items: [
-                              for (final tool in previewTools)
-                                _McpChipStripItem(
-                                  id: 'mcp-tool-${tool.id}',
-                                  contentKey: Object.hash(
-                                    tool.name,
-                                    tool.metadataWarning,
-                                  ),
-                                  child: _buildToolChip(context, tool),
-                                ),
-                              if (hiddenToolCount > 0)
-                                _McpChipStripItem(
-                                  id: 'mcp-tool-overflow',
-                                  contentKey: hiddenToolCount,
-                                  child: Chip(
-                                    avatar: Icon(
-                                      Icons.more_horiz_rounded,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.secondary,
-                                    ),
-                                    backgroundColor: Theme.of(context)
-                                        .colorScheme
-                                        .secondary
-                                        .withValues(alpha: 0.12),
-                                    side: BorderSide(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .secondary
-                                          .withValues(alpha: 0.32),
-                                    ),
-                                    label: Text(
-                                      _localizedText(
-                                        context,
-                                        zh: '还有 $hiddenToolCount 个',
-                                        en: '+$hiddenToolCount more',
-                                        zhHant: '還有 $hiddenToolCount 個',
-                                        fr: '+$hiddenToolCount autres',
-                                        de: '+$hiddenToolCount weitere',
-                                        ja: 'ほか $hiddenToolCount 件',
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                  ),
+        kOpenHandGap12,
+        if (sizeDuration == Duration.zero)
+          toolsContent
+        else
+          AnimatedSize(
+            duration: sizeDuration,
+            curve: _expanded
+                ? chipSettings.curve.curve
+                : chipSettings.curve.reverseCurve,
+            alignment: Alignment.topLeft,
+            child: toolsContent,
           ),
-        ),
       ],
     );
   }
