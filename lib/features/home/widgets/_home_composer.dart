@@ -1839,15 +1839,18 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
           kOpenHandGap8,
         ],
-        if (widget.selectedModel
-                    ?.profileFor(widget.selectedModel!.modelId)
-                    .supportsDecisions ==
-                true &&
-            !voiceActive)
-          _DecisionComposerForm(
-            key: ValueKey(widget.selectedModel!.modelId),
-            controller: widget.controller,
-            enabled: modeToggleEnabled,
+        if (_isDecisionModel && !voiceActive)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: _composerMaxHeight),
+            child: SingleChildScrollView(
+              primary: false,
+              physics: const ClampingScrollPhysics(),
+              child: _DecisionComposerForm(
+                key: ValueKey(widget.selectedModel!.modelId),
+                controller: widget.controller,
+                enabled: modeToggleEnabled,
+              ),
+            ),
           ),
         if (widget.attachments.drafts.isNotEmpty) ...[
           _ReorderableAttachmentWrap(

@@ -83,6 +83,36 @@ class _ProbeAiController extends ChangeNotifier implements AiSessionController {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _WorkspaceProbeAi extends _ProbeAiController {
+  @override
+  bool sessionWasInitiallyThrottled(String id) => false;
+  @override
+  bool sessionStreamThrottleDurationExpired(String id) => false;
+  @override
+  int sessionStreamCardBacklog(String id) => 0;
+  @override
+  AiStreamThrottleOverride? sessionStreamThrottleOverride(String id) => null;
+  @override
+  final ValueNotifier<int> streamThrottleOverrideSignal = ValueNotifier<int>(0);
+  @override
+  void dispose() {
+    streamThrottleOverrideSignal.dispose();
+    super.dispose();
+  }
+}
+
+class _ProbeInstructions extends ChangeNotifier implements InstructionsController {
+  @override
+  List<UserInstructionEntry> get enabledEntries => const [];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ProbeVoice extends ChangeNotifier implements AiVoiceConversationService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _ProbeTts implements AiTtsPlaybackService {
   @override
   final state = ValueNotifier<AiTtsPlaybackSnapshot>(
@@ -952,6 +982,179 @@ void main() {
     );
     await probe.settle();
     expect(probe.state._renderEntries.last.id, '新回复');
+  });
+
+  testWidgets('工作区空状态在极小高度下不产生负约束', (tester) async {
+    tester.view.physicalSize = const Size(800, 16);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh'),
+        home: const Scaffold(body: _WorkspaceEmptyState()),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('工作区适应窗口高度和长决策表单，切回普通模型恢复文本输入', (tester) async {
+    // 硬件探测需要真实异步环境，避免子进程定时器进入组件测试的虚拟时钟。
+    await tester.runAsync(() async {
+      final service = OfflineSpeechModelService.instance;
+      if (service.hardwareProfile != null) return;
+      final ready = Completer<void>();
+      void onReady() {
+        if (service.hardwareProfile != null && !ready.isCompleted) ready.complete();
+      }
+      service.addListener(onReady);
+      try {
+        await ready.future.timeout(const Duration(seconds: 30));
+      } finally {
+        service.removeListener(onReady);
+      }
+    });
+    final controller = TextEditingController(text: DecisionPayload.encode(
+      DecisionPayload.requestLanguage,
+      {
+        'state': '待分类内容',
+        'questions': {'分类': {
+          'type': 'choice',
+          'instructions': '选择候选项',
+          'criteria': {for (var i = 0; i < 30; i++) '候选项 $i': null},
+        }},
+      },
+    ));
+    final scroll = ScrollController();
+    final focus = FocusNode();
+    final ai = _WorkspaceProbeAi();
+    final instructions = _ProbeInstructions();
+    final voice = _ProbeVoice();
+    final tts = _ProbeTts();
+    final settings = await SettingsController.create(store: _ProbeSettingsStore(true));
+    addTearDown(() {
+      controller.dispose();
+      scroll.dispose();
+      focus.dispose();
+      ai.dispose();
+      instructions.dispose();
+      voice.dispose();
+      tts.state.dispose();
+      settings.dispose();
+    });
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var modelId = 'jev-latest';
+    var collapsed = false;
+    late StateSetter rebuild;
+    tester.view.physicalSize = const Size(1068, 738);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SettingsController>.value(value: settings),
+          ChangeNotifierProvider<AiSessionController>.value(value: ai),
+          ChangeNotifierProvider<InstructionsController>.value(value: instructions),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+          home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+            rebuild = setState;
+            return _WorkspaceView(
+              draftController: controller,
+              messageScrollController: scroll,
+              onMessageScrollNotification: (_) => false,
+              onMessagePointerSignal: (_) {},
+              currentSession: _probeSession('布局回归', 0),
+              liveRuntimeToolPreview: null,
+              transcriptHydrating: false,
+              transcriptLoadError: null,
+              onRetryTranscriptLoad: () async {},
+              selectedModel: AiModelConfig(
+                id: '布局模型', baseUrl: 'https://example.invalid/v1',
+                authScheme: AiAuthScheme.bearer, token: '',
+                modelId: modelId, protocolType: AiProtocolType.openai,
+              ),
+              availableModels: const [],
+              recentModelSelections: const [],
+              onModelSelected: (_, _) {},
+              composerFocusNode: focus,
+              composerCollapsed: collapsed,
+              onComposerCollapsedChanged: (value) => rebuild(() => collapsed = value),
+              onComposerLayoutChanged: () {},
+              onTranscriptLayoutChanged: () {},
+              onMessageExpansionChanged: (_) {},
+              onRevealOlderMessages: () {},
+              onProgrammaticScrollCorrection: (callback) => callback(),
+              autoFollowEnabled: true,
+              autoFollowPaused: false,
+              onToggleAutoFollow: () {},
+              sendPhase: AiSendPhase.idle,
+              canStopSending: false,
+              planTimelineCollapsed: true,
+              onPlanTimelineCollapsedChanged: (_) {},
+              sessionMode: AiSessionMode.chat,
+              onSessionModeChanged: (_) {},
+              goalControls: _GoalControls(available: false, suppressedForQueue: false,
+                onPause: () async {}, onResume: () async {}, onTerminate: () async {}),
+              attachments: _ComposerAttachments(drafts: const [], enabled: false,
+                onPick: () async {}, onRemove: (_) {}, onReorder: (_, _) {}),
+              onSend: () async {},
+              onStop: () async {},
+              voiceModeSelected: false,
+              voiceConversationSnapshot: () => const AiVoiceConversationSnapshot.idle(),
+              voiceConversationService: voice,
+              onStartVoiceConversation: () async {},
+              onStopVoiceConversation: () async {},
+              creationMode: _CreationMode.none,
+              onCreationModeChanged: (_) {},
+              editingMessageId: null,
+              onCancelEditing: () async {},
+              messageActions: _MessageActions(onEdit: (_) async {}, onCopy: (_) async {},
+                onDelete: (_) async => false, onDeleteFromHere: (_) async => false,
+                onFork: (_) async {}, onSetFeedback: (_, _) async {},
+                onRegenerate: (_) async {}, onSelectResponseVariant: (_, _) async {}),
+              ttsPlaybackService: tts,
+              translationService: _ProbeTranslation(),
+              onDismissError: (_) async {},
+              fullAccessPermission: false,
+              onToggleFullAccessPermission: (_) {},
+              queuedPanel: _QueuedMessagesPanel(messages: const [], guidanceInProgress: false,
+                onRemove: (_) {}, onMove: (_, _) {}, onEdit: (_, _) {}, onGuide: (_) {}),
+            );
+          })),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(_DecisionComposerForm), findsOneWidget);
+    final formScroll = find.ancestor(of: find.byType(_DecisionComposerForm),
+      matching: find.byType(SingleChildScrollView)).first;
+    await tester.drag(formScroll, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    final formScrollable = tester.state<ScrollableState>(
+      find.descendant(of: formScroll, matching: find.byType(Scrollable)).first);
+    expect(formScrollable.position.pixels, greaterThan(0));
+    for (final height in [400.0, 200.0, 32.0, 0.0, 738.0]) {
+      tester.view.physicalSize = Size(1068, height);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '窗口高度 $height');
+    }
+    rebuild(() => collapsed = true);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+    rebuild(() { collapsed = false; modelId = 'gpt-4o'; });
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(_DecisionComposerForm), findsNothing);
+    expect(find.byWidgetPredicate((widget) => widget is TextField && widget.controller == controller), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }
 ''';

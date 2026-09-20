@@ -246,39 +246,47 @@ class _WorkspaceView extends StatelessWidget {
           context,
           OpenHandMotionSettingsScope.page,
         );
+        // 为输入区预留空间；工具栏与输入区超高时各自滚动，避免挤出工作区。
+        final toolbarHeightLimit = constraints.maxHeight / 4;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            IgnorePointer(
-              ignoring: session == null,
-              child: OpenHandVerticalRevealSwitcher(
-                duration: headerMotion.entranceDuration,
-                reverseDuration: headerMotion.exitDuration,
-                presentKey: const ValueKey('session-toolbar'),
-                child: session == null
-                    ? null
-                    : Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: _SessionToolbar(
-                          session: session,
-                          liveRuntimeToolPreview: liveRuntimeToolPreview,
-                          sendPhase: sendPhase,
-                          planTimelineCollapsed: planTimelineCollapsed,
-                          onPlanTimelineCollapsedChanged:
-                              onPlanTimelineCollapsedChanged,
-                          fileExplorerVisible: fileExplorerVisible,
-                          onFileExplorerToggled: onFileExplorerToggled,
-                          machineTerminalPanelVisible:
-                              machineTerminalPanelVisible,
-                          onMachineTerminalPanelToggled:
-                              onMachineTerminalPanelToggled,
-                          activeProfile: selectedModel
-                              ?.modelProfiles[selectedModel!.modelId],
-                          claudeStyle:
-                              selectedModel?.protocolType ==
-                              AiProtocolType.claude,
-                        ),
-                      ),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: toolbarHeightLimit),
+              child: SingleChildScrollView(
+                primary: false,
+                child: IgnorePointer(
+                  ignoring: session == null,
+                  child: OpenHandVerticalRevealSwitcher(
+                    duration: headerMotion.entranceDuration,
+                    reverseDuration: headerMotion.exitDuration,
+                    presentKey: const ValueKey('session-toolbar'),
+                    child: session == null
+                        ? null
+                        : Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _SessionToolbar(
+                              session: session,
+                              liveRuntimeToolPreview: liveRuntimeToolPreview,
+                              sendPhase: sendPhase,
+                              planTimelineCollapsed: planTimelineCollapsed,
+                              onPlanTimelineCollapsedChanged:
+                                  onPlanTimelineCollapsedChanged,
+                              fileExplorerVisible: fileExplorerVisible,
+                              onFileExplorerToggled: onFileExplorerToggled,
+                              machineTerminalPanelVisible:
+                                  machineTerminalPanelVisible,
+                              onMachineTerminalPanelToggled:
+                                  onMachineTerminalPanelToggled,
+                              activeProfile: selectedModel
+                                  ?.modelProfiles[selectedModel!.modelId],
+                              claudeStyle:
+                                  selectedModel?.protocolType ==
+                                  AiProtocolType.claude,
+                            ),
+                          ),
+                  ),
+                ),
               ),
             ),
             Expanded(
@@ -341,65 +349,81 @@ class _WorkspaceView extends StatelessWidget {
                       ),
               ),
             ),
-            if (currentSession != null) ...[
-              kOpenHandGap16,
-              _ComposerInstructionsStrip(
-                skippedIds: skippedInstructionIds,
-                onToggle: onToggleInstructionSkip,
-              ),
-              NotificationListener<SizeChangedLayoutNotification>(
-                onNotification: (notification) {
-                  onComposerLayoutChanged();
-                  return false;
-                },
-                child: SizeChangedLayoutNotifier(
-                  child: RepaintBoundary(
-                    child: _ComposerPanel(
-                      onStateCreated: onComposerStateCreated,
-                      onStateDisposed: onComposerStateDisposed,
-                      currentSession: currentSession,
-                      liveRuntimeToolPreview: liveRuntimeToolPreview,
-                      controller: draftController,
-                      selectedModel: selectedModel,
-                      availableModels: availableModels,
-                      recentModelSelections: recentModelSelections,
-                      onModelSelected: onModelSelected,
-                      focusNode: composerFocusNode,
-                      composerHeight: effectiveComposerHeight,
-                      isCollapsed: composerCollapsed,
-                      onCollapsedChanged: onComposerCollapsedChanged,
-                      autoFollowEnabled: autoFollowEnabled,
-                      autoFollowPaused: autoFollowPaused,
-                      onToggleAutoFollow: onToggleAutoFollow,
-                      sendPhase: sendPhase,
-                      canStopSending: canStopSending,
-                      sessionMode: sessionMode,
-                      onSessionModeChanged: onSessionModeChanged,
-                      goalControls: goalControls,
-                      attachments: attachments,
-                      onSend: onSend,
-                      onStop: onStop,
-                      voiceModeSelected: voiceModeSelected,
-                      voiceConversationSnapshot: voiceConversationSnapshot,
-                      voiceConversationService: voiceConversationService,
-                      onStartVoiceConversation: onStartVoiceConversation,
-                      onStopVoiceConversation: onStopVoiceConversation,
-                      creationMode: creationMode,
-                      onCreationModeChanged: onCreationModeChanged,
-                      creationOptions: creationOptions,
-                      onEditOptionsRequested: onEditOptionsRequested,
-                      editingMessageId: editingMessageId,
-                      onCancelEditing: onCancelEditing,
-                      fullAccessPermission: fullAccessPermission,
-                      onToggleFullAccessPermission:
-                          onToggleFullAccessPermission,
-                      queuedPanel: queuedPanel,
-                      projectRoot: projectRoot,
-                    ),
+            if (currentSession != null)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight - toolbarHeightLimit,
+                ),
+                child: SingleChildScrollView(
+                  primary: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      kOpenHandGap16,
+                      _ComposerInstructionsStrip(
+                        skippedIds: skippedInstructionIds,
+                        onToggle: onToggleInstructionSkip,
+                      ),
+                      NotificationListener<SizeChangedLayoutNotification>(
+                        onNotification: (notification) {
+                          onComposerLayoutChanged();
+                          return false;
+                        },
+                        child: SizeChangedLayoutNotifier(
+                          child: RepaintBoundary(
+                            child: _ComposerPanel(
+                              onStateCreated: onComposerStateCreated,
+                              onStateDisposed: onComposerStateDisposed,
+                              currentSession: currentSession,
+                              liveRuntimeToolPreview: liveRuntimeToolPreview,
+                              controller: draftController,
+                              selectedModel: selectedModel,
+                              availableModels: availableModels,
+                              recentModelSelections: recentModelSelections,
+                              onModelSelected: onModelSelected,
+                              focusNode: composerFocusNode,
+                              composerHeight: effectiveComposerHeight,
+                              isCollapsed: composerCollapsed,
+                              onCollapsedChanged: onComposerCollapsedChanged,
+                              autoFollowEnabled: autoFollowEnabled,
+                              autoFollowPaused: autoFollowPaused,
+                              onToggleAutoFollow: onToggleAutoFollow,
+                              sendPhase: sendPhase,
+                              canStopSending: canStopSending,
+                              sessionMode: sessionMode,
+                              onSessionModeChanged: onSessionModeChanged,
+                              goalControls: goalControls,
+                              attachments: attachments,
+                              onSend: onSend,
+                              onStop: onStop,
+                              voiceModeSelected: voiceModeSelected,
+                              voiceConversationSnapshot:
+                                  voiceConversationSnapshot,
+                              voiceConversationService:
+                                  voiceConversationService,
+                              onStartVoiceConversation:
+                                  onStartVoiceConversation,
+                              onStopVoiceConversation: onStopVoiceConversation,
+                              creationMode: creationMode,
+                              onCreationModeChanged: onCreationModeChanged,
+                              creationOptions: creationOptions,
+                              onEditOptionsRequested: onEditOptionsRequested,
+                              editingMessageId: editingMessageId,
+                              onCancelEditing: onCancelEditing,
+                              fullAccessPermission: fullAccessPermission,
+                              onToggleFullAccessPermission:
+                                  onToggleFullAccessPermission,
+                              queuedPanel: queuedPanel,
+                              projectRoot: projectRoot,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
           ],
         );
       },
@@ -613,7 +637,11 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight - 32),
+            constraints: BoxConstraints(
+              minHeight: constraints.hasBoundedHeight
+                  ? math.max(0.0, constraints.maxHeight - 32.0)
+                  : 0.0,
+            ),
             child: Center(child: animatedContent),
           ),
         );
