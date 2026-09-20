@@ -16,44 +16,6 @@ List<AiPromptTemplatePolicy> get _templates => AiPromptTemplatePolicies
     .map((entry) => entry.policy)
     .toList(growable: false);
 
-String _appendSectionsIfAbsent(
-  String instructions,
-  Iterable<AiPromptSharedSectionSpec> specs,
-) {
-  final sections = specs
-      .map(
-        (section) => AiPromptLoadedSection(
-          tag: section.tag,
-          content: _readOrEmpty(section.assetPath),
-        ),
-      )
-      .where((section) => section.content.trim().isNotEmpty)
-      .toList(growable: false);
-  if (sections.isEmpty) {
-    return instructions;
-  }
-  return appendAiPromptSharedSectionsIfAbsent(instructions, sections);
-}
-
-String _appendTemplateSectionsIfAbsent(String instructions, String templateId) {
-  final policy = AiPromptTemplatePolicies.resolve(templateId);
-  final withShared = _appendSectionsIfAbsent(
-    instructions,
-    policy.sharedSections,
-  );
-  return _appendSectionsIfAbsent(withShared, policy.extensionSections);
-}
-
-String _appendV4DisciplineIfAbsent(String instructions) {
-  final zhSnippet = _readOrEmpty('assets/prompts/common/v4_discipline_zh.md');
-  final enSnippet = _readOrEmpty('assets/prompts/common/v4_discipline_en.md');
-  return appendAiPromptV4DisciplineIfAbsent(
-    instructions,
-    zhSnippet: zhSnippet,
-    enSnippet: enSnippet,
-  );
-}
-
 String _readOrEmpty(String path) {
   final f = File(path);
   if (!f.existsSync()) return '';
@@ -102,11 +64,10 @@ Future<void> main() async {
     final tonePolicyMarker = aiPromptInstructionsHasMemoryTonePolicy(system);
     final cjkRatio = _cjkRatioPct(system);
 
-    final assembled = appendAiPromptMemoryTonePolicyIfAbsent(
-      _appendV4DisciplineIfAbsent(
-        _appendTemplateSectionsIfAbsent(system, policy.templateId),
-      ),
-    );
+    final assembled = AiPromptTemplateAssembler.assembleSystem(policy, {
+      for (final path in AiPromptTemplateAssembler.systemAssetPaths(policy))
+        path: _readOrEmpty(path),
+    });
 
     File(
       '${outDir.path}/system_instructions.assembled.md',

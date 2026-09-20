@@ -73,6 +73,62 @@ class AiPromptTemplatePolicy {
       toolCatalogProfile == AiPromptToolCatalogProfile.androidReverse;
 }
 
+/// 运行时和预览共用同一资源清单与装配顺序，不接收用户消息。
+abstract final class AiPromptTemplateAssembler {
+  static const String disciplineZhAsset =
+      'assets/prompts/common/v4_discipline_zh.md';
+  static const String disciplineEnAsset =
+      'assets/prompts/common/v4_discipline_en.md';
+
+  static List<String> systemAssetPaths(AiPromptTemplatePolicy policy) {
+    final paths = <String>[];
+    final seen = <String>{};
+    void add(String path) {
+      if (path.isNotEmpty && seen.add(path)) paths.add(path);
+    }
+
+    add(
+      policy.promptAssetPathFor(AiPromptTemplateAssetFiles.systemInstructions),
+    );
+    for (final section in [
+      ...policy.sharedSections,
+      ...policy.extensionSections,
+    ]) {
+      add(section.assetPath);
+    }
+    add(disciplineZhAsset);
+    add(disciplineEnAsset);
+    return List<String>.unmodifiable(paths);
+  }
+
+  static String assembleSystem(
+    AiPromptTemplatePolicy policy,
+    Map<String, String> assets,
+  ) {
+    final base =
+        assets[policy.promptAssetPathFor(
+          AiPromptTemplateAssetFiles.systemInstructions,
+        )]!;
+    final withSections = appendAiPromptSharedSectionsIfAbsent(base, [
+      for (final section in [
+        ...policy.sharedSections,
+        ...policy.extensionSections,
+      ])
+        AiPromptLoadedSection(
+          tag: section.tag,
+          content: assets[section.assetPath] ?? '',
+        ),
+    ]);
+    return appendAiPromptMemoryTonePolicyIfAbsent(
+      appendAiPromptV4DisciplineIfAbsent(
+        withSections,
+        zhSnippet: assets[disciplineZhAsset] ?? '',
+        enSnippet: assets[disciplineEnAsset] ?? '',
+      ),
+    );
+  }
+}
+
 enum AiPromptTemplateAvailabilityScope { all, appleOnly }
 
 class AiPromptTemplateInfo {
@@ -637,7 +693,7 @@ bool aiPromptInstructionsHasV4DisciplineMarker(String instructions) {
   ];
   for (final heading in headingPatterns) {
     if (RegExp(
-      '^#{1,6}\\s+${RegExp.escape(heading)}\\b',
+      '^#{1,6}\\s+${RegExp.escape(heading)}(?=\\s|[:：]|\$)',
       caseSensitive: false,
       multiLine: true,
     ).hasMatch(instructions)) {

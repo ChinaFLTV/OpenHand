@@ -90,115 +90,48 @@ class AiPromptTemplateRepository {
     final template = resolveTemplate(catalogEntry.id);
     final policy = catalogEntry.policy;
     final fallback = _TemplatePromptFallbacks.resolve(policy.templateId);
-    final baseInstructions = await Future.wait<String>(<Future<String>>[
-      _loadTemplateAsset(
-        policy,
-        AiPromptTemplateAssetFiles.systemInstructions,
-        fallback: fallback.systemInstructions,
-        loadState: loadState,
-      ),
-      _loadTemplateAsset(
-        policy,
+    final fallbacks = <String, String>{
+      policy.promptAssetPathFor(AiPromptTemplateAssetFiles.systemInstructions):
+          fallback.systemInstructions,
+      policy.promptAssetPathFor(
         AiPromptTemplateAssetFiles.developerInstructions,
-        fallback: fallback.developerInstructions,
-        loadState: loadState,
-      ),
-      _loadTemplateAsset(
-        policy,
+      ): fallback.developerInstructions,
+      policy.promptAssetPathFor(
         AiPromptTemplateAssetFiles.compressionSummaryInstructions,
-        fallback: fallback.compressionSummaryInstructions,
-        loadState: loadState,
+      ): fallback.compressionSummaryInstructions,
+    };
+    final paths = {
+      ...AiPromptTemplateAssembler.systemAssetPaths(policy),
+      ...fallbacks.keys,
+    };
+    final assets = Map<String, String>.fromEntries(
+      await Future.wait(
+        paths.map(
+          (path) async => MapEntry(
+            path,
+            await _loadTemplateSection(
+              path,
+              fallbacks[path] ?? '',
+              loadState: loadState,
+            ),
+          ),
+        ),
       ),
-    ]);
-    final systemInstructions = baseInstructions[0];
-    final developerInstructions = baseInstructions[1];
-    final compressionSummaryInstructions = baseInstructions[2];
-    final systemWithSharedSections = await _appendSectionsIfAbsent(
-      systemInstructions,
-      policy.sharedSections,
-      loadState,
-    );
-    final systemWithTemplateSections = await _appendSectionsIfAbsent(
-      systemWithSharedSections,
-      policy.extensionSections,
-      loadState,
-    );
-    final systemWithDiscipline = await _appendV4DisciplineIfAbsent(
-      systemWithTemplateSections,
-      loadState,
     );
     return AiPromptTemplateBundle(
       template: template,
-      systemInstructions: appendAiPromptMemoryTonePolicyIfAbsent(
-        systemWithDiscipline,
+      systemInstructions: AiPromptTemplateAssembler.assembleSystem(
+        policy,
+        assets,
       ),
-      // 记忆语气策略仅注入系统层，避免与开发者层重复。
-      developerInstructions: developerInstructions,
-      compressionSummaryInstructions: compressionSummaryInstructions,
-    );
-  }
-
-  Future<String> _loadTemplateAsset(
-    AiPromptTemplatePolicy policy,
-    String fileName, {
-    required String fallback,
-    required _PromptTemplateLoadState loadState,
-  }) {
-    return _loadTemplateSection(
-      policy.promptAssetPathFor(fileName),
-      fallback,
-      loadState: loadState,
-    );
-  }
-
-  Future<String> _appendSectionsIfAbsent(
-    String instructions,
-    Iterable<AiPromptSharedSectionSpec> sections,
-    _PromptTemplateLoadState loadState,
-  ) async {
-    if (sections.isEmpty) {
-      return instructions;
-    }
-    final loadedSections = await Future.wait<AiPromptLoadedSection?>(
-      sections.map((section) async {
-        final snippet = await _loadTemplateSection(
-          section.assetPath,
-          '',
-          loadState: loadState,
-        );
-        return snippet.isEmpty
-            ? null
-            : AiPromptLoadedSection(tag: section.tag, content: snippet);
-      }),
-    );
-    return appendAiPromptSharedSectionsIfAbsent(
-      instructions,
-      loadedSections.whereType<AiPromptLoadedSection>(),
-    );
-  }
-
-  /// 当目标指令尚未包含结构化纪律区块时，追加共享的 v4 纪律内容。
-  /// 已内置专用版本的模板通过标题或标签识别并保持不变；语言根据中日韩字符占比判断。
-  Future<String> _appendV4DisciplineIfAbsent(
-    String instructions,
-    _PromptTemplateLoadState loadState,
-  ) async {
-    final snippets = await Future.wait<String>(<Future<String>>[
-      _loadTemplateSection(
-        'assets/prompts/common/v4_discipline_zh.md',
-        '',
-        loadState: loadState,
-      ),
-      _loadTemplateSection(
-        'assets/prompts/common/v4_discipline_en.md',
-        '',
-        loadState: loadState,
-      ),
-    ]);
-    return appendAiPromptV4DisciplineIfAbsent(
-      instructions,
-      zhSnippet: snippets[0],
-      enSnippet: snippets[1],
+      developerInstructions:
+          assets[policy.promptAssetPathFor(
+            AiPromptTemplateAssetFiles.developerInstructions,
+          )]!,
+      compressionSummaryInstructions:
+          assets[policy.promptAssetPathFor(
+            AiPromptTemplateAssetFiles.compressionSummaryInstructions,
+          )]!,
     );
   }
 
@@ -209,7 +142,10 @@ class AiPromptTemplateRepository {
   }) async {
     try {
       final content = (await _loader(assetPath)).trim();
-      return content.isEmpty ? fallback : content;
+      if (content.isEmpty) {
+        throw StateError('提示词资源为空：$assetPath');
+      }
+      return content;
     } catch (error, stack) {
       loadState?.assetLoadFailed = true;
       silentLog(
