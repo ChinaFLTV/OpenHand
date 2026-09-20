@@ -9,6 +9,21 @@ import 'openrouter_latest_model_catalog.dart';
 class AiModelCatalog {
   AiModelCatalog._();
 
+  /// 仅接受已核实版本及日期快照，不把后续版本套用为旧版规格。
+  static bool matchesVersion(String modelId, String version) {
+    final id = AiOneMillionContextPolicy.stripModelIdSuffix(
+      modelId.trim().toLowerCase(),
+    ).split('/').last.split(':').first.replaceAll('.', '-');
+    final base = version.replaceAll('.', '-');
+    if (id == base) return true;
+    if (!id.startsWith('$base-')) return false;
+    return _snapshotSuffix.hasMatch(id.substring(base.length + 1));
+  }
+
+  static final RegExp _snapshotSuffix = RegExp(
+    r'^(?:\d{8}|\d{4}-\d{2}-\d{2})$',
+  );
+
   static final RegExp _stepContextPattern = RegExp(r'(\d+)k');
   static final Map<String, AiModelProfile> _externalProfiles =
       <String, AiModelProfile>{};
@@ -116,7 +131,8 @@ class AiModelCatalog {
 
   static AiModelProfile? _lookupAcrossProtocols(String id) {
     // 顺序敏感：先匹配者胜出，更专一的匹配器必须排在前面。
-    return _openai(id) ??
+    return _jev(id) ??
+        _openai(id) ??
         _dots(id) ??
         _gemini(id) ??
         _mistral(id) ??
@@ -297,6 +313,9 @@ class AiModelCatalog {
     'contents',
     'system_instruction',
     'generation_config.max_output_tokens',
+    'generation_config.temperature',
+    'generation_config.top_p',
+    'generation_config.top_k',
     'generation_config.thinking_config.thinking_level',
     'generation_config.thinking_config.include_thoughts',
     'tools',
@@ -536,6 +555,7 @@ class AiModelCatalog {
     double? cacheWriteUsdPer1M,
     String? canonicalSlug,
     String? knowledgeCutoff,
+    String? sourceUrl,
     List<String> supportedParameters = const <String>[],
     Map<String, Object?> defaultParameters = const <String, Object?>{},
     Set<AiModelCapability> capabilities = const <AiModelCapability>{},
@@ -604,6 +624,9 @@ class AiModelCatalog {
       cacheWriteUsdPer1M: cacheWriteUsdPer1M,
       canonicalSlug: canonicalSlug,
       knowledgeCutoff: knowledgeCutoff,
+      links: sourceUrl == null
+          ? null
+          : AiModelLinksMetadata(details: sourceUrl),
       supportedParameters: supportedParameters,
       defaultParameters: defaultParameters,
       capabilities: capabilities,
@@ -1103,7 +1126,7 @@ class AiModelCatalog {
     }
 
     // ── GPT-6 / GPT-5.6 系列 ───────────────────────────────────────────
-    if (id.startsWith('gpt-6-astra')) {
+    if (matchesVersion(id, 'gpt-6-astra')) {
       return _p(
         name: 'GPT-6 Astra',
         desc: 'OpenAI 面向复杂专业工作、长上下文与智能体任务的旗舰推理模型。',
@@ -1122,6 +1145,7 @@ class AiModelCatalog {
         cacheReadUsdPer1M: 1.00,
         cacheWriteUsdPer1M: 12.50,
         canonicalSlug: 'gpt-6-astra',
+        sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6-astra',
         knowledgeCutoff: '2026-04-30',
         supportedParameters: _gpt6Parameters,
       );
@@ -1372,11 +1396,54 @@ class AiModelCatalog {
     return null;
   }
 
+  // Jev 仅返回结构化决策，不能作为聊天或标题生成模型。
+  static AiModelProfile? _jev(String id) {
+    final nativeId = id.split('/').last;
+    if (!const {
+      'jev',
+      'jev-latest',
+      'jev-preview',
+      'jev-1.13',
+      'jev-1.13.0',
+    }.contains(nativeId)) {
+      return null;
+    }
+    final pinnedGateway = id == 'typesafe/jev-1.13';
+    final pinnedNative = id == 'jev-1.13.0';
+    final pinned = pinnedGateway || pinnedNative;
+    return AiModelProfile(
+      maxContextLength: pinnedGateway ? 32000 : (pinnedNative ? 64000 : null),
+      inputUsdPer1M: pinned ? 0.042 : null,
+      outputUsdPer1M: pinned ? 0 : null,
+      displayName: pinned ? 'Jev 1.13' : 'Jev',
+      description: pinnedNative
+          ? 'TypeSafe 结构化决策模型，每请求 64K，状态加最长单个问题限 32K；仅支持专用决策接口，不生成聊天文本。'
+          : 'TypeSafe 结构化决策模型，支持分类、评分和判断；不生成聊天文本，需通过专用决策接口调用。',
+      isMultimodal: false,
+      supportsAttachments: false,
+      supportedModalities: {AiModelModality.text},
+      thinkingEnabled: false,
+      reasoningEffortControlEnabled: false,
+      architecture: const AiModelArchitectureMetadata(
+        modality: 'text->decisions',
+        inputModalities: ['text'],
+        outputModalities: ['decisions'],
+      ),
+      supportedParameters: ['model', 'state', 'questions'],
+      links: AiModelLinksMetadata(
+        details: pinnedGateway
+            ? 'https://openrouter.ai/typesafe/jev-1.13'
+            : 'https://docs.typesafe.ai/models',
+      ),
+    );
+  }
+
   // Anthropic / Claude 模型
 
   static AiModelProfile? _claude(String id) {
     // ── Claude 5 / 4.8 ──────────────────────────────────────────────────
-    if (id.contains('fable-5-1') || id.contains('5-1-fable')) {
+    if (matchesVersion(id, 'claude-fable-5-1') ||
+        matchesVersion(id, 'claude-5-1-fable')) {
       return _p(
         name: 'Claude Fable 5.1',
         desc: 'Anthropic 面向高难度推理、长时程智能体与复杂编程的旗舰模型。',
@@ -1395,11 +1462,14 @@ class AiModelCatalog {
         cacheReadUsdPer1M: 0.25,
         cacheWriteUsdPer1M: 12.50,
         canonicalSlug: 'claude-fable-5-1',
+        sourceUrl:
+            'https://platform.claude.com/docs/en/models/fable-5-1/overview',
         knowledgeCutoff: '2026-06',
         supportedParameters: _claude51Parameters,
       );
     }
-    if (id.contains('mythos-5-1') || id.contains('5-1-mythos')) {
+    if (matchesVersion(id, 'claude-mythos-5-1') ||
+        matchesVersion(id, 'claude-5-1-mythos')) {
       return _p(
         name: 'Claude Mythos 5.1',
         desc: '与 Fable 5.1 同规格的受邀开放模型，面向获批的安全工作负载。',
@@ -1422,7 +1492,8 @@ class AiModelCatalog {
         supportedParameters: _claude51Parameters,
       );
     }
-    if (id.contains('fable-5') || id.contains('5-fable')) {
+    if (matchesVersion(id, 'claude-fable-5') ||
+        matchesVersion(id, 'claude-5-fable')) {
       return _p(
         name: 'Claude Fable 5',
         desc: '面向高难度推理与长时程智能体工作的 Claude 旗舰模型。',
@@ -1444,7 +1515,8 @@ class AiModelCatalog {
         knowledgeCutoff: '2026-01',
       );
     }
-    if (id.contains('opus-5') || id.contains('5-opus')) {
+    if (matchesVersion(id, 'claude-opus-5') ||
+        matchesVersion(id, 'claude-5-opus')) {
       return _p(
         name: 'Claude Opus 5',
         desc: '面向复杂编程、企业任务与长时程智能体工作的 Claude 旗舰模型。',
@@ -1463,10 +1535,12 @@ class AiModelCatalog {
         cacheReadUsdPer1M: 0.50,
         cacheWriteUsdPer1M: 6.25,
         canonicalSlug: 'claude-opus-5',
+        sourceUrl: 'https://platform.claude.com/docs/en/models/opus-5/overview',
         knowledgeCutoff: '2026-05',
       );
     }
-    if (id.contains('mythos-5') || id.contains('5-mythos')) {
+    if (matchesVersion(id, 'claude-mythos-5') ||
+        matchesVersion(id, 'claude-5-mythos')) {
       return _p(
         name: 'Claude Mythos 5',
         desc: '与 Fable 5 同规格的受限开放模型，面向获批的安全工作负载。',
@@ -1501,7 +1575,8 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
       );
     }
-    if (id.contains('sonnet-5') || id.contains('5-sonnet')) {
+    if (matchesVersion(id, 'claude-sonnet-5') ||
+        matchesVersion(id, 'claude-5-sonnet')) {
       return _p(
         name: 'Claude Sonnet 5',
         desc: '兼顾速度与智能的新一代 Claude 模型，支持自适应思考。',
@@ -1816,7 +1891,7 @@ class AiModelCatalog {
     }
 
     // ── Gemini 3.8 / 3.7 / 3.6 / 3.5 ────────────────────────────────────
-    if (id.startsWith('gemini-3.8-flash')) {
+    if (matchesVersion(id, 'gemini-3.8-flash')) {
       return _p(
         name: 'Gemini 3.8 Flash',
         desc: 'Google 新一代通用多模态推理模型，兼顾复杂任务能力与低延迟。',
@@ -1833,6 +1908,8 @@ class AiModelCatalog {
         inputUsdPer1M: 0.75,
         outputUsdPer1M: 3.75,
         canonicalSlug: 'gemini-3.8-flash',
+        sourceUrl:
+            'https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash',
         supportedParameters: _gemini38Parameters,
       );
     }

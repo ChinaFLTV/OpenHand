@@ -3626,7 +3626,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           : null,
       supportedParameters: _parseCsv(_supportedParametersController.text),
       defaultParameters: defaultParameters,
-      isGlobalDefaultTitleModel: _isGlobalDefaultTitleModel,
+      isGlobalDefaultTitleModel:
+          _isGlobalDefaultTitleModel &&
+          AiModelCatalog.lookup(
+                _modelIdController.text,
+                widget.protocolType,
+              )?.supportsDecisions !=
+              true,
       embeddingDimensions: optionalPositiveIntFromText(
         _embeddingDimensionsController.text,
       ),
@@ -3869,6 +3875,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget _buildGlobalDefaultTitleModelControl() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final decisionOnly =
+        AiModelCatalog.lookup(
+          _modelIdController.text,
+          widget.protocolType,
+        )?.supportsDecisions ==
+        true;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3909,12 +3921,14 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         ),
         kOpenHandHGap16,
         Switch(
-          value: _isGlobalDefaultTitleModel,
-          onChanged: (value) {
-            setState(() {
-              _isGlobalDefaultTitleModel = value;
-            });
-          },
+          value: !decisionOnly && _isGlobalDefaultTitleModel,
+          onChanged: decisionOnly
+              ? null
+              : (value) {
+                  setState(() {
+                    _isGlobalDefaultTitleModel = value;
+                  });
+                },
         ),
       ],
     );
@@ -4917,13 +4931,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final catalog = AiModelCatalog.lookup(
+      _modelIdController.text,
+      widget.protocolType,
+    );
+    final decisionOnly = catalog?.supportsDecisions == true;
     return buildOpenHandAlertDialog(
       title: Text(
         AppLocalizations.of(context)!.mdlEdEditModelProfile,
         style: theme.textTheme.titleMedium,
       ),
       content: SizedBox(
-        width: 480,
+        width: 640,
         child: SingleChildScrollView(
           // 禁用 macOS 触控板回弹，避免弹窗快速滚动到边缘时抖动。
           physics: const ClampingScrollPhysics(),
@@ -4931,6 +4950,74 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.primaryContainer.withValues(alpha: 0.65),
+                      colorScheme.tertiaryContainer.withValues(alpha: 0.4),
+                    ],
+                  ),
+                  borderRadius: kOpenHandBorderRadius16,
+                  border: Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          decisionOnly
+                              ? Icons.account_tree_rounded
+                              : Icons.tune_rounded,
+                          color: colorScheme.primary,
+                          size: 22,
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: Text(
+                            catalog?.displayName ?? _modelIdController.text,
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap8,
+                    Text(
+                      decisionOnly
+                          ? '结构化决策模型 · 不支持聊天或标题生成，请使用专用决策接口。'
+                          : catalog == null
+                          ? '尚无匹配的模型资料。请依据提供商文档填写，勿将其他版本的参数直接套用。'
+                          : '目录参考参数 · 可按当前提供商的实际能力调整。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (catalog != null) ...[
+                      kOpenHandGap8,
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 6,
+                        children: [
+                          if (catalog.maxContextLength != null)
+                            Text('上下文 ${catalog.maxContextLength}'),
+                          if (catalog.maxOutputLength != null)
+                            Text('最大输出 ${catalog.maxOutputLength}'),
+                          if (catalog.reasoningEffortOptions.isNotEmpty)
+                            Text(
+                              '推理 ${catalog.reasoningEffortOptions.map((option) => option.value).join(' / ')}',
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
               TextField(
                 controller: _modelIdController,
                 decoration: InputDecoration(
@@ -4955,6 +5042,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   if (_oneMillionContextEnabled) {
                     _syncOneMillionContextFields();
                   }
+                  setState(() {});
                   FocusScope.of(context).nextFocus();
                 },
               ),

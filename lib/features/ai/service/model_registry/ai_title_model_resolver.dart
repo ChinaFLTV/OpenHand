@@ -64,32 +64,22 @@ class AiTitleModelResolver {
       return false;
     }
     final profile = model.profileFor(modelId);
-    final explicitModalities = profile.supportedModalities;
-    if (explicitModalities.isNotEmpty) {
-      return explicitModalities.contains(AiModelModality.text);
-    }
-
+    // 输入文本不代表能够生成文本，优先使用明确的输出模态。
     final architecture = profile.architecture;
+    final outputs = architecture?.outputModalities ?? const <String>[];
+    if (outputs.isNotEmpty) {
+      return outputs.any((item) => item.trim().toLowerCase() == 'text');
+    }
     final modality = optionalLowercaseStringFromValue(architecture?.modality);
-    if (modality != null) {
-      if (modality.contains('text')) {
-        return true;
-      }
-      if (_nonTextModalityMarkers.any(modality.contains)) {
-        return false;
-      }
+    if (modality != null && modality.contains('->')) {
+      return modality.split('->').last.split('+').contains('text');
     }
-
-    final outputModalities =
-        architecture?.outputModalities
-            .map(optionalLowercaseStringFromValue)
-            .whereType<String>()
-            .toList(growable: false) ??
-        const <String>[];
-    if (outputModalities.isNotEmpty) {
-      return outputModalities.any((item) => item.contains('text'));
+    if (modality != null && _nonTextModalityMarkers.any(modality.contains)) {
+      return false;
     }
-    return true;
+    if (profile.supportsEmbeddings || profile.supportsRerank) return false;
+    final modalities = profile.supportedModalities;
+    return modalities.isEmpty || modalities.contains(AiModelModality.text);
   }
 
   static AiModelConfig normalizeProviderTitleDefaults(AiModelConfig model) {

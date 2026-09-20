@@ -20,6 +20,7 @@ import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
+import '../../model/ai_model_catalog.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_session_message.dart';
 import '../../model/ai_token_usage.dart';
@@ -201,7 +202,27 @@ abstract final class AiThinkingRequestPolicy {
     AiModelConfig model,
   ) {
     final modelId = lowercaseStringFromValue(model.modelId);
-    if (modelId.contains('gpt-6-astra')) {
+    if (model.profileFor(modelId).supportsDecisions) {
+      throw UnsupportedError('该模型仅支持结构化决策，请使用专用决策接口，不能通过聊天接口调用。');
+    }
+    if (AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra') ||
+        AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra-pro')) {
+      if (Uri.tryParse(model.normalizedBaseUrl)?.host == 'api.openai.com' &&
+          body.containsKey('messages') &&
+          body['tools'] is List &&
+          (body['tools'] as List).isNotEmpty) {
+        throw UnsupportedError('GPT-6 Astra 的官方工具调用需要 Responses API，请启用该接口。');
+      }
+      if (const {'none', 'minimal'}.contains(body['reasoning_effort'])) {
+        body['reasoning_effort'] = 'low';
+      }
+      if (body['reasoning'] is Map) {
+        final reasoning = stringKeyedMapFromValue(body['reasoning']);
+        if (const {'none', 'minimal'}.contains(reasoning['effort'])) {
+          reasoning['effort'] = 'low';
+        }
+        body['reasoning'] = reasoning;
+      }
       for (final field in const <String>{
         'temperature',
         'top_p',
@@ -228,15 +249,23 @@ abstract final class AiThinkingRequestPolicy {
       }
     }
 
-    if (modelId.contains('claude-fable-5-1') ||
-        modelId.contains('claude-mythos-5-1')) {
-      body.remove(_thinkingField);
+    if (AiModelCatalog.matchesVersion(modelId, 'claude-fable-5-1') ||
+        AiModelCatalog.matchesVersion(modelId, 'claude-mythos-5-1')) {
+      final thinking = body[_thinkingField];
+      if (thinking is Map) {
+        body[_thinkingField] = <String, Object?>{
+          ...stringKeyedMapFromValue(thinking)..remove('budget_tokens'),
+          'type': 'adaptive',
+        };
+      }
       final toolChoice = body['tool_choice'];
       if (toolChoice is Map) {
         final normalizedToolChoice = stringKeyedMapFromValue(toolChoice);
         final type = lowercaseStringFromValue(normalizedToolChoice['type']);
-        if (type == 'any' || type == 'tool') {
-          body['tool_choice'] = const <String, Object?>{'type': 'auto'};
+        if (type == 'any' || type == 'tool' || type == 'function') {
+          body['tool_choice'] = type == 'function'
+              ? 'auto'
+              : const <String, Object?>{'type': 'auto'};
         }
       } else {
         final type = lowercaseStringFromValue(toolChoice);
@@ -252,19 +281,13 @@ abstract final class AiThinkingRequestPolicy {
       }
     }
 
-    if (!modelId.contains('gemini-3.8-flash')) return;
-    const unsupportedSamplingFields = <String>{
-      'temperature',
-      'top_p',
-      'topP',
-      'top_k',
-      'topK',
-      'candidate_count',
-      'candidateCount',
+    if (!AiModelCatalog.matchesVersion(modelId, 'gemini-3.8-flash')) return;
+    if (body['reasoning_effort'] == 'minimal') body['reasoning_effort'] = 'low';
+    const unsupportedThinkingFields = <String>{
       'thinking_budget',
       'thinkingBudget',
     };
-    for (final field in unsupportedSamplingFields) {
+    for (final field in unsupportedThinkingFields) {
       body.remove(field);
     }
     for (final configField in const <String>{
@@ -273,8 +296,24 @@ abstract final class AiThinkingRequestPolicy {
     }) {
       if (!body.containsKey(configField)) continue;
       final generationConfig = stringKeyedMapFromValue(body[configField]);
-      for (final field in unsupportedSamplingFields) {
+      for (final field in unsupportedThinkingFields) {
         generationConfig.remove(field);
+      }
+      for (final thinkingField in const ['thinkingConfig', 'thinking_config']) {
+        if (generationConfig[thinkingField] is! Map) continue;
+        final thinking = stringKeyedMapFromValue(
+          generationConfig[thinkingField],
+        );
+        thinking.remove('thinkingBudget');
+        thinking.remove('thinking_budget');
+        for (final levelField in const ['thinkingLevel', 'thinking_level']) {
+          if (lowercaseStringFromValue(thinking[levelField]) == 'minimal') {
+            thinking[levelField] = thinking[levelField] == 'MINIMAL'
+                ? 'LOW'
+                : 'low';
+          }
+        }
+        generationConfig[thinkingField] = thinking;
       }
       body[configField] = generationConfig;
     }

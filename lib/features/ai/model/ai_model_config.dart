@@ -963,6 +963,10 @@ class AiModelProfile {
   final List<String> readerSourceTypes;
   final List<String> readerTargetTypes;
 
+  /// 决策输出不能用于自由文本生成。
+  bool get supportsDecisions =>
+      architecture?.outputModalities.contains('decisions') == true;
+
   bool get supportsEmbeddings =>
       capabilities.contains(AiModelCapability.embeddingGeneration);
 
@@ -2133,9 +2137,7 @@ class AiModelConfig {
         !lowercaseStringFromValue(modelId).contains('claude')) {
       return false;
     }
-    return _looksLikeAlwaysOnClaudeAdaptiveThinking(
-      _normalizeReasoningModelId(modelId),
-    );
+    return _looksLikeAlwaysOnClaudeAdaptiveThinking(modelId);
   }
 
   bool get resolvedSupportsThinking {
@@ -2160,7 +2162,7 @@ class AiModelConfig {
     final trimmedModelId = nullIfBlank(modelId) ?? '';
     final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
     if (normalizedModelId.contains('gpt-6-astra') ||
-        _looksLikeAlwaysOnClaudeAdaptiveThinking(normalizedModelId) ||
+        _looksLikeAlwaysOnClaudeAdaptiveThinking(trimmedModelId) ||
         _looksLikeAlwaysOnGrokReasoning(normalizedModelId) ||
         _looksLikeAlwaysOnGemini3Thinking(normalizedModelId) ||
         _looksLikeAlwaysOnKimiK3(normalizedModelId) ||
@@ -2203,11 +2205,19 @@ class AiModelConfig {
   static bool _looksLikeAlwaysOnClaudeAdaptiveThinking(
     String normalizedModelId,
   ) {
-    return normalizedModelId.contains('fable-5') ||
-        normalizedModelId.contains('5-fable') ||
-        normalizedModelId.contains('mythos-5') ||
-        normalizedModelId.contains('5-mythos') ||
-        normalizedModelId.contains('mythos-preview');
+    return const [
+      'claude-fable-5',
+      'claude-fable-5-1',
+      'claude-mythos-5',
+      'claude-mythos-5-1',
+      'claude-mythos-preview',
+      'claude-5-fable',
+      'claude-5-1-fable',
+      'claude-5-mythos',
+      'claude-5-1-mythos',
+    ].any(
+      (version) => AiModelCatalog.matchesVersion(normalizedModelId, version),
+    );
   }
 
   static bool _looksLikeAlwaysOnGrokReasoning(String normalizedModelId) {
@@ -2292,6 +2302,9 @@ class AiModelConfig {
     required AiProtocolType protocolType,
     required AiModelProfile profile,
   }) {
+    if (profile.supportsDecisions) {
+      return false;
+    }
     if (profile.thinkingEnabled != null) return true;
     if ((profile.maxThinkingLength ?? 0) > 0) return true;
     if (_profileHasThinkingParameter(profile)) return true;
@@ -2435,6 +2448,16 @@ class AiModelConfig {
     AiProtocolType protocolType,
   ) {
     if (normalizedModelId.isEmpty) return false;
+    final claudeStart = normalizedModelId.indexOf('claude-');
+    if (claudeStart >= 0 &&
+        (normalizedModelId.contains('fable-5') ||
+            normalizedModelId.contains('opus-5'))) {
+      return AiModelCatalog.lookup(
+            normalizedModelId.substring(claudeStart),
+            AiProtocolType.claude,
+          )?.thinkingEnabled ==
+          true;
+    }
     if (normalizedModelId.contains('thinking') ||
         normalizedModelId.contains('think') ||
         normalizedModelId.contains('reasoner') ||
