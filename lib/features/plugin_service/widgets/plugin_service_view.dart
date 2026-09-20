@@ -1042,17 +1042,6 @@ class _PluginDiagnosticsDialog extends StatelessWidget {
                     '$pluginName · ${openHandLocalizedText(context, zh: '诊断消息', en: 'Diagnostics')}',
                 subtitle: '$errorLabel $errors · $warningLabel $warnings',
                 iconColor: theme.colorScheme.primary,
-                actions: [
-                  OpenHandNoticeActionButtons(
-                    copyText: diagnostics
-                        .map(
-                          (item) =>
-                              '${item.isError ? errorLabel : warningLabel}\n${item.message}',
-                        )
-                        .join('\n\n'),
-                    showClose: false,
-                  ),
-                ],
               ),
               Divider(height: 1, color: theme.colorScheme.outlineVariant),
               Flexible(

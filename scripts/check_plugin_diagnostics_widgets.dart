@@ -123,7 +123,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(_PluginDiagnosticsDialog), findsOneWidget);
     expect(find.text(message.trim()), findsOneWidget);
-    expect(find.byType(OpenHandNoticeActionButtons), findsNWidgets(3));
+    expect(find.byType(OpenHandNoticeActionButtons), findsNWidgets(2));
     expect(tester.takeException(), isNull);
     controller.replace(_plugin);
     await tester.pumpAndSettle();
