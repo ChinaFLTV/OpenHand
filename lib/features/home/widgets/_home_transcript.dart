@@ -26,6 +26,39 @@ const String _kTranscriptRetiringCreationKey = 'transcript-retiring-creation';
 const String _kTranscriptCreationFailureKey = 'transcript-creation-failure';
 const String _kTranscriptErrorBannerKey = 'transcript-error-banner';
 
+/// 在布局阶段修正尾部坐标，避免复杂正文测高后先绘制旧位置。
+class _TranscriptScrollPhysics extends ClampingScrollPhysics {
+  const _TranscriptScrollPhysics({
+    required this.shouldAnchorBottom,
+    super.parent,
+  });
+
+  final bool Function(ScrollMetrics) shouldAnchorBottom;
+
+  @override
+  _TranscriptScrollPhysics applyTo(ScrollPhysics? ancestor) =>
+      _TranscriptScrollPhysics(
+        shouldAnchorBottom: shouldAnchorBottom,
+        parent: buildParent(ancestor),
+      );
+
+  @override
+  double adjustPositionForNewDimensions({
+    required ScrollMetrics oldPosition,
+    required ScrollMetrics newPosition,
+    required bool isScrolling,
+    required double velocity,
+  }) {
+    if (shouldAnchorBottom(oldPosition)) return newPosition.maxScrollExtent;
+    return super.adjustPositionForNewDimensions(
+      oldPosition: oldPosition,
+      newPosition: newPosition,
+      isScrolling: isScrolling,
+      velocity: velocity,
+    );
+  }
+}
+
 class _TranscriptScrollView extends CustomScrollView {
   const _TranscriptScrollView({
     super.key,
@@ -621,12 +654,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         reveal();
         return;
       }
-      // 时长上限只结束占位等待；慢首帧仍须完成有界的尾部定位。
-      if (elapsed.elapsed >= _transcriptInitialRevealMaxDuration) {
+      if (_isTranscriptScrollActive(context)) {
         reveal();
-      }
-      if (_initialRevealPhase == _TranscriptInitialRevealPhase.ready &&
-          _isTranscriptScrollActive(context)) {
         return;
       }
       framesRemaining -= 1;
@@ -665,6 +694,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           stableFrames >= _scrollToBottomSettleStableFrameLimit &&
           !_staggerFillActive &&
           !_viewportFillQueued;
+      // 慢首帧也须先完成结构补齐；异常持续测高仍由总帧数兜底。
+      final timedOut =
+          elapsed.elapsed >= _transcriptInitialRevealMaxDuration &&
+          elapsedFrames >= _transcriptInitialRevealMinimumFrameCount &&
+          !_staggerFillActive &&
+          !_viewportFillQueued;
+      if (timedOut) reveal();
       if (!ready && framesRemaining > 0) {
         WidgetsBinding.instance.addPostFrameCallback(settle);
         WidgetsBinding.instance.scheduleFrame();
@@ -759,7 +795,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         }
       }
       final windowChanged = previousWindowStartIndex != _windowStartIndex;
-      if (prependedHistoricalMessages) {
+      if (oldWidget.session.messageLoadState == AiSessionMessageLoadState.header &&
+          previousDisplayMessages.isEmpty &&
+          nextDisplayMessages.isNotEmpty) {
+        _initialRevealPhase = _TranscriptInitialRevealPhase.preparing;
+        _materializeOpenWindow();
+        _scheduleInitialLayoutSettle();
+      } else if (prependedHistoricalMessages) {
         _syncRenderEntriesAfterHistoryPrepend();
       } else if (windowChanged ||
           !_syncRenderEntriesAfterTailChange(
@@ -838,12 +880,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final nowVisible =
         next == _TranscriptInitialRevealPhase.revealingContent ||
         next == _TranscriptInitialRevealPhase.ready;
+    if (wasHidden && nowVisible) _pinTranscriptToLatestIfOpening();
     _initialRevealPhase = next;
-    if (wasHidden && nowVisible) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _pinTranscriptToLatestIfOpening();
-      });
-    }
   }
 
   void _handleInitialPlaceholderDismissed() {
@@ -3269,7 +3307,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       controller: widget.controller,
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
-                      physics: kOpenHandClampingPhysics,
+                      physics: _TranscriptScrollPhysics(
+                        parent: const AlwaysScrollableScrollPhysics(),
+                        shouldAnchorBottom: (previous) =>
+                            mounted &&
+                            !_isTranscriptScrollActive(context) &&
+                            (_initialRevealPhase !=
+                                    _TranscriptInitialRevealPhase.ready ||
+                                (!widget.preserveViewportAfterUserScroll &&
+                                    previous.extentAfter <=
+                                        _scrollToBottomSettleTolerance)),
+                      ),
                       primary: false,
                       center: hasPrecedingContent ? _listCenterKey : null,
                       anchor: hasPrecedingContent ? _listAnchor : 0,

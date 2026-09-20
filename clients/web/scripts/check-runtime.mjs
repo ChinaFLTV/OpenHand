@@ -450,7 +450,7 @@ try {
     setAutoFollowPausedValue: value => { paused.current = value; },
     setAutoFollowEnabled: value => { follow.current = value; },
     hasRecentUserScrollIntent: () => Date.now() - lastIntent.current <= 1200,
-    markTranscriptScrollActivity() {}, cancelFollowSettle() {}, cancelResizeFollowFrame() {},
+    markTranscriptScrollActivity() {}, cancelFollowSettle() {},
     cancelAutoFollowMotion() { cancellations++; }, isEditableShortcutTarget: () => false,
     AUTO_FOLLOW_USER_SCROLL_INTENT_MS: 1200, AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX: 0,
     AUTO_FOLLOW_NEAR_BOTTOM_PX: 64, AUTO_FOLLOW_RESUME_BOTTOM_PX: 1,
@@ -483,6 +483,87 @@ try {
   scroll.recalc();
   assert.equal(paused.current, true, '触摸和滚动条的微小上移也暂停跟随');
 
+  const initialStart = historyPageSource.indexOf('    if (initialLayoutSettledRef.current) return undefined;');
+  const initialEnd = historyPageSource.indexOf('  }, [membershipKey, onInitialLayoutSettled, scrollContainerRef]);', initialStart);
+  assert.ok(initialStart >= 0 && initialEnd > initialStart);
+  const { code: initialCode } = await transformWithOxc(
+    `const prepare = () => {${historyPageSource.slice(initialStart, initialEnd)}};`, 'initial-layout.ts',
+  );
+  for (const scenario of ['stable', 'timeout', 'pending']) {
+    const frames = new Map();
+    let nextFrame = 0;
+    let revealed = false;
+    const initialScroller = { scrollTop: 120, scrollHeight: 2400, clientHeight: 600 };
+    const initialBindings = {
+      initialLayoutSettledRef: { current: false },
+      initialLayoutStartedAtRef: { current: scenario === 'timeout' ? 0 : Date.now() },
+      scrollContainerRef: { current: initialScroller },
+      heightCommitPendingRef: { current: scenario === 'pending' }, heightCommitFrameRef: { current: null },
+      TRANSCRIPT_INITIAL_SETTLE_MAX_FRAMES: 24, TRANSCRIPT_INITIAL_SETTLE_MAX_MS: 480,
+      TRANSCRIPT_INITIAL_SETTLE_MIN_FRAMES: 2, TRANSCRIPT_INITIAL_SETTLE_STABLE_FRAMES: 2,
+      TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX: .75,
+      window: {
+        requestAnimationFrame(callback) { frames.set(++nextFrame, callback); return nextFrame; },
+        cancelAnimationFrame(id) { frames.delete(id); },
+      },
+      onInitialLayoutSettled() {
+        assert.equal(initialScroller.scrollTop, initialScroller.scrollHeight - initialScroller.clientHeight,
+          '正常与超时揭示均须先完成尾部定位');
+        revealed = true;
+      },
+    };
+    const prepare = new Function(...Object.keys(initialBindings), `${initialCode}\nreturn prepare;`)(...Object.values(initialBindings));
+    const cleanup = prepare();
+    for (let frame = 0; frame < 24 && !revealed; frame++) {
+      if (frame === 1) initialScroller.scrollHeight += 700;
+      for (const [id, callback] of [...frames]) { frames.delete(id); callback(); }
+    }
+    assert.equal(revealed, true, '首屏等待必须有界');
+    cleanup();
+    assert.equal(frames.size, 0, '离开列表必须释放首屏任务');
+  }
+
+  const resizeStart = historyPageSource.indexOf('    const target = messagesContentRef.current;');
+  const resizeEnd = historyPageSource.indexOf('  }, [autoFollow, autoFollowPaused, hasRecentUserScrollIntent]);', resizeStart);
+  assert.ok(resizeStart >= 0 && resizeEnd > resizeStart);
+  const { code: resizeCode } = await transformWithOxc(
+    `const observe = () => {${historyPageSource.slice(resizeStart, resizeEnd)}};`, 'layout-follow.ts',
+  );
+  let onResize;
+  let disconnected = false;
+  let userReading = false;
+  let composerMoving = false;
+  const layoutFollow = { current: true };
+  const layoutPaused = { current: false };
+  const layoutScroller = { scrollTop: 0, scrollHeight: 2400, clientHeight: 600 };
+  const resizeBindings = {
+    messagesContentRef: { current: {} }, mainRef: { current: layoutScroller },
+    autoFollowRef: layoutFollow, autoFollowPausedRef: layoutPaused,
+    hasRecentUserScrollIntent: () => userReading,
+    isComposerLayoutTransitioning: () => composerMoving,
+    ResizeObserver: class {
+      constructor(callback) { onResize = callback; }
+      observe() {}
+      disconnect() { disconnected = true; }
+    },
+    scrollMessagesToBottom() { layoutScroller.scrollTop = layoutScroller.scrollHeight - layoutScroller.clientHeight; },
+  };
+  const observe = new Function(...Object.keys(resizeBindings), `${resizeCode}\nreturn observe;`)(...Object.values(resizeBindings));
+  const stopObserving = observe();
+  onResize();
+  assert.equal(layoutScroller.scrollTop, 1800, '测高回调必须在当前绘制前贴底');
+  for (const guard of ['user', 'paused', 'disabled', 'composer']) {
+    userReading = guard === 'user';
+    layoutPaused.current = guard === 'paused';
+    layoutFollow.current = guard !== 'disabled';
+    composerMoving = guard === 'composer';
+    layoutScroller.scrollHeight += 100;
+    onResize();
+    assert.equal(layoutScroller.scrollTop, 1800, '用户阅读和输入区动画保护不能被测高绕过');
+  }
+  stopObserving();
+  assert.equal(disconnected, true);
+
   const heightStart = historyPageSource.indexOf('  const scheduleHeightCommit = useCallback(');
   const heightEnd = historyPageSource.indexOf('  const handleHeightChange =', heightStart);
   assert.ok(heightStart >= 0 && heightEnd > heightStart);
@@ -493,6 +574,7 @@ try {
   const pendingHeight = { current: false };
   const heightBindings = {
     useCallback: callback => callback, isTranscriptScrollActive: () => scrolling,
+    initialLayoutSettledRef: { current: true },
     heightCommitPendingRef: pendingHeight, heightCommitFrameRef: { current: null },
     scrollContainerRef: { current: null }, listRef: { current: null },
     window: { requestAnimationFrame: callback => { heightFrames.push(callback); return heightFrames.length; } },
@@ -508,6 +590,13 @@ try {
   commitHeight();
   heightFrames.shift()();
   assert.equal(heightCommits, 1, '停止后合并提交测高');
+  heightBindings.initialLayoutSettledRef.current = false;
+  scrolling = true;
+  commitHeight();
+  heightFrames.shift()();
+  assert.equal(heightCommits, 2, '隐藏首屏的程序定位不能延迟真实测高');
+  scrolling = false;
+
 
   const restoreStart = historyPageSource.indexOf('    const anchor = heightAnchorRef.current;');
   const restoreEnd = historyPageSource.indexOf('  }, [heightRevision, scrollContainerRef]);', restoreStart);

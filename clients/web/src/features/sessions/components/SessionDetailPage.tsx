@@ -283,8 +283,6 @@ const TRANSCRIPT_INITIAL_SETTLE_MAX_MS = 480;
 const TRANSCRIPT_INITIAL_SETTLE_MIN_FRAMES = 2;
 const TRANSCRIPT_INITIAL_SETTLE_STABLE_FRAMES = 2;
 const TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX = 0.75;
-// 测量任务仅在宽限帧内阻断首屏揭示，避免微小布局调整持续重置稳定计数。
-const TRANSCRIPT_INITIAL_SETTLE_MEASURE_GRACE_FRAMES = 8;
 const COMPOSER_LAYOUT_TRANSITION_GUARD_MS = 440;
 const KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS = 420;
 const COMPOSER_INSTRUCTION_HOVER_PREVIEW_DELAY_MS = 480;
@@ -1388,7 +1386,7 @@ export function VirtualMessageList({
 
   useLayoutEffect(() => {
     pendingTotalHeightRef.current = totalHeight;
-    if (!isTranscriptScrollActive()) {
+    if (!initialLayoutSettledRef.current || !isTranscriptScrollActive()) {
       setStableTotalHeight((current) =>
         Math.abs(current - totalHeight) < 0.5 ? current : totalHeight,
       );
@@ -1438,14 +1436,15 @@ export function VirtualMessageList({
   }, [membershipKey, messageIds, renderRange.end, renderRange.start, virtualized]);
 
   const scheduleHeightCommit = useCallback(() => {
-    if (isTranscriptScrollActive()) {
+    // 首屏仍隐藏时，程序定位产生的滚动事件不能推迟真实测高。
+    if (initialLayoutSettledRef.current && isTranscriptScrollActive()) {
       heightCommitPendingRef.current = true;
       return;
     }
     if (heightCommitFrameRef.current != null) return;
     heightCommitFrameRef.current = window.requestAnimationFrame(() => {
       heightCommitFrameRef.current = null;
-      if (isTranscriptScrollActive()) {
+      if (initialLayoutSettledRef.current && isTranscriptScrollActive()) {
         heightCommitPendingRef.current = true;
         return;
       }
@@ -1644,7 +1643,7 @@ export function VirtualMessageList({
       const timedOut =
         Date.now() - initialLayoutStartedAtRef.current >=
         TRANSCRIPT_INITIAL_SETTLE_MAX_MS;
-      if (!scroller || framesRemaining <= 0 || timedOut) {
+      if (!scroller) {
         initialLayoutSettledRef.current = true;
         onInitialLayoutSettled();
         return;
@@ -1661,15 +1660,14 @@ export function VirtualMessageList({
         scroller.scrollTop = target;
       }
       const measurementsPending =
-        elapsedFrames <= TRANSCRIPT_INITIAL_SETTLE_MEASURE_GRACE_FRAMES &&
-        (heightCommitPendingRef.current || heightCommitFrameRef.current != null);
+        heightCommitPendingRef.current || heightCommitFrameRef.current != null;
       stableFrames = heightChanged || distance > TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX || measurementsPending
         ? 0
         : stableFrames + 1;
       const ready =
         elapsedFrames >= TRANSCRIPT_INITIAL_SETTLE_MIN_FRAMES &&
         stableFrames >= TRANSCRIPT_INITIAL_SETTLE_STABLE_FRAMES;
-      if (ready || framesRemaining <= 0) {
+      if (ready || framesRemaining <= 0 || timedOut) {
         initialLayoutSettledRef.current = true;
         onInitialLayoutSettled();
         return;
@@ -2534,7 +2532,6 @@ export function SessionDetailPage() {
   const followSettleFrameRef = useRef<number | null>(null);
   const followSettleRemainingRef = useRef(0);
   const followSettleStableFramesRef = useRef(0);
-  const resizeFollowFrameRef = useRef<number | null>(null);
   const postRenderFrameRefs = useRef<number[]>([]);
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailSignatureRef = useRef<string>('');
@@ -2829,7 +2826,6 @@ export function SessionDetailPage() {
   useEffect(
     () => () => {
       cancelFollowSettle();
-      cancelResizeFollowFrame();
       cancelPostRenderFrames();
     },
     [],
@@ -2936,7 +2932,6 @@ export function SessionDetailPage() {
     lastUserScrollIntentAtRef.current = Date.now();
     markTranscriptScrollActivity(AUTO_FOLLOW_USER_SCROLL_INTENT_MS);
     cancelFollowSettle();
-    cancelResizeFollowFrame();
     const wasProgrammatic = Date.now() <= programmaticScrollUntilRef.current;
     programmaticScrollUntilRef.current = 0;
     if (wasProgrammatic) cancelAutoFollowMotion();
@@ -2983,16 +2978,8 @@ export function SessionDetailPage() {
     followSettleStableFramesRef.current = 0;
   }
 
-  function cancelResizeFollowFrame(): void {
-    if (resizeFollowFrameRef.current != null) {
-      window.cancelAnimationFrame(resizeFollowFrameRef.current);
-      resizeFollowFrameRef.current = null;
-    }
-  }
-
   function cancelAutoFollowMotion(): void {
     cancelFollowSettle();
-    cancelResizeFollowFrame();
     const el = mainRef.current;
     if (el) {
       el.scrollTo({ top: el.scrollTop, behavior: 'auto' });
@@ -3772,7 +3759,7 @@ export function SessionDetailPage() {
   // 只在离开会话页时清除滚动活动，避免监听器重挂提前提交测量任务。
   useEffect(() => clearTranscriptScrollActivity, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const target = messagesContentRef.current;
     const scroller = mainRef.current;
     if (!target || !scroller || typeof ResizeObserver === 'undefined') return;
@@ -3784,20 +3771,13 @@ export function SessionDetailPage() {
       !isComposerLayoutTransitioning();
     const observer = new ResizeObserver(() => {
       if (!shouldFollowOnGrow()) return;
-      if (resizeFollowFrameRef.current != null) return;
-      resizeFollowFrameRef.current = requestAnimationFrame(() => {
-        resizeFollowFrameRef.current = null;
-        if (shouldFollowOnGrow()) scheduleAutoFollowToBottom('auto');
-      });
+      // 测高发生在绘制前；同步贴底，不能再排到下一帧暴露旧位置。
+      scrollMessagesToBottom('auto');
     });
     observer.observe(target);
     observer.observe(scroller);
     return () => {
       observer.disconnect();
-      if (resizeFollowFrameRef.current != null) {
-        cancelAnimationFrame(resizeFollowFrameRef.current);
-        resizeFollowFrameRef.current = null;
-      }
     };
   }, [autoFollow, autoFollowPaused, hasRecentUserScrollIntent]);
 

@@ -111,8 +111,8 @@ const int _scrollToBottomSettleStableFrameLimit = 4;
 const int _transcriptInitialRevealMaxFrameCount = 8;
 const int _transcriptInitialRevealMinimumFrameCount = 2;
 
-/// 首屏不再等待整窗富文本测高。占位符只覆盖列表挂载前的一两帧，
-/// 超时后立刻揭示；剩余高度收敛交给自动跟随与分帧补齐。
+/// 首屏至少完成初始布局再揭示；占位等待有时长和帧数上限，
+/// 延迟正文的尺寸变化在绘制前保持底部位置。
 const Duration _transcriptInitialRevealMaxDuration = Duration(
   milliseconds: 240,
 );

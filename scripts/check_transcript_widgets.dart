@@ -255,6 +255,7 @@ class _TranscriptProbe {
   late SettingsController settings;
   late StateSetter rebuild;
   int manualReveals = 0;
+  bool preserveViewportAfterUserScroll = true;
   VoidCallback? onLayoutChanged;
   _SessionTranscriptState get state => key.currentState!;
 
@@ -296,7 +297,7 @@ class _TranscriptProbe {
                   sendPhase: AiSendPhase.idle,
                   onLayoutChanged: () => onLayoutChanged?.call(),
                   onMessageExpansionChanged: (_) {},
-                  preserveViewportAfterUserScroll: true,
+                  preserveViewportAfterUserScroll: preserveViewportAfterUserScroll,
                   onRevealOlderMessages: () => manualReveals += 1,
                   onProgrammaticScrollCorrection: (correction) => correction(),
                   messageActions: _MessageActions(
@@ -920,6 +921,81 @@ void main() {
       expect(probe.controller.offset, pixels, reason: '首次定位完成后不得持续纠偏');
     });
   }
+
+  for (final hydrated in [false, true]) {
+    for (final animated in [false, true]) {
+      testWidgets('复杂正文首次可见的每一帧均贴底，动画=$animated，水合=$hydrated', (tester) async {
+        final original = _probeSession('首次可见', 12, mixed: true);
+        final probe = _TranscriptProbe(tester, original.copyWith(messages: [
+          ...original.messages.take(original.messages.length - 2),
+          original.messages[original.messages.length - 2].copyWith(content: List.filled(24,
+            '## 验证结果\n\n- **检查通过**：完整展示复杂正文。\n').join('\n')),
+          original.messages.last.copyWith(content: '最终回复'),
+        ]));
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          sleep(_transcriptInitialRevealMaxDuration + const Duration(milliseconds: 20));
+        });
+        probe.preserveViewportAfterUserScroll = false;
+        final loaded = probe.session;
+        if (hydrated) {
+          probe.session = _probeSession(loaded.id, 0).copyWith(
+            messageLoadState: AiSessionMessageLoadState.header,
+            messageTotalCount: loaded.messages.length,
+          );
+        }
+        await probe.mount(animated: animated, size: const Size(1100, 550));
+        if (hydrated) {
+          await probe.settle();
+          probe.update(loaded);
+        }
+        var visibleFrames = 0;
+        for (var frame = 0; frame < 120; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          final opacity = tester.renderObject<RenderAnimatedOpacity>(
+            find.ancestor(of: find.byKey(const ValueKey<String>('session-transcript-list')),
+              matching: find.byType(FadeTransition)).first);
+          if (opacity.opacity.value <= 0 ||
+              probe.controller.position.maxScrollExtent <=
+                  probe.controller.position.minScrollExtent + 1) continue;
+          visibleFrames++;
+          final tail = find.byKey(ValueKey<String>(
+            '$_kTranscriptEntryKeyPrefix${original.messages.last.id}'));
+          expect(tail, findsOneWidget);
+          expect(tester.getBottomLeft(tail).dy, closeTo(550 - 12, 1),
+            reason: '第 $frame 帧实际绘制的尾部必须贴底，不能靠下一帧跳转补救');
+        }
+        expect(visibleFrames, greaterThan(0));
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets('正文延迟增高在当前帧贴底，用户接管后停止布局修正', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('延迟增高', 12, mixed: true));
+    probe.preserveViewportAfterUserScroll = false;
+    await probe.mount(size: const Size(1100, 550));
+    await probe.settle();
+    final messages = probe.session.messages;
+    probe.update(probe.session.copyWith(messages: [
+      ...messages.take(messages.length - 1),
+      messages.last.copyWith(content: List.filled(8, '**延迟加载的正文**\n\n新增内容。').join('\n\n')),
+    ]));
+    final tail = find.byKey(ValueKey<String>(
+      '$_kTranscriptEntryKeyPrefix${messages.last.id}'));
+    for (var frame = 0; frame < 40; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.getBottomLeft(tail).dy, closeTo(550 - 12, 1),
+        reason: '正文增高后不能先绘制旧位置再追底');
+    }
+    probe.activity.value = true;
+    probe.controller.jumpTo(probe.controller.offset - 80);
+    final readingOffset = probe.controller.offset;
+    tester.view.physicalSize = const Size(1100, 450);
+    await tester.pump();
+    expect(probe.controller.offset, readingOffset,
+      reason: '用户阅读期间布局变化不能抢回底部');
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('慢首帧揭示后用户开始阅读，剩余定位帧不得抢占滚动', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('阅读保护', 30, mixed: true));
