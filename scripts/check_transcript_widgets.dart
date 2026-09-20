@@ -586,6 +586,42 @@ void main() {
     });
   }
 
+  for (final count in [3, 4, 8]) {
+    testWidgets('超屏会话滚回首条不留下顶部空白，消息数=$count', (tester) async {
+      final session = _probeSession('首条边界', count);
+      final probe = _TranscriptProbe(tester, session.copyWith(messages: [
+        for (final message in session.messages)
+          AiSessionMessage.user(
+            id: message.id,
+            createdAt: message.createdAt,
+            content: List.filled(5, '检查消息到达顶部时的实际位置。').join('\n'),
+          ),
+      ]));
+      await probe.mount(size: const Size(800, 500));
+      await probe.settle();
+      for (var page = 0; page < count && probe.state._windowStartIndex > 0; page++) {
+        final reveal = probe.state._revealOlderMessages();
+        await probe.settle();
+        await reveal;
+      }
+      expect(probe.state._windowStartIndex, 0);
+      for (final height in [500.0, 700.0, 400.0]) {
+        tester.view.physicalSize = Size(800, height);
+        await probe.settle();
+        probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+        await probe.settle();
+        expect(probe.state._viewportOffsetForMessage(session.messages.first.id),
+          closeTo(0, 1), reason: '滚动上界必须对应首条消息顶部，视口高度=$height');
+        final top = probe.controller.offset;
+        await tester.drag(find.byKey(const ValueKey<String>('session-transcript-list')),
+          const Offset(0, 240));
+        await probe.settle();
+        expect(probe.controller.offset, closeTo(top, 1),
+          reason: '到达首条后继续拖动不得滚入空白');
+      }
+    });
+  }
+
   testWidgets('缓存只有两条时自动加载历史并保留尾部', (tester) async {
     final full = _probeSession('缓存', 30);
     final probe = _TranscriptProbe(

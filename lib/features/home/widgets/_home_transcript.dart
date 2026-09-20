@@ -398,6 +398,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   final _listHistoryKey = GlobalKey();
   final _listCenterKey = GlobalKey();
   double _listAnchor = 1;
+  double? _listViewportDimension;
   bool _loadingOlderMessages = false;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
@@ -698,6 +699,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _selectedMessageId = null;
     _listCenterMessageId = null;
     _listAnchor = 1;
+    _listViewportDimension = null;
     _highlightedMessageId = null;
     _targetHighlightTimer?.cancel();
     _targetHighlightTimer = null;
@@ -855,14 +857,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       final centerExtent = center!.geometry!.scrollExtent;
       final contentExtent = historyExtent + centerExtent;
       final underfilled = contentExtent < position.viewportDimension;
-      // 没有前置历史时使用普通单向列表，锚点固定为零，避免短会话产生
-      // 负向滚动范围；存在历史段时才按内容高度调整双向列表锚点。
-      final hasPrecedingContent = historyExtent > precisionErrorTolerance;
-      final anchor = !hasPrecedingContent
-          ? 0.0
-          : underfilled
-          ? historyExtent / position.viewportDimension
-          : 1.0;
+      final previousViewportDimension =
+          _listViewportDimension ?? position.viewportDimension;
+      _listViewportDimension = position.viewportDimension;
+      // 锚点前方只能预留历史实际占用的高度；即使总内容超屏，前置历史
+      // 不足一屏时也不能使用底部锚点，否则滚到首条上方仍会留下空白。
+      final anchor = (historyExtent / position.viewportDimension).clamp(
+        0.0,
+        1.0,
+      );
       if ((_listAnchor - anchor).abs() > precisionErrorTolerance) {
         final correction = (anchor - _listAnchor) * position.viewportDimension;
         final nextMin = math.min(
@@ -874,10 +877,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           centerExtent - (1 - anchor) * position.viewportDimension,
         );
         // 锚点变动只重定基准，避免旧滚动坐标把长记录推离当前视口。
-        final nextPixels = (position.pixels + correction).clamp(
-          nextMin,
-          nextMax,
-        );
+        // 缩放视口会先改变尾部范围，判断是否贴底须扣除这部分尺寸变化。
+        final viewportExtentChange =
+            (previousViewportDimension - position.viewportDimension) *
+            (1 - _listAnchor);
+        final keepAtBottom =
+            position.extentAfter - viewportExtentChange <=
+                _scrollToBottomSettleTolerance &&
+            !_isTranscriptScrollActive(context) &&
+            !position.isScrollingNotifier.value;
+        final nextPixels = keepAtBottom
+            ? nextMax
+            : (position.pixels + correction).clamp(nextMin, nextMax);
         position.correctPixels(nextPixels);
         setState(() => _listAnchor = anchor);
         _scheduleViewportFill();
