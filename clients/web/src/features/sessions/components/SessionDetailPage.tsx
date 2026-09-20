@@ -2990,6 +2990,7 @@ export function SessionDetailPage() {
     const el = mainRef.current;
     if (!el) return;
     const bottomTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (el.scrollTop < -0.5 || el.scrollTop > bottomTop + 0.5) return;
     if (Math.abs(el.scrollTop - bottomTop) > 0.5) {
       el.scrollTop = bottomTop;
     }

@@ -49,6 +49,15 @@ class _TranscriptScrollPhysics extends ClampingScrollPhysics {
     required bool isScrolling,
     required double velocity,
   }) {
+    // 惯性滚动或越界回弹尚未收敛时不要强行贴底，否则会与弹道互抢造成两端抽搐。
+    if (isScrolling || velocity.abs() > precisionErrorTolerance) {
+      return super.adjustPositionForNewDimensions(
+        oldPosition: oldPosition,
+        newPosition: newPosition,
+        isScrolling: isScrolling,
+        velocity: velocity,
+      );
+    }
     if (shouldAnchorBottom(oldPosition)) return newPosition.maxScrollExtent;
     return super.adjustPositionForNewDimensions(
       oldPosition: oldPosition,
@@ -795,7 +804,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         }
       }
       final windowChanged = previousWindowStartIndex != _windowStartIndex;
-      if (oldWidget.session.messageLoadState == AiSessionMessageLoadState.header &&
+      if (oldWidget.session.messageLoadState ==
+              AiSessionMessageLoadState.header &&
           previousDisplayMessages.isEmpty &&
           nextDisplayMessages.isNotEmpty) {
         _initialRevealPhase = _TranscriptInitialRevealPhase.preparing;
@@ -959,6 +969,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _scheduleViewportFill();
   }
 
+  bool _isTranscriptViewportMotionActive(ScrollPosition position) {
+    return position.outOfRange ||
+        _isTranscriptScrollActive(context) ||
+        (position.isScrollingNotifier.value &&
+            position.userScrollDirection != ScrollDirection.idle);
+  }
+
   void _scheduleViewportFill() {
     if (!mounted || _viewportFillQueued) return;
     _viewportFillQueued = true;
@@ -969,9 +986,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (!position.hasContentDimensions || position.viewportDimension <= 0) {
         return;
       }
-      if (_isTranscriptScrollActive(context) ||
-          (position.isScrollingNotifier.value &&
-              position.userScrollDirection != ScrollDirection.idle)) {
+      if (_isTranscriptViewportMotionActive(position)) {
         return;
       }
       final history =
@@ -2418,10 +2433,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _TranscriptViewportAnchor anchor,
   ) {
     if (!widget.controller.hasClients ||
-        _isTranscriptScrollActive(context) ||
-        (widget.controller.position.isScrollingNotifier.value &&
-            widget.controller.position.userScrollDirection !=
-                ScrollDirection.idle)) {
+        _isTranscriptViewportMotionActive(widget.controller.position)) {
       return _AnchorRestoreOutcome.unmeasurable;
     }
     final currentOffset = _viewportOffsetForMessage(anchor.messageId);
@@ -2474,9 +2486,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       }
       if (_isTranscriptScrollActive(context) ||
           (widget.controller.hasClients &&
-              widget.controller.position.isScrollingNotifier.value &&
-              widget.controller.position.userScrollDirection !=
-                  ScrollDirection.idle)) {
+              _isTranscriptViewportMotionActive(widget.controller.position))) {
         _cancelPendingViewportRestore();
         return;
       }

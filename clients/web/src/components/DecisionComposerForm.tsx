@@ -28,14 +28,11 @@ function DecisionTypeIcon({ type }: { type: DecisionType }) {
 }
 
 export function DecisionTypeSwitch({ value, disabled = false, onChange }: { value: DecisionType; disabled?: boolean; onChange: (type: DecisionType) => void }) {
-  return <div class="oh-decision-type-block">
-    <span class="oh-decision-field-label">{t('decision.field.type', '决策类型')}</span>
-    <div class="oh-decision-type-group" role="group" aria-label={t('decision.field.type', '决策类型')}>
-      {DECISION_TYPES.map((type) => <button type="button" class="oh-decision-type" data-type={type} aria-pressed={value === type} disabled={disabled} onClick={() => onChange(type)}>
-        <DecisionTypeIcon type={type} />
-        {t(`decision.type.${type}`, type === 'noul' ? '判断' : type === 'choice' ? '选择' : '评分')}
-      </button>)}
-    </div>
+  return <div class="oh-decision-type-group" role="group" aria-label={t('decision.field.type', '决策类型')}>
+    {DECISION_TYPES.map((type) => <button type="button" class="oh-decision-type" data-type={type} aria-pressed={value === type} disabled={disabled} onClick={() => onChange(type)}>
+      <DecisionTypeIcon type={type} />
+      {t(`decision.type.${type}`, type === 'noul' ? '判断' : type === 'choice' ? '选择' : '评分')}
+    </button>)}
   </div>;
 }
 

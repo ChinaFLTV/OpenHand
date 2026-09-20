@@ -2487,6 +2487,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   ),
                   child: SingleChildScrollView(
                     primary: false,
+                    physics: kOpenHandClampingPhysics,
+                    clipBehavior: Clip.hardEdge,
                     child: expandedContent,
                   ),
                 ),
@@ -2533,6 +2535,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 child: SingleChildScrollView(
                   primary: false,
                   reverse: true,
+                  physics: kOpenHandClampingPhysics,
                   child: actionRow,
                 ),
               ),
@@ -2925,6 +2928,10 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
                                           style: IconButton.styleFrom(
                                             tapTargetSize: MaterialTapTargetSize
                                                 .shrinkWrap,
+                                            shape: const RoundedRectangleBorder(
+                                              borderRadius:
+                                                  kOpenHandDecisionRowActionRadius,
+                                            ),
                                             backgroundColor: typeFill,
                                             foregroundColor: typeOnFill,
                                             disabledBackgroundColor: typeFill
@@ -2953,6 +2960,10 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
                                           style: IconButton.styleFrom(
                                             tapTargetSize: MaterialTapTargetSize
                                                 .shrinkWrap,
+                                            shape: const RoundedRectangleBorder(
+                                              borderRadius:
+                                                  kOpenHandDecisionRowActionRadius,
+                                            ),
                                             backgroundColor: typeFill,
                                             foregroundColor: typeOnFill,
                                             disabledBackgroundColor: typeFill

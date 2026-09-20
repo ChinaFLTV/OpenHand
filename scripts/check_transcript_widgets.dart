@@ -1904,6 +1904,67 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test('会话惯性滚动时贴底修正不得改写弹道位置', () {
+    final physics = _TranscriptScrollPhysics(
+      shouldAnchorBottom: (_) => true,
+      parent: const AlwaysScrollableScrollPhysics(),
+    );
+    ScrollMetrics metrics({
+      required double pixels,
+      required double max,
+    }) => FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: max,
+      pixels: pixels,
+      viewportDimension: 200,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+    final resting = metrics(pixels: 350, max: 400);
+    final grown = metrics(pixels: 350, max: 420);
+    expect(
+      physics.adjustPositionForNewDimensions(
+        oldPosition: resting,
+        newPosition: grown,
+        isScrolling: true,
+        velocity: 1200,
+      ),
+      350,
+    );
+    expect(
+      physics.adjustPositionForNewDimensions(
+        oldPosition: resting,
+        newPosition: grown,
+        isScrolling: false,
+        velocity: 0,
+      ),
+      420,
+    );
+    expect(
+      physics.adjustPositionForNewDimensions(
+        oldPosition: metrics(pixels: 424, max: 400),
+        newPosition: metrics(pixels: 424, max: 400),
+        isScrolling: true,
+        velocity: 800,
+      ),
+      424,
+    );
+  });
+
+  testWidgets('应用滚动行为在两端使用夹紧物理', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        scrollBehavior: const OpenHandImplicitScrollbarBehavior(),
+        home: const SizedBox(),
+      ),
+    );
+    final context = tester.element(find.byType(SizedBox));
+    expect(
+      ScrollConfiguration.of(context).getScrollPhysics(context),
+      isA<ClampingScrollPhysics>(),
+    );
+  });
+
   testWidgets('工作区空状态在极小高度下不产生负约束', (tester) async {
     tester.view.physicalSize = const Size(800, 16);
     tester.view.devicePixelRatio = 1;

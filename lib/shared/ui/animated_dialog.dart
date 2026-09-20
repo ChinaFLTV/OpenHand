@@ -177,7 +177,7 @@ bool openHandDialogScrollScopeOf(BuildContext context) {
 
 ScrollPhysics openHandDialogAwareScrollPhysics(
   BuildContext context, {
-  ScrollPhysics fallback = const BouncingScrollPhysics(),
+  ScrollPhysics fallback = kOpenHandClampingPhysics,
 }) {
   return openHandDialogScrollScopeOf(context)
       ? kOpenHandDialogScrollPhysics

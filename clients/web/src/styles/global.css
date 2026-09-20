@@ -5718,7 +5718,8 @@ button.oh-message-context-capsule {
   min-width: 0;
   overflow-anchor: none;
   scroll-behavior: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
@@ -6367,7 +6368,10 @@ button.oh-message-context-capsule {
   will-change: max-height, opacity, transform;
 }
 .oh-composer-body[data-collapsed='false'] {
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
 }
 .oh-composer-body[data-collapsed='true'] {
   max-height: 0;
@@ -8110,7 +8114,8 @@ button.oh-composer-pill:not(:disabled):hover {
     padding: 13px !important;
     max-height: min(56dvh, 480px);
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: auto;
   }
 }
 
@@ -11862,7 +11867,6 @@ button.oh-json-tree-row { cursor: pointer; }
 }
 .oh-decision-composer.is-choice .oh-decision-field-label { color: var(--m3-tertiary); }
 .oh-decision-composer.is-score .oh-decision-field-label { color: var(--m3-secondary); }
-.oh-decision-type-block { display: flex; flex-direction: column; gap: 6px; }
 .oh-decision-type-group {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -11942,7 +11946,7 @@ button.oh-json-tree-row { cursor: pointer; }
 .oh-decision-reorder button {
   min-height: 24px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 14px;
   color: var(--m3-on-primary-container);
   background: var(--m3-primary-container);
   line-height: 1;
