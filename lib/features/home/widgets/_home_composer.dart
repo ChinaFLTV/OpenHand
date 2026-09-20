@@ -263,6 +263,7 @@ class _ComposerPanel extends StatefulWidget {
 }
 
 class _ComposerPanelState extends State<_ComposerPanel> {
+  final _contentViewportKey = GlobalKey();
   final LayerLink _atMentionLayerLink = LayerLink();
   final LayerLink _skillPickerLayerLink = LayerLink();
   final GlobalKey _atMentionAnchorKey = GlobalKey();
@@ -1465,6 +1466,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final isResponding = widget.sendPhase == AiSendPhase.responding;
     final isBusy = widget.sendPhase != AiSendPhase.idle;
     final settings = context.watch<SettingsController>();
+    final panelMotion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.panel,
+    );
     final voiceAvailability = _composerVoiceAvailability(
       context,
       settings.offlineSpeechSettings,
@@ -1854,69 +1859,62 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
           kOpenHandGap12,
         ],
-        AnimatedSize(
-          duration: openHandMotionDuration(context, kOpenHandMotion260),
-          curve: kOpenHandEmphasizedCurve,
-          child: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion220),
-            reverseDuration: openHandMotionDuration(
-              context,
-              kOpenHandMotion180,
-            ),
-            switchInCurve: kOpenHandEntranceCurve,
-            switchOutCurve: kOpenHandSwitchOutCurve,
-            layoutBuilder: (currentChild, previousChildren) =>
-                buildCollisionSafeAnimatedSwitcherLayout(
-                  currentChild,
-                  previousChildren,
-                  alignment: Alignment.topCenter,
-                  sizeToCurrentChild: true,
-                ),
-            child: voiceActive
-                ? _VoiceTeleprompter(
-                    key: const ValueKey<String>('composer-input-voice'),
-                    snapshot: voiceSnapshot,
-                    onForceSend: widget.voiceConversationService.forceSend,
-                  )
-                : _isDecisionModel
-                ? const SizedBox.shrink()
-                : SizedBox(
-                    key: const ValueKey<String>('composer-input-text'),
-                    height: widget.composerHeight,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CompositedTransformTarget(
-                          key: _atMentionAnchorKey,
-                          link: _atMentionLayerLink,
-                          child: const SizedBox.expand(),
-                        ),
-                        CompositedTransformTarget(
-                          key: _skillPickerAnchorKey,
-                          link: _skillPickerLayerLink,
-                          child: const SizedBox.expand(),
-                        ),
-                        // 在输入框层拦截全局快捷键，避免 macOS 文本编辑快捷键抢占 Ctrl+P。
-                        _ComposerShortcutsHost(
-                          bindings: context
-                              .watch<SettingsController>()
-                              .shortcutBindings,
-                          child: TextField(
-                            controller: widget.controller,
-                            focusNode: widget.focusNode,
-                            expands: true,
-                            maxLines: null,
-                            textInputAction: TextInputAction.newline,
-                            textAlignVertical: TextAlignVertical.top,
-                            decoration: InputDecoration(
-                              hintText: l10n.composerHint,
-                            ),
+        AnimatedSwitcher(
+          duration: panelMotion.entranceDuration,
+          reverseDuration: panelMotion.exitDuration,
+          switchInCurve: kOpenHandEntranceCurve,
+          switchOutCurve: kOpenHandSwitchOutCurve,
+          layoutBuilder: (currentChild, previousChildren) =>
+              buildCollisionSafeAnimatedSwitcherLayout(
+                currentChild,
+                previousChildren,
+                alignment: Alignment.topCenter,
+                sizeToCurrentChild: true,
+              ),
+          child: voiceActive
+              ? _VoiceTeleprompter(
+                  key: const ValueKey<String>('composer-input-voice'),
+                  snapshot: voiceSnapshot,
+                  onForceSend: widget.voiceConversationService.forceSend,
+                )
+              : _isDecisionModel
+              ? const SizedBox.shrink()
+              : SizedBox(
+                  key: const ValueKey<String>('composer-input-text'),
+                  height: widget.composerHeight,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CompositedTransformTarget(
+                        key: _atMentionAnchorKey,
+                        link: _atMentionLayerLink,
+                        child: const SizedBox.expand(),
+                      ),
+                      CompositedTransformTarget(
+                        key: _skillPickerAnchorKey,
+                        link: _skillPickerLayerLink,
+                        child: const SizedBox.expand(),
+                      ),
+                      // 在输入框层拦截全局快捷键，避免 macOS 文本编辑快捷键抢占 Ctrl+P。
+                      _ComposerShortcutsHost(
+                        bindings: context
+                            .watch<SettingsController>()
+                            .shortcutBindings,
+                        child: TextField(
+                          controller: widget.controller,
+                          focusNode: widget.focusNode,
+                          expands: true,
+                          maxLines: null,
+                          textInputAction: TextInputAction.newline,
+                          textAlignVertical: TextAlignVertical.top,
+                          decoration: InputDecoration(
+                            hintText: l10n.composerHint,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-          ),
+                ),
         ),
       ],
     );
@@ -2456,11 +2454,46 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       ],
     );
 
+    final resizeDuration = effectiveCollapsed
+        ? panelMotion.exitDuration
+        : panelMotion.entranceDuration;
+    final contentViewport = Align(
+      key: _contentViewportKey,
+      alignment: Alignment.topCenter,
+      heightFactor: effectiveCollapsed ? 0 : 1,
+      child: IgnorePointer(
+        ignoring: effectiveCollapsed,
+        child: ExcludeFocus(
+          excluding: effectiveCollapsed,
+          child: ExcludeSemantics(
+            excluding: effectiveCollapsed,
+            child: AnimatedOpacity(
+              duration: resizeDuration,
+              curve: OpenHandBoundedCurve(panelMotion.curve.curve),
+              opacity: effectiveCollapsed ? 0 : 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxHeight: _composerMaxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: _composerPanelVerticalInset,
+                  ),
+                  child: SingleChildScrollView(
+                    primary: false,
+                    child: expandedContent,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
     return Card(
       color: colorScheme.surfaceContainerHigh,
-      child: AnimatedContainer(
-        duration: openHandMotionDuration(context, kOpenHandMotion260),
-        curve: kOpenHandEmphasizedCurve,
+      child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: 18,
           vertical: _composerPanelVerticalInset,
@@ -2471,31 +2504,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Flexible(
-                child: OpenHandCollapsibleFade(
-                  collapsed: effectiveCollapsed,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxHeight: _composerMaxHeight,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: _composerPanelVerticalInset,
+                // 对可见视口统一变高，避免长内容滚动高度与外框动画相互追赶。
+                child: resizeDuration == Duration.zero
+                    ? ClipRect(child: contentViewport)
+                    : AnimatedSize(
+                        duration: resizeDuration,
+                        curve: OpenHandBoundedCurve(panelMotion.curve.curve),
+                        alignment: Alignment.topCenter,
+                        child: contentViewport,
                       ),
-                      child: SingleChildScrollView(
-                        primary: false,
-                        child: AnimatedSize(
-                          duration: openHandMotionDuration(
-                            context,
-                            kOpenHandMotion220,
-                          ),
-                          curve: kOpenHandEmphasizedCurve,
-                          alignment: Alignment.topCenter,
-                          child: expandedContent,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               ),
               // 窗口小于按钮本身时允许操作栏滚动，其余情况下始终完整显示。
               ConstrainedBox(

@@ -54,8 +54,11 @@ class _ProbeWebView extends iaw.PlatformInAppWebViewWidget {
 }
 
 class _ProbeSettingsStore extends SettingsStore {
-  _ProbeSettingsStore(this.animated);
+  _ProbeSettingsStore(this.animated, {this.writable = false});
   final bool animated;
+  final bool writable;
+  @override
+  Future<void> save(AppSettingsSnapshot snapshot) async {}
   @override
   Future<SettingsLoadResult> load() async => SettingsLoadResult(
     snapshot: AppSettingsSnapshot.defaults().copyWith(
@@ -64,7 +67,7 @@ class _ProbeSettingsStore extends SettingsStore {
           : OpenHandMotionDefaults.disabled,
       showSelfLearningMessages: false,
     ),
-    canPersist: false,
+    canPersist: writable,
   );
 }
 
@@ -1102,7 +1105,7 @@ void main() {
     final instructions = _ProbeInstructions();
     final voice = _ProbeVoice();
     final tts = _ProbeTts();
-    final settings = await SettingsController.create(store: _ProbeSettingsStore(true));
+    final settings = await SettingsController.create(store: _ProbeSettingsStore(true, writable: true));
     addTearDown(() {
       controller.dispose();
       scroll.dispose();
@@ -1119,6 +1122,7 @@ void main() {
     var collapsed = false;
     var sendCount = 0;
     var textScale = 1.0;
+    var reduceMotion = false;
     final theme = OpenHandTheme.light(settings.themePreset).copyWith(platform: TargetPlatform.macOS);
     late StateSetter rebuild;
     tester.view.physicalSize = const Size(1068, 738);
@@ -1139,7 +1143,7 @@ void main() {
           home: RepaintBoundary(key: captureKey, child: Scaffold(body: StatefulBuilder(builder: (context, setState) {
             rebuild = setState;
             return MediaQuery(
-              data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
+              data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale), disableAnimations: reduceMotion),
               child: _WorkspaceView(
               draftController: controller,
               messageScrollController: scroll,
@@ -1240,11 +1244,23 @@ void main() {
     for (final mode in ['判断', '选择', '评分']) {
       formScrollable.position.jumpTo(0);
       await tester.pumpAndSettle();
+      final before = tester.getSize(find.byType(_ComposerPanel)).height;
+      final actionBottom = tester.getRect(find.widgetWithText(FilledButton, '发送')).bottom;
       await tester.tap(find.text(mode));
       await tester.pump();
+      expect(tester.getSize(find.byType(_ComposerPanel)).height, closeTo(before, 1),
+        reason: '模式切换首帧不能跳到目标高度');
       await tester.pump(const Duration(milliseconds: 100));
+      final intermediate = tester.getSize(find.byType(_ComposerPanel)).height;
       expectActionsVisible();
+      await capture('motion-${mode == '判断' ? 'judge' : mode == '选择' ? 'choice' : 'score'}-100ms');
+      expect(tester.getRect(find.widgetWithText(FilledButton, '发送')).bottom, closeTo(actionBottom, 1));
       await tester.pumpAndSettle();
+      final after = tester.getSize(find.byType(_ComposerPanel)).height;
+      if ((before - after).abs() > 1) {
+        expect(intermediate, greaterThan(math.min(before, after)));
+        expect(intermediate, lessThan(math.max(before, after)), reason: '长表单收缩不能在高度上限停顿');
+      }
       expect(tester.takeException(), isNull);
       expectActionsVisible();
       await capture('mode-${mode == '判断' ? 'judge' : mode == '选择' ? 'choice' : 'score'}');
@@ -1260,10 +1276,45 @@ void main() {
     tester.view.physicalSize = const Size(1068, 738);
     rebuild(() => textScale = 1);
     await tester.pumpAndSettle();
+    final expandedHeight = tester.getSize(find.byType(_ComposerPanel)).height;
     rebuild(() => collapsed = true);
     await tester.pump();
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, closeTo(expandedHeight, 1));
     await tester.pump(const Duration(milliseconds: 100));
     expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, lessThan(expandedHeight));
+    // 动画中反向展开，从当前高度接续，不能闪回起点。
+    final interruptedHeight = tester.getSize(find.byType(_ComposerPanel)).height;
+    rebuild(() => collapsed = false);
+    await tester.pump();
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, closeTo(interruptedHeight, 1));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, closeTo(expandedHeight, 1));
+    // 面板设置关闭或系统减少动画时，无需推进动画时间即可完成布局。
+    final formBeforeSettings = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
+    final draftBeforeSettings = controller.text;
+    formScrollable.position.jumpTo(80);
+    await tester.pumpAndSettle();
+    final scrollBeforeSettings = formScrollable.position.pixels;
+    expect(await settings.updatePanelAnimationSettings(OpenHandMotionDefaults.disabled), isTrue);
+    await tester.pumpAndSettle();
+    expect(tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm)), same(formBeforeSettings));
+    expect(controller.text, draftBeforeSettings);
+    expect(formScrollable.position.pixels, closeTo(scrollBeforeSettings, 1));
+    rebuild(() => collapsed = true);
+    await tester.pump();
+    await tester.pump();
+    final collapsedHeight = tester.getSize(find.byType(_ComposerPanel)).height;
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, collapsedHeight);
+    expect(collapsedHeight, lessThan(expandedHeight));
+    expect(await settings.updatePanelAnimationSettings(OpenHandMotionDefaults.panel), isTrue);
+    rebuild(() { reduceMotion = true; collapsed = false; });
+    await tester.pump();
+    await tester.pump();
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, closeTo(expandedHeight, 1));
+    await tester.pumpAndSettle();
+    rebuild(() => reduceMotion = false);
     await tester.pumpAndSettle();
     rebuild(() { collapsed = false; modelId = 'gpt-4o'; });
     await tester.pumpAndSettle();
@@ -1271,6 +1322,43 @@ void main() {
     expect(find.byType(_DecisionComposerForm), findsNothing);
     expect(find.byWidgetPredicate((widget) => widget is TextField && widget.controller == controller), findsOneWidget);
     expectActionsVisible();
+    rebuild(() => modelId = 'jev-latest');
+    await tester.pumpAndSettle();
+    final form = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
+    final judgeHeight = tester.getSize(find.byType(_ComposerPanel)).height;
+    await tester.tap(find.text('选择'));
+    await tester.pump();
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, closeTo(judgeHeight, 1));
+    await tester.pump(const Duration(milliseconds: 100));
+    final growingHeight = tester.getSize(find.byType(_ComposerPanel)).height;
+    await tester.pumpAndSettle();
+    final choiceHeight = tester.getSize(find.byType(_ComposerPanel)).height;
+    expect(growingHeight, inExclusiveRange(judgeHeight, choiceHeight));
+    // 连续增删候选项时保持当前视口尺寸连续，收敛后不遗留动画任务。
+    form._addCriteria();
+    await tester.pump();
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, closeTo(choiceHeight, 1));
+    await tester.pump(const Duration(milliseconds: 80));
+    final addingHeight = tester.getSize(find.byType(_ComposerPanel)).height;
+    form._removeCriteria(1);
+    await tester.pump();
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, closeTo(addingHeight, 1));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(_ComposerPanel)).height, closeTo(choiceHeight, 1));
+    expectActionsVisible();
+    expect(await settings.updatePanelAnimationSettings(const DialogAnimationSettings(
+      durationMs: 400, curve: DialogAnimationCurve.elasticOut,
+    )), isTrue);
+    await tester.pumpAndSettle();
+    for (final value in [true, false]) {
+      rebuild(() => collapsed = value);
+      await tester.pump();
+      for (var frame = 0; frame < 26; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.takeException(), isNull);
+        expectActionsVisible();
+      }
+    }
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
