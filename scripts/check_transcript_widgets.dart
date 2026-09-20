@@ -1084,6 +1084,40 @@ void main() {
     expect(probe.state._renderEntries.last.id, '新回复');
   });
 
+  testWidgets('内嵌决策类型更新默认问题并同步草稿，自定义问题保持不变', (tester) async {
+    final controller = TextEditingController(text: '待评估内容');
+    addTearDown(controller.dispose);
+    tester.view.physicalSize = const Size(1000, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _DecisionComposerForm(controller: controller, enabled: true))));
+    final form = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
+    for (final custom in [false, true]) {
+      if (custom) form._question.text = '应由哪个团队处理？';
+      for (final entry in {'choice': '选择', 'score': '评分', 'noul': '判断'}.entries) {
+        await tester.tap(find.text(entry.value));
+        await tester.pumpAndSettle();
+        for (var i = 0; i < form._criteria.length; i++) {
+          form._criteria[i].text = '等级 $i';
+        }
+        final expected = custom ? '应由哪个团队处理？' : DecisionPayload.defaultQuestions[entry.key];
+        expect(form._question.text, expected);
+        final request = DecisionPayload.request(controller.text);
+        final question = (request['questions'] as Map).values.single as Map;
+        expect(question['type'], entry.key);
+        expect(question['instructions'], expected);
+      }
+    }
+    form._question.clear();
+    await tester.tap(find.text('判断'));
+    await tester.pumpAndSettle();
+    expect(form._question.text, '', reason: '重复点击当前类型不改写编辑内容');
+    await tester.tap(find.text('选择'));
+    await tester.pumpAndSettle();
+    expect(form._question.text, DecisionPayload.defaultQuestions['choice']);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('工作区空状态在极小高度下不产生负约束', (tester) async {
     tester.view.physicalSize = const Size(800, 16);
     tester.view.devicePixelRatio = 1;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { DECISION_REQUEST, decisionDraft, initialDecisionDraft, type DecisionType } from '../shared/util/decision';
+import { DECISION_REQUEST, decisionDraft, decisionQuestionForType, initialDecisionDraft, type DecisionType } from '../shared/util/decision';
 
 type Props = { initialText: string; disabled?: boolean; onChange: (text: string) => void };
 
@@ -33,7 +33,9 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
   }, [state, question, type, criteria, onChange]);
 
   const updateType = (next: DecisionType) => {
+    if (next === type) return;
     setType(next);
+    setQuestion((current) => decisionQuestionForType(next, current));
     setCriteria((items) => next === 'noul' ? [] : items.length ? items : next === 'score' ? ['', ''] : ['']);
   };
   const updateCriteria = (index: number, value: string) => setCriteria((items) => items.map((item, i) => i === index ? value : item));

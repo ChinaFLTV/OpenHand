@@ -165,7 +165,20 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
                       ChoiceChip(
                         label: Text(entry.value),
                         selected: _type == entry.key,
-                        onSelected: (_) => setState(() => _type = entry.key),
+                        onSelected: (_) {
+                          if (_type == entry.key) return;
+                          final question = DecisionPayload.questionForType(
+                            entry.key,
+                            current: _question.text,
+                          );
+                          setState(() {
+                            _type = entry.key;
+                            if (_question.text != question) {
+                              _question.text = question;
+                            }
+                            _error = null;
+                          });
+                        },
                       ),
                   ],
                 ),

@@ -35,6 +35,35 @@ const response = {'model': 'jev-1.13.0', 'answers': {'判断': {'type': 'noul', 
 List<AiChatTurn> turns() => [const AiChatTurn(role: AiChatRole.system, content: '不得发送的系统提示词'), AiChatTurn(role: AiChatRole.user, content: DecisionPayload.encode(DecisionPayload.requestLanguage, {'state': '待判断内容', 'questions': question}))];
 
 void main() {
+  test('三类默认问题按类型更新，自定义问题保留', () {
+    expect(DecisionPayload.defaultQuestions.values.toSet(), hasLength(3));
+    for (final type in DecisionPayload.defaultQuestions.keys) {
+      final expected = DecisionPayload.defaultQuestions[type];
+      for (final current in ['', '  ', ...DecisionPayload.defaultQuestions.values]) {
+        expect(DecisionPayload.questionForType(type, current: current), expected);
+      }
+      expect(DecisionPayload.questionForType(type, current: '  该请求是否需要人工处理？  '), '  该请求是否需要人工处理？  ');
+    }
+  });
+  testWidgets('决策弹窗切换类型同步默认问题且不覆盖自定义内容', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) => TextButton(
+      onPressed: () => showDecisionRequestDialog(context, '待评估内容'), child: const Text('打开'),
+    ))));
+    await tester.tap(find.text('打开'));
+    await tester.pumpAndSettle();
+    final questionField = find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.labelText == '需要模型回答的问题');
+    for (final entry in {'choice': '选择', 'score': '评分', 'noul': '判断'}.entries) {
+      await tester.tap(find.widgetWithText(ChoiceChip, entry.value));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(questionField).controller!.text, DecisionPayload.defaultQuestions[entry.key]);
+    }
+    await tester.enterText(questionField, '哪个团队负责售后？');
+    await tester.tap(find.widgetWithText(ChoiceChip, '选择'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(questionField).controller!.text, '哪个团队负责售后？');
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+  });
   test('原生、网关与完整接口地址正确归一化', () {
     const router = AiEndpointRouter();
     for (final base in ['https://api.typesafe.ai', 'https://api.typesafe.ai/v1', 'https://api.typesafe.ai/v1/systemone']) {

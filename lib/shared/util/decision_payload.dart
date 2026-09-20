@@ -7,6 +7,19 @@ abstract final class DecisionPayload {
   static const maxCharacters = 1024 * 1024;
   static const maxQuestions = 128;
   static const defaultQuestion = '根据所给信息，这段陈述是否成立？';
+  static const defaultQuestions = {
+    'noul': defaultQuestion,
+    'choice': '根据所给信息，哪个候选项最符合？',
+    'score': '依据从低到高排列的等级，对所给内容评分。',
+  };
+
+  /// 仅替换空问题或内置默认文案，保留用户自定义问题。
+  static String questionForType(String type, {String current = ''}) {
+    final text = current.trim();
+    return text.isEmpty || defaultQuestions.containsValue(text)
+        ? defaultQuestions[type]!
+        : current;
+  }
 
   static String encode(String language, Map<String, Object?> data) =>
       '```$language\n${jsonEncode(data).replaceAll('`', r'\u0060')}\n```';

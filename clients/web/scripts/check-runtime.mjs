@@ -24,6 +24,17 @@ function deferred() {
 }
 
 try {
+  const { DEFAULT_DECISION_QUESTIONS, decisionQuestionForType, decisionDraft, initialDecisionDraft } = await server.ssrLoadModule('/src/shared/util/decision.ts');
+  assert.equal(new Set(Object.values(DEFAULT_DECISION_QUESTIONS)).size, 3);
+  for (const type of Object.keys(DEFAULT_DECISION_QUESTIONS)) {
+    for (const current of ['', '  ', ...Object.values(DEFAULT_DECISION_QUESTIONS)]) {
+      assert.equal(decisionQuestionForType(type, current), DEFAULT_DECISION_QUESTIONS[type]);
+    }
+    const custom = '  哪个团队负责售后？  ';
+    assert.equal(decisionQuestionForType(type, custom), custom);
+    const draft = decisionDraft('待评估内容', decisionQuestionForType(type), type, '低\n高');
+    assert.equal(initialDecisionDraft(draft).question, DEFAULT_DECISION_QUESTIONS[type]);
+  }
   const { buildHeightPrefix, resolveVirtualMessageRange } = await server.ssrLoadModule('/src/shared/util/virtual_message_list_math.ts');
   const shortHeights = Array(1000).fill(44);
   const shortPrefix = buildHeightPrefix(shortHeights);

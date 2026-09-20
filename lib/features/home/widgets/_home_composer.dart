@@ -2580,10 +2580,10 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
       _state.text = request['state'] is String
           ? request['state'] as String
           : '';
+      _type = question['type'] as String? ?? 'noul';
       _question.text = question['instructions'] is String
           ? question['instructions'] as String
-          : DecisionPayload.defaultQuestion;
-      _type = question['type'] as String? ?? 'noul';
+          : DecisionPayload.questionForType(_type);
       final criteria = question['criteria'];
       final values = criteria is Map
           ? criteria.keys.whereType<String>().toList()
@@ -2642,8 +2642,14 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
   }
 
   void _setType(String type) {
+    if (type == _type) return;
+    final question = DecisionPayload.questionForType(
+      type,
+      current: _question.text,
+    );
     setState(() {
       _type = type;
+      if (_question.text != question) _question.text = question;
     });
     if (_type != 'noul' && _criteria.isEmpty) _addCriteria();
     if (_type == 'score' && _criteria.length == 1) _addCriteria();

@@ -3,6 +3,16 @@ export const DECISION_RESULT = 'openhand-decision';
 export const DECISION_MAX_CHARACTERS = 1024 * 1024;
 export const DEFAULT_DECISION_QUESTION = '根据所给信息，这段陈述是否成立？';
 export type DecisionType = 'noul' | 'choice' | 'score';
+export const DEFAULT_DECISION_QUESTIONS: Readonly<Record<DecisionType, string>> = {
+  noul: DEFAULT_DECISION_QUESTION,
+  choice: '根据所给信息，哪个候选项最符合？',
+  score: '依据从低到高排列的等级，对所给内容评分。',
+};
+export function decisionQuestionForType(type: DecisionType, current = ''): string {
+  const text = current.trim();
+  return !text || Object.values(DEFAULT_DECISION_QUESTIONS).includes(text)
+    ? DEFAULT_DECISION_QUESTIONS[type] : current;
+}
 export interface DecisionQuestion { type: DecisionType; instructions: unknown; criteria?: unknown }
 export interface DecisionAnswer { type: DecisionType; noul?: number; choice?: string; score?: number; confidence?: number; probabilities?: Record<string, number>; legend?: Record<string, string> }
 export interface DecisionResult { model?: string; answers: Record<string, DecisionAnswer>; questions: Record<string, DecisionQuestion> }
