@@ -21,24 +21,6 @@ final class DecisionCopy {
     String? ja,
   }) => _t(zh: zh, en: en, zhHant: zhHant, fr: fr, de: de, ja: ja);
 
-  String get resultTitle => _m(
-    zh: '决策结果',
-    zhHant: '決策結果',
-    en: 'Decision result',
-    fr: 'Résultat de décision',
-    de: 'Entscheidungsergebnis',
-    ja: '意思決定の結果',
-  );
-
-  String get resultSubtitle => _m(
-    zh: '按问题查看答案与概率分布',
-    zhHant: '按問題查看答案與機率分布',
-    en: 'Inspect answers and probability by question',
-    fr: 'Consultez les réponses et les probabilités par question',
-    de: 'Antworten und Wahrscheinlichkeiten je Frage ansehen',
-    ja: '質問ごとに回答と確率分布を確認',
-  );
-
   String get requestTitle => _m(
     zh: '结构化决策',
     zhHant: '結構化決策',
@@ -46,15 +28,6 @@ final class DecisionCopy {
     fr: 'Décision structurée',
     de: 'Strukturierte Entscheidung',
     ja: '構造化意思決定',
-  );
-
-  String get requestSubtitle => _m(
-    zh: '待评估内容、问题与候选项已绑定到本次请求',
-    zhHant: '待評估內容、問題與候選項已綁定到本次請求',
-    en: 'Content, questions, and options are bound to this request',
-    fr: 'Le contenu, les questions et les options sont liés à cette requête',
-    de: 'Inhalt, Fragen und Optionen sind an diese Anfrage gebunden',
-    ja: '評価対象・質問・候補がこのリクエストに紐づいています',
   );
 
   String get dialogTitle => _m(
@@ -354,24 +327,6 @@ final class DecisionCopy {
     ja: '意思決定',
   );
 
-  String get fenceRequest => _m(
-    zh: '决策请求',
-    zhHant: '決策請求',
-    en: 'Decision request',
-    fr: 'Requête de décision',
-    de: 'Entscheidungsanfrage',
-    ja: '意思決定リクエスト',
-  );
-
-  String get fenceResult => _m(
-    zh: '决策结果',
-    zhHant: '決策結果',
-    en: 'Decision result',
-    fr: 'Résultat de décision',
-    de: 'Entscheidungsergebnis',
-    ja: '意思決定の結果',
-  );
-
   String typeLabel(String type) => switch (type) {
     DecisionPayload.typeChoice => typeChoice,
     DecisionPayload.typeScore => typeScore,
@@ -417,19 +372,24 @@ final class DecisionCopy {
     return name;
   }
 
-  String resultHeadline(Object? model) {
-    final name = '$model'.trim();
-    if (name.isEmpty || name == 'null') return resultTitle;
-    return '$resultTitle · $name';
+  String customQuestionName(String name, String type) {
+    final value = name.trim();
+    if (value.isEmpty ||
+        value == DecisionPayload.simpleQuestionKey ||
+        value.toLowerCase() == 'decision') {
+      return '';
+    }
+    final named = questionName(name);
+    return named == typeLabel(type) ? '' : named;
+  }
+
+  String questionCaption(String name, String type, String instructions) {
+    final named = customQuestionName(name, type);
+    return named.isEmpty ? instructions : '$named · $instructions';
   }
 
   String heldProbability(num value) =>
       '$held · ${DecisionPayload.percentLabel(value)}';
-
-  String choiceResult(Object? choice) =>
-      '$typeChoice · ${displayValue(choice)}';
-
-  String scoreResult(Object? score) => '$typeScore · ${displayValue(score)}';
 
   String confidenceLine(num value) =>
       '$confidence ${DecisionPayload.percentLabel(value)}';

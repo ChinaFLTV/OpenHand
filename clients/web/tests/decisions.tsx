@@ -34,6 +34,10 @@ try {
   verify(parseDecisionResult(JSON.stringify({ ...fixture, answers: { ...fixture.answers, 判断: { type: 'noul', noul: 2 } } })) === null, '无效概率不能显示为正常结果');
   await act(async () => render(<DecisionCard text={JSON.stringify(fixture)} />, root));
   verify(root.querySelectorAll('.oh-decision-bar-fill').length === 6, '决策卡片展示完整分布');
+  verify(!root.querySelector('.oh-decision-card-header'), '结果卡片去掉顶部图标与标题');
+  verify(!root.querySelector('.oh-decision-card'), '结果不再套一层父卡片');
+  verify(root.querySelectorAll('.oh-decision-block').length === 3, '每个问题各自成卡');
+  verify(root.querySelector('.oh-decision-toggle-meta .oh-decision-chip'), '类型胶囊在问题行左侧');
   await act(async () => root.querySelector<HTMLButtonElement>('button')!.click());
   verify(root.querySelector('button')?.getAttribute('aria-expanded') === 'false', '概率分布可折叠');
   await act(async () => render(<Markdown source={'```openhand-decision\n' + JSON.stringify(fixture) + '\n```'} />, root));
@@ -43,6 +47,9 @@ try {
   await act(async () => render(<Markdown source={requestFence} />, root));
   await wait(200);
   verify(root.querySelector('.oh-decision-request'), '请求围栏渲染为决策请求卡片');
+  verify(!root.querySelector('.oh-decision-request .oh-decision-card-header'), '请求卡片去掉顶部图标与标题');
+  verify(!root.querySelector('.oh-decision-request .oh-decision-block'), '请求不再嵌套子卡片');
+  verify(root.querySelector('.oh-decision-request-question-head .oh-decision-chip'), '请求类型胶囊在左侧');
   let applied = '';
   let closed = false;
   await act(async () => render(<DecisionRequestDialog initialText={draft} onApply={(text) => { applied = text; }} onClose={() => { closed = true; render(null, root); }} />, root));

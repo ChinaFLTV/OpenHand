@@ -1447,15 +1447,14 @@ void main() {
         for (final selected in [false, true]) {
           probe.state.setState(() => probe.state._selectedMessageId = selected ? message.id : null);
           await probe.settle();
-          await tester.tapAt(tester.getCenter(find.byIcon(Icons.keyboard_arrow_up_rounded)));
+          expect(find.byType(OpenHandExpansionTile), findsOneWidget);
+          await tester.tap(find.text('判断内容'));
           await probe.settle();
-          expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
           expect(probe.state._selectedMessageId, selected ? message.id : null);
-          await tester.tapAt(tester.getCenter(find.byIcon(Icons.keyboard_arrow_down_rounded)));
+          await tester.tap(find.text('判断内容'));
           await probe.settle();
-          expect(find.byIcon(Icons.keyboard_arrow_up_rounded), findsOneWidget);
           expect(probe.state._selectedMessageId, selected ? message.id : null);
-          await tester.tap(find.text('按问题查看答案与概率分布'));
+          await tester.tap(find.text('判断内容'));
           await probe.settle();
           expect(probe.state._selectedMessageId, selected ? message.id : null);
           final margin = tester.getTopLeft(find.byKey(bubble._bubbleInteractionKey)) + const Offset(4, 4);
@@ -1472,7 +1471,7 @@ void main() {
         await tester.tap(find.text('显示渲染'));
         await probe.settle();
         expect(bubble._embeddedInteractiveRegions.length, 1);
-        final held = await tester.startGesture(tester.getCenter(find.text('按问题查看答案与概率分布')));
+        final held = await tester.startGesture(tester.getCenter(find.text('判断内容')));
         bubble.setState(() => bubble._showRawContent = true);
         await tester.pump();
         await held.up();

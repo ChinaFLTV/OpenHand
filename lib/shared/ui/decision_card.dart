@@ -9,6 +9,7 @@ import 'oh_pill.dart';
 
 const double _kDecisionBarHeight = 8;
 const int _kDecisionAutoExpandLimit = 3;
+const double _kDecisionCardOutlineAlpha = 0.72;
 
 /// 展示接口原始决策，不把概率解释为确定事实。
 class OpenHandDecisionCard extends StatelessWidget {
@@ -23,28 +24,14 @@ class OpenHandDecisionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final copy = DecisionCopy.of(context);
     final answers = data['answers'];
     final questions = data['questions'];
     if (answers is! Map || questions is! Map || questions.isEmpty) {
-      return _DecisionChrome(
-        icon: Icons.insights_rounded,
-        kicker: copy.fenceResult,
-        title: copy.resultHeadline(
-          data['model'] ?? DecisionPayload.modelFallback,
-        ),
-        subtitle: copy.resultSubtitle,
-        children: const [],
-      );
+      return const SizedBox.shrink();
     }
     final entries = questions.entries.toList(growable: false);
-    return _DecisionChrome(
-      icon: Icons.insights_rounded,
-      kicker: copy.fenceResult,
-      title: copy.resultHeadline(
-        data['model'] ?? DecisionPayload.modelFallback,
-      ),
-      subtitle: copy.resultSubtitle,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var index = 0; index < entries.length; index++) ...[
           if (index > 0) kOpenHandGap10,
@@ -78,143 +65,59 @@ class OpenHandDecisionRequestCard extends StatelessWidget {
     final questionEntries = questions is Map
         ? questions.entries.toList(growable: false)
         : const <MapEntry<dynamic, dynamic>>[];
-    final leadingType = questionEntries.length == 1
-        ? (questionEntries.first.value is Map
-              ? '${(questionEntries.first.value as Map)['type']}'
-              : '')
-        : '';
-    return _DecisionChrome(
-      icon: Icons.fact_check_rounded,
-      kicker: copy.fenceRequest,
-      title: copy.requestTitle,
-      subtitle: copy.requestSubtitle,
-      trailing: leadingType.isEmpty ? null : copy.typeLabel(leadingType),
-      accentType: leadingType,
-      children: [
-        _DecisionField(
-          label: copy.stateLabel,
-          value: copy.displayValue(data['state']),
-        ),
-        if (questionEntries.isNotEmpty) ...[
-          kOpenHandGap12,
-          Text(
-            questionEntries.length == 1
-                ? copy.questionLabel
-                : copy.questionsLabel,
-            style: openHandDecisionFieldLabelStyle(context),
+    return _DecisionCardShell(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DecisionField(
+            label: copy.stateLabel,
+            value: copy.displayValue(data['state']),
           ),
-          kOpenHandGap8,
-          for (var index = 0; index < questionEntries.length; index++) ...[
-            if (index > 0) kOpenHandGap8,
-            _DecisionRequestQuestion(
-              name: '${questionEntries[index].key}',
-              question: questionEntries[index].value,
+          if (questionEntries.isNotEmpty) ...[
+            kOpenHandGap12,
+            Text(
+              questionEntries.length == 1
+                  ? copy.questionLabel
+                  : copy.questionsLabel,
+              style: openHandDecisionFieldLabelStyle(context),
             ),
+            kOpenHandGap8,
+            for (var index = 0; index < questionEntries.length; index++) ...[
+              if (index > 0) kOpenHandGap12,
+              _DecisionRequestQuestion(
+                name: '${questionEntries[index].key}',
+                question: questionEntries[index].value,
+              ),
+            ],
           ],
         ],
-      ],
+      ),
     );
   }
 }
 
-class _DecisionChrome extends StatelessWidget {
-  const _DecisionChrome({
-    required this.icon,
-    required this.kicker,
-    required this.title,
-    required this.subtitle,
-    required this.children,
-    this.trailing,
-    this.accentType = '',
-  });
+class _DecisionCardShell extends StatelessWidget {
+  const _DecisionCardShell({required this.child, this.padding});
 
-  final IconData icon;
-  final String kicker;
-  final String title;
-  final String subtitle;
-  final String? trailing;
-  final String accentType;
-  final List<Widget> children;
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final accent = openHandDecisionAccent(colors, accentType);
-    final iconFill = openHandDecisionContainer(colors, accentType);
-    final iconColor = openHandDecisionOnContainer(colors, accentType);
+    final colors = Theme.of(context).colorScheme;
     return Material(
-      color: Colors.transparent,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerLow,
-          borderRadius: kOpenHandBorderRadius18,
-          border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.72),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: iconFill,
-                      borderRadius: kOpenHandBorderRadius12,
-                    ),
-                    child: Icon(icon, size: 20, color: iconColor),
-                  ),
-                  kOpenHandHGap10,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          kicker,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: accent,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        kOpenHandGap4,
-                        Text(
-                          title,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: colors.onSurface,
-                            fontWeight: FontWeight.w800,
-                            height: 1.25,
-                          ),
-                        ),
-                        kOpenHandGap4,
-                        Text(
-                          subtitle,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (trailing != null) ...[
-                    kOpenHandHGap8,
-                    _DecisionTypeChip(label: trailing!, type: accentType),
-                  ],
-                ],
-              ),
-              if (children.isNotEmpty) ...[kOpenHandGap14, ...children],
-            ],
+      color: colors.surface,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: kOpenHandBorderRadius18,
+        side: BorderSide(
+          color: colors.outlineVariant.withValues(
+            alpha: _kDecisionCardOutlineAlpha,
           ),
         ),
       ),
+      child: padding == null ? child : Padding(padding: padding!, child: child),
     );
   }
 }
@@ -243,18 +146,17 @@ class _DecisionAnswerBlock extends StatelessWidget {
     final result = switch (type) {
       DecisionPayload.typeNoul when answerMap['noul'] is num =>
         copy.heldProbability(answerMap['noul'] as num),
-      DecisionPayload.typeChoice => copy.choiceResult(answerMap['choice']),
-      DecisionPayload.typeScore => copy.scoreResult(answerMap['score']),
+      DecisionPayload.typeChoice => copy.displayValue(answerMap['choice']),
+      DecisionPayload.typeScore => copy.displayValue(answerMap['score']),
       _ => copy.typeLabel(type),
     };
     final probabilities = _probabilityEntries(copy, type, answerMap);
-    final instructions = copy.displayValue(questionMap['instructions']);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.7)),
-      ),
+    final caption = copy.questionCaption(
+      name,
+      type,
+      copy.displayValue(questionMap['instructions']),
+    );
+    return _DecisionCardShell(
       child: OpenHandExpansionTile(
         initiallyExpanded: expanded,
         suppressHoverOverlay: true,
@@ -271,15 +173,23 @@ class _DecisionAnswerBlock extends StatelessWidget {
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            '${copy.questionName(name)} · $instructions',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
-              height: 1.4,
-            ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DecisionTypeChip(label: copy.typeLabel(type), type: type),
+              kOpenHandHGap8,
+              Expanded(
+                child: Text(
+                  caption,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        trailing: _DecisionTypeChip(label: copy.typeLabel(type), type: type),
         children: [
           if (answerMap['confidence'] is num)
             Padding(
@@ -314,55 +224,50 @@ class _DecisionRequestQuestion extends StatelessWidget {
     final questionMap = question is Map ? question as Map : const {};
     final type = '${questionMap['type'] ?? ''}';
     final criteria = questionMap['criteria'];
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.7)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
+    final named = copy.customQuestionName(name, type);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _DecisionTypeChip(label: copy.typeLabel(type), type: type),
+            if (named.isNotEmpty) ...[
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
-                  copy.questionName(name),
+                  named,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: colors.onSurface,
                   ),
                 ),
               ),
-              _DecisionTypeChip(label: copy.typeLabel(type), type: type),
             ],
-          ),
-          kOpenHandGap8,
-          Text(
-            copy.displayValue(questionMap['instructions']),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colors.onSurface,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (criteria != null) ...[
-            kOpenHandGap10,
-            Text(
-              type == DecisionPayload.typeScore
-                  ? copy.scoreItemLabel
-                  : type == DecisionPayload.typeChoice
-                  ? copy.choiceItemLabel
-                  : copy.criteriaLabel,
-              style: openHandDecisionFieldLabelStyle(context),
-            ),
-            kOpenHandGap6,
-            _DecisionCriteriaView(type: type, criteria: criteria),
           ],
+        ),
+        kOpenHandGap8,
+        Text(
+          copy.displayValue(questionMap['instructions']),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: colors.onSurface,
+            height: 1.45,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (criteria != null) ...[
+          kOpenHandGap10,
+          Text(
+            type == DecisionPayload.typeScore
+                ? copy.scoreItemLabel
+                : type == DecisionPayload.typeChoice
+                ? copy.choiceItemLabel
+                : copy.criteriaLabel,
+            style: openHandDecisionFieldLabelStyle(context),
+          ),
+          kOpenHandGap6,
+          _DecisionCriteriaView(type: type, criteria: criteria),
         ],
-      ),
+      ],
     );
   }
 }

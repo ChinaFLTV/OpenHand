@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
-import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
 import {
   DECISION_FALLBACK_QUESTION_KEY,
-  DECISION_MODEL_FALLBACK,
   DECISION_SIMPLE_QUESTION_KEY,
   decisionDisplayText,
   decisionPercentLabel,
@@ -30,6 +28,18 @@ function questionName(name: string): string {
   return name;
 }
 
+function customQuestionName(name: string, type: string): string {
+  const value = name.trim();
+  if (!value || value === DECISION_SIMPLE_QUESTION_KEY || value.toLowerCase() === 'decision') return '';
+  const named = questionName(name);
+  return named === typeLabel(type) ? '' : named;
+}
+
+function questionCaption(name: string, type: string, instructions: string): string {
+  const named = customQuestionName(name, type);
+  return named ? `${named} · ${instructions}` : instructions;
+}
+
 function displayValue(value: unknown): string {
   const text = decisionDisplayText(value).trim();
   return text || '—';
@@ -43,48 +53,6 @@ function DecisionBar({ value, tone }: { value: number; tone: string }) {
   return <div class="oh-decision-bar-track" aria-hidden>
     <div class={`oh-decision-bar-fill is-${tone}`} style={{ width: `${decisionUnit(value) * 100}%` }} />
   </div>;
-}
-
-function DecisionChrome({
-  kicker,
-  title,
-  subtitle,
-  type,
-  result,
-  children,
-}: {
-  kicker: string;
-  title: string;
-  subtitle: string;
-  type?: string;
-  result?: boolean;
-  children: ComponentChildren;
-}) {
-  return <article class={`oh-decision-card ${result ? 'is-result' : 'oh-decision-request'} is-${type || 'noul'}`}>
-    <header class="oh-decision-card-header">
-      <span class="oh-decision-card-icon" aria-hidden>
-        {result ? (
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 19V5" />
-            <path d="M4 19h16" />
-            <path d="M7 14l3.2-4.2 2.6 2.4L17 7" />
-          </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 11l3 3L22 4" />
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-          </svg>
-        )}
-      </span>
-      <div class="oh-decision-card-heading">
-        <span class="oh-decision-kicker">{kicker}</span>
-        <strong class="oh-decision-title">{title}</strong>
-        <p class="oh-decision-subtitle">{subtitle}</p>
-      </div>
-      {type ? <DecisionTypeChip type={type} /> : null}
-    </header>
-    {children}
-  </article>;
 }
 
 function probabilityEntries(answer: DecisionAnswer): Array<[string, number]> {
@@ -104,8 +72,8 @@ function answerHeadline(answer: DecisionAnswer): string {
   if (answer.type === 'noul' && typeof answer.noul === 'number') {
     return `${t('decision.held', '成立')} · ${decisionPercentLabel(answer.noul)}`;
   }
-  if (answer.type === 'choice') return `${t('decision.type.choice', '选择')} · ${displayValue(answer.choice)}`;
-  return `${t('decision.type.score', '评分')} · ${displayValue(answer.score)}`;
+  if (answer.type === 'choice') return displayValue(answer.choice);
+  return displayValue(answer.score);
 }
 
 function DecisionAnswerCard({ name, question, answer, expanded }: { name: string; question: DecisionQuestion; answer: DecisionAnswer; expanded: boolean }) {
@@ -113,13 +81,15 @@ function DecisionAnswerCard({ name, question, answer, expanded }: { name: string
   const [activated, setActivated] = useState(expanded);
   const entries = probabilityEntries(answer);
   const barTone = (label: string) => answer.type === 'noul' && label === t('decision.notHeld', '不成立') ? 'noul-no' : answer.type;
-  return <section class="oh-decision-block">
+  return <section class={`oh-decision-block is-${answer.type || 'noul'}`}>
     <button type="button" class="oh-decision-toggle" aria-expanded={open} onClick={() => { setActivated(true); setOpen(!open); }}>
       <span class="oh-decision-toggle-copy">
         <strong>{answerHeadline(answer)}</strong>
-        <span>{questionName(name)} · {displayValue(question.instructions)}</span>
+        <span class="oh-decision-toggle-meta">
+          <DecisionTypeChip type={answer.type} />
+          <span class="oh-decision-toggle-caption">{questionCaption(name, answer.type, displayValue(question.instructions))}</span>
+        </span>
       </span>
-      <DecisionTypeChip type={answer.type} />
     </button>
     <div class="oh-decision-distribution" style={{ gridTemplateRows: open ? '1fr' : '0fr' }} aria-hidden={!open}>
       <div class="overflow-hidden min-h-0">{activated && <div class="oh-decision-distribution-body">
@@ -150,47 +120,42 @@ export function DecisionRequestCard({ text }: { text: string }) {
   const data = useMemo(() => parseDecisionRequest(text), [text]);
   if (!data) return <pre class="whitespace-pre-wrap break-words">{text}</pre>;
   const entries = Object.entries(data.questions);
-  const leadingType = entries.length === 1 ? entries[0][1].type : undefined;
-  return <DecisionChrome
-    kicker={t('decision.fence.request', '决策请求')}
-    title={t('decision.request.title', '结构化决策')}
-    subtitle={t('decision.request.subtitle', '待评估内容、问题与候选项已绑定到本次请求')}
-    type={leadingType}
-  >
+  return <article class="oh-decision-card oh-decision-request">
     <div class="oh-decision-copy-field">
       <span>{t('decision.field.state', '待评估内容')}</span>
       <p>{displayValue(data.state)}</p>
     </div>
-    <div class="oh-decision-copy-field">
+    {entries.length ? <div class="oh-decision-copy-field">
       <span>{entries.length === 1 ? t('decision.field.question', '需要模型回答的问题') : t('decision.field.questions', '决策问题')}</span>
-    </div>
-    {entries.map(([name, question]) => <section class="oh-decision-block" key={name}>
-      <div class="oh-decision-request-question">
+    </div> : null}
+    {entries.map(([name, question]) => {
+      const named = customQuestionName(name, question.type);
+      return <section class="oh-decision-request-question" key={name}>
         <div class="oh-decision-request-question-head">
-          <strong>{questionName(name)}</strong>
           <DecisionTypeChip type={question.type} />
+          {named ? <strong>{named}</strong> : null}
         </div>
         <p>{displayValue(question.instructions)}</p>
         {question.criteria != null ? <>
           <span class="oh-decision-criteria-label">{question.type === 'score' ? t('decision.field.scoreLevels', '评分等级（从低到高）') : question.type === 'choice' ? t('decision.field.options', '候选项') : t('decision.field.criteria', '判断标准')}</span>
           <CriteriaView type={question.type} criteria={question.criteria} />
         </> : null}
-      </div>
-    </section>)}
-  </DecisionChrome>;
+      </section>;
+    })}
+  </article>;
 }
 
 export function DecisionCard({ text }: { text: string }) {
   const data = useMemo(() => parseDecisionResult(text), [text]);
   if (!data) return <pre class="whitespace-pre-wrap break-words">{text}</pre>;
-  const model = typeof data.model === 'string' && data.model.trim() ? data.model : DECISION_MODEL_FALLBACK;
   const entries = Object.entries(data.questions);
-  return <DecisionChrome
-    kicker={t('decision.fence.result', '决策结果')}
-    title={`${t('decision.result.title', '决策结果')} · ${model}`}
-    subtitle={t('decision.result.subtitle', '按问题查看答案与概率分布')}
-    result
-  >
-    {entries.map(([name, question]) => <DecisionAnswerCard key={name} name={name} question={question} answer={data.answers[name]} expanded={entries.length <= 3} />)}
-  </DecisionChrome>;
+  if (!entries.length) return null;
+  const cards = entries.flatMap(([name, question]) => {
+    const answer = data.answers[name];
+    return answer
+      ? [<DecisionAnswerCard key={name} name={name} question={question} answer={answer} expanded={entries.length <= 3} />]
+      : [];
+  });
+  if (!cards.length) return null;
+  return cards.length === 1 ? cards[0] : <div class="oh-decision-stack">{cards}</div>;
 }

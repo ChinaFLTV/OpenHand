@@ -224,6 +224,12 @@ void main() {
     ]))))));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    expect(find.text('决策结果'), findsNothing);
+    expect(find.text('决策请求'), findsNothing);
+    expect(find.text('按问题查看答案与概率分布'), findsNothing);
+    expect(find.text('结构化决策'), findsNothing);
+    expect(find.text('判断'), findsWidgets);
+    expect(find.text('成立吗？'), findsWidgets);
     await tester.runAsync(() async {
       final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
       final image = await boundary.toImage();
