@@ -27,6 +27,8 @@ Future<void> main() async {
     source:
         "import 'package:flutter_test/flutter_test.dart' hide isEmpty, isNotEmpty;\n"
         "import 'package:openhand/app/state/settings_store.dart';\n"
+        "import 'package:openhand/app/theme/openhand_theme.dart';\n"
+        "import 'dart:ui' as ui;\n"
         '$source\n$_widgetTests',
   );
 }
@@ -103,7 +105,10 @@ class _WorkspaceProbeAi extends _ProbeAiController {
 
 class _ProbeInstructions extends ChangeNotifier implements InstructionsController {
   @override
-  List<UserInstructionEntry> get enabledEntries => const [];
+  List<UserInstructionEntry> get enabledEntries => [
+    UserInstructionEntry(id: '布局指令', name: '响应文本语言约束', body: '使用简体中文',
+      createdAt: DateTime.utc(2026), updatedAt: DateTime.utc(2026), sortOrder: 0),
+  ];
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -1037,6 +1042,34 @@ void main() {
   });
 
   testWidgets('工作区适应窗口高度和长决策表单，切回普通模型恢复文本输入', (tester) async {
+    final captureDirectory = Platform.environment['OPENHAND_LAYOUT_SCREENSHOTS'];
+    final captureFont = Platform.environment['OPENHAND_LAYOUT_FONT'];
+    if (captureDirectory != null && captureFont != null) {
+      await tester.runAsync(() async {
+        final loader = FontLoader('布局截图字体');
+        loader.addFont(File(captureFont).readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
+        await loader.load();
+        final icons = FontLoader('MaterialIcons');
+        icons.addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+        await icons.load();
+      });
+    }
+    final captureKey = GlobalKey();
+    Future<void> capture(String name) async {
+      if (captureDirectory == null) return;
+      final boundary = captureKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          final file = File('$captureDirectory/$name.png');
+          await file.parent.create(recursive: true);
+          await file.writeAsBytes(bytes!.buffer.asUint8List());
+        } finally {
+          image.dispose();
+        }
+      });
+    }
     // 硬件探测需要真实异步环境，避免子进程定时器进入组件测试的虚拟时钟。
     await tester.runAsync(() async {
       final service = OfflineSpeechModelService.instance;
@@ -1084,6 +1117,9 @@ void main() {
     addTearDown(tester.view.reset);
     var modelId = 'jev-latest';
     var collapsed = false;
+    var sendCount = 0;
+    var textScale = 1.0;
+    final theme = OpenHandTheme.light(settings.themePreset).copyWith(platform: TargetPlatform.macOS);
     late StateSetter rebuild;
     tester.view.physicalSize = const Size(1068, 738);
     await tester.pumpWidget(
@@ -1094,12 +1130,17 @@ void main() {
           ChangeNotifierProvider<InstructionsController>.value(value: instructions),
         ],
         child: MaterialApp(
+          theme: captureFont == null ? theme : theme.copyWith(
+            textTheme: theme.textTheme.apply(fontFamily: '布局截图字体'),
+          ),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh'),
-          home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+          home: RepaintBoundary(key: captureKey, child: Scaffold(body: StatefulBuilder(builder: (context, setState) {
             rebuild = setState;
-            return _WorkspaceView(
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: _WorkspaceView(
               draftController: controller,
               messageScrollController: scroll,
               onMessageScrollNotification: (_) => false,
@@ -1138,7 +1179,7 @@ void main() {
                 onPause: () async {}, onResume: () async {}, onTerminate: () async {}),
               attachments: _ComposerAttachments(drafts: const [], enabled: false,
                 onPick: () async {}, onRemove: (_) {}, onReorder: (_, _) {}),
-              onSend: () async {},
+              onSend: () async { sendCount++; },
               onStop: () async {},
               voiceModeSelected: false,
               voiceConversationSnapshot: () => const AiVoiceConversationSnapshot.idle(),
@@ -1160,14 +1201,25 @@ void main() {
               onToggleFullAccessPermission: (_) {},
               queuedPanel: _QueuedMessagesPanel(messages: const [], guidanceInProgress: false,
                 onRemove: (_) {}, onMove: (_, _) {}, onEdit: (_, _) {}, onGuide: (_) {}),
-            );
-          })),
+            ));
+          }))),
         ),
       ),
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byType(_DecisionComposerForm), findsOneWidget);
+    void expectActionsVisible() {
+      final send = find.widgetWithText(FilledButton, '发送');
+      expect(send, findsOneWidget);
+      final panel = tester.getRect(find.byType(_ComposerPanel));
+      final button = tester.getRect(send);
+      expect(button.bottom, lessThanOrEqualTo(panel.bottom));
+      expect(button.bottom, lessThanOrEqualTo(tester.view.physicalSize.height));
+      expect(send.hitTestable(), findsOneWidget);
+    }
+    expectActionsVisible();
+    await capture('choice-desktop');
     final formScroll = find.ancestor(of: find.byType(_DecisionComposerForm),
       matching: find.byType(SingleChildScrollView)).first;
     await tester.drag(formScroll, const Offset(0, -300));
@@ -1175,11 +1227,39 @@ void main() {
     final formScrollable = tester.state<ScrollableState>(
       find.descendant(of: formScroll, matching: find.byType(Scrollable)).first);
     expect(formScrollable.position.pixels, greaterThan(0));
+    expectActionsVisible();
+    await tester.tap(find.widgetWithText(FilledButton, '发送'));
+    await tester.pumpAndSettle();
+    expect(sendCount, 1);
     for (final height in [400.0, 200.0, 32.0, 0.0, 738.0]) {
       tester.view.physicalSize = Size(1068, height);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: '窗口高度 $height');
+      if (height >= 200) expectActionsVisible();
     }
+    for (final mode in ['判断', '选择', '评分']) {
+      formScrollable.position.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(mode));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expectActionsVisible();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expectActionsVisible();
+      await capture('mode-${mode == '判断' ? 'judge' : mode == '选择' ? 'choice' : 'score'}');
+    }
+    for (final size in [const Size(800, 500), const Size(1068, 400)]) {
+      tester.view.physicalSize = size;
+      rebuild(() => textScale = 1.5);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expectActionsVisible();
+      await capture('compact-${size.width.toInt()}');
+    }
+    tester.view.physicalSize = const Size(1068, 738);
+    rebuild(() => textScale = 1);
+    await tester.pumpAndSettle();
     rebuild(() => collapsed = true);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -1190,6 +1270,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(_DecisionComposerForm), findsNothing);
     expect(find.byWidgetPredicate((widget) => widget is TextField && widget.controller == controller), findsOneWidget);
+    expectActionsVisible();
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

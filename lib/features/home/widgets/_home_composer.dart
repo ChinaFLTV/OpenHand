@@ -1840,17 +1840,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           kOpenHandGap8,
         ],
         if (_isDecisionModel && !voiceActive)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: _composerMaxHeight),
-            child: SingleChildScrollView(
-              primary: false,
-              physics: const ClampingScrollPhysics(),
-              child: _DecisionComposerForm(
-                key: ValueKey(widget.selectedModel!.modelId),
-                controller: widget.controller,
-                enabled: modeToggleEnabled,
-              ),
-            ),
+          _DecisionComposerForm(
+            key: ValueKey(widget.selectedModel!.modelId),
+            controller: widget.controller,
+            enabled: modeToggleEnabled,
           ),
         if (widget.attachments.drafts.isNotEmpty) ...[
           _ReorderableAttachmentWrap(
@@ -2343,6 +2336,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   onPressed: activeGoal?.isPaused == true
                       ? () => unawaited(widget.goalControls.onResume())
                       : () => unawaited(widget.goalControls.onPause()),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  ),
                   icon: Icon(
                     activeGoal?.isPaused == true
                         ? Icons.play_arrow_rounded
@@ -2368,6 +2364,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   style: FilledButton.styleFrom(
                     backgroundColor: colorScheme.error,
                     foregroundColor: colorScheme.onError,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                   ),
                   icon: const Icon(Icons.stop_circle_outlined),
                   label: Text(
@@ -2416,6 +2413,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               return SizedBox(
                 height: 52,
                 child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  ),
                   onPressed: isQueueingAction
                       ? _sendWithReferences
                       : canStopSending && !hasUserTextOrAttachments
@@ -2465,20 +2465,54 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           horizontal: 18,
           vertical: _composerPanelVerticalInset,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            OpenHandCollapsibleFade(
-              collapsed: effectiveCollapsed,
-              child: expandedContent,
-            ),
-            AnimatedContainer(
-              duration: openHandMotionDuration(context, kOpenHandMotion260),
-              curve: kOpenHandEmphasizedCurve,
-              height: effectiveCollapsed ? 0 : _composerPanelVerticalInset,
-            ),
-            actionRow,
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: OpenHandCollapsibleFade(
+                  collapsed: effectiveCollapsed,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxHeight: _composerMaxHeight,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: _composerPanelVerticalInset,
+                      ),
+                      child: SingleChildScrollView(
+                        primary: false,
+                        child: AnimatedSize(
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion220,
+                          ),
+                          curve: kOpenHandEmphasizedCurve,
+                          alignment: Alignment.topCenter,
+                          child: expandedContent,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // 窗口小于按钮本身时允许操作栏滚动，其余情况下始终完整显示。
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: math.min(
+                    _composerActionControlHeight,
+                    constraints.maxHeight,
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  primary: false,
+                  reverse: true,
+                  child: actionRow,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2619,116 +2653,107 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
     final colors = Theme.of(context).colorScheme;
     final isChoice = _type == 'choice';
     final isScore = _type == 'score';
-    return AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion220),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: .55),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.account_tree_rounded, color: colors.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '结构化决策',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              Text('发送时调用模型', style: Theme.of(context).textTheme.labelSmall),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _state,
-            enabled: widget.enabled,
-            minLines: 3,
-            maxLines: 7,
-            decoration: const InputDecoration(
-              labelText: '待评估内容',
-              alignLabelWithHint: true,
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _question,
-            enabled: widget.enabled,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: '需要模型回答的问题'),
-          ),
-          const SizedBox(height: 12),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                value: 'noul',
-                label: Text('判断'),
-                icon: Icon(Icons.check_rounded),
-              ),
-              ButtonSegment(
-                value: 'choice',
-                label: Text('选择'),
-                icon: Icon(Icons.list_rounded),
-              ),
-              ButtonSegment(
-                value: 'score',
-                label: Text('评分'),
-                icon: Icon(Icons.star_border_rounded),
-              ),
-            ],
-            selected: {_type},
-            onSelectionChanged: widget.enabled
-                ? (value) => _setType(value.first)
-                : null,
-          ),
-          if (isChoice || isScore) ...[
-            const SizedBox(height: 12),
-            for (var index = 0; index < _criteria.length; index++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 28,
-                      child: Text('${index + 1}', textAlign: TextAlign.center),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _criteria[index],
-                        enabled: widget.enabled,
-                        decoration: InputDecoration(
-                          labelText: isChoice ? '候选项' : '评分等级（从低到高）',
-                          hintText: isChoice ? '例如：技术团队' : '例如：一般',
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: '删除此项',
-                      onPressed:
-                          widget.enabled && _criteria.length > (isScore ? 2 : 1)
-                          ? () => _removeCriteria(index)
-                          : null,
-                      icon: const Icon(Icons.remove_circle_outline_rounded),
-                    ),
-                  ],
-                ),
-              ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: widget.enabled ? _addCriteria : null,
-                icon: const Icon(Icons.add_rounded),
-                label: Text(isScore ? '添加评分等级' : '添加候选项'),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.account_tree_rounded, color: colors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '结构化决策',
+                style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _state,
+          enabled: widget.enabled,
+          minLines: 2,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            labelText: '待评估内容',
+            alignLabelWithHint: true,
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _question,
+          enabled: widget.enabled,
+          minLines: 1,
+          maxLines: 3,
+          decoration: const InputDecoration(labelText: '需要模型回答的问题'),
+        ),
+        const SizedBox(height: 12),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(
+              value: 'noul',
+              label: Text('判断'),
+              icon: Icon(Icons.check_rounded),
+            ),
+            ButtonSegment(
+              value: 'choice',
+              label: Text('选择'),
+              icon: Icon(Icons.list_rounded),
+            ),
+            ButtonSegment(
+              value: 'score',
+              label: Text('评分'),
+              icon: Icon(Icons.star_border_rounded),
+            ),
+          ],
+          selected: {_type},
+          onSelectionChanged: widget.enabled
+              ? (value) => _setType(value.first)
+              : null,
+        ),
+        if (isChoice || isScore) ...[
+          const SizedBox(height: 12),
+          for (var index = 0; index < _criteria.length; index++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 28,
+                    child: Text('${index + 1}', textAlign: TextAlign.center),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _criteria[index],
+                      enabled: widget.enabled,
+                      decoration: InputDecoration(
+                        labelText: isChoice ? '候选项' : '评分等级（从低到高）',
+                        hintText: isChoice ? '例如：技术团队' : '例如：一般',
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '删除此项',
+                    onPressed:
+                        widget.enabled && _criteria.length > (isScore ? 2 : 1)
+                        ? () => _removeCriteria(index)
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline_rounded),
+                  ),
+                ],
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: widget.enabled ? _addCriteria : null,
+              icon: const Icon(Icons.add_rounded),
+              label: Text(isScore ? '添加评分等级' : '添加候选项'),
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 }

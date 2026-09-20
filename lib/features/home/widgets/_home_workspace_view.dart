@@ -246,7 +246,7 @@ class _WorkspaceView extends StatelessWidget {
           context,
           OpenHandMotionSettingsScope.page,
         );
-        // 为输入区预留空间；工具栏与输入区超高时各自滚动，避免挤出工作区。
+        // 工具栏限制高度，输入区将实际剩余约束传入表单，保持操作栏可见。
         final toolbarHeightLimit = constraints.maxHeight / 4;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,74 +354,92 @@ class _WorkspaceView extends StatelessWidget {
                 constraints: BoxConstraints(
                   maxHeight: constraints.maxHeight - toolbarHeightLimit,
                 ),
-                child: SingleChildScrollView(
-                  primary: false,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      kOpenHandGap16,
-                      _ComposerInstructionsStrip(
-                        skippedIds: skippedInstructionIds,
-                        onToggle: onToggleInstructionSkip,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight:
+                            (constraints.maxHeight - toolbarHeightLimit) / 4,
                       ),
-                      NotificationListener<SizeChangedLayoutNotification>(
-                        onNotification: (notification) {
-                          onComposerLayoutChanged();
-                          return false;
-                        },
-                        child: SizeChangedLayoutNotifier(
-                          child: RepaintBoundary(
-                            child: _ComposerPanel(
-                              onStateCreated: onComposerStateCreated,
-                              onStateDisposed: onComposerStateDisposed,
-                              currentSession: currentSession,
-                              liveRuntimeToolPreview: liveRuntimeToolPreview,
-                              controller: draftController,
-                              selectedModel: selectedModel,
-                              availableModels: availableModels,
-                              recentModelSelections: recentModelSelections,
-                              onModelSelected: onModelSelected,
-                              focusNode: composerFocusNode,
-                              composerHeight: effectiveComposerHeight,
-                              isCollapsed: composerCollapsed,
-                              onCollapsedChanged: onComposerCollapsedChanged,
-                              autoFollowEnabled: autoFollowEnabled,
-                              autoFollowPaused: autoFollowPaused,
-                              onToggleAutoFollow: onToggleAutoFollow,
-                              sendPhase: sendPhase,
-                              canStopSending: canStopSending,
-                              sessionMode: sessionMode,
-                              onSessionModeChanged: onSessionModeChanged,
-                              goalControls: goalControls,
-                              attachments: attachments,
-                              onSend: onSend,
-                              onStop: onStop,
-                              voiceModeSelected: voiceModeSelected,
-                              voiceConversationSnapshot:
-                                  voiceConversationSnapshot,
-                              voiceConversationService:
-                                  voiceConversationService,
-                              onStartVoiceConversation:
-                                  onStartVoiceConversation,
-                              onStopVoiceConversation: onStopVoiceConversation,
-                              creationMode: creationMode,
-                              onCreationModeChanged: onCreationModeChanged,
-                              creationOptions: creationOptions,
-                              onEditOptionsRequested: onEditOptionsRequested,
-                              editingMessageId: editingMessageId,
-                              onCancelEditing: onCancelEditing,
-                              fullAccessPermission: fullAccessPermission,
-                              onToggleFullAccessPermission:
-                                  onToggleFullAccessPermission,
-                              queuedPanel: queuedPanel,
-                              projectRoot: projectRoot,
+                      child: SingleChildScrollView(
+                        primary: false,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            kOpenHandGap16,
+                            _ComposerInstructionsStrip(
+                              skippedIds: skippedInstructionIds,
+                              onToggle: onToggleInstructionSkip,
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    Flexible(
+                      child:
+                          NotificationListener<SizeChangedLayoutNotification>(
+                            onNotification: (notification) {
+                              onComposerLayoutChanged();
+                              return false;
+                            },
+                            child: SizeChangedLayoutNotifier(
+                              child: RepaintBoundary(
+                                child: _ComposerPanel(
+                                  onStateCreated: onComposerStateCreated,
+                                  onStateDisposed: onComposerStateDisposed,
+                                  currentSession: currentSession,
+                                  liveRuntimeToolPreview:
+                                      liveRuntimeToolPreview,
+                                  controller: draftController,
+                                  selectedModel: selectedModel,
+                                  availableModels: availableModels,
+                                  recentModelSelections: recentModelSelections,
+                                  onModelSelected: onModelSelected,
+                                  focusNode: composerFocusNode,
+                                  composerHeight: effectiveComposerHeight,
+                                  isCollapsed: composerCollapsed,
+                                  onCollapsedChanged:
+                                      onComposerCollapsedChanged,
+                                  autoFollowEnabled: autoFollowEnabled,
+                                  autoFollowPaused: autoFollowPaused,
+                                  onToggleAutoFollow: onToggleAutoFollow,
+                                  sendPhase: sendPhase,
+                                  canStopSending: canStopSending,
+                                  sessionMode: sessionMode,
+                                  onSessionModeChanged: onSessionModeChanged,
+                                  goalControls: goalControls,
+                                  attachments: attachments,
+                                  onSend: onSend,
+                                  onStop: onStop,
+                                  voiceModeSelected: voiceModeSelected,
+                                  voiceConversationSnapshot:
+                                      voiceConversationSnapshot,
+                                  voiceConversationService:
+                                      voiceConversationService,
+                                  onStartVoiceConversation:
+                                      onStartVoiceConversation,
+                                  onStopVoiceConversation:
+                                      onStopVoiceConversation,
+                                  creationMode: creationMode,
+                                  onCreationModeChanged: onCreationModeChanged,
+                                  creationOptions: creationOptions,
+                                  onEditOptionsRequested:
+                                      onEditOptionsRequested,
+                                  editingMessageId: editingMessageId,
+                                  onCancelEditing: onCancelEditing,
+                                  fullAccessPermission: fullAccessPermission,
+                                  onToggleFullAccessPermission:
+                                      onToggleFullAccessPermission,
+                                  queuedPanel: queuedPanel,
+                                  projectRoot: projectRoot,
+                                ),
+                              ),
+                            ),
+                          ),
+                    ),
+                  ],
                 ),
               ),
           ],
