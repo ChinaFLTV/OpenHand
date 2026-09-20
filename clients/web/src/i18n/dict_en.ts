@@ -911,7 +911,6 @@ export const dict_en: Record<string, string> = {
   'decision.result.subtitle': 'Answers and probability for each question',
   'decision.request.title': 'Structured decision',
   'decision.request.subtitle': 'State, questions, and options are bound to this request',
-  'decision.composer.hint': 'Calls the decision API on send',
   'decision.dialog.title': 'Configure structured decision',
   'decision.dialog.subtitle': 'Define questions, options, and scoring criteria',
   'decision.dialog.body': 'Provide the content to evaluate, then the questions to choose, score, or judge. Configuration is written to the draft and sent only when you tap Send.',

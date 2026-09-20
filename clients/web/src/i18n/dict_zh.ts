@@ -910,7 +910,6 @@ export const dict_zh: Record<string, string> = {
   'decision.result.subtitle': '按问题查看答案与概率分布',
   'decision.request.title': '结构化决策',
   'decision.request.subtitle': '待评估内容、问题与候选项已绑定到本次请求',
-  'decision.composer.hint': '发送时调用决策接口',
   'decision.dialog.title': '配置结构化决策',
   'decision.dialog.subtitle': '定义问题、候选项与评分标准',
   'decision.dialog.body': '先提供待评估内容，再定义要选择、评分或判断的问题。配置会写入草稿，点击发送后才调用模型。',

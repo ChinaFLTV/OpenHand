@@ -11860,35 +11860,8 @@ button.oh-json-tree-row { cursor: pointer; }
   color: var(--m3-on-surface);
   box-shadow: none;
 }
-.oh-decision-composer-heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  color: var(--m3-on-surface);
-}
-.oh-decision-composer-copy { min-width: 0; flex: 1; }
-.oh-decision-composer-icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  flex: none;
-  border-radius: 12px;
-  color: var(--m3-on-primary-container);
-  background: var(--m3-primary-container);
-}
-.oh-decision-composer.is-choice .oh-decision-kicker,
 .oh-decision-composer.is-choice .oh-decision-field-label { color: var(--m3-tertiary); }
-.oh-decision-composer.is-score .oh-decision-kicker,
 .oh-decision-composer.is-score .oh-decision-field-label { color: var(--m3-secondary); }
-.oh-decision-composer.is-choice .oh-decision-composer-icon {
-  color: var(--m3-on-tertiary-container);
-  background: var(--m3-tertiary-container);
-}
-.oh-decision-composer.is-score .oh-decision-composer-icon {
-  color: var(--m3-on-secondary-container);
-  background: var(--m3-secondary-container);
-}
 .oh-decision-type-block { display: flex; flex-direction: column; gap: 6px; }
 .oh-decision-type-group {
   display: grid;

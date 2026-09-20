@@ -909,7 +909,6 @@ export const dict_zhHant: Record<string, string> = {
   'decision.result.subtitle': '依問題查看答案與機率分布',
   'decision.request.title': '結構化決策',
   'decision.request.subtitle': '待評估內容、問題與候選項已綁定到本次請求',
-  'decision.composer.hint': '傳送時呼叫決策介面',
   'decision.dialog.title': '設定結構化決策',
   'decision.dialog.subtitle': '定義問題、候選項與評分標準',
   'decision.dialog.body': '先提供待評估內容，再定義要選擇、評分或判斷的問題。設定會寫入草稿，點選傳送後才呼叫模型。',

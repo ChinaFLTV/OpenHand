@@ -117,19 +117,6 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
   const criteriaHint = type === 'choice' ? t('decision.field.choiceHint', '例如：技术团队') : t('decision.field.scoreHint', '例如：一般');
 
   return <div class={`oh-decision-composer is-${type}`} aria-label={t('decision.request.title', '结构化决策')}>
-    <header class="oh-decision-composer-heading">
-      <span class="oh-decision-composer-icon" aria-hidden>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 11l3 3L22 4" />
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-        </svg>
-      </span>
-      <div class="oh-decision-composer-copy">
-        <span class="oh-decision-kicker">{t('decision.fence.request', '决策请求')}</span>
-        <strong class="oh-decision-title">{t('decision.request.title', '结构化决策')}</strong>
-        <p class="oh-decision-subtitle">{t('decision.composer.hint', '发送时调用决策接口')}</p>
-      </div>
-    </header>
     <label class="oh-decision-composer-field">
       <span class="oh-decision-field-label">{t('decision.field.state', '待评估内容')}</span>
       <textarea class="oh-decision-input" rows={4} value={state} disabled={disabled} placeholder={t('decision.field.stateHint', '粘贴或输入需要评估的文本')} onInput={(event) => updateDraft({ state: event.currentTarget.value })} />

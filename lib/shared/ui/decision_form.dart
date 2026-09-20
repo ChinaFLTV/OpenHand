@@ -74,29 +74,13 @@ InputDecoration openHandDecisionInputDecoration({
 
 /// 决策输入区外壳：纯色分层、无渐变、无左侧色条、无悬停阴影。
 class OpenHandDecisionFormShell extends StatelessWidget {
-  const OpenHandDecisionFormShell({
-    super.key,
-    required this.type,
-    required this.kicker,
-    required this.title,
-    required this.subtitle,
-    required this.children,
-    this.icon,
-  });
+  const OpenHandDecisionFormShell({super.key, required this.children});
 
-  final String type;
-  final String kicker;
-  final String title;
-  final String subtitle;
-  final IconData? icon;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final accent = openHandDecisionAccent(colors, type);
-    final resolvedIcon = icon ?? openHandDecisionTypeIcon(type);
+    final colors = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
       shadowColor: Colors.transparent,
@@ -113,61 +97,7 @@ class OpenHandDecisionFormShell extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: openHandDecisionContainer(colors, type),
-                      borderRadius: kOpenHandBorderRadius12,
-                    ),
-                    child: Icon(
-                      resolvedIcon,
-                      size: 20,
-                      color: openHandDecisionOnContainer(colors, type),
-                    ),
-                  ),
-                  kOpenHandHGap10,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          kicker,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: accent,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        kOpenHandGap4,
-                        Text(
-                          title,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: colors.onSurface,
-                            fontWeight: FontWeight.w800,
-                            height: 1.3,
-                          ),
-                        ),
-                        kOpenHandGap4,
-                        Text(
-                          subtitle,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (children.isNotEmpty) ...[kOpenHandGap12, ...children],
-            ],
+            children: children,
           ),
         ),
       ),

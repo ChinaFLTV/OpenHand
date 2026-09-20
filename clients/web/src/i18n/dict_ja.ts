@@ -909,7 +909,6 @@ export const dict_ja: Record<string, string> = {
   'decision.result.subtitle': '質問ごとに回答と確率分布を表示',
   'decision.request.title': '構造化意思決定',
   'decision.request.subtitle': '評価対象、質問、候補がこのリクエストに紐づいています',
-  'decision.composer.hint': '送信時に意思決定 API を呼び出します',
   'decision.dialog.title': '構造化意思決定を設定',
   'decision.dialog.subtitle': '質問、候補、採点基準を定義',
   'decision.dialog.body': 'まず評価対象を入力し、選択・採点・判定する質問を定義します。設定は下書きに書き込まれ、送信時にモデルへ送られます。',

@@ -2823,11 +2823,6 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
     final typeFill = openHandDecisionContainer(colors, _type);
     final typeOnFill = openHandDecisionOnContainer(colors, _type);
     return OpenHandDecisionFormShell(
-      type: _type,
-      icon: Icons.fact_check_rounded,
-      kicker: copy.fenceRequest,
-      title: copy.requestTitle,
-      subtitle: copy.composerHint,
       children: [
         OpenHandDecisionLabeledField(
           label: copy.stateLabel,

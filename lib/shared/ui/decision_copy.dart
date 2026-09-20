@@ -57,15 +57,6 @@ final class DecisionCopy {
     ja: '評価対象・質問・候補がこのリクエストに紐づいています',
   );
 
-  String get composerHint => _m(
-    zh: '发送时调用决策接口',
-    zhHant: '傳送時呼叫決策介面',
-    en: 'The decision API runs when you send',
-    fr: 'L’API de décision s’exécute à l’envoi',
-    de: 'Die Entscheidungs-API läuft beim Senden',
-    ja: '送信時に意思決定 API を呼び出します',
-  );
-
   String get dialogTitle => _m(
     zh: '配置结构化决策',
     zhHant: '設定結構化決策',
