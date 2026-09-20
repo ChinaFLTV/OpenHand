@@ -235,6 +235,7 @@ class _MessageBubbleState extends State<_MessageBubble>
   bool? _reasoningExpandedOverride;
   bool? _assistantResponseExpandedOverride;
   late bool _showRawContent = widget.initiallyShowRawContent;
+  (String, Locale, String?)? _decisionMarkdownCache;
   bool _responseVariantSizeMotionActive = false;
   bool _responseVariantSizeMotionExpanding = true;
   bool _expansionSizeMotionActive = false;
@@ -852,6 +853,19 @@ class _MessageBubbleState extends State<_MessageBubble>
     final effectiveContent = showingTranslation
         ? displayContent
         : heAnnotation?.strippedContent ?? message.content;
+    String? decisionMarkdown;
+    if (isUser) {
+      final locale = Localizations.localeOf(context);
+      final cache = _decisionMarkdownCache;
+      if (cache == null || cache.$1 != effectiveContent || cache.$2 != locale) {
+        _decisionMarkdownCache = (
+          effectiveContent,
+          locale,
+          decisionRequestToMarkdown(effectiveContent, DecisionCopy.of(context)),
+        );
+      }
+      decisionMarkdown = _decisionMarkdownCache!.$3;
+    }
     final isAssistantResponse =
         !isGoalEvaluationMessage &&
         !isUser &&
@@ -907,7 +921,7 @@ class _MessageBubbleState extends State<_MessageBubble>
     final compressionBodyScrollStateKey =
         '${message.id}|compression|content:${message.content.length}:${boundedTextFingerprint(message.content)}';
     final userBodyScrollStateKey =
-        '${message.id}|user|translated:${showingTranslation ? 1 : 0}|content:$bodyContentSignature';
+        '${message.id}|user|raw:${_showRawContent ? 1 : 0}|translated:${showingTranslation ? 1 : 0}|content:$bodyContentSignature';
     void warmAssistantResponseMarkdownRenderPath() {
       if (!isAssistantResponse || isStreamingAssistant || _showRawContent) {
         return;
@@ -1240,6 +1254,13 @@ class _MessageBubbleState extends State<_MessageBubble>
                   _AndroidReverseRequestStructuredBody(
                     data: androidReverseRequestCard,
                     textColor: textColor,
+                  )
+                else if (isUser && decisionMarkdown != null && !_showRawContent)
+                  buildAssistantBodyDispatcher(
+                    data: decisionMarkdown,
+                    format: AiMessageContentFormat.markdown,
+                    onCollapsedChanged: _handleUncontrolledBodyCollapsedChanged,
+                    scrollStateKey: userBodyScrollStateKey,
                   )
                 else if (isUser)
                   _PlainTextMessageBody(
@@ -1596,13 +1617,15 @@ class _MessageBubbleState extends State<_MessageBubble>
             icon: Icons.fact_check_outlined,
             label: openHandLocalizedText(context, zh: '审计', en: 'Audit'),
           ),
-        if (!isUser &&
-            !isToolCall &&
-            !isSelfLearning &&
-            !isCompressionPoint &&
-            !isStatus &&
-            !isGoalRuntimeMessage &&
-            resolvedMessageContentFormat != AiMessageContentFormat.plainText)
+        if (decisionMarkdown != null ||
+            (!isUser &&
+                !isToolCall &&
+                !isSelfLearning &&
+                !isCompressionPoint &&
+                !isStatus &&
+                !isGoalRuntimeMessage &&
+                resolvedMessageContentFormat !=
+                    AiMessageContentFormat.plainText))
           _MessageActionSpec(
             id: 'raw-toggle',
             onPressed: () async {

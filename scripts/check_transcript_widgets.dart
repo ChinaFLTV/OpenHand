@@ -1084,6 +1084,55 @@ void main() {
     expect(probe.state._renderEntries.last.id, '新回复');
   });
 
+  testWidgets('用户决策请求复用 Markdown 并支持原始渲染往返切换', (tester) async {
+    final original = _probeSession('决策请求展示', 1);
+    final source = DecisionPayload.encode(DecisionPayload.requestLanguage, {
+      'state': '待评估 <script>内容</script>', 'questions': {
+        '判断': {'type': 'noul', 'instructions': '是否成立？', 'criteria': {'真': '有证据'}},
+        '选择': {'type': 'choice', 'instructions': '选哪个？', 'criteria': {'甲*': null, '乙|': '详细描述'}},
+        '评分': {'type': 'score', 'instructions': {'问题': '评几级？'}, 'criteria': ['低', '高']},
+      },
+    });
+    final message = AiSessionMessage.user(id: '决策请求', content: source, createdAt: original.createdAt);
+    final probe = _TranscriptProbe(tester, original.copyWith(messages: [message]));
+    await probe.mount(size: const Size(1000, 1800), animated: true);
+    await probe.settle();
+    final bubble = find.byKey(const ValueKey<String>('决策请求'));
+    final state = tester.state<_MessageBubbleState>(bubble);
+    final copy = DecisionCopy.of(tester.element(bubble));
+    final markdown = decisionRequestToMarkdown(source, copy)!;
+    expect(markdown, contains('### 结构化决策'));
+    expect(markdown, contains('#### 判断 · 判断'));
+    expect(markdown, contains(r'甲\*'));
+    expect(markdown, contains(r'乙\|：详细描述'));
+    expect(markdown, contains('1. 低\n2. 高'));
+    expect(markdown, contains(r'\<script\>'));
+    expect(markdown, contains('```json\n'));
+    expect(find.descendant(of: bubble, matching: find.byType(_AssistantMessageBodyDispatcher)), findsOneWidget);
+    probe.state.setState(() => probe.state._selectedMessageId = message.id);
+    await probe.settle();
+    await tester.ensureVisible(find.text('显示原始'));
+    await tester.tap(find.text('显示原始'));
+    await probe.settle();
+    expect(state._showRawContent, isTrue);
+    expect(find.descendant(of: bubble, matching: find.byType(_PlainTextMessageBody)), findsOneWidget);
+    expect(state.widget.message.content, source, reason: '显示转换不改写持久化原文');
+    await tester.ensureVisible(find.text('显示渲染'));
+    await tester.tap(find.text('显示渲染'));
+    await probe.settle();
+    expect(state._showRawContent, isFalse);
+    expect(find.descendant(of: bubble, matching: find.byType(_AssistantMessageBodyDispatcher)), findsOneWidget);
+    for (final invalid in ['普通消息', '```openhand-decision-request\n损坏\n```', '```openhand-decision-request\n{}']) {
+      expect(decisionRequestToMarkdown(invalid, copy), isNull);
+    }
+    final surrounded = decisionRequestToMarkdown('前文\n${source.replaceAll('\n', '\r\n')}\n后文', copy)!;
+    expect(surrounded, startsWith('前文'));
+    expect(surrounded, endsWith('后文'));
+    probe.update(original.copyWith(messages: [AiSessionMessage.user(id: '普通请求', content: '普通消息', createdAt: original.createdAt)]));
+    await probe.settle();
+    expect(find.text('显示原始'), findsNothing);
+  });
+
   testWidgets('内嵌决策类型更新默认问题并同步草稿，自定义问题保持不变', (tester) async {
     final controller = TextEditingController(text: '待评估内容');
     addTearDown(controller.dispose);

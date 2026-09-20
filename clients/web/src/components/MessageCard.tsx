@@ -16,6 +16,7 @@ import type { ComponentChildren } from 'preact';
 import { t, tDuration, tNumber } from '../i18n';
 import { formatCreationOptionDetail } from '../shared/ui/creation_option_labels';
 import { Markdown, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
+import { decisionRequestToMarkdown } from '../shared/util/decision_request_markdown';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
 import {
   MediaPreviewDialog,
@@ -2476,6 +2477,10 @@ function MessageCardImpl({
   const showingTranslation = translationVisible && translatedText.length > 0;
   // 操作与格式判断使用完整正文，首次折叠的渲染预算在下方单独处理。
   const visibleContent = showingTranslation ? translatedText : strippedContent;
+  const decisionLocale = t('decision.request.title', '结构化决策');
+  const decisionMarkdown = useMemo(() => isUserBubble ? decisionRequestToMarkdown(visibleContent) : null,
+    [isUserBubble, visibleContent, decisionLocale]);
+  const displayContent = !showRawContent && decisionMarkdown !== null ? decisionMarkdown : visibleContent;
 
   // ── 工具调用/思考/正式响应胶囊折叠（与 APP 端消息卡对齐） ──
   // - 工具调用 / 工具结果 / hook / mcp / skill / reasoning：支持点击胶囊折叠
@@ -2574,8 +2579,8 @@ function MessageCardImpl({
   const supportsTextActions =
     textFeatureFormat === 'markdown' || textFeatureFormat === 'plain_text';
   const supportsRenderedSourceToggle =
-    !goalMessageView &&
-    (effectiveFormat === 'html' || effectiveFormat === 'markdown');
+    decisionMarkdown !== null || (!goalMessageView &&
+    (effectiveFormat === 'html' || effectiveFormat === 'markdown'));
   const contentLooksHtml = looksLikeRenderableHtml(visibleContent);
   const htmlRenderableMessage =
     !isUserBubble &&
@@ -2595,10 +2600,10 @@ function MessageCardImpl({
     !showRawContent &&
     (effectiveFormat === 'markdown' || isReasoningMessage || isUserBubble) &&
     !contentLooksHtml
-      ? truncateEndText(visibleContent, COLLAPSED_RICH_BODY_PREVIEW_MAX_CHARS, {
+      ? truncateEndText(displayContent, COLLAPSED_RICH_BODY_PREVIEW_MAX_CHARS, {
           ellipsis: '',
         })
-      : visibleContent;
+      : displayContent;
   useEffect(() => {
     if (!supportsRenderedSourceToggle && showRawContent) {
       setShowRawContent(false);
@@ -3058,7 +3063,7 @@ function MessageCardImpl({
               reduceMotion={reduceMotion}
               raw={
                 showRawContent ||
-                (style.mono === true && effectiveFormat === 'plain_text')
+                (decisionMarkdown === null && style.mono === true && effectiveFormat === 'plain_text')
               }
               mono={showRawContent || style.mono === true}
               format={
@@ -3253,7 +3258,7 @@ function MessageCardImpl({
                       onClick={() => onFork(message)}
                     />
                   ) : null}
-                  {!goalMessageView && !isUserBubble && !useToolBody && message.kind !== 'file_mutation_summary' && supportsRenderedSourceToggle ? (
+                  {!goalMessageView && (!isUserBubble || decisionMarkdown !== null) && !useToolBody && message.kind !== 'file_mutation_summary' && supportsRenderedSourceToggle ? (
                     <ActionBtn
                       icon={showRawContent ? 'codeOff' : 'code'}
                       label={showRawContent

@@ -26,6 +26,25 @@ function deferred() {
 try {
   const { syncLangFromAppPreferences } = await server.ssrLoadModule('/src/i18n/index.ts');
   syncLangFromAppPreferences('zh_Hans');
+  const { decisionRequestToMarkdown } = await server.ssrLoadModule('/src/shared/util/decision_request_markdown.ts');
+  const requestPayload = { state: '待评估 <script>内容</script>', questions: {
+    判断: { type: 'noul', instructions: '是否成立？', criteria: { 真: '有证据', 假: '无证据' } },
+    选择: { type: 'choice', instructions: '选哪个？', criteria: { '甲*': null, '乙|': '详细描述' } },
+    评分: { type: 'score', instructions: { 问题: '评几级？' }, criteria: ['低', '高'] },
+  } };
+  const requestSource = '前文\n```openhand-decision-request\r\n' + JSON.stringify(requestPayload) + '\r\n```\n后文';
+  const renderedRequest = decisionRequestToMarkdown(requestSource);
+  assert.ok(renderedRequest.includes('### 结构化决策'));
+  assert.ok(renderedRequest.includes('#### 判断 · 判断'));
+  assert.ok(renderedRequest.includes('1. 甲\\*'));
+  assert.ok(renderedRequest.includes('2. 乙\\|：详细描述'));
+  assert.ok(renderedRequest.includes('1. 低\n2. 高'));
+  assert.ok(renderedRequest.includes('```json\n'));
+  assert.ok(renderedRequest.includes('\\<script\\>'));
+  assert.ok(renderedRequest.startsWith('前文') && renderedRequest.endsWith('后文'));
+  for (const source of ['普通用户消息', JSON.stringify(requestPayload), '```openhand-decision-request\n损坏\n```', '```openhand-decision-request\n{}', requestSource + '\n```openhand-decision-request\n{}\n```']) {
+    assert.equal(decisionRequestToMarkdown(source), null, '普通消息或不完整请求保留原文');
+  }
   const { DEFAULT_DECISION_QUESTIONS, decisionQuestionForType, decisionDraft, initialDecisionDraft } = await server.ssrLoadModule('/src/shared/util/decision.ts');
   assert.equal(new Set(Object.values(DEFAULT_DECISION_QUESTIONS)).size, 3);
   for (const type of Object.keys(DEFAULT_DECISION_QUESTIONS)) {
