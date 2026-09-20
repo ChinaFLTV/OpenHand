@@ -2,6 +2,11 @@ import { t } from '../../i18n';
 
 export const DECISION_REQUEST = 'openhand-decision-request';
 export const DECISION_RESULT = 'openhand-decision';
+const decisionResultFence = /^ {0,3}(?:`{3,}|~{3,})openhand-decision[ \t]*\r?$/m;
+
+export function isDecisionResultMessage(message: { role: string; content: string }): boolean {
+  return message.role === 'assistant' && message.content.includes(DECISION_RESULT) && decisionResultFence.test(message.content);
+}
 export const DECISION_MAX_CHARACTERS = 1024 * 1024;
 export const DECISION_MAX_QUESTIONS = 128;
 export const DECISION_MAX_CRITERIA = 255;

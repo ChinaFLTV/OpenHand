@@ -7,6 +7,13 @@ import 'localized_text.dart';
 abstract final class DecisionPayload {
   static const requestLanguage = 'openhand-decision-request';
   static const resultLanguage = 'openhand-decision';
+  static final _resultFence = RegExp(
+    r'^ {0,3}(?:`{3,}|~{3,})openhand-decision[ \t]*\r?$',
+    multiLine: true,
+  );
+
+  static bool containsResult(String content) =>
+      content.contains(resultLanguage) && _resultFence.hasMatch(content);
   static const typeNoul = 'noul';
   static const typeChoice = 'choice';
   static const typeScore = 'score';

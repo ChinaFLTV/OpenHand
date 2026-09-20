@@ -54,9 +54,10 @@ class _ProbeWebView extends iaw.PlatformInAppWebViewWidget {
 }
 
 class _ProbeSettingsStore extends SettingsStore {
-  _ProbeSettingsStore(this.animated, {this.writable = false});
+  _ProbeSettingsStore(this.animated, {this.writable = false, this.textActions = false});
   final bool animated;
   final bool writable;
+  final bool textActions;
   @override
   Future<void> save(AppSettingsSnapshot snapshot) async {}
   @override
@@ -66,6 +67,8 @@ class _ProbeSettingsStore extends SettingsStore {
           ? OpenHandMotionDefaults.page
           : OpenHandMotionDefaults.disabled,
       showSelfLearningMessages: false,
+      aiTtsSettings: AiTtsSettings.defaults().copyWith(enabled: textActions),
+      aiTranslationSettings: AiTranslationSettings.defaults().copyWith(enabled: textActions),
     ),
     canPersist: writable,
   );
@@ -200,12 +203,13 @@ class _TranscriptProbe {
     Size size = const Size(1400, 900),
     bool animated = false,
     bool paused = false,
+    bool textActions = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     settings = await SettingsController.create(
-      store: _ProbeSettingsStore(animated),
+      store: _ProbeSettingsStore(animated, textActions: textActions),
     );
     activity.value = paused;
     await tester.pumpWidget(
@@ -1082,6 +1086,56 @@ void main() {
     );
     await probe.settle();
     expect(probe.state._renderEntries.last.id, '新回复');
+  });
+
+  testWidgets('三类 AI 决策结果禁用朗读翻译，原始视图与执行入口一致', (tester) async {
+    final original = _probeSession('决策操作限制', 1);
+    final probe = _TranscriptProbe(tester, original);
+    await probe.mount(size: const Size(1200, 1400), textActions: true);
+    for (final type in ['noul', 'choice', 'score']) {
+      final source = DecisionPayload.encode(DecisionPayload.resultLanguage, {
+        'questions': {'决策': {'type': type, 'instructions': '判断内容',
+          if (type == 'choice') 'criteria': {'甲': null, '乙': null},
+          if (type == 'score') 'criteria': ['低', '高'],
+        }},
+        'answers': {'决策': {'type': type,
+          if (type == 'noul') 'noul': .6,
+          if (type == 'choice') ...{'choice': '甲', 'probabilities': {'甲': .6, '乙': .4}},
+          if (type == 'score') ...{'score': .6, 'probabilities': {'0': .4, '1': .6}},
+        }},
+      });
+      final message = AiSessionMessage.assistant(id: '结果', content: source, createdAt: original.createdAt);
+      expect(message.isDecisionResult, isTrue);
+      probe.update(original.copyWith(messages: [message]));
+      probe.state.setState(() => probe.state._selectedMessageId = message.id);
+      await probe.settle();
+      expect(probe.state._messageSupportsSpeech(message, probe.settings), isFalse);
+      expect(probe.state._isMessageTranslatable(message, probe.settings), isFalse);
+      await probe.state._toggleMessageSpeech(message, probe.settings.aiTtsSettings);
+      await probe.state._toggleMessageTranslation(message, probe.settings.aiTranslationSettings);
+      expect(find.text('朗读'), findsNothing);
+      expect(find.text('翻译'), findsNothing);
+      expect(find.text('复制'), findsOneWidget);
+      await tester.tap(find.text('显示原始'));
+      await probe.settle();
+      expect(find.text('朗读'), findsNothing);
+      expect(find.text('翻译'), findsNothing);
+      expect(find.text('显示渲染'), findsOneWidget);
+      await tester.tap(find.text('显示渲染'));
+      await probe.settle();
+    }
+    for (final content in ['普通回复提到 openhand-decision', '```openhand-decision-request\n{}\n```', '```openhand-decision-extra\n{}\n```']) {
+      final message = AiSessionMessage.assistant(id: '普通', content: content, createdAt: original.createdAt);
+      expect(message.isDecisionResult, isFalse);
+    }
+    final normal = AiSessionMessage.assistant(id: '普通', content: '普通助手回复', createdAt: original.createdAt);
+    probe.update(original.copyWith(messages: [normal]));
+    probe.state.setState(() => probe.state._selectedMessageId = normal.id);
+    await probe.settle();
+    expect(find.text('朗读'), findsOneWidget);
+    expect(find.text('翻译'), findsOneWidget);
+    expect(AiSessionMessage.user(id: '用户', content: '```openhand-decision\n{}\n```', createdAt: original.createdAt).isDecisionResult, isFalse);
+    expect(DecisionPayload.containsResult('前文\n  ~~~openhand-decision\r\n{}\r\n~~~'), isTrue);
   });
 
   testWidgets('用户决策请求复用 Markdown 并支持原始渲染往返切换', (tester) async {

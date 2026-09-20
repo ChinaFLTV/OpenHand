@@ -1,4 +1,5 @@
 import 'package:characters/characters.dart';
+import '../../../shared/util/decision_payload.dart';
 
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -550,6 +551,10 @@ class AiSessionMessage {
   final AiSessionMessageRole role;
 
   /// 工具调用、结果及文件变动汇总不提供正文类操作。
+  bool get isDecisionResult =>
+      kind == AiSessionMessageKind.assistant &&
+      DecisionPayload.containsResult(content);
+
   bool get isToolMessage =>
       role == AiSessionMessageRole.tool ||
       kind == AiSessionMessageKind.toolCall ||
