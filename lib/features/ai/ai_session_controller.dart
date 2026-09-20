@@ -559,6 +559,7 @@ class AiSessionController extends ChangeNotifier {
   static const int _olderMessageHydrationBatchSize = 12;
   static const int _olderMessageHydrationContentPreviewChars = 4096;
   static const Duration _initialMessageHydrationTimeout = Duration(seconds: 10);
+  static const Duration _olderMessageHydrationTimeout = Duration(seconds: 15);
   static const Duration _sessionHydrationQueueTimeout = Duration(seconds: 8);
   static const int _maxConcurrentSessionHydrations = 4;
   static const int _maxPendingSessionHydrations = 64;
@@ -2053,7 +2054,9 @@ class AiSessionController extends ChangeNotifier {
     }
     final current = _sessionById(normalizedSessionId);
     final hydrationTask = _startTrackedSessionHydrationTask(
-      () => _loadOlderSessionMessages(normalizedSessionId),
+      () => Future<AiSession?>.microtask(
+        () => _loadOlderSessionMessages(normalizedSessionId),
+      ),
     );
     if (hydrationTask == null) {
       return Future<AiSession?>.value(current);
@@ -2311,13 +2314,20 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<AiSession?> _loadOlderSessionMessages(String sessionId) async {
+    final deadline = MonotonicDeadline(
+      _olderMessageHydrationTimeout,
+      timeoutMessage: '加载更早消息超时，请重试。',
+    );
     try {
       var current = _sessionById(sessionId);
       if (current == null || current.hasCompleteMessages) {
         return current;
       }
       if (current.messageLoadState == AiSessionMessageLoadState.header) {
-        current = await ensureSessionMessageWindowHydrated(sessionId);
+        current = await ensureSessionMessageWindowHydrated(sessionId).timeout(
+          deadline.remaining(),
+          onTimeout: () => throw deadline.timeoutException(),
+        );
         if (current == null || current.hasCompleteMessages) {
           return current;
         }
@@ -2329,7 +2339,7 @@ class AiSessionController extends ChangeNotifier {
               true,
         );
         if (containsContentPreviews) {
-          return await ensureSessionMessagesHydrated(sessionId);
+          return current;
         }
         final completed = current.copyWith(
           messageLoadState: AiSessionMessageLoadState.complete,
@@ -2343,23 +2353,33 @@ class AiSessionController extends ChangeNotifier {
       if (_hydratingSessionMessageIds.add(sessionId)) {
         notifyListeners();
       }
-      final offset = math.max(
-        0,
-        current.messageWindowStartIndex - _olderMessageHydrationBatchSize,
-      );
+      final windowStart = current.messageWindowStartIndex;
+      final boundaryId = current.messages.firstOrNull?.id;
+      final generation = _sessionMessageWindowHydrationGenerations[sessionId];
+      final offset = math.max(0, windowStart - _olderMessageHydrationBatchSize);
       final limit = current.messageWindowStartIndex - offset;
       if (limit <= 0) {
         return current;
       }
-      final page = await _runSessionHydrationRead(
-        () => _store.loadMessages(
-          sessionId,
-          limit: limit,
-          offset: offset,
-          deferTelemetryMetadata: true,
-          contentPreviewChars: _olderMessageHydrationContentPreviewChars,
-        ),
-      );
+      var readExpired = false;
+      // 超时不提前释放底层读取许可；排队中的过期请求不再启动读取。
+      final page =
+          await _runSessionHydrationRead(() {
+            if (readExpired) throw deadline.timeoutException();
+            return _store.loadMessages(
+              sessionId,
+              limit: limit + 1,
+              offset: offset,
+              deferTelemetryMetadata: true,
+              contentPreviewChars: _olderMessageHydrationContentPreviewChars,
+            );
+          }).timeout(
+            deadline.remaining(),
+            onTimeout: () {
+              readExpired = true;
+              throw deadline.timeoutException();
+            },
+          );
       if (_isDisposed || _deletedSessionIds.contains(sessionId)) {
         return null;
       }
@@ -2367,9 +2387,20 @@ class AiSessionController extends ChangeNotifier {
       if (live == null || live.hasCompleteMessages) {
         return live;
       }
+      if (live.messageWindowStartIndex != windowStart ||
+          live.messages.firstOrNull?.id != boundaryId ||
+          _sessionMessageWindowHydrationGenerations[sessionId] != generation) {
+        return live;
+      }
+      final boundaryIndex = boundaryId == null
+          ? page.messages.length
+          : page.messages.indexWhere((message) => message.id == boundaryId);
+      if (page.offset >= windowStart || boundaryIndex < 0) {
+        throw StateError('历史分页已变化，请重新打开会话后重试。');
+      }
       final seenIds = <String>{for (final message in live.messages) message.id};
       final mergedMessages = <AiSessionMessage>[
-        for (final message in page.messages)
+        for (final message in page.messages.take(boundaryIndex))
           if (seenIds.add(message.id)) message,
         ...live.messages,
       ];
@@ -2401,12 +2432,15 @@ class AiSessionController extends ChangeNotifier {
       }
       return _sessionById(sessionId) ?? updatedSession;
     } catch (error, stack) {
+      if (_isDisposed || _deletedSessionIds.contains(sessionId)) return null;
       silentLog('ai_session_controller', '加载更早的会话消息', error, stack);
       _setLastSendErrorMessage(
         sessionId,
         _friendlyAiSessionPersistenceError(error, operation: 'load'),
       );
       return null;
+    } finally {
+      deadline.stop();
     }
   }
 

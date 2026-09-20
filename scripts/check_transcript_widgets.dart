@@ -86,9 +86,35 @@ class _ProbeAiController extends ChangeNotifier implements AiSessionController {
   }
 
   @override
+  String? lastErrorMessageForSession(String? id) => null;
+
+  @override
   bool isSessionMessagesHydrating(String id) => false;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _HistoryStore extends AiSessionStore {
+  _HistoryStore(this.session, String path) : super(sessionsDirectoryPath: path);
+  AiSession session;
+  final requests = <Completer<AiSessionMessagePage>>[];
+  @override
+  Future<AiSessionLoadResult> loadAllHeaders({bool includeArchived = false}) async =>
+      AiSessionLoadResult(sessions: [session], issues: const []);
+  @override
+  Future<AiSessionMessagePage> loadMessages(String sessionId, {
+    int limit = 50, int offset = 0, bool deferTelemetryMetadata = false,
+    int? contentPreviewChars, int? knownTotalCount,
+  }) {
+    final request = Completer<AiSessionMessagePage>();
+    requests.add(request);
+    return request.future;
+  }
+}
+
+class _HistoryRuntime implements AiToolRuntimeService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }
 
 class _WorkspaceProbeAi extends _ProbeAiController {
@@ -364,6 +390,105 @@ void main() {
     expect(page.messages.map((message) => message.id), ['history-998', 'history-999']);
     expect(page.messages.first.metadata, const <String, Object?>{});
     expect(page.messages.last.metadata['tool_execution_stdout'], largeMetadata);
+  });
+
+  testWidgets('历史读取超时释放加载状态，迟到页不回写，重试保持单飞', (tester) async {
+    late Directory directory;
+    late AiSessionController controller;
+    late AiToolUsagePromotionStore usage;
+    final complete = _probeSession('分页回归', 30);
+    late _HistoryStore store;
+    await tester.runAsync(() async {
+      directory = await Directory.systemTemp.createTemp('openhand_history_timeout_');
+      store = _HistoryStore(complete.copyWith(
+        messages: complete.messages.sublist(20),
+        messageLoadState: AiSessionMessageLoadState.windowed,
+        messageWindowStartIndex: 20,
+        messageTotalCount: 30,
+      ), directory.path);
+      usage = AiToolUsagePromotionStore(filePath: '${directory.path}/usage.json');
+      controller = await AiSessionController.create(
+        store: store, toolRuntimeService: _HistoryRuntime(),
+        toolUsagePromotionStore: usage,
+      );
+    });
+    addTearDown(() async {
+      await tester.runAsync(() async {
+        await controller.shutdown();
+        controller.dispose();
+        await usage.shutdown();
+        await directory.delete(recursive: true);
+      });
+    });
+    Future<AiSession?>? reentrant;
+    controller.addListener(() {
+      if (controller.isSessionMessagesHydrating(complete.id)) {
+        reentrant = controller.loadOlderSessionMessages(complete.id);
+      }
+    });
+    final first = controller.loadOlderSessionMessages(complete.id);
+    await tester.pump();
+    expect(reentrant, same(first), reason: '同步监听器重入也必须共享请求');
+    expect(store.requests.length, 1);
+    await tester.pump(const Duration(seconds: 16));
+    expect(await first, isNull);
+    expect(controller.isSessionMessagesHydrating(complete.id), false);
+    expect(controller.sessions.single.messageWindowStartIndex, 20);
+
+    final retry = controller.loadOlderSessionMessages(complete.id);
+    expect(controller.loadOlderSessionMessages(complete.id), same(retry));
+    await tester.pump();
+    expect(store.requests.length, 2);
+    final page = AiSessionMessagePage(messages: complete.messages.sublist(8, 21),
+      offset: 8, totalCount: 30, hasMore: true);
+    store.requests.first.complete(page);
+    await tester.pump();
+    expect(controller.sessions.single.messageWindowStartIndex, 20,
+      reason: '超时后的迟到响应不能更新消息');
+    expect(controller.isSessionMessagesHydrating(complete.id), true,
+      reason: '旧请求不能清除新请求的忙碌状态');
+    store.requests.last.complete(page);
+    await tester.pump();
+    final loaded = await retry;
+    expect(loaded!.messageWindowStartIndex, 8);
+    expect(loaded.messages.map((message) => message.id),
+      complete.messages.skip(8).map((message) => message.id));
+    expect(controller.isSessionMessagesHydrating(complete.id), false);
+
+    final broken = controller.loadOlderSessionMessages(complete.id);
+    await tester.pump();
+    store.requests.last.complete(AiSessionMessagePage(
+      messages: complete.messages.take(3).toList(), offset: 0,
+      totalCount: 30, hasMore: true,
+    ));
+    await tester.pump();
+    expect(await broken, isNull, reason: '不相接的分页必须拒绝');
+    expect(controller.sessions.single.messageWindowStartIndex, 8);
+    expect(controller.isSessionMessagesHydrating(complete.id), false);
+
+    final previousReads = store.requests.length;
+    for (var i = 0; i < 4; i++) {
+      final stalled = controller.loadOlderSessionMessages(complete.id);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 16));
+      expect(await stalled, isNull);
+    }
+    final queued = controller.loadOlderSessionMessages(complete.id);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 9));
+    expect(await queued, isNull);
+    expect(store.requests.length - previousReads, 4,
+      reason: '连续超时重试不能突破底层读取并发上限');
+    for (final request in store.requests.skip(previousReads)) {
+      request.complete(AiSessionMessagePage(
+        messages: complete.messages.take(9).toList(), offset: 0,
+        totalCount: 30, hasMore: true,
+      ));
+    }
+    await tester.pump();
+    expect(store.requests.length - previousReads, 4,
+      reason: '超时的排队任务不能重新启动读取');
+    expect(controller.sessions.single.messageWindowStartIndex, 8);
   });
 
   testWidgets('失效富文本任务立即取消', (tester) async {
@@ -860,6 +985,42 @@ void main() {
     expect(probe.state._renderEntries.map((e) => e.id), ids);
     expect(probe.controller.offset, pixels);
     probe.expectFilled();
+  });
+
+  testWidgets('往返切换同一会话，旧请求不能提前解锁新请求', (tester) async {
+    final original = _probeSession('往返会话', 2, hidden: 20);
+    final probe = _TranscriptProbe(tester, original);
+    final requests = <Completer<AiSession?>>[];
+    probe.ai.loadOlder = (_) {
+      final request = Completer<AiSession?>();
+      requests.add(request);
+      return request.future;
+    };
+    await probe.mount();
+    await probe.settle();
+    probe.update(_probeSession('临时会话', 2));
+    await probe.settle();
+    probe.update(original);
+    await probe.settle();
+    expect(requests.length, 2);
+    requests.first.complete();
+    await probe.settle();
+    expect(probe.state._loadingOlderMessages, true);
+    requests.last.complete();
+    await probe.settle();
+    expect(probe.state._loadingOlderMessages, false);
+  });
+
+  testWidgets('定位不存在的旧消息遇到无进展分页立即结束', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('定位失败', 2, hidden: 200));
+    await probe.mount();
+    await probe.settle();
+    final previousLoads = probe.ai.loadCount;
+    final result = probe.state._scrollToMessageId('不存在的消息');
+    await probe.settle();
+    expect(await result, false);
+    expect(probe.ai.loadCount - previousLoads, 1);
+    expect(probe.state._loadingOlderMessages, false);
   });
 
   testWidgets('连续不可见历史有自动分页上限', (tester) async {

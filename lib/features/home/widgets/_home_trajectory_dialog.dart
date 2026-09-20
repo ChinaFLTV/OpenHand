@@ -797,6 +797,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
   );
   bool _loadingInitial = true;
   bool _loadingOlder = false;
+  int? _lastOlderLoadStart;
   bool _keepNewCallsCollapsed = false;
   bool _suppressControllerSync = false;
   bool _actualDuration = false;
@@ -942,6 +943,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
     if (!_ledgerScrollController.hasClients ||
         _ledgerScrollController.offset > _kTrajectoryOlderLoadThreshold ||
         !_session.hasMoreHistoricalMessages ||
+        _session.messageWindowStartIndex == _lastOlderLoadStart ||
         _loadingOlder) {
       return;
     }
@@ -953,30 +955,41 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
     final oldMax = _ledgerScrollController.hasClients
         ? _ledgerScrollController.position.maxScrollExtent
         : 0.0;
+    final oldPixels = _ledgerScrollController.hasClients
+        ? _ledgerScrollController.offset
+        : null;
+    _lastOlderLoadStart = _session.messageWindowStartIndex;
     _suppressControllerSync = true;
     setState(() => _loadingOlder = true);
-    final loaded = await widget.controller.loadOlderSessionMessages(
-      _session.id,
-    );
-    _suppressControllerSync = false;
-    if (!mounted) return;
-    setState(() {
-      _loadingOlder = false;
-      if (loaded != null) _replaceSession(loaded);
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_ledgerScrollController.hasClients) return;
-      final addedExtent =
-          _ledgerScrollController.position.maxScrollExtent - oldMax;
-      if (addedExtent > 0) {
-        _ledgerScrollController.jumpTo(
-          (_ledgerScrollController.offset + addedExtent).clamp(
-            0,
-            _ledgerScrollController.position.maxScrollExtent,
-          ),
-        );
-      }
-    });
+    try {
+      final loaded = await widget.controller.loadOlderSessionMessages(
+        _session.id,
+      );
+      if (!mounted || loaded == null) return;
+      setState(() => _replaceSession(loaded));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            !_ledgerScrollController.hasClients ||
+            _ledgerScrollController.offset != oldPixels ||
+            _ledgerScrollController.position.isScrollingNotifier.value)
+          return;
+        final addedExtent =
+            _ledgerScrollController.position.maxScrollExtent - oldMax;
+        if (addedExtent > 0) {
+          _ledgerScrollController.jumpTo(
+            (_ledgerScrollController.offset + addedExtent).clamp(
+              0,
+              _ledgerScrollController.position.maxScrollExtent,
+            ),
+          );
+        }
+      });
+    } catch (error, stack) {
+      silentLog('home_trajectory', '加载更早轨迹', error, stack);
+    } finally {
+      _suppressControllerSync = false;
+      if (mounted) setState(() => _loadingOlder = false);
+    }
   }
 
   void _scrollLedgerToTail() {

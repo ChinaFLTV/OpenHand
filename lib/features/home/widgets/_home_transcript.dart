@@ -537,6 +537,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   bool _prependAnchorCorrectionQueued = false;
   TranscriptScrollActivity? _scrollActivity;
   Future<void>? _activeRevealOlderFuture;
+  int _historyRevealGeneration = 0;
   int _initialLayoutSettleGeneration = 0;
   _TranscriptInitialRevealPhase _initialRevealPhase =
       _TranscriptInitialRevealPhase.preparing;
@@ -815,6 +816,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _translationGeneration += 1;
     _cancelPendingViewportRestore();
     _prependAnchorCorrectionQueued = false;
+    _historyRevealGeneration += 1;
     _activeRevealOlderFuture = null;
     _scrollRequestGeneration += 1;
     _activeScrollFuture = null;
@@ -1532,8 +1534,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       final targetNeedsHydration =
           targetDisplayIndex < 0 && widget.session.hasMoreHistoricalMessages;
       if (targetNeedsOlderWindow || targetNeedsHydration) {
+        final previousWindowStart = _windowStartIndex;
+        final previousHistoryStart = widget.session.messageWindowStartIndex;
         await _revealOlderMessages();
         await _awaitEndOfFrameBounded();
+        if (!requestIsCurrent()) return false;
+        if (_windowStartIndex >= previousWindowStart &&
+            widget.session.messageWindowStartIndex >= previousHistoryStart) {
+          break;
+        }
       } else {
         break;
       }
@@ -2242,13 +2251,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final anchor = _capturePrependAnchor();
     final restoreGeneration = _viewportRestoreGeneration;
     final restoreSessionId = widget.session.id;
+    final generation = ++_historyRevealGeneration;
+    bool requestIsCurrent() =>
+        mounted &&
+        widget.session.id == restoreSessionId &&
+        generation == _historyRevealGeneration;
     setState(() {
       _loadingOlderMessages = true;
     });
 
     try {
       await Future<void>.delayed(kOpenHandFramePeriodicTimerInterval);
-      if (!mounted || widget.session.id != restoreSessionId) {
+      if (!requestIsCurrent()) {
         return;
       }
 
@@ -2261,15 +2275,28 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _syncRenderEntriesAfterHistoryPrepend();
         });
       } else {
-        await context.read<AiSessionController>().loadOlderSessionMessages(
-          widget.session.id,
+        final controller = context.read<AiSessionController>();
+        final loaded = await controller.loadOlderSessionMessages(
+          restoreSessionId,
         );
-        if (!mounted || widget.session.id != restoreSessionId) {
+        if (!requestIsCurrent()) return;
+        if (loaded == null) {
+          if (!fillViewport) {
+            showFriendlyErrorSnackBar(
+              context,
+              message: controller.lastErrorMessageForSession(restoreSessionId),
+              fallback: openHandLocalizedText(
+                context,
+                zh: '加载更早消息失败，请重试。',
+                en: 'Could not load earlier messages. Please retry.',
+              ),
+            );
+          }
           return;
         }
       }
       await _awaitEndOfFrameBounded();
-      if (!mounted || widget.session.id != restoreSessionId) {
+      if (!requestIsCurrent()) {
         return;
       }
       // 异步加载期间发生手动滚动或切换会话后，不再恢复旧位置。
@@ -2285,10 +2312,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     } catch (error, stack) {
       silentLog('home_transcript', '显示更早消息', error, stack);
     } finally {
-      if (mounted && widget.session.id == restoreSessionId) {
+      if (requestIsCurrent()) {
         await _awaitEndOfFrameBounded();
         await Future<void>.delayed(_transcriptHistoryRevealCooldown);
-        if (mounted && widget.session.id == restoreSessionId) {
+        if (requestIsCurrent()) {
           setState(() {
             _loadingOlderMessages = false;
           });
@@ -3338,7 +3365,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 }
 
-class _TranscriptLoadEarlierButton extends StatefulWidget {
+class _TranscriptLoadEarlierButton extends StatelessWidget {
   const _TranscriptLoadEarlierButton({
     required this.hiddenMessageCount,
     required this.loading,
@@ -3350,41 +3377,19 @@ class _TranscriptLoadEarlierButton extends StatefulWidget {
   final Future<void> Function() onPressed;
 
   @override
-  State<_TranscriptLoadEarlierButton> createState() =>
-      _TranscriptLoadEarlierButtonState();
-}
-
-class _TranscriptLoadEarlierButtonState
-    extends State<_TranscriptLoadEarlierButton> {
-  bool _pressing = false;
-
-  Future<void> _handlePressed() async {
-    if (_pressing || widget.loading) return;
-    setState(() => _pressing = true);
-    try {
-      await widget.onPressed();
-    } finally {
-      if (mounted) {
-        setState(() => _pressing = false);
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final loading = widget.loading || _pressing;
     final label = openHandLocalizedText(
       context,
-      zh: loading ? '加载更早消息中...' : '加载更早消息（${widget.hiddenMessageCount}）',
+      zh: loading ? '加载更早消息中...' : '加载更早消息（$hiddenMessageCount）',
       en: loading
           ? 'Loading earlier messages...'
-          : 'Load earlier messages (${widget.hiddenMessageCount})',
+          : 'Load earlier messages ($hiddenMessageCount)',
     );
     return Center(
       child: OutlinedButton.icon(
-        onPressed: loading ? null : () => unawaited(_handlePressed()),
+        onPressed: loading ? null : () => unawaited(onPressed()),
         icon: OpenHandBusyStatusIcon(
           busy: loading,
           icon: Icons.history_rounded,

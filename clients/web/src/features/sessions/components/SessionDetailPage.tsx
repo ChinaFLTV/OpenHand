@@ -186,7 +186,7 @@ import {
 } from '../../../utils/blob_data_url';
 import { fetchBlobBounded } from '../../../utils/bounded_response';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
-import { createTimedAbortController } from '../../../utils/timed_abort';
+import { createTimedAbortController, runWithAbortableTimeout } from '../../../utils/timed_abort';
 import { PopMenu } from '../../../components/PopMenu';
 import { STORAGE_KEY_COMPOSER_COLLAPSED } from '../../../shared/util/storage_keys';
 import { listSkills, type SkillSummary } from '../../../api/toolbox';
@@ -270,6 +270,7 @@ function decodedBase64Size(encoded: string): number {
 }
 
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
+const LOAD_OLDER_TIMEOUT_MS = 15_000;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
 const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 0.05;
 const AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX = 0;
@@ -4409,34 +4410,35 @@ export function SessionDetailPage() {
     const ctrl = new AbortController();
     olderMessagesAbortRef.current = ctrl;
     setLoadingOlder(true);
-    const scroller = mainRef.current;
-    const scrollIntentAt = lastUserScrollIntentAtRef.current;
-    const viewportTop = scroller?.getBoundingClientRect().top ?? 0;
-    const anchor = Array.from(messagesContentRef.current?.querySelectorAll<HTMLElement>(
-      '.oh-session-message-row[data-message-id]',
-    ) ?? []).find((row) => row.getBoundingClientRect().bottom > viewportTop);
-    const anchorId = anchor?.dataset['messageId'] ?? '';
-    const anchorTop = anchor?.getBoundingClientRect().top;
-    setAutoFollowPausedValue(true);
-    cancelAutoFollowMotion();
     try {
+      const scroller = mainRef.current;
+      const scrollIntentAt = lastUserScrollIntentAtRef.current;
+      const viewportTop = scroller?.getBoundingClientRect().top ?? 0;
+      const anchor = Array.from(messagesContentRef.current?.querySelectorAll<HTMLElement>(
+        '.oh-session-message-row[data-message-id]',
+      ) ?? []).find((row) => row.getBoundingClientRect().bottom > viewportTop);
+      const anchorId = anchor?.dataset['messageId'] ?? '';
+      const anchorTop = anchor?.getBoundingClientRect().top;
+      setAutoFollowPausedValue(true);
+      cancelAutoFollowMotion();
       const offset = Math.max(0, currentOffset - PAGE_SIZE);
-      const m = await listMessages(requestSessionId, {
-        // 多取一条边界消息，按标识合并；偏移可能按原始消息计数。
-        limit: currentOffset - offset + 1,
-        offset,
-        signal: ctrl.signal,
-      });
+      const m = await runWithAbortableTimeout(
+        (signal) => listMessages(requestSessionId, {
+          // 多取一条边界消息，按标识合并；偏移可能按原始消息计数。
+          limit: currentOffset - offset + 1,
+          offset,
+          signal,
+        }),
+        { timeoutMs: LOAD_OLDER_TIMEOUT_MS, signal: ctrl.signal },
+      );
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
       const live = messagesRef.current;
+      if (windowOffsetRef.current !== currentOffset || live[0]?.id !== boundaryId) return;
       const merged = prependTranscriptHistory(live, m.items);
-      if (merged == null) {
-        if (messagesRef.current[0]?.id !== boundaryId) return;
+      if (merged == null || m.offset >= currentOffset) {
         throw new Error(t('detail.historyChanged', '历史分页已变化，请刷新后重试。'));
       }
-      if (m.offset >= windowOffsetRef.current) return;
-      const existing = new Set(live.map((item) => item.id));
-      const incoming = m.items.filter((item) => !existing.has(item.id));
+      const incoming = merged.slice(0, merged.length - live.length);
       markMessagesAsAppeared(incoming.map((item) => item.id));
       setOlderRenderSettlingValue(incoming.length > 0);
       restoreMessageWindow(merged, m.offset);

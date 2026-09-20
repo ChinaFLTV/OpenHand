@@ -1207,6 +1207,7 @@ export function TrajectoryDialog({
   const tableRef = useRef<HTMLDivElement | null>(null);
   const resizeRef = useRef<{ startX: number; startWidth: number; pointerId: number } | null>(null);
   const loadingEarlierRef = useRef(false);
+  const lastEarlierAttemptRef = useRef('');
   const spans = useMemo(() => projectTimeline(snapshot.records, actualDuration), [snapshot.records, actualDuration]);
   const recordsByTurn = useMemo(() => {
     const grouped = new Map<number, TrajectoryRecord[]>();
@@ -1275,8 +1276,11 @@ export function TrajectoryDialog({
     setTimelineRange((current) => current && !timelineFocus?.has(record.id) ? null : current);
   }, [timelineFocus]);
 
-  const loadEarlier = useCallback(async () => {
+  const loadEarlier = useCallback(async (automatic = false) => {
     if (!hasOlder || loadingOlder || loadingEarlierRef.current) return;
+    const boundary = `${sessionId}:${messageWindowStart}`;
+    if (automatic && lastEarlierAttemptRef.current === boundary) return;
+    lastEarlierAttemptRef.current = boundary;
     const ledger = tableRef.current;
     const beforeHeight = ledger?.scrollHeight ?? 0;
     const beforeTop = ledger?.scrollTop ?? 0;
@@ -1284,13 +1288,14 @@ export function TrajectoryDialog({
     try {
       await onLoadOlder();
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (!ledger) return;
+        if (!ledger || !ledger.isConnected || tableRef.current !== ledger ||
+            ledger.scrollTop !== beforeTop) return;
         ledger.scrollTop = beforeTop + Math.max(0, ledger.scrollHeight - beforeHeight);
       }));
     } finally {
       loadingEarlierRef.current = false;
     }
-  }, [hasOlder, loadingOlder, onLoadOlder]);
+  }, [hasOlder, loadingOlder, onLoadOlder, sessionId, messageWindowStart]);
 
   const toggleAllTurns = () => {
     setCollapsedTurns(() => allTurnsCollapsed ? new Set() : new Set(snapshot.collapsibleTurns));
@@ -1542,7 +1547,7 @@ export function TrajectoryDialog({
             ref={tableRef}
             class="oh-trajectory-ledger"
             onScroll={(event) => {
-              if (event.currentTarget.scrollTop < 48) void loadEarlier();
+              if (event.currentTarget.scrollTop < 48) void loadEarlier(true);
             }}
           >
             <div class="oh-trajectory-table-head" aria-hidden="true">

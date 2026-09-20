@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { createServer } from 'vite';
+import { createServer, transformWithOxc } from 'vite';
 import preact from '@preact/preset-vite';
 
 const server = await createServer({
@@ -378,6 +379,91 @@ try {
     throw taskFailure;
   }, { signal: externalAbort.signal }), { name: 'AbortError' });
   await new Promise((resolve) => setTimeout(resolve, 0));
+
+  // 从真实页面提取分页入口，仅替换界面状态与请求出口。
+  const historyPageSource = await readFile(new URL('../src/features/sessions/components/SessionDetailPage.tsx', import.meta.url), 'utf8');
+  const historyStart = historyPageSource.indexOf('  async function loadOlder(');
+  const historyEnd = historyPageSource.indexOf('  const locateImageMessage =', historyStart);
+  assert.ok(historyStart >= 0 && historyEnd > historyStart, '必须检查真实历史分页入口');
+  const { code: historyCode } = await transformWithOxc(
+    historyPageSource.slice(historyStart, historyEnd), 'history.ts',
+  );
+  function historyHarness() {
+    const state = { loading: false, notices: [], requests: [], applied: 0 };
+    const bindings = {
+      loadingOlder: false, olderRenderSettlingRef: { current: false },
+      olderMessagesAbortRef: { current: null }, messagesAbortRef: { current: null },
+      windowOffsetRef: { current: 20 }, messagesRef: { current: history.slice(20, 30) },
+      sessionId: '历史回归', mainRef: { current: null }, messagesContentRef: { current: null },
+      lastUserScrollIntentAtRef: { current: 0 }, totalKnownRef: { current: 30 },
+      PAGE_SIZE: 12, LOAD_OLDER_TIMEOUT_MS: 20,
+      setLoadingOlder(value) { state.loading = value; },
+      setAutoFollowPausedValue() {}, cancelAutoFollowMotion() {},
+      listMessages(_id, options) {
+        const request = { ...deferred(), signal: options.signal };
+        state.requests.push(request);
+        return request.promise;
+      },
+      runWithAbortableTimeout, prependTranscriptHistory,
+      ownsSessionAsyncResult: () => true, t: (_key, fallback) => fallback,
+      markMessagesAsAppeared() {}, setOlderRenderSettlingValue() {},
+      restoreMessageWindow(messages, offset) {
+        state.applied++;
+        bindings.messagesRef.current = messages;
+        bindings.windowOffsetRef.current = offset;
+      },
+      updateTotalKnown() {}, schedulePostRenderFrame() {}, renderedMessageRow: () => null,
+      handleAuthError: () => false, handleSessionGoneError: () => false,
+      showSnackbar(message) { state.notices.push(message); },
+    };
+    const load = new Function(...Object.keys(bindings), historyCode + '\nreturn loadOlder;')(...Object.values(bindings));
+    return { state, bindings, load };
+  }
+  const stalledHistory = historyHarness();
+  const stalledLoad = stalledHistory.load();
+  await Promise.resolve();
+  await stalledHistory.load();
+  assert.equal(stalledHistory.state.requests.length, 1, '重复点击必须合并历史请求');
+  assert.equal(stalledHistory.state.loading, true);
+  await stalledLoad;
+  assert.equal(stalledHistory.state.loading, false, '不响应取消的请求也必须结束加载');
+  assert.equal(stalledHistory.state.requests[0].signal.aborted, true, '超时必须取消网络读取');
+  assert.equal(stalledHistory.bindings.olderMessagesAbortRef.current, null);
+  assert.equal(stalledHistory.state.notices.length, 1);
+  const historyRetry = stalledHistory.load();
+  await Promise.resolve();
+  stalledHistory.state.requests[0].resolve({ items: history.slice(0, 21), offset: 0, total: 30 });
+  await Promise.resolve();
+  assert.equal(stalledHistory.state.applied, 0, '迟到响应不能更新列表');
+  assert.equal(stalledHistory.state.loading, true, '迟到响应不能清除重试状态');
+  stalledHistory.state.requests[1].resolve({ items: history.slice(8, 21), offset: 8, total: 30 });
+  await historyRetry;
+  assert.equal(stalledHistory.state.applied, 1);
+  assert.deepEqual(stalledHistory.bindings.messagesRef.current, history.slice(8, 30));
+  assert.equal(stalledHistory.state.loading, false);
+
+  for (const offset of [20, 21]) {
+    const noProgress = historyHarness();
+    const pending = noProgress.load();
+    await Promise.resolve();
+    noProgress.state.requests[0].resolve({ items: history.slice(20, 30), offset, total: 30 });
+    await pending;
+    assert.equal(noProgress.state.applied, 0, '无进展页不能继续推进');
+    assert.equal(noProgress.state.loading, false);
+    assert.equal(noProgress.state.notices.length, 1, '无进展必须给出可重试提示');
+  }
+  const cancelledHistory = historyHarness();
+  const cancelledLoad = cancelledHistory.load();
+  await Promise.resolve();
+  cancelledHistory.bindings.olderMessagesAbortRef.current.abort();
+  await cancelledLoad;
+  assert.equal(cancelledHistory.state.loading, false);
+  assert.equal(cancelledHistory.state.notices.length, 0, '会话切换取消不能提示请求失败');
+  const layoutFailure = historyHarness();
+  layoutFailure.bindings.mainRef.current = { getBoundingClientRect() { throw new Error('模拟布局读取失败'); } };
+  await layoutFailure.load();
+  assert.equal(layoutFailure.state.loading, false, '布局准备异常也必须释放忙碌状态');
+  assert.equal(layoutFailure.bindings.olderMessagesAbortRef.current, null);
 
   replaceGlobal('window', undefined);
   const { createTimedAbortController, waitForDelayOrAbort } = await server.ssrLoadModule('/src/utils/timed_abort.ts');
