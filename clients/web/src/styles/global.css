@@ -11597,13 +11597,12 @@ button.oh-json-tree-row { cursor: pointer; }
   .oh-voice-control { transition: none; }
 }
 
-/* 结构化决策卡片：纯色层次、无渐变、无悬停阴影。 */
+/* 结构化决策卡片：纯色层次、无渐变、无左侧色条、无悬停阴影。 */
 .oh-decision-card {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px 14px 16px 18px;
+  padding: 14px 14px 16px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 78%, transparent);
   background: var(--m3-surface-container-low);
@@ -11613,17 +11612,6 @@ button.oh-json-tree-row { cursor: pointer; }
   font-family: inherit;
   box-shadow: none;
 }
-.oh-decision-card::before {
-  content: '';
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 5px;
-  border-radius: 18px 0 0 18px;
-  background: var(--m3-primary);
-}
-.oh-decision-card.is-choice::before { background: var(--m3-tertiary); }
-.oh-decision-card.is-score::before { background: var(--m3-secondary); }
 .oh-decision-card.is-choice .oh-decision-kicker { color: var(--m3-tertiary); }
 .oh-decision-card.is-score .oh-decision-kicker { color: var(--m3-secondary); }
 .oh-decision-card.is-choice .oh-decision-card-icon {

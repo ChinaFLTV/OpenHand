@@ -160,78 +160,64 @@ class _DecisionChrome extends StatelessWidget {
             color: colors.outlineVariant.withValues(alpha: 0.72),
           ),
         ),
-        child: ClipRRect(
-          borderRadius: kOpenHandBorderRadius18,
-          child: Stack(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              PositionedDirectional(
-                start: 0,
-                top: 0,
-                bottom: 0,
-                width: kOpenHandAccentBarWidth,
-                child: ColoredBox(color: accent),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 14, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: iconFill,
+                      borderRadius: kOpenHandBorderRadius12,
+                    ),
+                    child: Icon(icon, size: 20, color: iconColor),
+                  ),
+                  kOpenHandHGap10,
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: iconFill,
-                            borderRadius: kOpenHandBorderRadius12,
-                          ),
-                          child: Icon(icon, size: 20, color: iconColor),
-                        ),
-                        kOpenHandHGap10,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                kicker,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: accent,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                              kOpenHandGap4,
-                              Text(
-                                title,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: colors.onSurface,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.25,
-                                ),
-                              ),
-                              kOpenHandGap4,
-                              Text(
-                                subtitle,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colors.onSurfaceVariant,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ],
+                        Text(
+                          kicker,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: accent,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
                           ),
                         ),
-                        if (trailing != null) ...[
-                          kOpenHandHGap8,
-                          _DecisionTypeChip(label: trailing!, type: accentType),
-                        ],
+                        kOpenHandGap4,
+                        Text(
+                          title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: colors.onSurface,
+                            fontWeight: FontWeight.w800,
+                            height: 1.25,
+                          ),
+                        ),
+                        kOpenHandGap4,
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                            height: 1.45,
+                          ),
+                        ),
                       ],
                     ),
-                    if (children.isNotEmpty) ...[kOpenHandGap14, ...children],
+                  ),
+                  if (trailing != null) ...[
+                    kOpenHandHGap8,
+                    _DecisionTypeChip(label: trailing!, type: accentType),
                   ],
-                ),
+                ],
               ),
+              if (children.isNotEmpty) ...[kOpenHandGap14, ...children],
             ],
           ),
         ),
