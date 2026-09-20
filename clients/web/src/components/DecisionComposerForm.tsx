@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { AnimatedList } from './AnimatedList';
 import { t } from '../i18n';
-import { DECISION_MAX_CRITERIA, DECISION_MAX_SCORE_LEVELS, DECISION_MIN_SCORE_LEVELS, DECISION_REQUEST, DECISION_SIMPLE_QUESTION_KEY, DECISION_TYPES, decisionDraft, decisionQuestionForType, initialDecisionDraft, localizedDecisionQuestion, type DecisionType } from '../shared/util/decision';
+import { DECISION_MAX_CRITERIA, DECISION_MAX_SCORE_LEVELS, DECISION_MIN_SCORE_LEVELS, DECISION_REQUEST, DECISION_SIMPLE_QUESTION_KEY, DECISION_TYPES, decisionQuestionForType, initialDecisionDraft, localizedDecisionQuestion, type DecisionType } from '../shared/util/decision';
 
 type Props = { initialText: string; disabled?: boolean; onChange: (text: string) => void };
 type Criterion = { id: string; value: string };
@@ -11,7 +11,8 @@ function initialCriteria(initial: ReturnType<typeof initialDecisionDraft>, creat
   return {
     noul: [],
     choice: (initial.type === 'choice' && values.length ? values : ['']).map(create),
-    score: (initial.type === 'score' && values.length ? values : ['', '']).map(create),
+    score: Array.from({ length: Math.max(DECISION_MIN_SCORE_LEVELS, initial.type === 'score' ? values.length : 0) },
+      (_, index) => create(initial.type === 'score' ? values[index] ?? '' : '')),
   };
 }
 
@@ -42,61 +43,64 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
   const initial = useMemo(() => initialDecisionDraft(initialText), [initialText]);
   const nextId = useRef(0);
   const createCriterion = (value: string): Criterion => ({ id: `criterion-${nextId.current++}`, value });
-  const [state, setState] = useState(initial.state);
-  const [question, setQuestion] = useState(initial.question);
-  const [type, setType] = useState<DecisionType>(initial.type);
-  const [criteriaByType, setCriteriaByType] = useState(() => initialCriteria(initial, createCriterion));
-  const criteria = criteriaByType[type];
+  const [draft, setDraft] = useState(() => ({
+    state: initial.state, question: initial.question, type: initial.type,
+    criteriaByType: initialCriteria(initial, createCriterion),
+  }));
+  const draftRef = useRef(draft);
   const lastDraft = useRef(initialText);
-  const loadingDraft = useRef(false);
+  const { state, question, type, criteriaByType } = draft;
+  const criteria = criteriaByType[type];
   const localizedQuestion = localizedDecisionQuestion(type);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (initialText === lastDraft.current) return;
     lastDraft.current = initialText;
-    loadingDraft.current = true;
-    setState(initial.state);
-    setQuestion(initial.question);
-    setType(initial.type);
-    setCriteriaByType(initialCriteria(initial, createCriterion));
+    const next = {
+      state: initial.state, question: initial.question, type: initial.type,
+      criteriaByType: initialCriteria(initial, createCriterion),
+    };
+    draftRef.current = next;
+    setDraft(next);
   }, [initialText, initial]);
 
   useEffect(() => {
-    setQuestion((current) => decisionQuestionForType(type, current));
+    const current = draftRef.current;
+    const nextQuestion = decisionQuestionForType(current.type, current.question);
+    if (nextQuestion === current.question) return;
+    const next = { ...current, question: nextQuestion };
+    draftRef.current = next;
+    setDraft(next);
   }, [localizedQuestion, type]);
 
-  useEffect(() => {
-    if (loadingDraft.current) {
-      loadingDraft.current = false;
-      return;
-    }
-    let draft: string;
-    const values = criteria.map(item => item.value);
-    try {
-      draft = decisionDraft(state, question, type, values.join('\n'));
-    } catch {
-      const questionPayload = {
-        type,
-        instructions: question.trim(),
-        ...(type === 'choice' ? { criteria: Object.fromEntries(values.filter(Boolean).map((item) => [item, null])) } : {}),
-        ...(type === 'score' ? { criteria: values.filter(Boolean) } : {}),
-      };
-      const json = JSON.stringify({ state, questions: { [DECISION_SIMPLE_QUESTION_KEY]: questionPayload } }).replace(/`/g, '\\u0060');
-      draft = `\`\`\`${DECISION_REQUEST}\n${json}\n\`\`\``;
-    }
-    if (draft === lastDraft.current) return;
-    lastDraft.current = draft;
-    onChange(draft);
-  }, [state, question, type, criteria, initialText, onChange]);
-
+  // 只有用户编辑才回写，挂载、语言更新和外部清空不会生成新草稿。
+  const updateDraft = (update: Partial<typeof draft>) => {
+    if (disabled) return;
+    const next = { ...draftRef.current, ...update };
+    draftRef.current = next;
+    setDraft(next);
+    const values = next.criteriaByType[next.type].map(item => item.value.trim()).filter(Boolean);
+    const questionPayload = {
+      type: next.type,
+      instructions: next.question.trim(),
+      ...(next.type === 'choice' ? { criteria: Object.fromEntries(values.map(value => [value, null])) } : {}),
+      ...(next.type === 'score' ? { criteria: values } : {}),
+    };
+    const json = JSON.stringify({ state: next.state, questions: { [DECISION_SIMPLE_QUESTION_KEY]: questionPayload } }).replace(/`/g, '\\u0060');
+    const encoded = `\`\`\`${DECISION_REQUEST}\n${json}\n\`\`\``;
+    if (encoded === lastDraft.current) return;
+    lastDraft.current = encoded;
+    onChange(encoded);
+  };
   const updateType = (next: DecisionType) => {
-    if (next === type) return;
-    setType(next);
-    setQuestion((current) => decisionQuestionForType(next, current));
+    if (next === draftRef.current.type) return;
+    updateDraft({ type: next, question: decisionQuestionForType(next, draftRef.current.question) });
   };
   const setCriteria = (update: (items: Criterion[]) => Criterion[]) => {
-    if (disabled) return;
-    setCriteriaByType(current => ({ ...current, [type]: update(current[type]) }));
+    const current = draftRef.current;
+    updateDraft({ criteriaByType: {
+      ...current.criteriaByType, [current.type]: update(current.criteriaByType[current.type]),
+    } });
   };
   const updateCriteria = (id: string, value: string) => setCriteria(items => items.map(item => item.id === id ? { ...item, value } : item));
   const removeCriteria = (id: string) => setCriteria(items => items.length > (type === 'score' ? DECISION_MIN_SCORE_LEVELS : 1) ? items.filter(item => item.id !== id) : items);
@@ -128,11 +132,11 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
     </header>
     <label class="oh-decision-composer-field">
       <span class="oh-decision-field-label">{t('decision.field.state', '待评估内容')}</span>
-      <textarea class="oh-decision-input" rows={4} value={state} disabled={disabled} placeholder={t('decision.field.stateHint', '粘贴或输入需要评估的文本')} onInput={(event) => setState(event.currentTarget.value)} />
+      <textarea class="oh-decision-input" rows={4} value={state} disabled={disabled} placeholder={t('decision.field.stateHint', '粘贴或输入需要评估的文本')} onInput={(event) => updateDraft({ state: event.currentTarget.value })} />
     </label>
     <label class="oh-decision-composer-field">
       <span class="oh-decision-field-label">{t('decision.field.question', '需要模型回答的问题')}</span>
-      <input class="oh-decision-field" value={question} disabled={disabled} onInput={(event) => setQuestion(event.currentTarget.value)} />
+      <input class="oh-decision-field" value={question} disabled={disabled} onInput={(event) => updateDraft({ question: event.currentTarget.value })} />
     </label>
     {DecisionTypeSwitch({ value: type, disabled, onChange: updateType })}
     {type !== 'noul' ? <div class="oh-decision-criteria">

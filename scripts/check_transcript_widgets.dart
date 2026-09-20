@@ -117,6 +117,13 @@ class _HistoryRuntime implements AiToolRuntimeService {
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
+class _ComposerRoutingProbe extends _OpenHandHomePageState {
+  @override
+  void setState(VoidCallback fn) => fn();
+  @override
+  void _syncVoiceConversationVisibility(String? currentSessionId) {}
+}
+
 class _WorkspaceProbeAi extends _ProbeAiController {
   @override
   bool sessionWasInitiallyThrottled(String id) => false;
@@ -1380,6 +1387,127 @@ void main() {
     expect(find.text('显示原始'), findsNothing);
   });
 
+  test('草稿允许未完成字段，但发送校验仍拒绝空内容与不完整标准', () {
+    for (final type in ['noul', 'choice', 'score']) {
+      final encoded = DecisionPayload.encode(DecisionPayload.requestLanguage, {
+        'state': '', 'questions': {'决策': {'type': type, 'instructions': '',
+          if (type == 'choice') 'criteria': <String, Object?>{},
+          if (type == 'score') 'criteria': <String>[],
+        }},
+      });
+      expect(DecisionPayload.request(encoded, allowIncomplete: true)['state'], '');
+      expect(() => DecisionPayload.request(encoded), throwsFormatException);
+      final draft = DecisionPayload.request(encoded, allowIncomplete: true);
+      draft['state'] = '有效正文';
+      expect(() => DecisionPayload.request(jsonEncode(draft)), throwsFormatException,
+        reason: '正文填写后仍须校验问题内容');
+      ((draft['questions'] as Map)['决策'] as Map)['instructions'] = '有效问题';
+      if (type != 'noul') {
+        expect(() => DecisionPayload.request(jsonEncode(draft)), throwsFormatException,
+          reason: '正文和问题填写后仍须校验候选项或评分等级');
+      }
+    }
+  });
+
+  testWidgets('Jev 草稿外部清空、替换与重新挂载不会回填已发送内容', (tester) async {
+    final controller = TextEditingController();
+    final replacement = TextEditingController(text: '另一会话草稿');
+    addTearDown(controller.dispose);
+    addTearDown(replacement.dispose);
+    var writes = 0;
+    controller.addListener(() => writes++);
+    Future<void> mount(TextEditingController target, {String locale = 'zh'}) async {
+      await tester.pumpWidget(MaterialApp(
+        locale: Locale(locale), supportedLocales: const [Locale('zh'), Locale('en')],
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        home: Scaffold(body: SingleChildScrollView(child:
+          _DecisionComposerForm(controller: target, enabled: true))),
+      ));
+      await tester.pumpAndSettle();
+    }
+    await mount(controller);
+    expect(controller.text, '');
+    expect(writes, 0, reason: '挂载空表单不能生成决策代码块');
+    await mount(controller, locale: 'en');
+    expect(writes, 0, reason: '语言切换只更新默认文案');
+    var form = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
+    form._state.selection = const TextSelection.collapsed(offset: 0);
+    form._question.selection = const TextSelection.collapsed(offset: 0);
+    expect(controller.text, '', reason: '聚焦或移动光标不能生成空请求');
+    expect(writes, 0);
+    form._state.text = '已经发送的正文';
+    expect(DecisionPayload.request(controller.text)['state'], '已经发送的正文');
+    controller.clear();
+    await tester.pumpAndSettle();
+    expect(form._state.text, '');
+    expect(controller.text, '', reason: '外部清空后不允许旧表单重新编码');
+    form._setType('score');
+    form._criteria.first.text = '尚未写完的等级';
+    final incomplete = controller.text;
+    await tester.pumpWidget(const SizedBox());
+    await mount(controller);
+    form = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
+    expect(form._state.text, '', reason: '未完成的决策草稿不能当作普通正文嵌套');
+    expect(form._type, 'score');
+    expect(form._criteria.first.text, '尚未写完的等级');
+    expect(controller.text, incomplete);
+    await mount(replacement);
+    expect(form._state.text, '另一会话草稿');
+    controller.text = '旧控制器迟到内容';
+    await tester.pumpAndSettle();
+    expect(form._state.text, '另一会话草稿');
+    expect(replacement.text, '另一会话草稿');
+    replacement.clear();
+    await tester.pumpAndSettle();
+    expect(form._state.text, '');
+    expect(form._retiredCriteria.length, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('切入发送中的会话清空上一会话输入，失败恢复副本独立保存', (tester) async {
+    const recorderChannel = MethodChannel('com.llfbandit.record/messages');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(recorderChannel, (_) async => null);
+    // 主页构造会探测本机语音能力，避免把系统进程计时器放入组件的虚拟时钟。
+    final home = (await tester.runAsync(() async => _ComposerRoutingProbe()))!;
+    addTearDown(home._composerController.dispose);
+    addTearDown(home._composerFocusNode.dispose);
+    addTearDown(home._globalShortcutFocusNode.dispose);
+    addTearDown(() async {
+      await tester.runAsync(() async {
+        home._voiceConversationService.dispose();
+        await home._ttsPlaybackService.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(recorderChannel, null);
+    });
+    addTearDown(home._translationService.dispose);
+    addTearDown(home._webReverseCdpMcpBridge.dispose);
+    addTearDown(home._transcriptScrollActivity.dispose);
+    addTearDown(home._navigationWidthNotifier.dispose);
+    home._activeComposerSessionId = '会话甲';
+    home._composerController.text = '甲未发送的内容';
+    home._storeComposerDraftForSession('会话乙', text: '乙正在发送的恢复副本', isSubmissionBackup: true);
+    home._submittingSessionId = '会话乙';
+    home._syncComposerDraftForSession('会话乙');
+    expect(home._composerController.text, '');
+    expect(home._composerDraftsBySessionId['会话甲']!.text, '甲未发送的内容');
+    expect(home._composerDraftsBySessionId['会话乙']!.text, '乙正在发送的恢复副本');
+    home._syncComposerDraftForSession('会话甲');
+    expect(home._composerController.text, '甲未发送的内容');
+    home._submittingSessionId = null;
+    home._syncComposerDraftForSession('会话乙');
+    expect(home._composerController.text, '乙正在发送的恢复副本');
+    home._submittingSessionId = '会话乙';
+    home._composerController.text = '乙新写的下一条草稿';
+    home._syncComposerDraftForSession('会话甲');
+    home._syncComposerDraftForSession('会话乙');
+    expect(home._composerController.text, '乙新写的下一条草稿');
+    home._composerController.clear();
+    home._syncComposerDraftForSession('会话甲');
+    home._syncComposerDraftForSession('会话乙');
+    expect(home._composerController.text, '', reason: '主动清空的新草稿不能恢复');
+  });
+
   testWidgets('内嵌决策类型更新默认问题并同步草稿，自定义问题保持不变', (tester) async {
     final controller = TextEditingController(text: '待评估内容');
     addTearDown(controller.dispose);
@@ -1639,6 +1767,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     var modelId = 'jev-latest';
+    var composerSessionId = '布局回归';
     var collapsed = false;
     var sendCount = 0;
     var textScale = 1.0;
@@ -1669,7 +1798,7 @@ void main() {
               messageScrollController: scroll,
               onMessageScrollNotification: (_) => false,
               onMessagePointerSignal: (_) {},
-              currentSession: _probeSession('布局回归', 0),
+              currentSession: _probeSession(composerSessionId, 0),
               liveRuntimeToolPreview: null,
               transcriptHydrating: false,
               transcriptLoadError: null,
@@ -1879,6 +2008,32 @@ void main() {
         expectActionsVisible();
       }
     }
+    final targetDraft = DecisionPayload.encode(DecisionPayload.requestLanguage, {
+      'state': '目标会话自己保存的代码块',
+      'questions': {'决策': {'type': 'noul', 'instructions': '自定义问题'}},
+    });
+    rebuild(() {
+      composerSessionId = '普通会话';
+      modelId = 'gpt-4o';
+      controller.text = targetDraft;
+    });
+    await tester.pumpAndSettle();
+    expect(controller.text, targetDraft, reason: '跨会话模型变化不能解包目标草稿');
+    rebuild(() {
+      composerSessionId = '空的决策会话';
+      modelId = 'jev-latest';
+      controller.clear();
+    });
+    await tester.pumpAndSettle();
+    expect(controller.text, '');
+    final emptyForm = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
+    expect(emptyForm._state.text, '');
+    emptyForm._state.text = '本会话新内容';
+    controller.clear();
+    rebuild(() { composerSessionId = '另一个空决策会话'; });
+    await tester.pumpAndSettle();
+    expect(controller.text, '');
+    expect(tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm)), isNot(same(emptyForm)));
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

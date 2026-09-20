@@ -4754,13 +4754,14 @@ export function SessionDetailPage() {
     },
   });
   const isDecisionModel = selectedModel?.supports_decisions === true;
-  const previousDecisionModelRef = useRef(isDecisionModel);
+  const previousDecisionModelRef = useRef({ sessionId, isDecisionModel });
   useEffect(() => {
-    if (previousDecisionModelRef.current && !isDecisionModel) {
+    const previous = previousDecisionModelRef.current;
+    if (previous.sessionId === sessionId && previous.isDecisionModel && !isDecisionModel) {
       setComposerText(initialDecisionDraft(composerTextRef.current).state);
     }
-    previousDecisionModelRef.current = isDecisionModel;
-  }, [isDecisionModel, setComposerText]);
+    previousDecisionModelRef.current = { sessionId, isDecisionModel };
+  }, [sessionId, isDecisionModel, setComposerText]);
   const selectedModelName = selectedModel?.model_id || selectedModel?.label || persistedModelName;
   const titleSummaryDefaultModelKey = useMemo(() => {
     const sessionModelKey = detail?.session.last_model_key ?? '';
@@ -6082,13 +6083,13 @@ export function SessionDetailPage() {
         goalOptions,
       });
       clearCachedComposerInput(requestSessionId);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
       composerDraftLiveRef.current.text = '';
       composerDraftLiveRef.current.attachments = [];
       composerDraftLiveRef.current.attachmentIds = [];
       composerDraftLiveRef.current.attachmentPreviews = [];
       composerDraftLiveRef.current.editingMessage = null;
       composerDraftLiveRef.current.selectedSkill = null;
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
       setComposerText('');
       setComposerAttachments([]);
       setComposerAttachmentIds([]);
@@ -7295,9 +7296,12 @@ export function SessionDetailPage() {
                   </OverlayPortal>
                 ) : null}
                 {isDecisionModel ? <DecisionComposerForm
+                  key={sessionId}
                   initialText={composerTextRef.current}
                   disabled={composerSending || composerCollapsed || hasModeLockedGoal || voiceConversation.active}
-                  onChange={setComposerText}
+                  onChange={(text) => {
+                    if (ownsSessionAsyncResult(sessionId)) setComposerText(text);
+                  }}
                 /> : <textarea
                   readOnly={voiceConversation.active}
                   ref={composerTextareaRef}

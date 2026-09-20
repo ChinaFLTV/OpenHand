@@ -327,10 +327,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ?.profileFor(widget.selectedModel!.modelId)
             .supportsDecisions ==
         true;
-    if (wasDecisionModel && !isDecisionModel) {
+    if (oldWidget.currentSession?.id == widget.currentSession?.id &&
+        oldWidget.controller == widget.controller &&
+        wasDecisionModel &&
+        !isDecisionModel) {
       final text = widget.controller.text;
       try {
-        final request = DecisionPayload.request(text);
+        final request = DecisionPayload.request(text, allowIncomplete: true);
         final state = request['state'];
         if (state is String) {
           widget.controller.value = TextEditingValue(
@@ -1846,7 +1849,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         ],
         if (_isDecisionModel && !voiceActive)
           _DecisionComposerForm(
-            key: ValueKey(widget.selectedModel!.modelId),
+            key: ValueKey((
+              widget.currentSession?.id,
+              widget.selectedModel!.modelId,
+            )),
             controller: widget.controller,
             enabled: modeToggleEnabled,
           ),
@@ -2569,7 +2575,10 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
   String _type = DecisionPayload.typeNoul;
   final _retiredCriteria = <TextEditingController>{};
   Set<TextEditingController> _displayedCriteria = {};
-  bool _seededDefaultQuestion = false;
+  bool _syncingDraft = false;
+  String _draftText = '';
+  String _formDraft = '';
+  int _draftRevision = 0;
   Locale? _questionLocale;
   List<TextEditingController> get _criteria => _criteriaByType[_type]!;
 
@@ -2579,20 +2588,23 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
     _state = TextEditingController();
     _question = TextEditingController();
     _loadDraft(widget.controller.text);
-    for (final type in const [
-      DecisionPayload.typeChoice,
-      DecisionPayload.typeScore,
-    ]) {
-      final criteria = _criteriaByType[type]!;
-      while (criteria.length <
-          (type == DecisionPayload.typeScore
-              ? DecisionPayload.minScoreLevels
-              : 1)) {
-        criteria.add(TextEditingController()..addListener(_writeDraft));
-      }
-    }
     _state.addListener(_writeDraft);
     _question.addListener(_writeDraft);
+    widget.controller.addListener(_handleDraftChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _DecisionComposerForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    oldWidget.controller.removeListener(_handleDraftChanged);
+    widget.controller.addListener(_handleDraftChanged);
+    _loadDraft(widget.controller.text);
+  }
+
+  void _handleDraftChanged() {
+    if (_syncingDraft || widget.controller.text == _draftText) return;
+    setState(() => _loadDraft(widget.controller.text));
   }
 
   @override
@@ -2600,52 +2612,95 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
     super.didChangeDependencies();
     final locale = Localizations.localeOf(context);
     final copy = DecisionCopy.of(context);
-    final localeChanged = _questionLocale != null && _questionLocale != locale;
+    if (_questionLocale == locale) return;
     _questionLocale = locale;
-    if (!_seededDefaultQuestion || localeChanged) {
-      _seededDefaultQuestion = true;
-      if (_question.text.trim().isEmpty ||
-          DecisionPayload.isBuiltInQuestion(_question.text)) {
-        _question.removeListener(_writeDraft);
-        _question.text = copy.defaultQuestionFor(_type);
-        _question.addListener(_writeDraft);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _writeDraft();
-        });
-      }
+    if (_question.text.trim().isEmpty ||
+        DecisionPayload.isBuiltInQuestion(_question.text)) {
+      _syncingDraft = true;
+      _question.text = copy.defaultQuestionFor(_type);
+      _syncingDraft = false;
+      _writeDraft(publish: false);
     }
   }
 
   void _loadDraft(String text) {
+    _syncingDraft = true;
+    _draftText = text;
+    _draftRevision += 1;
+    // 外部草稿替换会重建条目列表，旧控制器在该帧卸载后释放。
+    final previousCriteria = <TextEditingController>{
+      ..._retiredCriteria,
+      ..._criteriaByType.values.expand((items) => items),
+    };
+    for (final controller in previousCriteria) {
+      controller.removeListener(_writeDraft);
+      _retiredCriteria.add(controller);
+    }
+    for (final criteria in _criteriaByType.values) {
+      criteria.clear();
+    }
+    if (previousCriteria.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        for (final controller in previousCriteria) {
+          if (_retiredCriteria.remove(controller)) controller.dispose();
+        }
+      });
+    }
+    _type = DecisionPayload.typeNoul;
+    _question.text = DecisionPayload.defaultQuestionForType(
+      _type,
+      _questionLocale,
+    );
     try {
-      final request = DecisionPayload.request(text);
-      final questions = request['questions'] as Map;
-      final question = questions.values.first as Map;
-      _state.text = request['state'] is String
-          ? request['state'] as String
-          : '';
-      _type = question['type'] as String? ?? DecisionPayload.typeNoul;
+      final request = DecisionPayload.request(text, allowIncomplete: true);
+      final question = (request['questions'] as Map).values.first as Map;
+      _state.text = DecisionPayload.displayText(request['state']);
+      _type = question['type'] as String;
       _question.text = question['instructions'] is String
-          ? question['instructions'] as String
-          : DecisionPayload.defaultQuestionForType(_type);
+          ? DecisionPayload.questionForType(
+              _type,
+              current: question['instructions'] as String,
+              localizedDefault: DecisionPayload.defaultQuestionForType(
+                _type,
+                _questionLocale,
+              ),
+            )
+          : DecisionPayload.defaultQuestionForType(_type, _questionLocale);
       final criteria = question['criteria'];
       final values = criteria is Map
-          ? criteria.keys.whereType<String>().toList()
+          ? criteria.keys.whereType<String>()
           : criteria is List
-          ? criteria.whereType<String>().toList()
-          : <String>[];
+          ? criteria.whereType<String>()
+          : const <String>[];
       for (final value in values) {
         _criteria.add(
           TextEditingController(text: value)..addListener(_writeDraft),
         );
       }
     } on FormatException {
-      _state.text = text.trim();
+      _state.text = text;
+    } finally {
+      for (final type in const [
+        DecisionPayload.typeChoice,
+        DecisionPayload.typeScore,
+      ]) {
+        final criteria = _criteriaByType[type]!;
+        final minimum = type == DecisionPayload.typeScore
+            ? DecisionPayload.minScoreLevels
+            : 1;
+        while (criteria.length < minimum) {
+          criteria.add(TextEditingController()..addListener(_writeDraft));
+        }
+      }
+      _syncingDraft = false;
+      _writeDraft(publish: false);
     }
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_handleDraftChanged);
     _state.dispose();
     _question.dispose();
     for (final controller in _criteriaByType.values.expand((items) => items)) {
@@ -2658,8 +2713,8 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
     super.dispose();
   }
 
-  void _writeDraft() {
-    if (!mounted) return;
+  void _writeDraft({bool publish = true}) {
+    if (!mounted || _syncingDraft) return;
     final values = _criteria
         .map((controller) => controller.text.trim())
         .toList();
@@ -2682,7 +2737,12 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
       DecisionPayload.requestLanguage,
       payload,
     );
+    // 光标和选区变化也会通知控制器，只同步实际变更的表单内容。
+    if (_formDraft == encoded) return;
+    _formDraft = encoded;
+    if (!publish) return;
     if (widget.controller.text == encoded) return;
+    _draftText = encoded;
     widget.controller.value = TextEditingValue(
       text: encoded,
       selection: TextSelection.collapsed(offset: encoded.length),
@@ -2809,7 +2869,7 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
             physics: const NeverScrollableScrollPhysics(),
             slivers: [
               OpenHandAnimatedSliverList(
-                key: ValueKey(_type),
+                key: ValueKey((_draftRevision, _type)),
                 settings: motion,
                 onRemoved: (key) {
                   if (!mounted) return;

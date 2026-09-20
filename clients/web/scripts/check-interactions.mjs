@@ -124,6 +124,7 @@ try {
     renderDecision();
   };
   renderDecision();
+  assert.equal(publishes, 0, '挂载决策表单不能自动回写草稿');
   assert.equal(fields().length, 30);
   addCriterion();
   assert.equal(fields().length, 31, '草稿回传不能删除新建空白行');
@@ -168,8 +169,39 @@ try {
   assert.deepEqual(fields().map(node => node.props.value), [''], '外部替换草稿应清除旧草稿的暂存字段');
   draftText = '';
   renderDecision();
+  assert.equal(draftText, '', '发送清空后不能重新生成空请求');
+  assert.equal(nodes(form, node => node.type === 'textarea')[0].props.value, '');
   selectType('评分');
   assert.deepEqual(fields().map(node => node.props.value), ['', '']);
+  hooks.unmount();
+  draftText = '';
+  const beforeEmptyMount = publishes;
+  renderDecision();
+  assert.equal(draftText, '');
+  assert.equal(publishes, beforeEmptyMount, '重新挂载空会话不能复活旧正文');
+  const contentInput = nodes(form, node => node.type === 'textarea')[0];
+  const questionInput = nodes(form, node => node.type === 'input' && node.props.placeholder === undefined)[0];
+  contentInput.props.onInput({ currentTarget: { value: '尚未发送的新内容' } });
+  questionInput.props.onInput({ currentTarget: { value: '用户自定义问题' } });
+  renderDecision();
+  assert.equal(initialDecisionDraft(draftText).state, '尚未发送的新内容', '同帧连续编辑不能覆盖前一个字段');
+  assert.equal(initialDecisionDraft(draftText).question, '用户自定义问题');
+  draftText = '';
+  renderDecision();
+  const beforeParentRerender = publishes;
+  for (let i = 0; i < 3; i++) {
+    hooks.render(() => DecisionComposerForm({ initialText: draftText, onChange: text => onDraftChange(text) }));
+  }
+  assert.equal(draftText, '', '父组件回调变更不能回填已发送正文');
+  assert.equal(publishes, beforeParentRerender);
+  selectType('评分');
+  editCriterion(0, '未完成的评分等级');
+  const unfinishedDraft = draftText;
+  hooks.unmount();
+  renderDecision();
+  assert.equal(draftText, unfinishedDraft, '未完成草稿往返恢复不应再嵌套代码块');
+  assert.equal(nodes(form, node => node.type === 'textarea')[0].props.value, '');
+  assert.deepEqual(fields().map(node => node.props.value), ['未完成的评分等级', '']);
   hooks.unmount();
   const { notices } = await server.ssrLoadModule(noticesId);
   const { usePullToRefresh } = await server.ssrLoadModule('/src/hooks/usePullToRefresh.ts');

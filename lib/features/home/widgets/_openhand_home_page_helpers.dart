@@ -18,11 +18,13 @@ class _ComposerDraftState {
     required this.text,
     required this.attachments,
     this.creationRequest = AiCreationRequest.none,
+    this.isSubmissionBackup = false,
   });
 
   final String text;
   final List<_ComposerAttachmentDraft> attachments;
   final AiCreationRequest creationRequest;
+  final bool isSubmissionBackup;
 }
 
 class _QueuedMessage {

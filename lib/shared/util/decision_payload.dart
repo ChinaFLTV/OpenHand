@@ -202,7 +202,11 @@ abstract final class DecisionPayload {
     }
   }
 
-  static Map<String, Object?> request(String text) {
+  /// 草稿允许尚未填写的字段；发送请求默认执行完整校验。
+  static Map<String, Object?> request(
+    String text, {
+    bool allowIncomplete = false,
+  }) {
     if (text.length > maxCharacters) {
       throw FormatException(_tooLong);
     }
@@ -231,7 +235,7 @@ abstract final class DecisionPayload {
     }
     final state = decoded['state'];
     if (state is! String && state is! Map && state is! List ||
-        state is String && state.trim().isEmpty) {
+        state is String && state.trim().isEmpty && !allowIncomplete) {
       throw FormatException(_emptyState);
     }
     final questions = decoded['questions'];
@@ -251,20 +255,22 @@ abstract final class DecisionPayload {
       if (instructions is! String &&
               instructions is! Map &&
               instructions is! List ||
-          instructions is String && instructions.trim().isEmpty) {
+          instructions is String &&
+              instructions.trim().isEmpty &&
+              !allowIncomplete) {
         throw FormatException(_needInstructions);
       }
       final criteria = question['criteria'];
       switch (question['type']) {
         case typeChoice:
           if (criteria is! Map ||
-              criteria.isEmpty ||
+              (!allowIncomplete && criteria.isEmpty) ||
               criteria.length > maxCriteria) {
             throw FormatException(_choiceCount);
           }
         case typeScore:
           if (criteria is! List ||
-              criteria.length < minScoreLevels ||
+              (!allowIncomplete && criteria.length < minScoreLevels) ||
               criteria.length > maxScoreLevels) {
             throw FormatException(_scoreCount);
           }

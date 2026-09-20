@@ -2218,6 +2218,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     String? text,
     List<_ComposerAttachmentDraft>? attachments,
     AiCreationRequest? creationRequest,
+    bool isSubmissionBackup = false,
   }) {
     final resolvedText = text ?? _composerController.text;
     final resolvedAttachments = List<_ComposerAttachmentDraft>.from(
@@ -2237,6 +2238,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       text: resolvedText,
       attachments: resolvedAttachments,
       creationRequest: resolvedCreationRequest,
+      isSubmissionBackup: isSubmissionBackup,
     );
     if (previous != null) {
       _releaseComposerTempPaths(
@@ -2317,6 +2319,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final shouldPreserveSubmittingDraft =
         previousSessionId != null &&
         previousSessionId == _submittingSessionId &&
+        _composerDraftsBySessionId[previousSessionId]?.isSubmissionBackup ==
+            true &&
         currentText.trim().isEmpty &&
         currentAttachments.isEmpty;
     if (shouldTransferDetachedDraft) {
@@ -2338,20 +2342,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _activeComposerSessionId = nextSessionId;
     _syncVoiceConversationVisibility(nextSessionId);
 
-    // 目标会话正在发送消息时不恢复草稿。
-    // 草稿是在 _submitTextToSession 中保存的，用于发送失败后恢复用户输入。
-    // 但在正常发送过程中，AiSessionController 状态变化会触发本方法被调用，
-    // 如果此时恢复草稿，就会出现消息已发送但输入框仍显示消息内容的问题。
+    // 发送恢复副本不能作为当前输入；切入发送中的会话仍须清空上一会话内容。
     final isTargetSessionSubmitting =
         nextSessionId != null && _submittingSessionId == nextSessionId;
-    if (isTargetSessionSubmitting) {
-      return;
-    }
-
-    final nextDraft =
+    final storedDraft =
         _composerDraftsBySessionId[_composerDraftKeyForSessionId(
           nextSessionId,
         )];
+    final nextDraft =
+        isTargetSessionSubmitting && storedDraft?.isSubmissionBackup == true
+        ? null
+        : storedDraft;
     final nextText = nextDraft?.text ?? '';
     final nextAttachments =
         nextDraft?.attachments ?? const <_ComposerAttachmentDraft>[];
@@ -7108,7 +7109,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       text: prompt,
       attachments: pendingAttachments,
       creationRequest: creationRequest,
+      isSubmissionBackup: true,
     );
+
+    final submittedDraftKey = _composerDraftKeyForSessionId(targetSessionId);
+    final submittedDraft = _composerDraftsBySessionId[submittedDraftKey];
 
     if (_voiceConversationService.snapshot.active &&
         _voiceConversationRuntimeSessionId == targetSessionId) {
@@ -7284,7 +7289,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         restoreSubmittedDraftIfNeeded(localStop: submissionWasStopped());
         return unresolvedOutcome(stopped: submissionWasStopped());
       }
-      _removeComposerDraftForSession(targetSessionId);
       await sessionController.completeEditingMessage();
       if (!mounted) {
         return _SubmitTextOutcome.submitted;
@@ -7315,6 +7319,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return unresolvedOutcome(stopped: submissionWasStopped());
     } finally {
+      // 用户消息已提交后，即使助手请求失败也不能恢复已发送正文。
+      if (submittedUserTurnVisible() &&
+          identical(
+            _composerDraftsBySessionId[submittedDraftKey],
+            submittedDraft,
+          )) {
+        _removeComposerDraftForSession(targetSessionId);
+      }
       _removeLocalSubmissionPreview(targetSessionId);
       final isActiveSubmission =
           _activeSubmissionSerialsBySessionId[targetSessionId] ==
