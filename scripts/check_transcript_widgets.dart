@@ -1846,7 +1846,10 @@ void main() {
     List<Object?> payload() => ((DecisionPayload.request(controller.text)['questions'] as Map).values.single as Map)['criteria'] as List;
     final row = find.ancestor(of: field(original[0]), matching: find.byType(Row)).first;
     final remove = find.descendant(of: row, matching: find.byType(IconButton)).last;
+    final indexBadge = find.descendant(of: row, matching: find.byType(OpenHandDecisionIndexBadge));
     expect(tester.getSize(remove).height, closeTo(tester.getSize(field(original[0])).height, .1));
+    expect(tester.getSize(indexBadge).width, closeTo(tester.getSize(remove).width, .1));
+    expect(tester.getSize(indexBadge).height, closeTo(tester.getSize(remove).height, .1));
     expect(tester.widget<IconButton>(find.byWidgetPredicate((widget) => widget is IconButton && widget.tooltip == '上移').first).onPressed, isNull);
     expect(tester.widget<IconButton>(find.byWidgetPredicate((widget) => widget is IconButton && widget.tooltip == '下移').last).onPressed, isNull);
     final before = tester.getTopLeft(field(original[0])).dy;

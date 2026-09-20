@@ -31,6 +31,46 @@ IconData openHandDecisionTypeIcon(String type) => switch (type) {
   _ => Icons.verified_rounded,
 };
 
+/// 决策条目行两侧块（序号、删除）共用宽度，保证同形圆角矩形。
+const double kOpenHandDecisionRowActionWidth = 48;
+
+/// 决策条目行两侧块共用圆角，与删除按钮 [RoundedRectangleBorder] 一致。
+const BorderRadius kOpenHandDecisionRowActionRadius = kOpenHandBorderRadius16;
+
+/// 候选项 / 评分等级行左侧序号，拉伸至行高并与删除按钮同形。
+class OpenHandDecisionIndexBadge extends StatelessWidget {
+  const OpenHandDecisionIndexBadge({
+    super.key,
+    required this.index,
+    required this.fill,
+    required this.onFill,
+  });
+
+  final int index;
+  final Color fill;
+  final Color onFill;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: kOpenHandDecisionRowActionWidth,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: kOpenHandDecisionRowActionRadius,
+        ),
+        child: Center(
+          child: Text(
+            '$index',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: onFill, fontWeight: FontWeight.w800),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 TextStyle? openHandDecisionFieldLabelStyle(
   BuildContext context, {
   Color? color,

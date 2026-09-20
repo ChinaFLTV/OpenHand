@@ -132,7 +132,7 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
         const index = criteria.findIndex(current => current.id === item.id);
         const inactive = disabled || index < 0;
         return <div class="oh-decision-criterion">
-          <span>{index < 0 ? '−' : index + 1}</span>
+          <span class="oh-decision-index">{index < 0 ? '−' : index + 1}</span>
           <input class="oh-decision-field" value={item.value} disabled={inactive} aria-label={criteriaLabel} placeholder={criteriaHint} onInput={event => updateCriteria(item.id, event.currentTarget.value)} />
           <div class="oh-decision-reorder">
             <button type="button" aria-label={t('common.moveUp', '上移')} title={t('common.moveUp', '上移')} disabled={inactive || index === 0} onClick={() => moveCriteria(item.id, -1)}>⌃</button>

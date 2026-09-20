@@ -11915,21 +11915,25 @@ button.oh-json-tree-row { cursor: pointer; }
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 70%, transparent);
   box-shadow: none;
 }
-.oh-decision-criterion > span {
-  flex: 0 0 32px;
+.oh-decision-index,
+.oh-decision-remove {
+  flex: 0 0 3rem;
+  align-self: stretch;
+  border-radius: 14px;
+}
+.oh-decision-index {
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--m3-on-primary-container);
   background: var(--m3-primary-container);
 }
-.oh-decision-composer.is-choice .oh-decision-criterion > span {
+.oh-decision-composer.is-choice .oh-decision-index {
   color: var(--m3-on-tertiary-container);
   background: var(--m3-tertiary-container);
 }
-.oh-decision-composer.is-score .oh-decision-criterion > span {
+.oh-decision-composer.is-score .oh-decision-index {
   color: var(--m3-on-secondary-container);
   background: var(--m3-secondary-container);
 }
@@ -11953,9 +11957,7 @@ button.oh-json-tree-row { cursor: pointer; }
   background: var(--m3-secondary-container);
 }
 .oh-decision-remove {
-  flex: 0 0 3rem;
   border: 0;
-  border-radius: 14px;
   color: var(--m3-on-error-container);
   background: var(--m3-error-container);
   font-size: 1.4rem;

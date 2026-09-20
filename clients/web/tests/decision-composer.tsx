@@ -24,7 +24,11 @@ try {
   const first = fields()[0];
   const firstRow = first.closest('.oh-decision-criterion')!;
   const remove = firstRow.querySelector<HTMLButtonElement>('.oh-decision-remove')!;
+  const indexBadge = firstRow.querySelector<HTMLSpanElement>('.oh-decision-index')!;
   verify(Math.abs(first.getBoundingClientRect().height - remove.getBoundingClientRect().height) < 1, '删除按钮与输入框等高');
+  verify(Math.abs(indexBadge.getBoundingClientRect().width - remove.getBoundingClientRect().width) < 1, '序号与删除按钮同宽');
+  verify(Math.abs(indexBadge.getBoundingClientRect().height - remove.getBoundingClientRect().height) < 1, '序号与删除按钮等高');
+  verify(getComputedStyle(indexBadge).borderRadius === getComputedStyle(remove).borderRadius, '序号与删除按钮同圆角');
   first.focus();
   first.setSelectionRange(1, 1);
   await act(async () => firstRow.querySelector<HTMLButtonElement>('[title="下移"]')!.click());

@@ -2893,21 +2893,10 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Container(
-                                  width: 32,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: typeFill,
-                                    borderRadius: kOpenHandBorderRadius10,
-                                  ),
-                                  child: Text(
-                                    '${index + 1}',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: typeOnFill,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
+                                OpenHandDecisionIndexBadge(
+                                  index: index + 1,
+                                  fill: typeFill,
+                                  onFill: typeOnFill,
                                 ),
                                 kOpenHandHGap8,
                                 Expanded(
@@ -2992,11 +2981,15 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
                                 IconButton.filledTonal(
                                   tooltip: openHandDeleteLabel(context),
                                   style: IconButton.styleFrom(
-                                    minimumSize: const Size(48, 0),
+                                    minimumSize: const Size(
+                                      kOpenHandDecisionRowActionWidth,
+                                      0,
+                                    ),
                                     elevation: 0,
                                     shadowColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius:
+                                          kOpenHandDecisionRowActionRadius,
                                     ),
                                     foregroundColor: colors.error,
                                     backgroundColor: colors.errorContainer,
