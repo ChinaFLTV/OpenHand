@@ -931,6 +931,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (!position.hasContentDimensions || position.viewportDimension <= 0) {
         return;
       }
+      if (_isTranscriptScrollActive(context) ||
+          (position.isScrollingNotifier.value &&
+              position.userScrollDirection != ScrollDirection.idle)) {
+        return;
+      }
       final history =
           _listHistoryKey.currentContext?.findRenderObject() as RenderSliver?;
       final center =
@@ -980,8 +985,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (_staggerFillActive ||
           _loadingOlderMessages ||
           _viewportFillMessagesRemaining <= 0 ||
-          _isTranscriptScrollActive(context) ||
-          position.isScrollingNotifier.value ||
           position.extentAfter > _scrollToBottomSettleTolerance) {
         return;
       }
@@ -2376,7 +2379,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   _AnchorRestoreOutcome _restorePrependAnchorOutcome(
     _TranscriptViewportAnchor anchor,
   ) {
-    if (!widget.controller.hasClients || _isTranscriptScrollActive(context)) {
+    if (!widget.controller.hasClients ||
+        _isTranscriptScrollActive(context) ||
+        (widget.controller.position.isScrollingNotifier.value &&
+            widget.controller.position.userScrollDirection !=
+                ScrollDirection.idle)) {
       return _AnchorRestoreOutcome.unmeasurable;
     }
     final currentOffset = _viewportOffsetForMessage(anchor.messageId);
@@ -2427,7 +2434,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (anchor == null || _pendingPrependAnchorFrames <= 0) {
         return;
       }
-      if (_isTranscriptScrollActive(context)) {
+      if (_isTranscriptScrollActive(context) ||
+          (widget.controller.hasClients &&
+              widget.controller.position.isScrollingNotifier.value &&
+              widget.controller.position.userScrollDirection !=
+                  ScrollDirection.idle)) {
         _cancelPendingViewportRestore();
         return;
       }

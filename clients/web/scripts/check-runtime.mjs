@@ -427,6 +427,119 @@ try {
 
   // 从真实页面提取分页入口，仅替换界面状态与请求出口。
   const historyPageSource = await readFile(new URL('../src/features/sessions/components/SessionDetailPage.tsx', import.meta.url), 'utf8');
+  const scrollStart = historyPageSource.indexOf("    const upwardScrollKeys = new Set(");
+  const scrollEnd = historyPageSource.indexOf('    recalc();', scrollStart);
+  const intentStart = historyPageSource.indexOf('  const markUserScrollIntent = useCallback(() => {');
+  const intentEnd = historyPageSource.indexOf('  }, []);', intentStart);
+  assert.ok(scrollStart >= 0 && scrollEnd > scrollStart && intentStart >= 0 && intentEnd > intentStart);
+  const { code: scrollCode } = await transformWithOxc(
+    `${historyPageSource.slice(intentStart, intentEnd + '  }, []);'.length)}\n${historyPageSource.slice(scrollStart, scrollEnd)}\nconst controls = { handleWheel, handleKeyDown, recalc };`,
+    'transcript-scroll.ts',
+  );
+  const scroller = { scrollTop: 1000, scrollHeight: 1600, clientHeight: 600 };
+  const follow = { current: true };
+  const paused = { current: false };
+  const lastIntent = { current: 0 };
+  const programmatic = { current: Date.now() + 10000 };
+  let cancellations = 0;
+  const scrollBindings = {
+    useCallback: callback => callback, mainRef: { current: scroller },
+    composerLayoutPinnedRef: { current: true }, lastUserScrollIntentAtRef: lastIntent,
+    programmaticScrollUntilRef: programmatic, lastScrollTopRef: { current: 1000 },
+    autoFollowRef: follow, autoFollowPausedRef: paused, isNearBottomRef: { current: true },
+    setAutoFollowPausedValue: value => { paused.current = value; },
+    setAutoFollowEnabled: value => { follow.current = value; },
+    hasRecentUserScrollIntent: () => Date.now() - lastIntent.current <= 1200,
+    markTranscriptScrollActivity() {}, cancelFollowSettle() {}, cancelResizeFollowFrame() {},
+    cancelAutoFollowMotion() { cancellations++; }, isEditableShortcutTarget: () => false,
+    AUTO_FOLLOW_USER_SCROLL_INTENT_MS: 1200, AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX: 0,
+    AUTO_FOLLOW_NEAR_BOTTOM_PX: 64, AUTO_FOLLOW_RESUME_BOTTOM_PX: 1,
+  };
+  const scroll = new Function(...Object.keys(scrollBindings), `${scrollCode}\nreturn controls;`)(...Object.values(scrollBindings));
+  scroll.handleWheel({ deltaY: -.01 });
+  assert.equal(paused.current, true, '亚像素上滑立即暂停追底');
+  assert.equal(programmatic.current, 0, '用户输入撤销旧程序滚动窗口');
+  assert.equal(cancellations, 1);
+  scroller.scrollTop -= .01;
+  scroll.recalc();
+  lastIntent.current = Date.now() - 2000;
+  scroll.recalc();
+  assert.equal(paused.current, true, '停在底部附近不能因保护窗口结束重新追底');
+  scroller.scrollTop = 970;
+  scroll.recalc();
+  scroll.handleWheel({ deltaY: 1 });
+  assert.ok(Date.now() - lastIntent.current < 100, '向下慢速滚轮也保护视口');
+  scroller.scrollTop = 980;
+  scroll.recalc();
+  assert.equal(paused.current, true, '接近底部仍由用户控制滚动');
+  scroller.scrollTop = 1000;
+  scroll.recalc();
+  assert.equal(paused.current, false, '主动滚回底部才恢复追底');
+  scroll.handleKeyDown({ key: 'ArrowUp', defaultPrevented: false });
+  assert.equal(paused.current, true);
+  paused.current = false;
+  lastIntent.current = Date.now();
+  scroller.scrollTop -= .01;
+  scroll.recalc();
+  assert.equal(paused.current, true, '触摸和滚动条的微小上移也暂停跟随');
+
+  const heightStart = historyPageSource.indexOf('  const scheduleHeightCommit = useCallback(');
+  const heightEnd = historyPageSource.indexOf('  const handleHeightChange =', heightStart);
+  assert.ok(heightStart >= 0 && heightEnd > heightStart);
+  const { code: heightCode } = await transformWithOxc(historyPageSource.slice(heightStart, heightEnd), 'height-commit.ts');
+  let scrolling = false;
+  let heightCommits = 0;
+  const heightFrames = [];
+  const pendingHeight = { current: false };
+  const heightBindings = {
+    useCallback: callback => callback, isTranscriptScrollActive: () => scrolling,
+    heightCommitPendingRef: pendingHeight, heightCommitFrameRef: { current: null },
+    scrollContainerRef: { current: null }, listRef: { current: null },
+    window: { requestAnimationFrame: callback => { heightFrames.push(callback); return heightFrames.length; } },
+    setHeightRevision: () => { heightCommits++; },
+  };
+  const commitHeight = new Function(...Object.keys(heightBindings), `${heightCode}\nreturn scheduleHeightCommit;`)(...Object.values(heightBindings));
+  commitHeight();
+  scrolling = true;
+  heightFrames.shift()();
+  assert.equal(heightCommits, 0, '排队后才开始滚动，也不能提交旧测高任务');
+  assert.equal(pendingHeight.current, true);
+  scrolling = false;
+  commitHeight();
+  heightFrames.shift()();
+  assert.equal(heightCommits, 1, '停止后合并提交测高');
+
+  const restoreStart = historyPageSource.indexOf('    const anchor = heightAnchorRef.current;');
+  const restoreEnd = historyPageSource.indexOf('  }, [heightRevision, scrollContainerRef]);', restoreStart);
+  assert.ok(restoreStart >= 0 && restoreEnd > restoreStart);
+  const { code: restoreCode } = await transformWithOxc(
+    `const restoreHeightAnchor = () => {${historyPageSource.slice(restoreStart, restoreEnd)}};`, 'height-anchor.ts',
+  );
+  const heightAnchor = { current: null };
+  const heightScroller = { scrollTop: 100, getBoundingClientRect: () => ({ top: 0 }) };
+  const restoreBindings = {
+    heightAnchorRef: heightAnchor, isTranscriptScrollActive: () => scrolling,
+    scrollContainerRef: { current: heightScroller },
+    listRef: { current: { querySelectorAll: () => [{
+      dataset: { messageId: '阅读中的消息' }, getBoundingClientRect: () => ({ top: 30 }),
+    }] } },
+  };
+  const restoreHeight = new Function(...Object.keys(restoreBindings), `${restoreCode}\nreturn restoreHeightAnchor;`)(...Object.values(restoreBindings));
+  const savedAnchor = { messageId: '阅读中的消息', viewportOffset: 10, scrollTop: 100 };
+  heightAnchor.current = savedAnchor;
+  scrolling = true;
+  restoreHeight();
+  assert.equal(heightScroller.scrollTop, 100, '恢复锚点前开始滚动必须放弃旧修正');
+  scrolling = false;
+  heightScroller.scrollTop = 105;
+  heightAnchor.current = savedAnchor;
+  restoreHeight();
+  assert.equal(heightScroller.scrollTop, 105, '浏览器已经修正坐标时不能再次补偿');
+  heightScroller.scrollTop = 100;
+  heightAnchor.current = savedAnchor;
+  restoreHeight();
+  assert.equal(heightScroller.scrollTop, 120, '空闲时仍须补偿正文测高造成的位移');
+
   const historyStart = historyPageSource.indexOf('  async function loadOlder(');
   const historyEnd = historyPageSource.indexOf('  const locateImageMessage =', historyStart);
   assert.ok(historyStart >= 0 && historyEnd > historyStart, '必须检查真实历史分页入口');
@@ -737,7 +850,30 @@ try {
   assert.equal(renderedCards, 7, '不支持空闲回调的浏览器仍须逐帧渲染');
   assert.equal(frames.length, 0);
 
-  console.log('[Web 运行时检查] 鉴权隔离、存储兜底、有界响应、取消原因、事件订阅、输入法关闭、富文本帧预算与缓存边界检查通过。');
+  const scrollActivity = await server.ssrLoadModule('/src/shared/ui/transcript_scroll_activity.ts');
+  const savedScrollWindow = globalThis.window;
+  const savedScrollDocument = globalThis.document;
+  const scrollAttributes = new Map();
+  replaceGlobal('document', { documentElement: {
+    setAttribute: (name, value) => scrollAttributes.set(name, value),
+    removeAttribute: name => scrollAttributes.delete(name),
+    getAttribute: name => scrollAttributes.get(name) ?? null,
+  } });
+  let settleDelay = 0;
+  replaceGlobal('window', {
+    setTimeout: (_callback, delay) => { settleDelay = delay; return 1; },
+    clearTimeout() {},
+  });
+  scrollActivity.markTranscriptScrollActivity(1200);
+  scrollActivity.markTranscriptScrollActivity(120);
+  assert.ok(settleDelay > 1000, '普通滚动通知不能缩短手势保护窗口');
+  assert.equal(scrollActivity.isTranscriptScrollActive(), true);
+  scrollActivity.clearTranscriptScrollActivity();
+  assert.equal(scrollActivity.isTranscriptScrollActive(), false);
+  replaceGlobal('window', savedScrollWindow);
+  replaceGlobal('document', savedScrollDocument);
+
+  console.log('[Web 运行时检查] 鉴权隔离、存储兜底、有界响应、取消原因、事件订阅、输入法关闭、慢速滚动保护、富文本帧预算与缓存边界检查通过。');
 } finally {
   for (const [name, descriptor] of savedGlobals) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);

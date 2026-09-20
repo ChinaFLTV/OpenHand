@@ -26,7 +26,7 @@ const double _stackedNavigationMaxHeight = 360;
 const double _composerMinHeight = 168;
 const double _composerDefaultHeight = 196;
 const double _composerMaxHeight = 440;
-// 仅在用户明显向上滚动后暂停自动跟随，避免旧内容测高完成时反复抖动。
+// 远离底部时的兜底阈值；明确向上输入立即暂停跟随。
 const double _autoFollowPauseHysteresis = 96;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // 长会话先显示最新窗口，按需展开旧记录，保持当前滚动范围稳定。
@@ -124,7 +124,7 @@ const double _scrollToBottomSettleTolerance = 0.75;
 const double _messageScrollActivityDeltaThreshold = 0.05;
 const double _messageDistanceToBottomDeltaThreshold = 0.15;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
-const double _autoFollowResumeDistance = 24;
+const double _autoFollowResumeDistance = 1;
 const Duration _editorTabsPersistenceDebounce = Duration(milliseconds: 500);
 const Duration _harnessSessionPersistenceDebounce = Duration(milliseconds: 320);
 const Duration _webReverseRuntimeMetadataDebounce = Duration(milliseconds: 500);

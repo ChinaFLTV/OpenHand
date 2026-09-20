@@ -118,6 +118,32 @@ class _HistoryRuntime implements AiToolRuntimeService {
 }
 
 class _ComposerRoutingProbe extends _OpenHandHomePageState {
+  static Future<_ComposerRoutingProbe> create(WidgetTester tester) async {
+    const recorderChannel = MethodChannel('com.llfbandit.record/messages');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(recorderChannel, (_) async => null);
+    // 主页构造会探测本机语音能力，避免把系统进程计时器放入组件的虚拟时钟。
+    final home = (await tester.runAsync(() async => _ComposerRoutingProbe()))!;
+    addTearDown(home._composerController.dispose);
+    addTearDown(home._composerFocusNode.dispose);
+    addTearDown(home._globalShortcutFocusNode.dispose);
+    addTearDown(() async {
+      await tester.runAsync(() async {
+        home._voiceConversationService.dispose();
+        await home._ttsPlaybackService.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(recorderChannel, null);
+    });
+    addTearDown(home._translationService.dispose);
+    addTearDown(home._webReverseCdpMcpBridge.dispose);
+    addTearDown(home._transcriptScrollActivity.dispose);
+    addTearDown(home._navigationWidthNotifier.dispose);
+    addTearDown(home._userScrollGraceDebouncer.dispose);
+    addTearDown(home._messageScrollController.dispose);
+    return home;
+  }
+  @override
+  bool get mounted => true;
   @override
   void setState(VoidCallback fn) => fn();
   @override
@@ -1256,6 +1282,70 @@ void main() {
     expect(probe.state._renderEntries.last.id, '新回复');
   });
 
+  testWidgets('慢速滚动间歇不释放布局保护，真正停止后统一恢复', (tester) async {
+    final activity = TranscriptScrollActivity();
+    addTearDown(activity.dispose);
+    final changes = <bool>[];
+    activity.addListener(() => changes.add(activity.value));
+    for (var i = 0; i < 8; i++) {
+      activity.markActive();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(activity.value, true);
+    }
+    expect(changes, [true]);
+    await tester.pump(TranscriptScrollActivity.settleDelay);
+    expect(changes, [true, false]);
+  });
+
+  testWidgets('微小上滑撤销追底，开始结束通知不会重新抢回底部', (tester) async {
+    final home = await _ComposerRoutingProbe.create(tester);
+    await tester.pumpWidget(const SizedBox());
+    final context = tester.element(find.byType(SizedBox));
+    final metrics = FixedScrollMetrics(minScrollExtent: 0, maxScrollExtent: 100,
+      pixels: 99.9, viewportDimension: 600, axisDirection: AxisDirection.down, devicePixelRatio: 1);
+    home._pendingForcedScrollToBottom = true;
+    home._queuedForcedScrollToBottom = true;
+    home._messageProgrammaticScrollWindow.begin();
+    home._handleMessagePointerSignal(const PointerScrollEvent(scrollDelta: Offset(0, -.01)));
+    expect(home._shouldAutoFollowMessages, false);
+    expect(home._pendingForcedScrollToBottom, false);
+    expect(home._queuedForcedScrollToBottom, false);
+    home._handleMessageScrollNotification(ScrollStartNotification(metrics: metrics, context: context));
+    expect(home._shouldAutoFollowMessages, false);
+    home._handleMessageScrollNotification(ScrollUpdateNotification(metrics: metrics, context: context,
+      scrollDelta: -.01, dragDetails: DragUpdateDetails(globalPosition: Offset.zero, delta: const Offset(0, .01))));
+    expect(home._shouldAutoFollowMessages, false);
+    home._handleMessageScrollNotification(ScrollEndNotification(metrics: metrics, context: context));
+    expect(home._shouldAutoFollowMessages, false);
+    home._handleMessageScrollNotification(ScrollUpdateNotification(metrics: metrics.copyWith(pixels: 90), context: context,
+      scrollDelta: .1, dragDetails: DragUpdateDetails(globalPosition: Offset.zero, delta: const Offset(0, -.1))));
+    expect(home._shouldAutoFollowMessages, false, reason: '仅接近底部仍保持用户阅读位置');
+    home._handleMessageScrollNotification(ScrollUpdateNotification(metrics: metrics, context: context,
+      scrollDelta: .1, dragDetails: DragUpdateDetails(globalPosition: Offset.zero, delta: const Offset(0, -.1))));
+    expect(home._shouldAutoFollowMessages, true, reason: '主动下滑回到底部后恢复跟随');
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('原生拖动期间延迟锚点修正不能改写视口', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('拖动保护', 12));
+    await probe.mount();
+    await probe.settle();
+    final anchor = probe.state._capturePrependAnchor()!;
+    final stale = _TranscriptViewportAnchor(messageId: anchor.messageId,
+      viewportOffset: anchor.viewportOffset - 30);
+    final position = probe.controller.position;
+    final drag = position.drag(DragStartDetails(), () {});
+    drag.update(DragUpdateDetails(globalPosition: Offset.zero, delta: const Offset(0, 1), primaryDelta: 1));
+    final before = position.pixels;
+    expect(probe.state._restorePrependAnchor(stale), false);
+    probe.state._startPrependAnchorStabilization(stale);
+    await tester.pump();
+    expect(position.pixels, before);
+    expect(probe.state._pendingPrependAnchor, isNull);
+    drag.cancel();
+    await probe.settle();
+  });
+
   for (final animated in [false, true]) {
     testWidgets('决策内容交互不切换消息选中，仅外层留白切换，动画=$animated', (tester) async {
       final original = _probeSession('决策点击隔离', 1);
@@ -1542,25 +1632,7 @@ void main() {
   });
 
   testWidgets('切入发送中的会话清空上一会话输入，失败恢复副本独立保存', (tester) async {
-    const recorderChannel = MethodChannel('com.llfbandit.record/messages');
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(recorderChannel, (_) async => null);
-    // 主页构造会探测本机语音能力，避免把系统进程计时器放入组件的虚拟时钟。
-    final home = (await tester.runAsync(() async => _ComposerRoutingProbe()))!;
-    addTearDown(home._composerController.dispose);
-    addTearDown(home._composerFocusNode.dispose);
-    addTearDown(home._globalShortcutFocusNode.dispose);
-    addTearDown(() async {
-      await tester.runAsync(() async {
-        home._voiceConversationService.dispose();
-        await home._ttsPlaybackService.dispose();
-        await Future<void>.delayed(Duration.zero);
-      });
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(recorderChannel, null);
-    });
-    addTearDown(home._translationService.dispose);
-    addTearDown(home._webReverseCdpMcpBridge.dispose);
-    addTearDown(home._transcriptScrollActivity.dispose);
-    addTearDown(home._navigationWidthNotifier.dispose);
+    final home = await _ComposerRoutingProbe.create(tester);
     home._activeComposerSessionId = '会话甲';
     home._composerController.text = '甲未发送的内容';
     home._storeComposerDraftForSession('会话乙', text: '乙正在发送的恢复副本', isSubmissionBackup: true);

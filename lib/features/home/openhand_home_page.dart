@@ -223,12 +223,11 @@ part 'widgets/_openhand_home_page_prelude.dart';
 const String _localSubmissionPreviewMetadataKey =
     'openhand_local_submission_preview';
 
-/// 渲染只等待短暂的滚动间歇，自动追底的保护窗口独立保留。
-/// 活跃期间 HTML 暂存测量高度，避免平台视图回流干扰手势。
+/// 慢速滚轮的相邻输入共享静默窗口，避免间歇测高与阅读锚点反复争抢视口。
 class TranscriptScrollActivity extends ValueNotifier<bool> {
   TranscriptScrollActivity() : super(false);
 
-  static const settleDelay = Duration(milliseconds: 120);
+  static const settleDelay = kAutoFollowPointerSignalActivityWindow;
   Timer? _settleTimer;
 
   void markActive() {
@@ -1400,6 +1399,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _lastPointerSignalScrollAt = _scrollActivityStopwatch.elapsed;
     _markUserScrollInProgress();
     _scheduleUserScrollEndGrace();
+    // 输入先于滚动通知到达，立即撤销旧追底请求，微小上滑也不能被抢回。
+    if (event.scrollDelta.dy < 0) {
+      _shouldAutoFollowMessages = false;
+      _clearPendingAutoFollowState();
+      _syncAutoFollowPausedState();
+    }
   }
 
   bool _hasRecentPointerSignalScrollActivity() {
@@ -2672,12 +2677,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         reallyAwayFromBottom && userScrollActivity;
     final userMovedTowardHistory =
         userScrollActivity &&
-        (distanceMovedAwayFromBottom ||
-            updateMovedTowardHistory ||
-            directionMovedTowardHistory);
+        (scrollUpdateDelta != null
+            ? scrollUpdateDelta < 0
+            : distanceMovedAwayFromBottom || directionMovedTowardHistory);
     if (_autoFollowEnabled &&
         userScrollActivity &&
         !userMovedTowardHistory &&
+        scrollUpdateDelta != null &&
+        scrollUpdateDelta > 0 &&
         distanceToBottom <= _autoFollowResumeDistance) {
       _shouldAutoFollowMessages = true;
       _syncAutoFollowPausedState();

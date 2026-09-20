@@ -272,7 +272,7 @@ function decodedBase64Size(encoded: string): number {
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 const LOAD_OLDER_TIMEOUT_MS = 15_000;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
-const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 0.05;
+const AUTO_FOLLOW_RESUME_BOTTOM_PX = 1;
 const AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX = 0;
 const AUTO_FOLLOW_USER_SCROLL_INTENT_MS = 1200;
 const AUTO_FOLLOW_SETTLE_MAX_FRAMES = 36;
@@ -1341,7 +1341,7 @@ export function VirtualMessageList({
   const rangeFrameRef = useRef<number | null>(null);
   const heightCommitFrameRef = useRef<number | null>(null);
   const heightCommitPendingRef = useRef(false);
-  const heightAnchorRef = useRef<{ messageId: string; viewportOffset: number } | null>(null);
+  const heightAnchorRef = useRef<{ messageId: string; viewportOffset: number; scrollTop: number } | null>(null);
   const measuredHeightsRef = useRef(new Map<string, number>());
   const initialLayoutSettledRef = useRef(false);
   const initialLayoutStartedAtRef = useRef(Date.now());
@@ -1445,6 +1445,10 @@ export function VirtualMessageList({
     if (heightCommitFrameRef.current != null) return;
     heightCommitFrameRef.current = window.requestAnimationFrame(() => {
       heightCommitFrameRef.current = null;
+      if (isTranscriptScrollActive()) {
+        heightCommitPendingRef.current = true;
+        return;
+      }
       heightCommitPendingRef.current = false;
       const scroller = scrollContainerRef.current;
       const list = listRef.current;
@@ -1459,6 +1463,7 @@ export function VirtualMessageList({
             heightAnchorRef.current = {
               messageId,
               viewportOffset: rect.top - scrollerRect.top,
+              scrollTop: scroller.scrollTop,
             };
           }
           break;
@@ -1491,7 +1496,8 @@ export function VirtualMessageList({
     heightAnchorRef.current = null;
     const scroller = scrollContainerRef.current;
     const list = listRef.current;
-    if (!scroller || !list) return;
+    if (!scroller || !list || isTranscriptScrollActive() ||
+        Math.abs(scroller.scrollTop - anchor.scrollTop) >= 0.5) return;
     const scrollerRect = scroller.getBoundingClientRect();
     const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
     for (const row of rows) {
@@ -2930,6 +2936,10 @@ export function SessionDetailPage() {
     lastUserScrollIntentAtRef.current = Date.now();
     markTranscriptScrollActivity(AUTO_FOLLOW_USER_SCROLL_INTENT_MS);
     cancelFollowSettle();
+    cancelResizeFollowFrame();
+    const wasProgrammatic = Date.now() <= programmaticScrollUntilRef.current;
+    programmaticScrollUntilRef.current = 0;
+    if (wasProgrammatic) cancelAutoFollowMotion();
   }, []);
 
   const hasRecentUserScrollIntent = useCallback(() => {
@@ -3681,8 +3691,9 @@ export function SessionDetailPage() {
       return event.clientX <= rect.right && event.clientX >= rect.right - hitInset;
     };
     const handleWheel = (event: WheelEvent) => {
-      if (event.deltaY < -AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX) {
+      if (Math.abs(event.deltaY) > AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX) {
         markUserScrollIntent();
+        if (event.deltaY < 0 && autoFollowRef.current) setAutoFollowPausedValue(true);
       }
     };
     const handlePointerDown = (event: PointerEvent) => {
@@ -3694,9 +3705,12 @@ export function SessionDetailPage() {
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isEditableShortcutTarget(event.target)) return;
-      if (upwardScrollKeys.has(event.key) || (event.key === ' ' && event.shiftKey)) {
+      if (upwardScrollKeys.has(event.key) ||
+          ['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) {
         markUserScrollIntent();
-        cancelFollowSettle();
+        if ((upwardScrollKeys.has(event.key) || (event.key === ' ' && event.shiftKey)) && autoFollowRef.current) {
+          setAutoFollowPausedValue(true);
+        }
       }
     };
 
@@ -3705,32 +3719,29 @@ export function SessionDetailPage() {
       if (!el) return;
       const currentScrollTop = el.scrollTop;
       const prevScrollTop = lastScrollTopRef.current;
-      const scrolledUp = currentScrollTop < prevScrollTop - AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX;
+      const scrolledUp = currentScrollTop < prevScrollTop;
+      const scrolledDown = currentScrollTop > prevScrollTop;
       lastScrollTopRef.current = currentScrollTop;
       const dist = el.scrollHeight - (currentScrollTop + el.clientHeight);
       isNearBottomRef.current = dist <= AUTO_FOLLOW_NEAR_BOTTOM_PX;
-      if (Date.now() <= programmaticScrollUntilRef.current) {
-        if (autoFollowRef.current && autoFollowPausedRef.current) {
-          setAutoFollowPausedValue(false);
-        }
-        return;
-      }
+      const userScrolling = hasRecentUserScrollIntent();
+      if (!userScrolling && Date.now() <= programmaticScrollUntilRef.current) return;
       // 一律读 ref：autoFollow / autoFollowPaused 在流式期间高频变化，若进依赖
       // 数组，这整套监听器每来一条消息就拆装一次，并同步跑 recalc 强制回流。
       if (!autoFollowRef.current) {
         cancelFollowSettle();
         if (autoFollowPausedRef.current) setAutoFollowPausedValue(false);
-        if (isNearBottomRef.current) setAutoFollowEnabled(true);
+        if (userScrolling && scrolledDown && dist <= AUTO_FOLLOW_RESUME_BOTTOM_PX) setAutoFollowEnabled(true);
         return;
       }
-      if (isNearBottomRef.current) {
-        if (autoFollowPausedRef.current) setAutoFollowPausedValue(false);
-      } else if (!autoFollowPausedRef.current && scrolledUp && hasRecentUserScrollIntent()) {
+      if (!autoFollowPausedRef.current && scrolledUp && userScrolling) {
         // 仅在用户近期有明确滚动意图且 scrollTop 确实向上时暂停跟随。
         // 浏览器滚动锚点、代码高亮、Markdown/工具卡片测高等流式布局变化也可能
         // 让 scrollTop 回退；这些内容增长场景不能自动取消用户开启的贴底跟随。
         cancelFollowSettle();
         setAutoFollowPausedValue(true);
+      } else if (autoFollowPausedRef.current && userScrolling && scrolledDown && dist <= AUTO_FOLLOW_RESUME_BOTTOM_PX) {
+        setAutoFollowPausedValue(false);
       }
     }
     recalc();

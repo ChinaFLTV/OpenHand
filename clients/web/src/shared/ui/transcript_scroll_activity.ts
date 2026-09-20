@@ -12,6 +12,7 @@ const TRANSCRIPT_SCROLL_ACTIVITY_MAX_WAIT_MS = 3_000;
 
 let active = false;
 let settleTimer: number | null = null;
+let settleUntil = 0;
 const listeners = new Set<(active: boolean) => void>();
 
 function rootElement(): HTMLElement | null {
@@ -50,10 +51,14 @@ export function markTranscriptScrollActivity(
     min: TRANSCRIPT_SCROLL_ACTIVITY_MIN_MS,
     max: TRANSCRIPT_SCROLL_ACTIVITY_MAX_MS,
   });
+  const now = nowMs();
+  // 布局引起的 scroll 通知不能缩短滚轮或触摸输入建立的保护窗口。
+  settleUntil = Math.max(settleUntil, now + safeDuration);
   settleTimer = window.setTimeout(() => {
     settleTimer = null;
+    settleUntil = 0;
     setRootActivity(false);
-  }, safeDuration);
+  }, settleUntil - now);
 }
 
 export function clearTranscriptScrollActivity(): void {
@@ -61,6 +66,7 @@ export function clearTranscriptScrollActivity(): void {
     window.clearTimeout(settleTimer);
   }
   settleTimer = null;
+  settleUntil = 0;
   setRootActivity(false);
 }
 
