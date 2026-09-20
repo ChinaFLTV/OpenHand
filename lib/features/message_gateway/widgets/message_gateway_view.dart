@@ -27392,52 +27392,56 @@ class _DingTalkResourcePickerDialogState
     final tone = isSelected
         ? OpenHandStatusColors.success
         : theme.colorScheme.primary;
-    return Material(
-      color: Colors.transparent,
-      shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      child: InkWell(
-        onTap: () => toggleSelected(!isSelected),
+    return OpenHandTintedPanel(
+      accent: tone,
+      padding: EdgeInsets.zero,
+      // 墨水层放在着色背景之上，整行点击与内部按钮共用圆角裁剪。
+      child: Material(
+        type: MaterialType.transparency,
         borderRadius: kOpenHandBorderRadius16,
-        hoverColor: Colors.transparent,
-        splashColor: tone.withValues(alpha: 0.10),
-        overlayColor: WidgetStatePropertyAll(tone.withValues(alpha: 0.06)),
-        child: OpenHandTintedPanel(
-          accent: tone,
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-          child: ListTile(
-            leading: Icon(option.icon, color: tone),
-            title: Text(
-              option.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: option.subtitle.trim().isEmpty
-                ? null
-                : Text(
-                    option.subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => toggleSelected(!isSelected),
+          borderRadius: kOpenHandBorderRadius16,
+          hoverColor: Colors.transparent,
+          splashColor: tone.withValues(alpha: 0.10),
+          overlayColor: WidgetStatePropertyAll(tone.withValues(alpha: 0.06)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+            child: ListTile(
+              leading: Icon(option.icon, color: tone),
+              title: Text(
+                option.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: option.subtitle.trim().isEmpty
+                  ? null
+                  : Text(
+                      option.subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+              contentPadding: const EdgeInsets.only(left: 8, right: 4),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: '查看详情',
+                    onPressed: () =>
+                        unawaited(_showOptionDetails(context, option)),
+                    style: _detailsIconButtonStyle(theme),
+                    icon: const Icon(Icons.info_outline_rounded),
                   ),
-            contentPadding: const EdgeInsets.only(left: 8, right: 4),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: '查看详情',
-                  onPressed: () =>
-                      unawaited(_showOptionDetails(context, option)),
-                  style: _detailsIconButtonStyle(theme),
-                  icon: const Icon(Icons.info_outline_rounded),
-                ),
-                Checkbox(
-                  value: isSelected,
-                  onChanged: toggleSelected,
-                  overlayColor: const WidgetStatePropertyAll(
-                    Colors.transparent,
+                  Checkbox(
+                    value: isSelected,
+                    onChanged: toggleSelected,
+                    overlayColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
