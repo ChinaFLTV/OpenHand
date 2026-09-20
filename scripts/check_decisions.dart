@@ -64,6 +64,42 @@ void main() {
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
   });
+  testWidgets('决策弹窗按类型恢复独立字段并仅应用当前类型', (tester) async {
+    String? applied;
+    final draft = DecisionPayload.encode(DecisionPayload.requestLanguage, {
+      'state': '待评估内容', 'questions': {'决策': {
+        'type': 'choice', 'instructions': DecisionPayload.questionForType('choice'),
+        'criteria': {'甲': null, '乙': null},
+      }},
+    });
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) => TextButton(
+      onPressed: () async { applied = await showDecisionRequestDialog(context, draft); }, child: const Text('打开'),
+    ))));
+    await tester.tap(find.text('打开'));
+    await tester.pumpAndSettle();
+    final criteriaField = find.byWidgetPredicate((widget) => widget is TextField &&
+      (widget.decoration?.labelText?.startsWith('候选项') == true || widget.decoration?.labelText?.startsWith('评分等级') == true));
+    expect(tester.widget<TextField>(criteriaField).controller!.text, '甲\\n乙');
+    await tester.tap(find.widgetWithText(ChoiceChip, '评分'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(criteriaField).controller!.text, '');
+    await tester.enterText(criteriaField, '低\\n高');
+    for (final type in ['判断', '选择']) {
+      await tester.tap(find.widgetWithText(ChoiceChip, type));
+      await tester.pumpAndSettle();
+    }
+    expect(tester.widget<TextField>(criteriaField).controller!.text, '甲\\n乙');
+    await tester.enterText(criteriaField, '丙');
+    await tester.tap(find.widgetWithText(ChoiceChip, '评分'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(criteriaField).controller!.text, '低\\n高');
+    await tester.tap(find.text('应用到草稿'));
+    await tester.pumpAndSettle();
+    final question = (DecisionPayload.request(applied!)['questions'] as Map).values.single as Map;
+    expect(question['type'], 'score');
+    expect(question['criteria'], ['低', '高']);
+    expect(tester.takeException(), isNull);
+  });
   test('原生、网关与完整接口地址正确归一化', () {
     const router = AiEndpointRouter();
     for (final base in ['https://api.typesafe.ai', 'https://api.typesafe.ai/v1', 'https://api.typesafe.ai/v1/systemone']) {

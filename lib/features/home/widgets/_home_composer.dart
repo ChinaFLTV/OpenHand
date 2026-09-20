@@ -2559,8 +2559,13 @@ class _DecisionComposerForm extends StatefulWidget {
 class _DecisionComposerFormState extends State<_DecisionComposerForm> {
   late final TextEditingController _state;
   late final TextEditingController _question;
-  final List<TextEditingController> _criteria = [];
+  final _criteriaByType = <String, List<TextEditingController>>{
+    'noul': [],
+    'choice': [],
+    'score': [],
+  };
   String _type = 'noul';
+  List<TextEditingController> get _criteria => _criteriaByType[_type]!;
 
   @override
   void initState() {
@@ -2568,6 +2573,12 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
     _state = TextEditingController();
     _question = TextEditingController(text: DecisionPayload.defaultQuestion);
     _loadDraft(widget.controller.text);
+    for (final type in ['choice', 'score']) {
+      final criteria = _criteriaByType[type]!;
+      while (criteria.length < (type == 'score' ? 2 : 1)) {
+        criteria.add(TextEditingController()..addListener(_writeDraft));
+      }
+    }
     _state.addListener(_writeDraft);
     _question.addListener(_writeDraft);
   }
@@ -2604,7 +2615,7 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
   void dispose() {
     _state.dispose();
     _question.dispose();
-    for (final controller in _criteria) {
+    for (final controller in _criteriaByType.values.expand((items) => items)) {
       controller.removeListener(_writeDraft);
       controller.dispose();
     }
@@ -2651,8 +2662,6 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
       _type = type;
       if (_question.text != question) _question.text = question;
     });
-    if (_type != 'noul' && _criteria.isEmpty) _addCriteria();
-    if (_type == 'score' && _criteria.length == 1) _addCriteria();
     _writeDraft();
   }
 
@@ -2664,6 +2673,7 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
   }
 
   void _removeCriteria(int index) {
+    if (_criteria.length <= (_type == 'score' ? 2 : 1)) return;
     final controller = _criteria.removeAt(index);
     controller.removeListener(_writeDraft);
     controller.dispose();
@@ -2738,6 +2748,7 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
           const SizedBox(height: 12),
           for (var index = 0; index < _criteria.length; index++)
             Padding(
+              key: ObjectKey(_criteria[index]),
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
@@ -2770,7 +2781,10 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: widget.enabled ? _addCriteria : null,
+              onPressed:
+                  widget.enabled && _criteria.length < (isScore ? 10 : 255)
+                  ? _addCriteria
+                  : null,
               icon: const Icon(Icons.add_rounded),
               label: Text(isScore ? '添加评分等级' : '添加候选项'),
             ),

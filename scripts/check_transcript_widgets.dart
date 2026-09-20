@@ -1118,6 +1118,48 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('决策候选项与评分等级独立保留，草稿只包含当前类型', (tester) async {
+    final controller = TextEditingController(text: DecisionPayload.encode(
+      DecisionPayload.requestLanguage,
+      {'state': '待评估内容', 'questions': {'决策': {
+        'type': 'choice', 'instructions': DecisionPayload.questionForType('choice'),
+        'criteria': {for (var i = 0; i < 30; i++) '候选 $i': null},
+      }}},
+    ));
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(
+      child: _DecisionComposerForm(controller: controller, enabled: true),
+    ))));
+    final form = tester.state<_DecisionComposerFormState>(find.byType(_DecisionComposerForm));
+    form._addCriteria();
+    final choiceControllers = form._criteria.toList();
+    form._setType('score');
+    await tester.pumpAndSettle();
+    expect(form._criteria.map((item) => item.text), ['', '']);
+    form._criteria[0].text = '低';
+    form._criteria[1].text = '高';
+    form._addCriteria();
+    form._criteria[2].text = '最高';
+    form._removeCriteria(1);
+    Map activeQuestion() => (DecisionPayload.request(controller.text)['questions'] as Map).values.single as Map;
+    expect(activeQuestion()['criteria'], ['低', '最高']);
+    form._setType('noul');
+    await tester.pumpAndSettle();
+    expect(activeQuestion().containsKey('criteria'), isFalse);
+    form._setType('choice');
+    await tester.pumpAndSettle();
+    expect(form._criteria, orderedEquals(choiceControllers));
+    expect(form._criteria.last.text, '', reason: '未填写的新行也应保留');
+    expect((activeQuestion()['criteria'] as Map).keys, hasLength(30));
+    form._removeCriteria(0);
+    form._setType('score');
+    await tester.pumpAndSettle();
+    expect(form._criteria.map((item) => item.text), ['低', '最高']);
+    expect(activeQuestion()['criteria'], ['低', '最高']);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('工作区空状态在极小高度下不产生负约束', (tester) async {
     tester.view.physicalSize = const Size(800, 16);
     tester.view.devicePixelRatio = 1;

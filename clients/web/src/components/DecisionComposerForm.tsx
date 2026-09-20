@@ -1,25 +1,45 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { DECISION_REQUEST, decisionDraft, decisionQuestionForType, initialDecisionDraft, type DecisionType } from '../shared/util/decision';
 
 type Props = { initialText: string; disabled?: boolean; onChange: (text: string) => void };
+
+function initialCriteria(initial: ReturnType<typeof initialDecisionDraft>): Record<DecisionType, string[]> {
+  const values = initial.criteria.split('\n').filter(Boolean);
+  return {
+    noul: [],
+    choice: initial.type === 'choice' && values.length ? values : [''],
+    score: initial.type === 'score' && values.length ? values : ['', ''],
+  };
+}
 
 export function DecisionComposerForm({ initialText, disabled = false, onChange }: Props) {
   const initial = useMemo(() => initialDecisionDraft(initialText), [initialText]);
   const [state, setState] = useState(initial.state);
   const [question, setQuestion] = useState(initial.question);
   const [type, setType] = useState<DecisionType>(initial.type);
-  const [criteria, setCriteria] = useState<string[]>(() => initial.criteria.split('\n').filter(Boolean));
+  const [criteriaByType, setCriteriaByType] = useState(() => initialCriteria(initial));
+  const criteria = criteriaByType[type];
+  const lastDraft = useRef(initialText);
+  const loadingDraft = useRef(false);
 
   useEffect(() => {
+    if (initialText === lastDraft.current) return;
+    lastDraft.current = initialText;
+    loadingDraft.current = true;
     setState(initial.state);
     setQuestion(initial.question);
     setType(initial.type);
-    setCriteria(initial.criteria.split('\n').filter(Boolean));
-  }, [initial.state, initial.question, initial.type, initial.criteria]);
+    setCriteriaByType(initialCriteria(initial));
+  }, [initialText, initial]);
 
   useEffect(() => {
+    if (loadingDraft.current) {
+      loadingDraft.current = false;
+      return;
+    }
+    let draft: string;
     try {
-      onChange(decisionDraft(state, question, type, criteria.join('\n')));
+      draft = decisionDraft(state, question, type, criteria.join('\n'));
     } catch {
       const questionPayload = {
         type,
@@ -28,16 +48,19 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
         ...(type === 'score' ? { criteria: criteria.filter(Boolean) } : {}),
       };
       const json = JSON.stringify({ state, questions: { 决策: questionPayload } }).replace(/`/g, '\\u0060');
-      onChange(`\`\`\`${DECISION_REQUEST}\n${json}\n\`\`\``);
+      draft = `\`\`\`${DECISION_REQUEST}\n${json}\n\`\`\``;
     }
-  }, [state, question, type, criteria, onChange]);
+    if (draft === lastDraft.current) return;
+    lastDraft.current = draft;
+    onChange(draft);
+  }, [state, question, type, criteria, initialText, onChange]);
 
   const updateType = (next: DecisionType) => {
     if (next === type) return;
     setType(next);
     setQuestion((current) => decisionQuestionForType(next, current));
-    setCriteria((items) => next === 'noul' ? [] : items.length ? items : next === 'score' ? ['', ''] : ['']);
   };
+  const setCriteria = (update: (items: string[]) => string[]) => setCriteriaByType((current) => ({ ...current, [type]: update(current[type]) }));
   const updateCriteria = (index: number, value: string) => setCriteria((items) => items.map((item, i) => i === index ? value : item));
   const removeCriteria = (index: number) => setCriteria((items) => items.length > (type === 'score' ? 2 : 1) ? items.filter((_, i) => i !== index) : items);
   const addCriteria = () => setCriteria((items) => items.length < (type === 'score' ? 10 : 255) ? [...items, ''] : items);
@@ -49,7 +72,7 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
     <div class="oh-decision-type-group" role="group" aria-label="决策类型">{(['noul', 'choice', 'score'] as const).map((value) => <button type="button" class="oh-decision-type oh-tap-press" aria-pressed={type === value} disabled={disabled} onClick={() => updateType(value)}>{({ noul: '判断', choice: '选择', score: '评分' })[value]}</button>)}</div>
     {type !== 'noul' ? <div class="oh-decision-criteria">
       {criteria.map((value, index) => <div class="oh-decision-criterion" key={`${type}-${index}`}><span>{index + 1}</span><input class="oh-decision-field" value={value} disabled={disabled} placeholder={type === 'choice' ? '候选项' : '评分等级（从低到高）'} onInput={(event) => updateCriteria(index, event.currentTarget.value)} /><button type="button" class="oh-decision-remove" aria-label="删除此项" disabled={disabled || criteria.length <= (type === 'score' ? 2 : 1)} onClick={() => removeCriteria(index)}>×</button></div>)}
-      <button type="button" class="oh-decision-add oh-tap-press" disabled={disabled} onClick={addCriteria}>＋ {type === 'choice' ? '添加候选项' : '添加评分等级'}</button>
+      <button type="button" class="oh-decision-add oh-tap-press" disabled={disabled || criteria.length >= (type === 'score' ? 10 : 255)} onClick={addCriteria}>＋ {type === 'choice' ? '添加候选项' : '添加评分等级'}</button>
     </div> : null}
   </div>;
 }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
+import preact from '@preact/preset-vite';
 
 // 只替换 Hook 生命周期和浏览器出口，直接驱动真实交互与轮询逻辑。
 const hooksId = '\0交互检查钩子';
@@ -13,7 +14,7 @@ const server = await createServer({
   server: { middlewareMode: true, watch: null, ws: false },
   appType: 'custom',
   ssr: { noExternal: ['preact'] },
-  plugins: [{
+  plugins: [preact(), {
     name: '交互检查环境',
     enforce: 'pre',
     resolveId(source) {
@@ -30,8 +31,17 @@ const server = await createServer({
         function changed(previous, next) { return !previous || next.some((value, i) => !Object.is(value, previous[i])); }
         export function useRef(value) { return slots[index++] ??= { current: value }; }
         export function useState(value) {
-          const state = useRef(value);
+          const state = useRef();
+          if (!state.initialized) {
+            state.current = typeof value === 'function' ? value() : value;
+            state.initialized = true;
+          }
           return [state.current, next => { state.current = typeof next === 'function' ? next(state.current) : next; }];
+        }
+        export function useMemo(factory, deps) {
+          const state = useRef();
+          if (!state.current || changed(state.current.deps, deps)) state.current = { value: factory(), deps };
+          return state.current.value;
         }
         export function useCallback(callback, deps) {
           const state = useRef();
@@ -85,6 +95,72 @@ try {
   replace('window', { scrollY: 0 });
   replace('document', { scrollingElement: null });
   const hooks = await server.ssrLoadModule(hooksId);
+  const { DecisionComposerForm } = await server.ssrLoadModule('/src/components/DecisionComposerForm.tsx');
+  const { decisionDraft, initialDecisionDraft } = await server.ssrLoadModule('/src/shared/util/decision.ts');
+  let draftText = decisionDraft('待评估内容', '选择最合适的候选项', 'choice', Array.from({ length: 30 }, (_, i) => `候选 ${i}`).join('\n'));
+  let publishes = 0;
+  const onDraftChange = (value) => { draftText = value; publishes++; };
+  let form;
+  function renderDecision() {
+    for (let i = 0; i < 4; i++) form = hooks.render(() => DecisionComposerForm({ initialText: draftText, onChange: onDraftChange }));
+  }
+  function nodes(node, predicate) {
+    if (!node || typeof node !== 'object') return [];
+    if (Array.isArray(node)) return node.flatMap(child => nodes(child, predicate));
+    return [...(predicate(node) ? [node] : []), ...nodes(node.props?.children, predicate)];
+  }
+  const fields = () => nodes(form, node => node.type === 'input' && node.props.placeholder);
+  const selectType = (label) => {
+    nodes(form, node => node.type === 'button' && node.props.children === label)[0].props.onClick();
+    renderDecision();
+  };
+  const addCriterion = () => {
+    nodes(form, node => node.props?.class === 'oh-decision-add oh-tap-press')[0].props.onClick();
+    renderDecision();
+  };
+  const editCriterion = (index, value) => {
+    fields()[index].props.onInput({ currentTarget: { value } });
+    renderDecision();
+  };
+  renderDecision();
+  assert.equal(fields().length, 30);
+  addCriterion();
+  assert.equal(fields().length, 31, '草稿回传不能删除新建空白行');
+  selectType('评分');
+  assert.deepEqual(fields().map(node => node.props.value), ['', ''], '候选项不能复用为评分等级');
+  editCriterion(0, '低');
+  editCriterion(1, '高');
+  assert.equal(initialDecisionDraft(draftText).criteria, '低\n高');
+  addCriterion();
+  selectType('判断');
+  assert.equal(fields().length, 0);
+  assert.equal(initialDecisionDraft(draftText).criteria, '');
+  selectType('选择');
+  assert.equal(fields().length, 31);
+  assert.equal(fields()[0].props.value, '候选 0');
+  assert.equal(fields()[30].props.value, '');
+  editCriterion(0, '修改后的候选');
+  nodes(form, node => node.props?.['aria-label'] === '删除此项')[1].props.onClick();
+  renderDecision();
+  selectType('评分');
+  assert.deepEqual(fields().map(node => node.props.value), ['低', '高', '']);
+  assert.equal(initialDecisionDraft(draftText).criteria, '低\n高');
+  for (let i = 0; i < 7; i++) addCriterion();
+  assert.equal(fields().length, 10);
+  assert.equal(nodes(form, node => node.props?.class === 'oh-decision-add oh-tap-press')[0].props.disabled, true);
+  const settledPublishes = publishes;
+  renderDecision();
+  assert.equal(publishes, settledPublishes, '草稿回传不能形成重复更新');
+  draftText = decisionDraft('新草稿', '评分', 'score', '一级\n二级');
+  renderDecision();
+  assert.deepEqual(fields().map(node => node.props.value), ['一级', '二级']);
+  selectType('选择');
+  assert.deepEqual(fields().map(node => node.props.value), [''], '外部替换草稿应清除旧草稿的暂存字段');
+  draftText = '';
+  renderDecision();
+  selectType('评分');
+  assert.deepEqual(fields().map(node => node.props.value), ['', '']);
+  hooks.unmount();
   const { notices } = await server.ssrLoadModule(noticesId);
   const { usePullToRefresh } = await server.ssrLoadModule('/src/hooks/usePullToRefresh.ts');
   const surface = new Surface();
@@ -243,7 +319,7 @@ try {
   hooks.unmount();
   await settle();
   assert.equal(runs.length, 3, '开始前卸载不得启动底层轮询任务');
-  console.log('[交互检查] 手势与轮询的取消、重入、配置变更、超时及卸载检查通过。');
+  console.log('[交互检查] 决策类型字段隔离、草稿同步及手势与轮询生命周期检查通过。');
 } finally {
   for (const [name, descriptor] of saved) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);

@@ -10,7 +10,10 @@ export function DecisionRequestDialog({ initialText, onApply, onClose }: { initi
   const [state, setState] = useState(initial.advanced ?? initial.state);
   const [question, setQuestion] = useState(initial.question);
   const [type, setType] = useState<DecisionType>(initial.type);
-  const [criteria, setCriteria] = useState(initial.criteria);
+  const [criteriaByType, setCriteriaByType] = useState<Record<DecisionType, string>>(() => ({
+    noul: '', choice: '', score: '', [initial.type]: initial.criteria,
+  }));
+  const criteria = criteriaByType[type];
   const [error, setError] = useState('');
   function updateType(next: DecisionType) {
     if (next === type) return;
@@ -31,7 +34,7 @@ export function DecisionRequestDialog({ initialText, onApply, onClose }: { initi
         <button type="button" class="oh-decision-type oh-tap-press" aria-pressed={type === value} style={{ background: type === value ? 'var(--m3-primary-container)' : undefined }} onClick={() => updateType(value)}>{({noul: '判断', choice: '选择', score: '评分'})[value]}</button>)}</div>}
       <label class="block">{initial.advanced !== undefined ? '完整决策配置（JSON）' : '待评估内容'}<textarea class="oh-decision-input" rows={initial.advanced !== undefined ? 14 : 4} maxLength={DECISION_MAX_CHARACTERS} value={state} onInput={(event) => setState(event.currentTarget.value)} /></label>
       {initial.advanced === undefined && <><label class="block">需要模型回答的问题<textarea class="oh-decision-input" rows={2} value={question} onInput={(event) => setQuestion(event.currentTarget.value)} /></label>
-      {type !== 'noul' && <label class="block">{type === 'choice' ? '候选项，每行一个' : '评分等级，从低到高每行一个（2—10 级）'}<textarea class="oh-decision-input" rows={4} value={criteria} onInput={(event) => setCriteria(event.currentTarget.value)} /></label>}
+      {type !== 'noul' && <label class="block" key={type}>{type === 'choice' ? '候选项，每行一个' : '评分等级，从低到高每行一个（2—10 级）'}<textarea class="oh-decision-input" rows={4} value={criteria} onInput={(event) => { const value = event.currentTarget.value; setCriteriaByType((current) => ({ ...current, [type]: value })); }} /></label>}
       </>}
       {error && <p role="alert" style={{ color: 'var(--m3-error)' }}>{error}</p>}
     </div>

@@ -26,8 +26,13 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
   final _question = TextEditingController(
     text: DecisionPayload.defaultQuestion,
   );
-  final _criteria = TextEditingController();
+  final _criteriaByType = {
+    'noul': TextEditingController(),
+    'choice': TextEditingController(),
+    'score': TextEditingController(),
+  };
   String _type = 'noul';
+  TextEditingController get _criteria => _criteriaByType[_type]!;
   bool _advanced = false;
   String? _error;
 
@@ -79,7 +84,9 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
   void dispose() {
     _state.dispose();
     _question.dispose();
-    _criteria.dispose();
+    for (final controller in _criteriaByType.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -205,6 +212,7 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
                 if (_type != 'noul') ...[
                   const SizedBox(height: 12),
                   TextField(
+                    key: ValueKey(_type),
                     controller: _criteria,
                     minLines: 3,
                     maxLines: 7,
