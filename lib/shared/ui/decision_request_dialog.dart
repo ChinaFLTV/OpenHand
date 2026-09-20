@@ -6,6 +6,7 @@ import '../util/decision_payload.dart';
 import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'decision_copy.dart';
+import 'decision_form.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_spacing.dart';
 
@@ -160,8 +161,12 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final copy = DecisionCopy.of(context);
+    final fieldDecoration = openHandDecisionInputDecoration(colors: colors);
     return buildOpenHandAlertDialog(
-      icon: Icon(Icons.fact_check_rounded, color: colors.primary),
+      icon: Icon(
+        Icons.fact_check_rounded,
+        color: openHandDecisionAccent(colors, _type),
+      ),
       title: Text(copy.dialogTitle),
       content: SizedBox(
         width: 580,
@@ -176,70 +181,71 @@ class _DecisionRequestDialogState extends State<_DecisionRequestDialog> {
                   color: colors.tertiaryContainer,
                   borderRadius: kOpenHandBorderRadius16,
                 ),
-                child: Text(copy.dialogBody),
+                child: Text(
+                  copy.dialogBody,
+                  style: TextStyle(color: colors.onTertiaryContainer),
+                ),
               ),
               const SizedBox(height: 16),
               if (!_advanced) ...[
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final type in const [
-                      DecisionPayload.typeNoul,
-                      DecisionPayload.typeChoice,
-                      DecisionPayload.typeScore,
-                    ])
-                      ChoiceChip(
-                        label: Text(copy.typeLabel(type)),
-                        selected: _type == type,
-                        onSelected: (_) {
-                          if (_type == type) return;
-                          setState(() {
-                            _type = type;
-                            _question.text = DecisionPayload.questionForType(
-                              _type,
-                              current: _question.text,
-                              localizedDefault: copy.defaultQuestionFor(_type),
-                            );
-                            _error = null;
-                          });
-                        },
-                      ),
-                  ],
+                OpenHandDecisionTypeSwitch(
+                  value: _type,
+                  onChanged: (type) {
+                    if (_type == type) return;
+                    setState(() {
+                      _type = type;
+                      _question.text = DecisionPayload.questionForType(
+                        _type,
+                        current: _question.text,
+                        localizedDefault: copy.defaultQuestionFor(_type),
+                      );
+                      _error = null;
+                    });
+                  },
                 ),
                 const SizedBox(height: 16),
               ],
-              TextField(
-                controller: _state,
-                minLines: 3,
-                maxLines: _advanced ? 16 : 7,
-                maxLength: DecisionPayload.maxCharacters,
-                decoration: InputDecoration(
-                  labelText: _advanced
-                      ? copy.advancedJsonLabel
-                      : copy.stateLabel,
-                  alignLabelWithHint: true,
+              OpenHandDecisionLabeledField(
+                label: _advanced ? copy.advancedJsonLabel : copy.stateLabel,
+                child: TextField(
+                  controller: _state,
+                  minLines: 3,
+                  maxLines: _advanced ? 16 : 7,
+                  maxLength: DecisionPayload.maxCharacters,
+                  decoration: fieldDecoration.copyWith(
+                    hintText: _advanced ? null : copy.stateHint,
+                  ),
                 ),
               ),
               if (!_advanced) ...[
                 const SizedBox(height: 12),
-                TextField(
-                  controller: _question,
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: InputDecoration(labelText: copy.questionLabel),
+                OpenHandDecisionLabeledField(
+                  label: copy.questionLabel,
+                  child: TextField(
+                    controller: _question,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: fieldDecoration.copyWith(
+                      hintText: copy.questionHint,
+                    ),
+                  ),
                 ),
                 if (_type != DecisionPayload.typeNoul) ...[
                   const SizedBox(height: 12),
-                  TextField(
-                    key: ValueKey(_type),
-                    controller: _criteria,
-                    minLines: 3,
-                    maxLines: 7,
-                    decoration: InputDecoration(
-                      labelText: _type == DecisionPayload.typeChoice
-                          ? copy.choiceLinesLabel
-                          : copy.scoreLinesLabel,
+                  OpenHandDecisionLabeledField(
+                    label: _type == DecisionPayload.typeChoice
+                        ? copy.choiceLinesLabel
+                        : copy.scoreLinesLabel,
+                    child: TextField(
+                      key: ValueKey(_type),
+                      controller: _criteria,
+                      minLines: 3,
+                      maxLines: 7,
+                      decoration: fieldDecoration.copyWith(
+                        hintText: _type == DecisionPayload.typeChoice
+                            ? copy.choiceHint
+                            : copy.scoreHint,
+                      ),
                     ),
                   ),
                 ],

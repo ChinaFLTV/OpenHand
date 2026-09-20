@@ -147,6 +147,24 @@ final class DecisionCopy {
     ja: 'モデルに答えてほしい質問',
   );
 
+  String get stateHint => _m(
+    zh: '粘贴或输入需要评估的文本',
+    zhHant: '貼上或輸入需要評估的文字',
+    en: 'Paste or type the content to evaluate',
+    fr: 'Collez ou saisissez le contenu à évaluer',
+    de: 'Inhalt zum Bewerten einfügen oder eingeben',
+    ja: '評価する内容を貼り付けるか入力',
+  );
+
+  String get questionHint => _m(
+    zh: '一句话描述需要模型回答的问题',
+    zhHant: '一句話描述需要模型回答的問題',
+    en: 'Describe the question for the model',
+    fr: 'Décrivez la question pour le modèle',
+    de: 'Frage an das Modell beschreiben',
+    ja: 'モデルに答えてほしい質問を書く',
+  );
+
   String get questionsLabel => _m(
     zh: '决策问题',
     zhHant: '決策問題',

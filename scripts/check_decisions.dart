@@ -47,7 +47,7 @@ void main() {
     expect(DecisionPayload.defaultQuestions.values.toSet(), hasLength(3));
     expect(DecisionPayload.builtInQuestionTexts.length, greaterThanOrEqualTo(9));
     for (final type in DecisionPayload.defaultQuestions.keys) {
-      final expected = DecisionPayload.defaultQuestions[type];
+      final expected = DecisionPayload.defaultQuestionForType(type);
       for (final current in ['', '  ', ...DecisionPayload.defaultQuestions.values, ...DecisionPayload.builtInQuestionTexts]) {
         expect(DecisionPayload.questionForType(type, current: current), expected);
       }
@@ -60,14 +60,14 @@ void main() {
     ))));
     await tester.tap(find.text('打开'));
     await tester.pumpAndSettle();
-    final questionField = find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.labelText == '需要模型回答的问题');
+    final questionField = find.byType(TextField).at(1);
     for (final entry in {'choice': '选择', 'score': '评分', 'noul': '判断'}.entries) {
-      await tester.tap(find.widgetWithText(ChoiceChip, entry.value));
+      await tester.tap(find.text(entry.value));
       await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(questionField).controller!.text, DecisionPayload.defaultQuestions[entry.key]);
+      expect(tester.widget<TextField>(questionField).controller!.text, DecisionPayload.defaultQuestionForType(entry.key, const Locale('zh')));
     }
     await tester.enterText(questionField, '哪个团队负责售后？');
-    await tester.tap(find.widgetWithText(ChoiceChip, '选择'));
+    await tester.tap(find.text('选择'));
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(questionField).controller!.text, '哪个团队负责售后？');
     await tester.tap(find.text('取消'));
@@ -86,20 +86,19 @@ void main() {
     ))));
     await tester.tap(find.text('打开'));
     await tester.pumpAndSettle();
-    final criteriaField = find.byWidgetPredicate((widget) => widget is TextField &&
-      (widget.decoration?.labelText?.startsWith('候选项') == true || widget.decoration?.labelText?.startsWith('评分等级') == true));
+    final criteriaField = find.byType(TextField).at(2);
     expect(tester.widget<TextField>(criteriaField).controller!.text, '甲\\n乙');
-    await tester.tap(find.widgetWithText(ChoiceChip, '评分'));
+    await tester.tap(find.text('评分'));
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(criteriaField).controller!.text, '');
     await tester.enterText(criteriaField, '低\\n高');
     for (final type in ['判断', '选择']) {
-      await tester.tap(find.widgetWithText(ChoiceChip, type));
+      await tester.tap(find.text(type));
       await tester.pumpAndSettle();
     }
     expect(tester.widget<TextField>(criteriaField).controller!.text, '甲\\n乙');
     await tester.enterText(criteriaField, '丙');
-    await tester.tap(find.widgetWithText(ChoiceChip, '评分'));
+    await tester.tap(find.text('评分'));
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(criteriaField).controller!.text, '低\\n高');
     await tester.tap(find.text('应用到草稿'));

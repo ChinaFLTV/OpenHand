@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { AnimatedList } from './AnimatedList';
 import { t } from '../i18n';
-import { DECISION_MAX_CRITERIA, DECISION_MAX_SCORE_LEVELS, DECISION_MIN_SCORE_LEVELS, DECISION_REQUEST, DECISION_SIMPLE_QUESTION_KEY, DECISION_TYPES, decisionDraft, decisionQuestionForType, initialDecisionDraft, type DecisionType } from '../shared/util/decision';
+import { DECISION_MAX_CRITERIA, DECISION_MAX_SCORE_LEVELS, DECISION_MIN_SCORE_LEVELS, DECISION_REQUEST, DECISION_SIMPLE_QUESTION_KEY, DECISION_TYPES, decisionDraft, decisionQuestionForType, initialDecisionDraft, localizedDecisionQuestion, type DecisionType } from '../shared/util/decision';
 
 type Props = { initialText: string; disabled?: boolean; onChange: (text: string) => void };
 type Criterion = { id: string; value: string };
@@ -15,6 +15,29 @@ function initialCriteria(initial: ReturnType<typeof initialDecisionDraft>, creat
   };
 }
 
+function DecisionTypeIcon({ type }: { type: DecisionType }) {
+  return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden>
+    {type === 'choice' ? <>
+      <path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" />
+      <path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" />
+    </> : type === 'score' ? <path d="M12 3.2l2.5 6.4H21l-5.2 3.9 2 6.5L12 16.6 6.2 20l2-6.5L3 9.6h6.5z" /> : <>
+      <path d="M9 11.5l3 3L21 6" /><circle cx="9" cy="13" r="6.2" />
+    </>}
+  </svg>;
+}
+
+export function DecisionTypeSwitch({ value, disabled = false, onChange }: { value: DecisionType; disabled?: boolean; onChange: (type: DecisionType) => void }) {
+  return <div class="oh-decision-type-block">
+    <span class="oh-decision-field-label">{t('decision.field.type', '决策类型')}</span>
+    <div class="oh-decision-type-group" role="group" aria-label={t('decision.field.type', '决策类型')}>
+      {DECISION_TYPES.map((type) => <button type="button" class="oh-decision-type" data-type={type} aria-pressed={value === type} disabled={disabled} onClick={() => onChange(type)}>
+        <DecisionTypeIcon type={type} />
+        {t(`decision.type.${type}`, type === 'noul' ? '判断' : type === 'choice' ? '选择' : '评分')}
+      </button>)}
+    </div>
+  </div>;
+}
+
 export function DecisionComposerForm({ initialText, disabled = false, onChange }: Props) {
   const initial = useMemo(() => initialDecisionDraft(initialText), [initialText]);
   const nextId = useRef(0);
@@ -26,6 +49,7 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
   const criteria = criteriaByType[type];
   const lastDraft = useRef(initialText);
   const loadingDraft = useRef(false);
+  const localizedQuestion = localizedDecisionQuestion(type);
 
   useEffect(() => {
     if (initialText === lastDraft.current) return;
@@ -36,6 +60,10 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
     setType(initial.type);
     setCriteriaByType(initialCriteria(initial, createCriterion));
   }, [initialText, initial]);
+
+  useEffect(() => {
+    setQuestion((current) => decisionQuestionForType(type, current));
+  }, [localizedQuestion, type]);
 
   useEffect(() => {
     if (loadingDraft.current) {
@@ -81,29 +109,40 @@ export function DecisionComposerForm({ initialText, disabled = false, onChange }
     next.splice(target, 0, ...next.splice(index, 1));
     return next;
   });
+  const criteriaLabel = type === 'choice' ? t('decision.field.options', '候选项') : t('decision.field.scoreLevels', '评分等级（从低到高）');
+  const criteriaHint = type === 'choice' ? t('decision.field.choiceHint', '例如：技术团队') : t('decision.field.scoreHint', '例如：一般');
 
-  return <div class="oh-decision-composer" aria-label={t('decision.request.title', '结构化决策')}>
-    <div class="oh-decision-composer-heading">
+  return <div class={`oh-decision-composer is-${type}`} aria-label={t('decision.request.title', '结构化决策')}>
+    <header class="oh-decision-composer-heading">
       <span class="oh-decision-composer-icon" aria-hidden>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 11l3 3L22 4" />
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
         </svg>
       </span>
-      <strong>{t('decision.request.title', '结构化决策')}</strong>
-      <span>{t('decision.composer.hint', '发送时调用决策接口')}</span>
-    </div>
-    <label>{t('decision.field.state', '待评估内容')}<textarea class="oh-decision-input" rows={4} value={state} disabled={disabled} onInput={(event) => setState(event.currentTarget.value)} /></label>
-    <label>{t('decision.field.question', '需要模型回答的问题')}<input class="oh-decision-field" value={question} disabled={disabled} onInput={(event) => setQuestion(event.currentTarget.value)} /></label>
-    <div class="oh-decision-type-group" role="group" aria-label={t('decision.field.type', '决策类型')}>{DECISION_TYPES.map((value) => <button type="button" class="oh-decision-type" aria-pressed={type === value} disabled={disabled} onClick={() => updateType(value)}>{t(`decision.type.${value}`, value === 'noul' ? '判断' : value === 'choice' ? '选择' : '评分')}</button>)}</div>
+      <div class="oh-decision-composer-copy">
+        <span class="oh-decision-kicker">{t('decision.fence.request', '决策请求')}</span>
+        <strong class="oh-decision-title">{t('decision.request.title', '结构化决策')}</strong>
+        <p class="oh-decision-subtitle">{t('decision.composer.hint', '发送时调用决策接口')}</p>
+      </div>
+    </header>
+    <label class="oh-decision-composer-field">
+      <span class="oh-decision-field-label">{t('decision.field.state', '待评估内容')}</span>
+      <textarea class="oh-decision-input" rows={4} value={state} disabled={disabled} placeholder={t('decision.field.stateHint', '粘贴或输入需要评估的文本')} onInput={(event) => setState(event.currentTarget.value)} />
+    </label>
+    <label class="oh-decision-composer-field">
+      <span class="oh-decision-field-label">{t('decision.field.question', '需要模型回答的问题')}</span>
+      <input class="oh-decision-field" value={question} disabled={disabled} onInput={(event) => setQuestion(event.currentTarget.value)} />
+    </label>
+    {DecisionTypeSwitch({ value: type, disabled, onChange: updateType })}
     {type !== 'noul' ? <div class="oh-decision-criteria">
+      <span class="oh-decision-field-label">{criteriaLabel}</span>
       <AnimatedList key={type} items={criteria} itemKey={item => item.id} className="oh-decision-criteria-list" renderItem={item => {
         const index = criteria.findIndex(current => current.id === item.id);
         const inactive = disabled || index < 0;
-        const label = type === 'choice' ? t('decision.field.options', '候选项') : t('decision.field.scoreLevels', '评分等级（从低到高）');
         return <div class="oh-decision-criterion">
           <span>{index < 0 ? '−' : index + 1}</span>
-          <input class="oh-decision-field" value={item.value} disabled={inactive} aria-label={label} placeholder={label} onInput={event => updateCriteria(item.id, event.currentTarget.value)} />
+          <input class="oh-decision-field" value={item.value} disabled={inactive} aria-label={criteriaLabel} placeholder={criteriaHint} onInput={event => updateCriteria(item.id, event.currentTarget.value)} />
           <div class="oh-decision-reorder">
             <button type="button" aria-label={t('common.moveUp', '上移')} title={t('common.moveUp', '上移')} disabled={inactive || index === 0} onClick={() => moveCriteria(item.id, -1)}>⌃</button>
             <button type="button" aria-label={t('common.moveDown', '下移')} title={t('common.moveDown', '下移')} disabled={inactive || index === criteria.length - 1} onClick={() => moveCriteria(item.id, 1)}>⌄</button>

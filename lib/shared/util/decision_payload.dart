@@ -142,7 +142,7 @@ abstract final class DecisionPayload {
     final fallback =
         (localizedDefault != null && localizedDefault.trim().isNotEmpty)
         ? localizedDefault
-        : (defaultQuestions[type] ?? defaultQuestion);
+        : defaultQuestionForType(type);
     final text = current.trim();
     return text.isEmpty || isBuiltInQuestion(text) ? fallback : current;
   }

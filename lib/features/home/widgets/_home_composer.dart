@@ -2493,6 +2493,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
     return Card(
       color: colorScheme.surfaceContainerHigh,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: 18,
@@ -2568,6 +2570,7 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
   final _retiredCriteria = <TextEditingController>{};
   Set<TextEditingController> _displayedCriteria = {};
   bool _seededDefaultQuestion = false;
+  Locale? _questionLocale;
   List<TextEditingController> get _criteria => _criteriaByType[_type]!;
 
   @override
@@ -2595,17 +2598,21 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_seededDefaultQuestion) return;
-    _seededDefaultQuestion = true;
+    final locale = Localizations.localeOf(context);
     final copy = DecisionCopy.of(context);
-    if (_question.text.trim().isEmpty ||
-        DecisionPayload.isBuiltInQuestion(_question.text)) {
-      _question.removeListener(_writeDraft);
-      _question.text = copy.defaultQuestionFor(_type);
-      _question.addListener(_writeDraft);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _writeDraft();
-      });
+    final localeChanged = _questionLocale != null && _questionLocale != locale;
+    _questionLocale = locale;
+    if (!_seededDefaultQuestion || localeChanged) {
+      _seededDefaultQuestion = true;
+      if (_question.text.trim().isEmpty ||
+          DecisionPayload.isBuiltInQuestion(_question.text)) {
+        _question.removeListener(_writeDraft);
+        _question.text = copy.defaultQuestionFor(_type);
+        _question.addListener(_writeDraft);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _writeDraft();
+        });
+      }
     }
   }
 
@@ -2620,7 +2627,7 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
       _type = question['type'] as String? ?? DecisionPayload.typeNoul;
       _question.text = question['instructions'] is String
           ? question['instructions'] as String
-          : DecisionPayload.questionForType(_type);
+          : DecisionPayload.defaultQuestionForType(_type);
       final criteria = question['criteria'];
       final values = criteria is Map
           ? criteria.keys.whereType<String>().toList()
@@ -2752,92 +2759,50 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
       context,
       OpenHandMotionSettingsScope.listItem,
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final fieldDecoration = openHandDecisionInputDecoration(colors: colors);
+    final typeFill = openHandDecisionContainer(colors, _type);
+    final typeOnFill = openHandDecisionOnContainer(colors, _type);
+    return OpenHandDecisionFormShell(
+      type: _type,
+      icon: Icons.fact_check_rounded,
+      kicker: copy.fenceRequest,
+      title: copy.requestTitle,
+      subtitle: copy.composerHint,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                borderRadius: kOpenHandBorderRadius10,
-              ),
-              child: Icon(
-                Icons.fact_check_rounded,
-                color: colors.onPrimaryContainer,
-                size: 18,
-              ),
-            ),
-            kOpenHandHGap8,
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    copy.requestTitle,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    copy.composerHint,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        kOpenHandGap12,
-        TextField(
-          controller: _state,
-          enabled: widget.enabled,
-          minLines: 2,
-          maxLines: 5,
-          decoration: InputDecoration(
-            labelText: copy.stateLabel,
-            alignLabelWithHint: true,
+        OpenHandDecisionLabeledField(
+          label: copy.stateLabel,
+          child: TextField(
+            controller: _state,
+            enabled: widget.enabled,
+            minLines: 2,
+            maxLines: 6,
+            decoration: fieldDecoration.copyWith(hintText: copy.stateHint),
           ),
         ),
-        kOpenHandGap10,
-        TextField(
-          controller: _question,
-          enabled: widget.enabled,
-          minLines: 1,
-          maxLines: 3,
-          decoration: InputDecoration(labelText: copy.questionLabel),
+        kOpenHandGap12,
+        OpenHandDecisionLabeledField(
+          label: copy.questionLabel,
+          child: TextField(
+            controller: _question,
+            enabled: widget.enabled,
+            minLines: 1,
+            maxLines: 3,
+            decoration: fieldDecoration.copyWith(hintText: copy.questionHint),
+          ),
         ),
         kOpenHandGap12,
-        SegmentedButton<String>(
-          segments: [
-            ButtonSegment(
-              value: DecisionPayload.typeNoul,
-              label: Text(copy.typeNoul),
-              icon: const Icon(Icons.check_rounded),
-            ),
-            ButtonSegment(
-              value: DecisionPayload.typeChoice,
-              label: Text(copy.typeChoice),
-              icon: const Icon(Icons.list_rounded),
-            ),
-            ButtonSegment(
-              value: DecisionPayload.typeScore,
-              label: Text(copy.typeScore),
-              icon: const Icon(Icons.star_border_rounded),
-            ),
-          ],
-          selected: {_type},
-          onSelectionChanged: widget.enabled
-              ? (value) => _setType(value.first)
-              : null,
+        OpenHandDecisionTypeSwitch(
+          value: _type,
+          enabled: widget.enabled,
+          onChanged: _setType,
         ),
         if (isChoice || isScore) ...[
           kOpenHandGap12,
+          Text(
+            isChoice ? copy.choiceItemLabel : copy.scoreItemLabel,
+            style: openHandDecisionFieldLabelStyle(context),
+          ),
+          kOpenHandGap8,
           CustomScrollView(
             shrinkWrap: true,
             primary: false,
@@ -2850,122 +2815,155 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
                   if (!mounted) return;
                   final controller =
                       (key as ObjectKey).value as TextEditingController;
-                  if (_retiredCriteria.remove(controller)) controller.dispose();
+                  if (_retiredCriteria.remove(controller)) {
+                    controller.dispose();
+                  }
                 },
                 children: [
                   for (final (index, controller) in _criteria.indexed)
                     Padding(
                       key: ObjectKey(controller),
-                      padding: const EdgeInsets.only(top: 4, bottom: 8),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(
-                              width: 28,
-                              child: Center(
-                                child: Text(
-                                  '${index + 1}',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            kOpenHandHGap8,
-                            Expanded(
-                              child: TextField(
-                                controller: controller,
-                                enabled: widget.enabled,
-                                decoration: InputDecoration(
-                                  labelText: isChoice
-                                      ? copy.choiceItemLabel
-                                      : copy.scoreItemLabel,
-                                  hintText: isChoice
-                                      ? copy.choiceHint
-                                      : copy.scoreHint,
-                                ),
-                              ),
-                            ),
-                            kOpenHandHGap8,
-                            SizedBox(
-                              width: 36,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: IconButton.filledTonal(
-                                      tooltip: copy.moveUp,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      style: IconButton.styleFrom(
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      onPressed: widget.enabled && index > 0
-                                          ? () => _moveCriteria(
-                                              _criteria.indexOf(controller),
-                                              -1,
-                                            )
-                                          : null,
-                                      icon: const Icon(
-                                        Icons.keyboard_arrow_up_rounded,
-                                        size: 20,
-                                      ),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: kOpenHandBorderRadius14,
+                          border: Border.all(
+                            color: colors.outlineVariant.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
+                                  width: 32,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: typeFill,
+                                    borderRadius: kOpenHandBorderRadius10,
+                                  ),
+                                  child: Text(
+                                    '${index + 1}',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: typeOnFill,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Expanded(
-                                    child: IconButton.filledTonal(
-                                      tooltip: copy.moveDown,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      style: IconButton.styleFrom(
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      onPressed:
-                                          widget.enabled &&
-                                              index < _criteria.length - 1
-                                          ? () => _moveCriteria(
-                                              _criteria.indexOf(controller),
-                                              1,
-                                            )
-                                          : null,
-                                      icon: const Icon(
-                                        Icons.keyboard_arrow_down_rounded,
-                                        size: 20,
-                                      ),
+                                ),
+                                kOpenHandHGap8,
+                                Expanded(
+                                  child: TextField(
+                                    controller: controller,
+                                    enabled: widget.enabled,
+                                    decoration: fieldDecoration.copyWith(
+                                      hintText: isChoice
+                                          ? copy.choiceHint
+                                          : copy.scoreHint,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                            kOpenHandHGap8,
-                            IconButton.filledTonal(
-                              tooltip: openHandDeleteLabel(context),
-                              style: IconButton.styleFrom(
-                                minimumSize: const Size(48, 0),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                foregroundColor: colors.error,
-                                backgroundColor: colors.errorContainer
-                                    .withValues(alpha: 0.45),
-                              ),
-                              onPressed:
-                                  widget.enabled &&
-                                      _criteria.length >
-                                          (isScore
-                                              ? DecisionPayload.minScoreLevels
-                                              : 1)
-                                  ? () => _removeCriteria(
-                                      _criteria.indexOf(controller),
-                                    )
-                                  : null,
-                              icon: const Icon(
-                                Icons.remove_circle_outline_rounded,
-                              ),
+                                kOpenHandHGap8,
+                                SizedBox(
+                                  width: 36,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: IconButton.filledTonal(
+                                          tooltip: copy.moveUp,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          style: IconButton.styleFrom(
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                            backgroundColor: typeFill,
+                                            foregroundColor: typeOnFill,
+                                            disabledBackgroundColor: typeFill
+                                                .withValues(alpha: 0.35),
+                                            elevation: 0,
+                                            shadowColor: Colors.transparent,
+                                          ),
+                                          onPressed: widget.enabled && index > 0
+                                              ? () => _moveCriteria(
+                                                  _criteria.indexOf(controller),
+                                                  -1,
+                                                )
+                                              : null,
+                                          icon: const Icon(
+                                            Icons.keyboard_arrow_up_rounded,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Expanded(
+                                        child: IconButton.filledTonal(
+                                          tooltip: copy.moveDown,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          style: IconButton.styleFrom(
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                            backgroundColor: typeFill,
+                                            foregroundColor: typeOnFill,
+                                            disabledBackgroundColor: typeFill
+                                                .withValues(alpha: 0.35),
+                                            elevation: 0,
+                                            shadowColor: Colors.transparent,
+                                          ),
+                                          onPressed:
+                                              widget.enabled &&
+                                                  index < _criteria.length - 1
+                                              ? () => _moveCriteria(
+                                                  _criteria.indexOf(controller),
+                                                  1,
+                                                )
+                                              : null,
+                                          icon: const Icon(
+                                            Icons.keyboard_arrow_down_rounded,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                kOpenHandHGap8,
+                                IconButton.filledTonal(
+                                  tooltip: openHandDeleteLabel(context),
+                                  style: IconButton.styleFrom(
+                                    minimumSize: const Size(48, 0),
+                                    elevation: 0,
+                                    shadowColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    foregroundColor: colors.error,
+                                    backgroundColor: colors.errorContainer,
+                                  ),
+                                  onPressed:
+                                      widget.enabled &&
+                                          _criteria.length >
+                                              (isScore
+                                                  ? DecisionPayload
+                                                        .minScoreLevels
+                                                  : 1)
+                                      ? () => _removeCriteria(
+                                          _criteria.indexOf(controller),
+                                        )
+                                      : null,
+                                  icon: const Icon(
+                                    Icons.remove_circle_outline_rounded,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -2975,7 +2973,7 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
           ),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton.icon(
+            child: FilledButton.tonalIcon(
               onPressed:
                   widget.enabled &&
                       _criteria.length <
@@ -2984,8 +2982,16 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
                               : DecisionPayload.maxCriteria)
                   ? _addCriteria
                   : null,
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(Icons.add_rounded, size: 18),
               label: Text(isScore ? copy.addScore : copy.addChoice),
+              style: FilledButton.styleFrom(
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                backgroundColor: typeFill,
+                foregroundColor: typeOnFill,
+                disabledBackgroundColor: typeFill.withValues(alpha: 0.38),
+                shape: const StadiumBorder(),
+              ),
             ),
           ),
         ],

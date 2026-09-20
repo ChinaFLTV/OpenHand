@@ -4,6 +4,7 @@ import 'package:openhand/shared/ui/openhand_spacing.dart';
 import '../util/decision_payload.dart';
 import 'animated_expandable.dart';
 import 'decision_copy.dart';
+import 'decision_form.dart';
 import 'oh_pill.dart';
 
 const double _kDecisionBarHeight = 8;
@@ -100,7 +101,7 @@ class OpenHandDecisionRequestCard extends StatelessWidget {
             questionEntries.length == 1
                 ? copy.questionLabel
                 : copy.questionsLabel,
-            style: _fieldLabelStyle(context),
+            style: openHandDecisionFieldLabelStyle(context),
           ),
           kOpenHandGap8,
           for (var index = 0; index < questionEntries.length; index++) ...[
@@ -139,17 +140,9 @@ class _DecisionChrome extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final accent = _decisionAccent(colors, accentType);
-    final iconFill = switch (accentType) {
-      DecisionPayload.typeChoice => colors.tertiaryContainer,
-      DecisionPayload.typeScore => colors.secondaryContainer,
-      _ => colors.primaryContainer,
-    };
-    final iconColor = switch (accentType) {
-      DecisionPayload.typeChoice => colors.onTertiaryContainer,
-      DecisionPayload.typeScore => colors.onSecondaryContainer,
-      _ => colors.onPrimaryContainer,
-    };
+    final accent = openHandDecisionAccent(colors, accentType);
+    final iconFill = openHandDecisionContainer(colors, accentType);
+    final iconColor = openHandDecisionOnContainer(colors, accentType);
     return Material(
       color: Colors.transparent,
       child: DecoratedBox(
@@ -246,7 +239,7 @@ class _DecisionAnswerBlock extends StatelessWidget {
     final questionMap = question is Map ? question as Map : const {};
     final answerMap = answer is Map ? answer as Map : const {};
     final type = '${answerMap['type'] ?? questionMap['type'] ?? ''}';
-    final accent = _decisionAccent(colors, type);
+    final accent = openHandDecisionAccent(colors, type);
     final result = switch (type) {
       DecisionPayload.typeNoul when answerMap['noul'] is num =>
         copy.heldProbability(answerMap['noul'] as num),
@@ -363,7 +356,7 @@ class _DecisionRequestQuestion extends StatelessWidget {
                   : type == DecisionPayload.typeChoice
                   ? copy.choiceItemLabel
                   : copy.criteriaLabel,
-              style: _fieldLabelStyle(context),
+              style: openHandDecisionFieldLabelStyle(context),
             ),
             kOpenHandGap6,
             _DecisionCriteriaView(type: type, criteria: criteria),
@@ -394,7 +387,7 @@ class _DecisionCriteriaView extends StatelessWidget {
               label: entry.value == null || '${entry.value}'.trim().isEmpty
                   ? '${entry.key}'
                   : '${entry.key} · ${entry.value}',
-              color: _decisionAccent(colors, type),
+              color: openHandDecisionAccent(colors, type),
             ),
         ],
       );
@@ -453,7 +446,7 @@ class _DecisionField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: _fieldLabelStyle(context)),
+        Text(label, style: openHandDecisionFieldLabelStyle(context)),
         kOpenHandGap6,
         Text(
           value,
@@ -542,7 +535,7 @@ class _DecisionTypeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final accent = _decisionAccent(colors, type);
+    final accent = openHandDecisionAccent(colors, type);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -616,12 +609,6 @@ class _DecisionMetricPill extends StatelessWidget {
   }
 }
 
-Color _decisionAccent(ColorScheme colors, String type) => switch (type) {
-  DecisionPayload.typeChoice => colors.tertiary,
-  DecisionPayload.typeScore => colors.secondary,
-  _ => colors.primary,
-};
-
 Color _barColor(
   ColorScheme colors,
   String type,
@@ -631,7 +618,7 @@ Color _barColor(
   if (type == DecisionPayload.typeNoul && label == copy.notHeld) {
     return colors.tertiary;
   }
-  return _decisionAccent(colors, type);
+  return openHandDecisionAccent(colors, type);
 }
 
 List<MapEntry<String, num>> _probabilityEntries(
@@ -659,13 +646,4 @@ String _legendLabel(Object? legend, Object? key) {
     if (label.isNotEmpty) return label;
   }
   return '$key';
-}
-
-TextStyle? _fieldLabelStyle(BuildContext context) {
-  final colors = Theme.of(context).colorScheme;
-  return Theme.of(context).textTheme.labelSmall?.copyWith(
-    color: colors.onSurfaceVariant,
-    fontWeight: FontWeight.w800,
-    letterSpacing: 0.2,
-  );
 }
