@@ -25,6 +25,51 @@ function deferred() {
 }
 
 try {
+  // 直接执行消息卡片的真实事件入口，验证内容区与外层留白的点击边界。
+  const messageCardSource = await readFile(new URL('../src/components/MessageCard.tsx', import.meta.url), 'utf8');
+  const selectorStart = messageCardSource.indexOf('const MESSAGE_CARD_INTERACTIVE_TARGET_SELECTOR =');
+  const selectorEnd = messageCardSource.indexOf("].join(',');", selectorStart) + "].join(',');".length;
+  function cardHandler(name) {
+    const marker = `            ${name}={`;
+    const start = messageCardSource.indexOf(marker) + marker.length;
+    const end = messageCardSource.indexOf('}}\n', start);
+    assert.ok(start >= marker.length && end > start, '必须执行真实消息点击入口');
+    return messageCardSource.slice(start, end + 1);
+  }
+  assert.ok(selectorStart >= 0 && selectorEnd > selectorStart);
+  const { code: cardEventCode } = await transformWithOxc(
+    `${messageCardSource.slice(selectorStart, selectorEnd)}\nconst handlers = { down: ${cardHandler('onPointerDown')}, click: ${cardHandler('onClick')} };`,
+    'message-card-events.ts',
+  );
+  for (const active of [false, true]) {
+    const changes = [];
+    const pointer = { current: null };
+    const bindings = {
+      hasAnyAction: true, active, cardPointerDownRef: pointer,
+      message: { id: '决策卡片' }, onActiveChange: (_message, value) => changes.push(value),
+      window: { getSelection: () => null },
+      MESSAGE_CARD_TAP_MAX_MS: 350, MESSAGE_CARD_TAP_MAX_DISTANCE_PX: 8,
+    };
+    const handlers = new Function(...Object.keys(bindings), `${cardEventCode}\nreturn handlers;`)(...Object.values(bindings));
+    for (const ancestors of [['.oh-decision-card'], ['button', '.oh-decision-card'], ['path', 'svg', 'button', '.oh-decision-card']]) {
+      const event = { button: 0, clientX: 10, clientY: 10,
+        target: { closest: selectors => selectors.split(',').some(selector => ancestors.includes(selector)) ? {} : null },
+      };
+      handlers.down(event);
+      handlers.click(event);
+      assert.equal(changes.length, 0, '决策正文、展开按钮及其图标不改变消息选中状态');
+    }
+    const marginEvent = { button: 0, clientX: 10, clientY: 10,
+      target: { tagName: 'ARTICLE', closest: () => null },
+    };
+    handlers.down({ ...marginEvent, target: { closest: () => ({}) } });
+    handlers.click(marginEvent);
+    assert.equal(changes.length, 0, '内容区按下后在边缘释放也不能切换选中');
+    handlers.down(marginEvent);
+    handlers.click(marginEvent);
+    assert.deepEqual(changes, [!active], '外层留白仍可切换消息选中状态');
+  }
+
   const { syncLangFromAppPreferences } = await server.ssrLoadModule('/src/i18n/index.ts');
   syncLangFromAppPreferences('zh_Hans');
   const { isStructuredDecisionMessage } = await server.ssrLoadModule('/src/shared/util/decision.ts');

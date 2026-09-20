@@ -1256,6 +1256,83 @@ void main() {
     expect(probe.state._renderEntries.last.id, '新回复');
   });
 
+  for (final animated in [false, true]) {
+    testWidgets('决策内容交互不切换消息选中，仅外层留白切换，动画=$animated', (tester) async {
+      final original = _probeSession('决策点击隔离', 1);
+      final probe = _TranscriptProbe(tester, original);
+      await probe.mount(size: const Size(1200, 1400), animated: animated);
+      for (final type in ['noul', 'choice', 'score']) {
+        final source = DecisionPayload.encode(DecisionPayload.resultLanguage, {
+          'questions': {'决策': {'type': type, 'instructions': '判断内容',
+            if (type == 'choice') 'criteria': {'甲': null, '乙': null},
+            if (type == 'score') 'criteria': ['低', '高'],
+          }},
+          'answers': {'决策': {'type': type,
+            if (type == 'noul') 'noul': .6,
+            if (type == 'choice') ...{'choice': '甲', 'probabilities': {'甲': .6, '乙': .4}},
+            if (type == 'score') ...{'score': .6, 'probabilities': {'0': .4, '1': .6}},
+          }},
+        });
+        final message = AiSessionMessage.assistant(id: '结果-$type', content: source, createdAt: original.createdAt);
+        probe.update(original.copyWith(messages: [message]));
+        await probe.settle();
+        final bubble = tester.state<_MessageBubbleState>(find.byType(_MessageBubble));
+        expect(bubble._embeddedInteractiveRegions.length, 1);
+        for (final selected in [false, true]) {
+          probe.state.setState(() => probe.state._selectedMessageId = selected ? message.id : null);
+          await probe.settle();
+          await tester.tapAt(tester.getCenter(find.byIcon(Icons.keyboard_arrow_up_rounded)));
+          await probe.settle();
+          expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+          expect(probe.state._selectedMessageId, selected ? message.id : null);
+          await tester.tapAt(tester.getCenter(find.byIcon(Icons.keyboard_arrow_down_rounded)));
+          await probe.settle();
+          expect(find.byIcon(Icons.keyboard_arrow_up_rounded), findsOneWidget);
+          expect(probe.state._selectedMessageId, selected ? message.id : null);
+          await tester.tap(find.text('按问题查看答案与概率分布'));
+          await probe.settle();
+          expect(probe.state._selectedMessageId, selected ? message.id : null);
+          final margin = tester.getTopLeft(find.byKey(bubble._bubbleInteractionKey)) + const Offset(4, 4);
+          expect(bubble._isPointerInsideEmbeddedInteractiveRegion(margin), isFalse);
+          await tester.tapAt(margin);
+          await probe.settle();
+          expect(probe.state._selectedMessageId, selected ? null : message.id);
+        }
+        probe.state.setState(() => probe.state._selectedMessageId = message.id);
+        await probe.settle();
+        await tester.tap(find.text('显示原始'));
+        await probe.settle();
+        expect(bubble._embeddedInteractiveRegions.length, 0, reason: '卸载决策视图须注销交互区域');
+        await tester.tap(find.text('显示渲染'));
+        await probe.settle();
+        expect(bubble._embeddedInteractiveRegions.length, 1);
+        final held = await tester.startGesture(tester.getCenter(find.text('按问题查看答案与概率分布')));
+        bubble.setState(() => bubble._showRawContent = true);
+        await tester.pump();
+        await held.up();
+        await probe.settle();
+        expect(bubble._embeddedInteractiveRegions.length, 0);
+        expect(probe.state._selectedMessageId, message.id, reason: '按下后内容卸载，抬起仍不切换选中');
+        await tester.tap(find.text('显示渲染'));
+        await probe.settle();
+        final requestSource = DecisionPayload.encode(DecisionPayload.requestLanguage, {
+          'state': '待评估内容',
+          'questions': {'决策': {'type': type, 'instructions': '判断内容',
+            if (type == 'choice') 'criteria': {'甲': null, '乙': null},
+            if (type == 'score') 'criteria': ['低', '高'],
+          }},
+        });
+        probe.update(original.copyWith(messages: [AiSessionMessage.assistant(
+          id: message.id, content: requestSource, createdAt: original.createdAt)]));
+        await probe.settle();
+        expect(bubble._embeddedInteractiveRegions.length, 1);
+        await tester.tap(find.text('待评估内容').last);
+        await probe.settle();
+        expect(probe.state._selectedMessageId, message.id);
+      }
+    });
+  }
+
   testWidgets('三类决策请求和结果禁用朗读翻译，原始视图与执行入口一致', (tester) async {
     final original = _probeSession('决策操作限制', 1);
     final probe = _TranscriptProbe(tester, original);

@@ -251,6 +251,7 @@ class _MessageBubbleState extends State<_MessageBubble>
   // `_selectionTapMaxDuration` / `_selectionTapMaxDistance` 内，视为一次选中点击。
   Offset? _pointerDownPosition;
   DateTime? _pointerDownAt;
+  bool _pointerDownInEmbeddedRegion = false;
   // 左上方胶囊（思考 / 工具调用 / 工具结果）有自己的
   // 折叠/展开语义。指针落在胶囊内部时不应触发外层 Listener 的"选中
   // 卡片"，否则会同时切换胶囊折叠和功能按钮。
@@ -1695,6 +1696,8 @@ class _MessageBubbleState extends State<_MessageBubble>
         onPointerDown: (event) {
           _pointerDownPosition = event.position;
           _pointerDownAt = DateTime.now();
+          _pointerDownInEmbeddedRegion =
+              _isPointerInsideEmbeddedInteractiveRegion(event.position);
           _htmlPointerDownState = _htmlInteractiveStateAt(event.position);
           _htmlSelectionDragActive = false;
         },
@@ -1714,16 +1717,19 @@ class _MessageBubbleState extends State<_MessageBubble>
         onPointerCancel: (event) {
           _pointerDownPosition = null;
           _pointerDownAt = null;
+          _pointerDownInEmbeddedRegion = false;
           _htmlPointerDownState = null;
           _htmlSelectionDragActive = false;
         },
         onPointerUp: (event) {
           final downPos = _pointerDownPosition;
           final downAt = _pointerDownAt;
+          final embeddedRegionFromDown = _pointerDownInEmbeddedRegion;
           final htmlStateFromDown = _htmlPointerDownState;
           final htmlSelectionActive = _htmlSelectionDragActive;
           _pointerDownPosition = null;
           _pointerDownAt = null;
+          _pointerDownInEmbeddedRegion = false;
           _htmlPointerDownState = null;
           _htmlSelectionDragActive = false;
           if (downPos == null || downAt == null) return;
@@ -1737,8 +1743,8 @@ class _MessageBubbleState extends State<_MessageBubble>
           final htmlStateUp = _htmlInteractiveStateAt(event.position);
           final htmlStateDown =
               htmlStateFromDown ?? _htmlInteractiveStateAt(downPos);
-          if (_isPointerInsideEmbeddedInteractiveRegion(event.position) ||
-              _isPointerInsideEmbeddedInteractiveRegion(downPos)) {
+          if (embeddedRegionFromDown ||
+              _isPointerInsideEmbeddedInteractiveRegion(event.position)) {
             return;
           }
           if (htmlStateUp != null || htmlStateDown != null) {
@@ -1821,9 +1827,45 @@ class _MessageBubbleState extends State<_MessageBubble>
   }
 }
 
-/// 把 [_MessageBubbleState] 沿着 widget 树暴露给 HTML 子组件，
-/// 后者据此注册/注销内部 WebView 的 GlobalKey，便于外层 pointer 监听
-/// 在命中 HTML 区域时跳过"选中卡片"切换。
+/// 内嵌内容独立处理交互，只有区域外的消息留白参与选中切换。
+class _BubbleEmbeddedInteractiveRegion extends StatefulWidget {
+  const _BubbleEmbeddedInteractiveRegion({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_BubbleEmbeddedInteractiveRegion> createState() =>
+      _BubbleEmbeddedInteractiveRegionState();
+}
+
+class _BubbleEmbeddedInteractiveRegionState
+    extends State<_BubbleEmbeddedInteractiveRegion> {
+  final _regionKey = GlobalKey();
+  _MessageBubbleState? _bubble;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final bubble = _BubbleHtmlInteractiveScope.maybeOf(context);
+    if (identical(bubble, _bubble)) return;
+    _bubble?.unregisterEmbeddedInteractiveRegion(_regionKey);
+    _bubble = bubble;
+    _bubble?.registerEmbeddedInteractiveRegion(_regionKey);
+  }
+
+  @override
+  void dispose() {
+    _bubble?.unregisterEmbeddedInteractiveRegion(_regionKey);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      RepaintBoundary(key: _regionKey, child: widget.child);
+}
+
+/// 把 [_MessageBubbleState] 沿着 widget 树暴露给内嵌交互子组件，
+/// 子组件注册/注销区域后，外层指针监听会跳过该区域的选中切换。
 class _BubbleHtmlInteractiveScope extends InheritedWidget {
   const _BubbleHtmlInteractiveScope({
     required this.state,

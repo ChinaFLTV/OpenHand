@@ -238,11 +238,11 @@ class OpenHandHighlightedCodeBlockBuilder extends MarkdownElementBuilder {
     final content = rawCode.isEmpty ? ' ' : rawCode;
     if (language == DecisionPayload.resultLanguage) {
       final card = OpenHandDecisionCard.fromJson(content);
-      if (card != null) return RepaintBoundary(child: card);
+      if (card != null) return _BubbleEmbeddedInteractiveRegion(child: card);
     }
     if (language == DecisionPayload.requestLanguage) {
       final card = OpenHandDecisionRequestCard.fromJson(content);
-      if (card != null) return RepaintBoundary(child: card);
+      if (card != null) return _BubbleEmbeddedInteractiveRegion(child: card);
     }
     if (_looksLikeInlineDiffCodeBlock(language: language, content: content)) {
       return RepaintBoundary(

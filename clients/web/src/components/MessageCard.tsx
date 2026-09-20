@@ -1593,6 +1593,7 @@ const MESSAGE_CARD_INTERACTIVE_TARGET_SELECTOR = [
   'select',
   '[role="button"]',
   '.oh-message-badge-toggle',
+  '.oh-decision-card',
   '[data-message-media-interactive="true"]',
   '[data-message-scrollable-body="true"]',
   'video',
@@ -2780,7 +2781,7 @@ function MessageCardImpl({
       (!isHtmlAssistantCard || scrollableCollapsedBody),
     badgeBodyCollapsed,
   );
-  const cardPointerDownRef = useRef<{ x: number; y: number; at: number } | null>(
+  const cardPointerDownRef = useRef<{ x: number; y: number; at: number } | false | null>(
     null,
   );
 
@@ -2845,11 +2846,11 @@ function MessageCardImpl({
               if (
                 target.closest(MESSAGE_CARD_INTERACTIVE_TARGET_SELECTOR)
               ) {
-                cardPointerDownRef.current = null;
+                cardPointerDownRef.current = false;
                 return;
               }
               if (ev.button !== 0) {
-                cardPointerDownRef.current = null;
+                cardPointerDownRef.current = false;
                 return;
               }
               cardPointerDownRef.current = {
@@ -2860,6 +2861,9 @@ function MessageCardImpl({
             }}
             onClick={(ev) => {
               if (!hasAnyAction) return;
+              const pointerDown = cardPointerDownRef.current;
+              cardPointerDownRef.current = null;
+              if (pointerDown === false) return;
               const target = ev.target as HTMLElement;
               if (
                 target.closest(MESSAGE_CARD_INTERACTIVE_TARGET_SELECTOR)
@@ -2901,8 +2905,6 @@ function MessageCardImpl({
               // 双击代码块选中文本时也不切换。
               const sel = typeof window !== 'undefined' ? window.getSelection() : null;
               if (sel && sel.toString().length > 0) return;
-              const pointerDown = cardPointerDownRef.current;
-              cardPointerDownRef.current = null;
               if (pointerDown != null) {
                 const now = typeof performance !== 'undefined'
                   ? performance.now()
