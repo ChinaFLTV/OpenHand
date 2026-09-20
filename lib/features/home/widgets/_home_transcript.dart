@@ -395,6 +395,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   final Set<String> _dismissedErrorIds = <String>{};
   int _windowStartIndex = 0;
   String? _listCenterMessageId;
+  final _listHistoryKey = GlobalKey();
+  final _listCenterKey = GlobalKey();
+  double _listAnchor = 1;
   bool _loadingOlderMessages = false;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
@@ -694,6 +697,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _initialLayoutSettleGeneration += 1;
     _selectedMessageId = null;
     _listCenterMessageId = null;
+    _listAnchor = 1;
     _highlightedMessageId = null;
     _targetHighlightTimer?.cancel();
     _targetHighlightTimer = null;
@@ -837,35 +841,68 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _viewportFillQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _viewportFillQueued = false;
-      if (!mounted ||
-          _staggerFillActive ||
+      if (!mounted || widget.controller.positions.length != 1) return;
+      final position = widget.controller.position;
+      if (!position.hasContentDimensions || position.viewportDimension <= 0) {
+        return;
+      }
+      final history =
+          _listHistoryKey.currentContext?.findRenderObject() as RenderSliver?;
+      final center =
+          _listCenterKey.currentContext?.findRenderObject() as RenderSliver?;
+      if (center?.geometry == null) return;
+      final historyExtent = history?.geometry?.scrollExtent ?? 0;
+      final centerExtent = center!.geometry!.scrollExtent;
+      final contentExtent = historyExtent + centerExtent;
+      final underfilled = contentExtent < position.viewportDimension;
+      // 短记录的锚点落在历史段末尾，使首条从顶部开始且不产生空白滚动范围。
+      final anchor = underfilled
+          ? historyExtent / position.viewportDimension
+          : 1.0;
+      if ((_listAnchor - anchor).abs() > precisionErrorTolerance) {
+        final correction = (anchor - _listAnchor) * position.viewportDimension;
+        final nextMin = math.min(
+          0.0,
+          anchor * position.viewportDimension - historyExtent,
+        );
+        final nextMax = math.max(
+          0.0,
+          centerExtent - (1 - anchor) * position.viewportDimension,
+        );
+        // 锚点变动只重定基准，避免旧滚动坐标把长记录推离当前视口。
+        final nextPixels = (position.pixels + correction).clamp(
+          nextMin,
+          nextMax,
+        );
+        position.correctPixels(nextPixels);
+        setState(() => _listAnchor = anchor);
+        _scheduleViewportFill();
+        return;
+      }
+      if (_staggerFillActive ||
           _loadingOlderMessages ||
           _viewportFillMessagesRemaining <= 0 ||
           _isTranscriptScrollActive(context) ||
-          widget.controller.positions.length != 1) {
-        return;
-      }
-      final position = widget.controller.position;
-      if (!position.hasContentDimensions ||
           position.isScrollingNotifier.value ||
           position.extentAfter > _scrollToBottomSettleTolerance) {
         return;
       }
-      final showSelfLearning = context
-          .read<SettingsController>()
-          .showSelfLearningMessages;
-      final firstMessage = _renderEntries
-          .where(
-            (entry) =>
-                !entry.exiting &&
-                (showSelfLearning ||
-                    entry.message.kind != AiSessionMessageKind.selfLearning),
-          )
-          .firstOrNull;
-      if (firstMessage != null) {
-        final top = _viewportOffsetForMessage(firstMessage.id);
-        // 首条在屏外或已覆盖视口顶部时，不再物化更多历史。
-        if (top == null || top <= _scrollToBottomSettleTolerance) return;
+      if (!underfilled) {
+        final showSelfLearning = context
+            .read<SettingsController>()
+            .showSelfLearningMessages;
+        final firstMessage = _renderEntries
+            .where(
+              (entry) =>
+                  !entry.exiting &&
+                  (showSelfLearning ||
+                      entry.message.kind != AiSessionMessageKind.selfLearning),
+            )
+            .firstOrNull;
+        if (firstMessage != null) {
+          final top = _viewportOffsetForMessage(firstMessage.id);
+          if (top == null || top <= _scrollToBottomSettleTolerance) return;
+        }
       }
       if (_windowStartIndex > 0) {
         _viewportFillMessagesRemaining -= 1;
@@ -3036,7 +3073,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   _renderEntryIndexById[_listCenterMessageId] ?? 0;
               _listCenterMessageId = _renderEntries[centerIndex].id;
               final beforeCenterCount = hiddenLoadMoreCount + centerIndex;
-              const centerKey = ValueKey<String>('transcript-center');
               int? findIndex(Key key) => _findTranscriptListChildIndex(
                 key,
                 hiddenLoadMoreCount: hiddenLoadMoreCount,
@@ -3095,12 +3131,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       physics: kOpenHandClampingPhysics,
                       primary: false,
-                      center: centerKey,
-                      anchor: 1,
+                      center: _listCenterKey,
+                      anchor: _listAnchor,
                       slivers: [
                         // 历史向负方向增长，不改动当前消息的布局坐标。
                         if (beforeCenterCount > 0)
                           SliverList(
+                            key: _listHistoryKey,
                             delegate: SliverChildBuilderDelegate(
                               (context, index) => buildItem(
                                 context,
@@ -3118,7 +3155,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             ),
                           ),
                         SliverPadding(
-                          key: centerKey,
+                          key: _listCenterKey,
                           padding: const EdgeInsets.only(bottom: 12),
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(

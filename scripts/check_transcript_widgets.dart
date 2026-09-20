@@ -257,6 +257,9 @@ class _TranscriptProbe {
     final allExpanded =
         state._windowStartIndex == 0 && !session.hasMoreHistoricalMessages;
     expect(allExpanded || top <= 1, true, reason: '有历史可展示时，视口顶部不得留下空白：顶部=$top，起点=${state._windowStartIndex}，条数=${state._renderEntries.length}，剩余额度=${state._viewportFillMessagesRemaining}');
+    if (allExpanded && controller.position.maxScrollExtent == 0) {
+      expect(top, closeTo(0, 1), reason: '不足一屏的消息必须从视口顶部开始排列');
+    }
     final last = state._bubbleRegistry.contextOf(
       session.displayMessages.last.id,
     );
@@ -481,10 +484,54 @@ void main() {
         probe.update(_probeSession('切换$count', count));
         await probe.settle();
         probe.expectFilled();
+        if (count <= 4) {
+          expect(probe.state._viewportOffsetForMessage('切换$count-0'), closeTo(0, 1));
+          expect(probe.controller.position.minScrollExtent, closeTo(0, 1));
+          expect(probe.controller.position.maxScrollExtent, closeTo(0, 1));
+        }
       }
       final pixels = probe.controller.offset;
       await tester.pump(const Duration(seconds: 2));
       expect(probe.controller.offset, pixels, reason: '稳定后不得继续纠正位置');
+    });
+  }
+
+  for (final animated in [false, true]) {
+    testWidgets('用户消息起排、流式增高及视口变化保持顶部布局，动画=$animated', (tester) async {
+      final original = _probeSession('顶部布局', 1);
+      final user = AiSessionMessage.user(
+        id: '用户请求', content: '检查消息排列', createdAt: original.createdAt,
+      );
+      final probe = _TranscriptProbe(tester, original.copyWith(messages: [user]));
+      await probe.mount(size: const Size(360, 300), animated: animated);
+      await probe.settle();
+      expect(probe.state._viewportOffsetForMessage(user.id), closeTo(0, 1));
+      expect(probe.controller.position.maxScrollExtent, closeTo(0, 1));
+      final reply = AiSessionMessage.assistant(
+        id: '流式回复', content: '开始处理', createdAt: original.createdAt,
+      );
+      probe.update(probe.session.copyWithTailMessage(reply, append: true));
+      await probe.settle();
+      expect(probe.state._viewportOffsetForMessage(user.id), closeTo(0, 1));
+      expect(probe.state._viewportOffsetForMessage(reply.id), greaterThan(0));
+      probe.update(probe.session.copyWithTailMessage(reply.copyWith(
+        content: List.filled(10, '正在逐项核对消息展示与滚动状态。').join('\n\n'),
+      ), append: false));
+      await probe.settle();
+      expect(probe.controller.position.maxScrollExtent - probe.controller.position.minScrollExtent,
+        greaterThan(0), reason: '内容超出视口后应允许滚动');
+      probe.controller.jumpTo(probe.controller.position.maxScrollExtent);
+      await probe.settle();
+      tester.view.physicalSize = const Size(1200, 1000);
+      await probe.settle();
+      expect(probe.state._viewportOffsetForMessage(user.id), closeTo(0, 1));
+      expect(probe.controller.position.maxScrollExtent, closeTo(0, 1));
+      probe.update(probe.session.copyWith(messages: [user]));
+      await probe.settle();
+      expect(probe.state._viewportOffsetForMessage(user.id), closeTo(0, 1));
+      await tester.drag(find.byKey(const ValueKey<String>('session-transcript-list')), const Offset(0, 180));
+      await probe.settle();
+      expect(probe.controller.offset, closeTo(0, 1), reason: '短记录不能拖出空白滚动区域');
     });
   }
 

@@ -38,6 +38,33 @@ function mount(session: string, items = messages) {
 }
 
 try {
+  // 覆盖普通列表与虚拟列表的边界，短会话始终从顶部顺序排列。
+  for (const width of [360, 1200]) {
+    for (const count of [1, 4, 6, 7, 8]) {
+      settled = false;
+      const items = messages.slice(0, count);
+      render(<section ref={scrollRef} class="oh-session-messages"
+        style={{ height: '600px', overflowY: 'auto', width: `${width}px`, maxWidth: '100%' }}>
+        <div class="oh-session-message-content oh-session-transcript-content">
+          <VirtualMessageList key={`顶部-${width}-${count}`} messages={items} membershipKey={`顶部-${count}`}
+            scrollContainerRef={scrollRef} revealTarget={null} highlightedMessageId={null}
+            onInitialLayoutSettled={() => { settled = true; }}
+            renderMessage={(message) => <div style={{ height: '44px' }}>{message.id}</div>} />
+        </div>
+      </section>, root);
+      await until(() => settled && root.querySelectorAll('[data-message-id]').length === count);
+      await new Promise<void>((resolve) => setTimeout(resolve, 250));
+      const scroller = scrollRef.current!;
+      const rows = Array.from(root.querySelectorAll<HTMLElement>('[data-message-id]'));
+      verify(Math.abs(rows[0]!.getBoundingClientRect().top - scroller.getBoundingClientRect().top) < 1,
+        `${width} 像素宽度、${count} 条消息从顶部开始排列`);
+      verify(scroller.scrollTop === 0 && scroller.scrollHeight === scroller.clientHeight,
+        `${width} 像素宽度、${count} 条消息不产生空白滚动区域`);
+      verify(rows.every((row, index) => row.dataset.messageId === items[index]!.id),
+        `${width} 像素宽度、${count} 条消息保持时间顺序`);
+      render(null, root);
+    }
+  }
   // 高卡片下方仍处于列表预加载区，正文应等待真正接近视口。
   render(<div style={{ height: '200px', overflow: 'auto' }} id="视口探针">
     <div style={{ height: '1000px' }}>前一张长卡片</div>
