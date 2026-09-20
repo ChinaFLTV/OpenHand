@@ -630,6 +630,62 @@ void main() {
     });
   }
 
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
+    testWidgets('点击可见用户正文不改变阅读位置，平台=$platform', (tester) async {
+      final session = _probeSession('点击位置', 4);
+      final probe = _TranscriptProbe(tester, session.copyWith(messages: [
+        for (final message in session.messages)
+          AiSessionMessage.user(id: message.id, createdAt: message.createdAt,
+            content: List.filled(5, '点击用户正文时保持当前阅读位置。').join('\n')),
+      ]));
+      await probe.mount(size: const Size(800, 500));
+      await probe.settle();
+      final messageId = session.messages[2].id;
+      final bubble = find.byKey(ValueKey<String>(messageId));
+      final text = find.descendant(of: bubble, matching: find.byType(SelectableText));
+      final before = probe.state._viewportOffsetForMessage(messageId)!;
+      final pixels = probe.controller.offset;
+      await tester.tap(text);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(probe.controller.offset, closeTo(pixels, 1),
+        reason: '正文获得焦点不能触发外层会话滚动');
+      await probe.settle();
+      expect(probe.state._viewportOffsetForMessage(messageId), closeTo(before, 1),
+        reason: '选中卡片和显示操作栏不能移动当前消息');
+      expect(probe.state._selectedMessageId, messageId);
+      final modifier = platform == TargetPlatform.macOS
+          ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft;
+      await tester.sendKeyDownEvent(modifier);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(modifier);
+      await tester.pump();
+      final editable = tester.state<EditableTextState>(
+        find.descendant(of: bubble, matching: find.byType(EditableText)));
+      expect(editable.textEditingValue.selection.isCollapsed, false,
+        reason: '修复焦点滚动后仍应支持键盘全选正文');
+    }, variant: TargetPlatformVariant({platform}));
+  }
+
+  testWidgets('历史段与当前段的显露坐标包含视口锚点', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('显露坐标', 8));
+    await probe.mount(size: const Size(800, 500));
+    await probe.settle();
+    expect(probe.state._listAnchor, greaterThan(0));
+    final viewport = tester.renderObject<RenderViewport>(
+      find.byType(_TranscriptViewport));
+    for (final id in probe.state._bubbleRegistry._contexts.keys) {
+      final box = probe.state._bubbleRegistry.contextOf(id)!.findRenderObject()! as RenderBox;
+      final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
+      for (final alignment in [0.0, 0.5, 1.0]) {
+        final revealed = viewport.getOffsetToReveal(box, alignment);
+        final alignedTop = (viewport.size.height - box.size.height) * alignment;
+        expect(revealed.offset, closeTo(probe.controller.offset + top - alignedTop, 0.01));
+        expect(revealed.rect.top, closeTo(alignedTop, 0.01));
+      }
+    }
+  });
+
   testWidgets('缓存只有两条时自动加载历史并保留尾部', (tester) async {
     final full = _probeSession('缓存', 30);
     final probe = _TranscriptProbe(

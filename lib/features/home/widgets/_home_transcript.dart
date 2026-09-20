@@ -26,6 +26,87 @@ const String _kTranscriptRetiringCreationKey = 'transcript-retiring-creation';
 const String _kTranscriptCreationFailureKey = 'transcript-creation-failure';
 const String _kTranscriptErrorBannerKey = 'transcript-error-banner';
 
+class _TranscriptScrollView extends CustomScrollView {
+  const _TranscriptScrollView({
+    super.key,
+    super.controller,
+    super.keyboardDismissBehavior,
+    super.physics,
+    super.primary,
+    super.center,
+    super.anchor,
+    super.scrollCacheExtent,
+    super.slivers,
+  });
+
+  @override
+  Widget buildViewport(
+    BuildContext context,
+    ViewportOffset offset,
+    AxisDirection axisDirection,
+    List<Widget> slivers,
+  ) => _TranscriptViewport(
+    offset: offset,
+    center: center,
+    anchor: anchor,
+    scrollCacheExtent: scrollCacheExtent,
+    slivers: slivers,
+  );
+}
+
+class _TranscriptViewport extends Viewport {
+  _TranscriptViewport({
+    required super.offset,
+    super.center,
+    super.anchor,
+    super.scrollCacheExtent,
+    super.slivers,
+  });
+
+  @override
+  RenderViewport createRenderObject(BuildContext context) =>
+      _RenderTranscriptViewport(
+        offset: offset,
+        anchor: anchor,
+        crossAxisDirection: Viewport.getDefaultCrossAxisDirection(
+          context,
+          axisDirection,
+        ),
+        scrollCacheExtent: scrollCacheExtent,
+      );
+}
+
+class _RenderTranscriptViewport extends RenderViewport {
+  _RenderTranscriptViewport({
+    required super.offset,
+    required super.crossAxisDirection,
+    super.anchor,
+    super.scrollCacheExtent,
+  });
+
+  @override
+  RevealedOffset getOffsetToReveal(
+    RenderObject target,
+    double alignment, {
+    Rect? rect,
+    Axis? axis,
+  }) {
+    final revealed = super.getOffsetToReveal(
+      target,
+      alignment,
+      rect: rect,
+      axis: axis,
+    );
+    // Flutter 的显露坐标以中心 Sliver 为零点，尚未计入视口锚点。
+    // 同时修正偏移与显露后的矩形，避免可见文本获得焦点时误触发滚动。
+    final correction = anchor * size.height;
+    return RevealedOffset(
+      offset: revealed.offset + correction,
+      rect: revealed.rect.translate(0, -correction),
+    );
+  }
+}
+
 /// 多媒体判定要解析附件、递归遍历 metadata 并对整条正文跑两轮正则，而它对
 /// 同一个消息对象恒定。会话消息不可变、流式更新会产生新实例，按对象缓存即可
 /// 让每条消息只算一次，并随对象回收自动释放。
@@ -3137,7 +3218,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   },
                   child: NotificationListener<ScrollNotification>(
                     onNotification: widget.onScrollNotification,
-                    child: CustomScrollView(
+                    child: _TranscriptScrollView(
                       scrollCacheExtent: const ScrollCacheExtent.pixels(
                         _kTranscriptListCacheExtent,
                       ),
