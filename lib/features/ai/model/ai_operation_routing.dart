@@ -53,7 +53,7 @@ class AiOperationRouting {
   String? resolveModelId(AiApiFamily family, String fallbackModelId) {
     final resolved = switch (family) {
       AiApiFamily.responses => responsesModelId,
-      AiApiFamily.chatCompletions => chatModelId,
+      AiApiFamily.chatCompletions || AiApiFamily.decisions => chatModelId,
       AiApiFamily.completions => completionModelId,
       AiApiFamily.embeddings => embeddingModelId,
       AiApiFamily.moderations => moderationModelId,

@@ -11569,3 +11569,24 @@ button.oh-json-tree-row { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .oh-voice-control { transition: none; }
 }
+
+/* 结构化决策沿用主题色与全局降低动效偏好。 */
+.oh-decision-card { padding: 1rem; border-radius: 1.25rem; border: 1px solid color-mix(in srgb, var(--m3-primary) 28%, transparent); background: linear-gradient(125deg, var(--m3-primary-container), var(--m3-tertiary-container)); white-space: normal; overflow-wrap: anywhere; font-family: inherit; }
+.oh-decision-answer { margin-top: .75rem; border-radius: 1rem; background: color-mix(in srgb, var(--m3-surface) 65%, transparent); overflow: hidden; }
+.oh-decision-toggle { display: flex; flex-direction: column; gap: .35rem; padding: .85rem; width: 100%; text-align: start; }
+.oh-decision-toggle span { font-size: .85rem; opacity: .8; }
+.oh-decision-distribution { display: grid; transition: grid-template-rows 240ms cubic-bezier(.2,.8,.2,1); }
+.oh-decision-progress { width: 100%; height: 7px; accent-color: var(--m3-primary); }
+.oh-decision-input { display: block; width: 100%; margin-top: .5rem; padding: .75rem; border-radius: 1rem; background: var(--m3-surface-container); border: 1px solid var(--m3-outline-variant); resize: vertical; }
+@media (prefers-reduced-motion: reduce) { .oh-decision-distribution { transition: none; } }
+
+.oh-decision-toggle { position: relative; padding-right: 2.5rem; }
+.oh-decision-toggle::after { content: ''; position: absolute; right: 1rem; top: 1.25rem; width: .5rem; height: .5rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .2s ease; }
+.oh-decision-toggle[aria-expanded='true']::after { transform: rotate(45deg); }
+.oh-decision-progress { appearance: none; overflow: hidden; border: none; background: var(--m3-surface-container-highest); }
+.oh-decision-progress::-webkit-progress-bar { background: var(--m3-surface-container-highest); border-radius: 999px; }
+.oh-decision-progress::-webkit-progress-value { background: linear-gradient(90deg, var(--m3-primary), var(--m3-tertiary)); border-radius: 999px; }
+.oh-decision-progress::-moz-progress-bar { background: var(--m3-primary); border-radius: 999px; }
+
+.oh-decision-type { flex: 1; min-height: 42px; padding: .5rem 1rem; border-radius: 999px; border: 1px solid var(--m3-outline-variant); background: var(--m3-surface-container-low); font-weight: 650; }
+.oh-decision-actions .oh-dialog-action-button { min-height: 44px; min-width: 112px; border-radius: 14px; }

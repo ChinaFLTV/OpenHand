@@ -1417,8 +1417,8 @@ class AiModelCatalog {
       outputUsdPer1M: pinned ? 0 : null,
       displayName: pinned ? 'Jev 1.13' : 'Jev',
       description: pinnedNative
-          ? 'TypeSafe 结构化决策模型，每请求 64K，状态加最长单个问题限 32K；仅支持专用决策接口，不生成聊天文本。'
-          : 'TypeSafe 结构化决策模型，支持分类、评分和判断；不生成聊天文本，需通过专用决策接口调用。',
+          ? 'TypeSafe 结构化决策模型，每请求 64K，状态加最长单个问题限 32K；使用专用决策接口，返回结构化决策。'
+          : 'TypeSafe 结构化决策模型，支持分类、评分和判断；通过专用决策接口返回结构化结果。',
       isMultimodal: false,
       supportsAttachments: false,
       supportedModalities: {AiModelModality.text},

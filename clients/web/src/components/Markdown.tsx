@@ -1,3 +1,5 @@
+import { DecisionCard } from './DecisionCard';
+import { DECISION_RESULT } from '../shared/util/decision';
 // Markdown 渲染组件：按需加载插件，限制长内容解析，并为批量挂载分帧调度。
 
 import { memo } from 'preact/compat';
@@ -1292,6 +1294,7 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
             .find((c: string) => c.startsWith('language-'))
             ?.replace('language-', '') || null;
           const plainText = extractMarkdownCodeText(children);
+          if (lang === DECISION_RESULT) return <DecisionCard text={plainText} />;
           return (
             <CodeBlockSurface
               lang={lang}

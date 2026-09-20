@@ -666,6 +666,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
           _tryDecodeJsonObject(_endpointOverridesController.text),
         ),
       );
+      if (config.profileFor(config.modelId).supportsDecisions) {
+        return (
+          responses: '',
+          chat: _endpointPreviewRouter
+              .resolve(config, AiApiFamily.decisions)
+              .url,
+        );
+      }
       final chat = _endpointPreviewRouter
           .resolve(
             config,
@@ -692,7 +700,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
     final colorScheme = theme.colorScheme;
     final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final preview = _previewChatEndpoints();
-    final usesResponsesRouting = _apiDialect == AiApiDialect.openAiCompat;
+    final usesDecisions =
+        AiModelCatalog.lookup(
+          _modelIdController.text,
+          _protocolType,
+        )?.supportsDecisions ==
+        true;
+    final usesResponsesRouting =
+        !usesDecisions && _apiDialect == AiApiDialect.openAiCompat;
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(0, 0, 0, 4),
       child: Column(
@@ -776,7 +791,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            usesResponsesRouting
+                            usesDecisions
+                                ? 'Jev 使用专用决策接口，返回选择、评分或判断，不回退到聊天接口。'
+                                : usesResponsesRouting
                                 ? preview.responses.isNotEmpty
                                       ? _responsesCapabilityStatus ==
                                                 'supported'
@@ -4990,7 +5007,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     kOpenHandGap8,
                     Text(
                       decisionOnly
-                          ? '结构化决策模型 · 不支持聊天或标题生成，请使用专用决策接口。'
+                          ? '结构化决策模型 · 在输入区打开“决策配置”，结果将显示为决策卡片；不用于标题生成。'
                           : catalog == null
                           ? '尚无匹配的模型资料。请依据提供商文档填写，勿将其他版本的参数直接套用。'
                           : '目录参考参数 · 可按当前提供商的实际能力调整。',

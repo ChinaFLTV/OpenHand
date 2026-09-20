@@ -8,7 +8,7 @@ Future<void> main() => runFlutterWidgetCheck(
   source: _checks,
 );
 
-const _checks = r'''
+const _checks = '''
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/model/ai_model_catalog.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';

@@ -1814,6 +1814,37 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
           kOpenHandGap8,
         ],
+        if (widget.selectedModel
+                ?.profileFor(widget.selectedModel!.modelId)
+                .supportsDecisions ==
+            true) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Jev 决策 · 直接输入陈述可判断成立概率，分类或评分请先配置。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.account_tree_rounded),
+                label: const Text('决策配置'),
+                onPressed: !modeToggleEnabled
+                    ? null
+                    : () async {
+                        final draft = await showDecisionRequestDialog(
+                          context,
+                          widget.controller.text,
+                        );
+                        if (!mounted || draft == null) return;
+                        widget.controller.text = draft;
+                        widget.focusNode.requestFocus();
+                      },
+              ),
+            ],
+          ),
+          kOpenHandGap8,
+        ],
         if (widget.attachments.drafts.isNotEmpty) ...[
           _ReorderableAttachmentWrap(
             attachments: widget.attachments.drafts,

@@ -3979,6 +3979,7 @@ class WebMessagePlatformService {
               'protocol': item.protocolLabel,
               'model_id': item.modelId,
               'label': item.label,
+              'supports_decisions': item.supportsDecisions,
               'supports_attachments': item.supportsAttachments,
               'supports_image_input': item.supportsImageInput,
               'supports_video_input': item.supportsVideoInput,
@@ -8738,6 +8739,7 @@ class WebMessagePlatformService {
             protocolLabel: provider.protocolType.storageValue,
             modelId: modelId,
             label: '${provider.providerLabel} / $modelId',
+            supportsDecisions: profile.supportsDecisions,
             supportsAttachments: attachmentCapabilities.supportsAny,
             supportsImageInput: attachmentCapabilities.supportsImageInput,
             supportsVideoInput: attachmentCapabilities.supportsVideoInput,
@@ -9866,6 +9868,7 @@ class _AllowedWebModel {
     required this.protocolLabel,
     required this.modelId,
     required this.label,
+    required this.supportsDecisions,
     required this.supportsAttachments,
     required this.supportsImageInput,
     required this.supportsVideoInput,
@@ -9891,6 +9894,7 @@ class _AllowedWebModel {
   final String protocolLabel;
   final String modelId;
   final String label;
+  final bool supportsDecisions;
   final bool supportsAttachments;
   final bool supportsImageInput;
   final bool supportsVideoInput;

@@ -1,3 +1,4 @@
+import { DecisionRequestDialog } from '../../../components/DecisionRequestDialog';
 import { useVoiceConversation } from '../../../hooks/useVoiceConversation';
 import { collectGalleryMedia } from '../../../components/MessageMedia';
 import type { ImageGalleryEntry } from '../../../components/image_gallery';
@@ -4748,6 +4749,8 @@ export function SessionDetailPage() {
       }
     },
   });
+  const [showDecisionConfig, setShowDecisionConfig] = useState(false);
+  const isDecisionModel = selectedModel?.supports_decisions === true;
   const selectedModelName = selectedModel?.model_id || selectedModel?.label || persistedModelName;
   const titleSummaryDefaultModelKey = useMemo(() => {
     const sessionModelKey = detail?.session.last_model_key ?? '';
@@ -6870,6 +6873,8 @@ export function SessionDetailPage() {
                   />
                 ) : null}
 
+                {isDecisionModel && <button type="button" class="oh-composer-control oh-tap-press" disabled={composerSending} onClick={() => setShowDecisionConfig(true)}>决策配置</button>}
+                {showDecisionConfig && isDecisionModel && <DecisionRequestDialog initialText={composerTextRef.current} onClose={() => setShowDecisionConfig(false)} onApply={setComposerText} />}
                 <span class="oh-composer-model-menu" title={modelSelectionLocked ? modelSelectionLockReason : selectedModelUnavailable ? t('composer.modelUnavailable', '线程固定模型配置已不可用，请重新选择模型') : undefined}>
                   <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || modelSelectionLocked || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={modelSelectionLocked ? undefined : selectedModelUnavailable ? t('composer.modelUnavailable', '线程固定模型配置已不可用，请重新选择模型') : selectedModelName || t('composer.model', '模型')}>
                     <span>
@@ -7333,7 +7338,7 @@ export function SessionDetailPage() {
                   }}
                   disabled={composerSending || composerCollapsed || hasModeLockedGoal}
                   rows={4}
-                  placeholder={voiceConversation.active ? `${voiceConversation.phase}，可说“挂了吧”返回文字输入` : hasActiveGoal ? t('goal.composer.placeholder', '目标模式由 Agent Runtime 接管中') : t('composer.placeholder', '输入消息')}
+                  placeholder={isDecisionModel ? '输入待判断陈述，或点击“决策配置”进行选择、评分和判断' : voiceConversation.active ? `${voiceConversation.phase}，可说“挂了吧”返回文字输入` : hasActiveGoal ? t('goal.composer.placeholder', '目标模式由 Agent Runtime 接管中') : t('composer.placeholder', '输入消息')}
                   class="oh-composer-textarea w-full px-3 py-2 rounded-md text-sm"
                 />
                 {dragOver ? <div class="oh-composer-drop-overlay absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up">{t('composer.attachment.drop', '松开即可添加附件')}</div> : null}

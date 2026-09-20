@@ -112,6 +112,7 @@ export interface ApiMetaModel {
   protocol?: string;
   model_id: string;
   label: string;
+  supports_decisions?: boolean;
   supports_attachments?: boolean;
   supports_image_input?: boolean;
   supports_video_input?: boolean;

@@ -58,6 +58,10 @@ class AiEndpointRouter {
     String method = _defaultEndpointMethod,
     String transport = _defaultEndpointTransport,
   }) {
+    if (family == AiApiFamily.decisions &&
+        Uri.tryParse(config.normalizedBaseUrl)?.host == 'openrouter.ai') {
+      fallbackPath ??= 'api/alpha/decisions';
+    }
     final override = config.endpointOverrides[family];
     final fallbackMethod = nullIfBlank(method) ?? _defaultEndpointMethod;
     final fallbackTransport =
@@ -123,11 +127,18 @@ class AiEndpointRouter {
     if (path.isEmpty) return baseUrl;
     final baseUri = Uri.parse(baseUrl);
     final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
-    final baseSegments = _baseSegmentsForEndpoint(
+    var baseSegments = _baseSegmentsForEndpoint(
       baseUri.pathSegments
           .where((segment) => segment.isNotEmpty)
           .toList(growable: false),
     );
+    if (family == AiApiFamily.decisions &&
+        !usesExplicitOverridePath &&
+        baseUri.host == 'openrouter.ai' &&
+        baseSegments.isNotEmpty &&
+        _isApiVersionSegment(baseSegments.last)) {
+      baseSegments = baseSegments.sublist(0, baseSegments.length - 1);
+    }
     var pathSegments = normalizedPath
         .split('/')
         .where((segment) => segment.isNotEmpty)
@@ -161,6 +172,7 @@ class AiEndpointRouter {
   String _defaultPathFor(AiApiFamily family) {
     return switch (family) {
       AiApiFamily.responses => 'v1/responses',
+      AiApiFamily.decisions => 'v1/systemone',
       AiApiFamily.chatCompletions => 'v1/chat/completions',
       AiApiFamily.completions => 'v1/completions',
       AiApiFamily.embeddings => 'v1/embeddings',
@@ -289,6 +301,8 @@ class AiEndpointRouter {
   /// 单段版本之前，否则永远匹配不到。同一后缀也不要登记两次——重复项不可达。
   static const List<List<String>> _knownEndpointSuffixes = <List<String>>[
     <String>['chat', 'completions'],
+    <String>['alpha', 'decisions'],
+    <String>['systemone'],
     <String>['messages'],
     <String>['responses'],
     <String>['completions'],

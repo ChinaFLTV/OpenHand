@@ -2,6 +2,7 @@ import '../../../shared/util/input_value_parsing.dart';
 
 enum AiApiFamily {
   responses('responses'),
+  decisions('decisions'),
   chatCompletions('chat_completions'),
   completions('completions'),
   embeddings('embeddings'),

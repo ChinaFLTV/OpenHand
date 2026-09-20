@@ -636,7 +636,7 @@ class AiModelScanner {
         error: _ScanErrorMessages.formatError('响应必须是 JSON 对象', url: url),
       );
     }
-    final data = json['data'];
+    final data = json['data'] ?? json['models'];
     if (data is! List) {
       return AiModelScanResult(
         modelIds: const <String>[],
@@ -646,7 +646,7 @@ class AiModelScanner {
     final ids = <String>[];
     for (final item in data) {
       if (item is Map<String, dynamic>) {
-        final id = '${item['id'] ?? ''}'.trim();
+        final id = '${item['id'] ?? item['name'] ?? ''}'.trim();
         if (id.isNotEmpty) {
           ids.add(id);
         }

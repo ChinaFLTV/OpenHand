@@ -29,6 +29,7 @@ import '../../model/ai_tool_call_limit_policy.dart';
 import '../dsml/ai_dsml_tool_call_parser.dart';
 import '../media/ai_image_generation_service.dart';
 import '../model_registry/ai_model_scanner.dart';
+import '../operations/ai_decisions_service.dart';
 import '../operations/ai_responses_service.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../session_io/ai_token_usage_parser.dart';
@@ -876,6 +877,15 @@ class AiChatService implements AiChatClient {
     bool allowResponsesFallback = true,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
+    if (model.profileFor(model.modelId).supportsDecisions) {
+      return AiDecisionsService(_client).evaluate(
+        model: model,
+        messages: messages,
+        timeout: timeout,
+        cancelSignal: cancelSignal,
+        onRequestStarted: onRequestStarted,
+      );
+    }
     final canUseResponses = _canUseResponsesFamily(
       model: model,
       messages: messages,
@@ -1471,6 +1481,18 @@ class AiChatService implements AiChatClient {
       streamIdleTimeout,
     );
     _assertCreationModeIsRoutable(model, creationRequest);
+    if (model.profileFor(model.modelId).supportsDecisions) {
+      return _sendMessageAsSyntheticStream(
+        model: model,
+        messages: messages,
+        tools: const [],
+        responseModalities: const [],
+        timeout: timeout,
+        cancelSignal: cancelSignal,
+        onRequestStarted: onRequestStarted,
+        routeThroughChatRouting: true,
+      );
+    }
     final canUseResponses = _canUseResponsesFamily(
       model: model,
       messages: messages,
@@ -2906,6 +2928,9 @@ class AiChatService implements AiChatClient {
     required AiCreationRequest request,
     required List<String> requestFallbacks,
   }) {
+    if (model.profileFor(model.modelId).supportsDecisions) {
+      return AiApiFamily.decisions.storageValue;
+    }
     if (request.isActive) return 'media_${request.mode.name}';
     var responsesSelected = false;
     try {
@@ -3001,6 +3026,20 @@ class AiChatService implements AiChatClient {
     final modelId = nullIfBlank(model.modelId);
     if (modelId == null) {
       throw const AiChatException('缺少模型 ID。');
+    }
+    if (model.profileFor(model.modelId).supportsDecisions) {
+      final result = await sendMessage(
+        model: model,
+        messages: const [AiChatTurn(role: AiChatRole.user, content: '一加一等于二。')],
+        timeout: responseTimeout,
+      );
+      return AiModelTestResult(
+        reply: result.reply,
+        chatApiFamily: AiApiFamily.decisions,
+        requestUrl: result.requestUrl,
+        requestMethod: result.requestMethod,
+        durationMs: result.durationMs,
+      );
     }
     final baseProbeModel = model.copyWith(
       clearMaxTokens: true,

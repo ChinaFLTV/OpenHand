@@ -1349,6 +1349,7 @@ Future<void> testAiModelConfiguration(
       }
     }
     final endpointLabel = switch (result.chatApiFamily) {
+      AiApiFamily.decisions => 'Jev 决策接口',
       AiApiFamily.responses => 'Responses',
       AiApiFamily.chatCompletions => 'Chat Completions',
       _ => null,
