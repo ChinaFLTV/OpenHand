@@ -506,6 +506,21 @@ void main() {
       await probe.mount(size: const Size(360, 300), animated: animated);
       await probe.settle();
       expect(probe.state._viewportOffsetForMessage(user.id), closeTo(0, 1));
+      expect(
+        probe.controller.position.minScrollExtent,
+        closeTo(0, 1),
+        reason: '首条消息上方不得存在负向滚动范围',
+      );
+      await tester.drag(
+        find.byKey(const ValueKey<String>('session-transcript-list')),
+        const Offset(0, 180),
+      );
+      await probe.settle();
+      expect(
+        probe.controller.offset,
+        closeTo(0, 1),
+        reason: '只有首条消息时继续上滑不得出现空白区域',
+      );
       expect(probe.controller.position.maxScrollExtent, closeTo(0, 1));
       final reply = AiSessionMessage.assistant(
         id: '流式回复', content: '开始处理', createdAt: original.createdAt,
@@ -518,6 +533,11 @@ void main() {
         content: List.filled(10, '正在逐项核对消息展示与滚动状态。').join('\n\n'),
       ), append: false));
       await probe.settle();
+      expect(
+        probe.controller.position.minScrollExtent,
+        closeTo(0, 1),
+        reason: '首条消息增高后仍不得出现负向滚动范围',
+      );
       expect(probe.controller.position.maxScrollExtent - probe.controller.position.minScrollExtent,
         greaterThan(0), reason: '内容超出视口后应允许滚动');
       probe.controller.jumpTo(probe.controller.position.maxScrollExtent);
@@ -529,6 +549,7 @@ void main() {
       probe.update(probe.session.copyWith(messages: [user]));
       await probe.settle();
       expect(probe.state._viewportOffsetForMessage(user.id), closeTo(0, 1));
+      expect(probe.controller.position.minScrollExtent, closeTo(0, 1));
       await tester.drag(find.byKey(const ValueKey<String>('session-transcript-list')), const Offset(0, 180));
       await probe.settle();
       expect(probe.controller.offset, closeTo(0, 1), reason: '短记录不能拖出空白滚动区域');

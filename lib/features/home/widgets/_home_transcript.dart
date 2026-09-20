@@ -855,8 +855,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       final centerExtent = center!.geometry!.scrollExtent;
       final contentExtent = historyExtent + centerExtent;
       final underfilled = contentExtent < position.viewportDimension;
-      // 短记录的锚点落在历史段末尾，使首条从顶部开始且不产生空白滚动范围。
-      final anchor = underfilled
+      // 没有前置历史时使用普通单向列表，锚点固定为零，避免短会话产生
+      // 负向滚动范围；存在历史段时才按内容高度调整双向列表锚点。
+      final hasPrecedingContent = historyExtent > precisionErrorTolerance;
+      final anchor = !hasPrecedingContent
+          ? 0.0
+          : underfilled
           ? historyExtent / position.viewportDimension
           : 1.0;
       if ((_listAnchor - anchor).abs() > precisionErrorTolerance) {
@@ -3073,6 +3077,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   _renderEntryIndexById[_listCenterMessageId] ?? 0;
               _listCenterMessageId = _renderEntries[centerIndex].id;
               final beforeCenterCount = hiddenLoadMoreCount + centerIndex;
+              final hasPrecedingContent = beforeCenterCount > 0;
               int? findIndex(Key key) => _findTranscriptListChildIndex(
                 key,
                 hiddenLoadMoreCount: hiddenLoadMoreCount,
@@ -3131,8 +3136,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       physics: kOpenHandClampingPhysics,
                       primary: false,
-                      center: _listCenterKey,
-                      anchor: _listAnchor,
+                      center: hasPrecedingContent ? _listCenterKey : null,
+                      anchor: hasPrecedingContent ? _listAnchor : 0,
                       slivers: [
                         // 历史向负方向增长，不改动当前消息的布局坐标。
                         if (beforeCenterCount > 0)
