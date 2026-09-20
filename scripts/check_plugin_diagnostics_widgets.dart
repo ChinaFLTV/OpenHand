@@ -48,7 +48,7 @@ const _plugin = PluginInfo(
   supportsUninstall: false,
 );
 
-Widget _app(_DiagnosticController controller, {double scale = 1}) {
+Widget _app(_DiagnosticController controller, {double scale = 1, bool reduceMotion = false}) {
   return ChangeNotifierProvider<PluginServiceController>.value(
     value: controller,
     child: MaterialApp(
@@ -56,7 +56,7 @@ Widget _app(_DiagnosticController controller, {double scale = 1}) {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale), disableAnimations: reduceMotion),
         child: child!,
       ),
       home: Scaffold(body: SingleChildScrollView(
@@ -103,10 +103,61 @@ void main() {
           expect(tester.getRect(find.byKey(const ValueKey('plugin-card-docker'))), card);
           expect(tester.getRect(find.byKey(const ValueKey('后续卡片'))), following);
           expect(find.byType(SelectableText), findsNothing);
+          expect(find.text('诊断 0'), findsNothing);
+          expect(find.descendant(of: find.byType(_PluginDiagnosticsPill), matching: find.byType(TextButton)).hitTestable(),
+            plugin.diagnostics.isEmpty ? findsNothing : findsOneWidget);
           expect(tester.takeException(), isNull);
         }
       }
     }
+  });
+
+  testWidgets('胶囊平滑显隐、快速反向且退场立即停止交互', (tester) async {
+    final controller = _DiagnosticController();
+    addTearDown(controller.dispose);
+    controller.replace(_plugin);
+    await tester.pumpWidget(_app(controller));
+    await tester.pumpAndSettle();
+    final pill = find.byType(_PluginDiagnosticsPill);
+    final button = find.descendant(of: pill, matching: find.byType(TextButton));
+    expect(button, findsNothing);
+    final original = tester.getRect(pill);
+    final error = _plugin.copyWith(errorMessage: '连接失败');
+    controller.replace(error);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    final fade = find.descendant(of: pill, matching: find.byType(FadeTransition));
+    expect(fade, findsWidgets);
+    expect(tester.widget<FadeTransition>(fade.first).opacity.value, inExclusiveRange(0.0, 1.0));
+    controller.replace(_plugin);
+    await tester.pump();
+    expect(button, findsOneWidget);
+    expect(button.hitTestable(), findsNothing);
+    expect(find.text('诊断 0'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 20));
+    controller.replace(error);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(button.hitTestable(), findsOneWidget);
+    expect(tester.getRect(pill), original);
+    controller.replace(_plugin);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(button, findsOneWidget);
+    expect(button.hitTestable(), findsNothing);
+    await tester.pumpAndSettle();
+    expect(button, findsNothing);
+    expect(tester.getRect(pill), original);
+    controller.replace(error);
+    await tester.pumpWidget(_app(controller, reduceMotion: true));
+    await tester.pump();
+    expect(button.hitTestable(), findsOneWidget);
+    controller.replace(_plugin);
+    await tester.pump();
+    expect(button, findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('弹窗显示完整当前消息、复制入口，刷新和移除插件后无旧消息残留', (tester) async {

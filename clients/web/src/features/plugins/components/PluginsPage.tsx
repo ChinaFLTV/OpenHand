@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
 import { ErrorBanner } from '../../../components/StatusBanner';
@@ -16,6 +16,8 @@ import {
   rescanPlugins,
   checkPluginUpdate,
 } from '../../../api/plugins';
+import { useDialogMotionDurations } from '../../../hooks/useDialogMotionSettings';
+import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { t } from '../../../i18n';
 import { showSnackbar } from '../../../components/Snackbar';
@@ -61,6 +63,50 @@ function pluginIcon(id: string): string {
     case 'pip': return 'Pkg';
     default: return '🧩';
   }
+}
+
+function PluginDiagnosticsPill({ plugin, onOpen }: { plugin: PluginSummary; onOpen: () => void }) {
+  const diagnostics = pluginDiagnostics(plugin);
+  const present = diagnostics.length > 0;
+  const last = useRef({ count: 0, hasError: false });
+  if (present) last.current = {
+    count: diagnostics.length,
+    hasError: diagnostics.some((item) => item.severity === 'error'),
+  };
+  const { enterMs, exitMs } = useDialogMotionDurations();
+  const reduced = useReducedMotion();
+  const duration = reduced ? 0 : present ? enterMs : exitMs;
+  const color = last.current.hasError ? 'var(--m3-error)' : STATUS_WARNING_COLOR;
+  return (
+    // 保留布局槽；仅变换透明度与缩放，快速反向时沿当前进度继续。
+    <div class="oh-plugin-diagnostic-slot" aria-hidden={!present || undefined} inert={!present}>
+      <div
+        class="oh-plugin-diagnostic-motion"
+        data-present={present ? 'true' : 'false'}
+        style={{
+          '--oh-diagnostic-duration': `${duration}ms`,
+          transitionProperty: duration === 0 ? 'none' : undefined,
+        }}
+      >
+        {last.current.count > 0 ? <button
+          type="button"
+          class="oh-tap-press inline-flex w-full h-full items-center justify-center gap-1.5 rounded-full text-xs font-semibold"
+          style={{
+            color,
+            background: `color-mix(in srgb, ${color} 10%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${color} 24%, transparent)`,
+          }}
+          tabIndex={present ? 0 : -1}
+          aria-haspopup="dialog"
+          aria-label={`${plugin.name} · ${t('plugins.diagnostics', '诊断消息')} ${last.current.count}`}
+          onClick={() => { if (present) onOpen(); }}
+        >
+          <DialogGlyph name="alert" size={16} />
+          <span class="truncate">{t('plugins.diagnosticPill', '诊断')} {last.current.count}</span>
+        </button> : null}
+      </div>
+    </div>
+  );
 }
 
 function TemplatePluginSummary(props: { plugins: PluginSummary[] }) {
@@ -260,10 +306,6 @@ export function PluginsPage() {
             <ul class="space-y-3">
               {plugins.map((plugin, idx) => {
                 const badge = statusBadge(plugin.status);
-                const diagnostics = pluginDiagnostics(plugin);
-                const diagnosticColor = diagnostics.some((item) => item.severity === 'error')
-                  ? 'var(--m3-error)'
-                  : diagnostics.length ? STATUS_WARNING_COLOR : 'var(--m3-on-surface-variant)';
                 const isChecking = checkingUpdate === plugin.id;
                 const isBusy = operating === plugin.id ||
                   isChecking ||
@@ -350,23 +392,10 @@ export function PluginsPage() {
                         </div>
                       </div>
                       <div class="flex items-center flex-wrap gap-2 shrink-0 sm:max-w-[45%]">
-                        <button
-                          type="button"
-                          class="oh-tap-press inline-flex items-center justify-center gap-1.5 rounded-full text-xs font-semibold"
-                          style={{
-                            width: 112,
-                            height: 36,
-                            color: diagnosticColor,
-                            background: `color-mix(in srgb, ${diagnosticColor} 10%, transparent)`,
-                            border: `1px solid color-mix(in srgb, ${diagnosticColor} 24%, transparent)`,
-                          }}
-                          aria-haspopup="dialog"
-                          aria-label={`${plugin.name} · ${t('plugins.diagnostics', '诊断消息')} ${diagnostics.length}`}
-                          onClick={() => setDiagnosticTarget({ id: plugin.id, name: plugin.name })}
-                        >
-                          <DialogGlyph name={diagnostics.length ? 'alert' : 'file'} size={16} />
-                          <span class="truncate">{t('plugins.diagnosticPill', '诊断')} {diagnostics.length}</span>
-                        </button>
+                        <PluginDiagnosticsPill
+                          plugin={plugin}
+                          onOpen={() => setDiagnosticTarget({ id: plugin.id, name: plugin.name })}
+                        />
                         {plugin.status === 'installed' ? (
                           <button
                             type="button"

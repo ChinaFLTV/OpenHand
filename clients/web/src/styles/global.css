@@ -311,6 +311,33 @@ html, body, #root {
 .oh-rolling-digit-fade-in {
   animation: oh-rolling-digit-fade-in var(--oh-digit-roll-duration) var(--oh-motion-emphasized) both;
 }
+/* 诊断胶囊隐藏时不改变布局，退场立即停止交互。 */
+.oh-plugin-diagnostic-slot { width: 112px; height: 36px; flex: none; }
+.oh-plugin-diagnostic-motion {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transform: translateY(3px) scale(0.88);
+  visibility: hidden;
+  transition:
+    opacity var(--oh-diagnostic-duration) var(--oh-motion-emphasized),
+    transform var(--oh-diagnostic-duration) var(--oh-motion-spring),
+    visibility 0s linear var(--oh-diagnostic-duration);
+}
+.oh-plugin-diagnostic-motion[data-present='true'] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+@starting-style {
+  .oh-plugin-diagnostic-motion[data-present='true'] {
+    opacity: 0;
+    transform: translateY(3px) scale(0.88);
+  }
+}
+
 /* 保留退场内容并同步收起占位，标题与卡片动效不互相覆盖。 */
 .oh-presence-row {
   display: grid;

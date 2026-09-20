@@ -35,7 +35,8 @@ const refresh = async () => {
   await act(async () => { rescan.click(); await wait(30); });
   await wait(250);
 };
-const capsule = () => root.querySelector<HTMLButtonElement>('[aria-haspopup="dialog"]')!;
+const capsule = () => root.querySelector<HTMLButtonElement>('.oh-plugin-diagnostic-slot:not([inert]) button')!;
+const motion = () => root.querySelector<HTMLElement>('.oh-plugin-diagnostic-motion')!;
 const close = async () => {
   await act(async () => {
     document.querySelector<HTMLButtonElement>('[role="dialog"] button[aria-label="关闭"]')!.click();
@@ -51,6 +52,7 @@ try {
     return [y, height];
   });
   verify(position().length === 2, '插件列表完成加载');
+  verify(capsule() == null, '初始零诊断不显示胶囊');
   const baseline = JSON.stringify(position());
   current = { ...base, diagnostics: [
     { severity: 'error', message: '错误正文'.repeat(1000) },
@@ -83,7 +85,13 @@ try {
   await close();
   await wait(20);
   verify(!document.querySelector('[role="dialog"]'), '减少动态效果时立即退出');
-  verify(document.activeElement === capsule(), '关闭后焦点回到诊断胶囊');
+  verify(capsule() == null && getComputedStyle(motion()).visibility === 'hidden', '清空诊断后胶囊隐藏并退出焦点与读屏');
+  current = { ...base, diagnostics: [{ severity: 'warning', message: '新的警告' }] };
+  await refresh();
+  await act(async () => { capsule().focus(); capsule().click(); });
+  await close();
+  await wait(20);
+  verify(document.activeElement === capsule(), '诊断仍存在时关闭弹窗恢复焦点');
   setRemoteReducedMotion(false);
   syncRemoteDialogMotionSettings({ entrance_style: 'spring_scale', exit_style: 'spring_scale', duration_ms: 180 });
   await act(async () => { capsule().click(); });
@@ -93,6 +101,41 @@ try {
   await wait(350);
   verify(!document.querySelector('[role="dialog"]'), '退场完成后释放弹窗与滚动锁');
   verify(document.body.style.overflow !== 'hidden', '关闭后页面可以继续滚动');
+  // 延长动画以检查中间帧和快速反向，避免只验证最终状态。
+  syncRemoteDialogMotionSettings({ entrance_style: 'spring_scale', exit_style: 'spring_scale', duration_ms: 1000 });
+  current = base;
+  await refresh();
+  const exitOpacity = Number(getComputedStyle(motion()).opacity);
+  verify(exitOpacity > 0 && exitOpacity < 1 && capsule() == null, '退场具有中间帧且立即禁止交互');
+  verify(!root.textContent?.includes('诊断 0'), '退场保留原数量，不闪现零诊断');
+  current = { ...base, diagnostics: [{ severity: 'error', message: '快速恢复的错误' }] };
+  await refresh();
+  verify(Number(getComputedStyle(motion()).opacity) > 0 && capsule() != null, '退场中恢复诊断可自然反向');
+  await wait(1100);
+  verify(getComputedStyle(motion()).opacity === '1', '快速反向后胶囊正常可见');
+  current = base;
+  await refresh();
+  await wait(1100);
+  verify(getComputedStyle(motion()).visibility === 'hidden' && capsule() == null, '退场结束后胶囊完全隐藏');
+  verify(JSON.stringify(position()) === baseline, '完整显隐后卡片布局保持稳定');
+  current = { ...base, diagnostics: [{ severity: 'warning', message: '再次出现' }] };
+  await refresh();
+  const enterOpacity = Number(getComputedStyle(motion()).opacity);
+  verify(enterOpacity > 0 && enterOpacity < 1, '隐藏后重新出现具有进场中间帧');
+  current = base;
+  await refresh();
+  await act(async () => { setRemoteReducedMotion(true); });
+  await wait(30);
+  verify(getComputedStyle(motion()).visibility === 'hidden', '退场中开启减少动态效果立即隐藏');
+  setRemoteReducedMotion(false);
+  syncRemoteDialogMotionSettings({ entrance_style: 'none', exit_style: 'none', duration_ms: 180 });
+  current = { ...base, diagnostics: [{ severity: 'error', message: '禁用动效检查' }] };
+  await refresh();
+  verify(getComputedStyle(motion()).opacity === '1', '禁用动效时立即显示胶囊');
+  current = base;
+  await refresh();
+  verify(getComputedStyle(motion()).visibility === 'hidden', '禁用动效时立即隐藏胶囊');
+  syncRemoteDialogMotionSettings({ entrance_style: 'spring_scale', exit_style: 'spring_scale', duration_ms: 180 });
   current = { ...base, diagnostics: [
     { severity: 'error', message: 'Docker CLI 可用，但 Docker daemon 未运行或不可访问。' },
     { severity: 'warning', message: '暂时无法检查远端镜像版本，请稍后重试。' },

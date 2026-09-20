@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/model/dialog_animation_settings.dart';
+import '../../../app/state/settings_controller.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/buffered_console_log.dart';
@@ -939,8 +942,8 @@ class _PluginCard extends StatelessWidget {
   }
 }
 
-// 固定占位，不随消息出现、消失或长度变化挤动操作区和后续卡片。
-class _PluginDiagnosticsPill extends StatelessWidget {
+// 隐藏时保留布局槽，避免诊断显隐挤动操作区与后续卡片。
+class _PluginDiagnosticsPill extends StatefulWidget {
   const _PluginDiagnosticsPill({
     required this.plugin,
     required this.controller,
@@ -950,45 +953,82 @@ class _PluginDiagnosticsPill extends StatelessWidget {
   final PluginServiceController controller;
 
   @override
+  State<_PluginDiagnosticsPill> createState() => _PluginDiagnosticsPillState();
+}
+
+class _PluginDiagnosticsPillState extends State<_PluginDiagnosticsPill> {
+  PluginInfo? _displayedPlugin;
+
+  @override
   Widget build(BuildContext context) {
-    final diagnostics = plugin.diagnostics;
+    final present = widget.plugin.diagnostics.isNotEmpty;
+    // 保留最后一次有效内容，退场不闪现「诊断 0」。
+    if (present) _displayedPlugin = widget.plugin;
+    final diagnostics = _displayedPlugin?.diagnostics ?? [];
     final hasError = diagnostics.any((item) => item.isError);
     final color = hasError
         ? Theme.of(context).colorScheme.error
-        : diagnostics.isNotEmpty
-        ? OpenHandStatusColors.warning
-        : Theme.of(context).colorScheme.onSurfaceVariant;
+        : OpenHandStatusColors.warning;
+    final preference = context
+        .select<SettingsController?, DialogAnimationSettings?>(
+          (controller) => controller?.chipAnimationSettings,
+        );
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.chip,
+      override: preference,
+    );
     final label = openHandLocalizedText(context, zh: '诊断', en: 'Diagnostics');
     return SizedBox(
       width: _kPluginDiagnosticsPillWidth,
       height: 40,
-      child: TextButton.icon(
-        style: TextButton.styleFrom(
-          foregroundColor: color,
-          backgroundColor: color.withValues(alpha: 0.10),
-          side: BorderSide(color: color.withValues(alpha: 0.24)),
-          shape: const StadiumBorder(),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-        ),
-        icon: Icon(
-          hasError
-              ? Icons.error_outline_rounded
-              : diagnostics.isNotEmpty
-              ? Icons.warning_amber_rounded
-              : Icons.fact_check_outlined,
-          size: 16,
-        ),
-        label: Text(
-          '$label ${diagnostics.length}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        onPressed: () => showAnimatedDialog<void>(
-          context: context,
-          builder: (_) => _PluginDiagnosticsDialog(
-            pluginId: plugin.id,
-            pluginName: plugin.name,
-            controller: controller,
+      child: ExcludeSemantics(
+        excluding: !present,
+        child: ExcludeFocus(
+          excluding: !present,
+          child: IgnorePointer(
+            ignoring: !present,
+            child: AnimatedAppearance(
+              present: present,
+              settings: settings,
+              collapseSize: false,
+              onDismissed: () {
+                if (!mounted ||
+                    widget.plugin.diagnostics.isNotEmpty ||
+                    _displayedPlugin == null) {
+                  return;
+                }
+                setState(() => _displayedPlugin = null);
+              },
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: color,
+                  backgroundColor: color.withValues(alpha: 0.10),
+                  side: BorderSide(color: color.withValues(alpha: 0.24)),
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                icon: Icon(
+                  hasError
+                      ? Icons.error_outline_rounded
+                      : Icons.warning_amber_rounded,
+                  size: 16,
+                ),
+                label: Text(
+                  '$label ${diagnostics.length}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onPressed: () => showAnimatedDialog<void>(
+                  context: context,
+                  builder: (_) => _PluginDiagnosticsDialog(
+                    pluginId: widget.plugin.id,
+                    pluginName: widget.plugin.name,
+                    controller: widget.controller,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
