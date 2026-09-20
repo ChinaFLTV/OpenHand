@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/ui/structured_error_text.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/localized_text.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
@@ -39,6 +40,7 @@ class AiModelScanner {
   final AiTransportClient _transport;
   final bool _ownsTransport;
   final AiEndpointRouter _router;
+  bool _disposed = false;
 
   static const Duration _defaultTimeout = Duration(seconds: 15);
 
@@ -54,18 +56,31 @@ class AiModelScanner {
 
   /// 列出 [config] 指定服务商的全部可用模型。
   ///
-  /// 根据 [config.protocolType] 选择模型列表接口，始终返回非空结果。
+  /// 根据协议选择模型列表接口；取消时抛出 [http.RequestAbortedException]。
   Future<AiModelScanResult> scan(
     AiModelConfig config, {
     Duration timeout = _defaultTimeout,
+    Future<void>? cancelSignal,
   }) async {
+    if (_disposed) throw StateError('模型扫描服务已关闭。');
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw http.RequestAbortedException();
+    }
     final baseUrl = config.normalizedBaseUrl;
     if (baseUrl.isEmpty) {
       return const AiModelScanResult(modelIds: <String>[], error: '基础 URL 为空。');
     }
 
     try {
-      return await _scanByProtocol(config, timeout: timeout);
+      final result = await _scanByProtocol(
+        config,
+        timeout: timeout,
+        cancelSignal: cancelSignal,
+      );
+      if (_disposed || await isCancelSignalCompleted(cancelSignal)) {
+        throw http.RequestAbortedException();
+      }
+      return result;
     } on HandshakeException catch (e) {
       // Cloudflare 等 WAF 可能根据 JA3/JA4 TLS 指纹拒绝非浏览器
       // 客户端，表现为 SSLV3_ALERT_HANDSHAKE_FAILURE。给出明确
@@ -95,12 +110,25 @@ class AiModelScanner {
         modelIds: const <String>[],
         error: _ScanErrorMessages.timeout(timeout),
       );
+    } on http.RequestAbortedException {
+      rethrow;
+    } on http.ClientException catch (e) {
+      if (_disposed || await isCancelSignalCompleted(cancelSignal)) {
+        throw http.RequestAbortedException(e.uri);
+      }
+      return AiModelScanResult(
+        modelIds: const <String>[],
+        error: AiTransportDiagnosticMessages.httpClient(e),
+      );
     } on FormatException catch (e) {
       return AiModelScanResult(
         modelIds: const <String>[],
         error: _ScanErrorMessages.formatError(e.message),
       );
     } catch (error, stack) {
+      if (_disposed || await isCancelSignalCompleted(cancelSignal)) {
+        throw http.RequestAbortedException();
+      }
       silentLog('ai_model_scanner', '扫描模型列表', error, stack);
       return AiModelScanResult(
         modelIds: const <String>[],
@@ -152,24 +180,41 @@ class AiModelScanner {
   Future<AiModelScanResult> _scanByProtocol(
     AiModelConfig config, {
     required Duration timeout,
+    Future<void>? cancelSignal,
   }) async {
     switch (config.protocolType) {
       case AiProtocolType.dots:
         // Dots 文档当前没有 /v1/models，直接提供官方公开模型候选。
         return const AiModelScanResult(modelIds: <String>['dots3-note-prev']);
       case AiProtocolType.gemini:
-        return _scanGemini(config, timeout: timeout);
+        return _scanGemini(
+          config,
+          timeout: timeout,
+          cancelSignal: cancelSignal,
+        );
       case AiProtocolType.claude:
-        return _scanClaude(config, timeout: timeout);
+        return _scanClaude(
+          config,
+          timeout: timeout,
+          cancelSignal: cancelSignal,
+        );
       case AiProtocolType.ollama:
-        return _scanOllama(config, timeout: timeout);
+        return _scanOllama(
+          config,
+          timeout: timeout,
+          cancelSignal: cancelSignal,
+        );
       case AiProtocolType.seed:
-        return _scanSeed(config, timeout: timeout);
+        return _scanSeed(config, timeout: timeout, cancelSignal: cancelSignal);
       default:
         // OpenAI 兼容协议包括 openai、deepseek、qwen、kimi、glm、grok、
         // vllm、sglang、stepfun、minimax、longcat、joycode、wenxin、
         // meta、mimo、hunyuan 及 Seed 相邻服务商。
-        return _scanOpenAiCompatible(config, timeout: timeout);
+        return _scanOpenAiCompatible(
+          config,
+          timeout: timeout,
+          cancelSignal: cancelSignal,
+        );
     }
   }
 
@@ -177,75 +222,52 @@ class AiModelScanner {
   Future<AiModelScanResult> _scanOpenAiCompatible(
     AiModelConfig config, {
     required Duration timeout,
+    Future<void>? cancelSignal,
   }) async {
-    final headers = _buildHeaders(config);
-    AiModelScanResult? lastFailure;
-    final candidates = <String>[
-      _router.resolve(config, AiApiFamily.models, method: 'GET').url,
-    ];
-
-    for (final modelsUrl in candidates) {
-      final response = await _transport.get(
-        uri: Uri.parse(modelsUrl),
-        headers: headers,
-        timeout: timeout,
-      );
-
-      if (response.statusCode == HttpStatus.unauthorized ||
-          response.statusCode == HttpStatus.forbidden) {
-        return AiModelScanResult(
-          modelIds: const <String>[],
-          error: _ScanErrorMessages.httpStatus(
-            response.statusCode,
-            isAuth: true,
-            hint: modelsUrl,
-          ),
-        );
-      }
-      if (response.statusCode == HttpStatus.ok) {
-        final parsed = _parseOpenAiModelsResponse(
-          response.body,
-          url: modelsUrl,
-        );
-        if (parsed.isSuccess) {
-          return parsed;
-        }
-        lastFailure = parsed;
-        continue;
-      }
-      lastFailure = AiModelScanResult(
-        modelIds: const <String>[],
-        error: _ScanErrorMessages.httpStatus(
-          response.statusCode,
-          hint: modelsUrl,
-        ),
-      );
-      if (response.statusCode != HttpStatus.notFound &&
-          response.statusCode != HttpStatus.methodNotAllowed) {
-        break;
-      }
+    final modelsUrl = _router
+        .resolve(config, AiApiFamily.models, method: 'GET')
+        .url;
+    final response = await _transport.get(
+      uri: Uri.parse(modelsUrl),
+      headers: _buildHeaders(config),
+      timeout: timeout,
+      cancelSignal: cancelSignal,
+    );
+    if (response.statusCode == HttpStatus.ok) {
+      return _parseOpenAiModelsResponse(response.body, url: modelsUrl);
     }
-
-    return lastFailure ??
-        const AiModelScanResult(
-          modelIds: <String>[],
-          error: '无法从基础 URL 推导模型列表接口。',
-        );
+    return AiModelScanResult(
+      modelIds: const <String>[],
+      error: _ScanErrorMessages.httpStatus(
+        response.statusCode,
+        isAuth:
+            response.statusCode == HttpStatus.unauthorized ||
+            response.statusCode == HttpStatus.forbidden,
+        hint: modelsUrl,
+      ),
+    );
   }
 
   /// Ollama /api/tags 接口。
   Future<AiModelScanResult> _scanOllama(
     AiModelConfig config, {
     required Duration timeout,
+    Future<void>? cancelSignal,
   }) async {
     final baseUrl = config.normalizedBaseUrl;
     // Ollama 基础 URL 通常为 http://localhost:11434。
     // 先尝试 OpenAI 兼容的 /v1/models，再回退到原生 /api/tags。
     try {
-      final result = await _scanOpenAiCompatible(config, timeout: timeout);
+      final result = await _scanOpenAiCompatible(
+        config,
+        timeout: timeout,
+        cancelSignal: cancelSignal,
+      );
       if (result.isSuccess && result.modelIds.isNotEmpty) {
         return result;
       }
+    } on http.RequestAbortedException {
+      rethrow;
     } catch (_) {
       // 回退到原生接口。
     }
@@ -263,6 +285,7 @@ class AiModelScanner {
       uri: Uri.parse(tagsUrl),
       headers: _buildHeaders(config),
       timeout: timeout,
+      cancelSignal: cancelSignal,
     );
 
     if (response.statusCode != HttpStatus.ok) {
@@ -279,6 +302,7 @@ class AiModelScanner {
   Future<AiModelScanResult> _scanGemini(
     AiModelConfig config, {
     required Duration timeout,
+    Future<void>? cancelSignal,
   }) async {
     final baseUrl = config.normalizedBaseUrl;
     final token = config.token.trim();
@@ -339,6 +363,7 @@ class AiModelScanner {
         uri: uri,
         headers: headers,
         timeout: timeout,
+        cancelSignal: cancelSignal,
       );
 
       if (response.statusCode == HttpStatus.unauthorized ||
@@ -406,6 +431,7 @@ class AiModelScanner {
   Future<AiModelScanResult> _scanClaude(
     AiModelConfig config, {
     required Duration timeout,
+    Future<void>? cancelSignal,
   }) async {
     final modelsUrl = _router
         .resolve(
@@ -439,6 +465,7 @@ class AiModelScanner {
           uri: uri,
           headers: headers,
           timeout: timeout,
+          cancelSignal: cancelSignal,
         );
 
         if (response.statusCode == HttpStatus.unauthorized ||
@@ -547,6 +574,8 @@ class AiModelScanner {
       }
       allIds.sort();
       return AiModelScanResult(modelIds: allIds);
+    } on http.RequestAbortedException {
+      rethrow;
     } catch (e) {
       if (allIds.isNotEmpty) {
         allIds.sort();
@@ -579,6 +608,7 @@ class AiModelScanner {
   Future<AiModelScanResult> _scanSeed(
     AiModelConfig config, {
     required Duration timeout,
+    Future<void>? cancelSignal,
   }) async {
     final modelsUrl = _seedModelsUrl(config.normalizedBaseUrl);
 
@@ -587,6 +617,7 @@ class AiModelScanner {
       uri: Uri.parse(modelsUrl),
       headers: headers,
       timeout: timeout,
+      cancelSignal: cancelSignal,
     );
 
     if (response.statusCode == HttpStatus.unauthorized ||
@@ -686,6 +717,8 @@ class AiModelScanner {
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     if (_ownsTransport) {
       _transport.dispose();
     }

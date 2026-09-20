@@ -120,6 +120,7 @@ abstract class AiChatClient {
   Future<AiModelTestResult> testModel(
     AiModelConfig model, {
     required Duration responseTimeout,
+    Future<void>? cancelSignal,
   });
 
   void dispose();
@@ -1229,6 +1230,8 @@ class AiChatService implements AiChatClient {
       throw AiChatException(AiTransportDiagnosticMessages.tls(error));
     } on SocketException catch (error) {
       throw AiChatException(AiTransportDiagnosticMessages.socket(error));
+    } on http.RequestAbortedException {
+      throw const AiChatCancelledException();
     } on http.ClientException catch (error) {
       throw AiChatException(AiTransportDiagnosticMessages.httpClient(error));
     }
@@ -3019,7 +3022,45 @@ class AiChatService implements AiChatClient {
   Future<AiModelTestResult> testModel(
     AiModelConfig model, {
     required Duration responseTimeout,
+    Future<void>? cancelSignal,
   }) async {
+    if (_disposed) throw StateError('AI 聊天服务已关闭。');
+    // 测试的生命周期覆盖接口回退和补充诊断，不能只取消单次聊天请求。
+    final abort = Completer<void>();
+    _activeRequestAborts.add(abort);
+    final effectiveCancelSignal = combineCancelSignals([
+      cancelSignal,
+      abort.future,
+    ])!;
+    try {
+      return await _awaitWithCancelSignal(
+        _testModel(
+          model,
+          responseTimeout: responseTimeout,
+          cancelSignal: effectiveCancelSignal,
+        ),
+        effectiveCancelSignal,
+      );
+    } on http.RequestAbortedException {
+      throw const AiChatCancelledException();
+    } finally {
+      if (!abort.isCompleted) abort.complete();
+      _activeRequestAborts.remove(abort);
+    }
+  }
+
+  Future<void> _checkProbeCancellation(Future<void> cancelSignal) async {
+    if (_disposed || await isCancelSignalCompleted(cancelSignal)) {
+      throw const AiChatCancelledException();
+    }
+  }
+
+  Future<AiModelTestResult> _testModel(
+    AiModelConfig model, {
+    required Duration responseTimeout,
+    required Future<void> cancelSignal,
+  }) async {
+    await _checkProbeCancellation(cancelSignal);
     if (model.normalizedBaseUrl.isEmpty) {
       throw const AiChatException('缺少 Base URL。');
     }
@@ -3032,6 +3073,7 @@ class AiChatService implements AiChatClient {
         model: model,
         messages: const [AiChatTurn(role: AiChatRole.user, content: '一加一等于二。')],
         timeout: responseTimeout,
+        cancelSignal: cancelSignal,
       );
       return AiModelTestResult(
         reply: result.reply,
@@ -3049,7 +3091,8 @@ class AiChatService implements AiChatClient {
     Future<AiChatCompletion> probe(
       AiModelConfig probeModel, {
       required bool allowResponsesFallback,
-    }) {
+    }) async {
+      await _checkProbeCancellation(cancelSignal);
       return AiUsageTraceContext.runDerived(
         source: AiUsageSource.modelTest,
         operation: 'availability_probe',
@@ -3062,6 +3105,7 @@ class AiChatService implements AiChatClient {
             ),
           ],
           timeout: responseTimeout,
+          cancelSignal: cancelSignal,
           allowResponsesFallback: allowResponsesFallback,
         ),
       );
@@ -3121,6 +3165,7 @@ class AiChatService implements AiChatClient {
           baseProbeModel,
           error,
           timeout: responseTimeout,
+          cancelSignal: cancelSignal,
         );
       }
     }
@@ -3180,6 +3225,7 @@ class AiChatService implements AiChatClient {
         chatProbeModel,
         combinedFailure,
         timeout: responseTimeout,
+        cancelSignal: cancelSignal,
       );
     }
   }
@@ -3711,12 +3757,18 @@ extension on AiChatService {
     AiModelConfig model,
     AiChatException error, {
     required Duration timeout,
+    required Future<void> cancelSignal,
   }) async {
+    await _checkProbeCancellation(cancelSignal);
     final scanner = _modelScanner ?? AiModelScanner(httpClient: _client);
     final ownsScanner = identical(scanner, _modelScanner) == false;
     String? probeDiagnosis;
     try {
-      final scanResult = await scanner.scan(model, timeout: timeout);
+      final scanResult = await _awaitWithCancelSignal(
+        scanner.scan(model, timeout: timeout, cancelSignal: cancelSignal),
+        cancelSignal,
+      );
+      await _checkProbeCancellation(cancelSignal);
       final relayAvailabilityReason =
           AiTransportDiagnosticMessages.relayModelAvailabilityReason(
             error.message,
@@ -3756,7 +3808,12 @@ extension on AiChatService {
               '${StructuredErrorText.pick(zh: '模型列表探测也失败了。该 Base URL 可能整体不可用、鉴权方式不匹配，或中转未按 OpenAI 兼容形式暴露接口。', en: 'The models probe also failed. The Base URL may be entirely unavailable, the authentication scheme may not match, or the relay may not expose the interface in an OpenAI-compatible form.')}\n$scanError';
         }
       }
+    } on AiChatCancelledException {
+      rethrow;
+    } on http.RequestAbortedException {
+      throw const AiChatCancelledException();
     } catch (_) {
+      await _checkProbeCancellation(cancelSignal);
       // 保留原始供应商测试错误作为主要诊断。
     } finally {
       if (ownsScanner) {

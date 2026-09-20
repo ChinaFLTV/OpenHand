@@ -57,6 +57,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
   AiModelHealthSettings _persistedSettings = const AiModelHealthSettings();
   List<AiModelConfig> Function()? _modelsProvider;
   AiModelHealthProxyResolver? _proxyResolver;
+  final Set<AiChatService> _activeChatServices = <AiChatService>{};
   final Set<http.Client> _activeClients = <http.Client>{};
   final OpenHandDebouncer _progressNotifier = OpenHandDebouncer(
     delay: kOpenHandFramePeriodicTimerInterval,
@@ -299,9 +300,14 @@ class AiModelHealthController extends ManagedChangeNotifier {
           cancellation: cancellation,
         );
         final service = AiChatService(client: client);
+        _activeChatServices.add(service);
         try {
           final result = await _awaitCancellation(
-            service.testModel(model, responseTimeout: responseTimeout),
+            service.testModel(
+              model,
+              responseTimeout: responseTimeout,
+              cancelSignal: cancellation?.whenCancelled,
+            ),
             cancellation,
           );
           success = true;
@@ -326,6 +332,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
           );
           status = _statusForFailurePhase(failurePhase);
         } finally {
+          _activeChatServices.remove(service);
           service.dispose();
           _closeClient(client, cancellation);
         }
@@ -776,6 +783,10 @@ class AiModelHealthController extends ManagedChangeNotifier {
     _timer?.cancel();
     _timer = null;
     _progressNotifier.dispose();
+    for (final service in _activeChatServices.toList(growable: false)) {
+      service.dispose();
+    }
+    _activeChatServices.clear();
     for (final client in _activeClients.toList(growable: false)) {
       client.close();
     }
