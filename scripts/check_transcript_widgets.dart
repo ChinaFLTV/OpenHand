@@ -2121,7 +2121,7 @@ void main() {
               selectedModel: AiModelConfig(
                 id: '布局模型', baseUrl: 'https://example.invalid/v1',
                 authScheme: AiAuthScheme.bearer, token: '',
-                modelId: modelId, protocolType: AiProtocolType.openai,
+                modelId: modelId, protocolType: modelId == 'jev-latest' ? AiProtocolType.jev : AiProtocolType.openai,
               ),
               availableModels: const [],
               recentModelSelections: const [],
@@ -2177,6 +2177,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byType(_DecisionComposerForm), findsOneWidget);
+    expect(tester.widget<_ComposerModeButton>(find.byType(_ComposerModeButton)).mode, AiSessionMode.chat);
+    expect(tester.widget<_ComposerModeButton>(find.byType(_ComposerModeButton)).enabled, false);
+    expect(tester.widget<_ComposerCreationModeButton>(find.byType(_ComposerCreationModeButton)).enabled, false);
+    expect(tester.widget<_ComposerInstructionsStrip>(find.byType(_ComposerInstructionsStrip)).disabled, true);
     void expectActionsVisible() {
       final send = find.widgetWithText(FilledButton, '发送');
       expect(send, findsOneWidget);

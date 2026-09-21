@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'support/flutter_widget_check.dart';
 
 Future<void> main() => runFlutterWidgetCheck(
@@ -31,13 +30,21 @@ import 'package:openhand/features/ai/service/operations/ai_decisions_service.dar
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/runtime/ai_endpoint_router.dart';
 import 'package:openhand/features/ai/service/model_registry/ai_model_scanner.dart';
+import 'package:openhand/features/ai/ai_session_controller.dart';
+import 'package:openhand/features/ai/data/ai_session_store.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
 import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
+import 'package:openhand/features/ai/model/ai_thread_template.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_builder.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repository.dart';
+import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dart';
+import 'package:openhand/features/ai/service/runtime/ai_tool_usage_promotion_store.dart';
+import 'package:openhand/features/ai/tools/ai_tool_registry.dart';
+import 'package:openhand/features/ai/service/hook/ai_claude_hook_service.dart';
 import 'package:openhand/features/memory/model/user_memory_entry.dart';
 import 'package:openhand/features/instructions/model/user_instruction_entry.dart';
+import 'package:openhand/shared/db/database_service.dart';
 import 'package:openhand/shared/util/decision_payload.dart';
 import 'package:openhand/shared/ui/decision_card.dart';
 import 'package:openhand/shared/ui/decision_request_dialog.dart';
@@ -56,7 +63,7 @@ Widget app({required Widget home}) => MaterialApp(
 AiSessionRuntimeContext decisionContext({bool enabled = true, int count = 1}) => AiSessionRuntimeContext(
   localeTag: 'zh', appVersion: '测试', appBuildNumber: '1',
   settingsFilePath: '', skillsStoragePath: '', mcpServersFilePath: '', userMemoryFilePath: '',
-  compressionThresholdChars: 1, autoTitleEnabled: false,
+  compressionThresholdChars: 1, autoTitleEnabled: true,
   streamMaxCharsPerSecond: 1, streamMaxMessageCardsPerSecond: 1,
   memoryEnabled: enabled, memoryEntries: [for (var i = 0; i < count; i++) UserMemoryEntry(
     id: '记忆-\$i', type: i == 0 ? UserMemoryEntry.userProfileType : UserMemoryEntry.userType,
@@ -72,40 +79,38 @@ AiSession decisionSession(List<AiSessionMessage> messages) => AiSession(
   environment: AiSessionEnvironment.fromJson({}), statistics: const AiSessionStatistics.initial(),
   recentErrors: [], messages: messages,
 );
+class DecisionRuntime implements AiToolRuntimeService {
+  @override
+  final toolRegistry = AiToolRegistry.lightweightOnly();
+  @override
+  Future<AiResolvedToolCatalog> resolveCatalog({required AiSessionRuntimeContext runtimeContext, String? templateId}) async {
+    throw StateError('决策不得解析工具目录');
+  }
+  @override
+  Future<void> shutdown() async {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+class DecisionHooks extends AiNoopClaudeHookService {
+  int calls = 0;
+  @override
+  Future<AiClaudeHookInvocationResult> runHooks({required String eventName, required String sessionId,
+    required Map<String, Object?> payload, String? matcherValue, String? cwd}) async {
+    calls++;
+    return const AiClaudeHookInvocationResult(blocked: true, blockReason: '不应执行的钩子');
+  }
+}
+
 void main() {
-  test('连续判断、选择、评分保持当前请求，不评估运行时上下文', () async {
-    final bundle = await AiPromptTemplateRepository().loadBundle('chat');
-    final history = <AiSessionMessage>[];
-    final questions = {
-      '判断': {'type': 'noul', 'instructions': '成立吗？'},
-      '选择': {'type': 'choice', 'instructions': '选哪个？', 'criteria': {'甲': null, '乙': null}},
-      '评分': {'type': 'score', 'instructions': '评分', 'criteria': ['低', '高']},
-    };
-    for (final current in [for (final entry in questions.entries) {entry.key: entry.value}, questions]) {
-      final request = {'state': '本轮待评估内容', 'questions': current};
-      final original = DecisionPayload.encode(DecisionPayload.requestLanguage, request);
-      final user = AiSessionMessage.user(id: '第 \${history.length} 轮', content: original, createdAt: DateTime.utc(2026));
-      history.add(user);
-      final runtime = decisionContext();
-      final built = await const AiPromptBuilder().buildSessionPrompt(templateBundle: bundle,
-        session: decisionSession(history), model: config(), runtimeContext: runtime,
-        memoryEntries: runtime.memoryEntries, sessionMessages: history, latestUserMessageId: user.id);
-      expect(built.messages, hasLength(1));
-      expect(DecisionPayload.request(built.messages.single.content), request);
-      expect(user.content, original);
-      final client = MockClient((incoming) async {
-        expect(jsonDecode(incoming.body), {'model': 'jev-latest', ...request});
-        return http.Response(jsonEncode({'answers': {
-          for (final entry in current.entries) entry.key: switch (entry.value['type']) {
-            'choice' => {'type': 'choice', 'choice': '甲', 'probabilities': {'甲': .8, '乙': .2}},
-            'score' => {'type': 'score', 'score': .4, 'probabilities': {'0': .6, '1': .4}},
-            _ => {'type': 'noul', 'noul': .8},
-          },
-        }}), 200, headers: {'content-type': 'application/json; charset=utf-8'});
-      });
-      addTearDown(client.close);
-      final result = await AiDecisionsService(client).evaluate(model: config(), messages: built.messages, timeout: const Duration(seconds: 1));
-      expect(DecisionPayload.tryResult(result.reply.split('\\n')[1])!['questions'], current);
+  test('决策标题精确截取十五个完整字符，保留标点和多语言', () {
+    for (final entry in {
+      '第一，请检查标点，不能被清理。后续内容': '第一，请检查标点，不能被清理。',
+      'abc!?dé日本語中文。': 'abc!?dé日本語中文。',
+      '👩‍💻' * 16: '👩‍💻' * 15,
+      'e\\u0301' * 16: 'e\\u0301' * 15,
+    }.entries) {
+      expect(DecisionPayload.title(DecisionPayload.encode(DecisionPayload.requestLanguage,
+        {'state': entry.key, 'questions': question})), entry.value);
     }
   });
   test('Jev 协议决定能力，任意模型名称及旧覆盖不能改写接口类型', () {
@@ -196,6 +201,180 @@ void main() {
     final result = await service.sendMessage(model: config().copyWith(protocolType: AiProtocolType.openai,
       capabilityOverrides: {AiApiFamily.responses: 'disabled'}), messages: turns());
     expect(result.reply, '正常回复');
+  });
+  test('决策只携带当前输入与自动记忆，不污染历史、问题或用户原文', () async {
+    final bundle = await AiPromptTemplateRepository().loadBundle('chat');
+    for (final enabled in [false, true]) {
+      final runtime = decisionContext(enabled: enabled);
+      for (final state in <Object>['用户住在哪里？', {'城市': '杭州'}, ['杭州', '上海']]) {
+        final original = DecisionPayload.encode(DecisionPayload.requestLanguage, {'state': state, 'questions': question});
+        final user = AiSessionMessage.user(id: '当前', content: original, createdAt: DateTime.utc(2026));
+        final history = [AiSessionMessage.user(id: '旧消息', content: '不应进入请求的旧消息', createdAt: DateTime.utc(2025)), user];
+        final built = await const AiPromptBuilder().buildSessionPrompt(templateBundle: bundle,
+          session: decisionSession(history), model: config(), runtimeContext: runtime,
+          memoryEntries: runtime.memoryEntries, sessionMessages: history, latestUserMessageId: user.id);
+        expect(built.messages, hasLength(1));
+        final payload = DecisionPayload.request(built.messages.single.content);
+        expect(payload['questions'], question);
+        expect(user.content, original);
+        expect(built.systemMessageCount, 0);
+        expect(built.historyMessageCount, 0);
+        expect(built.messages.single.content, isNot(contains('禁止进入决策的额外指令')));
+        expect(built.messages.single.content, isNot(contains('不应进入请求的旧消息')));
+        expect(payload['state'], enabled ? isA<Map>() : state);
+        if (enabled) {
+          expect((payload['state'] as Map)['input'], state);
+          expect((payload['state'] as Map)['user_memory'], contains('杭州'));
+          expect(built.memoryResourceIds, {'记忆-0'});
+        } else {
+          expect(built.memoryResourceIds, isEmpty);
+        }
+      }
+    }
+  });
+  test('决策记忆有条数和字符预算，接近请求上限时保留完整原文', () async {
+    final bundle = await AiPromptTemplateRepository().loadBundle('chat');
+    final runtime = decisionContext(count: 100);
+    for (final state in ['待评估内容', '文' * (DecisionPayload.maxCharacters - 512)]) {
+      final user = AiSessionMessage.user(id: '预算', content: DecisionPayload.encode(
+        DecisionPayload.requestLanguage, {'state': state, 'questions': question}), createdAt: DateTime.utc(2026));
+      final built = await const AiPromptBuilder().buildSessionPrompt(templateBundle: bundle,
+        session: decisionSession([user]), model: config(), runtimeContext: runtime,
+        memoryEntries: runtime.memoryEntries, sessionMessages: [user]);
+      expect(built.memoryResourceIds.length, lessThanOrEqualTo(64));
+      expect(built.promptCharacterCount, lessThanOrEqualTo(DecisionPayload.maxCharacters));
+      final result = DecisionPayload.request(built.messages.single.content)['state'];
+      expect(result is Map ? result['input'] : result, state);
+    }
+  });
+  test('完整决策发送跳过钩子、工具和压缩，原文落库而记忆仅随请求发送', () async {
+    final directory = await Directory.systemTemp.createTemp('openhand_decision_');
+    final database = await DatabaseService.initialize(databasePath: '\${directory.path}/test.db');
+    final store = AiSessionStore(sessionsDirectoryPath: directory.path);
+    final hooks = DecisionHooks();
+    final usage = AiToolUsagePromotionStore(filePath: '\${directory.path}/usage.json');
+    final bodies = <Map<String, dynamic>>[];
+    var mismatch = false;
+    final client = AiChatService(client: MockClient((request) async {
+      expect(request.url.path, endsWith('/v1/systemone'));
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      bodies.add(body);
+      final questions = body['questions'] as Map;
+      return http.Response(jsonEncode({...response, 'answers': {
+        for (final entry in questions.entries) entry.key: switch (mismatch ? 'noul' : entry.value['type']) {
+          'choice' => {'type': 'choice', 'choice': '甲', 'probabilities': {'甲': .8, '乙': .2}},
+          'score' => {'type': 'score', 'score': .4, 'probabilities': {'0': .6, '1': .4}},
+          _ => {'type': 'noul', 'noul': .8},
+        },
+      }}), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+    }));
+    await store.save(decisionSession([]).copyWith(mode: AiSessionMode.plan));
+    final controller = await AiSessionController.create(store: store, chatClient: client,
+      hookService: hooks, toolRuntimeService: DecisionRuntime(), toolUsagePromotionStore: usage);
+    addTearDown(() async {
+      await controller.shutdown();
+      await usage.shutdown();
+      await database.close();
+      await directory.delete(recursive: true);
+    });
+    final original = DecisionPayload.encode(DecisionPayload.requestLanguage, {'state': '用户住在杭州吗？', 'questions': question});
+    expect(await controller.sendMessage(sessionId: '决策回归', content: original,
+      model: config(), runtimeContext: decisionContext(),
+      additionalSystemReminders: ['禁止携带的提醒'], selectedSkillMetadata: {'name': '禁止携带的技能'}), isTrue,
+      reason: controller.lastErrorMessageForSession('决策回归'));
+    expect(hooks.calls, 0);
+    expect(bodies, hasLength(1));
+    expect(bodies.single.keys.toSet(), {'model', 'state', 'questions'});
+    expect((bodies.single['state'] as Map)['user_memory'], contains('杭州'));
+    final saved = (await store.loadSession('决策回归'))!;
+    expect(saved.mode, AiSessionMode.chat);
+    expect(saved.title, DecisionPayload.title(original));
+    expect(saved.autoTitleAcquired, true);
+    final titleCalls = bodies.length;
+    expect(await controller.generateTitleManually(sessionId: saved.id, content: '不应覆盖的摘要', model: config(), maxTitleCharacters: 30), saved.title);
+    expect(bodies.length, titleCalls);
+    expect(saved.messages.where((message) => message.kind == AiSessionMessageKind.user).single.content, original);
+    expect(saved.messages.any((message) => message.kind == AiSessionMessageKind.hook), false);
+    final mixedQuestions = {
+      '选择': {'type': 'choice', 'instructions': '哪个候选项最符合？', 'criteria': {'甲': null, '乙': null}},
+      '评分': {'type': 'score', 'instructions': '评分', 'criteria': ['低', '高']},
+      ...question,
+    };
+    final inputs = [original];
+    for (final enabled in [false, true]) {
+      for (final questions in [for (final entry in mixedQuestions.entries) {entry.key: entry.value}, mixedQuestions]) {
+        final state = '第 \${inputs.length} 轮待评估内容';
+        final content = DecisionPayload.encode(DecisionPayload.requestLanguage, {'state': state, 'questions': questions});
+        inputs.add(content);
+        expect(await controller.sendMessage(sessionId: saved.id, content: content, model: config(),
+          runtimeContext: decisionContext(enabled: enabled), additionalSystemReminders: ['禁止携带的运行时提醒']), isTrue,
+          reason: controller.lastErrorMessageForSession(saved.id));
+        expect(bodies.last['questions'], questions);
+        expect(enabled ? (bodies.last['state'] as Map)['input'] : bodies.last['state'], state);
+        expect(jsonEncode(bodies.last), isNot(contains('openhand_runtime_context')));
+        final stored = (await store.loadSession(saved.id))!;
+        expect(stored.title, saved.title);
+        expect(stored.messages.where((message) => message.kind == AiSessionMessageKind.user).map((message) => message.content), inputs);
+        final answers = stored.messages.where((message) => message.kind == AiSessionMessageKind.assistant).toList();
+        expect(answers, hasLength(inputs.length));
+        final result = DecisionPayload.tryResult(answers.last.content.split('\\n')[1])!;
+        expect(result['questions'], questions);
+        for (final entry in questions.entries) {
+          expect(((result['answers'] as Map)[entry.key] as Map)['type'], entry.value['type']);
+        }
+      }
+    }
+    expect(hooks.calls, 0);
+    mismatch = true;
+    final beforeFailure = bodies.length;
+    expect(await controller.sendMessage(sessionId: saved.id, content: DecisionPayload.encode(
+      DecisionPayload.requestLanguage, {'state': '不能变成判断的选择题', 'questions': {'选择': mixedQuestions['选择']}}),
+      model: config(), runtimeContext: decisionContext()), false);
+    expect(bodies.length, beforeFailure + 1);
+    final failed = (await store.loadSession(saved.id))!;
+    expect(failed.messages.where((message) => message.kind == AiSessionMessageKind.assistant), hasLength(inputs.length));
+    expect(controller.lastErrorMessageForSession(saved.id), isNotEmpty);
+    final count = bodies.length;
+    expect(await controller.sendMessage(sessionId: saved.id, content: original, model: config(),
+      runtimeContext: decisionContext(), attachmentFilePaths: ['不支持的附件.txt']), false);
+    expect(bodies.length, count);
+  });
+  test('决策标题在重新打开、分页、切换模型和手动改名后不请求模型', () async {
+    final directory = await Directory.systemTemp.createTemp('openhand_decision_title_');
+    final database = await DatabaseService.initialize(databasePath: '\${directory.path}/test.db');
+    final store = AiSessionStore(sessionsDirectoryPath: directory.path);
+    final original = DecisionPayload.encode(DecisionPayload.requestLanguage, {
+      'state': '首条决策标题保留完整字符和标点！后续不覆盖', 'questions': question,
+    });
+    final first = AiSessionMessage.user(id: '首条', content: original, createdAt: DateTime.utc(2026));
+    final title = DecisionPayload.title(original);
+    await store.save(decisionSession([
+      first,
+      for (var i = 0; i < 160; i++) AiSessionMessage.user(
+        id: '后续-\$i', content: '后续普通消息', createdAt: DateTime.utc(2026, 1, 2)),
+    ]).copyWith(title: title, autoTitleAcquired: true, autoTitleSourceMessageId: first.id));
+    var requests = 0;
+    final client = AiChatService(client: MockClient((request) async {
+      requests++;
+      throw StateError('决策会话不得调用标题模型');
+    }));
+    final controller = await AiSessionController.create(store: store, chatClient: client);
+    addTearDown(() async {
+      await controller.shutdown();
+      await database.close();
+      await directory.delete(recursive: true);
+    });
+    const id = '决策回归';
+    await controller.selectSession(id);
+    await controller.ensureSessionMessageWindowHydrated(id);
+    expect(controller.sessionById(id)!.hasMoreHistoricalMessages, true);
+    expect(await controller.updateSessionLastUsedModel(id, providerConfigId: '普通提供商', modelId: '普通模型'), true);
+    final plainModel = config().copyWith(protocolType: AiProtocolType.openai);
+    expect(await controller.generateTitleManually(sessionId: id, content: '错误摘要', model: plainModel, maxTitleCharacters: 30), title);
+    expect(await controller.renameSession(id, '我手动选择的标题'), true);
+    expect(await controller.generateTitleManually(sessionId: id, content: original, model: plainModel, maxTitleCharacters: 30), '我手动选择的标题');
+    expect((await store.loadSession(id))!.title, '我手动选择的标题');
+    expect(requests, 0);
   });
   test('换行、缩进和长围栏不改变决策类型，未闭合配置拒绝发送', () {
     for (final type in DecisionPayload.types) {
@@ -427,6 +606,12 @@ void main() {
     ]))))));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    expect(find.text('决策结果'), findsNothing);
+    expect(find.text('决策请求'), findsNothing);
+    expect(find.text('按问题查看答案与概率分布'), findsNothing);
+    expect(find.text('结构化决策'), findsNothing);
+    expect(find.text('判断'), findsWidgets);
+    expect(find.text('成立吗？'), findsWidgets);
     await tester.runAsync(() async {
       final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
       final image = await boundary.toImage();

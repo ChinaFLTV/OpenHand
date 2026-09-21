@@ -5109,8 +5109,9 @@ class WebMessagePlatformService {
         'message': '当前模型不支持所选附件类型，请移除附件或切换模型。',
       });
     }
+    final isDecisionModel = model.usesDecisionProtocol;
     final selectedSkill = await _resolveWebSelectedSkill(
-      body['selected_skill'],
+      isDecisionModel ? null : body['selected_skill'],
     );
     if (selectedSkill.error != null) {
       await _deleteMaterializedAttachments(attachments);
@@ -5173,10 +5174,21 @@ class WebMessagePlatformService {
       WebGatewayConversationMode.audio => const <String>['audio'],
       _ => const <String>[],
     };
+    if (isDecisionModel &&
+        (creationRequest.isActive ||
+            responseModalities.isNotEmpty ||
+            body[aiVoiceCallIdKey] != null)) {
+      await _deleteMaterializedAttachments(attachments);
+      return _errorJson(HttpStatus.badRequest, 'decision_mode_not_supported');
+    }
     final goalOptionsRaw = body['goal_options'] ?? body['goalOptions'];
     final goalStartOptions = goalOptionsRaw == null
         ? null
         : AiSessionGoalStartOptions.fromJson(goalOptionsRaw);
+    if (isDecisionModel && goalOptionsRaw != null) {
+      await _deleteMaterializedAttachments(attachments);
+      return _errorJson(HttpStatus.badRequest, 'decision_mode_not_supported');
+    }
     if (goalOptionsRaw != null && goalStartOptions == null) {
       await _deleteMaterializedAttachments(attachments);
       return _errorJson(HttpStatus.badRequest, 'goal_options_invalid');
@@ -5196,7 +5208,8 @@ class WebMessagePlatformService {
         'goal_state': session.goalState.toJson(),
       });
     }
-    if (session.mode == AiSessionMode.goal &&
+    if (!isDecisionModel &&
+        session.mode == AiSessionMode.goal &&
         goalStartOptions == null &&
         !allowQueuedGoalInterruption) {
       await _deleteMaterializedAttachments(attachments);
@@ -5232,6 +5245,7 @@ class WebMessagePlatformService {
         });
     final runtimeContext = await _buildRuntimeContext(
       templateId: session.templateId,
+      decisionsOnly: isDecisionModel,
       skippedInstructionIds: skippedInstructionIds,
     );
     final phaseBeforeSend = _sessionController.sendPhaseForSession(session.id);
@@ -8543,8 +8557,19 @@ class WebMessagePlatformService {
 
   Future<AiSessionRuntimeContext> _buildRuntimeContext({
     required String templateId,
+    bool decisionsOnly = false,
     Set<String> skippedInstructionIds = const <String>{},
   }) async {
+    if (decisionsOnly) {
+      return buildAiDecisionRuntimeContext(
+        settingsController: _settingsController,
+        appInfo: _appInfo,
+        appThemeBrightness: _resolveEffectiveBrightness(),
+        memoryEntries: _settingsController.memoryEnabled
+            ? await _memoryController.trustedEntriesSnapshot() ?? const []
+            : const [],
+      );
+    }
     await _mcpController.ensureRuntimeToolCatalogs();
     final memoryEnabled = _settingsController.memoryEnabled;
     final memoryEntries = memoryEnabled

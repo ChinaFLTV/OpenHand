@@ -304,6 +304,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     super.initState();
     widget.onStateCreated?.call(this);
     widget.controller.addListener(_handleTextChangedForAtMention);
+    _scheduleDecisionModeSync();
     widget.controller.addListener(_handleTextChangedForSlashSkill);
     widget.voiceConversationService.addListener(
       _handleVoiceConversationChanged,
@@ -314,15 +315,35 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _attachComposerFocusListener(widget.focusNode);
   }
 
+  void _scheduleDecisionModeSync() {
+    if (!_isDecisionModel) return;
+    final sessionId = widget.currentSession?.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_isDecisionModel ||
+          widget.currentSession?.id != sessionId) {
+        return;
+      }
+      _dismissSkillPickerOverlay(remember: false);
+      _dismissAtMentionOverlay();
+      _clearSelectedSkill();
+      if (widget.creationMode != _CreationMode.none) {
+        widget.onCreationModeChanged(_CreationMode.none);
+      }
+      if (widget.sessionMode != AiSessionMode.chat &&
+          widget.currentSession?.hasActiveGoal != true) {
+        widget.onSessionModeChanged(AiSessionMode.chat);
+      }
+      if (widget.voiceModeSelected) unawaited(widget.onStopVoiceConversation());
+    });
+  }
+
   @override
   void didUpdateWidget(covariant _ComposerPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     final wasDecisionModel =
-        oldWidget.selectedModel?.usesDecisionProtocol ==
-        true;
-    final isDecisionModel =
-        widget.selectedModel?.usesDecisionProtocol ==
-        true;
+        oldWidget.selectedModel?.usesDecisionProtocol == true;
+    final isDecisionModel = widget.selectedModel?.usesDecisionProtocol == true;
     if (oldWidget.currentSession?.id == widget.currentSession?.id &&
         oldWidget.controller == widget.controller &&
         wasDecisionModel &&
@@ -340,6 +361,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       } on FormatException {
         // 普通模型继续使用当前文本，不阻断模型切换。
       }
+    }
+    if (isDecisionModel &&
+        (!wasDecisionModel ||
+            oldWidget.currentSession?.id != widget.currentSession?.id)) {
+      _scheduleDecisionModeSync();
     }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_handleTextChangedForAtMention);
@@ -548,6 +574,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _handleTextChangedForAtMention() {
+    if (_isDecisionModel) return;
     if (_atMentionSuppressListener) return;
     final trigger = _computeAtMentionTrigger();
     if (trigger == null) {
@@ -968,6 +995,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _handleTextChangedForSlashSkill() {
+    if (_isDecisionModel) return;
     if (_atMentionSuppressListener) return;
     if (_selectedSkill != null) {
       _dismissSkillPickerOverlay(remember: false);
@@ -1271,6 +1299,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   /// 消费当前技能并生成本轮隐藏提醒，不修改输入框与会话展示文本。
   String? consumePendingSkillReminder() {
+    if (_isDecisionModel) return null;
     final skill = _selectedSkill;
     if (skill == null) return null;
     final reminder = buildLocalSkillSystemReminder(
@@ -1420,7 +1449,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
     final voiceSnapshot = widget.voiceConversationSnapshot();
-    final voiceActive = widget.voiceModeSelected;
+    final voiceActive = !_isDecisionModel && widget.voiceModeSelected;
     final voiceRuntimeActive = voiceSnapshot.active;
     final effectiveCollapsed = widget.isCollapsed && !voiceActive;
     final persistedModelId = widget.currentSession?.lastUsedModelLabel?.trim();
@@ -1475,7 +1504,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       settings.aiModels,
     );
     final voiceModeAvailable =
-        widget.currentSession != null && voiceAvailability.available;
+        !_isDecisionModel &&
+        widget.currentSession != null &&
+        voiceAvailability.available;
     final modelSelectionLocked = _isModelSelectionLocked(settings);
     final modelLockReason = _inputCacheModelLockReason(context);
     final canStopSending = widget.canStopSending;
@@ -1483,7 +1514,17 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final hasActiveGoal = activeGoal?.isActive == true;
     final voiceModeActionEnabled =
         voiceModeAvailable && !isBusy && !hasActiveGoal;
-    final voiceModeUnavailableReason = widget.currentSession == null
+    final voiceModeUnavailableReason = _isDecisionModel
+        ? openHandLocalizedText(
+            context,
+            zh: '结构化决策不支持语音沟通。',
+            zhHant: '結構化決策不支援語音通話。',
+            en: 'Voice conversations are unavailable for structured decisions.',
+            fr: 'Les conversations vocales ne sont pas disponibles pour les décisions structurées.',
+            de: 'Sprachgespräche sind für strukturierte Entscheidungen nicht verfügbar.',
+            ja: '構造化決策では音声通話を利用できません。',
+          )
+        : widget.currentSession == null
         ? openHandLocalizedText(
             context,
             zh: '请先创建或打开一个会话。',
@@ -1507,7 +1548,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final manualSendLockedByGoal = hasActiveGoal && !canStopSending;
     final modeToggleEnabled =
         widget.sendPhase == AiSendPhase.idle && !hasActiveGoal;
-    final runtimeStatus = widget.currentSession == null
+    final runtimeStatus = _isDecisionModel || widget.currentSession == null
         ? null
         : _runtimeToolCatalogStatus(
             widget.currentSession!,
@@ -1536,7 +1577,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final expandedContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_selectedSkill != null) ...[
+        if (!_isDecisionModel && _selectedSkill != null) ...[
           AnimatedRemovableChip(
             key: ValueKey('skill:${_selectedSkill!.manifestPath}'),
             settings: chipAnim,
@@ -2141,7 +2182,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 const SizedBox(width: _composerActionControlGap),
                 _ComposerFullAccessModeButton(
                   fullAccess: widget.fullAccessPermission,
-                  enabled: true,
+                  enabled: !_isDecisionModel,
                   onChanged: (bool value) {
                     if (value != widget.fullAccessPermission) {
                       widget.onToggleFullAccessPermission(value);
@@ -2152,13 +2193,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 Tooltip(
                   message: _composerModeTooltip(
                     context,
-                    widget.sessionMode,
+                    _isDecisionModel ? AiSessionMode.chat : widget.sessionMode,
                     runtimeStatus,
                   ),
                   child: _ComposerModeButton(
-                    mode: widget.sessionMode,
+                    mode: _isDecisionModel
+                        ? AiSessionMode.chat
+                        : widget.sessionMode,
                     runtimeStatus: runtimeStatus,
-                    enabled: modeToggleEnabled,
+                    enabled: modeToggleEnabled && !_isDecisionModel,
                     availableModes: <AiSessionMode>[
                       AiSessionMode.chat,
                       AiSessionMode.plan,
@@ -2302,14 +2345,18 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         ),
         kOpenHandHGap10,
         _ComposerCreationModeButton(
-          creationMode: widget.creationMode,
+          creationMode: _isDecisionModel
+              ? _CreationMode.none
+              : widget.creationMode,
+          enabled: !_isDecisionModel,
           onCreationModeChanged: widget.onCreationModeChanged,
         ),
         // LayoutBuilder 内仅使用绘制层淡入淡出，避免逐帧重建触发布局断言。
         AnimatedSwitcher(
           duration: openHandMotionDuration(context, kOpenHandMotion240),
           child:
-              widget.creationMode != _CreationMode.none &&
+              !_isDecisionModel &&
+                  widget.creationMode != _CreationMode.none &&
                   widget.onEditOptionsRequested != null
               ? Padding(
                   key: ValueKey<String>(
@@ -2543,8 +2590,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   bool get _isDecisionModel =>
-      widget.selectedModel?.usesDecisionProtocol ==
-      true;
+      widget.selectedModel?.usesDecisionProtocol == true;
 }
 
 class _DecisionComposerForm extends StatefulWidget {
@@ -3747,8 +3793,10 @@ class _ComposerCreationModeButton extends StatefulWidget {
   const _ComposerCreationModeButton({
     required this.creationMode,
     required this.onCreationModeChanged,
+    this.enabled = true,
   });
 
+  final bool enabled;
   final _CreationMode creationMode;
   final ValueChanged<_CreationMode> onCreationModeChanged;
 
@@ -3813,13 +3861,15 @@ class _ComposerCreationModeButtonState
           duration: openHandMotionDuration(context, kOpenHandMotion340),
           curve: kOpenHandEmphasizedCurve,
           child: FilledButton(
-            onPressed: () {
-              if (isActive) {
-                _deferModeChange(_CreationMode.none);
-                return;
-              }
-              _showCreationMenu();
-            },
+            onPressed: !widget.enabled
+                ? null
+                : () {
+                    if (isActive) {
+                      _deferModeChange(_CreationMode.none);
+                      return;
+                    }
+                    _showCreationMenu();
+                  },
             style: FilledButton.styleFrom(
               padding: EdgeInsets.zero,
               minimumSize: const Size(52, 52),

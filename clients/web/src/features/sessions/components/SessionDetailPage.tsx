@@ -4725,6 +4725,8 @@ export function SessionDetailPage() {
   const selectedModel = useMemo(() => allowedModels.find((model) => model.key === composerModelKey), [allowedModels, composerModelKey]);
   const persistedModelName = detail?.session.last_used_model_label?.trim() ?? '';
   const selectedModelUnavailable = !selectedModel && Boolean(persistedModelName);
+  const isDecisionModel = selectedModel?.supports_decisions === true;
+  const decisionSkippedInstructions = useMemo(() => new Set(availableInstructions.map(entry => entry.id)), [availableInstructions]);
   const voiceConversation = useVoiceConversation({
     sessionId,
     messages,
@@ -4732,6 +4734,7 @@ export function SessionDetailPage() {
     onStop: () => composerTextareaRef.current?.focus(),
     onError: (message) => showSnackbar(message, { tone: 'error' }),
     submit: async (text, callId) => {
+      if (isDecisionModel) return;
       const target = sessionId;
       setComposerSending(true);
       lastLocalSendAtRef.current = Date.now();
@@ -4741,7 +4744,7 @@ export function SessionDetailPage() {
           modelKey: composerModelKey,
           mode: 'normal',
           voiceCallId: callId,
-          skippedInstructionIds: Array.from(skippedInstructionIds),
+          skippedInstructionIds: Array.from(isDecisionModel ? decisionSkippedInstructions : skippedInstructionIds),
         });
         if (!ownsSessionAsyncResult(target)) return;
         updateSendPhaseValue(result.send_phase || 'sendingMessage');
@@ -4751,7 +4754,15 @@ export function SessionDetailPage() {
       }
     },
   });
-  const isDecisionModel = selectedModel?.supports_decisions === true;
+  useEffect(() => {
+    if (!isDecisionModel) return;
+    setComposerMode('normal');
+    setSelectedSkill(null);
+    setSkillPickerOpen(false);
+    setAtMentionFilePickerOpen(false);
+    setShowCreationOptions(null);
+    if (voiceConversation.active) voiceConversation.stop();
+  }, [isDecisionModel, sessionId, voiceConversation.active]);
   const previousDecisionModelRef = useRef({ sessionId, isDecisionModel });
   useEffect(() => {
     const previous = previousDecisionModelRef.current;
@@ -4769,9 +4780,10 @@ export function SessionDetailPage() {
     );
   }, [allowedModels, composerModelKey, detail?.session.last_model_key, meta?.active_model_key]);
   const modelAllowedModes = useMemo(() => {
+    if (isDecisionModel) return ['normal'];
     const filtered = allowedModes.filter((mode) => modelSupportsMode(selectedModel, mode));
     return filtered.length > 0 ? filtered : ['normal'];
-  }, [allowedModes, selectedModel]);
+  }, [allowedModes, selectedModel, isDecisionModel]);
   const composerModeOptions = useMemo(() => allComposerModes(allowedModes), [allowedModes]);
   const allowedMessageTypes = useMemo<string[]>(() => meta?.message_types ?? ['text', 'attachment'], [meta]);
   const sessionModeOptions = useMemo<SessionMode[]>(() => {
@@ -4781,7 +4793,7 @@ export function SessionDetailPage() {
     return modes;
   }, [goalModeAvailable, meta?.service?.plan_mode_enabled]);
   const attachmentsAllowed =
-    allowedMessageTypes.includes('attachment') &&
+    !isDecisionModel && allowedMessageTypes.includes('attachment') &&
     (modelSupportsAttachmentKind(selectedModel, 'image') || modelSupportsAttachmentKind(selectedModel, 'file'));
   const attachmentAccept = useMemo(() => attachmentAcceptForModel(selectedModel), [selectedModel]);
   const textAllowed = allowedMessageTypes.includes('text');
@@ -4829,7 +4841,7 @@ export function SessionDetailPage() {
   }
 
   function queuedSelectedSkillPayload(): QueuedComposerMessage['selectedSkill'] {
-    return selectedSkill
+    return !isDecisionModel && selectedSkill
       ? {
           name: selectedSkill.name,
           relative_directory_path: selectedSkill.relative_directory_path,
@@ -5020,8 +5032,9 @@ export function SessionDetailPage() {
         modelKey: next.modelKey,
         mode: next.mode,
         attachments: next.attachments,
-        selectedSkill: next.selectedSkill,
-        skippedInstructionIds: next.skippedInstructionIds,
+        selectedSkill: queuedModel?.supports_decisions ? null : next.selectedSkill,
+        skippedInstructionIds: queuedModel?.supports_decisions
+          ? Array.from(decisionSkippedInstructions) : next.skippedInstructionIds,
         allowQueuedGoalInterruption: true,
       });
       removeCachedQueuedMessage(dispatchSessionId, next.id);
@@ -5453,6 +5466,11 @@ export function SessionDetailPage() {
   }
 
   function updateAtMentionFilePickerForText(text: string, cursor: number): void {
+    if (isDecisionModel) {
+      setAtMentionFilePickerOpen(false);
+      setAtMentionFilePickerQuery('');
+      return;
+    }
     const trigger = computeAtMentionTrigger(text, cursor);
     if (!trigger) {
       if (atMentionTriggerOffsetRef.current != null) {
@@ -5566,7 +5584,7 @@ export function SessionDetailPage() {
   }
 
   function updateSkillPickerForText(text: string, cursor: number): void {
-    if (selectedSkill) {
+    if (isDecisionModel || selectedSkill) {
       setSkillPickerOpen(false);
       return;
     }
@@ -5587,7 +5605,7 @@ export function SessionDetailPage() {
     slashDismissalRef.current = null;
     slashTriggerOffsetRef.current = trigger.triggerOffset;
     setSkillPickerQuery(trigger.query);
-    setSkillPickerOpen(true);
+    setSkillPickerOpen(!isDecisionModel);
     setAtMentionFilePickerOpen(false);
     setSkillPickerSelectedIndex(0);
     void ensureSkillsLoadedForPicker();
@@ -6042,7 +6060,7 @@ export function SessionDetailPage() {
       const res = await sendMessage(requestSessionId, {
         content: text,
         modelKey: composerModelKey,
-        mode: composerMode,
+        mode: isDecisionModel ? 'normal' : composerMode,
         attachments: composerAttachments,
         creationOptions:
           composerMode === 'image' || composerMode === 'video' || composerMode === 'audio'
@@ -6071,13 +6089,13 @@ export function SessionDetailPage() {
                 pitch: creationOptions.pitch,
               }
             : undefined,
-        selectedSkill: selectedSkill
+        selectedSkill: !isDecisionModel && selectedSkill
           ? {
               name: selectedSkill.name,
               relative_directory_path: selectedSkill.relative_directory_path,
             }
           : null,
-        skippedInstructionIds: Array.from(skippedInstructionIds),
+        skippedInstructionIds: Array.from(isDecisionModel ? decisionSkippedInstructions : skippedInstructionIds),
         goalOptions,
       });
       clearCachedComposerInput(requestSessionId);
@@ -6259,11 +6277,11 @@ export function SessionDetailPage() {
   }
 
   const effectiveLoadingDetail = loadingDetail || Boolean(detail && !detailBelongsToRoute);
-  const currentSessionMode: SessionMode = session?.mode === 'plan' || session?.mode === 'goal' ? session.mode : 'chat';
+  const currentSessionMode: SessionMode = isDecisionModel ? 'chat' : session?.mode === 'plan' || session?.mode === 'goal' ? session.mode : 'chat';
   const canToggleSessionMode =
-    !hasModeLockedGoal && sessionModeOptions.length > 1;
+    !isDecisionModel && !hasModeLockedGoal && sessionModeOptions.length > 1;
   async function applySessionMode(next: SessionMode): Promise<void> {
-    if (!sessionId) return;
+    if (!sessionId || isDecisionModel) return;
     if (hasModeLockedGoal) {
       showSnackbar(t('goal.mode.locked', '目标执行期间不能切换会话模式'), { tone: 'error' });
       return;
@@ -6912,7 +6930,7 @@ export function SessionDetailPage() {
                     return {
                       key: mode,
                       label: active ? `${label} · ${t('common.current', '当前')}` : `${label}${suffix}`,
-                      disabled: composerSending || active || !serviceAllowed || !modelAllowed,
+                      disabled: isDecisionModel || composerSending || active || !serviceAllowed || !modelAllowed,
                       selected: active,
                       onClick: () => {
                         setComposerMode(mode);
@@ -6924,7 +6942,7 @@ export function SessionDetailPage() {
                     };
                   })}
                   trigger={({ open, toggle }) => (
-                    <button type="button" onClick={toggle} disabled={composerSending} class="oh-composer-control oh-composer-mode-control oh-tap-press is-tonal disabled:opacity-50" aria-expanded={open} title={t('composer.mode', '模式')}>
+                    <button type="button" onClick={toggle} disabled={composerSending || isDecisionModel} class="oh-composer-control oh-composer-mode-control oh-tap-press is-tonal disabled:opacity-50" aria-expanded={open} title={t('composer.mode', '模式')}>
                       <span key={`composer-mode-icon-${composerMode}`} class="oh-composer-control-icon oh-soft-replace">
                         <ComposerIcon name={composerModeIconName(composerMode)} />
                       </span>
@@ -6966,8 +6984,8 @@ export function SessionDetailPage() {
             {availableInstructions.length > 0 ? (
               <ComposerInstructionsStrip
                 entries={availableInstructions}
-                skipped={skippedInstructionIds}
-                disabled={composerSending}
+                skipped={isDecisionModel ? decisionSkippedInstructions : skippedInstructionIds}
+                disabled={composerSending || isDecisionModel}
                 onToggle={(id) => {
                   setSkippedInstructionIds((prev) => {
                     const next = new Set(prev);
@@ -7012,7 +7030,7 @@ export function SessionDetailPage() {
                 </span>
                 {composerModeLabel(composerMode)}
               </span>
-              {selectedSkill ? (
+              {!isDecisionModel && selectedSkill ? (
                 <span class={`oh-composer-pill oh-composer-skill-pill oh-composer-chip-motion ${composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`) ? 'is-exiting' : ''}`} title={selectedSkill.name}>
                   <span class="oh-composer-pill-icon">{selectedSkill.emoji_icon || <ComposerIcon name="spark" size={16} />}</span>
                   <span class="truncate max-w-[180px]">{selectedSkill.name}</span>
@@ -7369,7 +7387,7 @@ export function SessionDetailPage() {
           <div class="oh-composer-footer flex flex-wrap items-center gap-2 mt-3" data-collapsed={composerCollapsed ? 'true' : 'false'} aria-hidden={composerCollapsed ? 'true' : undefined} {...(composerCollapsed ? { inert: true } : {})}>
             <button type="button"
               onClick={() => voiceConversation.active ? voiceConversation.stop() : voiceConversation.start()}
-              disabled={!voiceConversation.active && (!voiceConversation.supported || composerSending || responseRunning || hasModeLockedGoal || composerMode !== 'normal' || !selectedModel)}
+              disabled={isDecisionModel || !voiceConversation.active && (!voiceConversation.supported || composerSending || responseRunning || hasModeLockedGoal || composerMode !== 'normal' || !selectedModel)}
               aria-pressed={voiceConversation.active}
               title={voiceConversation.supported ? '语音沟通中可说“挂了吧”结束通话' : '语音沟通需要支持语音识别的浏览器与 HTTPS 或本机连接'}
               class={`oh-tap-press oh-composer-footer-action oh-voice-control ${voiceConversation.active ? 'is-active' : ''}`}>

@@ -44,6 +44,24 @@ String _deriveSessionTitle(
   AiSession session,
   AiSessionMessage latestUserMessage,
 ) {
+  if (session.isTitleManuallyEdited) return session.title;
+  if (session.hasMoreHistoricalMessages && session.messageTotalCount > 0) {
+    return session.title;
+  }
+  final firstUserMessage =
+      session.messages
+          .where(
+            (message) =>
+                !message.isDeleted && message.kind == AiSessionMessageKind.user,
+          )
+          .firstOrNull ??
+      latestUserMessage;
+  if (_isDecisionTitleSource(firstUserMessage)) {
+    final source = firstUserMessage.id == latestUserMessage.id
+        ? latestUserMessage
+        : firstUserMessage;
+    return DecisionPayload.title(source.content);
+  }
   final hasExistingUserMessages = session.messages.any(
     (message) =>
         !message.isDeleted && message.kind == AiSessionMessageKind.user,
@@ -51,8 +69,7 @@ String _deriveSessionTitle(
   if (hasExistingUserMessages &&
       session.title.trim().isNotEmpty &&
       session.title.trim() != session.templateName &&
-      session.autoTitleSourceMessageId != latestUserMessage.id &&
-      !session.isTitleManuallyEdited) {
+      session.autoTitleSourceMessageId != latestUserMessage.id) {
     return session.title;
   }
   final derivedTitle = _deriveReadableTitleFromContent(
@@ -61,6 +78,10 @@ String _deriveSessionTitle(
   );
   return derivedTitle.isEmpty ? session.title : derivedTitle;
 }
+
+bool _isDecisionTitleSource(AiSessionMessage message) =>
+    message.metadata[DecisionPayload.requestMetadataKey] == true ||
+    DecisionPayload.containsRequest(message.content);
 
 String sanitizeAiGeneratedTitle(String value) {
   var normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');

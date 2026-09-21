@@ -371,6 +371,8 @@ class _WorkspaceView extends StatelessWidget {
                             kOpenHandGap16,
                             _ComposerInstructionsStrip(
                               skippedIds: skippedInstructionIds,
+                              disabled:
+                                  selectedModel?.usesDecisionProtocol == true,
                               onToggle: onToggleInstructionSkip,
                             ),
                           ],
@@ -720,10 +722,12 @@ class _ComposerInstructionsStrip extends StatelessWidget {
   const _ComposerInstructionsStrip({
     required this.skippedIds,
     required this.onToggle,
+    this.disabled = false,
   });
 
   final Set<String> skippedIds;
   final ValueChanged<String>? onToggle;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
@@ -742,8 +746,10 @@ class _ComposerInstructionsStrip extends StatelessWidget {
           for (final entry in entries)
             _ComposerInstructionChip(
               entry: entry,
-              skipped: skippedIds.contains(entry.id),
-              onPressed: onToggle == null ? null : () => onToggle!(entry.id),
+              skipped: disabled || skippedIds.contains(entry.id),
+              onPressed: disabled || onToggle == null
+                  ? null
+                  : () => onToggle!(entry.id),
               theme: theme,
             ),
         ],

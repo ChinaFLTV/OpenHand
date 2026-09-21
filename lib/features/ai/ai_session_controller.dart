@@ -25,6 +25,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
+import '../../shared/util/decision_payload.dart';
 import '../../shared/util/directory_cleanup.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/json_schema_fields.dart';
@@ -800,6 +801,26 @@ class AiSessionController extends ChangeNotifier {
     required int maxTitleCharacters,
     Future<void>? cancelSignal,
   }) async {
+    final current = await ensureSessionMessagesHydrated(sessionId);
+    if (current == null || current.hasMoreHistoricalMessages) return null;
+    final firstUser = current.messages
+        .where(
+          (message) =>
+              !message.isDeleted && message.kind == AiSessionMessageKind.user,
+        )
+        .firstOrNull;
+    if (firstUser != null && _isDecisionTitleSource(firstUser)) {
+      if (current.isTitleManuallyEdited) return current.title;
+      final title = DecisionPayload.title(firstUser.content);
+      final committed = await _commitSessionLocked(
+        current.copyWith(
+          title: title,
+          autoTitleAcquired: true,
+          autoTitleSourceMessageId: firstUser.id,
+        ),
+      );
+      return committed ? title : null;
+    }
     final autoTitleSystemPrompt = await _templateRepository
         .loadAutoTitleSystemPrompt(
           maxTitleCharacters: maxTitleCharacters,
@@ -899,6 +920,7 @@ class AiSessionController extends ChangeNotifier {
   final AiPromptBuilder _promptBuilder;
   final AiBashToolService _bashToolService;
   final AiClaudeHookService _hookService;
+  final Map<String, bool> _requestDecisionModes = <String, bool>{};
   final HooksExecutor? _userHooksExecutor;
   final AiToolRuntimeService _toolRuntimeService;
   final AiToolUsagePromotionStore _toolUsagePromotionStore;
@@ -2630,6 +2652,29 @@ class AiSessionController extends ChangeNotifier {
 
   /// 检查会话是否需要重试获取标题，如果需要则发起重试请求。
   Future<void> _retryAutoTitleIfNeeded(AiSession session) async {
+    final firstUser = session.messages
+        .where(
+          (message) =>
+              !message.isDeleted && message.kind == AiSessionMessageKind.user,
+        )
+        .firstOrNull;
+    if (!session.hasMoreHistoricalMessages &&
+        firstUser != null &&
+        _isDecisionTitleSource(firstUser)) {
+      final title = session.title.trim();
+      if (!session.isTitleManuallyEdited &&
+          title.startsWith('openhand-') &&
+          DecisionPayload.requestLanguage.startsWith(title)) {
+        await _commitSessionLocked(
+          session.copyWith(
+            title: DecisionPayload.title(firstUser.content),
+            autoTitleAcquired: true,
+            autoTitleSourceMessageId: firstUser.id,
+          ),
+        );
+      }
+      return;
+    }
     // 已手动编辑标题 / 已成功获取标题 → 无需重试
     if (session.isTitleManuallyEdited || session.autoTitleAcquired) {
       return;
@@ -2639,6 +2684,7 @@ class AiSessionController extends ChangeNotifier {
     if (firstUserContent == null || firstUserContent.trim().isEmpty) {
       return;
     }
+    if (DecisionPayload.containsRequest(firstUserContent)) return;
     // 重试次数已达上限 → 放弃
     final maxRetry = _autoTitleMaxRetryCount;
     if (session.autoTitleRetryCount >= maxRetry) {
@@ -6499,6 +6545,7 @@ class AiSessionController extends ChangeNotifier {
     bool allowQueuedGoalInterruption = false,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
+    final isDecisionModel = model.usesDecisionProtocol;
     final normalizedContent = content.trim();
     final normalizedAttachmentPaths = _normalizeAttachmentPaths(
       attachmentFilePaths,
@@ -6541,6 +6588,29 @@ class AiSessionController extends ChangeNotifier {
         _clearSessionExecutionState(session.id);
         notifyListeners();
         return true;
+      }
+      if (isDecisionModel) {
+        if (normalizedAttachmentPaths.isNotEmpty ||
+            (attachmentContext?.current.isNotEmpty ?? false) ||
+            creationRequest.isActive ||
+            responseModalities.isNotEmpty ||
+            goalStartOptions != null ||
+            allowGoalContinuation ||
+            userMessageMetadata?[aiVoiceCallIdKey] != null ||
+            session.hasActiveGoal) {
+          _clearSessionExecutionState(session.id);
+          _setLastSendErrorMessage(
+            session.id,
+            'Jev 仅支持文本决策，请移除附件并停止目标、媒体或语音任务。',
+          );
+          notifyListeners();
+          return false;
+        }
+        session = session.copyWith(
+          mode: AiSessionMode.chat,
+          awaitingPlanApproval: false,
+          clearPendingPlan: true,
+        );
       }
       final isGoalContinuation =
           allowGoalContinuation ||
@@ -6640,6 +6710,7 @@ class AiSessionController extends ChangeNotifier {
         return true;
       }
 
+      _requestDecisionModes[session.id] = isDecisionModel;
       try {
         final previousEnvironment = session.environment;
         final previousPromptMetadata = session.lastPromptMetadata;
@@ -6659,17 +6730,19 @@ class AiSessionController extends ChangeNotifier {
           environment: _environmentFromRuntime(runtimeContext),
         );
         final userPromptHooksStopwatch = Stopwatch()..start();
-        final userHookResult = await _hookService.runHooks(
-          eventName: 'UserPromptSubmit',
-          sessionId: session.id,
-          matcherValue: '',
-          cwd: OpenHandPaths.applicationDirectoryPath(),
-          payload: <String, Object?>{
-            'prompt': normalizedContent,
-            'user_prompt': normalizedContent,
-            'userPrompt': normalizedContent,
-          },
-        );
+        final userHookResult = isDecisionModel
+            ? const AiClaudeHookInvocationResult()
+            : await _hookService.runHooks(
+                eventName: 'UserPromptSubmit',
+                sessionId: session.id,
+                matcherValue: '',
+                cwd: OpenHandPaths.applicationDirectoryPath(),
+                payload: <String, Object?>{
+                  'prompt': normalizedContent,
+                  'user_prompt': normalizedContent,
+                  'userPrompt': normalizedContent,
+                },
+              );
         await _safeRunUserHook(
           event: HookEvent.userPromptSubmit,
           sessionId: session.id,
@@ -6681,7 +6754,7 @@ class AiSessionController extends ChangeNotifier {
         sendPreflightTimingsMs['user_prompt_hooks'] =
             userPromptHooksStopwatch.elapsedMilliseconds;
         // 用户 Hook 可能已保存消息，因此重新读取会话。
-        session = _sessionById(session.id) ?? session;
+        if (!isDecisionModel) session = _sessionById(session.id) ?? session;
         if (userHookResult.blocked) {
           final blockedSession = _appendError(
             session,
@@ -6712,7 +6785,8 @@ class AiSessionController extends ChangeNotifier {
         // 调用方提供的系统提醒与 Hook 提醒共用元数据键，仅发送给模型，
         // 不改变持久化的用户原文，也不会在会话气泡中显示内部 XML。
         final sanitizedExtraReminders = <String>[
-          for (final reminder in additionalSystemReminders)
+          for (final reminder
+              in isDecisionModel ? const <String>[] : additionalSystemReminders)
             if (reminder.trim().isNotEmpty) reminder.trim(),
         ];
         if (sanitizedExtraReminders.isNotEmpty) {
@@ -6726,7 +6800,9 @@ class AiSessionController extends ChangeNotifier {
           nextUserMessageMetadata[aiHookSystemRemindersMetadataKey] = existing;
         }
         // 保存用户显式选择的技能，仅供会话气泡展示；模型使用上方提醒中的清单。
-        if (selectedSkillMetadata != null && selectedSkillMetadata.isNotEmpty) {
+        if (!isDecisionModel &&
+            selectedSkillMetadata != null &&
+            selectedSkillMetadata.isNotEmpty) {
           nextUserMessageMetadata[aiUserSkillSelectionMetadataKey] =
               Map<String, Object?>.from(selectedSkillMetadata);
         }
@@ -6812,11 +6888,9 @@ class AiSessionController extends ChangeNotifier {
             return true;
           }
         }
-        final shouldCompress = _shouldCompressSessionHistory(
-          session,
-          runtimeContext,
-          model,
-        );
+        final shouldCompress =
+            !isDecisionModel &&
+            _shouldCompressSessionHistory(session, runtimeContext, model);
         if (revealUserMessageBeforePreflight &&
             _editingMessageId == null &&
             !shouldCompress) {
@@ -6859,11 +6933,13 @@ class AiSessionController extends ChangeNotifier {
           return true;
         }
         final compressionStopwatch = Stopwatch()..start();
-        final compressedSession = await _compressIfNeeded(
-          session: session,
-          model: model,
-          runtimeContext: runtimeContext,
-        );
+        final compressedSession = isDecisionModel
+            ? session
+            : await _compressIfNeeded(
+                session: session,
+                model: model,
+                runtimeContext: runtimeContext,
+              );
         if (preflightStopped()) {
           return true;
         }
@@ -6980,6 +7056,7 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
 
         final shouldScheduleAutoTitle =
+            !isDecisionModel &&
             preparedUserTurnWithMetadata.shouldGenerateTitle &&
             runtimeContext.autoTitleEnabled;
         if (shouldScheduleAutoTitle) {
@@ -7039,7 +7116,9 @@ class AiSessionController extends ChangeNotifier {
           );
         }
 
-        if (selectedSkillMetadata != null && selectedSkillMetadata.isNotEmpty) {
+        if (!isDecisionModel &&
+            selectedSkillMetadata != null &&
+            selectedSkillMetadata.isNotEmpty) {
           await _recordResourceUsage(
             sessionId: session.id,
             kind: AiResourceUsageKind.skill,
@@ -7084,6 +7163,7 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
         return false;
       } finally {
+        _requestDecisionModes.remove(resolvedSessionId);
         _clearSessionExecutionState(resolvedSessionId);
         notifyListeners();
       }
@@ -7311,10 +7391,12 @@ class AiSessionController extends ChangeNotifier {
     final templateBundleFuture = _templateRepository.loadBundle(
       session.templateId,
     );
-    final fullCatalogFuture = _toolRuntimeService.resolveCatalog(
-      runtimeContext: runtimeContext,
-      templateId: session.templateId,
-    );
+    final fullCatalogFuture = model.usesDecisionProtocol
+        ? Future<AiResolvedToolCatalog>.value(_emptyToolCatalog)
+        : _toolRuntimeService.resolveCatalog(
+            runtimeContext: runtimeContext,
+            templateId: session.templateId,
+          );
     final adapter = AiProtocolRegistry.adapterForModel(model);
     final supportsNativeToolCalls = adapter.supportsToolCalls;
     // 原生函数调用不可用时，仍通过系统提示词和 DSML 向模型提供完整工具目录。
@@ -11711,6 +11793,12 @@ $tail''';
     AiAttachmentContextInput? attachmentContext,
     Map<String, Object?> userMessageMetadata = const <String, Object?>{},
   }) async {
+    if (model.usesDecisionProtocol) {
+      userMessageMetadata = {
+        ...userMessageMetadata,
+        DecisionPayload.requestMetadataKey: true,
+      };
+    }
     final now = _clock().toUtc();
     final visibleUserMessageCount = session.messages
         .where(
@@ -11779,6 +11867,7 @@ $tail''';
           session: updatedSession,
           userMessage: editedMessage,
           shouldGenerateTitle:
+              !model.usesDecisionProtocol &&
               !updatedSession.isTitleManuallyEdited &&
               visibleUserMessageCount == 1 &&
               editedMessage.content.trim().isNotEmpty,
@@ -11846,6 +11935,7 @@ $tail''';
           ),
         );
     final shouldKeepDefaultTitle =
+        !model.usesDecisionProtocol &&
         isFirstVisibleUserMessage &&
         !session.isTitleManuallyEdited &&
         session.autoTitleGeneratedAt == null &&
@@ -11856,6 +11946,14 @@ $tail''';
     final updatedSession = _rebuildSession(
       session.copyWith(
         title: nextTitle,
+        autoTitleAcquired:
+            isFirstVisibleUserMessage && model.usesDecisionProtocol
+            ? true
+            : null,
+        autoTitleSourceMessageId:
+            isFirstVisibleUserMessage && model.usesDecisionProtocol
+            ? userMessage.id
+            : null,
         updatedAt: now,
         messages: <AiSessionMessage>[...session.messages, userMessage],
         environment: _environmentFromRuntime(runtimeContext),
@@ -11867,6 +11965,7 @@ $tail''';
       session: updatedSession,
       userMessage: userMessage,
       shouldGenerateTitle:
+          !model.usesDecisionProtocol &&
           !updatedSession.isTitleManuallyEdited &&
           isFirstVisibleUserMessage &&
           content.trim().isNotEmpty,
@@ -11884,12 +11983,24 @@ $tail''';
     bool allowRetryAfterIdle = true,
   }) async {
     if (_isDisposed) return;
+    if (DecisionPayload.containsRequest(sourceContent)) return;
     final normalizedSourceContent = normalizeAiSessionAutoTitleSource(
       sourceContent,
     );
     if (normalizedSourceContent.isEmpty) return;
     final session = _sessionById(sessionId);
     if (session == null || session.isTitleManuallyEdited) {
+      return;
+    }
+    final firstUser = session.messages
+        .where(
+          (message) =>
+              !message.isDeleted && message.kind == AiSessionMessageKind.user,
+        )
+        .firstOrNull;
+    if (!session.hasMoreHistoricalMessages &&
+        firstUser != null &&
+        _isDecisionTitleSource(firstUser)) {
       return;
     }
     if (session.autoTitleSourceMessageId != null &&
@@ -12849,12 +12960,23 @@ $tail''';
     }
   }
 
+  bool _usesDecisionModelForSession(String sessionId) {
+    final active = _requestDecisionModes[sessionId];
+    if (active != null) return active;
+    final session = _sessionById(sessionId);
+    final model = session == null ? null : resolveModelForSession(session);
+    return model?.usesDecisionProtocol == true;
+  }
+
   Future<AiClaudeHookInvocationResult> _safeRunHook({
     required String eventName,
     required String sessionId,
     Map<String, Object?> payload = const <String, Object?>{},
     String? matcherValue,
   }) async {
+    if (_usesDecisionModelForSession(sessionId)) {
+      return const AiClaudeHookInvocationResult();
+    }
     try {
       return await _hookService.runHooks(
         eventName: eventName,
@@ -12932,6 +13054,7 @@ $tail''';
     required String sessionId,
     Map<String, Object?> payload = const <String, Object?>{},
   }) async {
+    if (_usesDecisionModelForSession(sessionId)) return;
     final executor = _userHooksExecutor;
     if (executor == null) return;
     if (!executor.hasEnabledHooksForEvent(event)) return;

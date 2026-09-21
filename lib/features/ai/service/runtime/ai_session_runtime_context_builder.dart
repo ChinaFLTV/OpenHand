@@ -14,6 +14,26 @@ import '../../model/ai_builtin_tool_config.dart';
 import '../../model/ai_dingtalk_dws_command.dart';
 import '../../model/ai_session_runtime_context.dart';
 
+/// 决策只读取已保存的记忆，不初始化工具、仓库或工作区指令。
+AiSessionRuntimeContext buildAiDecisionRuntimeContext({
+  required SettingsController settingsController,
+  required AppInfo appInfo,
+  required List<UserMemoryEntry> memoryEntries,
+  required String appThemeBrightness,
+}) => buildAiSessionRuntimeContext(
+  settingsController: settingsController,
+  appInfo: appInfo,
+  appThemeBrightness: appThemeBrightness,
+  localNow: DateTime.now().toLocal(),
+  workingDirectory: '',
+  memoryEntries: memoryEntries,
+  allowCommandRules: const [],
+  availableSkills: const [],
+  availableMcpServers: const [],
+  mcpToolCatalogsByServerName: const {},
+  builtinToolConfigs: const [],
+);
+
 /// 设置项到 [AiSessionRuntimeContext] 的唯一映射。
 ///
 /// 桌面主界面、工具目录预览、Web 网关三条链路此前各写一份构造，且长短不一：

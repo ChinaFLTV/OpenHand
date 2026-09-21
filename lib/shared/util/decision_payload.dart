@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:ui' show Locale;
 
+import 'package:characters/characters.dart';
+
 import 'localized_text.dart';
 
 /// 两端共用的持久化消息格式；历史记录、复制和导出均保留原始决策数据。
@@ -28,12 +30,20 @@ abstract final class DecisionPayload {
   static const simpleQuestionKey = '决策';
   static const fallbackQuestionKey = '判断';
   static const modelFallback = 'Jev';
+  static const requestMetadataKey = 'decision_request';
+  static const titleMaxCharacters = 15;
   static const maxCharacters = 1024 * 1024;
   static const maxQuestions = 128;
   static const maxCriteria = 255;
   static const minScoreLevels = 2;
   static const maxScoreLevels = 10;
   static const percentFractionDigits = 1;
+
+  static String title(String content) {
+    final state = request(content)['state'];
+    final text = state is String ? state : jsonEncode(state);
+    return text.characters.take(titleMaxCharacters).toString();
+  }
 
   static const questionNoulZh = '根据所给信息，这段陈述是否成立？';
   static const questionNoulZhHant = '根據所給資訊，這段陳述是否成立？';

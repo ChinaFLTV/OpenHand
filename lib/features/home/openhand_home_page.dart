@@ -2059,7 +2059,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController,
       session,
     );
-    if (selectedModel == null) {
+    if (selectedModel == null || selectedModel.usesDecisionProtocol) {
       return;
     }
     if (!mounted) {
@@ -2079,6 +2079,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       final runtimeContext = await _buildRuntimeContext(
+        decisionsOnly: selectedModel.usesDecisionProtocol,
         workingDirectory: _programmingExpertProjectRoot(latestSession),
         skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
       );
@@ -5649,6 +5650,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _toggleInstructionSkip(String id) {
+    if (_effectiveModelForSession(
+          context.read<SettingsController>(),
+          context.read<AiSessionController>().currentSession,
+        )?.usesDecisionProtocol ==
+        true) {
+      return;
+    }
     setState(() {
       if (!_skippedInstructionIds.add(id)) {
         _skippedInstructionIds.remove(id);
@@ -5665,11 +5673,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<AiSessionRuntimeContext> _buildRuntimeContext({
+    bool decisionsOnly = false,
     String? workingDirectory,
     Set<String> skippedInstructionIds = const <String>{},
   }) async {
     final settingsController = context.read<SettingsController>();
     final memoryController = context.read<MemoryController>();
+    if (decisionsOnly) {
+      final appInfo = context.read<AppInfo>();
+      final brightness = _resolveEffectiveBrightness(context).name;
+      return buildAiDecisionRuntimeContext(
+        settingsController: settingsController,
+        appInfo: appInfo,
+        appThemeBrightness: brightness,
+        memoryEntries: settingsController.memoryEnabled
+            ? await memoryController.trustedEntriesSnapshot() ?? const []
+            : const [],
+      );
+    }
     final skillsController = context.read<SkillsController>();
     final mcpController = context.read<McpController>();
     final instructionsController = context.read<InstructionsController>();
@@ -6004,6 +6025,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _setComposerMode(AiSessionMode mode) async {
     final sessionController = context.read<AiSessionController>();
     final currentSession = sessionController.currentSession;
+    if (mode != AiSessionMode.chat &&
+        _effectiveModelForSession(
+              context.read<SettingsController>(),
+              currentSession,
+            )?.usesDecisionProtocol ==
+            true) {
+      return;
+    }
     if (currentSession == null) {
       if (mode == AiSessionMode.goal) {
         showOpenHandInfoSnack(
@@ -6636,6 +6665,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _startVoiceConversation() async {
     final currentSession = context.read<AiSessionController>().currentSession;
     if (currentSession == null) return;
+    final model = _effectiveModelForSession(
+      context.read<SettingsController>(),
+      currentSession,
+    );
+    if (model?.usesDecisionProtocol == true) return;
     _voiceConversationStatesBySessionId[currentSession.id] =
         _VoiceConversationSessionState(
           lastReadAssistantId: _latestFormalVoiceAssistantResponse(
@@ -7214,6 +7248,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final peProjectRoot = _programmingExpertProjectRoot(initialSession);
         final runtimeContextStopwatch = Stopwatch()..start();
         runtimeContext = await _buildRuntimeContext(
+          decisionsOnly: selectedModel.usesDecisionProtocol,
           workingDirectory: peProjectRoot,
           skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
         );
@@ -8047,6 +8082,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     final runtimeContext = await _buildRuntimeContext(
+      decisionsOnly: selectedModel.usesDecisionProtocol,
       workingDirectory: _programmingExpertProjectRoot(currentSession),
       skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
     );
@@ -9738,6 +9774,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     final runtimeContext = await _buildRuntimeContext(
+      decisionsOnly: selectedModel.usesDecisionProtocol,
       workingDirectory: _programmingExpertProjectRoot(session),
       skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
     );
@@ -10217,14 +10254,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 仅工作区页面计算运行时目录预览，避免其他页面产生无用分配。
     AiRuntimeToolPreview? liveRuntimeToolPreview;
     if (workspaceSelected) {
-      liveRuntimeToolPreview = _previewRuntimeToolCatalogForWorkspace(
-        settingsController: settingsController,
-        skillsController: skillsController,
-        mcpController: mcpController,
-        sessionController: sessionController,
-        appInfo: appInfo,
-        session: storedCurrentSession,
-      );
+      liveRuntimeToolPreview = selectedModel?.usesDecisionProtocol == true
+          ? null
+          : _previewRuntimeToolCatalogForWorkspace(
+              settingsController: settingsController,
+              skillsController: skillsController,
+              mcpController: mcpController,
+              sessionController: sessionController,
+              appInfo: appInfo,
+              session: storedCurrentSession,
+            );
       _maybeAutoFollowSession(currentSession);
     }
     return switch (effectiveSection) {
