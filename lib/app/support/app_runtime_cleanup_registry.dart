@@ -37,10 +37,11 @@ final class AppRuntimeCleanupRegistry {
   final AppRuntimeCleanupErrorHandler? _onError;
   final List<({String name, AppRuntimeCleanup cleanup, Duration timeout})>
   _entries = <({String name, AppRuntimeCleanup cleanup, Duration timeout})>[];
-  Future<void>? _disposeFuture;
+  final OpenHandAsyncOnce _disposeOnce = OpenHandAsyncOnce();
+  bool _disposing = false;
 
   void register(String name, AppRuntimeCleanup cleanup, {Duration? timeout}) {
-    if (_disposeFuture != null) {
+    if (_disposing) {
       throw StateError('运行时资源释放开始后不能再注册：$name');
     }
     _entries.add((
@@ -56,22 +57,14 @@ final class AppRuntimeCleanupRegistry {
     ));
   }
 
-  Future<void> dispose() {
-    final active = _disposeFuture;
-    if (active != null) return active;
-    final completer = Completer<void>();
-    _disposeFuture = completer.future;
-    unawaited(
-      _disposeAll().then<void>(
-        (_) => completer.complete(),
-        onError: (Object error, StackTrace stack) {
-          _reportError('运行时资源释放注册表', error, stack);
-          completer.complete();
-        },
-      ),
-    );
-    return completer.future;
-  }
+  Future<void> dispose() => _disposeOnce.run(() async {
+    _disposing = true;
+    try {
+      await _disposeAll();
+    } catch (error, stack) {
+      _reportError('运行时资源释放注册表', error, stack);
+    }
+  });
 
   Future<void> _disposeAll() async {
     final deadline = MonotonicDeadline(

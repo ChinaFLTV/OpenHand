@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import '../util/argument_guards.dart';
+import '../util/async_concurrency.dart';
 import 'network_limits.dart';
 
 /// 在限定时限内打开 HTTP 请求；打开超时后会接管迟到的请求并主动中止。
@@ -32,7 +33,7 @@ Future<HttpClientRequest> openHttpClientRequestBounded(
   }
 }
 
-/// 在限定时限内关闭 HTTP 请求；响应头超时后立即中止底层请求。
+/// 在限定时限内获取响应头；超时后中止请求并释放迟到响应体。
 Future<HttpClientResponse> closeHttpClientRequestBounded(
   HttpClientRequest request, {
   required Duration timeout,
@@ -49,6 +50,11 @@ Future<HttpClientResponse> closeHttpClientRequestBounded(
     onTimeout: () {
       final error = TimeoutException(timeoutMessage, timeout);
       abortHttpClientRequest(request, reason: error);
+      unawaited(
+        closeFuture.then<void>((response) async {
+          await runAsyncCleanupBounded(() => response.listen(null).cancel());
+        }, onError: (Object _, StackTrace _) {}),
+      );
       throw error;
     },
   );

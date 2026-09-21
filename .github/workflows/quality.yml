@@ -44,6 +44,8 @@ jobs:
         run: dart run scripts/check_transcript_widgets.dart
       - name: 检查动效边界与资源释放
         run: dart run scripts/check_motion_widgets.dart
+      - name: 检查连接与关闭生命周期
+        run: dart run scripts/check_runtime_lifecycle.dart
       - name: 检查图像资源与导入边界
         run: dart run scripts/check_image_resources.dart
       - name: 执行静态分析

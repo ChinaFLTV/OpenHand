@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:openhand/shared/net/abortable_http_request.dart';
+import 'package:openhand/shared/net/bounded_http_request.dart';
 import 'package:openhand/shared/net/http_response_utils.dart';
 import 'package:openhand/shared/net/http_status_utils.dart';
 import 'package:openhand/shared/net/loopback_hosts.dart';
@@ -62,6 +63,7 @@ Future<void> main() async {
   failures += await _checkBatchSubscriptionCancellation();
   failures += await _checkAbortableResponseLifetime();
   failures += await _checkHttpCancellation();
+  failures += await _checkLateNativeHttpResponse();
   failures += await _checkBoundedByteStreams();
   failures += await _checkSynchronousBoundedFileRead();
   failures += await _checkTemporaryByteStreamWrite();
@@ -1219,4 +1221,69 @@ int _checkTranscriptHistory() {
     return 1;
   }
   return 0;
+}
+
+Future<int> _checkLateNativeHttpResponse() async {
+  final request = _LateHttpRequest();
+  try {
+    await closeHttpClientRequestBounded(
+      request,
+      timeout: const Duration(milliseconds: 10),
+    );
+    stderr.writeln('响应头等待未按时结束');
+    return 1;
+  } on TimeoutException {
+    if (!request.aborted) {
+      stderr.writeln('响应头超时没有中止请求');
+      return 1;
+    }
+  }
+  final released = Completer<void>();
+  final body = StreamController<List<int>>(onCancel: released.complete);
+  request.response.complete(_LateHttpResponse(body.stream));
+  try {
+    await released.future.timeout(const Duration(seconds: 1));
+  } on TimeoutException {
+    stderr.writeln('响应头超时后没有释放迟到的响应体');
+    return 1;
+  } finally {
+    unawaited(body.close());
+  }
+  return 0;
+}
+
+final class _LateHttpRequest implements HttpClientRequest {
+  final response = Completer<HttpClientResponse>();
+  bool aborted = false;
+
+  @override
+  Future<HttpClientResponse> close() => response.future;
+
+  @override
+  void abort([Object? exception, StackTrace? stackTrace]) => aborted = true;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _LateHttpResponse extends Stream<List<int>>
+    implements HttpClientResponse {
+  _LateHttpResponse(this.body);
+  final Stream<List<int>> body;
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int>)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => body.listen(
+    onData,
+    onError: onError,
+    onDone: onDone,
+    cancelOnError: cancelOnError,
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

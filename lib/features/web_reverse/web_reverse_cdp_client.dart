@@ -132,8 +132,9 @@ class WebReverseCdpClient {
   WebReverseCdpTransport? _connectingTransport;
   Completer<void>? _connectingCancellation;
   StreamSubscription<dynamic>? _subscription;
-  Future<void>? _connectFuture;
-  Future<void>? _closeFuture;
+  final OpenHandSingleFlight<void> _connectFlight =
+      OpenHandSingleFlight<void>();
+  final OpenHandAsyncOnce _closeOnce = OpenHandAsyncOnce();
   int _lifecycleGeneration = 0;
   int? _reconnectGeneration;
   bool _connected = false;
@@ -160,27 +161,11 @@ class WebReverseCdpClient {
       return Future<void>.error(StateError('CDP 客户端已关闭。'));
     }
     if (_connected && _transport != null) return Future<void>.value();
-    final pending = _connectFuture;
-    if (pending != null) return pending;
-
-    final generation = ++_lifecycleGeneration;
-    _reconnectGeneration = null;
-    final completer = Completer<void>();
-    final future = completer.future;
-    _connectFuture = future;
-    unawaited(
-      _connectOnce(generation).then<void>(
-        (_) {
-          if (identical(_connectFuture, future)) _connectFuture = null;
-          completer.complete();
-        },
-        onError: (Object error, StackTrace stack) {
-          if (identical(_connectFuture, future)) _connectFuture = null;
-          completer.completeError(error, stack);
-        },
-      ),
-    );
-    return future;
+    return _connectFlight.run(() {
+      final generation = ++_lifecycleGeneration;
+      _reconnectGeneration = null;
+      return _connectOnce(generation);
+    });
   }
 
   Future<void> _connectOnce(int generation) async {
@@ -306,7 +291,6 @@ class WebReverseCdpClient {
       transport.sink.add(encodedPayload);
     } catch (error, stack) {
       _pending.remove(id);
-      if (!completer.isCompleted) completer.completeError(error, stack);
       Error.throwWithStackTrace(error, stack);
     }
     try {
@@ -544,24 +528,11 @@ class WebReverseCdpClient {
     _pending.clear();
   }
 
-  Future<void> close() {
-    final existing = _closeFuture;
-    if (existing != null) return existing;
-    final completer = Completer<void>();
-    _closeFuture = completer.future;
-    unawaited(
-      _closeInternal().then<void>(
-        (_) => completer.complete(),
-        onError: (Object error, StackTrace stack) {
-          completer.completeError(error, stack);
-        },
-      ),
-    );
-    return completer.future;
-  }
+  Future<void> close() => _closeOnce.run(_closeInternal);
 
   Future<void> _closeInternal() async {
     _closed = true;
+    _failAllPending(StateError('CDP 客户端已手动关闭。'));
     _connected = false;
     _lifecycleGeneration += 1;
     _reconnectGeneration = null;
@@ -578,7 +549,6 @@ class WebReverseCdpClient {
       if (connecting != null && !identical(connecting, active))
         _closeTransportQuietly(connecting, '关闭连接中的传输'),
     ]);
-    _failAllPending(StateError('CDP 客户端已手动关闭。'));
     if (!_eventCtrl.isClosed) {
       try {
         await _eventCtrl.close().timeout(_connectionCleanupTimeout);

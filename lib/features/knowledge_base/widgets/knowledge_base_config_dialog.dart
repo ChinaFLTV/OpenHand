@@ -18,6 +18,7 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/reader_file_type.dart';
@@ -113,7 +114,8 @@ class _KnowledgeBaseConfigDialogState
   late final TextEditingController _qdrantLogRetainLines;
   late bool _knowledgeBuiltinToolsEnabled;
   bool _saving = false;
-  Future<void>? _dependencyRefreshFuture;
+  final OpenHandSingleFlight<void> _dependencyRefresh =
+      OpenHandSingleFlight<void>();
 
   @override
   void initState() {
@@ -316,21 +318,16 @@ class _KnowledgeBaseConfigDialogState
   }
 
   Future<void> _refreshDependencyStatus() {
-    final active = _dependencyRefreshFuture;
-    if (active != null) return active;
-    final pluginController = context.read<PluginServiceController>();
-    late final Future<void> refresh;
-    refresh = _refreshDependencyStatusUncached(pluginController).whenComplete(
-      () {
-        if (!mounted || !identical(_dependencyRefreshFuture, refresh)) return;
-        setState(() {
-          _dependencyRefreshFuture = null;
-        });
-      },
-    );
-    setState(() {
-      _dependencyRefreshFuture = refresh;
+    if (!mounted) return Future<void>.value();
+    final refresh = _dependencyRefresh.run(() async {
+      final pluginController = context.read<PluginServiceController>();
+      try {
+        await _refreshDependencyStatusUncached(pluginController);
+      } finally {
+        if (mounted) setState(() {});
+      }
     });
+    setState(() {});
     return refresh;
   }
 
@@ -638,7 +635,7 @@ class _KnowledgeBaseConfigDialogState
     final readerModels = _readerModels(settingsController.aiModels);
     final dependencies = knowledgeController.dependencies(pluginController);
     final dependencyRefreshing =
-        _dependencyRefreshFuture != null ||
+        _dependencyRefresh.isRunning ||
         _knowledgeDependencyPluginIds.contains(checkingPluginId);
     final t = openHandTextResolver(context);
 

@@ -783,6 +783,38 @@ try {
   await backgroundDelay;
   replaceGlobal('window', browser);
 
+  const { notifyIfHidden } = await server.ssrLoadModule('/src/services/pwa.ts');
+  const notificationPermission = deferred();
+  let notificationCount = 0;
+  let lastNotification;
+  replaceGlobal('Notification', class {
+    static permission = 'default';
+    static requestPermission() { return notificationPermission.promise; }
+    constructor() { notificationCount++; lastNotification = this; }
+    close() { this.closed = true; }
+  });
+  const previousNotificationDocument = globalThis.document;
+  const notificationDocument = { visibilityState: 'hidden' };
+  replaceGlobal('document', notificationDocument);
+  const backgroundNotice = notifyIfHidden({ title: '后台消息' });
+  notificationDocument.visibilityState = 'visible';
+  notificationPermission.resolve('granted');
+  await backgroundNotice;
+  assert.equal(notificationCount, 0, '等待通知授权期间回到前台，不能继续发出后台通知');
+  Notification.permission = 'granted';
+  notificationDocument.visibilityState = 'hidden';
+  const { clearAuthStorage: clearNotificationAuth } = await server.ssrLoadModule('/src/state/storage.ts');
+  const staleNotice = notifyIfHidden({ title: '旧登录消息' });
+  clearNotificationAuth();
+  await staleNotice;
+  assert.equal(notificationCount, 0, '退出登录后不能继续展示旧登录消息');
+  await notifyIfHidden({ title: '当前登录消息', sessionId: '旧会话' });
+  assert.equal(notificationCount, 1, '仍在后台且登录状态未变时应正常展示通知');
+  clearNotificationAuth();
+  lastNotification.onclick();
+  assert.equal(lastNotification.closed, true, '登录改变后旧通知点击只关闭通知');
+  replaceGlobal('document', previousNotificationDocument);
+
   const { registerOverlayEscapeLayer } = await server.ssrLoadModule('/src/shared/ui/overlay_escape_stack.ts');
   let closed = 0;
   const removeLayer = registerOverlayEscapeLayer({ canClose: () => true, requestClose: () => closed++ });

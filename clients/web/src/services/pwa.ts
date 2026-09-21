@@ -1,5 +1,6 @@
 // PWA 与后台消息通知入口；注册失败不阻断启动，同一会话的通知复用标签。
 
+import { captureAuthSession } from '../state/storage';
 import { ignoreError, runIgnoringErrors } from '../shared/util/errors';
 import { NOTIFICATION_TAG_MESSAGE, SW_MESSAGE_TYPE_NOTIFY } from '../shared/util/storage_keys';
 import { truncateEndText } from '../shared/util/text';
@@ -81,8 +82,9 @@ export async function notifyIfHidden(opts: {
     NOTIFICATION_SESSION_ID_MAX_CHARACTERS,
     { ellipsis: '' },
   );
+  const isCurrentSession = captureAuthSession();
   const ok = await _ensurePermission();
-  if (!ok) return;
+  if (!ok || !_isHidden() || !isCurrentSession()) return;
   const tag = truncateEndText(
     sessionId ? `openhand-${sessionId}` : NOTIFICATION_TAG_MESSAGE,
     NOTIFICATION_TAG_MAX_CHARACTERS,
@@ -112,6 +114,10 @@ export async function notifyIfHidden(opts: {
       tag,
     });
     n.onclick = () => {
+      if (!isCurrentSession()) {
+        n.close();
+        return;
+      }
       runIgnoringErrors(() => window.focus());
       if (sessionId) {
         location.href = `/threads/${encodeURIComponent(sessionId)}`;
