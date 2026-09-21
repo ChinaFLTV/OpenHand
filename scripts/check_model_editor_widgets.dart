@@ -52,6 +52,7 @@ Future<void> _openEditor(
   ValueChanged<_ModelProfileEditorResult?>? onResult,
   AiProtocolType protocol = AiProtocolType.jev,
   AiModelConfig? provider,
+  Locale locale = const Locale('zh'),
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -62,18 +63,39 @@ Future<void> _openEditor(
   const id = 'typesafe-ai/jev';
   final health = AiModelHealthController();
   addTearDown(health.dispose);
+  final captureFont = Platform.environment['OPENHAND_LAYOUT_FONT'];
+  if (captureFont != null) {
+    await tester.runAsync(() async {
+      final loader = FontLoader('配置截图字体');
+      loader.addFont(File(captureFont).readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
+      await loader.load();
+      final monoFont = Platform.environment['OPENHAND_LAYOUT_MONO_FONT'];
+      if (monoFont != null) {
+        final mono = FontLoader(kOpenHandMonospaceFontFamily);
+        mono.addFont(File(monoFont).readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
+        await mono.load();
+      }
+      final icons = FontLoader('MaterialIcons');
+      icons.addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+      await icons.load();
+    });
+  }
+  final theme = brightness == Brightness.light
+      ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen)
+      : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen);
   await tester.pumpWidget(MultiProvider(
     providers: [
       ChangeNotifierProvider.value(value: settings),
       ChangeNotifierProvider.value(value: health),
     ],
     child: MaterialApp(
-      locale: const Locale('zh'),
+      locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: brightness == Brightness.light
-          ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen)
-          : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen),
+      theme: captureFont == null ? theme : theme.copyWith(
+        textTheme: theme.textTheme.apply(fontFamily: '配置截图字体'),
+        chipTheme: theme.chipTheme.copyWith(labelStyle: theme.chipTheme.labelStyle?.copyWith(fontFamily: '配置截图字体')),
+      ),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
         child: child!,
@@ -110,7 +132,78 @@ Finder get _editor => find.byType(_ModelProfileEditorDialog);
 Finder get _idField => find.descendant(of: _editor, matching: find.byType(TextField)).first;
 Finder get _titleSwitch => find.descendant(of: _editor, matching: find.byType(Switch)).first;
 
+Future<void> _captureEditor(WidgetTester tester, Finder dialog, String name) async {
+  final directory = Platform.environment['OPENHAND_LAYOUT_SCREENSHOTS'];
+  if (directory == null) return;
+  await tester.runAsync(() async {
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.ancestor(of: dialog, matching: find.byType(RepaintBoundary)).first);
+    final image = await boundary.toImage();
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final file = File('$directory/$name.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
+}
+
 void main() {
+  for (final locale in AppLocalizations.supportedLocales) {
+    testWidgets('模型配置动作和元数据按当前语言展示 $locale', (tester) async {
+      await _openEditor(tester, locale: locale);
+      final context = tester.element(_editor);
+      final l10n = AppLocalizations.of(context)!;
+      expect(find.text(l10n.mdlEdDecisionSummary), findsOneWidget);
+      final actions = tester.widgetList<OpenHandDialogActionButton>(find.byType(OpenHandDialogActionButton));
+      expect(actions.where((button) => button.label == l10n.mdlEdOk).single.icon, isNull);
+      final cancel = tester.widget<FilledButton>(find.descendant(
+        of: find.widgetWithText(OpenHandDialogActionButton, l10n.mdlEdCancel),
+        matching: find.byType(FilledButton)));
+      final confirm = tester.widget<FilledButton>(find.descendant(
+        of: find.widgetWithText(OpenHandDialogActionButton, l10n.mdlEdOk),
+        matching: find.byType(FilledButton)));
+      expect(cancel.themeStyleOf(context)?.backgroundColor?.resolve({}),
+        confirm.themeStyleOf(context)?.backgroundColor?.resolve({}));
+      final state = tester.state<_ModelProfileEditorDialogState>(_editor);
+      state._profileScrollController.jumpTo(state._profileScrollController.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.mdlEdOpenRouterRawMetadata));
+      await tester.pumpAndSettle();
+      state._profileScrollController.jumpTo(state._profileScrollController.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(find.byType(OpenHandJsonTreeView), findsOneWidget);
+      expect(tester.widget<OpenHandJsonTreeView>(find.byType(OpenHandJsonTreeView)).text,
+        contains('supported_parameters'));
+      expect(_modelConfigurationValueLabel(context, 'experimental'), l10n.mdlEdValueExperimental);
+      expect(tester.takeException(), isNull);
+      await _captureEditor(tester, _editor, 'metadata-$locale');
+      await tester.tap(find.text(l10n.mdlEdCancel));
+      await tester.pumpAndSettle();
+    });
+  }
+
+  testWidgets('请求头删除按钮与输入框等高且可用，放大文字不溢出', (tester) async {
+    await _openEditor(tester, size: const Size(440, 760), textScale: 1.4,
+      provider: const AiModelConfig(id: '请求头', baseUrl: 'https://example.invalid',
+        token: '', authScheme: AiAuthScheme.none, modelId: 'custom',
+        protocolType: AiProtocolType.openai, customHeaders: {'X-Test': 'value'}));
+    final dialog = find.byType(_AiModelEditorDialog);
+    final field = find.widgetWithText(TextField, '请求头名称');
+    await tester.ensureVisible(field);
+    await tester.pumpAndSettle();
+    final remove = find.descendant(of: dialog, matching: find.byTooltip('删除'));
+    expect(tester.getSize(remove).height, closeTo(tester.getSize(field).height, 1));
+    expect(tester.getSize(remove).width, closeTo(tester.getSize(field).height, 1));
+    expect(tester.takeException(), isNull);
+    await _captureEditor(tester, dialog, 'headers-narrow');
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+  });
+
   testWidgets('提供商协议切换同步端点和高级配置，模型 ID 不参与判断', (tester) async {
     await _openEditor(tester, provider: const AiModelConfig(
       id: '配置', name: '自定义决策服务', baseUrl: 'https://decision.example',
@@ -127,7 +220,7 @@ void main() {
     final state = tester.state<_AiModelEditorDialogState>(dialog);
     expect(state._apiDialect, AiApiDialect.jevNative);
     expect(state._previewChatEndpoints(), (responses: '', chat: 'https://decision.example/v1/systemone'));
-    expect(find.textContaining('Jev 协议 · 支持任意兼容模型'), findsOneWidget);
+    expect(find.textContaining('Jev 协议 · 文本输入'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.ensureVisible(find.descendant(of: dialog, matching: find.byType(TextFormField)).first);
     await tester.pumpAndSettle();
@@ -205,6 +298,7 @@ void main() {
         await _openEditor(tester, size: size, brightness: brightness, textScale: 1.2);
         expect(tester.takeException(), isNull);
         expect(find.text('确定').hitTestable(), findsOneWidget);
+        await _captureEditor(tester, _editor, 'layout-${brightness.name}-${size.width.toInt()}');
         final decorations = tester.widgetList<DecoratedBox>(find.descendant(
           of: _editor, matching: find.byType(DecoratedBox),
         ));

@@ -718,8 +718,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                     Text(
                       openHandLocalizedText(
                         context,
-                        zh: '自动补全 Base URL',
+                        zh: '自动补全基础地址',
+                        zhHant: '自動補全基礎位址',
                         en: 'Auto-complete Base URL',
+                        fr: 'Compléter l’URL de base',
+                        de: 'Basis-URL vervollständigen',
+                        ja: 'ベース URL を自動補完',
                       ),
                       style: theme.textTheme.titleSmall,
                     ),
@@ -730,11 +734,19 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                               context,
                               zh: '开启时按协议补默认版本路径，例如 OpenAI 兼容接口会追加 v1。',
                               en: 'Adds the protocol default version path, such as v1 for OpenAI-compatible endpoints.',
+                              zhHant: '依協定補上預設版本路徑，例如 OpenAI 相容介面會附加 v1。',
+                              fr: 'Ajoute le chemin de version par défaut du protocole, par exemple v1 pour une API compatible OpenAI.',
+                              de: 'Ergänzt den Versionspfad des Protokolls, etwa v1 für OpenAI-kompatible Schnittstellen.',
+                              ja: 'OpenAI 互換 API の v1 など、プロトコルの既定バージョンパスを追加します。',
                             )
                           : openHandLocalizedText(
                               context,
-                              zh: '关闭时严格使用你填写的 Base URL，只继续拼接资源路径。',
+                              zh: '关闭时严格使用填写的基础地址，仅追加资源路径。',
                               en: 'Uses the Base URL exactly, then appends only the resource path.',
+                              zhHant: '關閉時嚴格使用填寫的基礎位址，僅附加資源路徑。',
+                              fr: 'Conserve l’URL de base saisie et ajoute uniquement le chemin de la ressource.',
+                              de: 'Verwendet die eingegebene Basis-URL unverändert und ergänzt nur den Ressourcenpfad.',
+                              ja: '入力したベース URL をそのまま使用し、リソースパスのみ追加します。',
                             ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
@@ -787,7 +799,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                         children: [
                           Text(
                             usesDecisions
-                                ? 'Jev 协议 · 支持任意兼容模型，专用于选择、评分和判断。'
+                                ? AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdDecisionSummary
                                 : usesResponsesRouting
                                 ? preview.responses.isNotEmpty
                                       ? _responsesCapabilityStatus ==
@@ -1051,6 +1065,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
             context,
             zh: '请先扫描模型或手动添加模型 ID。',
             en: 'Scan models or add a model ID first.',
+            zhHant: '請先掃描模型或手動新增模型 ID。',
+            fr: 'Recherchez des modèles ou ajoutez un identifiant de modèle.',
+            de: 'Suchen Sie zuerst nach Modellen oder fügen Sie eine Modell-ID hinzu.',
+            ja: '先にモデルを検索するか、モデル ID を追加してください。',
           ),
         ),
         child: Text(
@@ -1058,6 +1076,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
             context,
             zh: '暂无可选模型',
             en: 'No models available',
+            zhHant: '暫無可選模型',
+            fr: 'Aucun modèle disponible',
+            de: 'Keine Modelle verfügbar',
+            ja: '利用可能なモデルがありません',
           ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
@@ -1086,7 +1108,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
           DropdownMenuItem<String>(
             value: '',
             child: Text(
-              openHandLocalizedText(context, zh: '不设置', en: 'Not set'),
+              openHandLocalizedText(
+                context,
+                zh: '不设置',
+                zhHant: '不設定',
+                en: 'Not set',
+                fr: 'Non défini',
+                de: 'Nicht festgelegt',
+                ja: '未設定',
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1573,11 +1603,19 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                   context,
                                   zh: '默认标题生成模型 ID',
                                   en: 'Default Title Model ID',
+                                  zhHant: '預設標題生成模型 ID',
+                                  fr: 'Modèle de titre par défaut',
+                                  de: 'Standardmodell für Titel',
+                                  ja: '既定のタイトル生成モデル ID',
                                 ),
                                 helperText: openHandLocalizedText(
                                   context,
                                   zh: '当前线程模型不适合生成文本标题时，会优先回退到这里选择的同提供商模型。',
                                   en: 'When the thread model is not suitable for text titles, title generation falls back to this sibling provider model first.',
+                                  zhHant: '目前對話模型不適合生成文字標題時，優先使用此處選擇的同提供商模型。',
+                                  fr: 'Si le modèle de la conversation ne convient pas aux titres, utilise en priorité ce modèle du même fournisseur.',
+                                  de: 'Eignet sich das Gesprächsmodell nicht für Texttitel, wird zuerst dieses Modell desselben Anbieters verwendet.',
+                                  ja: '会話モデルがテキストタイトルに適さない場合、同じプロバイダーのこのモデルを優先します。',
                                 ),
                                 selectedModelId: _defaultTitleModelId,
                                 allowUnset: true,
@@ -1850,13 +1888,17 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                                       AiApiDialect.jevNative,
                                           )
                                           .map(
-                                            (item) =>
-                                                DropdownMenuItem<AiApiDialect>(
-                                                  value: item,
-                                                  child: Text(
-                                                    item.storageValue,
-                                                  ),
+                                            (
+                                              item,
+                                            ) => DropdownMenuItem<AiApiDialect>(
+                                              value: item,
+                                              child: Text(
+                                                _modelConfigurationValueLabel(
+                                                  context,
+                                                  item.storageValue,
                                                 ),
+                                              ),
+                                            ),
                                           )
                                           .toList(growable: false),
                                       onChanged: _isSaving
@@ -1886,15 +1928,17 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                       ),
                                       items: AiProviderKind.values
                                           .map(
-                                            (item) =>
-                                                DropdownMenuItem<
-                                                  AiProviderKind
-                                                >(
-                                                  value: item,
-                                                  child: Text(
-                                                    item.storageValue,
-                                                  ),
+                                            (
+                                              item,
+                                            ) => DropdownMenuItem<AiProviderKind>(
+                                              value: item,
+                                              child: Text(
+                                                _modelConfigurationValueLabel(
+                                                  context,
+                                                  item.storageValue,
                                                 ),
+                                              ),
+                                            ),
                                           )
                                           .toList(growable: false),
                                       onChanged: _isSaving
@@ -1950,8 +1994,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                 decoration: InputDecoration(
                                   labelText: openHandLocalizedText(
                                     context,
-                                    zh: 'Embeddings 模型 ID（可选）',
-                                    zhHant: 'Embeddings 模型 ID（選填）',
+                                    zh: '嵌入模型 ID（可选）',
+                                    zhHant: '嵌入模型 ID（選填）',
                                     en: 'Embeddings Model ID (optional)',
                                     fr: 'ID du modèle Embeddings (facultatif)',
                                     de: 'Embeddings-Modell-ID (optional)',
@@ -1969,8 +2013,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     decoration: InputDecoration(
                                       labelText: openHandLocalizedText(
                                         context,
-                                        zh: 'Moderations 模型 ID（可选）',
-                                        zhHant: 'Moderations 模型 ID（選填）',
+                                        zh: '内容审核模型 ID（可选）',
+                                        zhHant: '內容審核模型 ID（選填）',
                                         en: 'Moderations Model ID (optional)',
                                         fr: 'ID du modèle Moderations (facultatif)',
                                         de: 'Moderations-Modell-ID (optional)',
@@ -1984,8 +2028,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     decoration: InputDecoration(
                                       labelText: openHandLocalizedText(
                                         context,
-                                        zh: 'Rerank 模型 ID（可选）',
-                                        zhHant: 'Rerank 模型 ID（選填）',
+                                        zh: '重排序模型 ID（可选）',
+                                        zhHant: '重新排序模型 ID（選填）',
                                         en: 'Rerank Model ID (optional)',
                                         fr: 'ID du modèle Rerank (facultatif)',
                                         de: 'Rerank-Modell-ID (optional)',
@@ -2092,12 +2136,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     decoration: InputDecoration(
                                       labelText: openHandLocalizedText(
                                         context,
-                                        zh: '默认 Voice（可选）',
-                                        zhHant: '預設 Voice（選填）',
+                                        zh: '默认音色（可选）',
+                                        zhHant: '預設音色（選填）',
                                         en: 'Default Voice (optional)',
                                         fr: 'Voix par défaut (facultatif)',
                                         de: 'Standard-Voice (optional)',
-                                        ja: 'デフォルト Voice（任意）',
+                                        ja: '既定の音声（任意）',
                                       ),
                                     ),
                                   );
@@ -2131,12 +2175,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     decoration: InputDecoration(
                                       labelText: openHandLocalizedText(
                                         context,
-                                        zh: 'Transcription 模型 ID（可选）',
-                                        zhHant: 'Transcription 模型 ID（選填）',
+                                        zh: '语音转写模型 ID（可选）',
+                                        zhHant: '語音轉寫模型 ID（選填）',
                                         en: 'Transcription Model ID (optional)',
                                         fr: 'ID du modèle Transcription (facultatif)',
                                         de: 'Transcription-Modell-ID (optional)',
-                                        ja: 'Transcription モデル ID（任意）',
+                                        ja: '文字起こしモデル ID（任意）',
                                       ),
                                     ),
                                   );
@@ -2146,12 +2190,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     decoration: InputDecoration(
                                       labelText: openHandLocalizedText(
                                         context,
-                                        zh: 'Translation 模型 ID（可选）',
-                                        zhHant: 'Translation 模型 ID（選填）',
+                                        zh: '语音翻译模型 ID（可选）',
+                                        zhHant: '語音翻譯模型 ID（選填）',
                                         en: 'Translation Model ID (optional)',
                                         fr: 'ID du modèle Translation (facultatif)',
                                         de: 'Translation-Modell-ID (optional)',
-                                        ja: 'Translation モデル ID（任意）',
+                                        ja: '音声翻訳モデル ID（任意）',
                                       ),
                                     ),
                                   );
@@ -2185,12 +2229,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     decoration: InputDecoration(
                                       labelText: openHandLocalizedText(
                                         context,
-                                        zh: 'Realtime Transport（可选）',
-                                        zhHant: 'Realtime Transport（選填）',
+                                        zh: '实时传输方式（可选）',
+                                        zhHant: '即時傳輸方式（選填）',
                                         en: 'Realtime Transport (optional)',
                                         fr: 'Transport Realtime (facultatif)',
                                         de: 'Realtime-Transport (optional)',
-                                        ja: 'Realtime Transport（任意）',
+                                        ja: 'リアルタイム通信方式（任意）',
                                       ),
                                     ),
                                   );
@@ -2200,12 +2244,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     decoration: InputDecoration(
                                       labelText: openHandLocalizedText(
                                         context,
-                                        zh: 'Realtime URL Override（可选）',
-                                        zhHant: 'Realtime URL Override（選填）',
+                                        zh: '实时接口地址覆盖（可选）',
+                                        zhHant: '即時介面位址覆寫（選填）',
                                         en: 'Realtime URL Override (optional)',
                                         fr: 'URL Realtime personnalisée (facultatif)',
                                         de: 'Realtime-URL-Override (optional)',
-                                        ja: 'Realtime URL Override（任意）',
+                                        ja: 'リアルタイム接続先の上書き（任意）',
                                       ),
                                     ),
                                   );
@@ -2215,12 +2259,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     decoration: InputDecoration(
                                       labelText: openHandLocalizedText(
                                         context,
-                                        zh: 'Realtime 模型 ID（可选）',
-                                        zhHant: 'Realtime 模型 ID（選填）',
+                                        zh: '实时语音模型 ID（可选）',
+                                        zhHant: '即時語音模型 ID（選填）',
                                         en: 'Realtime Model ID (optional)',
                                         fr: 'ID du modèle Realtime (facultatif)',
                                         de: 'Realtime-Modell-ID (optional)',
-                                        ja: 'Realtime モデル ID（任意）',
+                                        ja: 'リアルタイム音声モデル ID（任意）',
                                       ),
                                     ),
                                   );
@@ -2264,16 +2308,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                               decoration: InputDecoration(
                                 labelText: openHandLocalizedText(
                                   context,
-                                  zh: 'Endpoint Overrides JSON（可选）',
-                                  zhHant: 'Endpoint Overrides JSON（選填）',
+                                  zh: '接口覆盖配置（JSON，可选）',
+                                  zhHant: '介面覆寫設定（JSON，選填）',
                                   en: 'Endpoint Overrides JSON (optional)',
                                   fr: 'JSON de surcharge des endpoints (facultatif)',
                                   de: 'Endpoint-Overrides JSON (optional)',
-                                  ja: 'Endpoint Overrides JSON（任意）',
+                                  ja: 'エンドポイント上書き（JSON、任意）',
                                 ),
                                 helperText: openHandLocalizedText(
                                   context,
-                                  zh: '按 family 自定义 path/url/method/transport/headers/query_defaults。',
+                                  zh: '按接口类别配置路径、地址、请求方式、传输方式、请求头和默认查询参数。',
                                   zhHant:
                                       '依 family 自訂 path/url/method/transport/headers/query_defaults。',
                                   en: 'Customize path/url/method/transport/headers/query_defaults by family.',
@@ -2292,25 +2336,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                               decoration: InputDecoration(
                                 labelText: openHandLocalizedText(
                                   context,
-                                  zh: 'Operation Extras JSON（可选）',
-                                  zhHant: 'Operation Extras JSON（選填）',
+                                  zh: '操作扩展参数（JSON，可选）',
+                                  zhHant: '操作擴充參數（JSON，選填）',
                                   en: 'Operation Extras JSON (optional)',
                                   fr: 'JSON des extras d’opération (facultatif)',
                                   de: 'Operation-Extras JSON (optional)',
-                                  ja: 'Operation Extras JSON（任意）',
+                                  ja: '操作の追加パラメーター（JSON、任意）',
                                 ),
-                                helperText: openHandLocalizedText(
-                                  context,
-                                  zh: _protocolType == AiProtocolType.jev
-                                      ? '决策接口支持 decisions 下的 headers、query 扩展；请求正文仅发送模型、状态和问题。'
-                                      : '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
-                                  zhHant:
-                                      '放置 responses/realtime/影片等操作的 provider-specific 擴充參數。',
-                                  en: 'Provider-specific extras for responses/realtime/video operations.',
-                                  fr: 'Extras propres au fournisseur pour responses/realtime/vidéo.',
-                                  de: 'Anbieterspezifische Extras für responses/realtime/video.',
-                                  ja: 'responses/realtime/動画などの provider-specific 拡張パラメータです。',
-                                ),
+                                helperText: _protocolType == AiProtocolType.jev
+                                    ? l10n.mdlEdDecisionExtrasHint
+                                    : l10n.mdlEdOperationExtrasHint,
                               ),
                             ),
                             kOpenHandGap12,
@@ -2345,7 +2380,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                         .map(
                                           (item) => DropdownMenuItem<String>(
                                             value: item,
-                                            child: Text(item),
+                                            child: Text(
+                                              _modelConfigurationValueLabel(
+                                                context,
+                                                item,
+                                              ),
+                                            ),
                                           ),
                                         )
                                         .toList(growable: false),
@@ -2366,13 +2406,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                   value: _responsesCapabilityStatus,
                                   helperText: openHandLocalizedText(
                                     context,
-                                    zh: 'auto 自动探测并短期记忆；supported 始终优先；disabled 直接使用回退端点。',
+                                    zh: '自动：探测并暂存结果；已支持：始终优先使用；已禁用：直接使用备用接口。',
                                     zhHant:
-                                        'auto 自動探測並短期記憶；supported 始終優先；disabled 直接使用回退端點。',
-                                    en: 'auto probes and briefly remembers; supported always prefers it; disabled uses fallback directly.',
-                                    fr: 'auto détecte et mémorise brièvement ; supported le privilégie toujours ; disabled utilise directement le repli.',
-                                    de: 'auto prüft und merkt kurz; supported bevorzugt es immer; disabled nutzt direkt den Fallback.',
-                                    ja: 'auto は検出結果を一時保持し、supported は常に優先、disabled は直接フォールバックします。',
+                                        '自動：偵測並暫存結果；已支援：一律優先使用；已停用：直接使用備用介面。',
+                                    en: 'Automatic: probe and cache briefly. Supported: always prefer this endpoint. Disabled: use the fallback.',
+                                    fr: 'Automatique : détecter et mémoriser brièvement. Pris en charge : utiliser en priorité. Désactivé : utiliser le secours.',
+                                    de: 'Automatisch: prüfen und kurz speichern. Unterstützt: immer bevorzugen. Deaktiviert: Ersatzendpunkt verwenden.',
+                                    ja: '自動：検出結果を一時保存。対応済み：常に優先。無効：代替接続先を使用。',
                                   ),
                                   values: const <String>[
                                     'auto',
@@ -2389,12 +2429,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                 final realtimeDropdown = dropdown(
                                   label: openHandLocalizedText(
                                     context,
-                                    zh: 'Realtime 能力状态',
-                                    zhHant: 'Realtime 能力狀態',
+                                    zh: '实时语音能力',
+                                    zhHant: '即時語音能力',
                                     en: 'Realtime Capability',
                                     fr: 'Capacité Realtime',
-                                    de: 'Realtime-Fähigkeit',
-                                    ja: 'Realtime 機能状態',
+                                    de: 'Echtzeitfähigkeit',
+                                    ja: 'リアルタイム音声機能',
                                   ),
                                   value: _realtimeCapabilityStatus,
                                   onChanged: (value) {
@@ -2407,12 +2447,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                 final filesDropdown = dropdown(
                                   label: openHandLocalizedText(
                                     context,
-                                    zh: 'Files 能力状态',
-                                    zhHant: 'Files 能力狀態',
+                                    zh: '文件管理能力',
+                                    zhHant: '檔案管理能力',
                                     en: 'Files Capability',
                                     fr: 'Capacité fichiers',
-                                    de: 'Files-Fähigkeit',
-                                    ja: 'Files 機能状態',
+                                    de: 'Dateiverwaltung',
+                                    ja: 'ファイル管理機能',
                                   ),
                                   value: _filesCapabilityStatus,
                                   onChanged: (value) {
@@ -2425,12 +2465,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                 final fineTunesDropdown = dropdown(
                                   label: openHandLocalizedText(
                                     context,
-                                    zh: 'Fine-tunes 能力状态',
-                                    zhHant: 'Fine-tunes 能力狀態',
+                                    zh: '微调能力',
+                                    zhHant: '微調能力',
                                     en: 'Fine-tunes Capability',
-                                    fr: 'Capacité fine-tunes',
-                                    de: 'Fine-tunes-Fähigkeit',
-                                    ja: 'Fine-tunes 機能状態',
+                                    fr: 'Capacité de réglage fin',
+                                    de: 'Feinabstimmung',
+                                    ja: 'ファインチューニング機能',
                                   ),
                                   value: _fineTunesCapabilityStatus,
                                   onChanged: (value) {
@@ -2498,11 +2538,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                             kOpenHandGap20,
                             Row(
                               children: [
-                                Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.mdlEdCustomHeaders,
-                                  style: Theme.of(context).textTheme.titleSmall,
+                                Flexible(
+                                  child: Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.mdlEdCustomHeaders,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
+                                  ),
                                 ),
                                 const Spacer(),
                                 FilledButton.tonalIcon(
@@ -2533,48 +2577,83 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                 final entry = mapEntry.value;
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 2,
-                                        child: TextField(
-                                          controller: entry.keyController,
-                                          enabled: !_isSaving,
-                                          decoration: InputDecoration(
-                                            labelText: AppLocalizations.of(
-                                              context,
-                                            )!.mdlEdHeaderName,
-                                            isDense: true,
-                                          ),
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final stacked =
+                                          constraints.maxWidth <
+                                          MediaQuery.textScalerOf(
+                                            context,
+                                          ).scale(400);
+                                      final nameField = TextField(
+                                        controller: entry.keyController,
+                                        enabled: !_isSaving,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.mdlEdHeaderName,
+                                          isDense: true,
                                         ),
-                                      ),
-                                      kOpenHandHGap8,
-                                      Expanded(
-                                        flex: 3,
-                                        child: TextField(
-                                          controller: entry.valueController,
-                                          enabled: !_isSaving,
-                                          decoration: InputDecoration(
-                                            labelText: AppLocalizations.of(
-                                              context,
-                                            )!.mdlEdHeaderValue,
-                                            isDense: true,
-                                          ),
+                                      );
+                                      final fields = IntrinsicHeight(
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            if (!stacked)
+                                              Expanded(
+                                                flex: 2,
+                                                child: nameField,
+                                              ),
+                                            if (!stacked) kOpenHandHGap8,
+                                            Expanded(
+                                              flex: 3,
+                                              child: TextField(
+                                                controller:
+                                                    entry.valueController,
+                                                enabled: !_isSaving,
+                                                decoration: InputDecoration(
+                                                  labelText:
+                                                      AppLocalizations.of(
+                                                        context,
+                                                      )!.mdlEdHeaderValue,
+                                                  isDense: true,
+                                                ),
+                                              ),
+                                            ),
+                                            kOpenHandHGap4,
+                                            AspectRatio(
+                                              aspectRatio: 1,
+                                              child: IconButton(
+                                                onPressed: _isSaving
+                                                    ? null
+                                                    : () => _removeHeaderEntry(
+                                                        index,
+                                                      ),
+                                                tooltip: l10n.commonDelete,
+                                                icon: const Icon(
+                                                  Icons.close,
+                                                  size: 18,
+                                                ),
+                                                style: IconButton.styleFrom(
+                                                  minimumSize: Size.zero,
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  padding: EdgeInsets.zero,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      kOpenHandHGap4,
-                                      IconButton(
-                                        onPressed: _isSaving
-                                            ? null
-                                            : () => _removeHeaderEntry(index),
-                                        icon: const Icon(Icons.close, size: 18),
-                                        style: IconButton.styleFrom(
-                                          minimumSize: const Size(32, 32),
-                                          maximumSize: const Size(32, 32),
-                                          padding: EdgeInsets.zero,
-                                        ),
-                                      ),
-                                    ],
+                                      );
+                                      return stacked
+                                          ? Column(
+                                              children: [
+                                                nameField,
+                                                kOpenHandGap8,
+                                                fields,
+                                              ],
+                                            )
+                                          : fields;
+                                    },
                                   ),
                                 );
                               }),
@@ -2739,7 +2818,17 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
       return const <String, Object?>{};
     }
     return optionalStringKeyedMapFromJsonText(trimmed) ??
-        (throw const FormatException('高级 JSON 配置必须是合法的 JSON 对象。'));
+        (throw FormatException(
+          openHandLocalizedText(
+            context,
+            zh: '高级配置必须是合法的 JSON 对象。',
+            zhHant: '進階設定必須是有效的 JSON 物件。',
+            en: 'Advanced settings must be a valid JSON object.',
+            fr: 'Les paramètres avancés doivent être un objet JSON valide.',
+            de: 'Erweiterte Einstellungen müssen ein gültiges JSON-Objekt sein.',
+            ja: '詳細設定は有効な JSON オブジェクトである必要があります。',
+          ),
+        ));
   }
 }
 
@@ -3952,7 +4041,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               kOpenHandGap4,
               Text(
                 decisionOnly
-                    ? '此模型返回结构化决策，不能生成文本标题。'
+                    ? AppLocalizations.of(
+                        context,
+                      )!.mdlEdDecisionTitleUnavailable
                     : openHandLocalizedText(
                         context,
                         zh: '开启后，该模型会作为所有线程标题生成的全局兜底；请选择可生成文本标题的模型，保存时其他模型的同名开关会自动关闭。',
@@ -5357,8 +5448,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             keyboardType: TextInputType.number,
                             label: openHandLocalizedText(
                               context,
-                              zh: '单条最大输入 tokens',
-                              zhHant: '單筆最大輸入 tokens',
+                              zh: '单条最大输入词元数',
+                              zhHant: '單筆最大輸入詞元數',
                               en: 'Max Input Tokens',
                               fr: 'Tokens d’entrée max',
                               de: 'Max. Eingabe-Tokens',
@@ -5376,12 +5467,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             controller: _embeddingEndpointPathController,
                             label: openHandLocalizedText(
                               context,
-                              zh: '嵌入 endpoint path',
-                              zhHant: '嵌入 endpoint path',
+                              zh: '嵌入接口路径',
+                              zhHant: '嵌入接口路径',
                               en: 'Embedding Endpoint Path',
                               fr: 'Chemin endpoint embeddings',
                               de: 'Embedding-Endpoint-Pfad',
-                              ja: '埋め込み endpoint path',
+                              ja: '埋め込みエンドポイントのパス',
                             ),
                             hint: '/v1/embeddings',
                           ),
@@ -5393,8 +5484,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             keyboardType: TextInputType.number,
                             label: openHandLocalizedText(
                               context,
-                              zh: '建议 batch size',
-                              zhHant: '建議 batch size',
+                              zh: '建议批次大小',
+                              zhHant: '建議批次大小',
                               en: 'Suggested Batch Size',
                               fr: 'Batch size suggéré',
                               de: 'Empfohlene Batch-Größe',
@@ -5412,12 +5503,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             controller: _embeddingQueryModelIdController,
                             label: openHandLocalizedText(
                               context,
-                              zh: 'Query 模型 ID',
-                              zhHant: 'Query 模型 ID',
+                              zh: '查询模型 ID',
+                              zhHant: '查询模型 ID',
                               en: 'Query Model ID',
                               fr: 'ID modèle Query',
                               de: 'Query-Modell-ID',
-                              ja: 'Query モデル ID',
+                              ja: 'クエリモデル ID',
                             ),
                             hint: widget.modelId,
                           ),
@@ -5428,12 +5519,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             controller: _embeddingDocumentModelIdController,
                             label: openHandLocalizedText(
                               context,
-                              zh: 'Document 模型 ID',
-                              zhHant: 'Document 模型 ID',
+                              zh: '文档模型 ID',
+                              zhHant: '文档模型 ID',
                               en: 'Document Model ID',
                               fr: 'ID modèle Document',
                               de: 'Document-Modell-ID',
-                              ja: 'Document モデル ID',
+                              ja: '文書モデル ID',
                             ),
                             hint: widget.modelId,
                           ),
@@ -5536,12 +5627,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             controller: _embeddingQueryInputTypeController,
                             label: openHandLocalizedText(
                               context,
-                              zh: 'Query 输入类型',
-                              zhHant: 'Query 輸入類型',
+                              zh: '查询输入类型',
+                              zhHant: '查詢輸入類型',
                               en: 'Query Input Type',
                               fr: 'Type d’entrée Query',
                               de: 'Query-Eingabetyp',
-                              ja: 'Query 入力タイプ',
+                              ja: 'クエリ入力タイプ',
                             ),
                             hint: 'query',
                           ),
@@ -5553,12 +5644,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       controller: _embeddingDocumentInputTypeController,
                       label: openHandLocalizedText(
                         context,
-                        zh: 'Document 输入类型',
-                        zhHant: 'Document 輸入類型',
+                        zh: '文档输入类型',
+                        zhHant: '文件輸入類型',
                         en: 'Document Input Type',
                         fr: 'Type d’entrée Document',
                         de: 'Document-Eingabetyp',
-                        ja: 'Document 入力タイプ',
+                        ja: '文書入力タイプ',
                       ),
                       hint: 'document',
                     ),
@@ -5607,12 +5698,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                                 _embeddingDefaultQueryTaskTypeController,
                             label: openHandLocalizedText(
                               context,
-                              zh: 'Query 任务类型',
-                              zhHant: 'Query 任務類型',
+                              zh: '查询任务类型',
+                              zhHant: '查詢任務類型',
                               en: 'Query Task Type',
                               fr: 'Type de tâche Query',
                               de: 'Query-Aufgabentyp',
-                              ja: 'Query タスクタイプ',
+                              ja: 'クエリタスクの種類',
                             ),
                             hint: 'RETRIEVAL_QUERY',
                           ),
@@ -5624,12 +5715,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                                 _embeddingDefaultDocumentTaskTypeController,
                             label: openHandLocalizedText(
                               context,
-                              zh: 'Document 任务类型',
-                              zhHant: 'Document 任務類型',
+                              zh: '文档任务类型',
+                              zhHant: '文件任務類型',
                               en: 'Document Task Type',
                               fr: 'Type de tâche Document',
                               de: 'Document-Aufgabentyp',
-                              ja: 'Document タスクタイプ',
+                              ja: '文書タスクの種類',
                             ),
                             hint: 'RETRIEVAL_DOCUMENT',
                           ),
@@ -5644,12 +5735,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             controller: _embeddingQueryTextPrefixController,
                             label: openHandLocalizedText(
                               context,
-                              zh: 'Query 文本前缀',
-                              zhHant: 'Query 文字前綴',
+                              zh: '查询文本前缀',
+                              zhHant: '查詢文字前綴',
                               en: 'Query Text Prefix',
                               fr: 'Préfixe texte Query',
                               de: 'Query-Textpräfix',
-                              ja: 'Query テキスト接頭辞',
+                              ja: 'クエリのテキスト接頭辞',
                             ),
                             hint: 'query:',
                           ),
@@ -5660,12 +5751,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             controller: _embeddingDocumentTextPrefixController,
                             label: openHandLocalizedText(
                               context,
-                              zh: 'Document 文本前缀',
-                              zhHant: 'Document 文字前綴',
+                              zh: '文档文本前缀',
+                              zhHant: '文件文字前綴',
                               en: 'Document Text Prefix',
                               fr: 'Préfixe texte Document',
                               de: 'Document-Textpräfix',
-                              ja: 'Document テキスト接頭辞',
+                              ja: '文書のテキスト接頭辞',
                             ),
                             hint: 'passage:',
                           ),
@@ -5731,12 +5822,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             controller: _embeddingOutputDTypesController,
                             label: openHandLocalizedText(
                               context,
-                              zh: '输出 dtype（逗号分隔）',
-                              zhHant: '輸出 dtype（逗號分隔）',
+                              zh: '输出数据类型（逗号分隔）',
+                              zhHant: '輸出資料型別（逗號分隔）',
                               en: 'Output DTypes (CSV)',
                               fr: 'DTypes de sortie (CSV)',
                               de: 'Ausgabe-DTypes (CSV)',
-                              ja: '出力 dtype（CSV）',
+                              ja: '出力データ型（CSV）',
                             ),
                             hint: 'float, int8, uint8, binary',
                           ),
@@ -5747,12 +5838,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             controller: _embeddingDefaultOutputDTypeController,
                             label: openHandLocalizedText(
                               context,
-                              zh: '默认输出 dtype',
-                              zhHant: '預設輸出 dtype',
+                              zh: '默认输出数据类型',
+                              zhHant: '預設輸出資料型別',
                               en: 'Default Output DType',
                               fr: 'DType de sortie par défaut',
                               de: 'Standard-Ausgabe-DType',
-                              ja: 'デフォルト出力 dtype',
+                              ja: 'デフォルト出力データ型',
                             ),
                             hint: 'float',
                           ),
@@ -5784,8 +5875,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             keyboardType: TextInputType.number,
                             label: openHandLocalizedText(
                               context,
-                              zh: '每批最大 tokens',
-                              zhHant: '每批最大 tokens',
+                              zh: '每批最大词元数',
+                              zhHant: '每批最大词元数',
                               en: 'Max Tokens Per Batch',
                               fr: 'Tokens max par lot',
                               de: 'Max. Tokens pro Batch',
@@ -5803,12 +5894,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       title: Text(
                         openHandLocalizedText(
                           context,
-                          zh: '支持自定义 dimensions / output dimensionality',
-                          zhHant: '支援自訂 dimensions / output dimensionality',
+                          zh: '支持自定义输出维度',
+                          zhHant: '支援自訂輸出維度',
                           en: 'Supports Custom Dimensions',
                           fr: 'Prend en charge les dimensions personnalisées',
                           de: 'Unterstützt benutzerdefinierte Dimensionen',
-                          ja: 'カスタム dimensions / output dimensionality に対応',
+                          ja: '出力次元数の指定に対応',
                         ),
                       ),
                       value: _embeddingSupportsCustomDimensions,
@@ -5823,12 +5914,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       title: Text(
                         openHandLocalizedText(
                           context,
-                          zh: '需要特殊 request body 字段',
-                          zhHant: '需要特殊 request body 欄位',
+                          zh: '需要特殊请求正文字段',
+                          zhHant: '需要特殊請求本文欄位',
                           en: 'Requires Special Request Body',
                           fr: 'Nécessite un corps de requête spécial',
                           de: 'Benötigt speziellen Request-Body',
-                          ja: '特殊な request body フィールドが必要',
+                          ja: '特別なリクエスト本文フィールドが必要',
                         ),
                       ),
                       value: _embeddingRequiresSpecialBody,
@@ -6085,24 +6176,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                   children: [
                     kOpenHandGap8,
-                    SelectionArea(
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
-                          borderRadius: kOpenHandBorderRadius16,
-                        ),
-                        child: Text(
-                          _buildReadonlyOpenRouterMetadata(
-                            widget.modelId,
-                            widget.effectiveProfile,
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            height: 1.45,
-                          ),
-                        ),
+                    OpenHandJsonTreeView(
+                      text: _buildReadonlyOpenRouterMetadata(
+                        widget.modelId,
+                        widget.effectiveProfile,
                       ),
+                      bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
                     ),
                   ],
                 ),
@@ -6144,25 +6223,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: FilledButtonTheme(
-                          data: FilledButtonThemeData(
-                            style: FilledButton.styleFrom(
-                              backgroundColor:
-                                  colorScheme.surfaceContainerHighest,
-                              foregroundColor: colorScheme.onSurface,
-                            ),
-                          ),
-                          child: OpenHandDialogActionButton.secondary(
-                            onPressed: () => Navigator.of(context).pop(),
-                            label: l10n.mdlEdCancel,
-                          ),
+                        child: OpenHandDialogActionButton.secondary(
+                          onPressed: () => Navigator.of(context).pop(),
+                          label: l10n.mdlEdCancel,
                         ),
                       ),
                       const SizedBox(width: kOpenHandDialogActionSpacing),
                       Expanded(
                         child: OpenHandDialogActionButton.primary(
                           onPressed: _save,
-                          icon: Icons.check_rounded,
                           label: l10n.mdlEdOk,
                         ),
                       ),
@@ -6197,15 +6266,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         children: [
           Text(
             decisionOnly
-                ? 'Jev 协议 · 文本输入，结构化决策输出。支持判断、选择和评分，结果以决策卡片呈现。'
+                ? l10n.mdlEdDecisionSummary
                 : catalog?.architecture?.outputModalities.contains(
                         'decisions',
                       ) ==
                       true
-                ? '此目录模型输出结构化决策。如需专属决策接口，请在提供商配置中选择 Jev 协议；混合提供商可另建 Jev 配置。'
+                ? l10n.mdlEdDecisionProtocolHint
                 : catalog == null
-                ? '暂无匹配资料，请按提供商文档配置。修改模型 ID 不会覆盖已填写的参数。'
-                : '目录参考参数 · 请按提供商实际能力调整。',
+                ? l10n.mdlEdCatalogMissing
+                : l10n.mdlEdCatalogReference,
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
               height: 1.5,
@@ -6217,10 +6286,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final item in const [
-                  (Icons.verified_rounded, '判断'),
-                  (Icons.fact_check_rounded, '选择'),
-                  (Icons.star_rounded, '评分'),
+                for (final item in [
+                  (Icons.verified_rounded, l10n.mdlEdJudgment),
+                  (Icons.fact_check_rounded, l10n.mdlEdChoice),
+                  (Icons.star_rounded, l10n.mdlEdScore),
                 ])
                   Chip(
                     avatar: Icon(
@@ -6528,4 +6597,28 @@ class _ReasoningEffortOptionDraft {
     labelDeController.dispose();
     labelFrController.dispose();
   }
+}
+
+String _modelConfigurationValueLabel(BuildContext context, String value) {
+  final l10n = AppLocalizations.of(context)!;
+  return switch (value) {
+    'auto' => l10n.mdlEdValueAuto,
+    'supported' => l10n.mdlEdValueSupported,
+    'experimental' => l10n.mdlEdValueExperimental,
+    'disabled' => l10n.mdlEdValueDisabled,
+    'custom' => l10n.mdlEdValueCustom,
+    'openai_compat' => l10n.mdlEdValueOpenaiCompat,
+    'jev_native' => l10n.mdlEdValueJevNative,
+    'anthropic_native' => l10n.mdlEdValueAnthropicNative,
+    'gemini_native' => l10n.mdlEdValueGeminiNative,
+    'openai' => 'OpenAI',
+    'claude' => 'Claude',
+    'gemini' => 'Gemini',
+    'qwen' => 'Qwen',
+    'jimeng' => 'Jimeng',
+    'kling' => 'Kling',
+    'sora' => 'Sora',
+    'minimax' => 'MiniMax',
+    _ => value,
+  };
 }
