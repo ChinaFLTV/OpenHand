@@ -195,13 +195,45 @@ void main() {
     await tester.ensureVisible(field);
     await tester.pumpAndSettle();
     final remove = find.descendant(of: dialog, matching: find.byTooltip('删除'));
+    final add = find.ancestor(
+      of: find.descendant(of: dialog, matching: find.byIcon(Icons.add_rounded)),
+      matching: find.byType(FilledButton),
+    ).first;
     expect(tester.getSize(remove).height, closeTo(tester.getSize(field).height, 1));
     expect(tester.getSize(remove).width, closeTo(tester.getSize(field).height, 1));
+    expect(tester.getRect(add).right, closeTo(tester.getRect(remove).right, 1));
     expect(tester.takeException(), isNull);
     await _captureEditor(tester, dialog, 'headers-narrow');
     await tester.tap(remove);
     await tester.pumpAndSettle();
     expect(field, findsNothing);
+    expect(find.text('暂无自定义请求头。点击「添加」按钮来添加。'), findsOneWidget);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, '请求头名称'), findsOneWidget);
+  });
+
+  testWidgets('宽屏自定义请求头添加与删除右缘对齐', (tester) async {
+    await _openEditor(tester,
+      provider: const AiModelConfig(id: '请求头宽屏', baseUrl: 'https://example.invalid',
+        token: '', authScheme: AiAuthScheme.none, modelId: 'custom',
+        protocolType: AiProtocolType.openai,
+        customHeaders: {'X-Test': 'value', 'X-Trace': '1'}));
+    final dialog = find.byType(_AiModelEditorDialog);
+    final nameField = find.widgetWithText(TextField, '请求头名称').first;
+    await tester.ensureVisible(nameField);
+    await tester.pumpAndSettle();
+    final remove = find.descendant(of: dialog, matching: find.byTooltip('删除'));
+    final add = find.ancestor(
+      of: find.descendant(of: dialog, matching: find.byIcon(Icons.add_rounded)),
+      matching: find.byType(FilledButton),
+    ).first;
+    expect(remove, findsNWidgets(2));
+    expect(tester.getRect(add).right, closeTo(tester.getRect(remove.first).right, 1));
+    expect(tester.getRect(remove.first).right, closeTo(tester.getRect(remove.at(1)).right, 1));
+    expect(tester.getSize(remove.first).height, closeTo(tester.getSize(nameField).height, 1));
+    expect(tester.takeException(), isNull);
+    await _captureEditor(tester, dialog, 'headers-wide');
   });
 
   testWidgets('提供商协议切换同步端点和高级配置，模型 ID 不参与判断', (tester) async {

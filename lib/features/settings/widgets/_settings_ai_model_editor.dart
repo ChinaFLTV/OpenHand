@@ -252,8 +252,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
     _endpointOverridesController.dispose();
     _operationExtrasController.dispose();
     for (final entry in _customHeaderEntries) {
-      entry.keyController.dispose();
-      entry.valueController.dispose();
+      entry.dispose();
     }
     _chipScrollController.dispose();
     _errorPulse.dispose();
@@ -593,6 +592,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
   }
 
   void _addHeaderEntry() {
+    if (_isSaving || _customHeaderEntries.length >= _kMaxCustomHeaders) {
+      return;
+    }
     setState(() {
       _customHeaderEntries.add(
         _HeaderEntry(
@@ -603,12 +605,18 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
     });
   }
 
-  void _removeHeaderEntry(int index) {
-    setState(() {
-      final entry = _customHeaderEntries.removeAt(index);
-      entry.keyController.dispose();
-      entry.valueController.dispose();
-    });
+  void _removeHeaderEntryById(String id) {
+    void remove() {
+      final index = _customHeaderEntries.indexWhere((entry) => entry.id == id);
+      if (index < 0) return;
+      _customHeaderEntries.removeAt(index).dispose();
+    }
+
+    if (!mounted) {
+      remove();
+      return;
+    }
+    setState(remove);
   }
 
   Map<String, String> _collectCustomHeaders() {
@@ -2536,127 +2544,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                               },
                             ),
                             kOpenHandGap20,
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.mdlEdCustomHeaders,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
-                                  ),
-                                ),
-                                const Spacer(),
-                                FilledButton.tonalIcon(
-                                  onPressed: _isSaving ? null : _addHeaderEntry,
-                                  icon: const Icon(Icons.add, size: 18),
-                                  label: Text(
-                                    AppLocalizations.of(context)!.mdlEdAdd,
-                                  ),
-                                ),
-                              ],
+                            _CustomHeadersEditor(
+                              entries: _customHeaderEntries,
+                              enabled: !_isSaving,
+                              onAdd: _addHeaderEntry,
+                              onRemove: _removeHeaderEntryById,
                             ),
-                            kOpenHandGap8,
-                            if (_customHeaderEntries.isEmpty)
-                              Text(
-                                AppLocalizations.of(
-                                  context,
-                                )!.mdlEdNoCustomHeadersTapAddTo,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                              )
-                            else
-                              ..._customHeaderEntries.asMap().entries.map((
-                                mapEntry,
-                              ) {
-                                final index = mapEntry.key;
-                                final entry = mapEntry.value;
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final stacked =
-                                          constraints.maxWidth <
-                                          MediaQuery.textScalerOf(
-                                            context,
-                                          ).scale(400);
-                                      final nameField = TextField(
-                                        controller: entry.keyController,
-                                        enabled: !_isSaving,
-                                        decoration: InputDecoration(
-                                          labelText: l10n.mdlEdHeaderName,
-                                          isDense: true,
-                                        ),
-                                      );
-                                      final fields = IntrinsicHeight(
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            if (!stacked)
-                                              Expanded(
-                                                flex: 2,
-                                                child: nameField,
-                                              ),
-                                            if (!stacked) kOpenHandHGap8,
-                                            Expanded(
-                                              flex: 3,
-                                              child: TextField(
-                                                controller:
-                                                    entry.valueController,
-                                                enabled: !_isSaving,
-                                                decoration: InputDecoration(
-                                                  labelText:
-                                                      AppLocalizations.of(
-                                                        context,
-                                                      )!.mdlEdHeaderValue,
-                                                  isDense: true,
-                                                ),
-                                              ),
-                                            ),
-                                            kOpenHandHGap4,
-                                            AspectRatio(
-                                              aspectRatio: 1,
-                                              child: IconButton(
-                                                onPressed: _isSaving
-                                                    ? null
-                                                    : () => _removeHeaderEntry(
-                                                        index,
-                                                      ),
-                                                tooltip: l10n.commonDelete,
-                                                icon: const Icon(
-                                                  Icons.close,
-                                                  size: 18,
-                                                ),
-                                                style: IconButton.styleFrom(
-                                                  minimumSize: Size.zero,
-                                                  tapTargetSize:
-                                                      MaterialTapTargetSize
-                                                          .shrinkWrap,
-                                                  padding: EdgeInsets.zero,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                      return stacked
-                                          ? Column(
-                                              children: [
-                                                nameField,
-                                                kOpenHandGap8,
-                                                fields,
-                                              ],
-                                            )
-                                          : fields;
-                                    },
-                                  ),
-                                );
-                              }),
                             OpenHandDialogErrorText(
                               message: _errorMessage,
                               topGap: 16,
@@ -2833,10 +2726,416 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
 }
 
 class _HeaderEntry {
-  _HeaderEntry({required this.keyController, required this.valueController});
+  _HeaderEntry({required this.keyController, required this.valueController})
+    : id = 'hdr-${_nextCustomHeaderEntryId++}';
 
+  static int _nextCustomHeaderEntryId = 0;
+
+  final String id;
   final TextEditingController keyController;
   final TextEditingController valueController;
+  bool _disposed = false;
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    keyController.dispose();
+    valueController.dispose();
+  }
+}
+
+const int _kMaxCustomHeaders = 32;
+const double _kCustomHeaderStackWidth = 400;
+const double _kCustomHeaderActionMinSize = 40;
+
+InputDecoration _customHeaderInputDecoration({
+  required ColorScheme colors,
+  required String label,
+}) {
+  final enabledBorder = OutlineInputBorder(
+    borderRadius: kOpenHandBorderRadius16,
+    borderSide: BorderSide(
+      color: colors.outlineVariant.withValues(alpha: 0.72),
+    ),
+  );
+  return InputDecoration(
+    labelText: label,
+    isDense: true,
+    filled: true,
+    fillColor: colors.surface.withValues(alpha: 0.94),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    border: enabledBorder,
+    enabledBorder: enabledBorder,
+    focusedBorder: OutlineInputBorder(
+      borderRadius: kOpenHandBorderRadius16,
+      borderSide: BorderSide(color: colors.primary, width: 1.5),
+    ),
+    disabledBorder: enabledBorder,
+  );
+}
+
+ButtonStyle _customHeaderAddButtonStyle(ColorScheme colors) {
+  return FilledButton.styleFrom(
+    minimumSize: const Size(0, _kCustomHeaderActionMinSize),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    visualDensity: VisualDensity.compact,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    backgroundColor: colors.primaryContainer,
+    foregroundColor: colors.onPrimaryContainer,
+    disabledBackgroundColor: colors.surfaceContainerHighest,
+    disabledForegroundColor: colors.onSurfaceVariant.withValues(alpha: 0.55),
+    shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12),
+    textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+  );
+}
+
+(Color fill, Color onFill) _customHeaderIndexColors(
+  ColorScheme colors,
+  int index,
+) {
+  switch (index % 3) {
+    case 1:
+      return (colors.tertiaryContainer, colors.onTertiaryContainer);
+    case 2:
+      return (colors.secondaryContainer, colors.onSecondaryContainer);
+    default:
+      return (colors.primaryContainer, colors.onPrimaryContainer);
+  }
+}
+
+class _CustomHeadersEditor extends StatelessWidget {
+  const _CustomHeadersEditor({
+    required this.entries,
+    required this.enabled,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final List<_HeaderEntry> entries;
+  final bool enabled;
+  final VoidCallback onAdd;
+  final ValueChanged<String> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final canAdd = enabled && entries.length < _kMaxCustomHeaders;
+    return Material(
+      color: Color.alphaBlend(
+        colors.primary.withValues(alpha: 0.07),
+        colors.surfaceContainerLow,
+      ),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: kOpenHandBorderRadius18,
+        side: BorderSide(color: colors.primary.withValues(alpha: 0.14)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                SizedBox.square(
+                  dimension: 36,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.tertiaryContainer,
+                      borderRadius: kOpenHandBorderRadius10,
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.http_rounded,
+                        size: 18,
+                        color: colors.onTertiaryContainer,
+                      ),
+                    ),
+                  ),
+                ),
+                kOpenHandHGap10,
+                Expanded(
+                  child: Text(
+                    l10n.mdlEdCustomHeaders,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                kOpenHandHGap8,
+                MicroPressFeedback(
+                  enabled: canAdd,
+                  scale: 0.94,
+                  child: FilledButton.tonalIcon(
+                    onPressed: canAdd ? onAdd : null,
+                    style: _customHeaderAddButtonStyle(colors),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: Text(l10n.mdlEdAdd),
+                  ),
+                ),
+              ],
+            ),
+            kOpenHandGap12,
+            OpenHandVerticalRevealSwitcher(
+              duration: kOpenHandMotion260,
+              child: entries.isEmpty
+                  ? _CustomHeadersEmptyState(
+                      key: const ValueKey<String>('headers-empty'),
+                      enabled: canAdd,
+                      message: l10n.mdlEdNoCustomHeadersTapAddTo,
+                      onAdd: onAdd,
+                    )
+                  : OpenHandRemovableListScope(
+                      key: const ValueKey<String>('headers-list'),
+                      builder: (context, removal) {
+                        return Column(
+                          children: [
+                            for (final (index, entry) in entries.indexed)
+                              SettingsAwareAppearOnce(
+                                key: ValueKey<String>(entry.id),
+                                child: OpenHandListRemovalTransition(
+                                  collapsed: removal.isRemoving(entry.id),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: _CustomHeaderRow(
+                                      index: index,
+                                      entry: entry,
+                                      enabled: enabled,
+                                      autofocus:
+                                          enabled &&
+                                          index == entries.length - 1 &&
+                                          entry.keyController.text.isEmpty,
+                                      onRemove: () => unawaited(
+                                        removal.run(entry.id, () async {
+                                          onRemove(entry.id);
+                                        }),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomHeadersEmptyState extends StatelessWidget {
+  const _CustomHeadersEmptyState({
+    super.key,
+    required this.enabled,
+    required this.message,
+    required this.onAdd,
+  });
+
+  final bool enabled;
+  final String message;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return MicroPressFeedback(
+      enabled: enabled,
+      scale: 0.98,
+      child: Material(
+        color: Color.alphaBlend(
+          colors.tertiary.withValues(alpha: 0.12),
+          colors.surface,
+        ),
+        borderRadius: kOpenHandBorderRadius16,
+        child: InkWell(
+          onTap: enabled ? onAdd : null,
+          borderRadius: kOpenHandBorderRadius16,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            child: Row(
+              children: [
+                SizedBox.square(
+                  dimension: 40,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.tertiaryContainer,
+                      borderRadius: kOpenHandBorderRadius12,
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.add_link_rounded,
+                        color: colors.onTertiaryContainer,
+                      ),
+                    ),
+                  ),
+                ),
+                kOpenHandHGap12,
+                Expanded(
+                  child: Text(
+                    message,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomHeaderRow extends StatelessWidget {
+  const _CustomHeaderRow({
+    required this.index,
+    required this.entry,
+    required this.enabled,
+    required this.autofocus,
+    required this.onRemove,
+  });
+
+  final int index;
+  final _HeaderEntry entry;
+  final bool enabled;
+  final bool autofocus;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final indexColors = _customHeaderIndexColors(colors, index);
+    final nameField = TextField(
+      controller: entry.keyController,
+      enabled: enabled,
+      autofocus: autofocus,
+      autocorrect: false,
+      enableSuggestions: false,
+      smartDashesType: SmartDashesType.disabled,
+      smartQuotesType: SmartQuotesType.disabled,
+      textInputAction: TextInputAction.next,
+      decoration: _customHeaderInputDecoration(
+        colors: colors,
+        label: l10n.mdlEdHeaderName,
+      ),
+    );
+    final valueField = TextField(
+      controller: entry.valueController,
+      enabled: enabled,
+      autocorrect: false,
+      enableSuggestions: false,
+      smartDashesType: SmartDashesType.disabled,
+      smartQuotesType: SmartQuotesType.disabled,
+      textInputAction: TextInputAction.done,
+      decoration: _customHeaderInputDecoration(
+        colors: colors,
+        label: l10n.mdlEdHeaderValue,
+      ),
+    );
+    final indexBadge = AspectRatio(
+      aspectRatio: 1,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: indexColors.$1,
+          borderRadius: kOpenHandBorderRadius16,
+        ),
+        child: Center(
+          child: Text(
+            '${index + 1}',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: indexColors.$2,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
+    final deleteButton = AspectRatio(
+      aspectRatio: 1,
+      child: MicroPressFeedback(
+        enabled: enabled,
+        scale: 0.9,
+        child: IconButton(
+          onPressed: enabled ? onRemove : null,
+          tooltip: l10n.commonDelete,
+          icon: const Icon(Icons.close_rounded, size: 18),
+          style: IconButton.styleFrom(
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: EdgeInsets.zero,
+            backgroundColor: colors.errorContainer.withValues(alpha: 0.78),
+            foregroundColor: colors.onErrorContainer,
+            disabledBackgroundColor: colors.surfaceContainerHighest,
+            disabledForegroundColor: colors.onSurfaceVariant,
+            shape: const RoundedRectangleBorder(
+              borderRadius: kOpenHandBorderRadius16,
+            ),
+          ),
+        ),
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth <
+            MediaQuery.textScalerOf(context).scale(_kCustomHeaderStackWidth);
+        if (stacked) {
+          return Column(
+            children: [
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    indexBadge,
+                    kOpenHandHGap8,
+                    Expanded(child: nameField),
+                  ],
+                ),
+              ),
+              kOpenHandGap8,
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: valueField),
+                    kOpenHandHGap8,
+                    deleteButton,
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              indexBadge,
+              kOpenHandHGap8,
+              Expanded(flex: 2, child: nameField),
+              kOpenHandHGap8,
+              Expanded(flex: 3, child: valueField),
+              kOpenHandHGap8,
+              deleteButton,
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _ModelProfileEditorResult {
