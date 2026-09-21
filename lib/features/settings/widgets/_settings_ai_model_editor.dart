@@ -2827,7 +2827,6 @@ class _CustomHeadersEditor extends StatelessWidget {
         colors.primary.withValues(alpha: 0.07),
         colors.surfaceContainerLow,
       ),
-      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: kOpenHandBorderRadius18,
         side: BorderSide(color: colors.primary.withValues(alpha: 0.14)),

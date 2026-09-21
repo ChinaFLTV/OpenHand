@@ -31,10 +31,25 @@ export function AnimatedList<T>({ items, itemKey, renderItem, empty, className }
   const positions = useRef(new Map<string, number>());
   const moves = useRef(new Map<string, Animation>());
   const previousExitMs = useRef(exitMs);
+  const focusBeforeReorder = useRef<{
+    element: HTMLElement;
+    selection: [number, number, 'forward' | 'backward' | 'none'] | null;
+  } | null>(null);
 
   useLayoutEffect(() => {
     const durationChanged = previousExitMs.current !== exitMs;
     previousExitMs.current = exitMs;
+    const element = document.activeElement;
+    focusBeforeReorder.current = null;
+    if (element instanceof HTMLElement && root.current?.contains(element)) {
+      const textInput = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
+      focusBeforeReorder.current = {
+        element,
+        selection: textInput && element.selectionStart != null && element.selectionEnd != null
+          ? [element.selectionStart, element.selectionEnd, element.selectionDirection ?? 'none']
+          : null,
+      };
+    }
     setEntries((previous) => {
       const next = items.map((item) => ({ key: itemKey(item), item, present: true }));
       const keys = new Set(next.map((entry) => entry.key));
@@ -71,6 +86,24 @@ export function AnimatedList<T>({ items, itemKey, renderItem, empty, className }
       timers.current.delete(key);
     }
   }, [entries, exitMs]);
+
+  useLayoutEffect(() => {
+    const focused = focusBeforeReorder.current;
+    focusBeforeReorder.current = null;
+    if (!focused || !root.current?.contains(focused.element)) return;
+    if (focused.element.closest('[inert]')) {
+      // 部分浏览器不会立即释放退场节点的焦点。
+      if (document.activeElement === focused.element) focused.element.blur();
+      return;
+    }
+    // 移动 DOM 节点会令浏览器失焦；只恢复仍在列表中且未退场的原节点。
+    if (document.activeElement === document.body) {
+      focused.element.focus({ preventScroll: true });
+      if (focused.selection && (focused.element instanceof HTMLInputElement || focused.element instanceof HTMLTextAreaElement)) {
+        focused.element.setSelectionRange(...focused.selection);
+      }
+    }
+  }, [entries]);
 
   useLayoutEffect(() => {
     const rows = Array.from(root.current?.children ?? []) as HTMLElement[];

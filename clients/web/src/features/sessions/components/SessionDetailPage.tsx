@@ -149,6 +149,7 @@ import { useDelayedFalse } from '../../../hooks/useDelayedFalse';
 import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
 import { useDelayedVisibility } from '../../../hooks/useDelayedVisibility';
 import { useDismissibleOverlay } from '../../../hooks/useDismissibleOverlay';
+import { useViewportChange } from '../../../hooks/useViewportChange';
 import { useEventCallback } from '../../../hooks/useEventCallback';
 import { useTimeoutController } from '../../../hooks/useTimeoutController';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
@@ -5320,28 +5321,8 @@ export function SessionDetailPage() {
     showAtMentionFilePicker,
   ]);
 
-  // 滚动 / resize 时让浮窗锚点跟随 textarea。
-  useEffect(() => {
-    if (!skillPickerVisible || typeof window === 'undefined') return;
-    const handler = () => recomputeSkillPickerAnchor();
-    window.addEventListener('scroll', handler, true);
-    window.addEventListener('resize', handler);
-    return () => {
-      window.removeEventListener('scroll', handler, true);
-      window.removeEventListener('resize', handler);
-    };
-  }, [skillPickerVisible, recomputeSkillPickerAnchor]);
-
-  useEffect(() => {
-    if (!atMentionFilePickerVisible || typeof window === 'undefined') return;
-    const handler = () => recomputeAtMentionFilePickerAnchor();
-    window.addEventListener('scroll', handler, true);
-    window.addEventListener('resize', handler);
-    return () => {
-      window.removeEventListener('scroll', handler, true);
-      window.removeEventListener('resize', handler);
-    };
-  }, [atMentionFilePickerVisible, recomputeAtMentionFilePickerAnchor]);
+  useViewportChange(skillPickerVisible, recomputeSkillPickerAnchor);
+  useViewportChange(atMentionFilePickerVisible, recomputeAtMentionFilePickerAnchor);
 
   async function ensureSkillsLoadedForPicker(): Promise<void> {
     if (skillsLoadedRef.current || skillsLoadingRef.current) return;
@@ -5647,14 +5628,16 @@ export function SessionDetailPage() {
   const dismissAtMentionFilePickerOverlay = useEventCallback(() => dismissAtMentionFilePicker(true));
 
   useDismissibleOverlay({
-    active: skillPickerVisible && !skillPickerClosing,
+    active: skillPickerVisible,
+    closing: skillPickerClosing,
     targets: skillPickerDismissTargets,
     onDismiss: dismissSkillPickerOverlay,
     onEscape: dismissSkillPickerOverlay,
   });
 
   useDismissibleOverlay({
-    active: atMentionFilePickerVisible && !atMentionFilePickerClosing,
+    active: atMentionFilePickerVisible,
+    closing: atMentionFilePickerClosing,
     targets: atMentionFilePickerDismissTargets,
     onDismiss: dismissAtMentionFilePickerOverlay,
     onEscape: dismissAtMentionFilePickerOverlay,

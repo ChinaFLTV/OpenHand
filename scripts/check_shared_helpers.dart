@@ -61,6 +61,7 @@ Future<void> main() async {
   failures += _checkSseFraming();
   failures += await _checkBatchSubscriptionCancellation();
   failures += await _checkAbortableResponseLifetime();
+  failures += await _checkHttpCancellation();
   failures += await _checkBoundedByteStreams();
   failures += await _checkSynchronousBoundedFileRead();
   failures += await _checkTemporaryByteStreamWrite();
@@ -288,6 +289,52 @@ Future<int> _checkAbortableResponseLifetime() async {
     stderr.writeln('sendAbortableHttpRequest 未在响应流取消后释放取消监听。');
     return 1;
   }
+  final immediateBodyCancelled = Completer<void>();
+  final immediateBody = StreamController<List<int>>(
+    onCancel: immediateBodyCancelled.complete,
+  );
+  final immediateClient = _AbortableProbeClient(
+    bodyStream: immediateBody.stream,
+  );
+  final immediateResponse = await sendAbortableHttpRequest(
+    client: immediateClient,
+    request: http.Request('GET', Uri.parse('https://example.com/immediate')),
+    connectionTimeout: const Duration(seconds: 1),
+  );
+  await immediateResponse.stream.listen(null).cancel();
+  await Future<void>.delayed(Duration.zero);
+  unawaited(immediateBody.close());
+  if (!immediateClient.requestLifetimeReleased ||
+      !immediateBodyCancelled.isCompleted) {
+    stderr.writeln('响应体订阅后立即取消时未释放请求和底层流。');
+    return 1;
+  }
+  final pausedBody = StreamController<List<int>>();
+  final pausedClient = _AbortableProbeClient(bodyStream: pausedBody.stream);
+  final pausedResponse = await sendAbortableHttpRequest(
+    client: pausedClient,
+    request: http.Request('GET', Uri.parse('https://example.com/paused')),
+    connectionTimeout: const Duration(seconds: 1),
+  );
+  final received = <int>[];
+  final readDone = Completer<void>();
+  final pausedSubscription = pausedResponse.stream.listen(
+    received.addAll,
+    onDone: readDone.complete,
+  )..pause();
+  pausedBody.add(const [4, 5]);
+  await Future<void>.delayed(Duration.zero);
+  final pauseForwarded = pausedBody.isPaused && received.isEmpty;
+  pausedSubscription.resume();
+  await pausedBody.close();
+  await readDone.future.timeout(const Duration(seconds: 1));
+  await Future<void>.delayed(Duration.zero);
+  if (!pauseForwarded ||
+      received.join(',') != '4,5' ||
+      !pausedClient.requestLifetimeReleased) {
+    stderr.writeln('响应流未传递暂停、恢复或完成事件。');
+    return 1;
+  }
   final lateHeaders = Completer<void>();
   final bodyCancelled = Completer<void>();
   final lateBody = StreamController<List<int>>(
@@ -321,15 +368,66 @@ Future<int> _checkAbortableResponseLifetime() async {
   return 0;
 }
 
+Future<int> _checkHttpCancellation() async {
+  for (final cancelledBeforeSend in <bool>[true, false]) {
+    final cancellation = Completer<void>();
+    final headers = Completer<void>();
+    final bodyCancelled = Completer<void>();
+    final body = StreamController<List<int>>(onCancel: bodyCancelled.complete);
+    final client = _AbortableProbeClient(
+      bodyStream: body.stream,
+      beforeResponse: headers.future,
+    );
+    if (cancelledBeforeSend) cancellation.complete();
+    try {
+      final pending = sendAbortableHttpRequest(
+        client: client,
+        request: http.Request('GET', Uri.parse('https://example.com/cancel')),
+        connectionTimeout: const Duration(seconds: 5),
+        cancelSignal: cancellation.future,
+      );
+      // 先监听错误，再在响应头未到达时取消。
+      final result = pending.then<Object?>(
+        (_) => null,
+        onError: (Object e) => e,
+      );
+      if (!cancelledBeforeSend) {
+        await client.started.future;
+        cancellation.complete();
+      }
+      final error = await result.timeout(const Duration(seconds: 1));
+      if (error is! http.RequestAbortedException ||
+          (cancelledBeforeSend && client.started.isCompleted)) {
+        stderr.writeln('HTTP 取消未阻止发送或未保留取消错误。');
+        return 1;
+      }
+      headers.complete();
+      if (!cancelledBeforeSend) {
+        await bodyCancelled.future.timeout(const Duration(seconds: 1));
+      }
+    } on TimeoutException {
+      stderr.writeln('HTTP 取消仍等待响应头，或取消后未释放迟到响应体。');
+      return 1;
+    } finally {
+      if (!headers.isCompleted) headers.complete();
+      unawaited(body.close());
+      client.close();
+    }
+  }
+  return 0;
+}
+
 final class _AbortableProbeClient extends http.BaseClient {
   _AbortableProbeClient({this.bodyStream, this.beforeResponse});
 
   final Stream<List<int>>? bodyStream;
   final Future<void>? beforeResponse;
   bool requestLifetimeReleased = false;
+  final started = Completer<void>();
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    started.complete();
     if (request is! http.AbortableRequest || request.abortTrigger == null) {
       throw StateError('请求未使用可取消传输。');
     }

@@ -5,7 +5,7 @@ import type { ComponentChildren } from 'preact';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useDismissibleOverlay } from '../hooks/useDismissibleOverlay';
-import { useRafScheduler } from '../hooks/useRafScheduler';
+import { useViewportChange } from '../hooks/useViewportChange';
 import {
   DEFAULT_FLOATING_ANCHOR_GAP,
   DEFAULT_FLOATING_VIEWPORT_PADDING,
@@ -98,7 +98,8 @@ export function PopMenu({
   const dismissTargets = useMemo(() => [wrapRef, menuRef], []);
 
   useDismissibleOverlay({
-    active: open && !closing,
+    active: menuVisible,
+    closing,
     targets: dismissTargets,
     onDismiss: hideMenu,
   });
@@ -128,24 +129,15 @@ export function PopMenu({
       placedAbove: position.placedAbove,
     });
   }, [align, verticalPlacement, width]);
-  const { schedule: scheduleRecompute, flush: recomputeNow, cancel: cancelRecompute } = useRafScheduler(recompute);
+  const recomputeNow = useViewportChange(menuVisible, recompute);
 
   useLayoutEffect(() => {
     if (!menuVisible) {
-      cancelRecompute();
       setPos(null);
       return;
     }
     recomputeNow();
-    const onScrollOrResize = () => scheduleRecompute();
-    window.addEventListener('scroll', onScrollOrResize, true);
-    window.addEventListener('resize', onScrollOrResize);
-    return () => {
-      window.removeEventListener('scroll', onScrollOrResize, true);
-      window.removeEventListener('resize', onScrollOrResize);
-      cancelRecompute();
-    };
-  }, [menuVisible, recompute, recomputeNow, scheduleRecompute, cancelRecompute]);
+  }, [menuVisible, recompute, recomputeNow]);
 
   // 第一次渲染拿到菜单实际尺寸后再校准一次，确保上方锚定不会因
   // 兜底高度与真实高度不同而压住触发器。

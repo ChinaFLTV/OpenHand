@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../util/decision_payload.dart';
 import '../util/localized_text.dart';
 
-/// Jev 决策卡片、表单与弹窗共用的界面文案。
+/// Jev 决策卡片与表单共用的界面文案。
 final class DecisionCopy {
   DecisionCopy._(this._t);
 
@@ -28,69 +28,6 @@ final class DecisionCopy {
     fr: 'Décision structurée',
     de: 'Strukturierte Entscheidung',
     ja: '構造化意思決定',
-  );
-
-  String get dialogTitle => _m(
-    zh: '配置结构化决策',
-    zhHant: '設定結構化決策',
-    en: 'Configure structured decision',
-    fr: 'Configurer une décision structurée',
-    de: 'Strukturierte Entscheidung konfigurieren',
-    ja: '構造化意思決定を設定',
-  );
-
-  String get dialogSubtitle => _m(
-    zh: '定义问题、候选项与评分标准',
-    zhHant: '定義問題、候選項與評分標準',
-    en: 'Define questions, options, and scoring levels',
-    fr: 'Définissez questions, options et niveaux de notation',
-    de: 'Fragen, Optionen und Bewertungsstufen festlegen',
-    ja: '質問・候補・評点基準を定義',
-  );
-
-  String get dialogBody => _m(
-    zh: '先提供待评估内容，再定义要选择、评分或判断的问题。配置会写入草稿，点击发送后才调用模型。',
-    zhHant: '先提供待評估內容，再定義要選擇、評分或判斷的問題。設定會寫入草稿，點選傳送後才呼叫模型。',
-    en: 'Provide the content to evaluate, then define a choice, score, or judgement question. This only updates the draft; the model runs when you send.',
-    fr: 'Fournissez le contenu à évaluer, puis définissez une question de choix, de note ou de jugement. Cela met seulement à jour le brouillon ; le modèle s’exécute à l’envoi.',
-    de: 'Geben Sie den Bewertungsinhalt an und definieren Sie eine Auswahl-, Bewertungs- oder Urteilsfrage. Es wird nur der Entwurf aktualisiert; das Modell läuft beim Senden.',
-    ja: '評価対象を入力し、選択・評点・判断の質問を定義します。下書きのみ更新され、送信時にモデルを呼び出します。',
-  );
-
-  String get applyToDraft => _m(
-    zh: '应用到草稿',
-    zhHant: '套用到草稿',
-    en: 'Apply to draft',
-    fr: 'Appliquer au brouillon',
-    de: 'Auf Entwurf anwenden',
-    ja: '下書きに適用',
-  );
-
-  String get invalidDraft => _m(
-    zh: '现有决策草稿格式不完整，请修正配置。',
-    zhHant: '現有決策草稿格式不完整，請修正設定。',
-    en: 'The current decision draft is incomplete. Fix the configuration.',
-    fr: 'Le brouillon de décision actuel est incomplet. Corrigez la configuration.',
-    de: 'Der aktuelle Entscheidungsentwurf ist unvollständig. Konfiguration korrigieren.',
-    ja: '現在の意思決定下書きが不完全です。設定を修正してください。',
-  );
-
-  String get checkConfig => _m(
-    zh: '请检查决策配置。',
-    zhHant: '請檢查決策設定。',
-    en: 'Check the decision configuration.',
-    fr: 'Vérifiez la configuration de décision.',
-    de: 'Prüfen Sie die Entscheidungskonfiguration.',
-    ja: '意思決定の設定を確認してください。',
-  );
-
-  String get duplicateOptions => _m(
-    zh: '候选项不能重复。',
-    zhHant: '候選項不能重複。',
-    en: 'Options cannot be duplicated.',
-    fr: 'Les options ne peuvent pas être dupliquées.',
-    de: 'Optionen dürfen nicht doppelt vorkommen.',
-    ja: '候補を重複させることはできません。',
   );
 
   String get stateLabel => _m(
@@ -145,33 +82,6 @@ final class DecisionCopy {
     fr: 'Type de décision',
     de: 'Entscheidungstyp',
     ja: '意思決定タイプ',
-  );
-
-  String get advancedJsonLabel => _m(
-    zh: '完整决策配置（JSON）',
-    zhHant: '完整決策設定（JSON）',
-    en: 'Full decision configuration (JSON)',
-    fr: 'Configuration complète de décision (JSON)',
-    de: 'Vollständige Entscheidungskonfiguration (JSON)',
-    ja: '完全な意思決定設定（JSON）',
-  );
-
-  String get choiceLinesLabel => _m(
-    zh: '候选项，每行一个',
-    zhHant: '候選項，每行一個',
-    en: 'Options, one per line',
-    fr: 'Options, une par ligne',
-    de: 'Optionen, eine pro Zeile',
-    ja: '候補（1 行に 1 つ）',
-  );
-
-  String get scoreLinesLabel => _m(
-    zh: '评分等级，从低到高每行一个（2—10 级）',
-    zhHant: '評分等級，從低到高每行一個（2—10 級）',
-    en: 'Score levels, one per line from low to high (2–10)',
-    fr: 'Niveaux de note, un par ligne du plus bas au plus haut (2–10)',
-    de: 'Bewertungsstufen, eine pro Zeile von niedrig nach hoch (2–10)',
-    ja: '評点等級（低い順、1 行に 1 つ、2〜10）',
   );
 
   String get choiceItemLabel => _m(

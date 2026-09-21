@@ -2342,7 +2342,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final restoreSessionId = widget.session.id;
     final generation = ++_historyRevealGeneration;
     bool requestIsCurrent() =>
-        mounted &&
         widget.session.id == restoreSessionId &&
         generation == _historyRevealGeneration;
     setState(() {
@@ -2351,7 +2350,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
     try {
       await Future<void>.delayed(kOpenHandFramePeriodicTimerInterval);
-      if (!requestIsCurrent()) {
+      if (!mounted || !requestIsCurrent()) {
         return;
       }
 
@@ -2368,7 +2367,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         final loaded = await controller.loadOlderSessionMessages(
           restoreSessionId,
         );
-        if (!requestIsCurrent()) return;
+        if (!mounted || !requestIsCurrent()) return;
         if (loaded == null) {
           if (!fillViewport) {
             showFriendlyErrorSnackBar(
@@ -2385,7 +2384,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         }
       }
       await _awaitEndOfFrameBounded();
-      if (!requestIsCurrent()) {
+      if (!mounted || !requestIsCurrent()) {
         return;
       }
       // 异步加载期间发生手动滚动或切换会话后，不再恢复旧位置。
@@ -2401,10 +2400,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     } catch (error, stack) {
       silentLog('home_transcript', '显示更早消息', error, stack);
     } finally {
-      if (requestIsCurrent()) {
+      if (mounted && requestIsCurrent()) {
         await _awaitEndOfFrameBounded();
         await Future<void>.delayed(_transcriptHistoryRevealCooldown);
-        if (requestIsCurrent()) {
+        if (mounted && requestIsCurrent()) {
           setState(() {
             _loadingOlderMessages = false;
           });

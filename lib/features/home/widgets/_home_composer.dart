@@ -2531,7 +2531,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   child: SingleChildScrollView(
                     primary: false,
                     physics: kOpenHandClampingPhysics,
-                    clipBehavior: Clip.hardEdge,
                     child: expandedContent,
                   ),
                 ),
@@ -2845,8 +2844,9 @@ class _DecisionComposerFormState extends State<_DecisionComposerForm> {
         index < 0 ||
         index >= _criteria.length ||
         target < 0 ||
-        target >= _criteria.length)
+        target >= _criteria.length) {
       return;
+    }
     setState(() => _criteria.insert(target, _criteria.removeAt(index)));
     _writeDraft();
   }

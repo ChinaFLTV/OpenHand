@@ -971,8 +971,9 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
         if (!mounted ||
             !_ledgerScrollController.hasClients ||
             _ledgerScrollController.offset != oldPixels ||
-            _ledgerScrollController.position.isScrollingNotifier.value)
+            _ledgerScrollController.position.isScrollingNotifier.value) {
           return;
+        }
         final addedExtent =
             _ledgerScrollController.position.maxScrollExtent - oldMax;
         if (addedExtent > 0) {

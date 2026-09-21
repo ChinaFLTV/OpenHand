@@ -38,6 +38,8 @@ jobs:
         run: dart run scripts/check_imports.dart
       - name: 检查共享辅助逻辑
         run: dart run scripts/check_shared_helpers.dart
+      - name: 检查模型档案与持久化一致性
+        run: dart run scripts/check_model_metadata.dart
       - name: 检查会话首屏与历史滚动
         run: dart run scripts/check_transcript_widgets.dart
       - name: 检查动效边界与资源释放

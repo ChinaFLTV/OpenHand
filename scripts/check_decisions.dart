@@ -47,7 +47,6 @@ import 'package:openhand/features/instructions/model/user_instruction_entry.dart
 import 'package:openhand/shared/db/database_service.dart';
 import 'package:openhand/shared/util/decision_payload.dart';
 import 'package:openhand/shared/ui/decision_card.dart';
-import 'package:openhand/shared/ui/decision_request_dialog.dart';
 
 AiModelConfig config({String base = 'https://api.typesafe.ai/v1', String id = 'jev-latest'}) => AiModelConfig(id: '测试', baseUrl: base, authScheme: AiAuthScheme.bearer, token: '测试令牌', modelId: id, protocolType: AiProtocolType.jev);
 const question = {'判断': {'type': 'noul', 'instructions': '成立吗？'}};
@@ -435,60 +434,6 @@ void main() {
       expect(DecisionPayload.questionForType(type, current: '  该请求是否需要人工处理？  '), '  该请求是否需要人工处理？  ');
     }
   });
-  testWidgets('决策弹窗切换类型同步默认问题且不覆盖自定义内容', (tester) async {
-    await tester.pumpWidget(app(home: Builder(builder: (context) => TextButton(
-      onPressed: () => showDecisionRequestDialog(context, '待评估内容'), child: const Text('打开'),
-    ))));
-    await tester.tap(find.text('打开'));
-    await tester.pumpAndSettle();
-    final questionField = find.byType(TextField).at(1);
-    for (final entry in {'choice': '选择', 'score': '评分', 'noul': '判断'}.entries) {
-      await tester.tap(find.text(entry.value));
-      await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(questionField).controller!.text, DecisionPayload.defaultQuestionForType(entry.key, const Locale('zh')));
-    }
-    await tester.enterText(questionField, '哪个团队负责售后？');
-    await tester.tap(find.text('选择'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(questionField).controller!.text, '哪个团队负责售后？');
-    await tester.tap(find.text('取消'));
-    await tester.pumpAndSettle();
-  });
-  testWidgets('决策弹窗按类型恢复独立字段并仅应用当前类型', (tester) async {
-    String? applied;
-    final draft = DecisionPayload.encode(DecisionPayload.requestLanguage, {
-      'state': '待评估内容', 'questions': {'决策': {
-        'type': 'choice', 'instructions': DecisionPayload.questionForType('choice'),
-        'criteria': {'甲': null, '乙': null},
-      }},
-    });
-    await tester.pumpWidget(app(home: Builder(builder: (context) => TextButton(
-      onPressed: () async { applied = await showDecisionRequestDialog(context, draft); }, child: const Text('打开'),
-    ))));
-    await tester.tap(find.text('打开'));
-    await tester.pumpAndSettle();
-    final criteriaField = find.byType(TextField).at(2);
-    expect(tester.widget<TextField>(criteriaField).controller!.text, '甲\\n乙');
-    await tester.tap(find.text('评分'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(criteriaField).controller!.text, '');
-    await tester.enterText(criteriaField, '低\\n高');
-    for (final type in ['判断', '选择']) {
-      await tester.tap(find.text(type));
-      await tester.pumpAndSettle();
-    }
-    expect(tester.widget<TextField>(criteriaField).controller!.text, '甲\\n乙');
-    await tester.enterText(criteriaField, '丙');
-    await tester.tap(find.text('评分'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(criteriaField).controller!.text, '低\\n高');
-    await tester.tap(find.text('应用到草稿'));
-    await tester.pumpAndSettle();
-    final question = (DecisionPayload.request(applied!)['questions'] as Map).values.single as Map;
-    expect(question['type'], 'score');
-    expect(question['criteria'], ['低', '高']);
-    expect(tester.takeException(), isNull);
-  });
   test('原生、网关与完整接口地址正确归一化', () {
     const router = AiEndpointRouter();
     for (final base in ['https://api.typesafe.ai', 'https://api.typesafe.ai/v1', 'https://api.typesafe.ai/v1/systemone']) {
@@ -580,30 +525,21 @@ void main() {
     expect(calls, 1);
     pending.complete(http.Response('{}', 200));
   });
-  testWidgets('复杂配置重新打开不丢失批量问题与描述', (tester) async {
+  test('复杂决策配置往返不丢失批量问题与描述', () {
     final request = {'state': {'内容': '批量'}, 'questions': {'分类': {'type': 'choice', 'instructions': '分类', 'criteria': {'甲': '详细标准', '乙': null}}, '判断': {'type': 'noul', 'instructions': '成立吗？'}}};
-    final original = DecisionPayload.encode(DecisionPayload.requestLanguage, request);
-    String? updated;
-    await tester.pumpWidget(app(home: Builder(builder: (context) => TextButton(onPressed: () async { updated = await showDecisionRequestDialog(context, original); }, child: const Text('打开')))));
-    await tester.tap(find.text('打开'));
-    await tester.pumpAndSettle();
-    expect(find.text('完整决策配置（JSON）'), findsOneWidget);
-    await tester.tap(find.text('应用到草稿'));
-    await tester.pumpAndSettle();
-    expect(DecisionPayload.request(updated!), request);
+    final encoded = DecisionPayload.encode(DecisionPayload.requestLanguage, request);
+    expect(DecisionPayload.request(encoded), request);
   });
-  testWidgets('决策卡片窄屏无溢出，弹窗可填写并保留草稿', (tester) async {
+  testWidgets('决策请求与结果卡片窄屏无溢出', (tester) async {
     tester.view.physicalSize = const Size(420, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    String? draft;
     final key = GlobalKey();
-    await tester.pumpWidget(app(home: Scaffold(body: RepaintBoundary(key: key, child: Builder(builder: (context) => ListView(children: [
+    await tester.pumpWidget(app(home: Scaffold(body: RepaintBoundary(key: key, child: ListView(children: [
       OpenHandDecisionCard(data: DecisionPayload.result(Map<String,Object?>.from(response), question)),
       OpenHandDecisionRequestCard(data: DecisionPayload.request(DecisionPayload.encode(DecisionPayload.requestLanguage, {'state': '一加一等于二', 'questions': question}))),
-      TextButton(onPressed: () async { draft = await showDecisionRequestDialog(context, '一加一等于二'); }, child: const Text('配置')),
-    ]))))));
+    ])))));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('决策结果'), findsNothing);
@@ -619,13 +555,6 @@ void main() {
       await File('/tmp/openhand-jev-card.png').writeAsBytes(bytes!.buffer.asUint8List());
       image.dispose();
     });
-    await tester.tap(find.text('配置'));
-    await tester.pumpAndSettle();
-    expect(find.text('配置结构化决策'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    await tester.tap(find.text('应用到草稿'));
-    await tester.pumpAndSettle();
-    expect(DecisionPayload.request(draft!)['state'], '一加一等于二');
   });
   test('会话正文围栏与裸 JSON 都能解析决策结果', () {
     final payload = <String, Object?>{

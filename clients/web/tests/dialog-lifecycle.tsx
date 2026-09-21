@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { act } from 'preact/test-utils';
 import { DialogFrame } from '../src/components/DialogFrame';
+import { MenuSelect } from '../src/components/MenuSelect';
 import { useDialogExitMotion } from '../src/hooks/useDialogExitMotion';
 import { syncRemoteDialogMotionSettings } from '../src/hooks/useDialogMotionSettings';
 import { useTimeoutController } from '../src/hooks/useTimeoutController';
@@ -87,6 +88,26 @@ try {
   await act(async () => { changeDialogs({ parent: false, child: false }); });
   verify(document.activeElement?.id === 'outside', '乱序卸载嵌套弹窗后恢复原始触发按钮');
   verify(document.body.style.overflow !== 'hidden', '最后一个弹窗关闭后释放滚动锁');
+
+  let parentCloses = 0;
+  syncRemoteDialogMotionSettings({ exit_style: 'spring_scale', duration_ms: 360 });
+  await act(async () => render(<DialogFrame closing={false} ariaLabel="菜单父弹窗" onRequestClose={() => parentCloses++}>
+    <MenuSelect options={[{ value: 'current', label: '当前选项' }]} value="current" onChange={() => {}} />
+  </DialogFrame>, root));
+  const menuTrigger = root.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')
+    ?? document.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!;
+  await act(async () => menuTrigger.click());
+  verify(document.querySelector('[role="listbox"]') != null, '真实下拉菜单正常挂载');
+  const escape = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  await act(async () => { escape(); });
+  verify(document.querySelector('[role="listbox"]') != null, '下拉菜单关闭时保留全局退场动画');
+  await act(async () => { escape(); });
+  verify(parentCloses === 0, '下拉菜单退场时再次按 Escape 不关闭父弹窗');
+  await act(async () => { await wait(400); });
+  verify(document.querySelector('[role="listbox"]') == null, '全局退场结束后移除下拉菜单');
+  await act(async () => { escape(); });
+  verify(parentCloses === 1, '菜单退场结束后恢复父弹窗的关闭操作');
+  await act(async () => { render(null, root); });
 
   syncRemoteDialogMotionSettings({ exit_style: 'spring_scale', duration_ms: 120 });
   await act(async () => { render(<MotionProbe />, root); });

@@ -32,6 +32,9 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
   if (request.finalized) {
     throw StateError('不能重复发送已完成构建的 HTTP 请求。');
   }
+  if (cancelSignal != null && await isCancelSignalCompleted(cancelSignal)) {
+    throw http.RequestAbortedException(request.url);
+  }
 
   final requestLifetime = Completer<void>();
   final abortTrigger = combineCancelSignals(<Future<void>?>[
@@ -53,18 +56,18 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
   final responseFuture = Future<http.StreamedResponse>.sync(
     () => client.send(abortableRequest),
   );
-  var timedOut = false;
   try {
-    final response = await responseFuture.timeout(
-      connectionTimeout,
-      onTimeout: () {
-        timedOut = true;
-        if (!requestLifetime.isCompleted) {
-          requestLifetime.complete();
-        }
-        throw TimeoutException('HTTP 响应头获取超过连接时限。', connectionTimeout);
-      },
-    );
+    final response =
+        await awaitWithCancelSignal(
+          responseFuture,
+          cancelSignal: abortTrigger,
+        ).timeout(
+          connectionTimeout,
+          onTimeout: () {
+            throw TimeoutException('HTTP 响应头获取超过连接时限。', connectionTimeout);
+          },
+        );
+    if (response == null) throw http.RequestAbortedException(request.url);
     final responseUrl = response is http.BaseResponseWithUrl
         ? (response as http.BaseResponseWithUrl).url
         : request.url;
@@ -81,16 +84,14 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
     );
   } catch (_) {
     if (!requestLifetime.isCompleted) requestLifetime.complete();
-    if (timedOut) {
-      // 自定义传输可能忽略取消，接管迟到响应，避免未订阅的正文占用连接。
-      unawaited(
-        responseFuture.then<void>((response) async {
-          await runAsyncCleanupBounded(
-            () => response.stream.listen(null).cancel(),
-          );
-        }, onError: (Object _, StackTrace _) {}),
-      );
-    }
+    // 自定义传输可能忽略取消或超时，失败后统一释放迟到响应体。
+    unawaited(
+      responseFuture.then<void>((response) async {
+        await runAsyncCleanupBounded(
+          () => response.stream.listen(null).cancel(),
+        );
+      }, onError: (Object _, StackTrace _) {}),
+    );
     rethrow;
   }
 }
@@ -98,16 +99,43 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
 Stream<List<int>> _trackResponseLifetime(
   Stream<List<int>> stream,
   Completer<void> lifetime,
-) async* {
-  try {
-    yield* stream;
-  } finally {
-    // 等当前流事件收尾后再拉断 abortTrigger，避免“读完最后一块
-    // 却被当成 Request aborted”的竞态。
+) {
+  void release() {
+    // 当前事件收尾后再中止请求，避免最后一块数据被误判为取消。
     scheduleMicrotask(() {
       if (!lifetime.isCompleted) lifetime.complete();
     });
   }
+
+  late final StreamController<List<int>> controller;
+  StreamSubscription<List<int>>? subscription;
+  controller = StreamController<List<int>>(
+    sync: true,
+    onListen: () {
+      // 同步接管底层流，保证订阅后立即取消也能释放资源。
+      try {
+        subscription = stream.listen(
+          controller.add,
+          onError: controller.addError,
+          onDone: () {
+            release();
+            unawaited(controller.close());
+          },
+        );
+      } catch (error, stack) {
+        release();
+        controller.addError(error, stack);
+        unawaited(controller.close());
+      }
+    },
+    onPause: () => subscription?.pause(),
+    onResume: () => subscription?.resume(),
+    onCancel: () {
+      release();
+      return subscription?.cancel();
+    },
+  );
+  return controller.stream;
 }
 
 final class _OpenHandAbortableStreamedResponse extends http.StreamedResponse

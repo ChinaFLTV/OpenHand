@@ -9,11 +9,16 @@ Future<void> main() => runFlutterWidgetCheck(
 );
 
 const _checks = '''
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/ai/data/openrouter_model_profile_store.dart';
 import 'package:openhand/features/ai/model/ai_model_catalog.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/model_registry/ai_title_model_resolver.dart';
+import 'package:openhand/shared/db/database_service.dart';
 
 AiModelConfig model(String id, {Map<String, AiModelProfile> profiles = const {}}) => AiModelConfig(
   id: '校验', baseUrl: 'https://example.invalid', authScheme: AiAuthScheme.bearer,
@@ -21,6 +26,48 @@ AiModelConfig model(String id, {Map<String, AiModelProfile> profiles = const {}}
 );
 
 void main() {
+  test('模型档案初始化失败可重试，大小写更新不产生重复记录', () async {
+    final store = OpenRouterModelProfileStore.instance;
+    await expectLater(store.ensureLoaded(), throwsStateError);
+    final directory = await Directory.systemTemp.createTemp('openhand_profiles_');
+    final service = await DatabaseService.initialize(
+      databasePath: '\${directory.path}/check.db', useNoIsolateFactory: true,
+    );
+    try {
+      const oldProfile = AiModelProfile(displayName: '旧档案');
+      const newProfile = AiModelProfile(displayName: '新档案');
+      await service.database.insert('openrouter_model_profiles', {
+        'model_id': 'Vendor/Model',
+        'profile_json': jsonEncode(oldProfile.toJson()),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      await service.database.insert('openrouter_model_profiles', {
+        'model_id': 'vendor/model',
+        'profile_json': jsonEncode(const AiModelProfile(displayName: '过期档案').toJson()),
+        'updated_at': '2000-01-01T00:00:00.000Z',
+      });
+      final loading = store.ensureLoaded();
+      expect(identical(loading, store.ensureLoaded()), isTrue);
+      await loading;
+      expect(AiModelCatalog.lookup('vendor/model', AiProtocolType.openai)?.displayName, '旧档案');
+      await store.upsertBatch([const MapEntry('vendor/model', newProfile)]);
+      await store.upsertBatch([const MapEntry('VENDOR/MODEL', newProfile)]);
+      final rows = await service.database.query('openrouter_model_profiles');
+      expect(rows, hasLength(1));
+      expect(rows.single['model_id'], 'vendor/model');
+      expect(AiModelCatalog.lookup('VENDOR/MODEL', AiProtocolType.openai)?.displayName, '新档案');
+      await expectLater(store.upsertBatch([
+        const MapEntry('vendor/model', oldProfile),
+        const MapEntry('VENDOR/MODEL', oldProfile),
+      ]), throwsFormatException);
+      expect(await service.database.query('openrouter_model_profiles'), rows);
+      expect(AiModelCatalog.lookup('vendor/model', AiProtocolType.openai)?.displayName, '新档案');
+    } finally {
+      AiModelCatalog.registerExternalProfiles({}, replace: true);
+      await service.close();
+      await directory.delete(recursive: true);
+    }
+  });
   test('未核实版本不继承旧版规格，已知点号版本和快照可识别', () {
     for (final id in ['claude-fable-5-2', 'claude-fable-5.2', 'anthropic/claude-opus-5.2', 'claude-fable-5-10']) {
       expect(AiModelCatalog.lookup(id, AiProtocolType.claude), isNull, reason: id);

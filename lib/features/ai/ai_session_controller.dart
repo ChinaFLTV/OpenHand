@@ -1062,7 +1062,7 @@ class AiSessionController extends ChangeNotifier {
   Future<String>? _deviceIdFuture;
   _LocalNetworkSnapshot? _networkSnapshot;
   Duration? _networkSnapshotAt;
-  Future<_LocalNetworkSnapshot>? _networkSnapshotRefreshFuture;
+  final _networkSnapshotRefresh = OpenHandSingleFlight<_LocalNetworkSnapshot>();
   String? _currentSessionId;
   AiSessionDeletionNotice? _lastDeletionNotice;
   String? _editingMessageId;
@@ -2967,17 +2967,7 @@ class AiSessionController extends ChangeNotifier {
         cacheAge < _networkSnapshotCacheTtl) {
       return Future<_LocalNetworkSnapshot>.value(cached);
     }
-    final pending = _networkSnapshotRefreshFuture;
-    if (pending != null) return pending;
-
-    late final Future<_LocalNetworkSnapshot> refresh;
-    refresh = _refreshLocalNetworkSnapshot().whenComplete(() {
-      if (identical(_networkSnapshotRefreshFuture, refresh)) {
-        _networkSnapshotRefreshFuture = null;
-      }
-    });
-    _networkSnapshotRefreshFuture = refresh;
-    return refresh;
+    return _networkSnapshotRefresh.run(_refreshLocalNetworkSnapshot);
   }
 
   Future<_LocalNetworkSnapshot> _refreshLocalNetworkSnapshot() async {

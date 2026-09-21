@@ -12,7 +12,7 @@ import type { JSX } from 'preact';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useDismissibleOverlay } from '../hooks/useDismissibleOverlay';
-import { useRafScheduler } from '../hooks/useRafScheduler';
+import { useViewportChange } from '../hooks/useViewportChange';
 import {
   DEFAULT_FLOATING_ANCHOR_GAP,
   DEFAULT_FLOATING_VIEWPORT_PADDING,
@@ -110,8 +110,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
     const measuredHeight = menuRef.current?.getBoundingClientRect().height;
     setMenuPosition(computeMenuPosition(measuredHeight));
   }, [computeMenuPosition]);
-  const { schedule: scheduleMenuPosition, flush: updateMenuPositionNow, cancel: cancelMenuPosition } =
-    useRafScheduler(updateMenuPosition);
+  const updateMenuPositionNow = useViewportChange(menuVisible, updateMenuPosition);
 
   const openMenu = useCallback(() => {
     setMenuPosition(computeMenuPosition());
@@ -126,7 +125,8 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
   }, [open, closing, options, value]);
 
   useDismissibleOverlay({
-    active: open && !closing,
+    active: menuVisible,
+    closing,
     targets: dismissTargets,
     onDismiss: hideMenu,
     onEscape: closeMenuAndFocusTrigger,
@@ -135,15 +135,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
   useEffect(() => {
     if (!menuVisible) return;
     updateMenuPositionNow();
-    scheduleMenuPosition();
-    window.addEventListener('resize', scheduleMenuPosition);
-    window.addEventListener('scroll', scheduleMenuPosition, true);
-    return () => {
-      window.removeEventListener('resize', scheduleMenuPosition);
-      window.removeEventListener('scroll', scheduleMenuPosition, true);
-      cancelMenuPosition();
-    };
-  }, [menuVisible, minWidth, menuMaxHeight, options.length, updateMenuPositionNow, scheduleMenuPosition, cancelMenuPosition]);
+  }, [menuVisible, minWidth, menuMaxHeight, options.length, updateMenuPositionNow]);
 
   useEffect(() => {
     if (menuVisible) return;

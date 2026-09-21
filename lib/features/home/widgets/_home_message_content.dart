@@ -1235,7 +1235,7 @@ typedef _MarkdownAstKey = ({
 class _MarkdownAstCache {
   static const int _maxEntries = 512;
   static const int _maxSourceChars = 4 * kBytesPerMiB;
-  final _entries = LinkedHashMap<_MarkdownAstKey, List<md.Node>>();
+  final _entries = <_MarkdownAstKey, List<md.Node>>{};
   int _sourceChars = 0;
 
   List<md.Node>? get(_MarkdownAstKey key) {

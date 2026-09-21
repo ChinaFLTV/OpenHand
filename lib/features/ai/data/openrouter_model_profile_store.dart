@@ -1,9 +1,9 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -16,6 +16,7 @@ const int _maxOpenRouterProfileBatchCount = 5000;
 const int _maxOpenRouterModelIdCharacters = 1024;
 const int _maxOpenRouterProfileBytes = 512 * kBytesPerKiB;
 const int _maxOpenRouterProfileTotalBytes = 64 * kBytesPerMiB;
+const String _profileTable = 'openrouter_model_profiles';
 const BoundedJsonConversionConfig _profileJsonConversionConfig =
     BoundedJsonConversionConfig(
       maxDepth: 16,
@@ -30,28 +31,17 @@ class OpenRouterModelProfileStore {
   static final OpenRouterModelProfileStore instance =
       OpenRouterModelProfileStore._();
 
-  final Map<String, AiModelProfile> _profiles = <String, AiModelProfile>{};
-  Future<void>? _loading;
-  bool _loaded = false;
+  late final _initialization = OpenHandRetryableAsyncCache<void>(_load);
 
-  Future<void> ensureLoaded() {
-    if (_loaded) return Future<void>.value();
-    final pending = _loading;
-    if (pending != null) return pending;
-    late final Future<void> loading;
-    loading = _load().whenComplete(() {
-      if (identical(_loading, loading)) _loading = null;
-    });
-    _loading = loading;
-    return loading;
-  }
+  Future<void> ensureLoaded() => _initialization.load();
 
   Future<void> _load() async {
     final database = DatabaseService.instance.database;
     await _validateStorageScale(database);
     final rows = await database.query(
-      'openrouter_model_profiles',
+      _profileTable,
       columns: const <String>['model_id', 'profile_json'],
+      orderBy: 'updated_at DESC, model_id ASC',
       limit: _maxOpenRouterProfileCount + 1,
     );
     if (rows.length > _maxOpenRouterProfileCount) {
@@ -69,6 +59,9 @@ class OpenRouterModelProfileStore {
           utf8ByteLength(encoded) > _maxOpenRouterProfileBytes) {
         throw const FormatException('OpenRouter 模型档案字段无效。');
       }
+      final normalizedId = modelId.toLowerCase();
+      // 兼容旧版本已写入的大小写别名，以最近更新的档案为准。
+      if (loaded.containsKey(normalizedId)) continue;
       final source = decodeJsonObjectTextUsingConfig(
         encoded,
         maxTextCodeUnits: _maxOpenRouterProfileBytes,
@@ -79,22 +72,14 @@ class OpenRouterModelProfileStore {
       validateCanonicalJsonSubset(
         source,
         profile.toJson(),
-        path: 'openrouter_model_profiles.$modelId',
-        maxDepth: 16,
-        maxContainerItems: 4096,
-        maxTotalNodes: 32768,
+        path: '$_profileTable.$modelId',
+        maxDepth: _profileJsonConversionConfig.maxDepth,
+        maxContainerItems: _profileJsonConversionConfig.maxContainerItems,
+        maxTotalNodes: _profileJsonConversionConfig.maxTotalNodes,
       );
-      final normalizedId = modelId.toLowerCase();
-      if (loaded.containsKey(normalizedId)) {
-        throw FormatException('OpenRouter 模型档案 ID 重复：$modelId');
-      }
       loaded[normalizedId] = profile;
     }
-    _profiles
-      ..clear()
-      ..addAll(loaded);
     AiModelCatalog.registerExternalProfiles(loaded, replace: true);
-    _loaded = true;
   }
 
   Future<void> upsertBatch(
@@ -124,10 +109,10 @@ class OpenRouterModelProfileStore {
       validateCanonicalJsonSubset(
         payload,
         payload,
-        path: 'openrouter_model_profiles.$modelId',
-        maxDepth: 16,
-        maxContainerItems: 4096,
-        maxTotalNodes: 32768,
+        path: '$_profileTable.$modelId',
+        maxDepth: _profileJsonConversionConfig.maxDepth,
+        maxContainerItems: _profileJsonConversionConfig.maxContainerItems,
+        maxTotalNodes: _profileJsonConversionConfig.maxTotalNodes,
       );
       final profileJson = jsonEncode(payload);
       final payloadBytes =
@@ -137,14 +122,30 @@ class OpenRouterModelProfileStore {
           totalBytes > _maxOpenRouterProfileTotalBytes) {
         throw const FormatException('OpenRouter 模型档案载荷超过安全上限。');
       }
-      rows.add((modelId: modelId, profileJson: profileJson));
+      rows.add((modelId: normalizedId, profileJson: profileJson));
     }
     final updatedAt = DateTime.now().toUtc().toIso8601String();
     final database = DatabaseService.instance.database;
     await database.transaction((transaction) async {
+      final storedIds = await transaction.query(
+        _profileTable,
+        columns: const <String>['model_id'],
+        limit: _maxOpenRouterProfileCount + 1,
+      );
+      if (storedIds.length > _maxOpenRouterProfileCount) {
+        throw const FormatException('OpenRouter 模型档案数量超过安全上限。');
+      }
       final batch = transaction.batch();
+      // 旧版本保留了 ID 大小写；更新时按主键删除别名，避免重启加载冲突。
+      for (final stored in storedIds) {
+        final id = stored['model_id'] as String;
+        final normalizedId = id.toLowerCase();
+        if (id != normalizedId && modelIds.contains(normalizedId)) {
+          batch.delete(_profileTable, where: 'model_id = ?', whereArgs: [id]);
+        }
+      }
       for (final row in rows) {
-        batch.insert('openrouter_model_profiles', <String, Object?>{
+        batch.insert(_profileTable, <String, Object?>{
           'model_id': row.modelId,
           'profile_json': row.profileJson,
           'updated_at': updatedAt,
@@ -157,7 +158,6 @@ class OpenRouterModelProfileStore {
       for (final entry in batchEntries)
         entry.key.trim().toLowerCase(): entry.value,
     };
-    _profiles.addAll(updates);
     AiModelCatalog.registerExternalProfiles(updates);
   }
 
@@ -170,7 +170,7 @@ class OpenRouterModelProfileStore {
              COALESCE(SUM(LENGTH(CAST(model_id AS BLOB)) +
                           LENGTH(CAST(profile_json AS BLOB))), 0)
                AS total_bytes
-      FROM openrouter_model_profiles
+      FROM $_profileTable
       ''');
     final row = rows.firstOrNull;
     final entryCount = optionalIntegralIntFromValue(row?['entry_count']);

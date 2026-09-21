@@ -361,7 +361,90 @@ try {
   hooks.unmount();
   await settle();
   assert.equal(runs.length, 3, '开始前卸载不得启动底层轮询任务');
-  console.log('[交互检查] 决策类型字段隔离、草稿同步及手势与轮询生命周期检查通过。');
+  const browser = new EventTarget();
+  const documentSurface = new Surface();
+  replace('window', browser);
+  replace('document', documentSurface);
+  replace('Node', Surface);
+  const { useDismissibleOverlay } = await server.ssrLoadModule('/src/hooks/useDismissibleOverlay.ts');
+  const { registerOverlayEscapeLayer } = await server.ssrLoadModule('/src/shared/ui/overlay_escape_stack.ts');
+  let parentCloses = 0;
+  let menuCloses = 0;
+  const removeParent = registerOverlayEscapeLayer({
+    canClose: () => true, requestClose: () => parentCloses++,
+  });
+  let menuClosing = false;
+  const target = new Surface();
+  const targets = [{ current: target }];
+  const renderMenu = () => hooks.render(() => useDismissibleOverlay({
+    active: true, closing: menuClosing, targets, onDismiss: () => menuCloses++,
+  }));
+  const escape = async () => {
+    browser.dispatchEvent(Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' }));
+    await Promise.resolve();
+  };
+  renderMenu();
+  await escape();
+  assert.equal(menuCloses, 1, 'Escape 只关闭顶层菜单');
+  menuClosing = true;
+  renderMenu();
+  await escape();
+  documentSurface.dispatchEvent(new Event('mousedown'));
+  assert.equal(menuCloses, 1, '退场中的菜单不应重复执行关闭');
+  assert.equal(parentCloses, 0, '退场结束前 Escape 不得穿透到下层弹窗');
+  menuClosing = false;
+  renderMenu();
+  await escape();
+  assert.equal(menuCloses, 2, '取消退场后仍可关闭菜单');
+  hooks.unmount();
+  await escape();
+  assert.equal(parentCloses, 1, '菜单卸载后恢复下层弹窗的 Escape');
+  removeParent();
+
+  const frames = new Map();
+  let frameId = 0;
+  browser.requestAnimationFrame = (callback) => {
+    const id = ++frameId;
+    frames.set(id, callback);
+    return id;
+  };
+  browser.cancelAnimationFrame = (id) => frames.delete(id);
+  browser.visualViewport = new EventTarget();
+  const { useViewportChange } = await server.ssrLoadModule('/src/hooks/useViewportChange.ts');
+  let measuring = true;
+  let measurements = 0;
+  let latestMeasurements = 0;
+  let measure = () => measurements++;
+  const renderTracking = () => hooks.render(() => useViewportChange(measuring, measure));
+  renderTracking();
+  for (let i = 0; i < 20; i++) {
+    browser.dispatchEvent(new Event('scroll'));
+    browser.dispatchEvent(new Event('resize'));
+    browser.visualViewport.dispatchEvent(new Event('resize'));
+  }
+  assert.equal(frames.size, 1, '密集滚动和视口缩放只能安排一次布局测量');
+  measure = () => latestMeasurements++;
+  renderTracking();
+  const [frame, callback] = [...frames][0];
+  frames.delete(frame);
+  callback();
+  assert.equal(measurements, 0, '待执行测量不得使用旧渲染的回调');
+  assert.equal(latestMeasurements, 1);
+  browser.visualViewport.dispatchEvent(new Event('scroll'));
+  assert.equal(frames.size, 1);
+  measuring = false;
+  renderTracking();
+  assert.equal(frames.size, 0, '隐藏浮层必须取消待执行测量');
+  browser.dispatchEvent(new Event('resize'));
+  browser.visualViewport.dispatchEvent(new Event('scroll'));
+  assert.equal(frames.size, 0, '隐藏浮层必须解除所有视口监听');
+  measuring = true;
+  renderTracking();
+  hooks.unmount();
+  browser.dispatchEvent(new Event('scroll'));
+  browser.visualViewport.dispatchEvent(new Event('resize'));
+  assert.equal(frames.size, 0, '卸载后不得留下动画帧和视口监听');
+  console.log('[交互检查] 决策草稿、手势、轮询及浮层退场生命周期检查通过。');
 } finally {
   for (const [name, descriptor] of saved) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);

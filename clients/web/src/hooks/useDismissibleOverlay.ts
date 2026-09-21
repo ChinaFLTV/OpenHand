@@ -8,6 +8,7 @@ interface DismissibleOverlayTarget {
 
 interface UseDismissibleOverlayOptions {
   active: boolean;
+  closing?: boolean;
   targets: ReadonlyArray<DismissibleOverlayTarget>;
   onDismiss: () => void;
   onEscape?: () => void;
@@ -27,12 +28,14 @@ function targetInsideOverlay(
 
 export function useDismissibleOverlay({
   active,
+  closing = false,
   targets,
   onDismiss,
   onEscape,
   pointerEventName = 'mousedown',
 }: UseDismissibleOverlayOptions): void {
   const requestDismiss = useEventCallback(onDismiss);
+  const canClose = useEventCallback(() => !closing);
   const requestEscapeClose = useEventCallback(() => {
     (onEscape ?? onDismiss)();
   });
@@ -41,7 +44,7 @@ export function useDismissibleOverlay({
     if (!active || typeof document === 'undefined') return undefined;
 
     const handlePointer = (event: MouseEvent | PointerEvent) => {
-      if (targetInsideOverlay(event.target, targets)) return;
+      if (!canClose() || targetInsideOverlay(event.target, targets)) return;
       requestDismiss();
     };
 
@@ -49,13 +52,13 @@ export function useDismissibleOverlay({
     return () => {
       document.removeEventListener(pointerEventName, handlePointer);
     };
-  }, [active, pointerEventName, requestDismiss, targets]);
+  }, [active, canClose, pointerEventName, requestDismiss, targets]);
 
   useEffect(() => {
     if (!active || typeof window === 'undefined') return undefined;
     return registerOverlayEscapeLayer({
-      canClose: () => true,
+      canClose,
       requestClose: requestEscapeClose,
     });
-  }, [active, requestEscapeClose]);
+  }, [active, canClose, requestEscapeClose]);
 }

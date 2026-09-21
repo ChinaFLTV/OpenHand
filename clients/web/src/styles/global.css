@@ -11730,14 +11730,6 @@ button.oh-json-tree-row { cursor: pointer; }
 .oh-decision-score-list li { display: flex; gap: 8px; align-items: flex-start; }
 .oh-decision-score-list span { width: 22px; flex: none; font-size: 12px; font-weight: 800; color: var(--m3-on-surface-variant); }
 .oh-decision-score-list p { margin: 0; font-size: 13px; font-weight: 650; }
-.oh-decision-dialog-note {
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: var(--m3-tertiary-container);
-  color: var(--m3-on-tertiary-container);
-  font-size: 13px;
-  line-height: 1.5;
-}
 .oh-decision-composer-field {
   display: flex;
   flex-direction: column;
@@ -11768,7 +11760,6 @@ button.oh-json-tree-row { cursor: pointer; }
   outline-offset: 1px;
 }
 
-.oh-decision-actions .oh-dialog-action-button { min-height: 44px; min-width: 112px; border-radius: 14px; }
 .oh-decision-composer {
   display: flex;
   flex-direction: column;

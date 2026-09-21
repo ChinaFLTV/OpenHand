@@ -171,7 +171,6 @@ export function SessionTopBar(props: SessionTopBarProps) {
   const renamingRef = useRef(false);
   const cancelRenameBlurRef = useRef(false);
   const {
-    open: moreMenuOpen,
     closing: closingMore,
     visible: moreMenuVisible,
     hide: requestCloseMoreMenu,
@@ -189,7 +188,8 @@ export function SessionTopBar(props: SessionTopBarProps) {
   }, [editing]);
 
   useDismissibleOverlay({
-    active: moreMenuOpen && !closingMore,
+    active: moreMenuVisible,
+    closing: closingMore,
     targets: moreMenuDismissTargets,
     onDismiss: requestCloseMoreMenu,
   });

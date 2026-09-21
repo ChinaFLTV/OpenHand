@@ -124,7 +124,6 @@ class OpenHandDecisionFormShell extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       shadowColor: Colors.transparent,
-      elevation: 0,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.surfaceContainerLow,
@@ -244,7 +243,6 @@ class _DecisionTypeTab extends StatelessWidget {
         color: selected
             ? openHandDecisionContainer(colors, type)
             : Colors.transparent,
-        elevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         borderRadius: kOpenHandBorderRadius12,

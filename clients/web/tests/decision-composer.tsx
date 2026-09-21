@@ -30,10 +30,12 @@ try {
   verify(Math.abs(indexBadge.getBoundingClientRect().height - remove.getBoundingClientRect().height) < 1, '序号与删除按钮等高');
   verify(getComputedStyle(indexBadge).borderRadius === getComputedStyle(remove).borderRadius, '序号与删除按钮同圆角');
   first.focus();
-  first.setSelectionRange(1, 1);
+  first.setSelectionRange(0, 1, 'backward');
   await act(async () => firstRow.querySelector<HTMLButtonElement>('[title="下移"]')!.click());
   verify(initialDecisionDraft(draft).criteria === '中\n低\n高', '排序即时更新草稿顺序');
-  verify(fields()[1] === first && document.activeElement === first, '排序保留输入节点、焦点与选区');
+  verify(fields()[1] === first, '排序保留输入节点');
+  verify(document.activeElement === first, '排序保留输入焦点');
+  verify(first.selectionStart === 0 && first.selectionEnd === 1 && first.selectionDirection === 'backward', '排序保留输入选区与选择方向');
   verify(root.getAnimations({ subtree: true }).length > 0, '排序播放位移动画');
   await wait(80);
   await act(async () => first.closest('.oh-decision-criterion')!.querySelector<HTMLButtonElement>('[title="上移"]')!.click());
@@ -42,6 +44,7 @@ try {
   await act(async () => remove.click());
   verify(initialDecisionDraft(draft).criteria === '中\n高', '删除即时更新草稿');
   verify(root.querySelector('[inert]') != null, '退场条目不可交互');
+  verify(document.activeElement !== first, '删除时不把焦点恢复到退场条目');
   await wait(600);
   verify(fields().length === 2 && !root.contains(first), '退场完成移除条目');
   await act(async () => root.querySelector<HTMLButtonElement>('.oh-decision-add')!.click());
