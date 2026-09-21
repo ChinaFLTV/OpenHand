@@ -4794,7 +4794,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '当前用于对话的模型。可从上方列表选择或直接输入。';
 
   @override
-  String get mdlEdMaxContextTokens => '最大上下文 Token 上限';
+  String get mdlEdMaxContextTokens => '最大上下文词元数';
 
   @override
   String get mdlEdOptionalLimitsTheHistorySliceUsed => '可选。用于在压缩时限制历史切片大小。';
@@ -4815,7 +4815,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mdlEdNonStreaming => '非流式输出';
 
   @override
-  String get mdlEdMaxOutputTokens => '最大输出 Token 数';
+  String get mdlEdMaxOutputTokens => '最大输出词元数';
 
   @override
   String get mdlEdOptionalUsesAdapterDefaultIfUnset => '可选。不指定则使用适配器默认值。';
@@ -4839,10 +4839,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mdlEdNoCustomHeadersTapAddTo => '暂无自定义请求头。点击「添加」按钮来添加。';
 
   @override
-  String get mdlEdHeaderName => 'Header 名称';
+  String get mdlEdHeaderName => '请求头名称';
 
   @override
-  String get mdlEdHeaderValue => 'Header 值';
+  String get mdlEdHeaderValue => '请求头值';
 
   @override
   String get mdlEdEditModelProfile => '编辑模型配置';
@@ -4902,7 +4902,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mdlEdPpt => 'PPT 生成';
 
   @override
-  String get mdlEdTokenLimits => 'Token 限制';
+  String get mdlEdTokenLimits => '词元限制';
 
   @override
   String get mdlEdContextLength => '上下文长度';
@@ -4917,8 +4917,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mdlEdThinkingLength => '思考长度';
 
   @override
-  String get mdlEdTokenPricingUsd1mTokensLeave =>
-      'Token 单价（USD / 1M tokens，留空表示未配置）';
+  String get mdlEdTokenPricingUsd1mTokensLeave => '词元单价（美元／百万词元，留空表示未配置）';
 
   @override
   String get mdlEdInput => '输入价';
@@ -4965,7 +4964,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mdlEdOpenRouterRawMetadataFields =>
-      '包含 id、canonical_slug、hugging_face_id、created、architecture、supported_parameters、default_parameters、supported_voices、knowledge_cutoff、expiration_date 和 links';
+      '模型标识、架构、支持参数、默认值、音色、知识截止日期、到期日期及相关链接。';
 
   @override
   String get mdlEdReset => '重置';
@@ -10681,6 +10680,65 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get qdrantValuePayloadSchemaMissing => '未发现 payload schema';
+
+  @override
+  String get mdlEdValueAuto => '自动';
+
+  @override
+  String get mdlEdValueSupported => '已支持';
+
+  @override
+  String get mdlEdValueExperimental => '实验性';
+
+  @override
+  String get mdlEdValueDisabled => '已禁用';
+
+  @override
+  String get mdlEdValueCustom => '自定义';
+
+  @override
+  String get mdlEdValueOpenaiCompat => 'OpenAI 兼容';
+
+  @override
+  String get mdlEdValueJevNative => 'Jev 原生';
+
+  @override
+  String get mdlEdValueAnthropicNative => 'Anthropic 原生';
+
+  @override
+  String get mdlEdValueGeminiNative => 'Gemini 原生';
+
+  @override
+  String get mdlEdDecisionSummary => 'Jev 协议 · 文本输入，结构化决策输出。支持判断、选择和评分。';
+
+  @override
+  String get mdlEdDecisionProtocolHint =>
+      '此模型支持结构化决策，请在提供商配置中选择 Jev 协议；混合提供商可另建 Jev 配置。';
+
+  @override
+  String get mdlEdCatalogMissing => '暂无匹配资料，请按提供商文档配置。修改模型 ID 不会覆盖已填参数。';
+
+  @override
+  String get mdlEdCatalogReference => '目录参数仅供参考，请按提供商实际能力调整。';
+
+  @override
+  String get mdlEdDecisionTitleUnavailable => '此模型返回结构化决策，不能生成文本标题。';
+
+  @override
+  String get mdlEdJudgment => '判断';
+
+  @override
+  String get mdlEdChoice => '选择';
+
+  @override
+  String get mdlEdScore => '评分';
+
+  @override
+  String get mdlEdDecisionExtrasHint =>
+      '在 decisions 中配置请求头和查询参数；正文仅包含模型、待评估内容和问题。';
+
+  @override
+  String get mdlEdOperationExtrasHint => '配置响应、实时语音和视频等操作的提供商专用扩展参数。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -15431,101 +15489,101 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get mdlEdEnterAValidBaseUrlFirst => '请先输入有效的 Base URL';
+  String get mdlEdEnterAValidBaseUrlFirst => '請先輸入有效的基礎網址';
 
   @override
-  String get mdlEdNoModelsFoundFromThisProvider => '未从该提供商扫描到模型。';
+  String get mdlEdNoModelsFoundFromThisProvider => '未從此供應商掃描到模型。';
 
   @override
-  String get mdlEdProviderName => '提供商名称';
+  String get mdlEdProviderName => '供應商名稱';
 
   @override
-  String get mdlEdOptionalEGDeepseekLocalOllama => '可选，如 DeepSeek、本地 Ollama';
+  String get mdlEdOptionalEGDeepseekLocalOllama => '選填，例如 DeepSeek、本機 Ollama';
 
   @override
-  String get mdlEdCurrentlyActiveModel => '当前活跃模型';
+  String get mdlEdCurrentlyActiveModel => '目前使用的模型';
 
   @override
-  String get mdlEdClickToSetAsActiveModel => '点击切换为活跃模型';
+  String get mdlEdClickToSetAsActiveModel => '點選以切換目前使用的模型';
 
   @override
-  String get mdlEdTapScanModelsToDiscoverModels => '点击「扫描模型」按钮自动发现可用模型，或手动添加。';
+  String get mdlEdTapScanModelsToDiscoverModels => '點選「掃描模型」自動探索可用模型，或手動新增。';
 
   @override
-  String get mdlEdActiveModelId => '当前活跃模型 ID';
+  String get mdlEdActiveModelId => '目前使用的模型 ID';
 
   @override
   String get mdlEdTheModelUsedForConversationsSelect =>
-      '当前用于对话的模型。可从上方列表选择或直接输入。';
+      '目前用於對話的模型。可從上方清單選取或直接輸入。';
 
   @override
-  String get mdlEdMaxContextTokens => '最大上下文 Token 上限';
+  String get mdlEdMaxContextTokens => '最大上下文詞元數';
 
   @override
-  String get mdlEdOptionalLimitsTheHistorySliceUsed => '可选。用于在压缩时限制历史切片大小。';
+  String get mdlEdOptionalLimitsTheHistorySliceUsed => '選填。用於限制壓縮時採用的歷史片段大小。';
 
   @override
-  String get mdlEdEnterAWholeNumberGreaterThan => '请输入大于 0 的整数';
+  String get mdlEdEnterAWholeNumberGreaterThan => '請輸入大於 0 的整數';
 
   @override
-  String get mdlEdRequestMethod => '请求方式';
+  String get mdlEdRequestMethod => '請求方式';
 
   @override
-  String get mdlEdOutputMode => '输出模式';
+  String get mdlEdOutputMode => '輸出模式';
 
   @override
-  String get mdlEdStreaming => '流式输出';
+  String get mdlEdStreaming => '串流輸出';
 
   @override
-  String get mdlEdNonStreaming => '非流式输出';
+  String get mdlEdNonStreaming => '非串流輸出';
 
   @override
-  String get mdlEdMaxOutputTokens => '最大输出 Token 数';
+  String get mdlEdMaxOutputTokens => '最大輸出詞元數';
 
   @override
-  String get mdlEdOptionalUsesAdapterDefaultIfUnset => '可选。不指定则使用适配器默认值。';
+  String get mdlEdOptionalUsesAdapterDefaultIfUnset => '選填。未指定時使用介面卡預設值。';
 
   @override
-  String get mdlEdTemperature => '温度';
+  String get mdlEdTemperature => '溫度';
 
   @override
-  String get mdlEd0020Default0 => '0.0 ~ 2.0，默认 0.7';
+  String get mdlEd0020Default0 => '0.0 ~ 2.0，預設 0.7';
 
   @override
-  String get mdlEdEnterANumberBetween00 => '请输入 0.0 到 2.0 之间的数值';
+  String get mdlEdEnterANumberBetween00 => '請輸入 0.0 到 2.0 之間的數值';
 
   @override
-  String get mdlEdCustomHeaders => '自定义请求头';
+  String get mdlEdCustomHeaders => '自訂請求標頭';
 
   @override
-  String get mdlEdAdd => '添加';
+  String get mdlEdAdd => '新增';
 
   @override
-  String get mdlEdNoCustomHeadersTapAddTo => '暂无自定义请求头。点击「添加」按钮来添加。';
+  String get mdlEdNoCustomHeadersTapAddTo => '尚無自訂請求標頭。點選「新增」以加入。';
 
   @override
-  String get mdlEdHeaderName => 'Header 名称';
+  String get mdlEdHeaderName => '請求標頭名稱';
 
   @override
-  String get mdlEdHeaderValue => 'Header 值';
+  String get mdlEdHeaderValue => '請求標頭值';
 
   @override
-  String get mdlEdEditModelProfile => '编辑模型配置';
+  String get mdlEdEditModelProfile => '編輯模型設定';
 
   @override
-  String get mdlEdDisplayName => '显示名称';
+  String get mdlEdDisplayName => '顯示名稱';
 
   @override
-  String get mdlEdOptionalShownInTheUi => '可选，用于界面展示';
+  String get mdlEdOptionalShownInTheUi => '選填，用於介面顯示';
 
   @override
   String get mdlEdDescription => '模型描述';
 
   @override
-  String get mdlEdMultimodalSupport => '多模态支持';
+  String get mdlEdMultimodalSupport => '多模態支援';
 
   @override
-  String get mdlEdAutoDetect => '自动检测';
+  String get mdlEdAutoDetect => '自動偵測';
 
   @override
   String get mdlEdYes => '是';
@@ -15534,7 +15592,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get mdlEdNo => '否';
 
   @override
-  String get mdlEdSupportsAttachments => '支持附件';
+  String get mdlEdSupportsAttachments => '支援附件';
 
   @override
   String get mdlEdReasoningEcho => '攜帶思考內容回響';
@@ -15543,19 +15601,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get mdlEdReasoningEchoHint => '控制該模型是否把先前輪次的思考/推理內容回灌到後續 Prompt 歷史中。';
 
   @override
-  String get mdlEdSupportedModalities => '支持的模态';
+  String get mdlEdSupportedModalities => '支援的模態';
 
   @override
-  String get mdlEdText => '文本';
+  String get mdlEdText => '文字';
 
   @override
-  String get mdlEdImage => '图片生成';
+  String get mdlEdImage => '圖片生成';
 
   @override
-  String get mdlEdVideo => '视频生成';
+  String get mdlEdVideo => '影片生成';
 
   @override
-  String get mdlEdAudio => '音频生成';
+  String get mdlEdAudio => '音訊生成';
 
   @override
   String get mdlEdGenerationCapabilities => '生成能力';
@@ -15567,35 +15625,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get mdlEdPpt => 'PPT 生成';
 
   @override
-  String get mdlEdTokenLimits => 'Token 限制';
+  String get mdlEdTokenLimits => '詞元限制';
 
   @override
-  String get mdlEdContextLength => '上下文长度';
+  String get mdlEdContextLength => '上下文長度';
 
   @override
-  String get mdlEdSummaryLength => '摘要长度';
+  String get mdlEdSummaryLength => '摘要長度';
 
   @override
-  String get mdlEdOutputLength => '输出长度';
+  String get mdlEdOutputLength => '輸出長度';
 
   @override
-  String get mdlEdThinkingLength => '思考长度';
+  String get mdlEdThinkingLength => '思考長度';
 
   @override
-  String get mdlEdTokenPricingUsd1mTokensLeave =>
-      'Token 单价（USD / 1M tokens，留空表示未配置）';
+  String get mdlEdTokenPricingUsd1mTokensLeave => '詞元單價（美元／百萬詞元，留空表示未設定）';
 
   @override
-  String get mdlEdInput => '输入价';
+  String get mdlEdInput => '輸入價格';
 
   @override
-  String get mdlEdOutput => '输出价';
+  String get mdlEdOutput => '輸出價格';
 
   @override
-  String get mdlEdCacheRead => '缓存读取价';
+  String get mdlEdCacheRead => '快取讀取價格';
 
   @override
-  String get mdlEdCacheWrite => '缓存写入价';
+  String get mdlEdCacheWrite => '快取寫入價格';
 
   @override
   String get mdlEdOpenRouterMetadataOverrides => 'OpenRouter 元資料覆寫';
@@ -15630,7 +15687,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mdlEdOpenRouterRawMetadataFields =>
-      '包含 id、canonical_slug、hugging_face_id、created、architecture、supported_parameters、default_parameters、supported_voices、knowledge_cutoff、expiration_date 與 links';
+      '模型識別、架構、支援參數、預設值、音色、知識截止日期、到期日期及相關連結。';
 
   @override
   String get mdlEdReset => '重置';
@@ -15639,7 +15696,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get mdlEdCancel => '取消';
 
   @override
-  String get mdlEdOk => '确定';
+  String get mdlEdOk => '確定';
 
   @override
   String get tlCallDir => '目录';
@@ -21342,4 +21399,63 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get qdrantValuePayloadSchemaMissing => '未發現 payload schema';
+
+  @override
+  String get mdlEdValueAuto => '自動';
+
+  @override
+  String get mdlEdValueSupported => '已支援';
+
+  @override
+  String get mdlEdValueExperimental => '實驗性';
+
+  @override
+  String get mdlEdValueDisabled => '已停用';
+
+  @override
+  String get mdlEdValueCustom => '自訂';
+
+  @override
+  String get mdlEdValueOpenaiCompat => 'OpenAI 相容';
+
+  @override
+  String get mdlEdValueJevNative => 'Jev 原生';
+
+  @override
+  String get mdlEdValueAnthropicNative => 'Anthropic 原生';
+
+  @override
+  String get mdlEdValueGeminiNative => 'Gemini 原生';
+
+  @override
+  String get mdlEdDecisionSummary => 'Jev 協定 · 文字輸入，結構化決策輸出。支援判斷、選擇和評分。';
+
+  @override
+  String get mdlEdDecisionProtocolHint =>
+      '此模型支援結構化決策，請在供應商設定中選擇 Jev 協定；混合供應商可另建 Jev 設定。';
+
+  @override
+  String get mdlEdCatalogMissing => '暫無符合資料，請依供應商文件設定。修改模型 ID 不會覆寫已填參數。';
+
+  @override
+  String get mdlEdCatalogReference => '目錄參數僅供參考，請依供應商實際能力調整。';
+
+  @override
+  String get mdlEdDecisionTitleUnavailable => '此模型傳回結構化決策，無法產生文字標題。';
+
+  @override
+  String get mdlEdJudgment => '判斷';
+
+  @override
+  String get mdlEdChoice => '選擇';
+
+  @override
+  String get mdlEdScore => '評分';
+
+  @override
+  String get mdlEdDecisionExtrasHint =>
+      '在 decisions 中設定請求標頭及查詢參數；本文僅包含模型、待評估內容及問題。';
+
+  @override
+  String get mdlEdOperationExtrasHint => '設定回應、即時語音及影片等操作的供應商專用擴充參數。';
 }

@@ -8865,7 +8865,7 @@ abstract class AppLocalizations {
   /// No description provided for @mdlEdMaxContextTokens.
   ///
   /// In zh, this message translates to:
-  /// **'最大上下文 Token 上限'**
+  /// **'最大上下文词元数'**
   String get mdlEdMaxContextTokens;
 
   /// No description provided for @mdlEdOptionalLimitsTheHistorySliceUsed.
@@ -8907,7 +8907,7 @@ abstract class AppLocalizations {
   /// No description provided for @mdlEdMaxOutputTokens.
   ///
   /// In zh, this message translates to:
-  /// **'最大输出 Token 数'**
+  /// **'最大输出词元数'**
   String get mdlEdMaxOutputTokens;
 
   /// No description provided for @mdlEdOptionalUsesAdapterDefaultIfUnset.
@@ -8955,13 +8955,13 @@ abstract class AppLocalizations {
   /// No description provided for @mdlEdHeaderName.
   ///
   /// In zh, this message translates to:
-  /// **'Header 名称'**
+  /// **'请求头名称'**
   String get mdlEdHeaderName;
 
   /// No description provided for @mdlEdHeaderValue.
   ///
   /// In zh, this message translates to:
-  /// **'Header 值'**
+  /// **'请求头值'**
   String get mdlEdHeaderValue;
 
   /// No description provided for @mdlEdEditModelProfile.
@@ -9081,7 +9081,7 @@ abstract class AppLocalizations {
   /// No description provided for @mdlEdTokenLimits.
   ///
   /// In zh, this message translates to:
-  /// **'Token 限制'**
+  /// **'词元限制'**
   String get mdlEdTokenLimits;
 
   /// No description provided for @mdlEdContextLength.
@@ -9111,7 +9111,7 @@ abstract class AppLocalizations {
   /// No description provided for @mdlEdTokenPricingUsd1mTokensLeave.
   ///
   /// In zh, this message translates to:
-  /// **'Token 单价（USD / 1M tokens，留空表示未配置）'**
+  /// **'词元单价（美元／百万词元，留空表示未配置）'**
   String get mdlEdTokenPricingUsd1mTokensLeave;
 
   /// No description provided for @mdlEdInput.
@@ -9201,7 +9201,7 @@ abstract class AppLocalizations {
   /// No description provided for @mdlEdOpenRouterRawMetadataFields.
   ///
   /// In zh, this message translates to:
-  /// **'包含 id、canonical_slug、hugging_face_id、created、architecture、supported_parameters、default_parameters、supported_voices、knowledge_cutoff、expiration_date 和 links'**
+  /// **'模型标识、架构、支持参数、默认值、音色、知识截止日期、到期日期及相关链接。'**
   String get mdlEdOpenRouterRawMetadataFields;
 
   /// No description provided for @mdlEdReset.
@@ -19596,6 +19596,120 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未发现 payload schema'**
   String get qdrantValuePayloadSchemaMissing;
+
+  /// No description provided for @mdlEdValueAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动'**
+  String get mdlEdValueAuto;
+
+  /// No description provided for @mdlEdValueSupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已支持'**
+  String get mdlEdValueSupported;
+
+  /// No description provided for @mdlEdValueExperimental.
+  ///
+  /// In zh, this message translates to:
+  /// **'实验性'**
+  String get mdlEdValueExperimental;
+
+  /// No description provided for @mdlEdValueDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已禁用'**
+  String get mdlEdValueDisabled;
+
+  /// No description provided for @mdlEdValueCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get mdlEdValueCustom;
+
+  /// No description provided for @mdlEdValueOpenaiCompat.
+  ///
+  /// In zh, this message translates to:
+  /// **'OpenAI 兼容'**
+  String get mdlEdValueOpenaiCompat;
+
+  /// No description provided for @mdlEdValueJevNative.
+  ///
+  /// In zh, this message translates to:
+  /// **'Jev 原生'**
+  String get mdlEdValueJevNative;
+
+  /// No description provided for @mdlEdValueAnthropicNative.
+  ///
+  /// In zh, this message translates to:
+  /// **'Anthropic 原生'**
+  String get mdlEdValueAnthropicNative;
+
+  /// No description provided for @mdlEdValueGeminiNative.
+  ///
+  /// In zh, this message translates to:
+  /// **'Gemini 原生'**
+  String get mdlEdValueGeminiNative;
+
+  /// No description provided for @mdlEdDecisionSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'Jev 协议 · 文本输入，结构化决策输出。支持判断、选择和评分。'**
+  String get mdlEdDecisionSummary;
+
+  /// No description provided for @mdlEdDecisionProtocolHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'此模型支持结构化决策，请在提供商配置中选择 Jev 协议；混合提供商可另建 Jev 配置。'**
+  String get mdlEdDecisionProtocolHint;
+
+  /// No description provided for @mdlEdCatalogMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无匹配资料，请按提供商文档配置。修改模型 ID 不会覆盖已填参数。'**
+  String get mdlEdCatalogMissing;
+
+  /// No description provided for @mdlEdCatalogReference.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录参数仅供参考，请按提供商实际能力调整。'**
+  String get mdlEdCatalogReference;
+
+  /// No description provided for @mdlEdDecisionTitleUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'此模型返回结构化决策，不能生成文本标题。'**
+  String get mdlEdDecisionTitleUnavailable;
+
+  /// No description provided for @mdlEdJudgment.
+  ///
+  /// In zh, this message translates to:
+  /// **'判断'**
+  String get mdlEdJudgment;
+
+  /// No description provided for @mdlEdChoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择'**
+  String get mdlEdChoice;
+
+  /// No description provided for @mdlEdScore.
+  ///
+  /// In zh, this message translates to:
+  /// **'评分'**
+  String get mdlEdScore;
+
+  /// No description provided for @mdlEdDecisionExtrasHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在 decisions 中配置请求头和查询参数；正文仅包含模型、待评估内容和问题。'**
+  String get mdlEdDecisionExtrasHint;
+
+  /// No description provided for @mdlEdOperationExtrasHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置响应、实时语音和视频等操作的提供商专用扩展参数。'**
+  String get mdlEdOperationExtrasHint;
 }
 
 class _AppLocalizationsDelegate

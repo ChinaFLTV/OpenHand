@@ -5203,7 +5203,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get mdlEdOpenRouterRawMetadataFields =>
-      'Enthält id, canonical_slug, hugging_face_id, created, architecture, supported_parameters, default_parameters, supported_voices, knowledge_cutoff, expiration_date und links';
+      'Modellkennungen, Architektur, unterstützte Parameter, Standardwerte, Stimmen, Wissensstand, Ablaufdatum und zugehörige Links.';
 
   @override
   String get mdlEdReset => 'Zurücksetzen';
@@ -11136,4 +11136,68 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get qdrantValuePayloadSchemaMissing => 'Kein Payload-Schema gefunden';
+
+  @override
+  String get mdlEdValueAuto => 'Automatisch';
+
+  @override
+  String get mdlEdValueSupported => 'Unterstützt';
+
+  @override
+  String get mdlEdValueExperimental => 'Experimentell';
+
+  @override
+  String get mdlEdValueDisabled => 'Deaktiviert';
+
+  @override
+  String get mdlEdValueCustom => 'Benutzerdefiniert';
+
+  @override
+  String get mdlEdValueOpenaiCompat => 'OpenAI-kompatibel';
+
+  @override
+  String get mdlEdValueJevNative => 'Jev nativ';
+
+  @override
+  String get mdlEdValueAnthropicNative => 'Anthropic nativ';
+
+  @override
+  String get mdlEdValueGeminiNative => 'Gemini nativ';
+
+  @override
+  String get mdlEdDecisionSummary =>
+      'Jev-Protokoll: Texteingabe und strukturierte Ergebnisse für Prüfung, Auswahl oder Bewertung.';
+
+  @override
+  String get mdlEdDecisionProtocolHint =>
+      'Für strukturierte Entscheidungen Jev wählen. Gemischte Anbieter können eine separate Jev-Konfiguration verwenden.';
+
+  @override
+  String get mdlEdCatalogMissing =>
+      'Kein Katalogeintrag. Bitte Anbieterdokumentation verwenden. Eine neue Modell-ID behält eingegebene Parameter bei.';
+
+  @override
+  String get mdlEdCatalogReference =>
+      'Katalogwerte dienen als Referenz; an die Anbieterfähigkeiten anpassen.';
+
+  @override
+  String get mdlEdDecisionTitleUnavailable =>
+      'Dieses Modell liefert strukturierte Entscheidungen und kann keine Texttitel erzeugen.';
+
+  @override
+  String get mdlEdJudgment => 'Prüfung';
+
+  @override
+  String get mdlEdChoice => 'Auswahl';
+
+  @override
+  String get mdlEdScore => 'Bewertung';
+
+  @override
+  String get mdlEdDecisionExtrasHint =>
+      'Header und Abfrageparameter unter decisions konfigurieren; der Inhalt enthält nur model, state und questions.';
+
+  @override
+  String get mdlEdOperationExtrasHint =>
+      'Anbieterspezifische Parameter für Antworten, Echtzeitaudio und Video.';
 }

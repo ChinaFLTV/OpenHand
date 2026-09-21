@@ -5157,7 +5157,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mdlEdOpenRouterRawMetadataFields =>
-      'Includes id, canonical_slug, hugging_face_id, created, architecture, supported_parameters, default_parameters, supported_voices, knowledge_cutoff, expiration_date, and links';
+      'Model identifiers, architecture, supported parameters, defaults, voices, knowledge cutoff, expiration date, and related links.';
 
   @override
   String get mdlEdReset => 'Reset';
@@ -11037,4 +11037,68 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get qdrantValuePayloadSchemaMissing => 'No payload schema found';
+
+  @override
+  String get mdlEdValueAuto => 'Automatic';
+
+  @override
+  String get mdlEdValueSupported => 'Supported';
+
+  @override
+  String get mdlEdValueExperimental => 'Experimental';
+
+  @override
+  String get mdlEdValueDisabled => 'Disabled';
+
+  @override
+  String get mdlEdValueCustom => 'Custom';
+
+  @override
+  String get mdlEdValueOpenaiCompat => 'OpenAI compatible';
+
+  @override
+  String get mdlEdValueJevNative => 'Native Jev';
+
+  @override
+  String get mdlEdValueAnthropicNative => 'Native Anthropic';
+
+  @override
+  String get mdlEdValueGeminiNative => 'Native Gemini';
+
+  @override
+  String get mdlEdDecisionSummary =>
+      'Jev protocol: text input and structured judgment, choice or score results.';
+
+  @override
+  String get mdlEdDecisionProtocolHint =>
+      'For structured decisions, select the Jev protocol. Mixed providers can use a separate Jev configuration.';
+
+  @override
+  String get mdlEdCatalogMissing =>
+      'No matching catalog entry. Follow the provider documentation. Changing the model ID preserves entered parameters.';
+
+  @override
+  String get mdlEdCatalogReference =>
+      'Catalog values are a reference; adjust them to the provider’s capabilities.';
+
+  @override
+  String get mdlEdDecisionTitleUnavailable =>
+      'This model returns structured decisions and cannot generate text titles.';
+
+  @override
+  String get mdlEdJudgment => 'Judgment';
+
+  @override
+  String get mdlEdChoice => 'Choice';
+
+  @override
+  String get mdlEdScore => 'Score';
+
+  @override
+  String get mdlEdDecisionExtrasHint =>
+      'Configure headers and query parameters under decisions; the body contains only model, state and questions.';
+
+  @override
+  String get mdlEdOperationExtrasHint =>
+      'Provider-specific parameters for response, realtime audio and video operations.';
 }

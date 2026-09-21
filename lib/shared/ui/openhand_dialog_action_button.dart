@@ -99,21 +99,30 @@ class OpenHandDialogSaveActions extends StatelessWidget {
       children: [
         OpenHandDialogBusyBar(busy: busy),
         kOpenHandGap22,
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: busy
-                  ? null
-                  : (onCancel ?? () => Navigator.of(context).pop()),
-              label: cancelLabel,
-            ),
-            kOpenHandHGap12,
-            OpenHandDialogActionButton.primary(
-              onPressed: busy ? null : onConfirm,
-              label: confirmLabel,
-            ),
-          ],
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: kOpenHandDialogActionButtonWidth * 2 + 12,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Expanded(
+                child: OpenHandDialogActionButton.secondary(
+                  onPressed: busy
+                      ? null
+                      : (onCancel ?? () => Navigator.of(context).pop()),
+                  label: cancelLabel,
+                ),
+              ),
+              kOpenHandHGap12,
+              Expanded(
+                child: OpenHandDialogActionButton.primary(
+                  onPressed: busy ? null : onConfirm,
+                  label: confirmLabel,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

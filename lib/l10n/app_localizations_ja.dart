@@ -5024,7 +5024,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mdlEdOpenRouterRawMetadataFields =>
-      'id、canonical_slug、hugging_face_id、created、architecture、supported_parameters、default_parameters、supported_voices、knowledge_cutoff、expiration_date、links を含みます';
+      'モデル識別情報、アーキテクチャ、対応パラメーター、既定値、音声、知識の期限、有効期限、関連リンク。';
 
   @override
   String get mdlEdReset => 'リセット';
@@ -10799,4 +10799,65 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get qdrantValuePayloadSchemaMissing => 'Payload schema が見つかりません';
+
+  @override
+  String get mdlEdValueAuto => '自動';
+
+  @override
+  String get mdlEdValueSupported => '対応済み';
+
+  @override
+  String get mdlEdValueExperimental => '試験的';
+
+  @override
+  String get mdlEdValueDisabled => '無効';
+
+  @override
+  String get mdlEdValueCustom => 'カスタム';
+
+  @override
+  String get mdlEdValueOpenaiCompat => 'OpenAI 互換';
+
+  @override
+  String get mdlEdValueJevNative => 'Jev ネイティブ';
+
+  @override
+  String get mdlEdValueAnthropicNative => 'Anthropic ネイティブ';
+
+  @override
+  String get mdlEdValueGeminiNative => 'Gemini ネイティブ';
+
+  @override
+  String get mdlEdDecisionSummary => 'Jev プロトコル：テキストを入力し、判定・選択・評価を構造化して返します。';
+
+  @override
+  String get mdlEdDecisionProtocolHint =>
+      '構造化決策には Jev を選択してください。複数方式のプロバイダーは Jev 設定を別途作成できます。';
+
+  @override
+  String get mdlEdCatalogMissing =>
+      '対応する資料がありません。プロバイダーの説明に従って設定してください。モデル ID を変更しても入力済みの設定は保持されます。';
+
+  @override
+  String get mdlEdCatalogReference => 'カタログ値は参考情報です。プロバイダーの機能に合わせて調整してください。';
+
+  @override
+  String get mdlEdDecisionTitleUnavailable =>
+      'このモデルは構造化決策を返すため、テキストのタイトルを生成できません。';
+
+  @override
+  String get mdlEdJudgment => '判定';
+
+  @override
+  String get mdlEdChoice => '選択';
+
+  @override
+  String get mdlEdScore => '評価';
+
+  @override
+  String get mdlEdDecisionExtrasHint =>
+      'decisions にヘッダーとクエリを設定します。本文には model、state、questions のみが含まれます。';
+
+  @override
+  String get mdlEdOperationExtrasHint => '応答、リアルタイム音声、動画の操作に使うプロバイダー固有の追加設定です。';
 }

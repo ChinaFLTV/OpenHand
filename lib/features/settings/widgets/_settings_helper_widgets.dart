@@ -5080,22 +5080,24 @@ class _AiProviderModelChip extends StatelessWidget {
                 color: accentColor,
               ),
               SizedBox(width: compact ? 5 : 7),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: compact ? 180 : 280),
-                child: Text(
-                  modelId,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style:
-                      (compact
-                              ? theme.textTheme.labelSmall
-                              : theme.textTheme.labelMedium)
-                          ?.copyWith(
-                            fontWeight: isActive
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: labelColor,
-                          ),
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: compact ? 180 : 280),
+                  child: Text(
+                    modelId,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        (compact
+                                ? theme.textTheme.labelSmall
+                                : theme.textTheme.labelMedium)
+                            ?.copyWith(
+                              fontWeight: isActive
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: labelColor,
+                            ),
+                  ),
                 ),
               ),
               if (healthProvider != null) ...<Widget>[

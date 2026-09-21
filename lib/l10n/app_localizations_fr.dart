@@ -5219,7 +5219,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get mdlEdOpenRouterRawMetadataFields =>
-      'Inclut id, canonical_slug, hugging_face_id, created, architecture, supported_parameters, default_parameters, supported_voices, knowledge_cutoff, expiration_date et links';
+      'Identifiants du modèle, architecture, paramètres pris en charge, valeurs par défaut, voix, dates de fin des connaissances et d’expiration, et liens associés.';
 
   @override
   String get mdlEdReset => 'Réinitialiser';
@@ -11180,4 +11180,68 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get qdrantValuePayloadSchemaMissing => 'Aucun schema Payload trouvé';
+
+  @override
+  String get mdlEdValueAuto => 'Automatique';
+
+  @override
+  String get mdlEdValueSupported => 'Pris en charge';
+
+  @override
+  String get mdlEdValueExperimental => 'Expérimental';
+
+  @override
+  String get mdlEdValueDisabled => 'Désactivé';
+
+  @override
+  String get mdlEdValueCustom => 'Personnalisé';
+
+  @override
+  String get mdlEdValueOpenaiCompat => 'Compatible OpenAI';
+
+  @override
+  String get mdlEdValueJevNative => 'Jev natif';
+
+  @override
+  String get mdlEdValueAnthropicNative => 'Anthropic natif';
+
+  @override
+  String get mdlEdValueGeminiNative => 'Gemini natif';
+
+  @override
+  String get mdlEdDecisionSummary =>
+      'Protocole Jev : texte en entrée, résultats structurés de jugement, choix ou notation.';
+
+  @override
+  String get mdlEdDecisionProtocolHint =>
+      'Pour les décisions structurées, sélectionnez Jev. Les fournisseurs mixtes peuvent utiliser une configuration Jev distincte.';
+
+  @override
+  String get mdlEdCatalogMissing =>
+      'Aucune fiche correspondante. Suivez la documentation du fournisseur. Changer l’ID conserve les paramètres saisis.';
+
+  @override
+  String get mdlEdCatalogReference =>
+      'Les valeurs du catalogue sont indicatives ; adaptez-les aux capacités du fournisseur.';
+
+  @override
+  String get mdlEdDecisionTitleUnavailable =>
+      'Ce modèle renvoie des décisions structurées et ne peut pas générer de titres.';
+
+  @override
+  String get mdlEdJudgment => 'Jugement';
+
+  @override
+  String get mdlEdChoice => 'Choix';
+
+  @override
+  String get mdlEdScore => 'Note';
+
+  @override
+  String get mdlEdDecisionExtrasHint =>
+      'Configurez les en-têtes et paramètres de requête dans decisions ; le corps contient uniquement model, state et questions.';
+
+  @override
+  String get mdlEdOperationExtrasHint =>
+      'Paramètres du fournisseur pour les réponses, l’audio en temps réel et la vidéo.';
 }
