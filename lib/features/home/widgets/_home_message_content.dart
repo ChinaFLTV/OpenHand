@@ -1180,10 +1180,16 @@ class _SafeMarkdownBody extends StatelessWidget {
   final String parseKey;
   final bool deferInitialParse;
 
+  // 决策卡片高度由结构化数据决定，不能在滚动挂载时先缩成文本占位。
+  bool get shouldDeferInitialParse =>
+      deferInitialParse &&
+      !DecisionPayload.containsResult(data) &&
+      !DecisionPayload.containsRequest(data);
+
   @override
   Widget build(BuildContext context) {
     return DeferredRichContent(
-      enabled: deferInitialParse && !streaming,
+      enabled: shouldDeferInitialParse && !streaming,
       placeholder: _RichContentPendingPreview(
         source: data,
         style: styleSheet.p,
@@ -1526,7 +1532,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
         : _markdownDeferredParseThresholdChars;
     // 缓存只省去语法解析，首屏组件树构建仍须分帧；等待中的占位不算已完成。
     final deferHistoricalInitial =
-        config.deferInitialParse && !config.streaming && _lastData == null;
+        config.shouldDeferInitialParse &&
+        !config.streaming &&
+        _lastData == null;
     final overDeferredThreshold = config.data.length > deferredThreshold;
     final shouldDeferParse =
         deferHistoricalInitial || (config.streaming && overDeferredThreshold);

@@ -56,6 +56,9 @@ class OpenHandVerticalRevealSwitcher extends StatelessWidget {
       context,
       reverseDuration ?? duration,
     );
+    if (inDuration <= Duration.zero && outDuration <= Duration.zero) {
+      return present ?? const SizedBox.shrink(key: _absentKey);
+    }
     return AnimatedSwitcher(
       duration: hasChild
           ? inDuration

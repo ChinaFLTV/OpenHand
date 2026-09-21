@@ -627,5 +627,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(DecisionPayload.request(draft!)['state'], '一加一等于二');
   });
+  testWidgets('决策卡片把内置英文问题与类型键显示为当前语言', (tester) async {
+    await tester.pumpWidget(app(home: Scaffold(body: OpenHandDecisionCard(data: <String, Object?>{
+      'questions': <String, Object?>{
+        'choice': <String, Object?>{
+          'type': 'choice',
+          'instructions': DecisionPayload.questionChoiceEn,
+          'criteria': <String, Object?>{'甲': null, '乙': null},
+        },
+      },
+      'answers': <String, Object?>{
+        'choice': <String, Object?>{
+          'type': 'choice',
+          'choice': '甲',
+          'probabilities': <String, Object?>{'甲': 0.9, '乙': 0.1},
+          'confidence': 0.99,
+        },
+      },
+    }))));
+    await tester.pumpAndSettle();
+    expect(find.text('选择'), findsWidgets);
+    expect(find.text(DecisionPayload.questionChoiceZh), findsOneWidget);
+    expect(find.text(DecisionPayload.questionChoiceEn), findsNothing);
+    expect(find.text('Choice'), findsNothing);
+    expect(find.text('Confidence'), findsNothing);
+    expect(find.text('置信度 99.0%'), findsOneWidget);
+  });
 }
 ''';

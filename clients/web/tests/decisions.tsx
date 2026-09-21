@@ -38,6 +38,17 @@ try {
   verify(!root.querySelector('.oh-decision-card'), '结果不再套一层父卡片');
   verify(root.querySelectorAll('.oh-decision-block').length === 3, '每个问题各自成卡');
   verify(root.querySelector('.oh-decision-toggle-meta .oh-decision-chip'), '类型胶囊在问题行左侧');
+  verify(root.querySelector('.oh-decision-toggle-result'), '结论放在问题行下方');
+  verify(root.querySelector('.oh-decision-toggle-chevron'), '折叠指示器贴在问题行右侧');
+  const englishBuiltIn = {
+    questions: { choice: { type: 'choice', instructions: 'Based on the given information, which option fits best?', criteria: { 甲: null } } },
+    answers: { choice: { type: 'choice', choice: '甲', probabilities: { 甲: 1 }, confidence: 0.99 } },
+  };
+  await act(async () => render(<DecisionCard text={JSON.stringify(englishBuiltIn)} />, root));
+  verify([...root.querySelectorAll('.oh-decision-chip')].some((node) => node.textContent === t('decision.type.choice', '选择')), '类型键 choice 显示为当前语言');
+  verify(root.textContent?.includes(t('decision.default.choice', '根据所给信息，哪个候选项最符合？')), '内置英文问题映射为当前语言');
+  verify(root.textContent?.includes(t('decision.confidence', '置信度')), '置信度使用当前语言');
+  await act(async () => render(<DecisionCard text={JSON.stringify(fixture)} />, root));
   await act(async () => root.querySelector<HTMLButtonElement>('button')!.click());
   verify(root.querySelector('button')?.getAttribute('aria-expanded') === 'false', '概率分布可折叠');
   await act(async () => render(<Markdown source={'```openhand-decision\n' + JSON.stringify(fixture) + '\n```'} />, root));

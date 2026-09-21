@@ -40,8 +40,9 @@ String? decisionRequestToMarkdown(String source, DecisionCopy copy) {
     for (final entry in questions.entries) {
       final question = entry.value as Map;
       final type = question['type'] as String;
+      final instructions = question['instructions'];
       output.writeln(
-        '#### ${_literal(entry.key as String)} · ${copy.typeLabel(type)}\n\n${_value(question['instructions'])}\n',
+        '#### ${_literal(entry.key as String)} · ${copy.typeLabel(type)}\n\n${_value(instructions is String ? copy.localizedInstructions(type, instructions) : instructions)}\n',
       );
       final criteria = question['criteria'];
       if (criteria == null) continue;

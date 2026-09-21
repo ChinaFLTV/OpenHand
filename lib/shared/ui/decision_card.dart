@@ -108,6 +108,9 @@ class _DecisionCardShell extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Material(
       color: colors.surface,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: kOpenHandBorderRadius18,
@@ -151,44 +154,52 @@ class _DecisionAnswerBlock extends StatelessWidget {
       _ => copy.typeLabel(type),
     };
     final probabilities = _probabilityEntries(copy, type, answerMap);
-    final caption = copy.questionCaption(
-      name,
+    final instructions = copy.localizedInstructions(
       type,
-      copy.displayValue(questionMap['instructions']),
+      questionMap['instructions'],
     );
+    final caption = copy.questionCaption(name, type, instructions);
     return _DecisionCardShell(
       child: OpenHandExpansionTile(
         initiallyExpanded: expanded,
         suppressHoverOverlay: true,
         circularToggle: true,
-        tilePadding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        headerAlignment: CrossAxisAlignment.start,
+        tilePadding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        title: Text(
-          result,
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: accent,
-            height: 1.3,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DecisionTypeChip(label: copy.typeLabel(type), type: type),
-              kOpenHandHGap8,
-              Expanded(
-                child: Text(
-                  caption,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    height: 1.4,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DecisionTypeChip(label: copy.typeLabel(type), type: type),
+                kOpenHandHGap8,
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      caption,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
+              ],
+            ),
+            kOpenHandGap10,
+            Text(
+              result,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: accent,
+                height: 1.25,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
         children: [
           if (answerMap['confidence'] is num)
@@ -247,7 +258,7 @@ class _DecisionRequestQuestion extends StatelessWidget {
         ),
         kOpenHandGap8,
         Text(
-          copy.displayValue(questionMap['instructions']),
+          copy.localizedInstructions(type, questionMap['instructions']),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: colors.onSurface,
             height: 1.45,

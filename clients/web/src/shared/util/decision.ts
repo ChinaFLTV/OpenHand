@@ -5,6 +5,11 @@ export const DECISION_RESULT = 'openhand-decision';
 const decisionResultFence = /^ {0,3}(?:`{3,}|~{3,})openhand-decision[ \t]*\r?$/m;
 const decisionRequestFence = /^ {0,3}(`{3,}|~{3,})openhand-decision-request[ \t]*\r?$/m;
 
+export function containsDecisionFence(content: string): boolean {
+  return content.includes(DECISION_RESULT) &&
+    (decisionResultFence.test(content) || decisionRequestFence.test(content));
+}
+
 export function isStructuredDecisionMessage(message: { role: string; content: string }): boolean {
   if (!message.content.includes(DECISION_RESULT)) return false;
   return message.role === 'user' ? decisionRequestFence.test(message.content)

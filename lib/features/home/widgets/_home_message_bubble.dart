@@ -674,6 +674,7 @@ class _MessageBubbleState extends State<_MessageBubble>
     final isStreamingReasoning = _isStreamingReasoningMessage(message);
     final isStreamingAssistant =
         message.kind == AiSessionMessageKind.assistant &&
+        !message.isStructuredDecision &&
         message.metadata[aiSessionMessageMetadataStreamingKey] == true;
     final isToolCall =
         message.kind == AiSessionMessageKind.toolCall ||

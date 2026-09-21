@@ -11652,31 +11652,36 @@ button.oh-json-tree-row { cursor: pointer; }
 .oh-decision-toggle {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 12px 40px 12px 12px;
+  gap: 10px;
+  padding: 12px;
   width: 100%;
   text-align: start;
-  position: relative;
   background: transparent;
   border: 0;
   color: inherit;
   cursor: pointer;
+  box-shadow: none;
+}
+.oh-decision-toggle:hover,
+.oh-decision-toggle:focus {
+  box-shadow: none;
+  background: transparent;
 }
 .oh-decision-toggle-copy {
   min-width: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
-.oh-decision-toggle-copy > strong {
-  font-size: 14px;
+.oh-decision-toggle-result {
+  font-size: 16px;
   font-weight: 800;
-  line-height: 1.3;
+  line-height: 1.25;
   color: var(--m3-primary);
 }
-.oh-decision-block.is-choice .oh-decision-toggle-copy > strong { color: var(--m3-tertiary); }
-.oh-decision-block.is-score .oh-decision-toggle-copy > strong { color: var(--m3-secondary); }
+.oh-decision-block.is-choice .oh-decision-toggle-result { color: var(--m3-tertiary); }
+.oh-decision-block.is-score .oh-decision-toggle-result { color: var(--m3-secondary); }
 .oh-decision-toggle-meta {
   display: flex;
   align-items: flex-start;
@@ -11685,23 +11690,39 @@ button.oh-json-tree-row { cursor: pointer; }
 }
 .oh-decision-toggle-caption {
   min-width: 0;
+  padding-top: 2px;
   color: var(--m3-on-surface-variant);
   font-size: 12px;
+  font-weight: 600;
   line-height: 1.4;
 }
-.oh-decision-toggle::after {
+.oh-decision-toggle-chevron {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 80%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container-highest) 76%, transparent);
+  box-shadow: none;
+}
+.oh-decision-toggle-chevron::after {
   content: '';
   position: absolute;
-  right: 16px;
-  top: 18px;
+  left: 50%;
+  top: 46%;
   width: 7px;
   height: 7px;
+  margin: -4px 0 0 -4px;
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
-  transform: rotate(-45deg);
+  transform: rotate(45deg);
   transition: transform 200ms var(--oh-motion-emphasized, ease);
 }
-.oh-decision-toggle[aria-expanded='true']::after { transform: rotate(45deg); }
+.oh-decision-toggle[aria-expanded='true'] .oh-decision-toggle-chevron::after {
+  top: 54%;
+  transform: rotate(-135deg);
+}
 .oh-decision-distribution {
   display: grid;
   transition: grid-template-rows 240ms var(--oh-motion-emphasized, cubic-bezier(.2,.8,.2,1));
@@ -11721,6 +11742,14 @@ button.oh-json-tree-row { cursor: pointer; }
   font-weight: 800;
   color: var(--m3-primary);
   background: color-mix(in srgb, var(--m3-primary) 12%, transparent);
+}
+.oh-decision-block.is-choice .oh-decision-confidence {
+  color: var(--m3-tertiary);
+  background: color-mix(in srgb, var(--m3-tertiary) 12%, transparent);
+}
+.oh-decision-block.is-score .oh-decision-confidence {
+  color: var(--m3-secondary);
+  background: color-mix(in srgb, var(--m3-secondary) 12%, transparent);
 }
 .oh-decision-probability-meta {
   display: flex;
@@ -11834,7 +11863,10 @@ button.oh-json-tree-row { cursor: pointer; }
   outline: 2px solid color-mix(in srgb, var(--m3-primary) 50%, transparent);
   outline-offset: 1px;
 }
-@media (prefers-reduced-motion: reduce) { .oh-decision-distribution { transition: none; } .oh-decision-toggle::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .oh-decision-distribution { transition: none; }
+  .oh-decision-toggle-chevron::after { transition: none; }
+}
 
 .oh-decision-actions .oh-dialog-action-button { min-height: 44px; min-width: 112px; border-radius: 14px; }
 .oh-decision-composer {
@@ -11977,19 +12009,31 @@ button.oh-json-tree-row { cursor: pointer; }
 .oh-decision-add:disabled { opacity: .38; }
 @media (max-width: 560px) { .oh-decision-type { font-size: 12px; gap: 4px; } }
 
-/* 会话与通用卡片：悬停不再叠加阴影。 */
-.oh-message-card:hover,
+/* 卡片悬停不叠加阴影；保留静态投影，避免悬停时把原有阴影抹掉。 */
+.oh-decision-card,
+.oh-decision-block,
+.oh-decision-toggle,
+.oh-decision-request,
+.oh-decision-composer,
+.oh-decision-criterion,
+.oh-decision-type-group,
+.oh-kb-hit-card,
+.oh-sessions-card,
+.oh-resource-usage-summary-card,
+.oh-resource-usage-detail-card,
+.oh-template-picker-card,
 .oh-decision-card:hover,
 .oh-decision-block:hover,
+.oh-decision-toggle:hover,
+.oh-decision-toggle:focus,
+.oh-decision-request:hover,
 .oh-decision-composer:hover,
 .oh-decision-criterion:hover,
 .oh-decision-type-group:hover,
 .oh-kb-hit-card:hover,
-.oh-toolbox-card:hover,
 .oh-sessions-card:hover,
 .oh-resource-usage-summary-card:hover,
 .oh-resource-usage-detail-card:hover,
-.oh-audio-result-card:hover,
 .oh-template-picker-card:hover {
   box-shadow: none !important;
 }

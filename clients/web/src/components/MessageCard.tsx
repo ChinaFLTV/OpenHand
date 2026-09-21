@@ -2388,19 +2388,22 @@ function MessageCardImpl({
   const kbMetadata = knowledgeBaseMetadata(message);
   const kbResults = knowledgeBaseResultRecords(kbMetadata);
   const kbTokenEstimate = knowledgeBaseTokenEstimate(kbMetadata);
+  const structuredDecision = isStructuredDecisionMessage(message);
   const recentlyUpdatedContent = useRecentMessageActivity(
     content,
-    !contentHydrated &&
+    !structuredDecision && !contentHydrated &&
     !isUserBubble &&
       (isAssistantResponseMessage(message) || message.kind === 'reasoning'),
     12000,
   );
-  const activelyStreaming = streaming || booleanFromUnknown(metadata['streaming']);
+  // 完整决策载荷按一次响应展示，逐字截断 JSON 会反复切换源码与卡片高度。
+  const activelyStreaming = !structuredDecision &&
+    (streaming || booleanFromUnknown(metadata['streaming']));
   const isReasoningMessage = message.kind === 'reasoning';
   const isActivelyStreamingReasoning = isReasoningMessage && activelyStreaming;
-  const streamingContent = isReasoningMessage
+  const streamingContent = !structuredDecision && (isReasoningMessage
     ? activelyStreaming
-    : activelyStreaming || recentlyUpdatedContent;
+    : activelyStreaming || recentlyUpdatedContent);
   const visuallyStreamingContent = isReasoningMessage
     ? isActivelyStreamingReasoning
     : activelyStreaming;

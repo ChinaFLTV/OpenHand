@@ -255,6 +255,7 @@ class _TranscriptProbe {
   late SettingsController settings;
   late StateSetter rebuild;
   int manualReveals = 0;
+  AiSendPhase sendPhase = AiSendPhase.idle;
   bool preserveViewportAfterUserScroll = true;
   VoidCallback? onLayoutChanged;
   _SessionTranscriptState get state => key.currentState!;
@@ -294,7 +295,7 @@ class _TranscriptProbe {
                   controller: controller,
                   onScrollNotification: (_) => false,
                   session: session,
-                  sendPhase: AiSendPhase.idle,
+                  sendPhase: sendPhase,
                   onLayoutChanged: () => onLayoutChanged?.call(),
                   onMessageExpansionChanged: (_) {},
                   preserveViewportAfterUserScroll: preserveViewportAfterUserScroll,
@@ -1385,6 +1386,104 @@ void main() {
     await probe.settle();
   });
 
+  testWidgets('决策历史往返慢速滚动时已可见消息不发生额外位移', (tester) async {
+    final original = _probeSession('决策慢速滚动', 18);
+    final content = DecisionPayload.encode(DecisionPayload.resultLanguage, {
+      'questions': {
+        for (var i = 0; i < 1; i++) '问题$i': {
+          'type': 'choice', 'instructions': '评估这项方案的执行方向与预期结果',
+          'criteria': {'甲': null, '乙': null, '丙': null, '丁': null},
+        },
+      },
+      'answers': {
+        for (var i = 0; i < 1; i++) '问题$i': {
+          'type': 'choice', 'choice': '甲',
+          'probabilities': {'甲': .4, '乙': .3, '丙': .2, '丁': .1},
+        },
+      },
+    });
+    final probe = _TranscriptProbe(tester, original.copyWith(messages: [
+      for (var i = 0; i < original.messages.length; i++)
+        if (i.isEven) AiSessionMessage.user(id: original.messages[i].id,
+          createdAt: original.createdAt,
+          content: DecisionPayload.encode(DecisionPayload.requestLanguage, {
+            'state': '请评估这项方案的执行方向与预期结果。' * 8,
+            'questions': {'分类': {'type': 'choice', 'instructions': '选择最佳方案',
+              'criteria': {'甲': null, '乙': null, '丙': null, '丁': null}}},
+          }))
+        else original.messages[i].copyWith(content: content),
+    ]));
+    await probe.mount(size: const Size(700, 650), animated: true);
+    await probe.settle();
+    while (probe.state._windowStartIndex > 0) {
+      final reveal = probe.state._revealOlderMessages();
+      await probe.settle();
+      await reveal;
+    }
+    probe.controller.jumpTo(probe.controller.position.maxScrollExtent);
+    await probe.settle();
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 32));
+    }
+    final position = probe.controller.position;
+    final drag = position.drag(DragStartDetails(), () {});
+    for (var frame = 0; frame < 600; frame++) {
+      final delta = frame < 300 ? 16.0 : -16.0;
+      final before = <String, double>{
+        for (final id in probe.state._bubbleRegistry._contexts.keys)
+          if (probe.state._viewportOffsetForMessage(id) case final double offset)
+            id: offset,
+      };
+      probe.activity.markActive();
+      final oldPixels = position.pixels;
+      drag.update(DragUpdateDetails(globalPosition: Offset.zero,
+        delta: Offset(0, delta), primaryDelta: delta));
+      final requestedShift = oldPixels - position.pixels;
+      await tester.pump(const Duration(milliseconds: 32));
+      for (final entry in before.entries) {
+        final after = probe.state._viewportOffsetForMessage(entry.key);
+        if (after == null || entry.value > 650 || after > 650) continue;
+        expect(after - entry.value, closeTo(requestedShift, 1),
+          reason: '第 $frame 帧 ${entry.key} 出现拖动之外的位移');
+      }
+      expect(tester.takeException(), isNull);
+    }
+    drag.cancel();
+    await probe.settle();
+  });
+
+  testWidgets('完整决策响应不经逐字揭示和结束重挂载改变高度', (tester) async {
+    final original = _probeSession('决策响应', 4);
+    final probe = _TranscriptProbe(tester, original);
+    probe.preserveViewportAfterUserScroll = false;
+    await probe.mount(size: const Size(700, 650), animated: true);
+    await probe.settle();
+    final content = DecisionPayload.encode(DecisionPayload.resultLanguage, {
+      'questions': {'判断': {'type': 'noul', 'instructions': '是否成立？'}},
+      'answers': {'判断': {'type': 'noul', 'noul': .65}},
+    });
+    final reply = AiSessionMessage.assistant(id: '决策新响应', content: content,
+      createdAt: original.createdAt,
+      metadata: {aiSessionMessageMetadataStreamingKey: true});
+    probe.sendPhase = AiSendPhase.responding;
+    probe.update(probe.session.copyWithTailMessage(reply, append: true));
+    for (var frame = 0; frame < 60; frame++) {
+      if (frame == 15) {
+        probe.sendPhase = AiSendPhase.idle;
+        probe.update(probe.session.copyWithTailMessage(reply.copyWith(
+          metadata: {aiSessionMessageMetadataStreamingKey: false}), append: false));
+      }
+      tester.view.physicalSize = Size(700, frame < 30 ? 650 - frame * 4 : 530 + (frame - 30) * 4);
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.byType(OpenHandDecisionCard), findsOneWidget,
+        reason: '第 $frame 帧完整决策响应不能变成片段或占位');
+      expect(probe.controller.position.extentAfter, lessThanOrEqualTo(1),
+        reason: '第 $frame 帧视口变化后仍应贴底');
+      expect(tester.takeException(), isNull);
+    }
+    await probe.settle();
+  });
+
   testWidgets('慢速滚动间歇不释放布局保护，真正停止后统一恢复', (tester) async {
     final activity = TranscriptScrollActivity();
     addTearDown(activity.dispose);
@@ -1475,6 +1574,11 @@ void main() {
           probe.state.setState(() => probe.state._selectedMessageId = selected ? message.id : null);
           await probe.settle();
           expect(find.byType(OpenHandExpansionTile), findsOneWidget);
+          expect(find.text(type == 'choice' ? '选择' : type == 'score' ? '评分' : '判断'), findsWidgets);
+          expect(find.text('Choice'), findsNothing);
+          expect(find.text('Score'), findsNothing);
+          expect(find.text('Judgement'), findsNothing);
+          expect(find.text('Confidence'), findsNothing);
           await tester.tap(find.text('判断内容'));
           await probe.settle();
           expect(probe.state._selectedMessageId, selected ? message.id : null);

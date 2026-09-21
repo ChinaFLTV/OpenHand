@@ -51,6 +51,7 @@ const EdgeInsetsGeometry kOpenHandExpansionTilePadding = EdgeInsets.symmetric(
 );
 const Duration kOpenHandExpansionRevealDuration = kOpenHandMotion280;
 const Duration kOpenHandExpansionCollapseDuration = kOpenHandMotion200;
+const double kOpenHandCircularExpansionToggleSize = 34;
 
 /// 遵循全局动效设置的展开磁贴。
 ///
@@ -72,6 +73,7 @@ class OpenHandExpansionTile extends StatefulWidget {
     this.onExpansionChanged,
     this.suppressHoverOverlay = false,
     this.circularToggle = false,
+    this.headerAlignment = CrossAxisAlignment.center,
   });
 
   final Widget title;
@@ -90,8 +92,11 @@ class OpenHandExpansionTile extends StatefulWidget {
   /// 是否关闭磁贴的悬停、按下和水波纹覆盖色。
   final bool suppressHoverOverlay;
 
-  /// 是否使用圆形折叠/展开指示器替代默认三角箭头。
+  /// 是否使用圆角方形折叠/展开指示器替代默认三角箭头。
   final bool circularToggle;
+
+  /// 标题行与指示器的交叉轴对齐；决策卡顶部把指示器贴在问题行。
+  final CrossAxisAlignment headerAlignment;
 
   @override
   State<OpenHandExpansionTile> createState() => _OpenHandExpansionTileState();
@@ -99,15 +104,40 @@ class OpenHandExpansionTile extends StatefulWidget {
 
 class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
   late bool _expanded = widget.initiallyExpanded;
+  bool _userToggled = false;
 
   void _toggle() {
-    setState(() => _expanded = !_expanded);
-    widget.onExpansionChanged?.call(_expanded);
+    final next = !_expanded;
+    final armSwitcher = !_userToggled && openHandTickerMotionEnabled(context);
+    if (armSwitcher) {
+      setState(() => _userToggled = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _expanded = next);
+        widget.onExpansionChanged?.call(next);
+      });
+      return;
+    }
+    setState(() {
+      _userToggled = true;
+      _expanded = next;
+    });
+    widget.onExpansionChanged?.call(next);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final body = _expanded
+        ? Padding(
+            padding: widget.childrenPadding,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.children,
+            ),
+          )
+        : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -125,6 +155,7 @@ class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
           child: Padding(
             padding: widget.tilePadding,
             child: Row(
+              crossAxisAlignment: widget.headerAlignment,
               children: [
                 if (widget.leading != null) ...[
                   widget.leading!,
@@ -161,21 +192,15 @@ class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
             ),
           ),
         ),
-        OpenHandVerticalRevealSwitcher(
-          duration: kOpenHandExpansionRevealDuration,
-          reverseDuration: kOpenHandExpansionCollapseDuration,
-          presentKey: const ValueKey<String>('expanded'),
-          child: _expanded
-              ? Padding(
-                  padding: widget.childrenPadding,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: widget.children,
-                  ),
-                )
-              : null,
-        ),
+        if (!_userToggled)
+          body ?? const SizedBox.shrink()
+        else
+          OpenHandVerticalRevealSwitcher(
+            duration: kOpenHandExpansionRevealDuration,
+            reverseDuration: kOpenHandExpansionCollapseDuration,
+            presentKey: const ValueKey<String>('expanded'),
+            child: body,
+          ),
       ],
     );
   }
@@ -196,12 +221,12 @@ class _CircularExpansionToggle extends StatelessWidget {
     return AnimatedContainer(
       duration: duration,
       curve: kOpenHandSwitchInCurve,
-      width: 34,
-      height: 34,
+      width: kOpenHandCircularExpansionToggleSize,
+      height: kOpenHandCircularExpansionToggleSize,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.76),
-        shape: BoxShape.circle,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.8)),
       ),
       child: AnimatedSwitcher(

@@ -362,30 +362,50 @@ final class DecisionCopy {
 
   String questionName(String name) {
     final value = name.trim();
-    if (value == DecisionPayload.simpleQuestionKey ||
-        value.toLowerCase() == 'decision') {
+    final lower = value.toLowerCase();
+    if (value == DecisionPayload.simpleQuestionKey || lower == 'decision') {
       return simpleQuestionName;
     }
-    if (value == DecisionPayload.fallbackQuestionKey) {
+    if (value == DecisionPayload.fallbackQuestionKey ||
+        lower == DecisionPayload.typeNoul ||
+        lower == 'judgement' ||
+        lower == 'judgment') {
       return typeNoul;
     }
+    if (lower == DecisionPayload.typeChoice) return typeChoice;
+    if (lower == DecisionPayload.typeScore) return typeScore;
     return name;
   }
 
   String customQuestionName(String name, String type) {
     final value = name.trim();
+    final lower = value.toLowerCase();
     if (value.isEmpty ||
         value == DecisionPayload.simpleQuestionKey ||
-        value.toLowerCase() == 'decision') {
+        lower == 'decision') {
       return '';
     }
     final named = questionName(name);
     return named == typeLabel(type) ? '' : named;
   }
 
+  String localizedInstructions(String type, Object? raw) {
+    if (raw is! String) return displayValue(raw);
+    return DecisionPayload.questionForType(
+      type,
+      current: raw,
+      localizedDefault: defaultQuestionFor(type),
+    );
+  }
+
   String questionCaption(String name, String type, String instructions) {
     final named = customQuestionName(name, type);
-    return named.isEmpty ? instructions : '$named · $instructions';
+    final text = DecisionPayload.questionForType(
+      type,
+      current: instructions,
+      localizedDefault: defaultQuestionFor(type),
+    );
+    return named.isEmpty ? text : '$named · $text';
   }
 
   String heldProbability(num value) =>

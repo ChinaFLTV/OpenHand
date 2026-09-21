@@ -6,6 +6,7 @@ import {
   decisionDisplayText,
   decisionPercentLabel,
   decisionUnit,
+  decisionQuestionForType,
   parseDecisionRequest,
   parseDecisionResult,
   type DecisionAnswer,
@@ -21,23 +22,38 @@ function typeLabel(type: string): string {
 
 function questionName(name: string): string {
   const value = name.trim();
-  if (value === DECISION_SIMPLE_QUESTION_KEY || value.toLowerCase() === 'decision') {
+  const lower = value.toLowerCase();
+  if (value === DECISION_SIMPLE_QUESTION_KEY || lower === 'decision') {
     return t('decision.simpleName', '决策');
   }
-  if (value === DECISION_FALLBACK_QUESTION_KEY) return t('decision.type.noul', '判断');
+  if (value === DECISION_FALLBACK_QUESTION_KEY || lower === 'noul' || lower === 'judgement' || lower === 'judgment') {
+    return t('decision.type.noul', '判断');
+  }
+  if (lower === 'choice') return t('decision.type.choice', '选择');
+  if (lower === 'score') return t('decision.type.score', '评分');
   return name;
 }
 
 function customQuestionName(name: string, type: string): string {
   const value = name.trim();
-  if (!value || value === DECISION_SIMPLE_QUESTION_KEY || value.toLowerCase() === 'decision') return '';
+  const lower = value.toLowerCase();
+  if (!value || value === DECISION_SIMPLE_QUESTION_KEY || lower === 'decision') return '';
   const named = questionName(name);
   return named === typeLabel(type) ? '' : named;
 }
 
-function questionCaption(name: string, type: string, instructions: string): string {
+function localizedInstructions(type: string, instructions: unknown): string {
+  if (typeof instructions !== 'string') return displayValue(instructions);
+  if (type === 'choice' || type === 'score' || type === 'noul') {
+    return decisionQuestionForType(type, instructions);
+  }
+  return instructions;
+}
+
+function questionCaption(name: string, type: string, instructions: unknown): string {
   const named = customQuestionName(name, type);
-  return named ? `${named} · ${instructions}` : instructions;
+  const text = localizedInstructions(type, instructions);
+  return named ? `${named} · ${text}` : text;
 }
 
 function displayValue(value: unknown): string {
@@ -79,19 +95,25 @@ function answerHeadline(answer: DecisionAnswer): string {
 function DecisionAnswerCard({ name, question, answer, expanded }: { name: string; question: DecisionQuestion; answer: DecisionAnswer; expanded: boolean }) {
   const [open, setOpen] = useState(expanded);
   const [activated, setActivated] = useState(expanded);
+  const [userToggled, setUserToggled] = useState(false);
   const entries = probabilityEntries(answer);
   const barTone = (label: string) => answer.type === 'noul' && label === t('decision.notHeld', '不成立') ? 'noul-no' : answer.type;
   return <section class={`oh-decision-block is-${answer.type || 'noul'}`}>
-    <button type="button" class="oh-decision-toggle" aria-expanded={open} onClick={() => { setActivated(true); setOpen(!open); }}>
+    <button type="button" class="oh-decision-toggle" aria-expanded={open} onClick={() => {
+      setActivated(true);
+      setUserToggled(true);
+      setOpen(!open);
+    }}>
       <span class="oh-decision-toggle-copy">
-        <strong>{answerHeadline(answer)}</strong>
         <span class="oh-decision-toggle-meta">
           <DecisionTypeChip type={answer.type} />
-          <span class="oh-decision-toggle-caption">{questionCaption(name, answer.type, displayValue(question.instructions))}</span>
+          <span class="oh-decision-toggle-caption">{questionCaption(name, answer.type, question.instructions)}</span>
         </span>
+        <strong class="oh-decision-toggle-result">{answerHeadline(answer)}</strong>
       </span>
+      <span class="oh-decision-toggle-chevron" aria-hidden="true" />
     </button>
-    <div class="oh-decision-distribution" style={{ gridTemplateRows: open ? '1fr' : '0fr' }} aria-hidden={!open}>
+    <div class="oh-decision-distribution" style={{ gridTemplateRows: open ? '1fr' : '0fr', transition: userToggled ? undefined : 'none' }} aria-hidden={!open}>
       <div class="overflow-hidden min-h-0">{activated && <div class="oh-decision-distribution-body">
         {answer.confidence !== undefined && <p class="oh-decision-confidence">{t('decision.confidence', '置信度')} {decisionPercentLabel(answer.confidence)}</p>}
         {entries.map(([label, value]) => <div class="oh-decision-probability" key={label}>
@@ -135,7 +157,7 @@ export function DecisionRequestCard({ text }: { text: string }) {
           <DecisionTypeChip type={question.type} />
           {named ? <strong>{named}</strong> : null}
         </div>
-        <p>{displayValue(question.instructions)}</p>
+        <p>{localizedInstructions(question.type, question.instructions)}</p>
         {question.criteria != null ? <>
           <span class="oh-decision-criteria-label">{question.type === 'score' ? t('decision.field.scoreLevels', '评分等级（从低到高）') : question.type === 'choice' ? t('decision.field.options', '候选项') : t('decision.field.criteria', '判断标准')}</span>
           <CriteriaView type={question.type} criteria={question.criteria} />
