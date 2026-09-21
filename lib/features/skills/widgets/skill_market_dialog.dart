@@ -16,6 +16,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/market_dialog_actions.dart';
 import '../../../shared/ui/market_provider_selector.dart';
+import '../../../shared/ui/market_result_card.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -1123,141 +1124,91 @@ class _SkillMarketResultTile extends StatelessWidget {
     final categoryLabel = skill.category.isEmpty
         ? ''
         : skillMarketCategoryLabel(context, skill.category);
-    final radius = BorderRadius.circular(kOpenHandRadius18);
-
-    return MicroPressFeedback(
-      child: Material(
-        color: Colors.transparent,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          hoverColor: Colors.transparent,
-          splashColor: accent.withValues(alpha: 0.10),
-          highlightColor: accent.withValues(alpha: 0.06),
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion180),
-            curve: kOpenHandSwitchInCurve,
-            decoration: BoxDecoration(
-              color: selected
-                  ? Color.alphaBlend(
-                      accent.withValues(alpha: 0.16),
-                      colorScheme.surface,
-                    )
-                  : colorScheme.surface,
-              borderRadius: radius,
-              border: Border.all(
-                color: selected
-                    ? accent
-                    : colorScheme.outlineVariant.withValues(alpha: 0.78),
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: radius,
-              child: Stack(
-                children: [
-                  PositionedDirectional(
-                    start: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: kOpenHandAccentBarWidth,
-                    child: ColoredBox(color: accent),
+    return MarketResultCard(
+      accent: accent,
+      selected: selected,
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SkillMarketAvatar(
+            name: displayName,
+            imageUrl: skill.iconUrl,
+            size: _kSkillMarketListAvatarSize,
+          ),
+          kOpenHandHGap12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SkillMarketAvatar(
-                          name: displayName,
-                          imageUrl: skill.iconUrl,
-                          size: _kSkillMarketListAvatarSize,
-                        ),
-                        kOpenHandHGap12,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              if (publisher.isNotEmpty) ...[
-                                kOpenHandGap3,
-                                Text(
-                                  publisher,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                              if (summary.isNotEmpty) ...[
-                                kOpenHandGap8,
-                                Text(
-                                  summary,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ],
-                              kOpenHandGap10,
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  OpenHandFactChip(
-                                    icon: Icons.download_rounded,
-                                    label: openHandCompactCountLabel(
-                                      context,
-                                      skill.downloads,
-                                    ),
-                                    color: OpenHandStatusColors.info,
-                                  ),
-                                  OpenHandFactChip(
-                                    icon: Icons.star_rounded,
-                                    label: openHandCompactCountLabel(
-                                      context,
-                                      skill.stars,
-                                    ),
-                                    color: OpenHandStatusColors.caution,
-                                  ),
-                                  if (installed)
-                                    OpenHandStatusPill(
-                                      icon: Icons.check_circle_rounded,
-                                      label: openHandInstalledLabel(context),
-                                      color: OpenHandStatusColors.success,
-                                    ),
-                                  if (categoryLabel.isNotEmpty)
-                                    OpenHandFactChip(
-                                      icon: Icons.category_outlined,
-                                      label: categoryLabel,
-                                      color: accent,
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                ),
+                if (publisher.isNotEmpty) ...[
+                  kOpenHandGap3,
+                  Text(
+                    publisher,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
-              ),
+                if (summary.isNotEmpty) ...[
+                  kOpenHandGap8,
+                  Text(
+                    summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+                kOpenHandGap10,
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    OpenHandFactChip(
+                      icon: Icons.download_rounded,
+                      label: openHandCompactCountLabel(
+                        context,
+                        skill.downloads,
+                      ),
+                      color: OpenHandStatusColors.info,
+                    ),
+                    OpenHandFactChip(
+                      icon: Icons.star_rounded,
+                      label: openHandCompactCountLabel(context, skill.stars),
+                      color: OpenHandStatusColors.caution,
+                    ),
+                    if (installed)
+                      OpenHandStatusPill(
+                        icon: Icons.check_circle_rounded,
+                        label: openHandInstalledLabel(context),
+                        color: OpenHandStatusColors.success,
+                      ),
+                    if (categoryLabel.isNotEmpty)
+                      OpenHandFactChip(
+                        icon: Icons.category_outlined,
+                        label: categoryLabel,
+                        color: accent,
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }

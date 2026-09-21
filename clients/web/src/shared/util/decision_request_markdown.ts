@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-import { DECISION_MAX_CHARACTERS, DECISION_REQUEST, decisionQuestionForType, parseDecisionRequest } from './decision';
+import { DECISION_MAX_CHARACTERS, DECISION_REQUEST, decisionQuestionForType, decisionTypeLabel, parseDecisionRequest } from './decision';
 
 const literal = (text: string): string => text.replace(/[\\`*_{}\[\]()<>#+.!|~\-]/g, '\\$&').replace(/\r\n/g, '\n').replace(/\n/g, '  \n');
 const valueText = (value: unknown): string => typeof value === 'string' ? literal(value)
@@ -22,7 +22,7 @@ export function decisionRequestToMarkdown(source: string): string | null {
       const instructions = typeof question.instructions === 'string'
         ? decisionQuestionForType(type, question.instructions)
         : question.instructions;
-      output.push(`#### ${literal(name)} · ${t(`decision.type.${type}`, type === 'choice' ? '选择' : type === 'score' ? '评分' : '判断')}\n\n${valueText(instructions)}`);
+      output.push(`#### ${literal(name)} · ${decisionTypeLabel(type)}\n\n${valueText(instructions)}`);
       const criteria = question.criteria;
       if (criteria == null) continue;
       const label = type === 'score' ? t('decision.field.scoreLevels', '评分等级（从低到高）')

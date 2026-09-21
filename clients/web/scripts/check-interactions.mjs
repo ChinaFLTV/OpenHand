@@ -96,8 +96,8 @@ try {
   replace('document', { scrollingElement: null });
   const hooks = await server.ssrLoadModule(hooksId);
   const { DecisionComposerForm } = await server.ssrLoadModule('/src/components/DecisionComposerForm.tsx');
-  const { decisionDraft, initialDecisionDraft } = await server.ssrLoadModule('/src/shared/util/decision.ts');
-  let draftText = decisionDraft('待评估内容', '选择最合适的候选项', 'choice', Array.from({ length: 30 }, (_, i) => `候选 ${i}`).join('\n'));
+  const { initialDecisionDraft } = await server.ssrLoadModule('/src/shared/util/decision.ts');
+  let draftText = JSON.stringify({ state: '待评估内容', questions: { 决策: { type: 'choice', instructions: '选择最合适的候选项', criteria: Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`候选 ${i}`, null])) } } });
   let publishes = 0;
   const onDraftChange = (value) => { draftText = value; publishes++; };
   let form;
@@ -162,7 +162,7 @@ try {
   const settledPublishes = publishes;
   renderDecision();
   assert.equal(publishes, settledPublishes, '草稿回传不能形成重复更新');
-  draftText = decisionDraft('新草稿', '评分', 'score', '一级\n二级');
+  draftText = JSON.stringify({ state: '新草稿', questions: { 决策: { type: 'score', instructions: '评分', criteria: ['一级', '二级'] } } });
   renderDecision();
   assert.deepEqual(fields().map(node => node.props.value), ['一级', '二级']);
   selectType('选择');
@@ -179,13 +179,15 @@ try {
   renderDecision();
   assert.equal(draftText, '');
   assert.equal(publishes, beforeEmptyMount, '重新挂载空会话不能复活旧正文');
+  const editedContent = '尚未发送的内容：`代码`\n```\n正文\n```';
   const contentInput = nodes(form, node => node.type === 'textarea')[0];
   const questionInput = nodes(form, node => node.type === 'input' && node.props.placeholder === undefined)[0];
-  contentInput.props.onInput({ currentTarget: { value: '尚未发送的新内容' } });
+  contentInput.props.onInput({ currentTarget: { value: editedContent } });
   questionInput.props.onInput({ currentTarget: { value: '用户自定义问题' } });
   renderDecision();
-  assert.equal(initialDecisionDraft(draftText).state, '尚未发送的新内容', '同帧连续编辑不能覆盖前一个字段');
+  assert.equal(initialDecisionDraft(draftText).state, editedContent, '同帧连续编辑不能覆盖前一个字段');
   assert.equal(initialDecisionDraft(draftText).question, '用户自定义问题');
+  assert.equal(draftText.split('```').length, 3, '真实表单编码必须转义正文反引号，不能提前关闭围栏');
   draftText = '';
   renderDecision();
   const beforeParentRerender = publishes;

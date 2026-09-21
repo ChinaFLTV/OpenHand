@@ -6,7 +6,7 @@ import { DecisionCard } from '../src/components/DecisionCard';
 import { DecisionComposerForm } from '../src/components/DecisionComposerForm';
 import { MessageCard } from '../src/components/MessageCard';
 import { t } from '../src/i18n';
-import { decisionJsonDraft, decisionDraft, decisionResultInfoItems, initialDecisionDraft, parseDecisionRequest, parseDecisionResult, parseDecisionResultFromMessage } from '../src/shared/util/decision';
+import { decisionResultInfoItems, initialDecisionDraft, parseDecisionRequest, parseDecisionResult, parseDecisionResultFromMessage } from '../src/shared/util/decision';
 import '../src/styles/global.css';
 
 // 固定合成样例仅用于交互验证，不代表真实模型输出。
@@ -24,10 +24,10 @@ const results: string[] = [];
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 function verify(value: unknown, label: string) { if (!value) throw new Error(label); results.push(label); }
 try {
-  const draft = decisionDraft('待判断内容 `代码`', '是否成立？', 'choice', '甲\n乙');
+  const draft = '```openhand-decision-request\n' + JSON.stringify({ state: '待判断内容 `代码`', questions: { 决策: { type: 'choice', instructions: '是否成立？', criteria: { 甲: null, 乙: null } } } }) + '\n```';
   verify(initialDecisionDraft(draft).criteria === '甲\n乙', '重新打开配置保留候选项');
   verify(initialDecisionDraft(draft).state === '待判断内容 `代码`', '围栏与反引号安全往返');
-  const advanced = decisionJsonDraft(JSON.stringify({ state: { 内容: '批量' }, questions: fixture.questions }));
+  const advanced = JSON.stringify({ state: { 内容: '批量' }, questions: fixture.questions });
   verify(initialDecisionDraft(advanced).advanced?.includes('财务'), '复杂配置保留问题名称和结构');
   verify(parseDecisionResult(JSON.stringify(fixture)), '三类响应均能解析');
   verify(parseDecisionRequest(JSON.stringify({ state: '待判断内容', questions: { 判断: { type: 'noul', instructions: '是否紧急？' } } })), '请求载荷可解析');

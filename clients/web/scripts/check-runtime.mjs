@@ -108,16 +108,18 @@ try {
   for (const source of ['普通用户消息', JSON.stringify(requestPayload), '```openhand-decision-request\n损坏\n```', '```openhand-decision-request\n{}', requestSource + '\n```openhand-decision-request\n{}\n```']) {
     assert.equal(decisionRequestToMarkdown(source), null, '普通消息或不完整请求保留原文');
   }
-  const { DEFAULT_DECISION_QUESTIONS, decisionQuestionForType, decisionDraft, initialDecisionDraft } = await server.ssrLoadModule('/src/shared/util/decision.ts');
-  assert.equal(new Set(Object.values(DEFAULT_DECISION_QUESTIONS)).size, 3);
-  for (const type of Object.keys(DEFAULT_DECISION_QUESTIONS)) {
-    for (const current of ['', '  ', ...Object.values(DEFAULT_DECISION_QUESTIONS)]) {
-      assert.equal(decisionQuestionForType(type, current), DEFAULT_DECISION_QUESTIONS[type]);
+  const { decisionQuestionForType, initialDecisionDraft } = await server.ssrLoadModule('/src/shared/util/decision.ts');
+  const expectedQuestions = {
+    noul: '根据所给信息，这段陈述是否成立？',
+    choice: '根据所给信息，哪个候选项最符合？',
+    score: '依据从低到高排列的等级，对所给内容评分。',
+  };
+  for (const type of Object.keys(expectedQuestions)) {
+    for (const current of ['', '  ', ...Object.values(expectedQuestions)]) {
+      assert.equal(decisionQuestionForType(type, current), expectedQuestions[type]);
     }
     const custom = '  哪个团队负责售后？  ';
     assert.equal(decisionQuestionForType(type, custom), custom);
-    const draft = decisionDraft('待评估内容', decisionQuestionForType(type), type, '低\n高');
-    assert.equal(initialDecisionDraft(draft).question, DEFAULT_DECISION_QUESTIONS[type]);
   }
   const { parseDecisionRequest, parseDecisionResult } = await server.ssrLoadModule('/src/shared/util/decision.ts');
   for (const type of ['noul', 'choice', 'score']) {

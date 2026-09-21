@@ -22,7 +22,6 @@ export const DECISION_MIN_SCORE_LEVELS = 2;
 export const DECISION_MAX_SCORE_LEVELS = 10;
 export const DECISION_SIMPLE_QUESTION_KEY = '决策';
 export const DECISION_FALLBACK_QUESTION_KEY = '判断';
-export const DECISION_MODEL_FALLBACK = 'Jev';
 export type DecisionType = 'noul' | 'choice' | 'score';
 export const DECISION_TYPES: readonly DecisionType[] = ['noul', 'choice', 'score'];
 
@@ -67,20 +66,9 @@ export function localizedDecisionQuestion(type: DecisionType): string {
       : '根据所给信息，这段陈述是否成立？');
 }
 
-export const DEFAULT_DECISION_QUESTION = '根据所给信息，这段陈述是否成立？';
-export const DEFAULT_DECISION_QUESTIONS: Readonly<Record<DecisionType, string>> = {
-  noul: DEFAULT_DECISION_QUESTION,
-  choice: '根据所给信息，哪个候选项最符合？',
-  score: '依据从低到高排列的等级，对所给内容评分。',
-};
-
-export function isBuiltInDecisionQuestion(text: string): boolean {
-  return BUILTIN_DECISION_QUESTIONS.has(text.trim());
-}
-
 export function decisionQuestionForType(type: DecisionType, current = ''): string {
   const text = current.trim();
-  return !text || isBuiltInDecisionQuestion(text) ? localizedDecisionQuestion(type) : current;
+  return !text || BUILTIN_DECISION_QUESTIONS.has(text) ? localizedDecisionQuestion(type) : current;
 }
 
 export interface DecisionQuestion { type: DecisionType; instructions: unknown; criteria?: unknown }
@@ -106,21 +94,6 @@ export function decisionDisplayText(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value;
   try { return JSON.stringify(value, null, 2); } catch { return String(value); }
-}
-
-export function decisionDraft(state: string, instructions: string, type: DecisionType, criteriaText: string): string {
-  if (!state.trim() || !instructions.trim()) throw new Error(t('decision.error.needStateQuestion', '请填写待评估内容和决策问题。'));
-  const criteria = criteriaText.split('\n').map((line) => line.trim()).filter(Boolean);
-  if (type === 'choice' && (!criteria.length || criteria.length > DECISION_MAX_CRITERIA || new Set(criteria).size !== criteria.length)) {
-    throw new Error(t('decision.error.choiceUnique', '选择题需要 1 至 255 个不重复的候选项。'));
-  }
-  if (type === 'score' && (criteria.length < DECISION_MIN_SCORE_LEVELS || criteria.length > DECISION_MAX_SCORE_LEVELS)) {
-    throw new Error(t('decision.error.scoreCount', '评分需要 2 至 10 个从低到高排列的等级。'));
-  }
-  const question = { type, instructions: instructions.trim(), ...(type === 'choice' ? { criteria: Object.fromEntries(criteria.map((key) => [key, null])) } : type === 'score' ? { criteria } : {}) };
-  const json = JSON.stringify({ state: state.trim(), questions: { [DECISION_SIMPLE_QUESTION_KEY]: question } }).replace(/`/g, '\\u0060');
-  if (json.length > DECISION_MAX_CHARACTERS) throw new Error(t('decision.error.tooLong', '决策内容过长，请缩小输入范围。'));
-  return `\`\`\`${DECISION_REQUEST}\n${json}\n\`\`\``;
 }
 
 export function parseDecisionResult(text: string): DecisionResult | null {
@@ -167,16 +140,6 @@ export interface DecisionResultInfoItem {
   label: string;
 }
 
-function decisionResultInfoIcon(
-  kind: 'type' | 'score' | 'confidence',
-  type: string,
-): DecisionResultInfoItem['icon'] {
-  if (kind === 'confidence') return 'verified';
-  if (kind === 'score' || type === 'score') return 'star';
-  if (type === 'choice') return 'list';
-  return 'verified';
-}
-
 export function decisionResultInfoItems(content: string): DecisionResultInfoItem[] {
   const data = parseDecisionResultFromMessage(content);
   if (!data) return [];
@@ -189,7 +152,7 @@ export function decisionResultInfoItems(content: string): DecisionResultInfoItem
     if (!type) continue;
     items.push({
       key: `decision-type-${index}-${name}`,
-      icon: decisionResultInfoIcon('type', type),
+      icon: type === 'score' ? 'star' : type === 'choice' ? 'list' : 'verified',
       label: decisionTypeLabel(type),
     });
     if (type === 'score' && typeof answer.score === 'number' && Number.isFinite(answer.score)) {
@@ -218,7 +181,7 @@ function decisionRequestJson(text: string): unknown {
   const fence = opening[1];
   const body = text.slice(opening.index + opening[0].length);
   const closing = new RegExp(`^ {0,3}${fence[0]}{${fence.length},}[ \\t]*\\r?$`, 'm').exec(body);
-  if (!closing) throw new Error(t('decision.error.needStateQuestions', '请提供有效的待评估内容和问题。'));
+  if (!closing) throw new SyntaxError('决策请求围栏未闭合。');
   return JSON.parse(body.slice(0, closing.index));
 }
 
@@ -262,25 +225,4 @@ export function initialDecisionDraft(text: string): { state: string; question: s
     if (question.criteria !== undefined && !(question.type === 'choice' && object(question.criteria) && Object.values(question.criteria).every(value => value === null)) && !(question.type === 'score' && Array.isArray(question.criteria) && question.criteria.every(value => typeof value === 'string'))) return advanced;
     return { state: payload.state, question: question.instructions, type: question.type as DecisionType, criteria: Array.isArray(question.criteria) ? question.criteria.join('\n') : object(question.criteria) ? Object.keys(question.criteria).join('\n') : '' };
   } catch { return { ...fallback, advanced: text }; }
-}
-
-export function decisionJsonDraft(text: string): string {
-  if (text.length > DECISION_MAX_CHARACTERS) throw new Error(t('decision.error.tooLong', '决策内容过长，请缩小输入范围。'));
-  const payload = JSON.parse(text);
-  const content = (value: unknown) => typeof value === 'string' ? !!value.trim() : object(value) || Array.isArray(value);
-  if (!object(payload) || !content(payload.state) || !object(payload.questions)) throw new Error(t('decision.error.needStateQuestions', '请提供有效的待评估内容和问题。'));
-  const questions = Object.entries(payload.questions);
-  if (!questions.length || questions.length > DECISION_MAX_QUESTIONS) throw new Error(t('decision.error.questionCount', '请配置 1 至 128 个决策问题。'));
-  for (const [key, question] of questions) {
-    if (!key.trim() || !object(question) || !content(question.instructions)) throw new Error(t('decision.error.needInstructions', '请填写决策问题。'));
-    const criteria = question.criteria;
-    if (question.type === 'choice') {
-      if (!object(criteria) || !Object.keys(criteria).length || Object.keys(criteria).length > DECISION_MAX_CRITERIA) throw new Error(t('decision.error.choiceCount', '选择题需要 1 至 255 个候选项。'));
-    } else if (question.type === 'score') {
-      if (!Array.isArray(criteria) || criteria.length < DECISION_MIN_SCORE_LEVELS || criteria.length > DECISION_MAX_SCORE_LEVELS) throw new Error(t('decision.error.scoreCount', '评分需要 2 至 10 个从低到高排列的等级。'));
-    } else if (question.type !== 'noul' || (criteria != null && !object(criteria))) throw new Error(t('decision.error.badType', '决策类型或判断标准无效。'));
-  }
-  const json = JSON.stringify({ state: payload.state, questions: payload.questions }).replace(/`/g, '\\u0060');
-  if (json.length > DECISION_MAX_CHARACTERS) throw new Error(t('decision.error.tooLong', '决策内容过长，请缩小输入范围。'));
-  return `\`\`\`${DECISION_REQUEST}\n${json}\n\`\`\``;
 }

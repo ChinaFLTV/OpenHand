@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { AnimatedList } from './AnimatedList';
 import { t } from '../i18n';
-import { DECISION_MAX_CRITERIA, DECISION_MAX_SCORE_LEVELS, DECISION_MIN_SCORE_LEVELS, DECISION_REQUEST, DECISION_SIMPLE_QUESTION_KEY, DECISION_TYPES, decisionQuestionForType, initialDecisionDraft, localizedDecisionQuestion, type DecisionType } from '../shared/util/decision';
+import { DECISION_MAX_CRITERIA, DECISION_MAX_SCORE_LEVELS, DECISION_MIN_SCORE_LEVELS, DECISION_REQUEST, DECISION_SIMPLE_QUESTION_KEY, DECISION_TYPES, decisionQuestionForType, decisionTypeLabel, initialDecisionDraft, localizedDecisionQuestion, type DecisionType } from '../shared/util/decision';
 
 type Props = { initialText: string; disabled?: boolean; onChange: (text: string) => void };
 type Criterion = { id: string; value: string };
@@ -27,11 +27,11 @@ function DecisionTypeIcon({ type }: { type: DecisionType }) {
   </svg>;
 }
 
-export function DecisionTypeSwitch({ value, disabled = false, onChange }: { value: DecisionType; disabled?: boolean; onChange: (type: DecisionType) => void }) {
+function DecisionTypeSwitch({ value, disabled = false, onChange }: { value: DecisionType; disabled?: boolean; onChange: (type: DecisionType) => void }) {
   return <div class="oh-decision-type-group" role="group" aria-label={t('decision.field.type', '决策类型')}>
     {DECISION_TYPES.map((type) => <button type="button" class="oh-decision-type" data-type={type} aria-pressed={value === type} disabled={disabled} onClick={() => onChange(type)}>
       <DecisionTypeIcon type={type} />
-      {t(`decision.type.${type}`, type === 'noul' ? '判断' : type === 'choice' ? '选择' : '评分')}
+      {decisionTypeLabel(type)}
     </button>)}
   </div>;
 }

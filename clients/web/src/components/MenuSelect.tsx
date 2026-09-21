@@ -1,12 +1,4 @@
-// M3 Expressive 下拉菜单（Web 端通用）。
-// - 受控 / 非受控均可：传 value 受控，省略时内部托管
-// - 触发器：M3 outlined "filled tonal" 视觉，圆角 m3-md，按下/悬停受压反馈
-// - 弹层：自适应触发器宽度，圆角 m3-md，elevation-2，跟随全局弹窗动效设置进退场
-// - 行为：点击外部 / Escape / 选中后自动关闭；上下键导航 + Enter 选中；首字母快速跳转
-// - 可访问性：role=button + aria-haspopup + aria-expanded + role=listbox / option，键盘导航完整
-// - 降低动效模式由 global.css 兜底（[data-motion='reduced']），此处无需额外判断
-//
-// 设计参考：M3 Expressive Menu / Filled Outlined Select Spec
+// 下拉菜单共用浮层定位、键盘导航与全局进退场动效。
 
 import type { JSX } from 'preact';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';

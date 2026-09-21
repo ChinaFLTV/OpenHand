@@ -8,7 +8,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../../shared/ui/market_dialog_actions.dart';
 import '../../../shared/ui/market_provider_selector.dart';
-import '../../../shared/ui/micro_press_feedback.dart';
+import '../../../shared/ui/market_result_card.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
@@ -777,120 +777,70 @@ class _InstructionMarketTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final accent = Color(item.accent);
-    final radius = BorderRadius.circular(kOpenHandRadius18);
-    return MicroPressFeedback(
-      enabled: onTap != null,
-      child: Material(
-        color: Colors.transparent,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          hoverColor: Colors.transparent,
-          splashColor: accent.withValues(alpha: 0.10),
-          highlightColor: accent.withValues(alpha: 0.06),
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion180),
-            curve: kOpenHandSwitchInCurve,
-            decoration: BoxDecoration(
-              color: selected
-                  ? Color.alphaBlend(
-                      accent.withValues(alpha: 0.16),
-                      colors.surface,
-                    )
-                  : colors.surface,
-              borderRadius: radius,
-              border: Border.all(
-                color: selected
-                    ? accent
-                    : colors.outlineVariant.withValues(alpha: 0.78),
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: radius,
-              child: Stack(
-                children: [
-                  PositionedDirectional(
-                    start: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: kOpenHandAccentBarWidth,
-                    child: ColoredBox(color: accent),
+    return MarketResultCard(
+      accent: accent,
+      selected: selected,
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _InstructionMarketAvatar(
+            item: item,
+            size: _kInstructionMarketListAvatarSize,
+          ),
+          kOpenHandHGap12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  instructionMarketEntryName(context, item),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _InstructionMarketAvatar(
-                          item: item,
-                          size: _kInstructionMarketListAvatarSize,
-                        ),
-                        kOpenHandHGap12,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                instructionMarketEntryName(context, item),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              kOpenHandGap8,
-                              Text(
-                                instructionMarketEntryDescription(
-                                  context,
-                                  item,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colors.onSurfaceVariant,
-                                  height: 1.35,
-                                ),
-                              ),
-                              kOpenHandGap10,
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  OpenHandFactChip(
-                                    icon: Icons.auto_awesome_rounded,
-                                    label: instructionMarketSoulLabel(context),
-                                    color: colors.tertiary,
-                                  ),
-                                  OpenHandFactChip(
-                                    icon: Icons.category_outlined,
-                                    label: instructionMarketCategoryLabel(
-                                      context,
-                                      item.category,
-                                    ),
-                                    color: accent,
-                                  ),
-                                  if (installed)
-                                    OpenHandStatusPill(
-                                      icon: Icons.check_circle_rounded,
-                                      label: openHandAddedLabel(context),
-                                      color: OpenHandStatusColors.success,
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                ),
+                kOpenHandGap8,
+                Text(
+                  instructionMarketEntryDescription(context, item),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+                kOpenHandGap10,
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    OpenHandFactChip(
+                      icon: Icons.auto_awesome_rounded,
+                      label: instructionMarketSoulLabel(context),
+                      color: colors.tertiary,
                     ),
-                  ),
-                ],
-              ),
+                    OpenHandFactChip(
+                      icon: Icons.category_outlined,
+                      label: instructionMarketCategoryLabel(
+                        context,
+                        item.category,
+                      ),
+                      color: accent,
+                    ),
+                    if (installed)
+                      OpenHandStatusPill(
+                        icon: Icons.check_circle_rounded,
+                        label: openHandAddedLabel(context),
+                        color: OpenHandStatusColors.success,
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }

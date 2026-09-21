@@ -2,12 +2,12 @@ import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { act } from 'preact/test-utils';
 import { DecisionComposerForm } from '../src/components/DecisionComposerForm';
-import { decisionDraft, initialDecisionDraft } from '../src/shared/util/decision';
+import { initialDecisionDraft } from '../src/shared/util/decision';
 import { syncLangFromAppPreferences } from '../src/i18n';
 import '../src/styles/global.css';
 
 syncLangFromAppPreferences('zh_Hans');
-const initial = decisionDraft('评估内容', '评分', 'score', '低\n中\n高');
+const initial = JSON.stringify({ state: '评估内容', questions: { 决策: { type: 'score', instructions: '评分', criteria: ['低', '中', '高'] } } });
 let draft = initial;
 function Showcase() {
   const [text, setText] = useState(initial);

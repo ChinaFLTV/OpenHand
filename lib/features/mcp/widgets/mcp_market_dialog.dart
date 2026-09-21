@@ -13,6 +13,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../../shared/ui/market_dialog_actions.dart';
 import '../../../shared/ui/market_provider_selector.dart';
+import '../../../shared/ui/market_result_card.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -1387,136 +1388,88 @@ class _McpMarketResultTile extends StatelessWidget {
     final categoryLabel = server.category.isEmpty
         ? ''
         : mcpMarketCategoryLabel(context, server.category);
-    final radius = BorderRadius.circular(kOpenHandRadius18);
-
-    return MicroPressFeedback(
-      enabled: onTap != null,
-      child: Material(
-        color: Colors.transparent,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          hoverColor: Colors.transparent,
-          splashColor: accent.withValues(alpha: 0.10),
-          highlightColor: accent.withValues(alpha: 0.06),
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion180),
-            curve: kOpenHandSwitchInCurve,
-            decoration: BoxDecoration(
-              color: selected
-                  ? Color.alphaBlend(
-                      accent.withValues(alpha: 0.16),
-                      colorScheme.surface,
-                    )
-                  : colorScheme.surface,
-              borderRadius: radius,
-              border: Border.all(
-                color: selected
-                    ? accent
-                    : colorScheme.outlineVariant.withValues(alpha: 0.78),
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: radius,
-              child: Stack(
-                children: [
-                  PositionedDirectional(
-                    start: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: kOpenHandAccentBarWidth,
-                    child: ColoredBox(color: accent),
+    return MarketResultCard(
+      accent: accent,
+      selected: selected,
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _McpMarketAvatar(
+            name: displayName,
+            imageUrl: server.iconUrl,
+            size: _kMcpMarketListAvatarSize,
+          ),
+          kOpenHandHGap12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _McpMarketAvatar(
-                          name: displayName,
-                          imageUrl: server.iconUrl,
-                          size: _kMcpMarketListAvatarSize,
-                        ),
-                        kOpenHandHGap12,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              if (server.publisher.isNotEmpty) ...[
-                                kOpenHandGap3,
-                                Text(
-                                  server.publisher,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                              if (summary.isNotEmpty) ...[
-                                kOpenHandGap8,
-                                Text(
-                                  summary,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ],
-                              kOpenHandGap10,
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  OpenHandFactChip(
-                                    icon: Icons.download_rounded,
-                                    label: openHandCompactCountLabel(
-                                      context,
-                                      server.downloads,
-                                    ),
-                                    color: OpenHandStatusColors.info,
-                                  ),
-                                  OpenHandFactChip(
-                                    icon: Icons.extension_rounded,
-                                    label: openHandCompactCountLabel(
-                                      context,
-                                      server.installs,
-                                    ),
-                                    color: colorScheme.tertiary,
-                                  ),
-                                  if (categoryLabel.isNotEmpty)
-                                    OpenHandFactChip(
-                                      icon: Icons.category_outlined,
-                                      label: categoryLabel,
-                                      color: accent,
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                ),
+                if (server.publisher.isNotEmpty) ...[
+                  kOpenHandGap3,
+                  Text(
+                    server.publisher,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
-              ),
+                if (summary.isNotEmpty) ...[
+                  kOpenHandGap8,
+                  Text(
+                    summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+                kOpenHandGap10,
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    OpenHandFactChip(
+                      icon: Icons.download_rounded,
+                      label: openHandCompactCountLabel(
+                        context,
+                        server.downloads,
+                      ),
+                      color: OpenHandStatusColors.info,
+                    ),
+                    OpenHandFactChip(
+                      icon: Icons.extension_rounded,
+                      label: openHandCompactCountLabel(
+                        context,
+                        server.installs,
+                      ),
+                      color: colorScheme.tertiary,
+                    ),
+                    if (categoryLabel.isNotEmpty)
+                      OpenHandFactChip(
+                        icon: Icons.category_outlined,
+                        label: categoryLabel,
+                        color: accent,
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
