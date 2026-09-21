@@ -1267,6 +1267,7 @@ function deriveMessageWindowView(
 }
 
 interface VirtualMessageListProps {
+  followBottom?: boolean;
   messages: SessionMessage[];
   membershipKey: string;
   scrollContainerRef: { current: HTMLElement | null };
@@ -1321,6 +1322,7 @@ function MeasuredMessageRow({
 }
 
 export function VirtualMessageList({
+  followBottom = false,
   messages,
   membershipKey,
   scrollContainerRef,
@@ -1329,6 +1331,8 @@ export function VirtualMessageList({
   onInitialLayoutSettled,
   renderMessage,
 }: VirtualMessageListProps) {
+  const followBottomRef = useRef(followBottom);
+  followBottomRef.current = followBottom;
   const virtualized = shouldVirtualizeMessageList(messages.length);
   const [visibleRowBudget, setVisibleRowBudget] = useState(
     () => Math.min(MESSAGE_LIST_MAX_VISIBLE_ROWS, MESSAGE_LIST_INITIAL_VISIBLE_ROWS),
@@ -1451,7 +1455,7 @@ export function VirtualMessageList({
       heightCommitPendingRef.current = false;
       const scroller = scrollContainerRef.current;
       const list = listRef.current;
-      if (scroller && list) {
+      if (scroller && list && !followBottomRef.current) {
         const scrollerRect = scroller.getBoundingClientRect();
         const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
         for (const row of rows) {
@@ -1493,6 +1497,7 @@ export function VirtualMessageList({
     const anchor = heightAnchorRef.current;
     if (!anchor) return;
     heightAnchorRef.current = null;
+    if (followBottomRef.current) return;
     const scroller = scrollContainerRef.current;
     const list = listRef.current;
     if (!scroller || !list || isTranscriptScrollActive() ||
@@ -3740,7 +3745,8 @@ export function SessionDetailPage() {
     el?.addEventListener('touchmove', markUserScrollIntent, { passive: true });
     el?.addEventListener('pointerdown', handlePointerDown, { passive: true });
     const handleScroll = () => {
-      markTranscriptScrollActivity();
+      // 程序贴底不能冻结高度测量，否则新消息会反复使用旧几何位置。
+      if (hasRecentUserScrollIntent()) markTranscriptScrollActivity();
       recalc();
     };
     el?.addEventListener('scroll', handleScroll, { passive: true });
@@ -6798,6 +6804,7 @@ export function SessionDetailPage() {
                   <>
                     {session ? <PlanTimeline session={session} modelKey={composerModelKey} /> : null}
                     <VirtualMessageList
+                      followBottom={autoFollow && !autoFollowPaused}
                       key={sessionId}
                       messages={visibleSortedMessages}
                       membershipKey={messageMembershipKey}

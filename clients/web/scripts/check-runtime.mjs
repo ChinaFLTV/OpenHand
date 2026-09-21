@@ -573,6 +573,7 @@ try {
   const heightFrames = [];
   const pendingHeight = { current: false };
   const heightBindings = {
+    followBottomRef: { current: false },
     useCallback: callback => callback, isTranscriptScrollActive: () => scrolling,
     initialLayoutSettledRef: { current: true },
     heightCommitPendingRef: pendingHeight, heightCommitFrameRef: { current: null },
@@ -607,6 +608,7 @@ try {
   const heightAnchor = { current: null };
   const heightScroller = { scrollTop: 100, getBoundingClientRect: () => ({ top: 0 }) };
   const restoreBindings = {
+    followBottomRef: { current: false },
     heightAnchorRef: heightAnchor, isTranscriptScrollActive: () => scrolling,
     scrollContainerRef: { current: heightScroller },
     listRef: { current: { querySelectorAll: () => [{
@@ -628,6 +630,27 @@ try {
   heightAnchor.current = savedAnchor;
   restoreHeight();
   assert.equal(heightScroller.scrollTop, 120, '空闲时仍须补偿正文测高造成的位移');
+  restoreBindings.followBottomRef.current = true;
+  heightScroller.scrollTop = 100;
+  heightAnchor.current = savedAnchor;
+  restoreHeight();
+  assert.equal(heightScroller.scrollTop, 100, '自动贴底时不能同时恢复阅读锚点');
+
+  const scrollHandlerStart = historyPageSource.indexOf('    const handleScroll = () => {');
+  const scrollHandlerEnd = historyPageSource.indexOf("    el?.addEventListener('scroll'", scrollHandlerStart);
+  assert.ok(scrollHandlerStart >= 0 && scrollHandlerEnd > scrollHandlerStart);
+  let userScrollIntent = false;
+  let scrollFreezeCount = 0;
+  let scrollRecalcs = 0;
+  const handleScroll = new Function('hasRecentUserScrollIntent', 'markTranscriptScrollActivity', 'recalc',
+    `${historyPageSource.slice(scrollHandlerStart, scrollHandlerEnd)}\nreturn handleScroll;`)(
+      () => userScrollIntent, () => { scrollFreezeCount++; }, () => { scrollRecalcs++; });
+  for (let frame = 0; frame < 45; frame++) handleScroll();
+  assert.equal(scrollFreezeCount, 0, '流式输出的程序贴底不能持续冻结测高');
+  assert.equal(scrollRecalcs, 45);
+  userScrollIntent = true;
+  handleScroll();
+  assert.equal(scrollFreezeCount, 1, '用户主动滚动时仍保护阅读位置');
 
   const historyStart = historyPageSource.indexOf('  async function loadOlder(');
   const historyEnd = historyPageSource.indexOf('  const locateImageMessage =', historyStart);

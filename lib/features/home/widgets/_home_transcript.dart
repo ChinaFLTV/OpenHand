@@ -77,9 +77,12 @@ class _TranscriptScrollView extends CustomScrollView {
     super.primary,
     super.center,
     super.anchor,
+    this.correctedPixels,
     super.scrollCacheExtent,
     super.slivers,
   });
+
+  final double? correctedPixels;
 
   @override
   Widget buildViewport(
@@ -91,6 +94,7 @@ class _TranscriptScrollView extends CustomScrollView {
     offset: offset,
     center: center,
     anchor: anchor,
+    correctedPixels: correctedPixels,
     scrollCacheExtent: scrollCacheExtent,
     slivers: slivers,
   );
@@ -101,9 +105,22 @@ class _TranscriptViewport extends Viewport {
     required super.offset,
     super.center,
     super.anchor,
+    this.correctedPixels,
     super.scrollCacheExtent,
     super.slivers,
   });
+
+  final double? correctedPixels;
+
+  @override
+  void updateRenderObject(BuildContext context, RenderViewport renderObject) {
+    final anchorChanged = renderObject.anchor != anchor;
+    super.updateRenderObject(context, renderObject);
+    final pixels = correctedPixels;
+    if (anchorChanged && pixels != null) {
+      renderObject.offset.correctBy(pixels - renderObject.offset.pixels);
+    }
+  }
 
   @override
   RenderViewport createRenderObject(BuildContext context) =>
@@ -521,6 +538,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   final _listHistoryKey = GlobalKey();
   final _listCenterKey = GlobalKey();
   double _listAnchor = 1;
+  ({double anchor, double pixels})? _pendingAnchorCorrection;
   double? _listViewportDimension;
   bool _loadingOlderMessages = false;
   List<_TranscriptRenderEntry> _renderEntries =
@@ -833,6 +851,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _selectedMessageId = null;
     _listCenterMessageId = null;
     _listAnchor = 1;
+    _pendingAnchorCorrection = null;
     _listViewportDimension = null;
     _highlightedMessageId = null;
     _targetHighlightTimer?.cancel();
@@ -1030,8 +1049,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         final nextPixels = keepAtBottom
             ? nextMax
             : (position.pixels + correction).clamp(nextMin, nextMax);
-        position.correctPixels(nextPixels);
-        setState(() => _listAnchor = anchor);
+        // 坐标与锚点在下一次布局一起提交，帧尾不能提前改写当前视口。
+        setState(() {
+          _pendingAnchorCorrection = (anchor: anchor, pixels: nextPixels);
+        });
         _scheduleViewportFill();
         return;
       }
@@ -1080,6 +1101,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       unawaited(_revealOlderMessages(fillViewport: true));
     });
     WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  double? _takePendingAnchorPixels() {
+    final correction = _pendingAnchorCorrection;
+    _pendingAnchorCorrection = null;
+    if (correction == null ||
+        widget.controller.positions.length != 1 ||
+        _isTranscriptViewportMotionActive(widget.controller.position)) {
+      return null;
+    }
+    _listAnchor = correction.anchor;
+    return correction.pixels;
   }
 
   void _scheduleStaggeredWindowFill() {
@@ -3261,6 +3294,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               _listCenterMessageId = _renderEntries[centerIndex].id;
               final beforeCenterCount = hiddenLoadMoreCount + centerIndex;
               final hasPrecedingContent = beforeCenterCount > 0;
+              final correctedPixels = _takePendingAnchorPixels();
               int? findIndex(Key key) => _findTranscriptListChildIndex(
                 key,
                 hiddenLoadMoreCount: hiddenLoadMoreCount,
@@ -3331,6 +3365,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       primary: false,
                       center: hasPrecedingContent ? _listCenterKey : null,
                       anchor: hasPrecedingContent ? _listAnchor : 0,
+                      correctedPixels: correctedPixels,
                       slivers: [
                         // 历史向负方向增长，不改动当前消息的布局坐标。
                         if (beforeCenterCount > 0)

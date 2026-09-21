@@ -1358,6 +1358,33 @@ void main() {
     expect(probe.state._renderEntries.last.id, '新回复');
   });
 
+  testWidgets('发送与响应期间视口逐帧变化，跟随底部不出现反向跳动', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('发送抖动', 8));
+    probe.preserveViewportAfterUserScroll = false;
+    await probe.mount(size: const Size(700, 650));
+    await probe.settle();
+    probe.controller.jumpTo(probe.controller.position.maxScrollExtent);
+    final reply = AiSessionMessage.assistant(id: '持续响应',
+      content: '开始处理', createdAt: DateTime.utc(2026));
+    probe.update(probe.session.copyWithTailMessage(reply, append: true));
+    await probe.settle();
+    for (var i = 0; i < 45; i++) {
+      final height = i < 15 ? 650.0 - i * 12 : i < 30 ? 470.0 + (i - 15) * 12 : 650.0;
+      tester.view.physicalSize = Size(700, height);
+      if (i % 3 == 0) {
+        probe.update(probe.session.copyWithTailMessage(reply.copyWith(
+          content: List.filled(3 + i, '响应内容正在增长，检查滚动稳定性。').join('\n'),
+        ), append: false));
+      }
+      await tester.pump(const Duration(milliseconds: 16));
+      final position = probe.controller.position;
+      expect(position.extentAfter, lessThanOrEqualTo(1), reason: '第 $i 帧不得掉离底部');
+      expect(position.pixels, lessThanOrEqualTo(position.maxScrollExtent + 1), reason: '第 $i 帧不得超过底部');
+      expect(tester.takeException(), isNull);
+    }
+    await probe.settle();
+  });
+
   testWidgets('慢速滚动间歇不释放布局保护，真正停止后统一恢复', (tester) async {
     final activity = TranscriptScrollActivity();
     addTearDown(activity.dispose);

@@ -5817,7 +5817,7 @@ button.oh-message-context-capsule {
   overflow-anchor: none;
   overflow: clip;
   contain: layout style size;
-  transition: height var(--oh-motion-duration-fast) var(--oh-motion-emphasized);
+  /* 虚拟高度与行偏移必须同步提交，插值会使测量和贴底反复互相修正。 */
 }
 .oh-session-virtual-window {
   position: absolute;
