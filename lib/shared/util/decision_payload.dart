@@ -212,6 +212,20 @@ abstract final class DecisionPayload {
     }
   }
 
+  /// 会话正文可能带围栏，卡片解析入口只收 JSON。
+  static Map<String, Object?>? tryResultMessage(String content) {
+    if (content.length > maxCharacters) return null;
+    final opening = _resultFence.firstMatch(content);
+    if (opening == null) return tryResult(content);
+    final rest = content.substring(opening.end);
+    final closing = RegExp(
+      r'^ {0,3}(?:`{3,}|~{3,})[ \t]*\r?$',
+      multiLine: true,
+    ).firstMatch(rest);
+    if (closing == null) return null;
+    return tryResult(rest.substring(0, closing.start));
+  }
+
   /// 草稿允许尚未填写的字段；发送请求默认执行完整校验。
   static Map<String, Object?> request(
     String text, {

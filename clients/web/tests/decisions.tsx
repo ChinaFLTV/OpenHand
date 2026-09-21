@@ -4,8 +4,9 @@ import { act } from 'preact/test-utils';
 import { Markdown } from '../src/components/Markdown';
 import { DecisionCard } from '../src/components/DecisionCard';
 import { DecisionRequestDialog } from '../src/components/DecisionRequestDialog';
+import { MessageCard } from '../src/components/MessageCard';
 import { t } from '../src/i18n';
-import { decisionJsonDraft, decisionDraft, initialDecisionDraft, parseDecisionRequest, parseDecisionResult } from '../src/shared/util/decision';
+import { decisionJsonDraft, decisionDraft, decisionResultInfoItems, initialDecisionDraft, parseDecisionRequest, parseDecisionResult, parseDecisionResultFromMessage } from '../src/shared/util/decision';
 import '../src/styles/global.css';
 
 // 固定合成样例仅用于交互验证，不代表真实模型输出。
@@ -37,21 +38,39 @@ try {
   verify(!root.querySelector('.oh-decision-card-header'), '结果卡片去掉顶部图标与标题');
   verify(!root.querySelector('.oh-decision-card'), '结果不再套一层父卡片');
   verify(root.querySelectorAll('.oh-decision-block').length === 3, '每个问题各自成卡');
-  verify(root.querySelector('.oh-decision-toggle-meta .oh-decision-chip'), '类型胶囊在问题行左侧');
-  verify(root.querySelector('.oh-decision-toggle-result'), '结论放在问题行下方');
-  verify(root.querySelector('.oh-decision-toggle-chevron'), '折叠指示器贴在问题行右侧');
+  verify(!root.querySelector('.oh-decision-toggle'), '结果卡片不再折叠');
+  verify(!root.querySelector('.oh-decision-chip'), '结果卡片去掉类型胶囊');
+  verify(!root.querySelector('.oh-decision-confidence'), '结果卡片去掉置信度');
+  verify(!root.textContent?.includes(t('decision.confidence', '置信度')), '置信度不在结果卡片正文');
+  verify(!root.textContent?.includes('由哪个部门处理？'), '结果卡片不重复提问');
   const englishBuiltIn = {
     questions: { choice: { type: 'choice', instructions: 'Based on the given information, which option fits best?', criteria: { 甲: null } } },
     answers: { choice: { type: 'choice', choice: '甲', probabilities: { 甲: 1 }, confidence: 0.99 } },
   };
   await act(async () => render(<DecisionCard text={JSON.stringify(englishBuiltIn)} />, root));
-  verify([...root.querySelectorAll('.oh-decision-chip')].some((node) => node.textContent === t('decision.type.choice', '选择')), '类型键 choice 显示为当前语言');
-  verify(root.textContent?.includes(t('decision.default.choice', '根据所给信息，哪个候选项最符合？')), '内置英文问题映射为当前语言');
-  verify(root.textContent?.includes(t('decision.confidence', '置信度')), '置信度使用当前语言');
-  await act(async () => render(<DecisionCard text={JSON.stringify(fixture)} />, root));
-  await act(async () => root.querySelector<HTMLButtonElement>('button')!.click());
-  verify(root.querySelector('button')?.getAttribute('aria-expanded') === 'false', '概率分布可折叠');
-  await act(async () => render(<Markdown source={'```openhand-decision\n' + JSON.stringify(fixture) + '\n```'} />, root));
+  verify(!root.querySelector('.oh-decision-chip'), '结果卡片不显示类型胶囊');
+  verify(!root.textContent?.includes(t('decision.default.choice', '根据所给信息，哪个候选项最符合？')), '结果卡片不重复内置提问');
+  verify(!root.textContent?.includes(t('decision.confidence', '置信度')), '置信度不在结果卡片');
+  verify(root.textContent?.includes('甲'), '候选项概率条保留');
+  const fenced = '```openhand-decision\n' + JSON.stringify(fixture) + '\n```';
+  verify(parseDecisionResultFromMessage(fenced), '围栏结果可解析');
+  const info = decisionResultInfoItems(fenced);
+  verify(info.some((item) => item.label === t('decision.type.choice', '选择')), '第二排包含选择类型');
+  verify(info.some((item) => item.label === t('decision.type.score', '评分')), '第二排包含评分类型');
+  verify(info.some((item) => item.label === t('decision.type.noul', '判断')), '第二排包含判断类型');
+  verify(info.some((item) => item.label === '0.4'), '第二排包含评分元数据');
+  verify(info.some((item) => item.label === `${t('decision.confidence', '置信度')} 70.0%`), '第二排包含置信度');
+  await act(async () => render(<MessageCard active onCopy={() => {}} message={{
+    id: 'jev-result', role: 'assistant', kind: 'assistant', content: fenced,
+    character_count: fenced.length, created_at: '2026-09-21T04:02:00Z', model_label: 'jev-latest',
+  }} />, root));
+  await wait(200);
+  const selectedLabels = [...root.querySelectorAll('.oh-message-selected-info-row .oh-message-info-button')].map((node) => node.textContent ?? '');
+  verify(selectedLabels.some((label) => label.includes(t('decision.type.choice', '选择'))), '选中后第二排显示类型胶囊');
+  verify(selectedLabels.some((label) => label.includes(t('decision.confidence', '置信度'))), '选中后第二排显示置信度');
+  verify(selectedLabels.some((label) => label.includes('0.4')), '选中后第二排显示评分');
+  verify(selectedLabels.some((label) => label.includes('jev-latest')), '选中后第二排仍显示模型');
+  await act(async () => render(<Markdown source={fenced} />, root));
   await wait(200);
   verify(root.querySelectorAll('.oh-decision-bar-fill').length === 6, '实际 Markdown 消息入口渲染决策卡片');
   const requestFence = '```openhand-decision-request\n' + JSON.stringify({ state: '待判断内容', questions: { 判断: { type: 'noul', instructions: '是否紧急？' } } }) + '\n```';

@@ -1585,8 +1585,8 @@ void main() {
           }},
           'answers': {'决策': {'type': type,
             if (type == 'noul') 'noul': .6,
-            if (type == 'choice') ...{'choice': '甲', 'probabilities': {'甲': .6, '乙': .4}},
-            if (type == 'score') ...{'score': .6, 'probabilities': {'0': .4, '1': .6}},
+            if (type == 'choice') ...{'choice': '甲', 'probabilities': {'甲': .6, '乙': .4}, 'confidence': .99},
+            if (type == 'score') ...{'score': .6, 'probabilities': {'0': .4, '1': .6}, 'confidence': .5},
           }},
         });
         final message = AiSessionMessage.assistant(id: '结果-$type', content: source, createdAt: original.createdAt);
@@ -1597,19 +1597,33 @@ void main() {
         for (final selected in [false, true]) {
           probe.state.setState(() => probe.state._selectedMessageId = selected ? message.id : null);
           await probe.settle();
-          expect(find.byType(OpenHandExpansionTile), findsOneWidget);
-          expect(find.text(type == 'choice' ? '选择' : type == 'score' ? '评分' : '判断'), findsWidgets);
+          expect(find.byType(OpenHandExpansionTile), findsNothing);
+          expect(find.byType(OpenHandDecisionCard), findsOneWidget);
+          expect(find.text('判断内容'), findsNothing);
           expect(find.text('Choice'), findsNothing);
           expect(find.text('Score'), findsNothing);
           expect(find.text('Judgement'), findsNothing);
           expect(find.text('Confidence'), findsNothing);
-          await tester.tap(find.text('判断内容'));
+          final typeLabel = type == 'choice' ? '选择' : type == 'score' ? '评分' : '判断';
+          if (selected) {
+            expect(find.text(typeLabel), findsWidgets);
+            if (type == 'choice') {
+              expect(find.text('置信度 99.0%'), findsOneWidget);
+            } else if (type == 'score') {
+              expect(find.text('0.6'), findsWidgets);
+              expect(find.text('置信度 50.0%'), findsOneWidget);
+            }
+          } else {
+            expect(find.text(typeLabel), findsNothing);
+            expect(find.textContaining('置信度'), findsNothing);
+          }
+          await tester.tap(find.text('60.0%'));
           await probe.settle();
           expect(probe.state._selectedMessageId, selected ? message.id : null);
-          await tester.tap(find.text('判断内容'));
+          await tester.tap(find.text('60.0%'));
           await probe.settle();
           expect(probe.state._selectedMessageId, selected ? message.id : null);
-          await tester.tap(find.text('判断内容'));
+          await tester.tap(find.text('60.0%'));
           await probe.settle();
           expect(probe.state._selectedMessageId, selected ? message.id : null);
           final margin = tester.getTopLeft(find.byKey(bubble._bubbleInteractionKey)) + const Offset(4, 4);
@@ -1626,7 +1640,7 @@ void main() {
         await tester.tap(find.text('显示渲染'));
         await probe.settle();
         expect(bubble._embeddedInteractiveRegions.length, 1);
-        final held = await tester.startGesture(tester.getCenter(find.text('判断内容')));
+        final held = await tester.startGesture(tester.getCenter(find.text('60.0%')));
         bubble.setState(() => bubble._showRawContent = true);
         await tester.pump();
         await held.up();

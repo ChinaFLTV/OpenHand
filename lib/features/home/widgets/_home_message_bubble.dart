@@ -6613,6 +6613,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
           context,
           annotation: harnessAnnotation!,
         ),
+      ..._DecisionResultContextCapsules.build(context, message: message),
       if (showModelLabel &&
           message.modelLabel != null &&
           message.modelLabel!.trim().isNotEmpty)
@@ -6684,6 +6685,58 @@ class _HarnessAnnotationContextCapsules {
     final agentId = annotation.agentId;
     if (agentId == null || agentId.trim().isEmpty) return '';
     return ' · ${agentId.trim()}';
+  }
+}
+
+class _DecisionResultContextCapsules {
+  const _DecisionResultContextCapsules._();
+
+  static List<Widget> build(
+    BuildContext context, {
+    required AiSessionMessage message,
+  }) {
+    if (message.kind != AiSessionMessageKind.assistant ||
+        !message.isStructuredDecision) {
+      return const <Widget>[];
+    }
+    final data = DecisionPayload.tryResultMessage(message.content);
+    if (data == null) return const <Widget>[];
+    final answers = data['answers'];
+    final questions = data['questions'];
+    if (answers is! Map || questions is! Map) return const <Widget>[];
+    final copy = DecisionCopy.of(context);
+    final capsules = <Widget>[];
+    for (final entry in questions.entries) {
+      final answer = answers[entry.key];
+      if (answer is! Map) continue;
+      final question = entry.value;
+      final questionMap = question is Map ? question : const {};
+      final type = '${answer['type'] ?? questionMap['type'] ?? ''}';
+      if (type.isEmpty) continue;
+      capsules.add(
+        _MessageContextCapsule(
+          icon: openHandDecisionTypeIcon(type),
+          label: copy.typeLabel(type),
+        ),
+      );
+      if (type == DecisionPayload.typeScore && answer['score'] is num) {
+        capsules.add(
+          _MessageContextCapsule(
+            icon: openHandDecisionTypeIcon(DecisionPayload.typeScore),
+            label: copy.displayValue(answer['score']),
+          ),
+        );
+      }
+      if (answer['confidence'] is num) {
+        capsules.add(
+          _MessageContextCapsule(
+            icon: Icons.verified_outlined,
+            label: copy.confidenceLine(answer['confidence'] as num),
+          ),
+        );
+      }
+    }
+    return capsules;
   }
 }
 

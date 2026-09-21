@@ -300,15 +300,6 @@ final class DecisionCopy {
     ja: '信頼度',
   );
 
-  String get distribution => _m(
-    zh: '概率分布',
-    zhHant: '機率分布',
-    en: 'Probability',
-    fr: 'Probabilités',
-    de: 'Wahrscheinlichkeit',
-    ja: '確率分布',
-  );
-
   String get criteriaLabel => _m(
     zh: '判断标准',
     zhHant: '判斷標準',
@@ -398,24 +389,8 @@ final class DecisionCopy {
     );
   }
 
-  String questionCaption(String name, String type, String instructions) {
-    final named = customQuestionName(name, type);
-    final text = DecisionPayload.questionForType(
-      type,
-      current: instructions,
-      localizedDefault: defaultQuestionFor(type),
-    );
-    return named.isEmpty ? text : '$named · $text';
-  }
-
-  String heldProbability(num value) =>
-      '$held · ${DecisionPayload.percentLabel(value)}';
-
   String confidenceLine(num value) =>
       '$confidence ${DecisionPayload.percentLabel(value)}';
-
-  String probabilityAria(String label, num value) =>
-      '$label ${DecisionPayload.percentLabel(value)} · $distribution';
 
   String displayValue(Object? value) {
     final text = DecisionPayload.displayText(value).trim();

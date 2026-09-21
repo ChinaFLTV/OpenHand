@@ -145,6 +145,73 @@ export function parseDecisionResult(text: string): DecisionResult | null {
   } catch { return null; }
 }
 
+export function parseDecisionResultFromMessage(content: string): DecisionResult | null {
+  if (content.length > DECISION_MAX_CHARACTERS) return null;
+  const opening = decisionResultFence.exec(content);
+  if (!opening) return parseDecisionResult(content);
+  const body = content.slice(opening.index + opening[0].length);
+  const closing = /^ {0,3}(?:`{3,}|~{3,})[ \t]*\r?$/m.exec(body);
+  if (!closing) return null;
+  return parseDecisionResult(body.slice(0, closing.index));
+}
+
+export function decisionTypeLabel(type: string): string {
+  if (type === 'choice') return t('decision.type.choice', '选择');
+  if (type === 'score') return t('decision.type.score', '评分');
+  return t('decision.type.noul', '判断');
+}
+
+export interface DecisionResultInfoItem {
+  key: string;
+  icon: 'list' | 'star' | 'verified';
+  label: string;
+}
+
+function decisionResultInfoIcon(
+  kind: 'type' | 'score' | 'confidence',
+  type: string,
+): DecisionResultInfoItem['icon'] {
+  if (kind === 'confidence') return 'verified';
+  if (kind === 'score' || type === 'score') return 'star';
+  if (type === 'choice') return 'list';
+  return 'verified';
+}
+
+export function decisionResultInfoItems(content: string): DecisionResultInfoItem[] {
+  const data = parseDecisionResultFromMessage(content);
+  if (!data) return [];
+  const items: DecisionResultInfoItem[] = [];
+  let index = 0;
+  for (const name of Object.keys(data.questions)) {
+    const answer = data.answers[name];
+    if (!answer) continue;
+    const type = answer.type || data.questions[name]?.type || '';
+    if (!type) continue;
+    items.push({
+      key: `decision-type-${index}-${name}`,
+      icon: decisionResultInfoIcon('type', type),
+      label: decisionTypeLabel(type),
+    });
+    if (type === 'score' && typeof answer.score === 'number' && Number.isFinite(answer.score)) {
+      const score = decisionDisplayText(answer.score).trim();
+      items.push({
+        key: `decision-score-${index}-${name}`,
+        icon: 'star',
+        label: score || '—',
+      });
+    }
+    if (typeof answer.confidence === 'number' && Number.isFinite(answer.confidence)) {
+      items.push({
+        key: `decision-confidence-${index}-${name}`,
+        icon: 'verified',
+        label: `${t('decision.confidence', '置信度')} ${decisionPercentLabel(answer.confidence)}`,
+      });
+    }
+    index += 1;
+  }
+  return items;
+}
+
 function decisionRequestJson(text: string): unknown {
   const opening = decisionRequestFence.exec(text);
   if (!opening) return JSON.parse(text);

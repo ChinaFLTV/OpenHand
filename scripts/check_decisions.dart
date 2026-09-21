@@ -627,7 +627,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(DecisionPayload.request(draft!)['state'], '一加一等于二');
   });
-  testWidgets('决策卡片把内置英文问题与类型键显示为当前语言', (tester) async {
+  test('会话正文围栏与裸 JSON 都能解析决策结果', () {
+    final payload = <String, Object?>{
+      'questions': question,
+      'answers': <String, Object?>{'判断': <String, Object?>{'type': 'noul', 'noul': 0.8}},
+    };
+    expect(DecisionPayload.tryResult(jsonEncode(payload)), isNotNull);
+    expect(DecisionPayload.tryResultMessage(DecisionPayload.encode(DecisionPayload.resultLanguage, payload)), isNotNull);
+    expect(DecisionPayload.tryResultMessage(DecisionPayload.encode(DecisionPayload.requestLanguage, {'state': '待判断内容', 'questions': question})), isNull);
+  });
+  testWidgets('决策结果卡片只展示概率条，提问与置信度不重复出现', (tester) async {
     await tester.pumpWidget(app(home: Scaffold(body: OpenHandDecisionCard(data: <String, Object?>{
       'questions': <String, Object?>{
         'choice': <String, Object?>{
@@ -646,12 +655,14 @@ void main() {
       },
     }))));
     await tester.pumpAndSettle();
-    expect(find.text('选择'), findsWidgets);
-    expect(find.text(DecisionPayload.questionChoiceZh), findsOneWidget);
+    expect(find.text('选择'), findsNothing);
+    expect(find.text(DecisionPayload.questionChoiceZh), findsNothing);
     expect(find.text(DecisionPayload.questionChoiceEn), findsNothing);
     expect(find.text('Choice'), findsNothing);
     expect(find.text('Confidence'), findsNothing);
-    expect(find.text('置信度 99.0%'), findsOneWidget);
+    expect(find.text('置信度 99.0%'), findsNothing);
+    expect(find.text('甲'), findsOneWidget);
+    expect(find.text('90.0%'), findsOneWidget);
   });
 }
 ''';

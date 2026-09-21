@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../util/decision_payload.dart';
-import 'animated_expandable.dart';
 import 'decision_copy.dart';
 import 'decision_form.dart';
 import 'oh_pill.dart';
 
 const double _kDecisionBarHeight = 8;
-const int _kDecisionAutoExpandLimit = 3;
 const double _kDecisionCardOutlineAlpha = 0.72;
 
 /// 展示接口原始决策，不把概率解释为确定事实。
@@ -36,10 +34,8 @@ class OpenHandDecisionCard extends StatelessWidget {
         for (var index = 0; index < entries.length; index++) ...[
           if (index > 0) kOpenHandGap10,
           _DecisionAnswerBlock(
-            name: '${entries[index].key}',
             question: entries[index].value,
             answer: answers[entries[index].key],
-            expanded: entries.length <= _kDecisionAutoExpandLimit,
           ),
         ],
       ],
@@ -108,7 +104,6 @@ class _DecisionCardShell extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Material(
       color: colors.surface,
-      elevation: 0,
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       clipBehavior: Clip.antiAlias,
@@ -126,17 +121,10 @@ class _DecisionCardShell extends StatelessWidget {
 }
 
 class _DecisionAnswerBlock extends StatelessWidget {
-  const _DecisionAnswerBlock({
-    required this.name,
-    required this.question,
-    required this.answer,
-    required this.expanded,
-  });
+  const _DecisionAnswerBlock({required this.question, required this.answer});
 
-  final String name;
   final Object? question;
   final Object? answer;
-  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -145,77 +133,21 @@ class _DecisionAnswerBlock extends StatelessWidget {
     final questionMap = question is Map ? question as Map : const {};
     final answerMap = answer is Map ? answer as Map : const {};
     final type = '${answerMap['type'] ?? questionMap['type'] ?? ''}';
-    final accent = openHandDecisionAccent(colors, type);
-    final result = switch (type) {
-      DecisionPayload.typeNoul when answerMap['noul'] is num =>
-        copy.heldProbability(answerMap['noul'] as num),
-      DecisionPayload.typeChoice => copy.displayValue(answerMap['choice']),
-      DecisionPayload.typeScore => copy.displayValue(answerMap['score']),
-      _ => copy.typeLabel(type),
-    };
     final probabilities = _probabilityEntries(copy, type, answerMap);
-    final instructions = copy.localizedInstructions(
-      type,
-      questionMap['instructions'],
-    );
-    final caption = copy.questionCaption(name, type, instructions);
+    if (probabilities.isEmpty) return const SizedBox.shrink();
     return _DecisionCardShell(
-      child: OpenHandExpansionTile(
-        initiallyExpanded: expanded,
-        suppressHoverOverlay: true,
-        circularToggle: true,
-        headerAlignment: CrossAxisAlignment.start,
-        tilePadding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DecisionTypeChip(label: copy.typeLabel(type), type: type),
-                kOpenHandHGap8,
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      caption,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        height: 1.4,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            kOpenHandGap10,
-            Text(
-              result,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: accent,
-                height: 1.25,
-              ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < probabilities.length; index++) ...[
+            if (index > 0) kOpenHandGap8,
+            _DecisionProbabilityRow(
+              label: probabilities[index].key,
+              value: probabilities[index].value,
+              fill: _barColor(colors, type, probabilities[index].key, copy),
             ),
           ],
-        ),
-        children: [
-          if (answerMap['confidence'] is num)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _DecisionMetricPill(
-                label: copy.confidenceLine(answerMap['confidence'] as num),
-                color: accent,
-              ),
-            ),
-          for (final entry in probabilities)
-            _DecisionProbabilityRow(
-              label: entry.key,
-              value: entry.value,
-              fill: _barColor(colors, type, entry.key, copy),
-            ),
         ],
       ),
     );
@@ -392,52 +324,49 @@ class _DecisionProbabilityRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final unit = DecisionPayload.unit(value);
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w700,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurface,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              Text(
-                DecisionPayload.percentLabel(value),
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: fill,
-                  fontWeight: FontWeight.w800,
-                ),
+            ),
+            Text(
+              DecisionPayload.percentLabel(value),
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: fill,
+                fontWeight: FontWeight.w800,
               ),
-            ],
-          ),
-          kOpenHandGap6,
-          ClipRRect(
-            borderRadius: kOpenHandBorderRadius8,
-            child: SizedBox(
-              height: _kDecisionBarHeight,
-              width: double.infinity,
-              child: ColoredBox(
-                color: colors.surfaceContainerHighest,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: unit,
-                    heightFactor: 1,
-                    child: ColoredBox(color: fill),
-                  ),
+            ),
+          ],
+        ),
+        kOpenHandGap6,
+        ClipRRect(
+          borderRadius: kOpenHandBorderRadius8,
+          child: SizedBox(
+            height: _kDecisionBarHeight,
+            width: double.infinity,
+            child: ColoredBox(
+              color: colors.surfaceContainerHighest,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: unit,
+                  heightFactor: 1,
+                  child: ColoredBox(color: fill),
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -491,34 +420,6 @@ class _DecisionOptionChip extends StatelessWidget {
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
           color: Theme.of(context).colorScheme.onSurface,
           fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _DecisionMetricPill extends StatelessWidget {
-  const _DecisionMetricPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: kOpenHandPillBorderRadius,
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w800,
-          ),
         ),
       ),
     );

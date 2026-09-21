@@ -17,7 +17,7 @@ import { t, tDuration, tNumber } from '../i18n';
 import { formatCreationOptionDetail } from '../shared/ui/creation_option_labels';
 import { Markdown, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
 import { decisionRequestToMarkdown } from '../shared/util/decision_request_markdown';
-import { isStructuredDecisionMessage } from '../shared/util/decision';
+import { decisionResultInfoItems, isStructuredDecisionMessage } from '../shared/util/decision';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
 import {
   MediaPreviewDialog,
@@ -241,7 +241,10 @@ type MessageIconName =
   | 'translate'
   | 'thumbUp'
   | 'thumbDown'
-  | 'refresh';
+  | 'refresh'
+  | 'list'
+  | 'star'
+  | 'verified';
 
 const MESSAGE_REASONING_BACKGROUND = '#18181B';
 const MESSAGE_REASONING_TEXT = '#F7F7FA';
@@ -336,6 +339,12 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="M7 14V4H4v10z" /><path d="M7 14 12 21c.8 0 1.6-.6 1.6-1.7V16H19a2 2 0 0 0 2-2.3l-1.2-7A3 3 0 0 0 16.9 4H7" /></svg>;
     case 'refresh':
       return <svg {...common}><path d="M4 12a8 8 0 0 1 13.4-5.9" /><path d="M17 3v4h-4" /><path d="M20 12a8 8 0 0 1-13.4 5.9" /><path d="M7 21v-4h4" /></svg>;
+    case 'list':
+      return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 9h8M8 12h8M8 15h5" /></svg>;
+    case 'star':
+      return <svg {...common}><path d="M12 4.2 14.1 8.7l5 .7-3.6 3.5.9 4.9L12 15.8 7.6 17.8l.9-4.9L4.9 9.4l5-.7z" /></svg>;
+    case 'verified':
+      return <svg {...common}><path d="M12 3.2 14.4 5.2 17.6 5l1.2 3.1L22 10l-1.2 3.1.2 3.2-3.2.2L16 19.6 12 20.8 8 19.6 5.2 16.5l-3.2-.2.2-3.2L1 10l3.2-1.9L5.4 5l3.2.2z" /><path d="m8.4 12.1 2.3 2.3 4.9-4.9" /></svg>;
   }
 }
 
@@ -1756,6 +1765,9 @@ function selectedMessageInfoChips(
     chips.push(...goalObjectiveChips(message, meta));
     chips.push(...goalEvaluationChips(message, meta));
     chips.push(...goalAutoFollowUpChips(message, meta));
+  }
+  if (message.role !== 'user' && isStructuredDecisionMessage(message)) {
+    chips.push(...decisionResultInfoItems(message.content ?? ''));
   }
   if (message.role !== 'user') {
     const modelLabel = strictStringFromUnknown(message.model_label) || strictStringFromUnknown(message.model_id);
