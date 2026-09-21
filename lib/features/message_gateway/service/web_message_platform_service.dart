@@ -8747,7 +8747,7 @@ class WebMessagePlatformService {
             protocolLabel: provider.protocolType.storageValue,
             modelId: modelId,
             label: '${provider.providerLabel} / $modelId',
-            supportsDecisions: profile.supportsDecisions,
+            supportsDecisions: provider.usesDecisionProtocol,
             supportsAttachments: attachmentCapabilities.supportsAny,
             supportsImageInput: attachmentCapabilities.supportsImageInput,
             supportsVideoInput: attachmentCapabilities.supportsVideoInput,

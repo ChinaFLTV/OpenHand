@@ -12,7 +12,7 @@ abstract final class DecisionPayload {
     multiLine: true,
   );
   static final _requestFence = RegExp(
-    r'^ {0,3}(?:`{3,}|~{3,})openhand-decision-request[ \t]*\r?$',
+    r'^ {0,3}(`{3,}|~{3,})openhand-decision-request[ \t]*\r?$',
     multiLine: true,
   );
 
@@ -210,13 +210,19 @@ abstract final class DecisionPayload {
     if (text.length > maxCharacters) {
       throw FormatException(_tooLong);
     }
-    const marker = '```$requestLanguage\n';
-    final start = text.indexOf(marker);
+    final opening = _requestFence.firstMatch(text);
     Object? decoded;
-    if (start >= 0) {
-      final end = text.indexOf('```', start + marker.length);
-      if (end < 0) throw FormatException(_incomplete);
-      decoded = jsonDecode(text.substring(start + marker.length, end));
+    if (opening != null) {
+      final fence = opening[1]!;
+      final closing = RegExp(
+        '^ {0,3}${fence[0]}{${fence.length},}'
+        r'[ \t]*\r?$',
+        multiLine: true,
+      ).firstMatch(text.substring(opening.end));
+      if (closing == null) throw FormatException(_incomplete);
+      decoded = jsonDecode(
+        text.substring(opening.end, opening.end + closing.start),
+      );
     } else if (text.trimLeft().startsWith('{')) {
       decoded = jsonDecode(text);
     } else {
@@ -292,6 +298,9 @@ abstract final class DecisionPayload {
     final answers = response['answers'];
     if (answers is! Map || answers.isEmpty || answers.length > maxQuestions) {
       throw FormatException(_noAnswers);
+    }
+    if (answers.length != questions.length) {
+      throw FormatException(_answerMismatch);
     }
     for (final entry in questions.entries) {
       final answer = answers[entry.key];

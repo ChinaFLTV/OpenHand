@@ -81,7 +81,7 @@ void main() {
   });
   test('Jev 区分输入与输出，不参与标题生成或聊天请求', () {
     for (final id in ['jev-latest', 'jev-preview', 'jev-1.13.0', 'typesafe/jev-1.13', '~typesafe/jev-latest']) {
-      final config = model(id);
+      final config = model(id).copyWith(protocolType: AiProtocolType.jev);
       expect(AiTitleModelResolver.supportsTextTitleGeneration(config), isFalse);
       expect(config.resolvedSupportsThinking, isFalse);
       expect(() => AiThinkingRequestPolicy.normalizeModelRequestBody({}, config), throwsUnsupportedError);

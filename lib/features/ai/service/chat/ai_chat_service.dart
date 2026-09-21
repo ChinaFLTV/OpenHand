@@ -878,7 +878,7 @@ class AiChatService implements AiChatClient {
     bool allowResponsesFallback = true,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
-    if (model.profileFor(model.modelId).supportsDecisions) {
+    if (model.usesDecisionProtocol) {
       return AiDecisionsService(_client).evaluate(
         model: model,
         messages: messages,
@@ -1484,7 +1484,7 @@ class AiChatService implements AiChatClient {
       streamIdleTimeout,
     );
     _assertCreationModeIsRoutable(model, creationRequest);
-    if (model.profileFor(model.modelId).supportsDecisions) {
+    if (model.usesDecisionProtocol) {
       return _sendMessageAsSyntheticStream(
         model: model,
         messages: messages,
@@ -2931,7 +2931,7 @@ class AiChatService implements AiChatClient {
     required AiCreationRequest request,
     required List<String> requestFallbacks,
   }) {
-    if (model.profileFor(model.modelId).supportsDecisions) {
+    if (model.usesDecisionProtocol) {
       return AiApiFamily.decisions.storageValue;
     }
     if (request.isActive) return 'media_${request.mode.name}';
@@ -2952,6 +2952,7 @@ class AiChatService implements AiChatClient {
       return AiApiFamily.responses.storageValue;
     }
     return switch (model.apiDialect) {
+      AiApiDialect.jevNative => AiApiFamily.decisions.storageValue,
       AiApiDialect.anthropicNative => AiApiFamily.messages.storageValue,
       AiApiDialect.geminiNative => 'generate_content',
       AiApiDialect.openAiCompat => AiApiFamily.chatCompletions.storageValue,
@@ -3068,12 +3069,18 @@ class AiChatService implements AiChatClient {
     if (modelId == null) {
       throw const AiChatException('缺少模型 ID。');
     }
-    if (model.profileFor(model.modelId).supportsDecisions) {
-      final result = await sendMessage(
-        model: model,
-        messages: const [AiChatTurn(role: AiChatRole.user, content: '一加一等于二。')],
-        timeout: responseTimeout,
-        cancelSignal: cancelSignal,
+    if (model.usesDecisionProtocol) {
+      final result = await AiUsageTraceContext.runDerived(
+        source: AiUsageSource.modelTest,
+        operation: 'availability_probe',
+        body: () => sendMessage(
+          model: model,
+          messages: const [
+            AiChatTurn(role: AiChatRole.user, content: '一加一等于二。'),
+          ],
+          timeout: responseTimeout,
+          cancelSignal: cancelSignal,
+        ),
       );
       return AiModelTestResult(
         reply: result.reply,

@@ -14,7 +14,7 @@ import '../runtime/ai_transport_client.dart';
 import '../session_io/ai_token_usage_parser.dart';
 import 'ai_operation_http.dart';
 
-/// Jev 决策请求不携带聊天工具、思考参数或系统提示词，也不回退到聊天接口。
+/// Jev 协议请求不携带聊天工具、思考参数或系统提示词，也不回退到聊天接口。
 class AiDecisionsService {
   const AiDecisionsService(this.client);
   final http.Client client;
@@ -26,6 +26,9 @@ class AiDecisionsService {
     Future<void>? cancelSignal,
     void Function(AiChatRequestTelemetry)? onRequestStarted,
   }) async {
+    if (!model.usesDecisionProtocol) {
+      throw UnsupportedError('专属决策接口需要选择 Jev 协议。');
+    }
     final turn = messages.lastWhere(
       (item) => item.role == AiChatRole.user,
       orElse: () => throw FormatException(
@@ -42,7 +45,7 @@ class AiDecisionsService {
     if (turn.parts.any((part) => part.kind != AiChatContentPartKind.text)) {
       throw FormatException(
         openHandAmbientText(
-          zh: 'Jev 仅接收文本，请先将附件转成文本。',
+          zh: 'Jev 协议仅接收文本，请先将附件转成文本。',
           zhHant: 'Jev 僅接收文字，請先將附件轉成文字。',
           en: 'Jev accepts text only. Convert attachments to text first.',
           fr: 'Jev n’accepte que du texte. Convertissez d’abord les pièces jointes.',
@@ -58,6 +61,7 @@ class AiDecisionsService {
     final endpoint = const AiEndpointRouter().resolve(
       model,
       AiApiFamily.decisions,
+      method: model.requestMethod,
     );
     final headers = AiOperationHttp.buildHeaders(
       model: model,
@@ -80,6 +84,8 @@ class AiDecisionsService {
       ),
     );
     final transport = AiTransportClient(client: client);
+    String? raw;
+    int? statusCode;
     try {
       final response = await transport.sendJson(
         uri: uri,
@@ -90,10 +96,12 @@ class AiDecisionsService {
         cancelSignal: cancelSignal,
         maxResponseBytes: DecisionPayload.maxCharacters,
       );
-      final raw = utf8.decode(response.bodyBytes);
+      statusCode = response.statusCode;
+      raw = utf8.decode(response.bodyBytes);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw AiChatException(
           '${openHandAmbientText(zh: '决策接口请求失败', zhHant: '決策介面請求失敗', en: 'Decision API request failed', fr: 'Échec de la requête API de décision', de: 'Anfrage an die Entscheidungs-API fehlgeschlagen', ja: '意思決定 API のリクエストに失敗しました')}（${response.statusCode}）：${AiOperationHttp.extractErrorMessage(raw)}',
+          statusCode: response.statusCode,
           telemetry: AiChatRequestTelemetry(
             requestUrl: uri.toString(),
             requestMethod: endpoint.method,
@@ -117,10 +125,11 @@ class AiDecisionsService {
           ),
         );
       }
-      final result = DecisionPayload.result(
-        stringKeyedMapFromValue(decoded),
-        request['questions'] as Map<String, Object?>,
-      );
+      final result = DecisionPayload.result({
+        ...stringKeyedMapFromValue(decoded),
+        'model':
+            nullIfBlank(stringFromValue(decoded['model'])) ?? model.modelId,
+      }, request['questions'] as Map<String, Object?>);
       final ended = DateTime.now().toUtc();
       return AiChatCompletion(
         reply: DecisionPayload.encode(DecisionPayload.resultLanguage, result),
@@ -135,6 +144,21 @@ class AiDecisionsService {
         startedAt: started,
         endedAt: ended,
         durationMs: ended.difference(started).inMilliseconds,
+      );
+    } on FormatException catch (error) {
+      throw AiChatException(
+        error.message,
+        statusCode: statusCode,
+        telemetry: AiChatRequestTelemetry(
+          requestUrl: uri.toString(),
+          requestMethod: endpoint.method,
+          requestHeaders: headers,
+          requestBody: body,
+          rawResponse: raw,
+          startedAt: started,
+          endedAt: DateTime.now().toUtc(),
+          error: error.message,
+        ),
       );
     } finally {
       transport.dispose();

@@ -666,7 +666,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
           _tryDecodeJsonObject(_endpointOverridesController.text),
         ),
       );
-      if (config.profileFor(config.modelId).supportsDecisions) {
+      if (config.usesDecisionProtocol) {
         return (
           responses: '',
           chat: _endpointPreviewRouter
@@ -700,12 +700,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
     final colorScheme = theme.colorScheme;
     final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final preview = _previewChatEndpoints();
-    final usesDecisions =
-        AiModelCatalog.lookup(
-          _modelIdController.text,
-          _protocolType,
-        )?.supportsDecisions ==
-        true;
+    final usesDecisions = _protocolType == AiProtocolType.jev;
     final usesResponsesRouting =
         !usesDecisions && _apiDialect == AiApiDialect.openAiCompat;
     return Padding(
@@ -792,7 +787,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                         children: [
                           Text(
                             usesDecisions
-                                ? 'Jev 使用专用决策接口，返回选择、评分或判断，不回退到聊天接口。'
+                                ? 'Jev 协议 · 支持任意兼容模型，专用于选择、评分和判断。'
                                 : usesResponsesRouting
                                 ? preview.responses.isNotEmpty
                                       ? _responsesCapabilityStatus ==
@@ -1146,6 +1141,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                   kOpenHandGap16,
                   Expanded(
                     child: SingleChildScrollView(
+                      padding: const EdgeInsets.only(top: 8),
                       // 禁用 macOS 触控板回弹，避免限高弹窗快速滚动时抖动。
                       physics: const ClampingScrollPhysics(),
                       child: Form(
@@ -1571,49 +1567,51 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                               onChanged: (value) => _selectModelId(value ?? ''),
                             ),
                             kOpenHandGap16,
-                            _buildModelIdDropdown(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '默认标题生成模型 ID',
-                                en: 'Default Title Model ID',
-                              ),
-                              helperText: openHandLocalizedText(
-                                context,
-                                zh: '当前线程模型不适合生成文本标题时，会优先回退到这里选择的同提供商模型。',
-                                en: 'When the thread model is not suitable for text titles, title generation falls back to this sibling provider model first.',
-                              ),
-                              selectedModelId: _defaultTitleModelId,
-                              allowUnset: true,
-                              onChanged: _selectDefaultTitleModelId,
-                            ),
-                            kOpenHandGap16,
-                            TextFormField(
-                              controller: _maxContextTokensController,
-                              enabled: !_isSaving,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: AppLocalizations.of(
+                            if (_protocolType != AiProtocolType.jev) ...[
+                              _buildModelIdDropdown(
+                                label: openHandLocalizedText(
                                   context,
-                                )!.mdlEdMaxContextTokens,
-                                helperText: AppLocalizations.of(
+                                  zh: '默认标题生成模型 ID',
+                                  en: 'Default Title Model ID',
+                                ),
+                                helperText: openHandLocalizedText(
                                   context,
-                                )!.mdlEdOptionalLimitsTheHistorySliceUsed,
+                                  zh: '当前线程模型不适合生成文本标题时，会优先回退到这里选择的同提供商模型。',
+                                  en: 'When the thread model is not suitable for text titles, title generation falls back to this sibling provider model first.',
+                                ),
+                                selectedModelId: _defaultTitleModelId,
+                                allowUnset: true,
+                                onChanged: _selectDefaultTitleModelId,
                               ),
-                              validator: (value) {
-                                final trimmed = value?.trim() ?? '';
-                                if (trimmed.isEmpty) {
-                                  return null;
-                                }
-                                if (optionalPositiveIntFromText(trimmed) ==
-                                    null) {
-                                  return AppLocalizations.of(
+                              kOpenHandGap16,
+                              TextFormField(
+                                controller: _maxContextTokensController,
+                                enabled: !_isSaving,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: AppLocalizations.of(
                                     context,
-                                  )!.mdlEdEnterAWholeNumberGreaterThan;
-                                }
-                                return null;
-                              },
-                            ),
-                            kOpenHandGap16,
+                                  )!.mdlEdMaxContextTokens,
+                                  helperText: AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdOptionalLimitsTheHistorySliceUsed,
+                                ),
+                                validator: (value) {
+                                  final trimmed = value?.trim() ?? '';
+                                  if (trimmed.isEmpty) {
+                                    return null;
+                                  }
+                                  if (optionalPositiveIntFromText(trimmed) ==
+                                      null) {
+                                    return AppLocalizations.of(
+                                      context,
+                                    )!.mdlEdEnterAWholeNumberGreaterThan;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              kOpenHandGap16,
+                            ],
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -1677,7 +1675,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                   child: Row(
                                     children: [
                                       Text(
-                                        _streamEnabled
+                                        _streamEnabled &&
+                                                _protocolType !=
+                                                    AiProtocolType.jev
                                             ? AppLocalizations.of(
                                                 context,
                                               )!.mdlEdStreaming
@@ -1694,7 +1694,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                       ),
                                       const Spacer(),
                                       Switch(
-                                        value: _streamEnabled,
+                                        value:
+                                            _streamEnabled &&
+                                            _protocolType != AiProtocolType.jev,
                                         onChanged: null,
                                       ),
                                     ],
@@ -1725,6 +1727,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
+                                if (_protocolType == AiProtocolType.jev) {
+                                  return const SizedBox.shrink();
+                                }
                                 final maxTokensField = TextFormField(
                                   controller: _maxTokensController,
                                   enabled: !_isSaving,
@@ -1822,6 +1827,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     AnimatedDropdownButtonFormField<
                                       AiApiDialect
                                     >(
+                                      key: ValueKey(_protocolType),
                                       initialValue: _apiDialect,
                                       decoration: InputDecoration(
                                         labelText: openHandLocalizedText(
@@ -1835,6 +1841,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                         ),
                                       ),
                                       items: AiApiDialect.values
+                                          .where(
+                                            (item) =>
+                                                _protocolType ==
+                                                    AiProtocolType.jev
+                                                ? item == AiApiDialect.jevNative
+                                                : item !=
+                                                      AiApiDialect.jevNative,
+                                          )
                                           .map(
                                             (item) =>
                                                 DropdownMenuItem<AiApiDialect>(
@@ -1913,331 +1927,335 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                               },
                             ),
                             kOpenHandGap16,
-                            TextField(
-                              controller: _responsesModelIdController,
-                              enabled: !_isSaving,
-                              decoration: InputDecoration(
-                                labelText: openHandLocalizedText(
-                                  context,
-                                  zh: 'Responses 模型 ID（可选）',
-                                  zhHant: 'Responses 模型 ID（選填）',
-                                  en: 'Responses Model ID (optional)',
-                                  fr: 'ID du modèle Responses (facultatif)',
-                                  de: 'Responses-Modell-ID (optional)',
-                                  ja: 'Responses モデル ID（任意）',
+                            if (_protocolType != AiProtocolType.jev) ...[
+                              TextField(
+                                controller: _responsesModelIdController,
+                                enabled: !_isSaving,
+                                decoration: InputDecoration(
+                                  labelText: openHandLocalizedText(
+                                    context,
+                                    zh: 'Responses 模型 ID（可选）',
+                                    zhHant: 'Responses 模型 ID（選填）',
+                                    en: 'Responses Model ID (optional)',
+                                    fr: 'ID du modèle Responses (facultatif)',
+                                    de: 'Responses-Modell-ID (optional)',
+                                    ja: 'Responses モデル ID（任意）',
+                                  ),
                                 ),
                               ),
-                            ),
-                            kOpenHandGap12,
-                            TextField(
-                              controller: _embeddingModelIdController,
-                              enabled: !_isSaving,
-                              decoration: InputDecoration(
-                                labelText: openHandLocalizedText(
-                                  context,
-                                  zh: 'Embeddings 模型 ID（可选）',
-                                  zhHant: 'Embeddings 模型 ID（選填）',
-                                  en: 'Embeddings Model ID (optional)',
-                                  fr: 'ID du modèle Embeddings (facultatif)',
-                                  de: 'Embeddings-Modell-ID (optional)',
-                                  ja: 'Embeddings モデル ID（任意）',
+                              kOpenHandGap12,
+                              TextField(
+                                controller: _embeddingModelIdController,
+                                enabled: !_isSaving,
+                                decoration: InputDecoration(
+                                  labelText: openHandLocalizedText(
+                                    context,
+                                    zh: 'Embeddings 模型 ID（可选）',
+                                    zhHant: 'Embeddings 模型 ID（選填）',
+                                    en: 'Embeddings Model ID (optional)',
+                                    fr: 'ID du modèle Embeddings (facultatif)',
+                                    de: 'Embeddings-Modell-ID (optional)',
+                                    ja: 'Embeddings モデル ID（任意）',
+                                  ),
                                 ),
                               ),
-                            ),
-                            kOpenHandGap12,
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final stacked = constraints.maxWidth < 640;
-                                final moderationField = TextField(
-                                  controller: _moderationModelIdController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: 'Moderations 模型 ID（可选）',
-                                      zhHant: 'Moderations 模型 ID（選填）',
-                                      en: 'Moderations Model ID (optional)',
-                                      fr: 'ID du modèle Moderations (facultatif)',
-                                      de: 'Moderations-Modell-ID (optional)',
-                                      ja: 'Moderations モデル ID（任意）',
+                              kOpenHandGap12,
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final moderationField = TextField(
+                                    controller: _moderationModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: 'Moderations 模型 ID（可选）',
+                                        zhHant: 'Moderations 模型 ID（選填）',
+                                        en: 'Moderations Model ID (optional)',
+                                        fr: 'ID du modèle Moderations (facultatif)',
+                                        de: 'Moderations-Modell-ID (optional)',
+                                        ja: 'Moderations モデル ID（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                final rerankField = TextField(
-                                  controller: _rerankModelIdController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: 'Rerank 模型 ID（可选）',
-                                      zhHant: 'Rerank 模型 ID（選填）',
-                                      en: 'Rerank Model ID (optional)',
-                                      fr: 'ID du modèle Rerank (facultatif)',
-                                      de: 'Rerank-Modell-ID (optional)',
-                                      ja: 'Rerank モデル ID（任意）',
+                                  );
+                                  final rerankField = TextField(
+                                    controller: _rerankModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: 'Rerank 模型 ID（可选）',
+                                        zhHant: 'Rerank 模型 ID（選填）',
+                                        en: 'Rerank Model ID (optional)',
+                                        fr: 'ID du modèle Rerank (facultatif)',
+                                        de: 'Rerank-Modell-ID (optional)',
+                                        ja: 'Rerank モデル ID（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                if (stacked) {
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        moderationField,
+                                        kOpenHandGap12,
+                                        rerankField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
                                     children: [
-                                      moderationField,
-                                      kOpenHandGap12,
-                                      rerankField,
+                                      Expanded(child: moderationField),
+                                      kOpenHandHGap16,
+                                      Expanded(child: rerankField),
                                     ],
                                   );
-                                }
-                                return Row(
-                                  children: [
-                                    Expanded(child: moderationField),
-                                    kOpenHandHGap16,
-                                    Expanded(child: rerankField),
-                                  ],
-                                );
-                              },
-                            ),
-                            kOpenHandGap12,
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final stacked = constraints.maxWidth < 640;
-                                final imageField = TextField(
-                                  controller: _imageModelIdController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: '图像模型 ID（可选）',
-                                      zhHant: '影像模型 ID（選填）',
-                                      en: 'Image Model ID (optional)',
-                                      fr: 'ID du modèle image (facultatif)',
-                                      de: 'Bildmodell-ID (optional)',
-                                      ja: '画像モデル ID（任意）',
+                                },
+                              ),
+                              kOpenHandGap12,
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final imageField = TextField(
+                                    controller: _imageModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: '图像模型 ID（可选）',
+                                        zhHant: '影像模型 ID（選填）',
+                                        en: 'Image Model ID (optional)',
+                                        fr: 'ID du modèle image (facultatif)',
+                                        de: 'Bildmodell-ID (optional)',
+                                        ja: '画像モデル ID（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                final videoField = TextField(
-                                  controller: _videoModelIdController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: '视频模型 ID（可选）',
-                                      zhHant: '影片模型 ID（選填）',
-                                      en: 'Video Model ID (optional)',
-                                      fr: 'ID du modèle vidéo (facultatif)',
-                                      de: 'Videomodell-ID (optional)',
-                                      ja: '動画モデル ID（任意）',
+                                  );
+                                  final videoField = TextField(
+                                    controller: _videoModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: '视频模型 ID（可选）',
+                                        zhHant: '影片模型 ID（選填）',
+                                        en: 'Video Model ID (optional)',
+                                        fr: 'ID du modèle vidéo (facultatif)',
+                                        de: 'Videomodell-ID (optional)',
+                                        ja: '動画モデル ID（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                if (stacked) {
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        imageField,
+                                        kOpenHandGap12,
+                                        videoField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
                                     children: [
-                                      imageField,
-                                      kOpenHandGap12,
-                                      videoField,
+                                      Expanded(child: imageField),
+                                      kOpenHandHGap16,
+                                      Expanded(child: videoField),
                                     ],
                                   );
-                                }
-                                return Row(
-                                  children: [
-                                    Expanded(child: imageField),
-                                    kOpenHandHGap16,
-                                    Expanded(child: videoField),
-                                  ],
-                                );
-                              },
-                            ),
-                            kOpenHandGap12,
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final stacked = constraints.maxWidth < 640;
-                                final speechField = TextField(
-                                  controller: _speechModelIdController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: '语音模型 ID（可选）',
-                                      zhHant: '語音模型 ID（選填）',
-                                      en: 'Speech Model ID (optional)',
-                                      fr: 'ID du modèle vocal (facultatif)',
-                                      de: 'Sprachmodell-ID (optional)',
-                                      ja: '音声モデル ID（任意）',
+                                },
+                              ),
+                              kOpenHandGap12,
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final speechField = TextField(
+                                    controller: _speechModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: '语音模型 ID（可选）',
+                                        zhHant: '語音模型 ID（選填）',
+                                        en: 'Speech Model ID (optional)',
+                                        fr: 'ID du modèle vocal (facultatif)',
+                                        de: 'Sprachmodell-ID (optional)',
+                                        ja: '音声モデル ID（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                final voiceField = TextField(
-                                  controller: _defaultVoiceController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: '默认 Voice（可选）',
-                                      zhHant: '預設 Voice（選填）',
-                                      en: 'Default Voice (optional)',
-                                      fr: 'Voix par défaut (facultatif)',
-                                      de: 'Standard-Voice (optional)',
-                                      ja: 'デフォルト Voice（任意）',
+                                  );
+                                  final voiceField = TextField(
+                                    controller: _defaultVoiceController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: '默认 Voice（可选）',
+                                        zhHant: '預設 Voice（選填）',
+                                        en: 'Default Voice (optional)',
+                                        fr: 'Voix par défaut (facultatif)',
+                                        de: 'Standard-Voice (optional)',
+                                        ja: 'デフォルト Voice（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                if (stacked) {
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        speechField,
+                                        kOpenHandGap12,
+                                        voiceField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
                                     children: [
-                                      speechField,
-                                      kOpenHandGap12,
-                                      voiceField,
+                                      Expanded(child: speechField),
+                                      kOpenHandHGap16,
+                                      Expanded(child: voiceField),
                                     ],
                                   );
-                                }
-                                return Row(
-                                  children: [
-                                    Expanded(child: speechField),
-                                    kOpenHandHGap16,
-                                    Expanded(child: voiceField),
-                                  ],
-                                );
-                              },
-                            ),
-                            kOpenHandGap12,
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final stacked = constraints.maxWidth < 640;
-                                final transcriptionField = TextField(
-                                  controller: _transcriptionModelIdController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: 'Transcription 模型 ID（可选）',
-                                      zhHant: 'Transcription 模型 ID（選填）',
-                                      en: 'Transcription Model ID (optional)',
-                                      fr: 'ID du modèle Transcription (facultatif)',
-                                      de: 'Transcription-Modell-ID (optional)',
-                                      ja: 'Transcription モデル ID（任意）',
+                                },
+                              ),
+                              kOpenHandGap12,
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final transcriptionField = TextField(
+                                    controller: _transcriptionModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: 'Transcription 模型 ID（可选）',
+                                        zhHant: 'Transcription 模型 ID（選填）',
+                                        en: 'Transcription Model ID (optional)',
+                                        fr: 'ID du modèle Transcription (facultatif)',
+                                        de: 'Transcription-Modell-ID (optional)',
+                                        ja: 'Transcription モデル ID（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                final translationField = TextField(
-                                  controller: _translationModelIdController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: 'Translation 模型 ID（可选）',
-                                      zhHant: 'Translation 模型 ID（選填）',
-                                      en: 'Translation Model ID (optional)',
-                                      fr: 'ID du modèle Translation (facultatif)',
-                                      de: 'Translation-Modell-ID (optional)',
-                                      ja: 'Translation モデル ID（任意）',
+                                  );
+                                  final translationField = TextField(
+                                    controller: _translationModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: 'Translation 模型 ID（可选）',
+                                        zhHant: 'Translation 模型 ID（選填）',
+                                        en: 'Translation Model ID (optional)',
+                                        fr: 'ID du modèle Translation (facultatif)',
+                                        de: 'Translation-Modell-ID (optional)',
+                                        ja: 'Translation モデル ID（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                if (stacked) {
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        transcriptionField,
+                                        kOpenHandGap12,
+                                        translationField,
+                                      ],
+                                    );
+                                  }
+                                  return Row(
                                     children: [
-                                      transcriptionField,
-                                      kOpenHandGap12,
-                                      translationField,
+                                      Expanded(child: transcriptionField),
+                                      kOpenHandHGap16,
+                                      Expanded(child: translationField),
                                     ],
                                   );
-                                }
-                                return Row(
-                                  children: [
-                                    Expanded(child: transcriptionField),
-                                    kOpenHandHGap16,
-                                    Expanded(child: translationField),
-                                  ],
-                                );
-                              },
-                            ),
-                            kOpenHandGap12,
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final stacked = constraints.maxWidth < 640;
-                                final realtimeTransportField = TextField(
-                                  controller: _realtimeTransportController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: 'Realtime Transport（可选）',
-                                      zhHant: 'Realtime Transport（選填）',
-                                      en: 'Realtime Transport (optional)',
-                                      fr: 'Transport Realtime (facultatif)',
-                                      de: 'Realtime-Transport (optional)',
-                                      ja: 'Realtime Transport（任意）',
+                                },
+                              ),
+                              kOpenHandGap12,
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stacked = constraints.maxWidth < 640;
+                                  final realtimeTransportField = TextField(
+                                    controller: _realtimeTransportController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: 'Realtime Transport（可选）',
+                                        zhHant: 'Realtime Transport（選填）',
+                                        en: 'Realtime Transport (optional)',
+                                        fr: 'Transport Realtime (facultatif)',
+                                        de: 'Realtime-Transport (optional)',
+                                        ja: 'Realtime Transport（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                final realtimeUrlField = TextField(
-                                  controller: _realtimeUrlOverrideController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: 'Realtime URL Override（可选）',
-                                      zhHant: 'Realtime URL Override（選填）',
-                                      en: 'Realtime URL Override (optional)',
-                                      fr: 'URL Realtime personnalisée (facultatif)',
-                                      de: 'Realtime-URL-Override (optional)',
-                                      ja: 'Realtime URL Override（任意）',
+                                  );
+                                  final realtimeUrlField = TextField(
+                                    controller: _realtimeUrlOverrideController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: 'Realtime URL Override（可选）',
+                                        zhHant: 'Realtime URL Override（選填）',
+                                        en: 'Realtime URL Override (optional)',
+                                        fr: 'URL Realtime personnalisée (facultatif)',
+                                        de: 'Realtime-URL-Override (optional)',
+                                        ja: 'Realtime URL Override（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                final realtimeModelField = TextField(
-                                  controller: _realtimeModelIdController,
-                                  enabled: !_isSaving,
-                                  decoration: InputDecoration(
-                                    labelText: openHandLocalizedText(
-                                      context,
-                                      zh: 'Realtime 模型 ID（可选）',
-                                      zhHant: 'Realtime 模型 ID（選填）',
-                                      en: 'Realtime Model ID (optional)',
-                                      fr: 'ID du modèle Realtime (facultatif)',
-                                      de: 'Realtime-Modell-ID (optional)',
-                                      ja: 'Realtime モデル ID（任意）',
+                                  );
+                                  final realtimeModelField = TextField(
+                                    controller: _realtimeModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: openHandLocalizedText(
+                                        context,
+                                        zh: 'Realtime 模型 ID（可选）',
+                                        zhHant: 'Realtime 模型 ID（選填）',
+                                        en: 'Realtime Model ID (optional)',
+                                        fr: 'ID du modèle Realtime (facultatif)',
+                                        de: 'Realtime-Modell-ID (optional)',
+                                        ja: 'Realtime モデル ID（任意）',
+                                      ),
                                     ),
-                                  ),
-                                );
-                                if (stacked) {
+                                  );
+                                  if (stacked) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        realtimeTransportField,
+                                        kOpenHandGap12,
+                                        realtimeUrlField,
+                                        kOpenHandGap12,
+                                        realtimeModelField,
+                                      ],
+                                    );
+                                  }
                                   return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
                                     children: [
-                                      realtimeTransportField,
-                                      kOpenHandGap12,
-                                      realtimeUrlField,
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: realtimeTransportField,
+                                          ),
+                                          kOpenHandHGap16,
+                                          Expanded(child: realtimeUrlField),
+                                        ],
+                                      ),
                                       kOpenHandGap12,
                                       realtimeModelField,
                                     ],
                                   );
-                                }
-                                return Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(child: realtimeTransportField),
-                                        kOpenHandHGap16,
-                                        Expanded(child: realtimeUrlField),
-                                      ],
-                                    ),
-                                    kOpenHandGap12,
-                                    realtimeModelField,
-                                  ],
-                                );
-                              },
-                            ),
-                            kOpenHandGap12,
+                                },
+                              ),
+                              kOpenHandGap12,
+                            ],
                             TextField(
                               controller: _endpointOverridesController,
                               enabled: !_isSaving,
@@ -2283,7 +2301,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                 ),
                                 helperText: openHandLocalizedText(
                                   context,
-                                  zh: '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
+                                  zh: _protocolType == AiProtocolType.jev
+                                      ? '决策接口支持 decisions 下的 headers、query 扩展；请求正文仅发送模型、状态和问题。'
+                                      : '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
                                   zhHant:
                                       '放置 responses/realtime/影片等操作的 provider-specific 擴充參數。',
                                   en: 'Provider-specific extras for responses/realtime/video operations.',
@@ -2297,6 +2317,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
+                                if (_protocolType == AiProtocolType.jev) {
+                                  return const SizedBox.shrink();
+                                }
                                 final showsResponsesRouting =
                                     _apiDialect == AiApiDialect.openAiCompat;
                                 Widget dropdown({
@@ -3183,6 +3206,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _capabilities = _inferCapabilities();
       }
     }
+    if (widget.protocolType == AiProtocolType.jev) {
+      _capabilities.clear();
+      _thinkingEnabled = false;
+      _reasoningEffortControlEnabled = false;
+      for (final draft in _reasoningEffortOptionDrafts) {
+        draft.dispose();
+      }
+      _reasoningEffortOptionDrafts.clear();
+      _maxThinkingLengthController.clear();
+      _supportedParametersController.text = 'model, state, questions';
+      _defaultParametersController.text = '{}';
+    }
     if (_capabilities.contains(AiModelCapability.readerConversion)) {
       _ensureDefaultReaderTypes();
     }
@@ -3647,11 +3682,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       defaultParameters: defaultParameters,
       isGlobalDefaultTitleModel:
           _isGlobalDefaultTitleModel &&
-          AiModelCatalog.lookup(
-                _modelIdController.text,
-                widget.protocolType,
-              )?.supportsDecisions !=
-              true,
+          widget.protocolType != AiProtocolType.jev,
       embeddingDimensions: optionalPositiveIntFromText(
         _embeddingDimensionsController.text,
       ),
@@ -3737,7 +3768,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           _capabilities.contains(AiModelCapability.readerConversion)
           ? ReaderFileType.normalizeList(_readerTargetTypes)
           : const <String>[],
-    );
+    ).forProtocol(widget.protocolType);
   }
 
   void _save() {
@@ -3813,6 +3844,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   }
 
   void _initializeOneMillionContextState() {
+    if (widget.protocolType == AiProtocolType.jev) {
+      _oneMillionContextEnabled = false;
+      return;
+    }
     final initialModelIdText = _modelIdController.text;
     final initialMaxContextText = _maxContextLengthController.text;
     _oneMillionContextEnabled = AiOneMillionContextPolicy.isEnabledBy(
@@ -3894,12 +3929,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget _buildGlobalDefaultTitleModelControl() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final decisionOnly =
-        AiModelCatalog.lookup(
-          _modelIdController.text,
-          widget.protocolType,
-        )?.supportsDecisions ==
-        true;
+    final decisionOnly = widget.protocolType == AiProtocolType.jev;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -5077,760 +5107,766 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       ),
                 ),
                 kOpenHandGap16,
-                _buildOptionalBoolControl(
-                  title: l10n.mdlEdMultimodalSupport,
-                  value: _isMultimodal,
-                  onChanged: (value) => setState(() => _isMultimodal = value),
-                ),
-                kOpenHandGap16,
-                _buildOptionalBoolControl(
-                  title: l10n.mdlEdSupportsAttachments,
-                  value: _supportsAttachments,
-                  onChanged: (value) =>
-                      setState(() => _supportsAttachments = value),
-                ),
-                kOpenHandGap16,
-
-                _buildThinkingEnabledControl(),
-                kOpenHandGap16,
-
-                _buildReasoningEffortControl(),
-                kOpenHandGap16,
-
-                _buildOptionalBoolControl(
-                  title: l10n.mdlEdReasoningEcho,
-                  subtitle: l10n.mdlEdReasoningEchoHint,
-                  value: _requiresReasoningEcho,
-                  onChanged: (value) =>
-                      setState(() => _requiresReasoningEcho = value),
-                ),
-                kOpenHandGap16,
-
-                _buildSectionHeader(
-                  AppLocalizations.of(context)!.mdlEdSupportedModalities,
-                ),
-                kOpenHandGap8,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: AiModelModality.values
-                      .map((m) {
-                        final label = switch (m) {
-                          AiModelModality.text => AppLocalizations.of(
-                            context,
-                          )!.mdlEdText,
-                          AiModelModality.image => AppLocalizations.of(
-                            context,
-                          )!.mdlEdImage,
-                          AiModelModality.video => AppLocalizations.of(
-                            context,
-                          )!.mdlEdVideo,
-                          AiModelModality.audio => AppLocalizations.of(
-                            context,
-                          )!.mdlEdAudio,
-                          AiModelModality.file => 'File',
-                        };
-                        return FilterChip(
-                          label: Text(label),
-                          selected: _supportedModalities.contains(m),
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _supportedModalities.add(m);
-                              } else {
-                                _supportedModalities.remove(m);
-                              }
-                            });
-                          },
-                        );
-                      })
-                      .toList(growable: false),
-                ),
-                kOpenHandGap16,
-                _buildSectionHeader(
-                  AppLocalizations.of(context)!.mdlEdGenerationCapabilities,
-                ),
-                kOpenHandGap8,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: AiModelCapability.values
-                      .map((c) {
-                        final label = switch (c) {
-                          AiModelCapability.imageGeneration =>
-                            AppLocalizations.of(context)!.mdlEdImage,
-                          AiModelCapability.videoGeneration =>
-                            AppLocalizations.of(context)!.mdlEdVideo,
-                          AiModelCapability.audioGeneration =>
-                            AppLocalizations.of(context)!.mdlEdAudio,
-                          AiModelCapability.pdfGeneration =>
-                            AppLocalizations.of(context)!.mdlEdPdf,
-                          AiModelCapability.pptGeneration =>
-                            AppLocalizations.of(context)!.mdlEdPpt,
-                          AiModelCapability.embeddingGeneration =>
-                            openHandLocalizedText(
-                              context,
-                              zh: '嵌入生成',
-                              zhHant: '嵌入生成',
-                              en: 'Embeddings',
-                              fr: 'Embeddings',
-                              de: 'Embeddings',
-                              ja: '埋め込み生成',
-                            ),
-                          AiModelCapability.rerank => openHandLocalizedText(
-                            context,
-                            zh: '重排序',
-                            zhHant: '重排序',
-                            en: 'Rerank',
-                            fr: 'Rerank',
-                            de: 'Rerank',
-                            ja: '再ランキング',
-                          ),
-                          AiModelCapability.readerConversion =>
-                            openHandLocalizedText(
-                              context,
-                              zh: '读取转换',
-                              zhHant: '讀取轉換',
-                              en: 'Read Convert',
-                              fr: 'Conversion de lecture',
-                              de: 'Lesekonvertierung',
-                              ja: '読み取り変換',
-                            ),
-                        };
-                        return FilterChip(
-                          label: Text(label),
-                          selected: _capabilities.contains(c),
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _capabilities.add(c);
-                                if (c == AiModelCapability.readerConversion) {
-                                  _ensureDefaultReaderTypes();
-                                }
-                              } else {
-                                _capabilities.remove(c);
-                                if (c == AiModelCapability.readerConversion) {
-                                  _readerSourceTypes.clear();
-                                  _readerTargetTypes.clear();
-                                }
-                              }
-                            });
-                          },
-                        );
-                      })
-                      .toList(growable: false),
-                ),
-                kOpenHandGap16,
-
-                if (_capabilities.contains(
-                  AiModelCapability.readerConversion,
-                )) ...[
-                  _buildSectionHeader(
-                    openHandLocalizedText(
-                      context,
-                      zh: '读取转换配置',
-                      zhHant: '讀取轉換設定',
-                      en: 'Read Conversion',
-                      fr: 'Conversion de lecture',
-                      de: 'Lesekonvertierung',
-                      ja: '読み取り変換設定',
-                    ),
-                  ),
-                  kOpenHandGap8,
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '配置该模型可读取的源文件类型，以及可转换输出的目标类型。知识库模型解析会按这里的能力筛选模型。',
-                      zhHant:
-                          '設定該模型可讀取的來源檔案類型，以及可轉換輸出的目標類型。知識庫模型解析會依這裡的能力篩選模型。',
-                      en: 'Configure source file types this model can read and target types it can output. Knowledge Base model parsing filters by these capabilities.',
-                      fr: 'Configurez les types source lisibles et les types cible produits. La base de connaissances filtre les modèles avec ces capacités.',
-                      de: 'Konfiguriere lesbare Quelldateitypen und mögliche Zieltypen. Die Wissensbasis filtert Modelle nach diesen Fähigkeiten.',
-                      ja: 'このモデルが読み取れるソースファイル種別と、出力できるターゲット種別を設定します。ナレッジベース解析はこの能力でモデルを絞り込みます。',
-                    ),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  kOpenHandGap10,
-                  _buildReaderTypeChips(
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '源文件类型',
-                      zhHant: '來源檔案類型',
-                      en: 'Source Types',
-                      fr: 'Types source',
-                      de: 'Quelltypen',
-                      ja: 'ソース種別',
-                    ),
-                    values: ReaderFileType.sourceTypes,
-                    selected: _readerSourceTypes,
-                    onChanged: (next) =>
-                        setState(() => _readerSourceTypes = next),
-                  ),
-                  kOpenHandGap12,
-                  _buildReaderTypeChips(
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '目标文件类型',
-                      zhHant: '目標檔案類型',
-                      en: 'Target Types',
-                      fr: 'Types cible',
-                      de: 'Zieltypen',
-                      ja: 'ターゲット種別',
-                    ),
-                    values: ReaderFileType.targetTypes,
-                    selected: _readerTargetTypes,
-                    onChanged: (next) =>
-                        setState(() => _readerTargetTypes = next),
+                if (widget.protocolType != AiProtocolType.jev) ...[
+                  _buildOptionalBoolControl(
+                    title: l10n.mdlEdMultimodalSupport,
+                    value: _isMultimodal,
+                    onChanged: (value) => setState(() => _isMultimodal = value),
                   ),
                   kOpenHandGap16,
-                ],
-
-                if (_capabilities.contains(
-                  AiModelCapability.embeddingGeneration,
-                )) ...[
-                  _buildSectionHeader(
-                    openHandLocalizedText(
-                      context,
-                      zh: '嵌入生成配置',
-                      zhHant: '嵌入生成設定',
-                      en: 'Embedding Configuration',
-                      fr: 'Configuration des embeddings',
-                      de: 'Embedding-Konfiguration',
-                      ja: '埋め込み生成設定',
-                    ),
-                  ),
-                  kOpenHandGap8,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingDimensionsController,
-                          keyboardType: TextInputType.number,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '默认维度',
-                            zhHant: '預設維度',
-                            en: 'Default Dimensions',
-                            fr: 'Dimensions par défaut',
-                            de: 'Standarddimensionen',
-                            ja: 'デフォルト次元',
-                          ),
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingMaxInputTokensController,
-                          keyboardType: TextInputType.number,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '单条最大输入 tokens',
-                            zhHant: '單筆最大輸入 tokens',
-                            en: 'Max Input Tokens',
-                            fr: 'Tokens d’entrée max',
-                            de: 'Max. Eingabe-Tokens',
-                            ja: '最大入力トークン',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingEndpointPathController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '嵌入 endpoint path',
-                            zhHant: '嵌入 endpoint path',
-                            en: 'Embedding Endpoint Path',
-                            fr: 'Chemin endpoint embeddings',
-                            de: 'Embedding-Endpoint-Pfad',
-                            ja: '埋め込み endpoint path',
-                          ),
-                          hint: '/v1/embeddings',
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingBatchSizeController,
-                          keyboardType: TextInputType.number,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '建议 batch size',
-                            zhHant: '建議 batch size',
-                            en: 'Suggested Batch Size',
-                            fr: 'Batch size suggéré',
-                            de: 'Empfohlene Batch-Größe',
-                            ja: '推奨 batch size',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingQueryModelIdController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: 'Query 模型 ID',
-                            zhHant: 'Query 模型 ID',
-                            en: 'Query Model ID',
-                            fr: 'ID modèle Query',
-                            de: 'Query-Modell-ID',
-                            ja: 'Query モデル ID',
-                          ),
-                          hint: widget.modelId,
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingDocumentModelIdController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: 'Document 模型 ID',
-                            zhHant: 'Document 模型 ID',
-                            en: 'Document Model ID',
-                            fr: 'ID modèle Document',
-                            de: 'Document-Modell-ID',
-                            ja: 'Document モデル ID',
-                          ),
-                          hint: widget.modelId,
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingMinDimensionsController,
-                          keyboardType: TextInputType.number,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '最小可选维度',
-                            zhHant: '最小可選維度',
-                            en: 'Min Dimensions',
-                            fr: 'Dimensions min',
-                            de: 'Min. Dimensionen',
-                            ja: '最小次元',
-                          ),
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingMaxDimensionsController,
-                          keyboardType: TextInputType.number,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '最大可选维度',
-                            zhHant: '最大可選維度',
-                            en: 'Max Dimensions',
-                            fr: 'Dimensions max',
-                            de: 'Max. Dimensionen',
-                            ja: '最大次元',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingInputTypesController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '输入类型（逗号分隔）',
-                            zhHant: '輸入類型（逗號分隔）',
-                            en: 'Input Types (CSV)',
-                            fr: 'Types d’entrée (CSV)',
-                            de: 'Eingabetypen (CSV)',
-                            ja: '入力タイプ（CSV）',
-                          ),
-                          hint: 'text, image',
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingSupportedTaskTypesController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '任务类型（逗号分隔）',
-                            zhHant: '任務類型（逗號分隔）',
-                            en: 'Task Types (CSV)',
-                            fr: 'Types de tâche (CSV)',
-                            de: 'Aufgabentypen (CSV)',
-                            ja: 'タスクタイプ（CSV）',
-                          ),
-                          hint: 'retrieval_query, retrieval_document',
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingDefaultInputTypeController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '默认输入类型',
-                            zhHant: '預設輸入類型',
-                            en: 'Default Input Type',
-                            fr: 'Type d’entrée par défaut',
-                            de: 'Standard-Eingabetyp',
-                            ja: 'デフォルト入力タイプ',
-                          ),
-                          hint: 'document',
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingQueryInputTypeController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: 'Query 输入类型',
-                            zhHant: 'Query 輸入類型',
-                            en: 'Query Input Type',
-                            fr: 'Type d’entrée Query',
-                            de: 'Query-Eingabetyp',
-                            ja: 'Query 入力タイプ',
-                          ),
-                          hint: 'query',
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  _buildCompactTextField(
-                    controller: _embeddingDocumentInputTypeController,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: 'Document 输入类型',
-                      zhHant: 'Document 輸入類型',
-                      en: 'Document Input Type',
-                      fr: 'Type d’entrée Document',
-                      de: 'Document-Eingabetyp',
-                      ja: 'Document 入力タイプ',
-                    ),
-                    hint: 'document',
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingDefaultTaskTypeController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '默认任务类型',
-                            zhHant: '預設任務類型',
-                            en: 'Default Task Type',
-                            fr: 'Type de tâche par défaut',
-                            de: 'Standard-Aufgabentyp',
-                            ja: 'デフォルトタスクタイプ',
-                          ),
-                          hint: 'retrieval_document',
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingSimilarityMetricController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '相似度/距离类型',
-                            zhHant: '相似度/距離類型',
-                            en: 'Similarity Metric',
-                            fr: 'Métrique de similarité',
-                            de: 'Ähnlichkeitsmetrik',
-                            ja: '類似度メトリック',
-                          ),
-                          hint: 'cosine',
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingDefaultQueryTaskTypeController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: 'Query 任务类型',
-                            zhHant: 'Query 任務類型',
-                            en: 'Query Task Type',
-                            fr: 'Type de tâche Query',
-                            de: 'Query-Aufgabentyp',
-                            ja: 'Query タスクタイプ',
-                          ),
-                          hint: 'RETRIEVAL_QUERY',
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller:
-                              _embeddingDefaultDocumentTaskTypeController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: 'Document 任务类型',
-                            zhHant: 'Document 任務類型',
-                            en: 'Document Task Type',
-                            fr: 'Type de tâche Document',
-                            de: 'Document-Aufgabentyp',
-                            ja: 'Document タスクタイプ',
-                          ),
-                          hint: 'RETRIEVAL_DOCUMENT',
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingQueryTextPrefixController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: 'Query 文本前缀',
-                            zhHant: 'Query 文字前綴',
-                            en: 'Query Text Prefix',
-                            fr: 'Préfixe texte Query',
-                            de: 'Query-Textpräfix',
-                            ja: 'Query テキスト接頭辞',
-                          ),
-                          hint: 'query:',
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingDocumentTextPrefixController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: 'Document 文本前缀',
-                            zhHant: 'Document 文字前綴',
-                            en: 'Document Text Prefix',
-                            fr: 'Préfixe texte Document',
-                            de: 'Document-Textpräfix',
-                            ja: 'Document テキスト接頭辞',
-                          ),
-                          hint: 'passage:',
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingEncodingFormatsController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '编码格式（逗号分隔）',
-                            zhHant: '編碼格式（逗號分隔）',
-                            en: 'Encoding Formats (CSV)',
-                            fr: 'Formats d’encodage (CSV)',
-                            de: 'Kodierungsformate (CSV)',
-                            ja: 'エンコード形式（CSV）',
-                          ),
-                          hint: 'float, base64',
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingDefaultEncodingFormatController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '默认编码格式',
-                            zhHant: '預設編碼格式',
-                            en: 'Default Encoding Format',
-                            fr: 'Format d’encodage par défaut',
-                            de: 'Standard-Kodierungsformat',
-                            ja: 'デフォルトエンコード形式',
-                          ),
-                          hint: 'float',
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  _buildCompactTextField(
-                    controller: _embeddingDefaultTruncationController,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '默认截断策略',
-                      zhHant: '預設截斷策略',
-                      en: 'Default Truncation',
-                      fr: 'Troncature par défaut',
-                      de: 'Standard-Kürzung',
-                      ja: 'デフォルト切り詰め',
-                    ),
-                    hint: 'END / true',
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingOutputDTypesController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '输出 dtype（逗号分隔）',
-                            zhHant: '輸出 dtype（逗號分隔）',
-                            en: 'Output DTypes (CSV)',
-                            fr: 'DTypes de sortie (CSV)',
-                            de: 'Ausgabe-DTypes (CSV)',
-                            ja: '出力 dtype（CSV）',
-                          ),
-                          hint: 'float, int8, uint8, binary',
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingDefaultOutputDTypeController,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '默认输出 dtype',
-                            zhHant: '預設輸出 dtype',
-                            en: 'Default Output DType',
-                            fr: 'DType de sortie par défaut',
-                            de: 'Standard-Ausgabe-DType',
-                            ja: 'デフォルト出力 dtype',
-                          ),
-                          hint: 'float',
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap12,
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingMaxInputsPerBatchController,
-                          keyboardType: TextInputType.number,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '每批最大输入数',
-                            zhHant: '每批最大輸入數',
-                            en: 'Max Inputs Per Batch',
-                            fr: 'Entrées max par lot',
-                            de: 'Max. Eingaben pro Batch',
-                            ja: 'バッチあたり最大入力数',
-                          ),
-                        ),
-                      ),
-                      kOpenHandHGap12,
-                      Expanded(
-                        child: _buildCompactTextField(
-                          controller: _embeddingMaxTokensPerBatchController,
-                          keyboardType: TextInputType.number,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '每批最大 tokens',
-                            zhHant: '每批最大 tokens',
-                            en: 'Max Tokens Per Batch',
-                            fr: 'Tokens max par lot',
-                            de: 'Max. Tokens pro Batch',
-                            ja: 'バッチあたり最大トークン',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap8,
-                  SwitchListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    hoverColor: kOpenHandSettingsItemHoverColor,
-                    title: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '支持自定义 dimensions / output dimensionality',
-                        zhHant: '支援自訂 dimensions / output dimensionality',
-                        en: 'Supports Custom Dimensions',
-                        fr: 'Prend en charge les dimensions personnalisées',
-                        de: 'Unterstützt benutzerdefinierte Dimensionen',
-                        ja: 'カスタム dimensions / output dimensionality に対応',
-                      ),
-                    ),
-                    value: _embeddingSupportsCustomDimensions,
-                    onChanged: (value) => setState(
-                      () => _embeddingSupportsCustomDimensions = value,
-                    ),
-                  ),
-                  SwitchListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    hoverColor: kOpenHandSettingsItemHoverColor,
-                    title: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '需要特殊 request body 字段',
-                        zhHant: '需要特殊 request body 欄位',
-                        en: 'Requires Special Request Body',
-                        fr: 'Nécessite un corps de requête spécial',
-                        de: 'Benötigt speziellen Request-Body',
-                        ja: '特殊な request body フィールドが必要',
-                      ),
-                    ),
-                    value: _embeddingRequiresSpecialBody,
+                  _buildOptionalBoolControl(
+                    title: l10n.mdlEdSupportsAttachments,
+                    value: _supportsAttachments,
                     onChanged: (value) =>
-                        setState(() => _embeddingRequiresSpecialBody = value),
+                        setState(() => _supportsAttachments = value),
                   ),
-                  SwitchListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    hoverColor: kOpenHandSettingsItemHoverColor,
-                    title: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '支持服务端自动截断',
-                        zhHant: '支援服務端自動截斷',
-                        en: 'Supports Server Truncation',
-                        fr: 'Prend en charge la troncature serveur',
-                        de: 'Unterstützt serverseitige Kürzung',
-                        ja: 'サーバー側自動切り詰めに対応',
-                      ),
-                    ),
-                    value: _embeddingSupportsTruncation,
-                    onChanged: (value) =>
-                        setState(() => _embeddingSupportsTruncation = value),
-                  ),
-                  kOpenHandGap4,
-                  _buildEmbeddingNormalizedControl(),
                   kOpenHandGap16,
+
+                  _buildThinkingEnabledControl(),
+                  kOpenHandGap16,
+
+                  _buildReasoningEffortControl(),
+                  kOpenHandGap16,
+
+                  _buildOptionalBoolControl(
+                    title: l10n.mdlEdReasoningEcho,
+                    subtitle: l10n.mdlEdReasoningEchoHint,
+                    value: _requiresReasoningEcho,
+                    onChanged: (value) =>
+                        setState(() => _requiresReasoningEcho = value),
+                  ),
+                  kOpenHandGap16,
+
+                  _buildSectionHeader(
+                    AppLocalizations.of(context)!.mdlEdSupportedModalities,
+                  ),
+                  kOpenHandGap8,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: AiModelModality.values
+                        .map((m) {
+                          final label = switch (m) {
+                            AiModelModality.text => AppLocalizations.of(
+                              context,
+                            )!.mdlEdText,
+                            AiModelModality.image => AppLocalizations.of(
+                              context,
+                            )!.mdlEdImage,
+                            AiModelModality.video => AppLocalizations.of(
+                              context,
+                            )!.mdlEdVideo,
+                            AiModelModality.audio => AppLocalizations.of(
+                              context,
+                            )!.mdlEdAudio,
+                            AiModelModality.file => 'File',
+                          };
+                          return FilterChip(
+                            label: Text(label),
+                            selected: _supportedModalities.contains(m),
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _supportedModalities.add(m);
+                                } else {
+                                  _supportedModalities.remove(m);
+                                }
+                              });
+                            },
+                          );
+                        })
+                        .toList(growable: false),
+                  ),
+                  kOpenHandGap16,
+                  _buildSectionHeader(
+                    AppLocalizations.of(context)!.mdlEdGenerationCapabilities,
+                  ),
+                  kOpenHandGap8,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: AiModelCapability.values
+                        .map((c) {
+                          final label = switch (c) {
+                            AiModelCapability.imageGeneration =>
+                              AppLocalizations.of(context)!.mdlEdImage,
+                            AiModelCapability.videoGeneration =>
+                              AppLocalizations.of(context)!.mdlEdVideo,
+                            AiModelCapability.audioGeneration =>
+                              AppLocalizations.of(context)!.mdlEdAudio,
+                            AiModelCapability.pdfGeneration =>
+                              AppLocalizations.of(context)!.mdlEdPdf,
+                            AiModelCapability.pptGeneration =>
+                              AppLocalizations.of(context)!.mdlEdPpt,
+                            AiModelCapability.embeddingGeneration =>
+                              openHandLocalizedText(
+                                context,
+                                zh: '嵌入生成',
+                                zhHant: '嵌入生成',
+                                en: 'Embeddings',
+                                fr: 'Embeddings',
+                                de: 'Embeddings',
+                                ja: '埋め込み生成',
+                              ),
+                            AiModelCapability.rerank => openHandLocalizedText(
+                              context,
+                              zh: '重排序',
+                              zhHant: '重排序',
+                              en: 'Rerank',
+                              fr: 'Rerank',
+                              de: 'Rerank',
+                              ja: '再ランキング',
+                            ),
+                            AiModelCapability.readerConversion =>
+                              openHandLocalizedText(
+                                context,
+                                zh: '读取转换',
+                                zhHant: '讀取轉換',
+                                en: 'Read Convert',
+                                fr: 'Conversion de lecture',
+                                de: 'Lesekonvertierung',
+                                ja: '読み取り変換',
+                              ),
+                          };
+                          return FilterChip(
+                            label: Text(label),
+                            selected: _capabilities.contains(c),
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _capabilities.add(c);
+                                  if (c == AiModelCapability.readerConversion) {
+                                    _ensureDefaultReaderTypes();
+                                  }
+                                } else {
+                                  _capabilities.remove(c);
+                                  if (c == AiModelCapability.readerConversion) {
+                                    _readerSourceTypes.clear();
+                                    _readerTargetTypes.clear();
+                                  }
+                                }
+                              });
+                            },
+                          );
+                        })
+                        .toList(growable: false),
+                  ),
+                  kOpenHandGap16,
+
+                  if (_capabilities.contains(
+                    AiModelCapability.readerConversion,
+                  )) ...[
+                    _buildSectionHeader(
+                      openHandLocalizedText(
+                        context,
+                        zh: '读取转换配置',
+                        zhHant: '讀取轉換設定',
+                        en: 'Read Conversion',
+                        fr: 'Conversion de lecture',
+                        de: 'Lesekonvertierung',
+                        ja: '読み取り変換設定',
+                      ),
+                    ),
+                    kOpenHandGap8,
+                    Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '配置该模型可读取的源文件类型，以及可转换输出的目标类型。知识库模型解析会按这里的能力筛选模型。',
+                        zhHant:
+                            '設定該模型可讀取的來源檔案類型，以及可轉換輸出的目標類型。知識庫模型解析會依這裡的能力篩選模型。',
+                        en: 'Configure source file types this model can read and target types it can output. Knowledge Base model parsing filters by these capabilities.',
+                        fr: 'Configurez les types source lisibles et les types cible produits. La base de connaissances filtre les modèles avec ces capacités.',
+                        de: 'Konfiguriere lesbare Quelldateitypen und mögliche Zieltypen. Die Wissensbasis filtert Modelle nach diesen Fähigkeiten.',
+                        ja: 'このモデルが読み取れるソースファイル種別と、出力できるターゲット種別を設定します。ナレッジベース解析はこの能力でモデルを絞り込みます。',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    kOpenHandGap10,
+                    _buildReaderTypeChips(
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '源文件类型',
+                        zhHant: '來源檔案類型',
+                        en: 'Source Types',
+                        fr: 'Types source',
+                        de: 'Quelltypen',
+                        ja: 'ソース種別',
+                      ),
+                      values: ReaderFileType.sourceTypes,
+                      selected: _readerSourceTypes,
+                      onChanged: (next) =>
+                          setState(() => _readerSourceTypes = next),
+                    ),
+                    kOpenHandGap12,
+                    _buildReaderTypeChips(
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '目标文件类型',
+                        zhHant: '目標檔案類型',
+                        en: 'Target Types',
+                        fr: 'Types cible',
+                        de: 'Zieltypen',
+                        ja: 'ターゲット種別',
+                      ),
+                      values: ReaderFileType.targetTypes,
+                      selected: _readerTargetTypes,
+                      onChanged: (next) =>
+                          setState(() => _readerTargetTypes = next),
+                    ),
+                    kOpenHandGap16,
+                  ],
+
+                  if (_capabilities.contains(
+                    AiModelCapability.embeddingGeneration,
+                  )) ...[
+                    _buildSectionHeader(
+                      openHandLocalizedText(
+                        context,
+                        zh: '嵌入生成配置',
+                        zhHant: '嵌入生成設定',
+                        en: 'Embedding Configuration',
+                        fr: 'Configuration des embeddings',
+                        de: 'Embedding-Konfiguration',
+                        ja: '埋め込み生成設定',
+                      ),
+                    ),
+                    kOpenHandGap8,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingDimensionsController,
+                            keyboardType: TextInputType.number,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '默认维度',
+                              zhHant: '預設維度',
+                              en: 'Default Dimensions',
+                              fr: 'Dimensions par défaut',
+                              de: 'Standarddimensionen',
+                              ja: 'デフォルト次元',
+                            ),
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingMaxInputTokensController,
+                            keyboardType: TextInputType.number,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '单条最大输入 tokens',
+                              zhHant: '單筆最大輸入 tokens',
+                              en: 'Max Input Tokens',
+                              fr: 'Tokens d’entrée max',
+                              de: 'Max. Eingabe-Tokens',
+                              ja: '最大入力トークン',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingEndpointPathController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '嵌入 endpoint path',
+                              zhHant: '嵌入 endpoint path',
+                              en: 'Embedding Endpoint Path',
+                              fr: 'Chemin endpoint embeddings',
+                              de: 'Embedding-Endpoint-Pfad',
+                              ja: '埋め込み endpoint path',
+                            ),
+                            hint: '/v1/embeddings',
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingBatchSizeController,
+                            keyboardType: TextInputType.number,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '建议 batch size',
+                              zhHant: '建議 batch size',
+                              en: 'Suggested Batch Size',
+                              fr: 'Batch size suggéré',
+                              de: 'Empfohlene Batch-Größe',
+                              ja: '推奨 batch size',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingQueryModelIdController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: 'Query 模型 ID',
+                              zhHant: 'Query 模型 ID',
+                              en: 'Query Model ID',
+                              fr: 'ID modèle Query',
+                              de: 'Query-Modell-ID',
+                              ja: 'Query モデル ID',
+                            ),
+                            hint: widget.modelId,
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingDocumentModelIdController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: 'Document 模型 ID',
+                              zhHant: 'Document 模型 ID',
+                              en: 'Document Model ID',
+                              fr: 'ID modèle Document',
+                              de: 'Document-Modell-ID',
+                              ja: 'Document モデル ID',
+                            ),
+                            hint: widget.modelId,
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingMinDimensionsController,
+                            keyboardType: TextInputType.number,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '最小可选维度',
+                              zhHant: '最小可選維度',
+                              en: 'Min Dimensions',
+                              fr: 'Dimensions min',
+                              de: 'Min. Dimensionen',
+                              ja: '最小次元',
+                            ),
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingMaxDimensionsController,
+                            keyboardType: TextInputType.number,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '最大可选维度',
+                              zhHant: '最大可選維度',
+                              en: 'Max Dimensions',
+                              fr: 'Dimensions max',
+                              de: 'Max. Dimensionen',
+                              ja: '最大次元',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingInputTypesController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '输入类型（逗号分隔）',
+                              zhHant: '輸入類型（逗號分隔）',
+                              en: 'Input Types (CSV)',
+                              fr: 'Types d’entrée (CSV)',
+                              de: 'Eingabetypen (CSV)',
+                              ja: '入力タイプ（CSV）',
+                            ),
+                            hint: 'text, image',
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingSupportedTaskTypesController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '任务类型（逗号分隔）',
+                              zhHant: '任務類型（逗號分隔）',
+                              en: 'Task Types (CSV)',
+                              fr: 'Types de tâche (CSV)',
+                              de: 'Aufgabentypen (CSV)',
+                              ja: 'タスクタイプ（CSV）',
+                            ),
+                            hint: 'retrieval_query, retrieval_document',
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingDefaultInputTypeController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '默认输入类型',
+                              zhHant: '預設輸入類型',
+                              en: 'Default Input Type',
+                              fr: 'Type d’entrée par défaut',
+                              de: 'Standard-Eingabetyp',
+                              ja: 'デフォルト入力タイプ',
+                            ),
+                            hint: 'document',
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingQueryInputTypeController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: 'Query 输入类型',
+                              zhHant: 'Query 輸入類型',
+                              en: 'Query Input Type',
+                              fr: 'Type d’entrée Query',
+                              de: 'Query-Eingabetyp',
+                              ja: 'Query 入力タイプ',
+                            ),
+                            hint: 'query',
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    _buildCompactTextField(
+                      controller: _embeddingDocumentInputTypeController,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: 'Document 输入类型',
+                        zhHant: 'Document 輸入類型',
+                        en: 'Document Input Type',
+                        fr: 'Type d’entrée Document',
+                        de: 'Document-Eingabetyp',
+                        ja: 'Document 入力タイプ',
+                      ),
+                      hint: 'document',
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingDefaultTaskTypeController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '默认任务类型',
+                              zhHant: '預設任務類型',
+                              en: 'Default Task Type',
+                              fr: 'Type de tâche par défaut',
+                              de: 'Standard-Aufgabentyp',
+                              ja: 'デフォルトタスクタイプ',
+                            ),
+                            hint: 'retrieval_document',
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingSimilarityMetricController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '相似度/距离类型',
+                              zhHant: '相似度/距離類型',
+                              en: 'Similarity Metric',
+                              fr: 'Métrique de similarité',
+                              de: 'Ähnlichkeitsmetrik',
+                              ja: '類似度メトリック',
+                            ),
+                            hint: 'cosine',
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller:
+                                _embeddingDefaultQueryTaskTypeController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: 'Query 任务类型',
+                              zhHant: 'Query 任務類型',
+                              en: 'Query Task Type',
+                              fr: 'Type de tâche Query',
+                              de: 'Query-Aufgabentyp',
+                              ja: 'Query タスクタイプ',
+                            ),
+                            hint: 'RETRIEVAL_QUERY',
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller:
+                                _embeddingDefaultDocumentTaskTypeController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: 'Document 任务类型',
+                              zhHant: 'Document 任務類型',
+                              en: 'Document Task Type',
+                              fr: 'Type de tâche Document',
+                              de: 'Document-Aufgabentyp',
+                              ja: 'Document タスクタイプ',
+                            ),
+                            hint: 'RETRIEVAL_DOCUMENT',
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingQueryTextPrefixController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: 'Query 文本前缀',
+                              zhHant: 'Query 文字前綴',
+                              en: 'Query Text Prefix',
+                              fr: 'Préfixe texte Query',
+                              de: 'Query-Textpräfix',
+                              ja: 'Query テキスト接頭辞',
+                            ),
+                            hint: 'query:',
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingDocumentTextPrefixController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: 'Document 文本前缀',
+                              zhHant: 'Document 文字前綴',
+                              en: 'Document Text Prefix',
+                              fr: 'Préfixe texte Document',
+                              de: 'Document-Textpräfix',
+                              ja: 'Document テキスト接頭辞',
+                            ),
+                            hint: 'passage:',
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingEncodingFormatsController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '编码格式（逗号分隔）',
+                              zhHant: '編碼格式（逗號分隔）',
+                              en: 'Encoding Formats (CSV)',
+                              fr: 'Formats d’encodage (CSV)',
+                              de: 'Kodierungsformate (CSV)',
+                              ja: 'エンコード形式（CSV）',
+                            ),
+                            hint: 'float, base64',
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller:
+                                _embeddingDefaultEncodingFormatController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '默认编码格式',
+                              zhHant: '預設編碼格式',
+                              en: 'Default Encoding Format',
+                              fr: 'Format d’encodage par défaut',
+                              de: 'Standard-Kodierungsformat',
+                              ja: 'デフォルトエンコード形式',
+                            ),
+                            hint: 'float',
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    _buildCompactTextField(
+                      controller: _embeddingDefaultTruncationController,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '默认截断策略',
+                        zhHant: '預設截斷策略',
+                        en: 'Default Truncation',
+                        fr: 'Troncature par défaut',
+                        de: 'Standard-Kürzung',
+                        ja: 'デフォルト切り詰め',
+                      ),
+                      hint: 'END / true',
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingOutputDTypesController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '输出 dtype（逗号分隔）',
+                              zhHant: '輸出 dtype（逗號分隔）',
+                              en: 'Output DTypes (CSV)',
+                              fr: 'DTypes de sortie (CSV)',
+                              de: 'Ausgabe-DTypes (CSV)',
+                              ja: '出力 dtype（CSV）',
+                            ),
+                            hint: 'float, int8, uint8, binary',
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingDefaultOutputDTypeController,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '默认输出 dtype',
+                              zhHant: '預設輸出 dtype',
+                              en: 'Default Output DType',
+                              fr: 'DType de sortie par défaut',
+                              de: 'Standard-Ausgabe-DType',
+                              ja: 'デフォルト出力 dtype',
+                            ),
+                            hint: 'float',
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap12,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingMaxInputsPerBatchController,
+                            keyboardType: TextInputType.number,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '每批最大输入数',
+                              zhHant: '每批最大輸入數',
+                              en: 'Max Inputs Per Batch',
+                              fr: 'Entrées max par lot',
+                              de: 'Max. Eingaben pro Batch',
+                              ja: 'バッチあたり最大入力数',
+                            ),
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        Expanded(
+                          child: _buildCompactTextField(
+                            controller: _embeddingMaxTokensPerBatchController,
+                            keyboardType: TextInputType.number,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '每批最大 tokens',
+                              zhHant: '每批最大 tokens',
+                              en: 'Max Tokens Per Batch',
+                              fr: 'Tokens max par lot',
+                              de: 'Max. Tokens pro Batch',
+                              ja: 'バッチあたり最大トークン',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap8,
+                    SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      hoverColor: kOpenHandSettingsItemHoverColor,
+                      title: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '支持自定义 dimensions / output dimensionality',
+                          zhHant: '支援自訂 dimensions / output dimensionality',
+                          en: 'Supports Custom Dimensions',
+                          fr: 'Prend en charge les dimensions personnalisées',
+                          de: 'Unterstützt benutzerdefinierte Dimensionen',
+                          ja: 'カスタム dimensions / output dimensionality に対応',
+                        ),
+                      ),
+                      value: _embeddingSupportsCustomDimensions,
+                      onChanged: (value) => setState(
+                        () => _embeddingSupportsCustomDimensions = value,
+                      ),
+                    ),
+                    SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      hoverColor: kOpenHandSettingsItemHoverColor,
+                      title: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '需要特殊 request body 字段',
+                          zhHant: '需要特殊 request body 欄位',
+                          en: 'Requires Special Request Body',
+                          fr: 'Nécessite un corps de requête spécial',
+                          de: 'Benötigt speziellen Request-Body',
+                          ja: '特殊な request body フィールドが必要',
+                        ),
+                      ),
+                      value: _embeddingRequiresSpecialBody,
+                      onChanged: (value) =>
+                          setState(() => _embeddingRequiresSpecialBody = value),
+                    ),
+                    SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      hoverColor: kOpenHandSettingsItemHoverColor,
+                      title: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '支持服务端自动截断',
+                          zhHant: '支援服務端自動截斷',
+                          en: 'Supports Server Truncation',
+                          fr: 'Prend en charge la troncature serveur',
+                          de: 'Unterstützt serverseitige Kürzung',
+                          ja: 'サーバー側自動切り詰めに対応',
+                        ),
+                      ),
+                      value: _embeddingSupportsTruncation,
+                      onChanged: (value) =>
+                          setState(() => _embeddingSupportsTruncation = value),
+                    ),
+                    kOpenHandGap4,
+                    _buildEmbeddingNormalizedControl(),
+                    kOpenHandGap16,
+                  ],
                 ],
                 _buildSectionHeader(
                   AppLocalizations.of(context)!.mdlEdTokenLimits,
                 ),
                 kOpenHandGap8,
-                _buildOneMillionContextControl(),
-                kOpenHandGap12,
+                if (widget.protocolType != AiProtocolType.jev) ...[
+                  _buildOneMillionContextControl(),
+                  kOpenHandGap12,
+                ],
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5861,6 +5897,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: TextField(
                         controller: _maxSummaryLengthController,
+                        enabled: widget.protocolType != AiProtocolType.jev,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: AppLocalizations.of(
@@ -5891,6 +5928,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: TextField(
                         controller: _maxThinkingLengthController,
+                        enabled: widget.protocolType != AiProtocolType.jev,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: AppLocalizations.of(
@@ -6009,6 +6047,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 kOpenHandGap12,
                 TextField(
                   controller: _supportedParametersController,
+                  readOnly: widget.protocolType == AiProtocolType.jev,
                   decoration: InputDecoration(
                     labelText: l10n.mdlEdSupportedParametersCsv,
                     hintText: l10n.mdlEdSupportedParametersCsvHint,
@@ -6018,6 +6057,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 kOpenHandGap12,
                 TextField(
                   controller: _defaultParametersController,
+                  readOnly: widget.protocolType == AiProtocolType.jev,
                   minLines: 2,
                   maxLines: 5,
                   onChanged: (_) {
@@ -6143,7 +6183,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final l10n = AppLocalizations.of(context)!;
     final modelId = _modelIdController.text.trim();
     final catalog = AiModelCatalog.lookup(modelId, widget.protocolType);
-    final decisionOnly = catalog?.supportsDecisions == true;
+    final decisionOnly = widget.protocolType == AiProtocolType.jev;
     return OpenHandDialogSectionCard(
       icon: decisionOnly
           ? Icons.account_tree_rounded
@@ -6157,7 +6197,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         children: [
           Text(
             decisionOnly
-                ? '结构化决策模型 · 在输入区打开“决策配置”，结果以决策卡片呈现，不支持生成标题。'
+                ? 'Jev 协议 · 文本输入，结构化决策输出。支持判断、选择和评分，结果以决策卡片呈现。'
+                : catalog?.architecture?.outputModalities.contains(
+                        'decisions',
+                      ) ==
+                      true
+                ? '此目录模型输出结构化决策。如需专属决策接口，请在提供商配置中选择 Jev 协议；混合提供商可另建 Jev 配置。'
                 : catalog == null
                 ? '暂无匹配资料，请按提供商文档配置。修改模型 ID 不会覆盖已填写的参数。'
                 : '目录参考参数 · 请按提供商实际能力调整。',
@@ -6166,6 +6211,31 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               height: 1.5,
             ),
           ),
+          if (decisionOnly) ...[
+            kOpenHandGap12,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final item in const [
+                  (Icons.verified_rounded, '判断'),
+                  (Icons.fact_check_rounded, '选择'),
+                  (Icons.star_rounded, '评分'),
+                ])
+                  Chip(
+                    avatar: Icon(
+                      item.$1,
+                      size: 16,
+                      color: colorScheme.tertiary,
+                    ),
+                    label: Text(item.$2),
+                    backgroundColor: colorScheme.tertiaryContainer.withValues(
+                      alpha: 0.35,
+                    ),
+                  ),
+              ],
+            ),
+          ],
           if (catalog != null &&
               (catalog.maxContextLength != null ||
                   catalog.maxOutputLength != null ||

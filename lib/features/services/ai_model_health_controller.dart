@@ -292,7 +292,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
     String? requestMethod;
     int? requestDurationMs;
     try {
-      if (_isTextModel(model, selectedModelId)) {
+      if (model.usesDecisionProtocol || _isTextModel(model, selectedModelId)) {
         final client = _createClient(
           mode,
           uri?.host ?? '',
@@ -531,6 +531,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
   }
 
   List<String> _healthModelIds(AiModelConfig provider) {
+    if (provider.usesDecisionProtocol) return provider.allModelIds;
     return AiModelConfig.normalizeModelIds(<String>[
       ...provider.allModelIds,
       provider.operationRouting.chatModelId ?? '',
@@ -556,6 +557,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
   }
 
   String _modelKind(AiModelConfig provider, String modelId) {
+    if (provider.usesDecisionProtocol) return 'decisions';
     final routing = provider.operationRouting;
     if (routing.transcriptionModelId == modelId) return 'transcription';
     if (routing.translationModelId == modelId) return 'translation';
@@ -739,6 +741,7 @@ class AiModelHealthController extends ManagedChangeNotifier {
   String _probeType(String modelKind, String? requestMethod) {
     if (requestMethod == 'GET') return 'model_metadata';
     return switch (modelKind) {
+      'decisions' => 'decision_availability_probe',
       'embedding' => 'embedding_minimal_input',
       'moderation' => 'moderation_minimal_input',
       'rerank' => 'rerank_minimal_input',

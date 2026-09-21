@@ -19,6 +19,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:openhand/features/ai/model/ai_api_family.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
+import 'package:openhand/features/ai/model/ai_operation_routing.dart';
 import 'package:openhand/features/ai/service/chat/ai_chat_service.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/model_registry/ai_model_scanner.dart';
@@ -260,6 +261,34 @@ void main() {
     await expectLater(scanner.scan(model()), throwsStateError);
     expect(client.paths, isEmpty);
     expect(client.closed, isFalse);
+  });
+
+  test('Jev 健康检查使用决策请求并忽略旧媒体路由', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final paths = <String>[];
+    final subscription = server.listen((request) async {
+      paths.add(request.uri.path);
+      final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map;
+      expect(body.keys.toSet(), {'model', 'state', 'questions'});
+      expect(body['model'], 'custom-router');
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'answers': {
+        for (final key in (body['questions'] as Map).keys) key: {'type': 'noul', 'noul': 1},
+      }}));
+      await request.response.close();
+    });
+    addTearDown(subscription.cancel);
+    final controller = AiModelHealthController();
+    addTearDown(controller.dispose);
+    final config = model(protocol: AiProtocolType.jev, baseUrl: 'http://127.0.0.1:${server.port}').copyWith(
+      modelId: 'custom-router', operationRouting: const AiOperationRouting(imageModelId: 'custom-router'));
+    final record = await controller.checkModel(config);
+    expect(record?.success, isTrue, reason: record?.errorMessage);
+    expect(record?.modelKind, 'decisions');
+    expect(record?.metadata['probe_type'], 'decision_availability_probe');
+    expect(record?.metadata['protocol'], 'jev');
+    expect(paths, ['/v1/systemone']);
   });
 
   for (final dispose in [false, true]) {

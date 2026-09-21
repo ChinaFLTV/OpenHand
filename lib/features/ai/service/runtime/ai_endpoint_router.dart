@@ -26,6 +26,8 @@ class AiResolvedEndpoint {
 class AiEndpointRouter {
   const AiEndpointRouter();
 
+  static const decisionEndpointPath = 'v1/systemone';
+
   /// 解析固定的服务商原生路径，并复用通用 URL 规范化、版本去重和模型占位符。
   /// 原生操作不继承无关的通用端点覆盖，例如 MiniMax 语音克隆不使用 `/audio/speech`。
   AiResolvedEndpoint resolveProviderPath(
@@ -172,7 +174,7 @@ class AiEndpointRouter {
   String _defaultPathFor(AiApiFamily family) {
     return switch (family) {
       AiApiFamily.responses => 'v1/responses',
-      AiApiFamily.decisions => 'v1/systemone',
+      AiApiFamily.decisions => decisionEndpointPath,
       AiApiFamily.chatCompletions => 'v1/chat/completions',
       AiApiFamily.completions => 'v1/completions',
       AiApiFamily.embeddings => 'v1/embeddings',

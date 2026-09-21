@@ -786,6 +786,7 @@ class AiModelProxyDispatcher {
     AiApiDialect dialect,
   ) {
     final allowed = switch (dialect) {
+      AiApiDialect.jevNative => const <String>{},
       AiApiDialect.openAiCompat => const <String>{
         'openai-beta',
         'openai-organization',
@@ -869,6 +870,8 @@ class AiModelProxyDispatcher {
   ) {
     final inboundStyle = controller.settings.apiStyle;
     switch (model.apiDialect) {
+      case AiApiDialect.jevNative:
+        extras.clear();
       case AiApiDialect.openAiCompat:
         if (inboundStyle == AiModelProxyApiStyle.claude) {
           for (final key in const <String>[
@@ -1088,6 +1091,7 @@ class AiModelProxyDispatcher {
     final maps = raw.whereType<Map>().toList(growable: false);
     if (maps.length != raw.length) return null;
     return switch (model.apiDialect) {
+      AiApiDialect.jevNative => null,
       AiApiDialect.openAiCompat => _isOpenAiToolList(maps) ? raw : null,
       AiApiDialect.anthropicNative => _isClaudeToolList(maps) ? raw : null,
       AiApiDialect.geminiNative => _isGeminiToolList(maps) ? raw : null,

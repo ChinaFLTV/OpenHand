@@ -27,6 +27,7 @@ Future<void> main() async {
     name: 'model_editor',
     source:
         "import 'package:flutter_test/flutter_test.dart' hide isEmpty, isNotEmpty;\n"
+        "import 'package:flutter/rendering.dart' show RenderRepaintBoundary;\n"
         '$source\n$_checks',
   );
 }
@@ -49,6 +50,8 @@ Future<void> _openEditor(
   double textScale = 1,
   DialogAnimationSettings motion = OpenHandMotionDefaults.dialog,
   ValueChanged<_ModelProfileEditorResult?>? onResult,
+  AiProtocolType protocol = AiProtocolType.jev,
+  AiModelConfig? provider,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -57,8 +60,13 @@ Future<void> _openEditor(
   final settings = await SettingsController.create(store: _EditorSettings(motion));
   addTearDown(settings.dispose);
   const id = 'typesafe-ai/jev';
-  await tester.pumpWidget(ChangeNotifierProvider.value(
-    value: settings,
+  final health = AiModelHealthController();
+  addTearDown(health.dispose);
+  await tester.pumpWidget(MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(value: settings),
+      ChangeNotifierProvider.value(value: health),
+    ],
     child: MaterialApp(
       locale: const Locale('zh'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -73,14 +81,19 @@ Future<void> _openEditor(
       home: Scaffold(body: Builder(builder: (context) => TextButton(
         child: const Text('打开配置'),
         onPressed: () async {
+          if (provider != null) {
+            await showAnimatedDialog<void>(context: context,
+              builder: (_) => _AiModelEditorDialog(initialModel: provider));
+            return;
+          }
           final result = await showAnimatedDialog<_ModelProfileEditorResult>(
             context: context,
             builder: (_) => _ModelProfileEditorDialog(
               modelId: id,
               existingModelIds: const [id, 'existing-model'],
               initialProfile: const AiModelProfile(),
-              effectiveProfile: AiModelCatalog.lookup(id, AiProtocolType.openai)!,
-              protocolType: AiProtocolType.openai,
+              effectiveProfile: AiModelCatalog.lookup(id, protocol)!,
+              protocolType: protocol,
               onDuplicate: (id, profile) => '$id-copy',
             ),
           );
@@ -98,28 +111,69 @@ Finder get _idField => find.descendant(of: _editor, matching: find.byType(TextFi
 Finder get _titleSwitch => find.descendant(of: _editor, matching: find.byType(Switch)).first;
 
 void main() {
-  testWidgets('模型 ID 输入即时刷新决策限制，保存时禁止决策模型用于标题', (tester) async {
+  testWidgets('提供商协议切换同步端点和高级配置，模型 ID 不参与判断', (tester) async {
+    await _openEditor(tester, provider: const AiModelConfig(
+      id: '配置', name: '自定义决策服务', baseUrl: 'https://decision.example',
+      token: '', authScheme: AiAuthScheme.none, modelId: 'custom-router',
+      protocolType: AiProtocolType.openai,
+    ));
+    final dialog = find.byType(_AiModelEditorDialog);
+    final dropdown = find.byType(AnimatedDropdownButtonFormField<AiProtocolType>);
+    await tester.ensureVisible(dropdown);
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Jev').last);
+    await tester.pumpAndSettle();
+    final state = tester.state<_AiModelEditorDialogState>(dialog);
+    expect(state._apiDialect, AiApiDialect.jevNative);
+    expect(state._previewChatEndpoints(), (responses: '', chat: 'https://decision.example/v1/systemone'));
+    expect(find.textContaining('Jev 协议 · 支持任意兼容模型'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.descendant(of: dialog, matching: find.byType(TextFormField)).first);
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.ancestor(of: dialog, matching: find.byType(RepaintBoundary)).first);
+      final image = await boundary.toImage();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await File('/tmp/openhand-jev-provider.png').writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+    });
+    state._handleProtocolChanged(AiProtocolType.openai);
+    await tester.pumpAndSettle();
+    expect(state._previewChatEndpoints().chat, 'https://decision.example/v1/chat/completions');
+    expect(state._apiDialect, AiApiDialect.openAiCompat);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(dialog, findsNothing);
+  });
+
+  testWidgets('Jev 协议修改模型 ID 后仍保持决策限制', (tester) async {
     _ModelProfileEditorResult? result;
     await _openEditor(tester, onResult: (value) => result = value);
     expect(tester.widget<Switch>(_titleSwitch).onChanged, isNull);
-    await tester.enterText(_idField, 'gpt-4o-mini');
-    await tester.pumpAndSettle();
-    expect(tester.widget<Switch>(_titleSwitch).onChanged, isNotNull);
-    await tester.ensureVisible(_titleSwitch);
-    await tester.tap(_titleSwitch);
-    await tester.pumpAndSettle();
-    expect(tester.widget<Switch>(_titleSwitch).value, isTrue);
-    await tester.ensureVisible(_idField);
-    await tester.enterText(_idField, 'typesafe-ai/jev');
+    await tester.enterText(_idField, 'custom-router');
     await tester.pumpAndSettle();
     expect(tester.widget<Switch>(_titleSwitch).onChanged, isNull);
     expect(tester.widget<Switch>(_titleSwitch).value, isFalse);
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
-    expect(result?.modelId, 'typesafe-ai/jev');
+    expect(result?.modelId, 'custom-router');
     expect(result?.profile.isGlobalDefaultTitleModel, isFalse);
+    expect(result?.profile.supportedParameters, ['model', 'state', 'questions']);
+    expect(result?.profile.capabilities.isEmpty, isTrue);
     expect(_editor, findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('普通协议不因 Jev 模型名称启用决策界面', (tester) async {
+    await _openEditor(tester, protocol: AiProtocolType.openai);
+    expect(find.textContaining('Jev 协议 · 文本输入'), findsNothing);
+    await tester.enterText(_idField, 'gpt-4o-mini');
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(_titleSwitch).onChanged, isNotNull);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('长表单底部提交错误始终可见，修正 ID 后可以保存', (tester) async {
@@ -173,7 +227,7 @@ void main() {
     await _openEditor(tester, motion: OpenHandMotionDefaults.disabled);
     await tester.enterText(_idField, 'gpt-4o-mini');
     await tester.pump();
-    expect(tester.widget<Switch>(_titleSwitch).onChanged, isNotNull);
+    expect(tester.widget<Switch>(_titleSwitch).onChanged, isNull);
     await tester.tap(find.text('取消'));
     await tester.pump();
     expect(_editor, findsNothing);

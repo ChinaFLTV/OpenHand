@@ -44,7 +44,10 @@ class AiModelCatalog {
   // 对外接口
 
   /// 返回匹配 [modelId] 与 [protocolType] 的预设档案，未匹配时返回 `null`。
-  static AiModelProfile? lookup(String modelId, AiProtocolType protocolType) {
+  static AiModelProfile? lookup(String modelId, AiProtocolType protocolType) =>
+      _lookup(modelId, protocolType)?.forProtocol(protocolType);
+
+  static AiModelProfile? _lookup(String modelId, AiProtocolType protocolType) {
     final id = optionalLowercaseStringFromValue(modelId);
     if (id == null) return null;
     final candidates = _modelIdSuffixCandidates(id);
@@ -104,6 +107,7 @@ class AiModelCatalog {
   ) {
     return switch (protocolType) {
       AiProtocolType.openai => _openai(id),
+      AiProtocolType.jev => _jev(id) ?? const AiModelProfile(),
       AiProtocolType.dots => _dots(id),
       AiProtocolType.claude => _claude(id),
       AiProtocolType.gemini => _gemini(id),

@@ -202,7 +202,7 @@ abstract final class AiThinkingRequestPolicy {
     AiModelConfig model,
   ) {
     final modelId = lowercaseStringFromValue(model.modelId);
-    if (model.profileFor(modelId).supportsDecisions) {
+    if (model.usesDecisionProtocol) {
       throw UnsupportedError('该模型仅支持结构化决策，请使用专用决策接口，不能通过聊天接口调用。');
     }
     if (AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra') ||
@@ -1318,6 +1318,7 @@ class AiPromptCacheAffinity {
       AiProtocolType.meta ||
       AiProtocolType.mimo ||
       AiProtocolType.hunyuan => true,
+      AiProtocolType.jev ||
       AiProtocolType.claude ||
       AiProtocolType.gemini ||
       AiProtocolType.grok ||
@@ -1794,6 +1795,32 @@ Object? _stableJsonValue(Object? value, {String? key}) {
     return value.map(_stableJsonValue).toList(growable: false);
   }
   return value;
+}
+
+/// 决策协议由专用服务处理；注册能力信息并阻止误入聊天序列化。
+class JevProtocolAdapter extends AiProtocolAdapter {
+  const JevProtocolAdapter();
+
+  @override
+  AiProtocolType get protocolType => AiProtocolType.jev;
+  @override
+  AiApiFamily get operationFamily => AiApiFamily.decisions;
+  @override
+  String get endpointPath => AiEndpointRouter.decisionEndpointPath;
+
+  @override
+  Future<Map<String, Object?>> buildBody(
+    AiModelConfig model,
+    List<AiChatTurn> messages, {
+    List<AiToolDefinition> tools = const [],
+    List<String> responseModalities = const [],
+    bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
+  }) async => throw UnsupportedError('Jev 协议请使用专属决策服务。');
+
+  @override
+  Future<String> parseAssistantMessage(Object? decoded) async =>
+      throw UnsupportedError('Jev 协议请使用专属决策服务解析结果。');
 }
 
 class OpenAiProtocolAdapter extends AiProtocolAdapter {
@@ -4219,6 +4246,7 @@ abstract final class AiProtocolRegistry {
 
   static final Map<AiProtocolType, AiProtocolAdapter> _adapters =
       <AiProtocolType, AiProtocolAdapter>{
+        AiProtocolType.jev: const JevProtocolAdapter(),
         AiProtocolType.openai: const OpenAiProtocolAdapter(
           AiProtocolType.openai,
           visionModelPatterns: _openaiVisionPatterns,
@@ -4305,6 +4333,7 @@ abstract final class AiProtocolRegistry {
 
   static AiProtocolAdapter adapterForModel(AiModelConfig model) {
     return switch (model.apiDialect) {
+      AiApiDialect.jevNative => const JevProtocolAdapter(),
       AiApiDialect.anthropicNative
           when model.protocolType == AiProtocolType.minimax =>
         const MiniMaxAnthropicProtocolAdapter(),

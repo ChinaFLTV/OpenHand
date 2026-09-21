@@ -119,6 +119,31 @@ try {
     const draft = decisionDraft('待评估内容', decisionQuestionForType(type), type, '低\n高');
     assert.equal(initialDecisionDraft(draft).question, DEFAULT_DECISION_QUESTIONS[type]);
   }
+  const { parseDecisionRequest, parseDecisionResult } = await server.ssrLoadModule('/src/shared/util/decision.ts');
+  for (const type of ['noul', 'choice', 'score']) {
+    const request = { state: '内容含 ``` 和 ~~~', questions: { 决策: {
+      type, instructions: '评估',
+      ...(type === 'choice' ? { criteria: { 甲: null, 乙: null } } : type === 'score' ? { criteria: ['低', '高'] } : {}),
+    } } };
+    for (const fence of ['```', '````', '~~~', '~~~~']) {
+      for (const newline of ['\n', '\r\n']) {
+        const text = `  ${fence}openhand-decision-request \t${newline}${JSON.stringify(request)}${newline}  ${fence}`;
+        assert.deepEqual(parseDecisionRequest(text), request, '围栏样式不得改变决策类型');
+        assert.equal(initialDecisionDraft(text).type, type, '重新编辑保持原类型');
+        assert.equal(parseDecisionRequest(text.slice(0, -fence.length)), null, '未闭合配置拒绝解析');
+        assert.ok(initialDecisionDraft(text.slice(0, -fence.length)).advanced, '损坏配置进入原文编辑');
+      }
+    }
+    const answer = type === 'noul' ? { type, noul: .8 }
+      : type === 'choice' ? { type, choice: '甲', probabilities: { 甲: .8, 乙: .2 } }
+      : { type, score: .4, probabilities: { 0: .6, 1: .4 } };
+    assert.ok(parseDecisionResult(JSON.stringify({ questions: request.questions, answers: { 决策: answer } })));
+    for (const answers of [{ 决策: { ...answer, type: type === 'noul' ? 'choice' : 'noul' } },
+      { 旧问题: answer }, { 决策: answer, 旧问题: answer }]) {
+      assert.equal(parseDecisionResult(JSON.stringify({ questions: request.questions, answers })), null,
+        '错误类型、缺失和多余答案不得显示成成功结果');
+    }
+  }
   const { buildHeightPrefix, resolveVirtualMessageRange } = await server.ssrLoadModule('/src/shared/util/virtual_message_list_math.ts');
   const shortHeights = Array(1000).fill(44);
   const shortPrefix = buildHeightPrefix(shortHeights);

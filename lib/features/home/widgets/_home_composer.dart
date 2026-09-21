@@ -318,14 +318,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   void didUpdateWidget(covariant _ComposerPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     final wasDecisionModel =
-        oldWidget.selectedModel
-            ?.profileFor(oldWidget.selectedModel!.modelId)
-            .supportsDecisions ==
+        oldWidget.selectedModel?.usesDecisionProtocol ==
         true;
     final isDecisionModel =
-        widget.selectedModel
-            ?.profileFor(widget.selectedModel!.modelId)
-            .supportsDecisions ==
+        widget.selectedModel?.usesDecisionProtocol ==
         true;
     if (oldWidget.currentSession?.id == widget.currentSession?.id &&
         oldWidget.controller == widget.controller &&
@@ -2547,9 +2543,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   bool get _isDecisionModel =>
-      widget.selectedModel
-          ?.profileFor(widget.selectedModel!.modelId)
-          .supportsDecisions ==
+      widget.selectedModel?.usesDecisionProtocol ==
       true;
 }
 

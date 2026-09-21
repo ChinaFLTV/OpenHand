@@ -8173,13 +8173,12 @@ class AiSessionController extends ChangeNotifier {
       final effCards =
           sessionThrottleOverride?.cardsPerSecond ??
           runtimeContext.effectiveStreamMaxMessageCardsPerSecond();
-      // 多媒体生成模式（图片/视频/音频）旁路所有流式节流：
-      // 这些请求走专用 media endpoint，输出是文件/URL 而非真正的文本流，
-      // 把它们丢进 charThrottle/cardThrottle 会导致进度/结果以人造节奏
-      // 慢慢出现，与"特殊非文本输出"的语义不符。
-      final isMediaCreation = effectiveCreationRequest.isGeneratedMediaRequest;
-      final effChars0 = isMediaCreation ? 0 : effChars;
-      final effCards0 = isMediaCreation ? 0 : effCards;
+      // 媒体和结构化决策一次返回完整结果，按字符拆开会暴露不完整的载荷。
+      final isAtomicResponse =
+          effectiveCreationRequest.isGeneratedMediaRequest ||
+          model.usesDecisionProtocol;
+      final effChars0 = isAtomicResponse ? 0 : effChars;
+      final effCards0 = isAtomicResponse ? 0 : effCards;
       // 节流时长：>0 表示限定时长后剩余响应直接按真实节奏追加；
       // 0 表示持续节流（默认）。
       final throttleDurationSec = runtimeContext.streamThrottleDurationSeconds;
@@ -8209,9 +8208,8 @@ class AiSessionController extends ChangeNotifier {
           _notifySessionStreamThrottleChanged();
         },
       );
-      // 媒体生成模式下不把 throttle 注册进 _active* 表 —— 既避免设置面板的
-      // 「立即应用」把 0 速率改回非零打破旁路，也让顶栏胶囊找不到节流入口。
-      if (!isMediaCreation) {
+      // 完整结果不注册节流入口，避免设置热更新重新启用逐字输出。
+      if (!isAtomicResponse) {
         _activeCardThrottles[workingSession.id] = cardThrottle;
         _activeCharThrottles[workingSession.id] = charThrottle;
         _activeReasoningCharThrottles[workingSession.id] =

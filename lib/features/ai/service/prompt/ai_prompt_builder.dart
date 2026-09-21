@@ -13,6 +13,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/bounded_line_budget.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/decision_payload.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
 import '../../../../shared/util/storage_identifier.dart';
@@ -218,6 +219,26 @@ class AiPromptBuilder {
     // 同时 availableTools 可以保持为空，让 SDK 层 / 本地验证层拒绝任何工具调用。
     List<AiToolDefinition>? displayCatalogOverride,
   }) async {
+    if (model.usesDecisionProtocol) {
+      final userMessage = sessionMessages.lastWhere(
+        (message) =>
+            message.kind == AiSessionMessageKind.user &&
+            (latestUserMessageId == null || message.id == latestUserMessageId),
+        orElse: () => throw const FormatException('缺少待评估内容。'),
+      );
+      final content = DecisionPayload.encode(
+        DecisionPayload.requestLanguage,
+        DecisionPayload.request(userMessage.content),
+      );
+      return AiPromptBuildResult(
+        messages: [AiChatTurn(role: AiChatRole.user, content: content)],
+        metadata: const {'api_family': 'decisions'},
+        promptCharacterCount: content.length,
+        systemMessageCount: 0,
+        historyMessageCount: 0,
+        memoryResourceIds: const {},
+      );
+    }
     final templatePolicy = AiPromptTemplatePolicies.resolve(
       templateBundle.template.id,
     );

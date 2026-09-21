@@ -161,6 +161,7 @@ class AiImageGenerationService {
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
       case AiProtocolType.dots:
+      case AiProtocolType.jev:
       case AiProtocolType.mimo:
         return false;
     }
@@ -193,6 +194,7 @@ class AiImageGenerationService {
       case AiProtocolType.longcat:
       case AiProtocolType.joycode:
       case AiProtocolType.meta:
+      case AiProtocolType.jev:
       case AiProtocolType.mimo:
         return false;
     }
@@ -286,6 +288,7 @@ class AiImageGenerationService {
       case AiProtocolType.agnes:
       case AiProtocolType.joycode:
       case AiProtocolType.meta:
+      case AiProtocolType.jev:
       case AiProtocolType.mimo:
         return false;
     }
@@ -1259,6 +1262,7 @@ class AiImageGenerationService {
       case AiProtocolType.longcat:
       case AiProtocolType.joycode:
       case AiProtocolType.meta:
+      case AiProtocolType.jev:
       case AiProtocolType.mimo:
         // GLM CogVideoX 及兼容网关使用扁平视频参数。
         final body = <String, Object?>{
@@ -1768,6 +1772,7 @@ class AiImageGenerationService {
       case AiProtocolType.agnes:
       case AiProtocolType.joycode:
       case AiProtocolType.meta:
+      case AiProtocolType.jev:
       case AiProtocolType.mimo:
         // 自定义兼容网关使用通用 OpenAI 请求结构。
         final body = <String, Object?>{

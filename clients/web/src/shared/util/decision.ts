@@ -3,7 +3,7 @@ import { t } from '../../i18n';
 export const DECISION_REQUEST = 'openhand-decision-request';
 export const DECISION_RESULT = 'openhand-decision';
 const decisionResultFence = /^ {0,3}(?:`{3,}|~{3,})openhand-decision[ \t]*\r?$/m;
-const decisionRequestFence = /^ {0,3}(?:`{3,}|~{3,})openhand-decision-request[ \t]*\r?$/m;
+const decisionRequestFence = /^ {0,3}(`{3,}|~{3,})openhand-decision-request[ \t]*\r?$/m;
 
 export function isStructuredDecisionMessage(message: { role: string; content: string }): boolean {
   if (!message.content.includes(DECISION_RESULT)) return false;
@@ -124,7 +124,7 @@ export function parseDecisionResult(text: string): DecisionResult | null {
     const data = JSON.parse(text);
     if (!object(data) || !object(data.answers) || !object(data.questions)) return null;
     const questions = Object.entries(data.questions);
-    if (!questions.length || questions.length > DECISION_MAX_QUESTIONS) return null;
+    if (!questions.length || questions.length > DECISION_MAX_QUESTIONS || Object.keys(data.answers).length !== questions.length) return null;
     for (const [key, question] of questions) {
       const answer = data.answers[key];
       if (!object(question) || !object(answer) || answer.type !== question.type) return null;
@@ -140,12 +140,20 @@ export function parseDecisionResult(text: string): DecisionResult | null {
   } catch { return null; }
 }
 
+function decisionRequestJson(text: string): unknown {
+  const opening = decisionRequestFence.exec(text);
+  if (!opening) return JSON.parse(text);
+  const fence = opening[1];
+  const body = text.slice(opening.index + opening[0].length);
+  const closing = new RegExp(`^ {0,3}${fence[0]}{${fence.length},}[ \\t]*\\r?$`, 'm').exec(body);
+  if (!closing) throw new Error(t('decision.error.needStateQuestions', '请提供有效的待评估内容和问题。'));
+  return JSON.parse(body.slice(0, closing.index));
+}
+
 export function parseDecisionRequest(text: string): DecisionRequest | null {
   if (text.length > DECISION_MAX_CHARACTERS) return null;
   try {
-    const marker = `\`\`\`${DECISION_REQUEST}\n`;
-    const start = text.indexOf(marker);
-    const payload = JSON.parse(start >= 0 ? text.slice(start + marker.length, text.indexOf('```', start + marker.length)) : text);
+    const payload = decisionRequestJson(text);
     if (!object(payload) || !object(payload.questions)) return null;
     const questions = Object.entries(payload.questions);
     if (!questions.length || questions.length > DECISION_MAX_QUESTIONS) return null;
@@ -171,12 +179,10 @@ export function parseDecisionRequest(text: string): DecisionRequest | null {
 
 export function initialDecisionDraft(text: string): { state: string; question: string; type: DecisionType; criteria: string; advanced?: string } {
   const fallback = { state: text, question: localizedDecisionQuestion('noul'), type: 'noul' as DecisionType, criteria: '' };
-  const marker = `\`\`\`${DECISION_REQUEST}\n`;
-  const start = text.indexOf(marker);
-  if ((start < 0 && !text.trimStart().startsWith('{')) || text.length > DECISION_MAX_CHARACTERS) return fallback;
+  if ((!decisionRequestFence.test(text) && !text.trimStart().startsWith('{')) || text.length > DECISION_MAX_CHARACTERS) return fallback;
   try {
-    const end = text.indexOf('```', start + marker.length);
-    const payload = JSON.parse(start < 0 ? text : text.slice(start + marker.length, end));
+    const payload = decisionRequestJson(text);
+    if (!object(payload)) return { ...fallback, advanced: text };
     const advanced = { ...fallback, advanced: JSON.stringify(payload, null, 2) };
     if (typeof payload.state !== 'string' || !object(payload.questions) || Object.keys(payload.questions).length !== 1 || !Object.hasOwn(payload.questions, DECISION_SIMPLE_QUESTION_KEY)) return advanced;
     const question = Object.values(payload.questions)[0];

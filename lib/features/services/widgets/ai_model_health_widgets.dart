@@ -803,6 +803,7 @@ class _HealthBar extends StatelessWidget {
     final text = openHandTextResolver(context);
     return switch (raw.trim().toLowerCase()) {
       'text' => text(zh: '文本模型', en: 'Text model'),
+      'decisions' => text(zh: '结构化决策模型', en: 'Decision model'),
       'embedding' => text(zh: '嵌入模型', en: 'Embedding model'),
       'moderation' => text(zh: '内容审核', en: 'Content moderation'),
       'rerank' => text(zh: '重排序模型', en: 'Reranking model'),
@@ -821,6 +822,10 @@ class _HealthBar extends StatelessWidget {
   String _localizedProbeType(BuildContext context, String raw) {
     final text = openHandTextResolver(context);
     return switch (raw.trim().toLowerCase()) {
+      'decision_availability_probe' => text(
+        zh: '决策接口探测',
+        en: 'Decision API probe',
+      ),
       'model_metadata' => text(zh: '模型元数据探测', en: 'Model metadata probe'),
       'embedding_minimal_input' => text(
         zh: '嵌入最小输入探测',

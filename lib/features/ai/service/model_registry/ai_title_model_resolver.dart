@@ -83,6 +83,12 @@ class AiTitleModelResolver {
   }
 
   static AiModelConfig normalizeProviderTitleDefaults(AiModelConfig model) {
+    if (model.usesDecisionProtocol) {
+      return model.copyWith(
+        defaultTitleModelId: '',
+        isGlobalDefaultTitleModel: false,
+      );
+    }
     final activeModelId = nullIfBlank(model.modelId) ?? '';
     final defaultTitleModelId = nullIfBlank(model.defaultTitleModelId) ?? '';
     return model.copyWith(
@@ -110,7 +116,9 @@ class AiTitleModelResolver {
         if (modelId == null) continue;
         var profile = entry.value;
         if (profile.isGlobalDefaultTitleModel) {
-          if (!visibleModelIds.contains(modelId) || hasProfileGlobalDefault) {
+          if (!visibleModelIds.contains(modelId) ||
+              !supportsTextTitleGeneration(next.copyWith(modelId: modelId)) ||
+              hasProfileGlobalDefault) {
             profile = profile.copyWith(isGlobalDefaultTitleModel: false);
           } else {
             hasProfileGlobalDefault = true;

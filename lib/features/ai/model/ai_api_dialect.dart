@@ -2,6 +2,7 @@ import '../../../shared/util/input_value_parsing.dart';
 
 enum AiApiDialect {
   openAiCompat('openai_compat'),
+  jevNative('jev_native'),
   anthropicNative('anthropic_native'),
   geminiNative('gemini_native');
 

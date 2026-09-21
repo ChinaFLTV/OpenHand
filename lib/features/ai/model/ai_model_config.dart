@@ -485,6 +485,7 @@ enum AiAuthScheme {
 
 enum AiProtocolType {
   openai('openai'),
+  jev('jev'),
   dots('dots'),
   claude('claude'),
   gemini('gemini'),
@@ -523,6 +524,7 @@ enum AiProtocolType {
   String label(AppLocalizations l10n) {
     return switch (this) {
       AiProtocolType.openai => l10n.aiProtocolOpenAi,
+      AiProtocolType.jev => 'Jev',
       AiProtocolType.dots => l10n.aiProtocolDots,
       AiProtocolType.claude => l10n.aiProtocolClaude,
       AiProtocolType.gemini => l10n.aiProtocolGemini,
@@ -963,9 +965,31 @@ class AiModelProfile {
   final List<String> readerSourceTypes;
   final List<String> readerTargetTypes;
 
-  /// 决策输出不能用于自由文本生成。
-  bool get supportsDecisions =>
-      architecture?.outputModalities.contains('decisions') == true;
+  /// 协议约束在目录与用户覆盖合并后生效，防止旧配置重新启用聊天能力。
+  AiModelProfile forProtocol(AiProtocolType protocol) {
+    if (protocol != AiProtocolType.jev) return this;
+    return copyWith(
+      isMultimodal: false,
+      supportedModalities: const {AiModelModality.text},
+      supportsAttachments: false,
+      capabilities: const {},
+      thinkingEnabled: false,
+      reasoningEffortControlEnabled: false,
+      clearReasoningEffort: true,
+      reasoningEffortOptions: const [],
+      clearMaxThinkingLength: true,
+      requiresReasoningEcho: false,
+      isGlobalDefaultTitleModel: false,
+      supportedParameters: const ['model', 'state', 'questions'],
+      defaultParameters: const {},
+      supportedVoices: const [],
+      architecture: const AiModelArchitectureMetadata(
+        modality: 'text->decisions',
+        inputModalities: ['text'],
+        outputModalities: ['decisions'],
+      ),
+    );
+  }
 
   bool get supportsEmbeddings =>
       capabilities.contains(AiModelCapability.embeddingGeneration);
@@ -1576,9 +1600,35 @@ class AiModelConfig {
     final availableModelIds = _parseAvailableModelIds(
       json['available_model_ids'],
     );
-    final protocolType = AiProtocolType.fromStorage(
+    final profiles = _parseModelProfiles(json['model_profiles']);
+    final operationRouting =
+        AiOperationRouting.fromJson(json['operation_routing']) ??
+        const AiOperationRouting();
+    var protocolType = AiProtocolType.fromStorage(
       stringFromValue(json['protocol_type']),
     );
+    // 仅升级未记录协议版本的纯决策提供商；混合提供商保持原协议。
+    if (json['protocol_routing_version'] == null &&
+        protocolType == AiProtocolType.openai) {
+      final ids = normalizeModelIds([
+        stringFromValue(json['model_id']),
+        stringFromValue(json['default_title_model_id']),
+        ...availableModelIds,
+        for (final entry in operationRouting.toJson().entries)
+          if (entry.key.endsWith('_model_id')) stringFromValue(entry.value),
+      ]);
+      if (ids.isNotEmpty &&
+          ids.every(
+            (id) =>
+                (profiles[id]?.architecture ??
+                        AiModelCatalog.lookup(id, protocolType)?.architecture)
+                    ?.outputModalities
+                    .contains('decisions') ==
+                true,
+          )) {
+        protocolType = AiProtocolType.jev;
+      }
+    }
     final rawApiDialect = nullIfBlank(stringFromValue(json['api_dialect']));
     final rawProviderKind = nullIfBlank(stringFromValue(json['provider_kind']));
     final apiDialect = rawApiDialect == null
@@ -1619,11 +1669,9 @@ class AiModelConfig {
       maxTokens: optionalPositiveIntFromValue(json['max_tokens']),
       temperature: optionalDoubleFromValue(json['temperature']),
       streamEnabled: optionalBoolFromValue(json['stream_enabled']) ?? true,
-      modelProfiles: _parseModelProfiles(json['model_profiles']),
+      modelProfiles: profiles,
       endpointOverrides: parseAiEndpointOverrides(json['endpoint_overrides']),
-      operationRouting:
-          AiOperationRouting.fromJson(json['operation_routing']) ??
-          const AiOperationRouting(),
+      operationRouting: operationRouting,
       capabilityOverrides: _parseCapabilityOverrides(
         json['capability_overrides'],
       ),
@@ -1643,7 +1691,7 @@ class AiModelConfig {
     required this.token,
     required this.modelId,
     required this.protocolType,
-    this.apiDialect = AiApiDialect.openAiCompat,
+    AiApiDialect apiDialect = AiApiDialect.openAiCompat,
     this.providerKind = AiProviderKind.custom,
     bool? explicitPromptCacheEnabled,
     this.maxContextTokens,
@@ -1661,7 +1709,12 @@ class AiModelConfig {
     this.capabilityOverrides = const <AiApiFamily, String>{},
     this.operationExtras = const <String, Object?>{},
     this.realtime = const AiRealtimeConfig(),
-  }) : explicitPromptCacheEnabled =
+  }) : apiDialect = protocolType == AiProtocolType.jev
+           ? AiApiDialect.jevNative
+           : apiDialect == AiApiDialect.jevNative
+           ? AiApiDialect.openAiCompat
+           : apiDialect,
+       explicitPromptCacheEnabled =
            (protocolType == AiProtocolType.claude ||
                (apiDialect == AiApiDialect.anthropicNative &&
                    protocolType != AiProtocolType.dots)) &&
@@ -1714,6 +1767,7 @@ class AiModelConfig {
   /// 当前启用的模型 ID。
   final String modelId;
   final AiProtocolType protocolType;
+  bool get usesDecisionProtocol => protocolType == AiProtocolType.jev;
   final AiApiDialect apiDialect;
   final AiProviderKind providerKind;
 
@@ -1966,6 +2020,7 @@ class AiModelConfig {
     required String modelId,
     required AiProtocolType protocolType,
   }) {
+    profile = profile.forProtocol(protocolType);
     if (profile.reasoningEffortControlEnabled == false ||
         profile.reasoningEffortOptions.isNotEmpty) {
       return profile;
@@ -2121,6 +2176,7 @@ class AiModelConfig {
       supportsExplicitPromptCacheControl && explicitPromptCacheEnabled;
 
   bool get usesClaudeOutputEffort {
+    if (usesDecisionProtocol) return false;
     if (protocolType == AiProtocolType.dots) return true;
     if (protocolType != AiProtocolType.claude &&
         !lowercaseStringFromValue(modelId).contains('claude')) {
@@ -2132,6 +2188,7 @@ class AiModelConfig {
   }
 
   bool get usesAlwaysOnClaudeAdaptiveThinking {
+    if (usesDecisionProtocol) return false;
     if (protocolType == AiProtocolType.dots) return false;
     if (protocolType != AiProtocolType.claude &&
         !lowercaseStringFromValue(modelId).contains('claude')) {
@@ -2141,6 +2198,7 @@ class AiModelConfig {
   }
 
   bool get resolvedSupportsThinking {
+    if (usesDecisionProtocol) return false;
     final trimmedModelId = nullIfBlank(modelId) ?? '';
     final profile = profileFor(trimmedModelId);
     final catalogProfile = AiModelCatalog.lookup(trimmedModelId, protocolType);
@@ -2159,6 +2217,7 @@ class AiModelConfig {
   }
 
   bool get resolvedThinkingEnabled {
+    if (usesDecisionProtocol) return false;
     final trimmedModelId = nullIfBlank(modelId) ?? '';
     final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
     if (normalizedModelId.contains('gpt-6-astra') ||
@@ -2186,6 +2245,7 @@ class AiModelConfig {
   }
 
   bool get resolvedReasoningEffortControlEnabled {
+    if (usesDecisionProtocol) return false;
     if (protocolType == AiProtocolType.dots &&
         apiDialect != AiApiDialect.anthropicNative) {
       return false;
@@ -2281,6 +2341,7 @@ class AiModelConfig {
     required AiProtocolType protocolType,
     required AiModelProfile profile,
   }) {
+    if (protocolType == AiProtocolType.jev) return false;
     final explicit = profile.thinkingEnabled;
     if (explicit != null) return explicit;
     if (_defaultParametersDisableThinking(profile.defaultParameters)) {
@@ -2302,7 +2363,7 @@ class AiModelConfig {
     required AiProtocolType protocolType,
     required AiModelProfile profile,
   }) {
-    if (profile.supportsDecisions) {
+    if (protocolType == AiProtocolType.jev) {
       return false;
     }
     if (profile.thinkingEnabled != null) return true;
@@ -2313,6 +2374,7 @@ class AiModelConfig {
   }
 
   bool get requiresReasoningEcho {
+    if (usesDecisionProtocol) return false;
     final trimmedModelId = nullIfBlank(modelId) ?? '';
     final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
     if (_looksLikeAlwaysOnKimiK3(normalizedModelId)) {
@@ -2531,6 +2593,7 @@ class AiModelConfig {
             normalizedModelId.contains('qwq') ||
             normalizedModelId.contains('qwen3') ||
             normalizedModelId.contains('glm-z1'),
+      AiProtocolType.jev ||
       AiProtocolType.ollama ||
       AiProtocolType.agnes ||
       AiProtocolType.joycode ||
@@ -2627,6 +2690,9 @@ class AiModelConfig {
 
   /// 返回合并当前模型与可用模型后的去重有序列表。
   List<String> get allModelIds {
+    if (usesDecisionProtocol) {
+      return normalizeModelIds([...availableModelIds, modelId]);
+    }
     final normalizedModelId = nullIfBlank(modelId);
     final normalizedTitleModelId = nullIfBlank(defaultTitleModelId);
     return normalizeModelIds(<String>[
@@ -2693,7 +2759,11 @@ class AiModelConfig {
       token: token ?? this.token,
       modelId: modelId ?? this.modelId,
       protocolType: protocolType ?? this.protocolType,
-      apiDialect: apiDialect ?? this.apiDialect,
+      apiDialect:
+          apiDialect ??
+          (usesDecisionProtocol && protocolType != null
+              ? inferAiApiDialect(protocolType)
+              : this.apiDialect),
       providerKind: providerKind ?? this.providerKind,
       explicitPromptCacheEnabled:
           explicitPromptCacheEnabled ?? this.explicitPromptCacheEnabled,
@@ -2747,6 +2817,7 @@ class AiModelConfig {
       'token': token,
       'model_id': nullIfBlank(modelId) ?? '',
       'protocol_type': protocolType.storageValue,
+      'protocol_routing_version': 1,
       'api_dialect': apiDialect.storageValue,
       'provider_kind': providerKind.storageValue,
       if (supportsExplicitPromptCacheControl)
@@ -2942,6 +3013,7 @@ class AiModelConfig {
 
 AiApiDialect inferAiApiDialect(AiProtocolType protocolType) {
   return switch (protocolType) {
+    AiProtocolType.jev => AiApiDialect.jevNative,
     AiProtocolType.claude => AiApiDialect.anthropicNative,
     AiProtocolType.gemini => AiApiDialect.geminiNative,
     _ => AiApiDialect.openAiCompat,
