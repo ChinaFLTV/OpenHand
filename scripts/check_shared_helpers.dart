@@ -959,6 +959,16 @@ int _checkTextClip() {
     stderr.writeln('clipText 拆分了扩展字符');
     return 1;
   }
+  final longText = '👨‍👩‍👧‍👦${'正文' * 100000}🇨🇳';
+  if (clipText(longText, 3) != '...' ||
+      clipText(longText, 3, suffix: '') != '👨‍👩‍👧‍👦正文' ||
+      clipMiddleText(longText, maxChars: 3, headFraction: 0.5) !=
+          '👨‍👩‍👧‍👦…🇨🇳' ||
+      clipMiddleText('👨‍👩‍👧‍👦🇨🇳', maxChars: 2) != '👨‍👩‍👧‍👦🇨🇳' ||
+      clipText(longText, 1, suffix: '🇨🇳🇺🇸') != '🇨🇳') {
+    stderr.writeln('长正文预览或首尾扩展字符裁剪错误');
+    return 1;
+  }
   return 0;
 }
 

@@ -179,6 +179,19 @@ try {
   verify(renderedBodies.length > 0 && renderedBodies.every((body) => (body.textContent?.length ?? 0) <= 1200),
     '千条长正文首次仅解析折叠预览，正文开销不随历史总长度增长');
   render(null, root);
+  // 完整卡片超过旧的测高上限时，虚拟列表仍须为全文预留空间。
+  settled = false;
+  const tallItems = messages.slice(0, 7);
+  render(<div ref={scrollRef} style={{ height: '480px', overflowY: 'auto', width: '600px' }}>
+    <VirtualMessageList key="超高卡片" messages={tallItems} membershipKey="超高卡片"
+      scrollContainerRef={scrollRef} revealTarget={null} highlightedMessageId={null}
+      onInitialLayoutSettled={() => { settled = true; }}
+      renderMessage={(message) => <div style={{ height: message.id === tallItems.at(-1)!.id ? '80000px' : '44px' }}>{message.id}</div>} />
+  </div>, root);
+  await until(() => settled);
+  verify(Number.parseFloat(root.querySelector<HTMLElement>('[data-virtualized]')!.style.height) >= 80000,
+    '八万像素的完整卡片保留真实滚动范围');
+  render(null, root);
   document.title = '长会话渲染回归检查通过';
   result.textContent = `通过 ${checks.length} 项：\n${checks.join('\n')}`;
 } catch (error) {

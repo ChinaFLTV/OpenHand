@@ -549,9 +549,7 @@ const HtmlBody = memo(function HtmlBody({ source, mono }: { source: string; mono
   useLayoutEffect(() => {
     const element = containerRef.current;
     if (element == null || purify == null) return;
-    if (element.innerHTML !== safeHtml) {
-      element.innerHTML = safeHtml;
-    }
+    element.innerHTML = safeHtml;
   }, [purify, safeHtml]);
   // HTML 模式必须尽量忠实呈现模型给出的界面结构。布局类声明（flex/grid）
   // 交给浏览器原生排版，外层只负责安全净化和溢出约束。
@@ -1117,9 +1115,15 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
   };
   const content = source ?? '';
   const tooBig = content.length > CONTENT_TOO_BIG_CHARS;
+  const stickyLooksHtml = useStickyLooksLikeHtml(content);
+  const renderAsPlainText = raw
+    || format === 'plain_text'
+    || (format === 'html' && !streaming && !stickyLooksHtml && htmlFallback === 'plain_text');
+  const renderAsHtml = !renderAsPlainText
+    && ((format === 'html' && streaming) || stickyLooksHtml);
   const markdownContent = useMemo(
-    () => tooBig ? '' : stripLocalMediaReferences(content),
-    [content, tooBig],
+    () => tooBig || renderAsPlainText || renderAsHtml ? '' : stripLocalMediaReferences(content),
+    [content, tooBig, renderAsPlainText, renderAsHtml],
   );
   const oversizedMarkdownPreview = useMemo(
     () => tooBig
@@ -1131,9 +1135,6 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
     clearTimer: clearStreamFlushTimer,
     scheduleTimer: scheduleStreamFlushTimer,
   } = useTimeoutController();
-  // 流式 HTML 渲染稳态：必须在所有 hook 入口前调用，避免条件 hook。
-  const stickyLooksHtml = useStickyLooksLikeHtml(content);
-
   // 挂载已取得帧预算；流式更新只合并内容，避免重复排队与解析。
   const [renderedMarkdownContent, setRenderedMarkdownContent] = useState(markdownContent);
   const lastFlushAtRef = useRef<number>(0);
@@ -1386,14 +1387,6 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
     [components, rehypePlugins, remarkPlugins, renderedContent],
   );
 
-  const renderAsPlainText = raw
-    || format === 'plain_text'
-    || (
-      format === 'html'
-      && !streaming
-      && !stickyLooksHtml
-      && htmlFallback === 'plain_text'
-    );
   if (renderAsPlainText) {
     return (
       <pre

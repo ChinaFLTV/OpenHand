@@ -144,7 +144,14 @@ try {
         '错误类型、缺失和多余答案不得显示成成功结果');
     }
   }
-  const { buildHeightPrefix, resolveVirtualMessageRange } = await server.ssrLoadModule('/src/shared/util/virtual_message_list_math.ts');
+  const { buildHeightPrefix, resolveVirtualMessageRange, clampMessageRowHeight } = await server.ssrLoadModule('/src/shared/util/virtual_message_list_math.ts');
+  assert.equal(clampMessageRowHeight(80000), 80000, '完整长卡片的实际高度不能被截断');
+  assert.equal(clampMessageRowHeight(Infinity), 188, '异常测量仍使用估计高度');
+  const tallHeights = [80000, 188, 188];
+  assert.deepEqual(resolveVirtualMessageRange({
+    messageCount: 3, heights: tallHeights, prefix: buildHeightPrefix(tallHeights),
+    viewportTop: 60000, viewportBottom: 60480, overscanPx: 0,
+  }), { start: 0, end: 2 }, '超高卡片中部仍须保留当前正文');
   const shortHeights = Array(1000).fill(44);
   const shortPrefix = buildHeightPrefix(shortHeights);
   for (const maxVisibleRows of [2, 8]) {
@@ -287,7 +294,15 @@ try {
   assert.equal(documentGallery.images[documentGallery.index].url, domImages[500].src);
   assert.ok(documentGallery.index > 0);
 
-  const { collectGalleryMedia } = await server.ssrLoadModule('/src/components/MessageMedia.tsx');
+  const { collectGalleryMedia, collectMedia, messageHasMultimedia } = await server.ssrLoadModule('/src/components/MessageMedia.tsx');
+  let mediaContentReads = 0;
+  const mediaMessage = { get content() { mediaContentReads++; return '![图片](https://example.com/test.png)'; } };
+  const mediaItems = collectMedia(mediaMessage);
+  const readsAfterCollection = mediaContentReads;
+  assert.equal(messageHasMultimedia(mediaMessage), true);
+  assert.equal(collectMedia(mediaMessage), mediaItems, '卡片与媒体组件共用同一解析结果');
+  assert.equal(mediaContentReads, readsAfterCollection, '虚拟列表重挂载不得重复扫描未变正文');
+  assert.equal(collectMedia({ content: '' }).length, 0, '新消息对象重新解析并清除旧媒体');
   const quotedImages = collectGalleryMedia({ content: '> ![引用图片](/tmp/quoted.png)\n\n![重复图片](/tmp/quoted.png)' });
   assert.equal(quotedImages.length, 1, '本地引用图片须进入图库且同消息去重');
   assert.equal(quotedImages[0].path, '/tmp/quoted.png');

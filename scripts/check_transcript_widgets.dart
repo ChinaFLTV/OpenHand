@@ -382,6 +382,38 @@ class _TranscriptProbe {
 
 void main() {
   iaw.InAppWebViewPlatform.instance = _ProbeWebViewPlatform();
+  test('同长历史正文的局部差异不能串用 Markdown 缓存', () {
+    final first = '${'前' * 300}甲${'后' * 800}';
+    final second = '${'前' * 300}乙${'后' * 800}';
+    expect(boundedTextFingerprint(first), boundedTextFingerprint(second));
+    final cache = _MarkdownAstCache();
+    final firstKey = _markdownAstCacheKeyForInputs(
+      normalizedSource: first, parseKey: '历史', inlineSyntaxes: const [],
+    );
+    final secondKey = _markdownAstCacheKeyForInputs(
+      normalizedSource: second, parseKey: '历史', inlineSyntaxes: const [],
+    );
+    final nodes = <md.Node>[md.Text(first)];
+    cache.put(firstKey, nodes);
+    expect(cache.get(secondKey), isNull);
+    expect(cache.get(firstKey), same(nodes));
+  });
+  test('长消息复用已有字符数，预览的元数据更新不覆盖全文统计', () {
+    final message = _probeSession('字符统计', 1).messages.single.copyWith(
+      content: '预览正文', characterCount: 300000,
+      metadata: {aiSessionMessageContentPreviewMetadataKey: true},
+    );
+    expect(AiSessionMessage.fromJson(message.toJson()).characterCount, 300000);
+    expect(message.copyWith(metadata: {'message_feedback': 'positive'}).characterCount, 300000);
+    expect(message.copyWith(content: message.content).characterCount, 300000);
+    expect(message.copyWith(content: '👨‍👩‍👧‍👦🇨🇳').characterCount, 2);
+    expect(message.copyWith(characterCount: 0).characterCount, 0);
+    for (final invalid in [null, -1, '无效']) {
+      expect(AiSessionMessage.fromJson({
+        ...message.toJson(), 'content': '👨‍👩‍👧‍👦🇨🇳', 'character_count': invalid,
+      }).characterCount, 2);
+    }
+  });
   test('千条历史按窗口解码，大元数据后台加载保留正文与标记', () async {
     final directory = await Directory.systemTemp.createTemp('openhand_history_');
     final database = await DatabaseService.initialize(

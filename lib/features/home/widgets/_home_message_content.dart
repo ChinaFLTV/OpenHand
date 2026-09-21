@@ -1225,70 +1225,59 @@ const int _markdownStreamingParseMinIntervalMs = 96;
 const int _richContentPlaceholderMaxLines = 3;
 const int _richContentPlaceholderCharactersPerLine = 72;
 
-/// 进程级 AST LRU 缓存，同时限制条目数和源文本总量，避免长会话挤占内存。
-class _MarkdownAstCache {
-  _MarkdownAstCache();
+typedef _MarkdownAstKey = ({
+  String source,
+  String parseKey,
+  int syntaxSignature,
+});
 
+/// 原文参与键比较，避免采样指纹相同的历史消息串用正文；缓存总量保持有界。
+class _MarkdownAstCache {
   static const int _maxEntries = 512;
   static const int _maxSourceChars = 4 * kBytesPerMiB;
-  final LinkedHashMap<int, _MarkdownAstCacheEntry> _entries =
-      LinkedHashMap<int, _MarkdownAstCacheEntry>();
+  final _entries = LinkedHashMap<_MarkdownAstKey, List<md.Node>>();
   int _sourceChars = 0;
 
-  List<md.Node>? get(int key) {
-    final entry = _entries.remove(key);
-    if (entry != null) {
-      _entries[key] = entry;
-    }
-    return entry?.nodes;
+  List<md.Node>? get(_MarkdownAstKey key) {
+    final nodes = _entries.remove(key);
+    if (nodes != null) _entries[key] = nodes;
+    return nodes;
   }
 
-  void put(int key, List<md.Node> nodes, int sourceChars) {
-    final previous = _entries.remove(key);
-    if (previous != null) {
-      _sourceChars -= previous.sourceChars;
-    }
-    if (sourceChars > _maxSourceChars) {
-      return;
-    }
-    _entries[key] = _MarkdownAstCacheEntry(nodes, sourceChars);
-    _sourceChars += sourceChars;
+  void put(_MarkdownAstKey key, List<md.Node> nodes) {
+    if (_entries.remove(key) != null) _sourceChars -= key.source.length;
+    if (key.source.length > _maxSourceChars) return;
+    _entries[key] = nodes;
+    _sourceChars += key.source.length;
     while (_entries.length > _maxEntries || _sourceChars > _maxSourceChars) {
-      final removed = _entries.remove(_entries.keys.first);
-      if (removed != null) {
-        _sourceChars -= removed.sourceChars;
-      }
+      final oldest = _entries.keys.first;
+      _entries.remove(oldest);
+      _sourceChars -= oldest.source.length;
     }
   }
-}
-
-class _MarkdownAstCacheEntry {
-  const _MarkdownAstCacheEntry(this.nodes, this.sourceChars);
-
-  final List<md.Node> nodes;
-  final int sourceChars;
 }
 
 final _MarkdownAstCache _markdownAstCache = _MarkdownAstCache();
-final Set<int> _pendingMarkdownWarmups = <int>{};
+final Set<_MarkdownAstKey> _pendingMarkdownWarmups = <_MarkdownAstKey>{};
 
-int _markdownAstCacheKeyForInputs({
+_MarkdownAstKey _markdownAstCacheKeyForInputs({
   required String normalizedSource,
   required String parseKey,
   required List<md.InlineSyntax> inlineSyntaxes,
-}) {
-  // 用 boundedTextFingerprint 代替完整字符串 hash，避免对长消息
-  // 做 O(n) 遍历。fingerprint 只取首尾各 128 字符，碰撞率足够低。
-  return Object.hash(
-    boundedTextFingerprint(normalizedSource),
-    parseKey,
+}) => (
+  source: normalizedSource,
+  parseKey: parseKey,
+  syntaxSignature: Object.hash(
     openHandMarkdownMathSyntaxVersion,
     inlineSyntaxes.length,
-    Object.hashAll(inlineSyntaxes.map((syn) => syn.runtimeType)),
-  );
-}
+    Object.hashAll(inlineSyntaxes.map((syntax) => syntax.runtimeType)),
+  ),
+);
 
-int _markdownAstCacheKeyFor(String normalizedSource, _SafeMarkdownBody widget) {
+_MarkdownAstKey _markdownAstCacheKeyFor(
+  String normalizedSource,
+  _SafeMarkdownBody widget,
+) {
   return _markdownAstCacheKeyForInputs(
     normalizedSource: normalizedSource,
     parseKey: widget.parseKey,
@@ -1337,7 +1326,7 @@ void _warmMarkdownAst({
           normalizedSource,
           inlineSyntaxes: effectiveInlineSyntaxes,
         );
-        _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
+        _markdownAstCache.put(astCacheKey, astNodes);
       }
       onReady?.call(astNodes);
     } finally {
@@ -1422,7 +1411,7 @@ void _warmMarkdownRenderPath({
 final RichContentFrameScheduler _markdownFrameScheduler =
     RichContentFrameScheduler();
 final RichContentFrameScheduler _markdownWarmupScheduler =
-    RichContentFrameScheduler(isPaused: _transcriptRenderPaused);
+    RichContentFrameScheduler(isPaused: _transcriptRenderPaused, maxPending: 8);
 
 /// 等待渲染时使用有界微光占位，不把 Markdown 或 HTML 源码暴露给用户。
 class _RichContentPendingPreview extends StatelessWidget {
@@ -1720,7 +1709,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
           ),
         );
         if (shouldCacheAst) {
-          _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
+          _markdownAstCache.put(astCacheKey, astNodes);
         }
       }
       _children = buildOpenHandMarkdownWidgets(

@@ -293,10 +293,9 @@ class AiSessionMessage {
       role: AiSessionMessageRole.fromStorage('${json['role'] ?? ''}'),
       content: content,
       createdAt: createdAt,
-      characterCount: nonNegativeIntFromValue(
-        json['character_count'],
-        fallback: countCharacters(content),
-      ),
+      characterCount:
+          optionalNonNegativeIntFromValue(json['character_count']) ??
+          countCharacters(content),
       isDeleted: boolFromValue(json['is_deleted']),
       modelId: _readNullableString(json['model_id']),
       modelLabel: _readNullableString(json['model_label']),
@@ -791,7 +790,11 @@ class AiSessionMessage {
       role: role ?? this.role,
       content: nextContent,
       createdAt: createdAt ?? this.createdAt,
-      characterCount: characterCount ?? countCharacters(nextContent),
+      characterCount:
+          characterCount ??
+          (nextContent == this.content
+              ? this.characterCount
+              : countCharacters(nextContent)),
       isDeleted: isDeleted ?? this.isDeleted,
       modelId: modelId ?? this.modelId,
       modelLabel: modelLabel ?? this.modelLabel,

@@ -8,9 +8,6 @@ export const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 480;
 export const MESSAGE_LIST_MAX_VISIBLE_ROWS = 8;
 export const MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX = 188;
 const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
-/// 仅用于拦截异常值，不截断真实行高：工具卡片带长输出时几千像素是常态，
-/// 一旦截断，锚点补偿每次都会算出非零 delta 并写 scrollTop，列表永远抖动。
-const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 40_000;
 const MESSAGE_LIST_GAP_PX = 12;
 /** 首次打开只挂最新尾部，随后按帧放开可见行预算。 */
 export const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 2;
@@ -64,7 +61,8 @@ export function clampMessageRowHeight(
   {
     estimated = MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
     min = MESSAGE_LIST_MIN_ROW_HEIGHT_PX,
-    max = MESSAGE_LIST_MAX_ROW_HEIGHT_PX,
+    // 展开的长卡片可能超过四万像素，真实高度不能截断，否则锚点持续漂移。
+    max = Number.POSITIVE_INFINITY,
   }: { estimated?: number; min?: number; max?: number } = {},
 ): number {
   if (!Number.isFinite(value) || value <= 0) {

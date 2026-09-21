@@ -348,7 +348,12 @@ function collectMarkdownMedia(message: SessionMessage, out: MediaItem[]): void {
   }
 }
 
+// 不可变消息共用解析结果，虚拟列表重挂载后也无需重复扫描正文和附件。
+const messageMediaCache = new WeakMap<SessionMessage, MediaItem[]>();
+
 export function collectMedia(message: SessionMessage): MediaItem[] {
+  const cached = messageMediaCache.get(message);
+  if (cached) return cached;
   const meta = message.metadata as Record<string, unknown> | undefined;
   const out: MediaItem[] = [];
   if (meta) {
@@ -391,11 +396,13 @@ export function collectMedia(message: SessionMessage): MediaItem[] {
   collectMarkdownMedia(message, out);
   // 去重 (按 path)
   const seen = new Set<string>();
-  return out.filter((m) => {
+  const items = out.filter((m) => {
     if (seen.has(m.path)) return false;
     seen.add(m.path);
     return true;
   });
+  messageMediaCache.set(message, items);
+  return items;
 }
 
 // 图库同时包含引用正文里的内联图片；不将这些图片额外渲染成附件卡片。

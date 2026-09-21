@@ -73,11 +73,13 @@ bool isUtf16LowSurrogateCodeUnit(int codeUnit) =>
 /// 按扩展字符裁剪文本，返回值包含 [suffix] 且不超过 [maxChars] 个字符。
 String clipText(String value, int maxChars, {String suffix = '...'}) {
   final safeMaxChars = maxChars < 0 ? 0 : maxChars;
-  final characters = value.characters;
-  if (characters.length <= safeMaxChars) return value;
+  if (value.length <= safeMaxChars) return value;
   if (safeMaxChars == 0) return '';
+  final characters = value.characters;
+  // 只检查预览边界，不为几个字的摘要遍历整条历史正文。
+  if (characters.take(safeMaxChars + 1).length <= safeMaxChars) return value;
 
-  final suffixCharacters = suffix.characters;
+  final suffixCharacters = suffix.characters.take(safeMaxChars);
   final suffixLength = suffixCharacters.length;
   if (suffixLength >= safeMaxChars) {
     return suffixCharacters.take(safeMaxChars).toString();
@@ -121,11 +123,11 @@ String clipMiddleText(
   double headFraction = 0.6,
 }) {
   if (maxChars <= 0) return '';
+  if (value.length <= maxChars) return value;
   final characters = value.characters;
-  final charCount = characters.length;
-  if (charCount <= maxChars) return value;
+  if (characters.take(maxChars + 1).length <= maxChars) return value;
 
-  final separatorChars = separator.characters;
+  final separatorChars = separator.characters.take(maxChars);
   final separatorLength = separatorChars.length;
   if (separatorLength >= maxChars) {
     return separatorChars.take(maxChars).toString();
@@ -139,7 +141,7 @@ String clipMiddleText(
   if (tailCount <= 0) {
     return '$head$separator';
   }
-  final tail = characters.skip(charCount - tailCount);
+  final tail = characters.takeLast(tailCount);
   return '$head$separator$tail';
 }
 

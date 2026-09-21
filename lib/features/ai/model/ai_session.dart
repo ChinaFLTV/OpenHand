@@ -1326,8 +1326,8 @@ class AiSession {
   List<AiSessionMessage> _computeDisplayMessages() {
     final toolCallIds = <String>{};
     for (final message in messages) {
-      if (!message.isTranscriptRenderable) continue;
       if (message.kind != AiSessionMessageKind.toolCall) continue;
+      if (!message.isTranscriptRenderable) continue;
       final toolCallId = _messageMetadataText(
         message,
         aiSessionMessageToolCallIdMetadataKey,
