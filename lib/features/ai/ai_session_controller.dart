@@ -13058,9 +13058,9 @@ $tail''';
       extra: payload,
     );
 
-    HookExecutionResult result;
+    List<HookEntryResult> results;
     try {
-      result = await executor.executeEvent(
+      results = await executor.executeEvent(
         event: event,
         sessionId: sessionId,
         payload: enrichedPayload,
@@ -13074,13 +13074,13 @@ $tail''';
       );
       return;
     }
-    if (result.hookResults.isEmpty) return;
+    if (results.isEmpty) return;
 
     // 每个已执行 Hook 对应一条可见消息。
     final currentSession = _sessionById(sessionId);
     if (currentSession == null) return;
     final newMessages = <AiSessionMessage>[];
-    for (final hookResult in result.hookResults) {
+    for (final hookResult in results) {
       final createdAt = _clock().toUtc();
       final toolInput =
           hookResult.scriptPath != null && hookResult.scriptPath!.isNotEmpty

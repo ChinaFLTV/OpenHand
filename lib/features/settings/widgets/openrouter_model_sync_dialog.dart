@@ -33,7 +33,6 @@ class _OpenRouterModelSyncDialogState
     extends State<_OpenRouterModelSyncDialog> {
   final OpenRouterModelSyncService _service = OpenRouterModelSyncService();
   OpenRouterSyncProgress _progress = const OpenRouterSyncProgress(
-    phase: OpenRouterSyncPhase.fetching,
     total: 0,
     processed: 0,
     upserted: 0,
@@ -64,7 +63,6 @@ class _OpenRouterModelSyncDialogState
       setState(() {
         _result = result;
         _progress = OpenRouterSyncProgress(
-          phase: OpenRouterSyncPhase.completed,
           total: result.total,
           processed: result.processed,
           upserted: result.upserted,
@@ -85,7 +83,6 @@ class _OpenRouterModelSyncDialogState
       setState(() {
         _error = error;
         _progress = OpenRouterSyncProgress(
-          phase: OpenRouterSyncPhase.failed,
           total: _progress.total,
           processed: _progress.processed,
           upserted: _progress.upserted,
@@ -94,7 +91,6 @@ class _OpenRouterModelSyncDialogState
           speed: _progress.speed,
           elapsed: _progress.elapsed,
           detail: '同步失败',
-          error: error,
         );
       });
     }

@@ -1547,7 +1547,6 @@ const int _maxProcessLineCharacters = 64 * kBytesPerKiB;
 
 class TrackedProcessLineLogResult {
   const TrackedProcessLineLogResult({
-    required this.pid,
     required this.exitCode,
     required this.timedOut,
     required this.cancelled,
@@ -1557,7 +1556,6 @@ class TrackedProcessLineLogResult {
     required this.stderrTruncated,
   });
 
-  final int pid;
   final int exitCode;
   final bool timedOut;
   final bool cancelled;
@@ -1889,7 +1887,6 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
         cancelled = true;
         terminateLateLaunch(launchFuture);
         return TrackedProcessLineLogResult(
-          pid: -1,
           exitCode: -1,
           timedOut: false,
           cancelled: true,
@@ -1904,7 +1901,6 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       notifyTimeout();
       terminateLateLaunch(launchFuture);
       return TrackedProcessLineLogResult(
-        pid: -1,
         exitCode: -1,
         timedOut: true,
         cancelled: false,
@@ -1968,7 +1964,6 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       );
     }
     return TrackedProcessLineLogResult(
-      pid: process.pid,
       exitCode: exitCode,
       timedOut: timedOut,
       cancelled: cancelled,

@@ -59,7 +59,6 @@ class AiThreadTemplate {
     required this.iconName,
     required this.description,
     required this.internalVersion,
-    required this.promptAssetDirectory,
     this.availability = AiThreadTemplateAvailability.all,
   });
 
@@ -68,7 +67,6 @@ class AiThreadTemplate {
   final String iconName;
   final String description;
   final String internalVersion;
-  final String promptAssetDirectory;
   final AiThreadTemplateAvailability availability;
 
   String get internalVersionLabel => 'v$internalVersion';

@@ -1058,17 +1058,17 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   Color _colorFor(_ProxyTestLogLevel level) {
     switch (level) {
       case _ProxyTestLogLevel.head:
-        return _kProxyTestSky300; // sky-300
+        return _kProxyTestSky300;
       case _ProxyTestLogLevel.info:
-        return _kProxyTestLightGray; // 浅灰色
+        return _kProxyTestLightGray;
       case _ProxyTestLogLevel.ok:
-        return _kProxyTestLightGreen; // 浅绿色
+        return _kProxyTestLightGreen;
       case _ProxyTestLogLevel.warn:
-        return _kProxyTestAmber; // 琥珀色
+        return _kProxyTestAmber;
       case _ProxyTestLogLevel.err:
-        return _kProxyTestRed300; // red-300
+        return _kProxyTestRed300;
       case _ProxyTestLogLevel.debug:
-        return _kProxyTestNeutralGray; // 灰色
+        return _kProxyTestNeutralGray;
     }
   }
 

@@ -60,27 +60,6 @@ Future<void> _deleteHookTempContextFile(File file) async {
   }
 }
 
-/// 单个事件的全部 Hook 执行结果。
-class HookExecutionResult {
-  const HookExecutionResult({
-    this.successCount = 0,
-    this.failedCount = 0,
-    this.timedOutCount = 0,
-    this.blocked = false,
-    this.blockReason,
-    this.errors = const <String>[],
-    this.hookResults = const <HookEntryResult>[],
-  });
-
-  final int successCount;
-  final int failedCount;
-  final int timedOutCount;
-  final bool blocked;
-  final String? blockReason;
-  final List<String> errors;
-  final List<HookEntryResult> hookResults;
-}
-
 /// 单个 Hook 的详细执行结果。
 class HookEntryResult {
   const HookEntryResult({
@@ -170,21 +149,16 @@ class HooksExecutor {
   /// [sessionId] 与 [payload] 会作为 JSON 经标准输入传给每个 Hook 脚本。
   ///
   /// Hook 串行执行；任一 Hook 以退出码 2 结束时跳过剩余项并标记为已拦截。
-  Future<HookExecutionResult> executeEvent({
+  Future<List<HookEntryResult>> executeEvent({
     required HookEvent event,
     required String sessionId,
     Map<String, Object?> payload = const <String, Object?>{},
   }) async {
     final hooks = _enabledHooksForEvent(event);
     if (hooks.isEmpty) {
-      return const HookExecutionResult();
+      return const <HookEntryResult>[];
     }
 
-    final errors = <String>[];
-    var successCount = 0;
-    var failedCount = 0;
-    var timedOutCount = 0;
-    String? blockReason;
     final hookResults = <HookEntryResult>[];
     final executedHookIds = <String>[];
 
@@ -222,39 +196,26 @@ class HooksExecutor {
         );
         stopwatch.stop();
         if (result.timedOut) {
-          timedOutCount++;
-          errors.add('生命周期钩子“${hook.label}”在 ${hook.timeoutSeconds} 秒后超时。');
           record(kHookStatusTimedOut, result: result);
           continue;
         }
         if (result.exitCode == kHookBlockExitCode) {
-          failedCount++;
-          blockReason = result.stdout.isNotEmpty
-              ? result.stdout
-              : '已被生命周期钩子“${hook.label}”拦截。';
           record(kHookStatusBlocked, result: result);
           break;
         }
         if (result.exitCode != null && result.exitCode != 0) {
-          failedCount++;
-          errors.add(
-            '生命周期钩子“${hook.label}”退出码为 ${result.exitCode}。'
-            '${result.stderr.isNotEmpty ? ' 标准错误：${result.stderr}' : ''}',
-          );
           record(kHookStatusFailed, result: result);
           continue;
         }
-        successCount++;
+
         record(kHookStatusSuccess, result: result);
       } catch (error, stack) {
         stopwatch.stop();
-        failedCount++;
         silentLog('hooks_executor', '启动生命周期钩子', error, stack);
         final message = userFailureMessage(
           error,
           fallback: '生命周期钩子启动失败，请检查脚本与运行环境。',
         );
-        errors.add('生命周期钩子“${hook.label}”启动失败：$message');
         record(kHookStatusFailed, error: message);
       }
     }
@@ -281,15 +242,7 @@ class HooksExecutor {
         silentLog('hooks_executor', '记录生命周期钩子调用统计', error, stack);
       }
     }
-    return HookExecutionResult(
-      successCount: successCount,
-      failedCount: failedCount,
-      timedOutCount: timedOutCount,
-      blocked: blockReason != null,
-      blockReason: blockReason,
-      errors: errors,
-      hookResults: hookResults,
-    );
+    return hookResults;
   }
 
   Future<_HookScriptResult> _runHookScript({

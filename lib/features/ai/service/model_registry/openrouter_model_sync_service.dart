@@ -13,11 +13,8 @@ final Uri openRouterModelsUri = Uri.parse(
   'https://openrouter.ai/api/v1/models',
 );
 
-enum OpenRouterSyncPhase { fetching, decoding, processing, completed, failed }
-
 class OpenRouterSyncProgress {
   const OpenRouterSyncProgress({
-    required this.phase,
     required this.total,
     required this.processed,
     required this.upserted,
@@ -26,10 +23,8 @@ class OpenRouterSyncProgress {
     required this.speed,
     required this.elapsed,
     required this.detail,
-    this.error,
   });
 
-  final OpenRouterSyncPhase phase;
   final int total;
   final int processed;
   final int upserted;
@@ -38,7 +33,6 @@ class OpenRouterSyncProgress {
   final double speed;
   final Duration elapsed;
   final String detail;
-  final Object? error;
 
   double get fraction =>
       total <= 0 ? 0 : (processed / total).clamp(0, 1).toDouble();
@@ -100,7 +94,6 @@ class OpenRouterModelSyncService {
   ) async {
     final stopwatch = Stopwatch()..start();
     void report({
-      required OpenRouterSyncPhase phase,
       int total = 0,
       int processed = 0,
       int upserted = 0,
@@ -108,12 +101,10 @@ class OpenRouterModelSyncService {
       int failed = 0,
       double speed = 0,
       String detail = '',
-      Object? error,
     }) {
       try {
         onProgress?.call(
           OpenRouterSyncProgress(
-            phase: phase,
             total: total,
             processed: processed,
             upserted: upserted,
@@ -122,7 +113,6 @@ class OpenRouterModelSyncService {
             speed: speed,
             elapsed: stopwatch.elapsed,
             detail: detail,
-            error: error,
           ),
         );
       } catch (_) {
@@ -130,7 +120,7 @@ class OpenRouterModelSyncService {
       }
     }
 
-    report(phase: OpenRouterSyncPhase.fetching, detail: '正在请求 OpenRouter 模型目录');
+    report(detail: '正在请求 OpenRouter 模型目录');
     try {
       final response = await _transport.get(
         uri: openRouterModelsUri,
@@ -146,7 +136,7 @@ class OpenRouterModelSyncService {
           'OpenRouter 返回 HTTP ${response.statusCode}：${_preview(response.body)}',
         );
       }
-      report(phase: OpenRouterSyncPhase.decoding, detail: '正在解析模型目录数据');
+      report(detail: '正在解析模型目录数据');
       final decoded = decodeJsonTextUsingConfig(
         response.body,
         maxTextCodeUnits: _maxResponseBytes,
@@ -164,11 +154,7 @@ class OpenRouterModelSyncService {
       var upserted = 0;
       var skipped = 0;
       var failed = 0;
-      report(
-        phase: OpenRouterSyncPhase.processing,
-        total: total,
-        detail: '已获取 $total 条模型，开始转换',
-      );
+      report(total: total, detail: '已获取 $total 条模型，开始转换');
       for (var offset = 0; offset < rawModels.length; offset += _batchSize) {
         final end = (offset + _batchSize).clamp(0, rawModels.length);
         final entries = <MapEntry<String, AiModelProfile>>[];
@@ -198,7 +184,6 @@ class OpenRouterModelSyncService {
         }
         final seconds = stopwatch.elapsedMilliseconds / 1000;
         report(
-          phase: OpenRouterSyncPhase.processing,
           total: total,
           processed: processed,
           upserted: upserted,
@@ -217,7 +202,6 @@ class OpenRouterModelSyncService {
         elapsed: stopwatch.elapsed,
       );
       report(
-        phase: OpenRouterSyncPhase.completed,
         total: total,
         processed: processed,
         upserted: upserted,
@@ -232,8 +216,8 @@ class OpenRouterModelSyncService {
         detail: '同步完成',
       );
       return result;
-    } catch (error) {
-      report(phase: OpenRouterSyncPhase.failed, detail: '同步失败', error: error);
+    } catch (_) {
+      report(detail: '同步失败');
       rethrow;
     }
   }

@@ -29,7 +29,6 @@ abstract final class DecisionPayload {
   static const types = {typeNoul, typeChoice, typeScore};
   static const simpleQuestionKey = '决策';
   static const fallbackQuestionKey = '判断';
-  static const modelFallback = 'Jev';
   static const requestMetadataKey = 'decision_request';
   static const titleMaxCharacters = 15;
   static const maxCharacters = 1024 * 1024;
@@ -74,13 +73,6 @@ abstract final class DecisionPayload {
   static const questionScoreDe =
       'Bewerten Sie den Inhalt anhand der Stufen von niedrig nach hoch.';
   static const questionScoreJa = '低い順に並べた等級で、提示された内容を評価してください。';
-
-  static const defaultQuestion = questionNoulZh;
-  static const defaultQuestions = {
-    typeNoul: questionNoulZh,
-    typeChoice: questionChoiceZh,
-    typeScore: questionScoreZh,
-  };
 
   static const builtInQuestionTexts = {
     questionNoulZh,

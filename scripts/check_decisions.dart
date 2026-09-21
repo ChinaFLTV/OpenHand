@@ -424,11 +424,10 @@ void main() {
     }
   });
   test('三类默认问题按类型更新，自定义问题保留', () {
-    expect(DecisionPayload.defaultQuestions.values.toSet(), hasLength(3));
     expect(DecisionPayload.builtInQuestionTexts.length, greaterThanOrEqualTo(9));
-    for (final type in DecisionPayload.defaultQuestions.keys) {
+    for (final type in DecisionPayload.types) {
       final expected = DecisionPayload.defaultQuestionForType(type);
-      for (final current in ['', '  ', ...DecisionPayload.defaultQuestions.values, ...DecisionPayload.builtInQuestionTexts]) {
+      for (final current in ['', '  ', ...DecisionPayload.builtInQuestionTexts]) {
         expect(DecisionPayload.questionForType(type, current: current), expected);
       }
       expect(DecisionPayload.questionForType(type, current: '  该请求是否需要人工处理？  '), '  该请求是否需要人工处理？  ');

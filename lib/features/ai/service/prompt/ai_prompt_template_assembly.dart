@@ -138,7 +138,6 @@ class AiPromptTemplateInfo {
     required this.iconName,
     required this.description,
     required this.internalVersion,
-    required this.promptAssetDirectory,
     this.nameZhHant,
     this.nameEn,
     this.nameFr,
@@ -167,7 +166,6 @@ class AiPromptTemplateInfo {
   final String? descriptionDe;
   final String? descriptionJa;
   final String internalVersion;
-  final String promptAssetDirectory;
   final AiPromptTemplateAvailabilityScope availability;
 
   String nameForLocale(Object locale) => _templateTextForLocale(
@@ -320,7 +318,6 @@ class AiPromptTemplatePolicies {
             'Allgemeine Vorlage im Claude-Code-Stil für toolgestützte Arbeit, MCP und lokale Skills.',
         descriptionJa: 'Claude Code 風の汎用テンプレート。ツール支援作業、MCP、ローカルスキルの利用に適しています。',
         internalVersion: defaultTemplateVersion,
-        promptAssetDirectory: defaultPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
         templateId: defaultTemplateId,
@@ -351,7 +348,6 @@ class AiPromptTemplatePolicies {
             'Nutzt das lokale Terminal, um mit der Zielmaschine zu arbeiten und die Aufgabe zu erledigen.',
         descriptionJa: 'ローカル端末で対象マシンとやり取りし、ユーザーのタスクを完了します。',
         internalVersion: machineExpertTemplateVersion,
-        promptAssetDirectory: machineExpertPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
         templateId: machineExpertTemplateId,
@@ -385,7 +381,6 @@ class AiPromptTemplatePolicies {
         descriptionJa:
             '複数ロールのオーケストレーション。OpenHand が設定済み CLI ツールへ実装作業を委譲し、構造化された永続コンテキストを管理します。',
         internalVersion: harnessEngineeringTemplateVersion,
-        promptAssetDirectory: harnessEngineeringPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
         templateId: harnessEngineeringTemplateId,
@@ -419,7 +414,6 @@ class AiPromptTemplatePolicies {
         descriptionJa:
             'Claude Code 型のフルスタック開発エージェント。ツール事実、計画管理、サブエージェント、検証、文脈復元を使います。',
         internalVersion: programmingExpertTemplateVersion,
-        promptAssetDirectory: programmingExpertPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
         templateId: programmingExpertTemplateId,
@@ -454,7 +448,6 @@ class AiPromptTemplatePolicies {
         descriptionJa:
             'Default テンプレートに skill_manager と定期的な自己学習を追加し、再利用可能なスキルとユーザー文脈を蓄積します。',
         internalVersion: hermesTalkerTemplateVersion,
-        promptAssetDirectory: hermesTalkerPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
         templateId: hermesTalkerTemplateId,
@@ -488,7 +481,6 @@ class AiPromptTemplatePolicies {
         descriptionJa:
             'Chrome または Chromium と CDP で Web API 解析、パラメータ復元、再現スクリプト作成を行います。許可された研究専用です。',
         internalVersion: webReverseExpertTemplateVersion,
-        promptAssetDirectory: webReverseExpertPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
         templateId: webReverseExpertTemplateId,
@@ -522,7 +514,6 @@ class AiPromptTemplatePolicies {
         descriptionJa:
             'Apple 向けの Default テンプレート。Siri 風のシステム指示で Apple エコシステムのタスクに適します。',
         internalVersion: siriHelperTemplateVersion,
-        promptAssetDirectory: siriHelperPromptAssetDirectory,
         availability: AiPromptTemplateAvailabilityScope.appleOnly,
       ),
       policy: AiPromptTemplatePolicy(
@@ -563,7 +554,6 @@ class AiPromptTemplatePolicies {
         descriptionJa:
             'ADB、Frida、jadx / apktool、mitmproxy で Android API 解析、暗号解析、Hook スクリプト作成を行います。許可された研究専用です。',
         internalVersion: androidReverseExpertTemplateVersion,
-        promptAssetDirectory: androidReverseExpertPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
         templateId: androidReverseExpertTemplateId,

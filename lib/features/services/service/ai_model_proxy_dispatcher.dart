@@ -74,9 +74,6 @@ const _ProxyNetworkRoute _emptyDirectProxyRoute = (
 class AiModelProxyDispatchResult {
   const AiModelProxyDispatchResult({
     required this.reply,
-    required this.exposedModel,
-    required this.backend,
-    required this.durationMs,
     this.usage,
     this.reasoningContent,
     this.toolCalls = const <AiToolCall>[],
@@ -84,25 +81,10 @@ class AiModelProxyDispatchResult {
   });
 
   final String reply;
-  final String exposedModel;
-  final AiModelProxyBackend backend;
-  final int durationMs;
   final AiTokenUsage? usage;
   final String? reasoningContent;
   final List<AiToolCall> toolCalls;
   final String? rawResponse;
-}
-
-class AiModelProxyStreamDispatch {
-  const AiModelProxyStreamDispatch({
-    required this.response,
-    required this.exposedModel,
-    required this.backend,
-  });
-
-  final AiChatStreamingResponse response;
-  final String exposedModel;
-  final AiModelProxyBackend backend;
 }
 
 class AiModelProxyDispatcher {
@@ -215,9 +197,6 @@ class AiModelProxyDispatcher {
         );
         return AiModelProxyDispatchResult(
           reply: result.reply,
-          exposedModel: exposedModel,
-          backend: backend,
-          durationMs: durationMs,
           usage: result.usage,
           reasoningContent: result.reasoningContent,
           toolCalls: result.toolCalls,
@@ -254,7 +233,7 @@ class AiModelProxyDispatcher {
     _throwDispatchFailure(lastError);
   }
 
-  Future<AiModelProxyStreamDispatch> dispatchStream({
+  Future<AiChatStreamingResponse> dispatchStream({
     required String exposedModel,
     required List<AiChatTurn> messages,
     Map<String, Object?> request = const <String, Object?>{},
@@ -369,11 +348,7 @@ class AiModelProxyDispatcher {
                 routedClient?.dispose();
               }),
         );
-        return AiModelProxyStreamDispatch(
-          response: response,
-          exposedModel: exposedModel,
-          backend: backend,
-        );
+        return response;
       } catch (error) {
         lastError = error;
         await _recordFailedAttempt(

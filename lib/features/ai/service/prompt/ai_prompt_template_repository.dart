@@ -193,7 +193,6 @@ AiThreadTemplate _threadTemplateFromInfo(AiPromptTemplateInfo info) {
     iconName: info.iconName,
     description: info.descriptionForLocale(locale),
     internalVersion: info.internalVersion,
-    promptAssetDirectory: info.promptAssetDirectory,
     availability: _availabilityFromScope(info.availability),
   );
 }

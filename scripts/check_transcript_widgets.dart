@@ -1954,7 +1954,7 @@ void main() {
         for (var i = 0; i < form._criteria.length; i++) {
           form._criteria[i].text = '等级 $i';
         }
-        final expected = custom ? '应由哪个团队处理？' : DecisionPayload.defaultQuestions[entry.key];
+        final expected = custom ? '应由哪个团队处理？' : DecisionPayload.defaultQuestionForType(entry.key, const Locale('zh'));
         expect(form._question.text, expected);
         final request = DecisionPayload.request(controller.text);
         final question = (request['questions'] as Map).values.single as Map;
@@ -1968,7 +1968,7 @@ void main() {
     expect(form._question.text, '', reason: '重复点击当前类型不改写编辑内容');
     await tester.tap(find.text('选择'));
     await tester.pumpAndSettle();
-    expect(form._question.text, DecisionPayload.defaultQuestions['choice']);
+    expect(form._question.text, DecisionPayload.defaultQuestionForType('choice', const Locale('zh')));
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

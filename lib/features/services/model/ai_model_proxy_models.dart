@@ -512,25 +512,23 @@ enum AiModelProxyLimitMode {
 }
 
 enum AiModelProxyLimitScope {
-  perIp('per_ip', '单个IP'),
-  clientClass('client_class', '同一类客户端');
+  perIp('per_ip'),
+  clientClass('client_class');
 
-  const AiModelProxyLimitScope(this.id, this.label);
+  const AiModelProxyLimitScope(this.id);
   final String id;
-  final String label;
 
   static AiModelProxyLimitScope fromId(Object? value) =>
       enumByStorageValueOr(values, value, (item) => item.id, fallback: perIp);
 }
 
 enum AiModelProxyRetryPolicy {
-  failFast('fail_fast', '立即失败'),
-  retrySame('retry_same', '重试后失败'),
-  retryAndFailover('retry_and_failover', '重试后接力');
+  failFast('fail_fast'),
+  retrySame('retry_same'),
+  retryAndFailover('retry_and_failover');
 
-  const AiModelProxyRetryPolicy(this.id, this.label);
+  const AiModelProxyRetryPolicy(this.id);
   final String id;
-  final String label;
 
   static AiModelProxyRetryPolicy fromId(Object? value) => enumByStorageValueOr(
     values,
@@ -541,14 +539,13 @@ enum AiModelProxyRetryPolicy {
 }
 
 enum AiModelProxySchedulingStrategy {
-  roundRobin('round_robin', '轮询调度'),
-  random('random', '随机调度'),
-  priority('priority', '优先级调度'),
-  sticky('sticky', '粘性调度');
+  roundRobin('round_robin'),
+  random('random'),
+  priority('priority'),
+  sticky('sticky');
 
-  const AiModelProxySchedulingStrategy(this.id, this.label);
+  const AiModelProxySchedulingStrategy(this.id);
   final String id;
-  final String label;
 
   static AiModelProxySchedulingStrategy fromId(Object? value) {
     // 旧版“保守调度”与优先级调度实现完全相同，读取时归并为唯一语义。

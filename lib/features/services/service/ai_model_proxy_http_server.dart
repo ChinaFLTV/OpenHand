@@ -1106,7 +1106,7 @@ class AiModelProxyHttpServer {
 
   Future<void> _writeNativeStreamingResponse(
     HttpRequest request,
-    AiModelProxyStreamDispatch dispatch,
+    AiChatStreamingResponse dispatch,
     _ProxyRoute route,
     String requestedModel, {
     Map<String, Object?>? requestBody,
@@ -1212,7 +1212,7 @@ class AiModelProxyHttpServer {
     var responseReasoningStarted = false;
     final responseToolStarted = <int>{};
     try {
-      await for (final event in dispatch.response.events) {
+      await for (final event in dispatch.events) {
         switch (route) {
           case _ProxyRoute.chat:
             final delta = <String, Object?>{};
@@ -1460,16 +1460,13 @@ class AiModelProxyHttpServer {
             }
         }
       }
-      final streamResult = await dispatch.response.result;
+      final streamResult = await dispatch.result;
       if (streamResult.wasCancelled) {
         throw const AiModelProxyException(499, '流式请求已取消。');
       }
       final response = _buildResponse(
         AiModelProxyDispatchResult(
           reply: streamResult.reply,
-          exposedModel: dispatch.exposedModel,
-          backend: dispatch.backend,
-          durationMs: 0,
           usage: streamResult.usage,
           reasoningContent: streamResult.reasoning,
           toolCalls: streamResult.toolCalls,
@@ -1630,7 +1627,7 @@ class AiModelProxyHttpServer {
       _controller.runtimeResponseWritten(
         statusCode: error is AiModelProxyException ? error.statusCode : 502,
       );
-      final cancel = dispatch.response.cancel;
+      final cancel = dispatch.cancel;
       if (cancel != null) {
         try {
           await cancel();

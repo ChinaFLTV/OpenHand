@@ -60,27 +60,6 @@ void main() {
     }
   });
 
-  testWidgets('状态色首帧稳定落位，状态变化才开始补间', (tester) async {
-    Widget scene(bool enabled) => MaterialApp(
-      home: TweenAnimationBuilder<double>(
-        tween: Tween<double>(end: enabled ? 1 : 0),
-        duration: const Duration(milliseconds: 220),
-        builder: (context, value, _) => Text(value.toStringAsFixed(2)),
-      ),
-    );
-    await tester.pumpWidget(scene(true));
-    await tester.pump();
-    expect(find.text('1.00'), findsOneWidget);
-    expect(tester.binding.transientCallbackCount, 0);
-
-    await tester.pumpWidget(scene(false));
-    await tester.pump(const Duration(milliseconds: 80));
-    expect(find.text('0.00'), findsNothing);
-    expect(tester.binding.transientCallbackCount, greaterThan(0));
-    await tester.pumpAndSettle();
-    expect(find.text('0.00'), findsOneWidget);
-  });
-
   testWidgets('图片重建复用曲线，快速反向不中断进度，卸载释放监听', (tester) async {
     Widget content(String key, bool compact) => MaterialApp(home: Center(
       child: OpenHandImageRevealSwitcher(

@@ -3287,15 +3287,16 @@ export function SessionDetailPage() {
       return;
     }
     const requestSessionId = sessionId;
+    const emptyTranslation = {
+      source,
+      settingsFingerprint: requestFingerprint,
+      text: null,
+      loading: false,
+      visible: false,
+    };
     setMessageTranslations((prev) => ({
       ...prev,
-      [m.id]: {
-        source,
-        settingsFingerprint: requestFingerprint,
-        text: null,
-        loading: true,
-        visible: false,
-      },
+      [m.id]: { ...emptyTranslation, loading: true },
     }));
     try {
       const result = await translateMessage(requestSessionId, m.id);
@@ -3305,25 +3306,13 @@ export function SessionDetailPage() {
         showSnackbar(t('message.translate.empty', '未得到可展示的译文'), { tone: 'error' });
         setMessageTranslations((prev) => ({
           ...prev,
-          [m.id]: {
-            source,
-            settingsFingerprint: requestFingerprint,
-            text: null,
-            loading: false,
-            visible: false,
-          },
+          [m.id]: emptyTranslation,
         }));
         return;
       }
       setMessageTranslations((prev) => ({
         ...prev,
-        [m.id]: {
-          source,
-          settingsFingerprint: requestFingerprint,
-          text: translated,
-          loading: false,
-          visible: true,
-        },
+        [m.id]: { ...emptyTranslation, text: translated, visible: true },
       }));
       showSnackbar(t('message.translate.ok', '已翻译消息'), { tone: 'success' });
     } catch (e) {
@@ -3333,13 +3322,7 @@ export function SessionDetailPage() {
       const message = e instanceof Error ? e.message : String(e);
       setMessageTranslations((prev) => ({
         ...prev,
-        [m.id]: {
-          source,
-          settingsFingerprint: requestFingerprint,
-          text: null,
-          loading: false,
-          visible: false,
-        },
+        [m.id]: emptyTranslation,
       }));
       showSnackbar(`${t('message.translate.failed', '翻译失败')}：${message}`, { tone: 'error' });
     }

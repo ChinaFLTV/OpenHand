@@ -8,11 +8,24 @@ Future<void> main() => runFlutterWidgetCheck(
   source: _checks,
 );
 
-const _checks = '''
+const _checks = r'''
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/app/model/hook_config.dart';
+import 'package:openhand/features/hooks/hooks_controller.dart';
+import 'package:openhand/features/hooks/service/hooks_executor.dart';
 import 'package:openhand/app/support/app_runtime_cleanup_registry.dart';
 import 'package:openhand/features/web_reverse/web_reverse_cdp_client.dart';
+
+final class _Hooks implements HooksController {
+  _Hooks(this.hooks);
+  final List<HookEntry> hooks;
+  @override
+  List<HookEntry> enabledHooksForEvent(HookEvent event) => hooks;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 final class _Sink implements StreamSink<dynamic> {
   final ended = Completer<void>();
@@ -28,6 +41,20 @@ final class _Sink implements StreamSink<dynamic> {
 }
 
 void main() {
+  test('钩子逐项结果保留顺序、失败信息和拦截语义', () async {
+    final hooks = [for (final code in [0, 1, 2, 0]) HookEntry(
+      id: '回归-$code', event: HookEvent.preToolUse, label: '回归-$code',
+      scriptContent: Platform.isWindows ? 'exit /b $code' : 'exit $code',
+    )];
+    final executor = HooksExecutor(controller: _Hooks(hooks));
+    final recorded = <HookUsageRecord>[];
+    executor.configureUsageRecorder((_, records) async => recorded.addAll(records));
+    final results = await executor.executeEvent(event: HookEvent.preToolUse, sessionId: '生命周期清理回归');
+    expect(results.map((result) => result.status), [kHookStatusSuccess, kHookStatusFailed, kHookStatusBlocked]);
+    expect(recorded.map((record) => record.status), results.map((result) => result.status));
+    expect(recorded.map((record) => record.hookId), ['回归-0', '回归-1', '回归-2']);
+  });
+
   test('关闭立即终止待响应命令，不等待传输清理', () async {
     final sink = _Sink();
     final events = StreamController<dynamic>();
