@@ -1386,17 +1386,18 @@ void main() {
     await probe.settle();
   });
 
-  testWidgets('决策历史往返慢速滚动时已可见消息不发生额外位移', (tester) async {
+  for (final animated in [false, true]) {
+  testWidgets('决策历史往返慢速滚动时已可见消息不发生额外位移，动画=$animated', (tester) async {
     final original = _probeSession('决策慢速滚动', 18);
     final content = DecisionPayload.encode(DecisionPayload.resultLanguage, {
       'questions': {
-        for (var i = 0; i < 1; i++) '问题$i': {
+        '分类': {
           'type': 'choice', 'instructions': '评估这项方案的执行方向与预期结果',
           'criteria': {'甲': null, '乙': null, '丙': null, '丁': null},
         },
       },
       'answers': {
-        for (var i = 0; i < 1; i++) '问题$i': {
+        '分类': {
           'type': 'choice', 'choice': '甲',
           'probabilities': {'甲': .4, '乙': .3, '丙': .2, '丁': .1},
         },
@@ -1413,13 +1414,14 @@ void main() {
           }))
         else original.messages[i].copyWith(content: content),
     ]));
-    await probe.mount(size: const Size(700, 650), animated: true);
+    await probe.mount(size: Size(animated ? 700 : 390, 650), animated: animated);
     await probe.settle();
-    while (probe.state._windowStartIndex > 0) {
+    for (var page = 0; page < 8 && probe.state._windowStartIndex > 0; page++) {
       final reveal = probe.state._revealOlderMessages();
       await probe.settle();
       await reveal;
     }
+    expect(probe.state._windowStartIndex, 0);
     probe.controller.jumpTo(probe.controller.position.maxScrollExtent);
     await probe.settle();
     for (var i = 0; i < 12; i++) {
@@ -1432,7 +1434,9 @@ void main() {
       final before = <String, double>{
         for (final id in probe.state._bubbleRegistry._contexts.keys)
           if (probe.state._viewportOffsetForMessage(id) case final double offset)
-            id: offset,
+            if (offset < 650 && offset +
+                (probe.state._bubbleRegistry.contextOf(id)!.findRenderObject()! as RenderBox).size.height > 0)
+              id: offset,
       };
       probe.activity.markActive();
       final oldPixels = position.pixels;
@@ -1451,9 +1455,10 @@ void main() {
     drag.cancel();
     await probe.settle();
   });
+  }
 
   testWidgets('完整决策响应不经逐字揭示和结束重挂载改变高度', (tester) async {
-    final original = _probeSession('决策响应', 4);
+    final original = _probeSession('决策响应', 18);
     final probe = _TranscriptProbe(tester, original);
     probe.preserveViewportAfterUserScroll = false;
     await probe.mount(size: const Size(700, 650), animated: true);
@@ -1480,6 +1485,25 @@ void main() {
       expect(probe.controller.position.extentAfter, lessThanOrEqualTo(1),
         reason: '第 $frame 帧视口变化后仍应贴底');
       expect(tester.takeException(), isNull);
+    }
+    await probe.settle();
+    probe.preserveViewportAfterUserScroll = true;
+    expect(probe.controller.position.maxScrollExtent - probe.controller.position.minScrollExtent,
+      greaterThan(80));
+    probe.controller.jumpTo(probe.controller.position.maxScrollExtent - 80);
+    await tester.pump();
+    final anchor = probe.state._capturePrependAnchor()!;
+    probe.activity.markActive();
+    for (var turn = 0; turn < 3; turn++) {
+      probe.sendPhase = AiSendPhase.responding;
+      probe.update(probe.session.copyWithTailMessage(AiSessionMessage.assistant(
+        id: '继续响应-$turn', content: content, createdAt: original.createdAt,
+        metadata: {aiSessionMessageMetadataStreamingKey: true}), append: true));
+      for (var frame = 0; frame < 24; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(probe.state._viewportOffsetForMessage(anchor.messageId),
+          closeTo(anchor.viewportOffset, 1), reason: '用户阅读历史时连续响应不能抢回底部：轮次=$turn，帧=$frame，消息=${anchor.messageId}，锚点=${probe.state._listAnchor}，滚动=${probe.controller.position.pixels}');
+      }
     }
     await probe.settle();
   });

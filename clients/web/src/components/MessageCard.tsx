@@ -3081,9 +3081,9 @@ function MessageCardImpl({
                     : effectiveFormat
               }
               htmlFallback={contentHtmlFallback}
-              // 历史卡片统一按视口分帧；仅用户主动展开或实时输出可以跳过等待。
+              // 决策、主动展开与实时输出直接布局，其余历史正文按视口分帧。
               deferInitialRender={
-                !activelyStreaming && !forceExpanded &&
+                !structuredDecision && !activelyStreaming && !forceExpanded &&
                 expandedOverride !== true && badgeCollapsedOverride !== false
               }
             />

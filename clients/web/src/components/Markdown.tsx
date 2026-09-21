@@ -1455,6 +1455,7 @@ export const Markdown = memo(function Markdown(props: MarkdownProps) {
   const source = props.source ?? '';
   // 决策卡片直接按真实结构布局，避免虚拟窗口重挂载时占位高度反复变化。
   const deferred = !props.streaming && !props.raw && props.format !== 'plain_text'
+    && props.deferInitialRender !== false
     && !containsDecisionFence(source)
     && (Boolean(props.deferInitialRender)
       || source.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD

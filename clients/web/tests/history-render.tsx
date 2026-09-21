@@ -29,6 +29,7 @@ const messages: SessionMessage[] = Array.from({ length: 1000 }, (_, index) => ({
 const scrollRef: { current: HTMLDivElement | null } = { current: null };
 let settled = false;
 function mount(session: string, items = messages) {
+  settled = false;
   render(<div ref={scrollRef} style={{ height: '480px', overflowY: 'auto', width: '600px', maxWidth: '100%' }}>
     <VirtualMessageList key={session} messages={items} membershipKey={session}
       scrollContainerRef={scrollRef} revealTarget={null} highlightedMessageId={null}

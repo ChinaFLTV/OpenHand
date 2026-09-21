@@ -104,7 +104,6 @@ import {
   clearTranscriptScrollActivity,
   isTranscriptScrollActive,
   markTranscriptScrollActivity,
-  subscribeTranscriptScrollActivity,
 } from '../../../shared/ui/transcript_scroll_activity';
 import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../../../shared/ui/streaming_turn_timing';
 import {
@@ -1342,7 +1341,6 @@ export function VirtualMessageList({
   const listRef = useRef<HTMLDivElement | null>(null);
   const rangeFrameRef = useRef<number | null>(null);
   const heightCommitFrameRef = useRef<number | null>(null);
-  const heightCommitPendingRef = useRef(false);
   const heightAnchorRef = useRef<{ messageId: string; viewportOffset: number; scrollTop: number } | null>(null);
   const measuredHeightsRef = useRef(new Map<string, number>());
   const initialLayoutSettledRef = useRef(false);
@@ -1385,17 +1383,6 @@ export function VirtualMessageList({
   }, [heightRevision, messageIds]);
   const heightPrefix = geometry.prefix;
   const totalHeight = virtualMessageTotalHeight(heightPrefix, messages.length);
-  const pendingTotalHeightRef = useRef(totalHeight);
-  const [stableTotalHeight, setStableTotalHeight] = useState(totalHeight);
-
-  useLayoutEffect(() => {
-    pendingTotalHeightRef.current = totalHeight;
-    if (!initialLayoutSettledRef.current || !isTranscriptScrollActive()) {
-      setStableTotalHeight((current) =>
-        Math.abs(current - totalHeight) < 0.5 ? current : totalHeight,
-      );
-    }
-  }, [totalHeight]);
 
   const previousMembership = previousMembershipRef.current;
   const membershipChanged = previousMembership.key !== membershipKey;
@@ -1439,42 +1426,37 @@ export function VirtualMessageList({
     );
   }, [membershipKey, messageIds, renderRange.end, renderRange.start, virtualized]);
 
-  const scheduleHeightCommit = useCallback(() => {
-    // 首屏仍隐藏时，程序定位产生的滚动事件不能推迟真实测高。
-    if (initialLayoutSettledRef.current && isTranscriptScrollActive()) {
-      heightCommitPendingRef.current = true;
-      return;
+  const captureHeightAnchor = useCallback(() => {
+    if (!initialLayoutSettledRef.current || heightAnchorRef.current || followBottomRef.current) return;
+    const scroller = scrollContainerRef.current;
+    const list = listRef.current;
+    if (scroller && list) {
+      const scrollerRect = scroller.getBoundingClientRect();
+      const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
+      for (const row of rows) {
+        const rect = row.getBoundingClientRect();
+        if (rect.bottom <= scrollerRect.top || rect.top >= scrollerRect.bottom) continue;
+        const messageId = row.dataset['messageId'];
+        if (messageId) {
+          heightAnchorRef.current = {
+            messageId,
+            viewportOffset: rect.top - scrollerRect.top,
+            scrollTop: scroller.scrollTop,
+          };
+        }
+        break;
+      }
     }
+  }, [scrollContainerRef]);
+
+  const scheduleHeightCommit = useCallback(() => {
     if (heightCommitFrameRef.current != null) return;
     heightCommitFrameRef.current = window.requestAnimationFrame(() => {
       heightCommitFrameRef.current = null;
-      if (initialLayoutSettledRef.current && isTranscriptScrollActive()) {
-        heightCommitPendingRef.current = true;
-        return;
-      }
-      heightCommitPendingRef.current = false;
-      const scroller = scrollContainerRef.current;
-      const list = listRef.current;
-      if (scroller && list && !followBottomRef.current) {
-        const scrollerRect = scroller.getBoundingClientRect();
-        const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
-        for (const row of rows) {
-          const rect = row.getBoundingClientRect();
-          if (rect.bottom <= scrollerRect.top || rect.top >= scrollerRect.bottom) continue;
-          const messageId = row.dataset['messageId'];
-          if (messageId) {
-            heightAnchorRef.current = {
-              messageId,
-              viewportOffset: rect.top - scrollerRect.top,
-              scrollTop: scroller.scrollTop,
-            };
-          }
-          break;
-        }
-      }
+      captureHeightAnchor();
       setHeightRevision((value) => value + 1);
     });
-  }, [scrollContainerRef]);
+  }, [captureHeightAnchor]);
 
   const handleHeightChange = useCallback((messageId: string, height: number) => {
     const next = clampMessageRowHeight(height);
@@ -1484,15 +1466,6 @@ export function VirtualMessageList({
     scheduleHeightCommit();
   }, [scheduleHeightCommit]);
 
-  useEffect(() => subscribeTranscriptScrollActivity((active) => {
-    if (active) return;
-    setStableTotalHeight((current) => {
-      const next = pendingTotalHeightRef.current;
-      return Math.abs(current - next) < 0.5 ? current : next;
-    });
-    if (heightCommitPendingRef.current) scheduleHeightCommit();
-  }), [scheduleHeightCommit]);
-
   useLayoutEffect(() => {
     const anchor = heightAnchorRef.current;
     if (!anchor) return;
@@ -1500,17 +1473,18 @@ export function VirtualMessageList({
     if (followBottomRef.current) return;
     const scroller = scrollContainerRef.current;
     const list = listRef.current;
-    if (!scroller || !list || isTranscriptScrollActive() ||
-        Math.abs(scroller.scrollTop - anchor.scrollTop) >= 0.5) return;
+    if (!scroller || !list) return;
     const scrollerRect = scroller.getBoundingClientRect();
     const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
     for (const row of rows) {
       if (row.dataset['messageId'] !== anchor.messageId) continue;
-      const delta = row.getBoundingClientRect().top - scrollerRect.top - anchor.viewportOffset;
+      // 只补偿布局位移，保留锚点采集后发生的用户滚动。
+      const expectedOffset = anchor.viewportOffset - (scroller.scrollTop - anchor.scrollTop);
+      const delta = row.getBoundingClientRect().top - scrollerRect.top - expectedOffset;
       if (Math.abs(delta) >= 0.5) scroller.scrollTop += delta;
       break;
     }
-  }, [heightRevision, scrollContainerRef]);
+  }, [heightRevision, renderRange.start, renderRange.end, scrollContainerRef]);
 
   // 范围计算的输入同样走 ref 镜像，保证 updateRange / scheduleRangeUpdate
   // 的标识在整个组件生命周期内恒定。
@@ -1518,11 +1492,13 @@ export function VirtualMessageList({
     virtualized,
     messageCount: messages.length,
     revealIndex,
+    renderRange,
   });
   rangeInputsRef.current = {
     virtualized,
     messageCount: messages.length,
     revealIndex,
+    renderRange,
   };
 
   const updateRange = useCallback(() => {
@@ -1533,6 +1509,9 @@ export function VirtualMessageList({
       revealIndex: rangeRevealIndex,
     } = rangeInputsRef.current;
     const applyRange = (next: VirtualMessageRange) => {
+      const current = rangeInputsRef.current.renderRange;
+      if (current.start === next.start && current.end === next.end) return;
+      captureHeightAnchor();
       setRange((current) =>
         current.start === next.start && current.end === next.end ? current : next,
       );
@@ -1570,7 +1549,7 @@ export function VirtualMessageList({
       maxVisibleRows: visibleRowBudgetRef.current,
       virtualized: true,
     }));
-  }, [scrollContainerRef]);
+  }, [captureHeightAnchor, scrollContainerRef]);
 
   const scheduleRangeUpdate = useCallback(() => {
     if (rangeFrameRef.current != null) return;
@@ -1665,7 +1644,7 @@ export function VirtualMessageList({
         scroller.scrollTop = target;
       }
       const measurementsPending =
-        heightCommitPendingRef.current || heightCommitFrameRef.current != null;
+        heightCommitFrameRef.current != null;
       stableFrames = heightChanged || distance > TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX || measurementsPending
         ? 0
         : stableFrames + 1;
@@ -1712,7 +1691,7 @@ export function VirtualMessageList({
       ref={listRef}
       class="oh-session-virtual-message-list"
       data-virtualized="true"
-      style={{ height: `${Math.max(0, stableTotalHeight)}px` }}
+      style={{ height: `${Math.max(0, totalHeight)}px` }}
     >
       <ul
         class="oh-session-message-list oh-session-virtual-window flex flex-col gap-3"

@@ -589,43 +589,34 @@ try {
   stopObserving();
   assert.equal(disconnected, true);
 
-  const heightStart = historyPageSource.indexOf('  const scheduleHeightCommit = useCallback(');
+  const heightStart = historyPageSource.indexOf('  const captureHeightAnchor = useCallback(');
   const heightEnd = historyPageSource.indexOf('  const handleHeightChange =', heightStart);
   assert.ok(heightStart >= 0 && heightEnd > heightStart);
   const { code: heightCode } = await transformWithOxc(historyPageSource.slice(heightStart, heightEnd), 'height-commit.ts');
-  let scrolling = false;
   let heightCommits = 0;
   const heightFrames = [];
-  const pendingHeight = { current: false };
   const heightBindings = {
     followBottomRef: { current: false },
-    useCallback: callback => callback, isTranscriptScrollActive: () => scrolling,
+    useCallback: callback => callback,
+    heightAnchorRef: { current: null }, heightCommitFrameRef: { current: null },
     initialLayoutSettledRef: { current: true },
-    heightCommitPendingRef: pendingHeight, heightCommitFrameRef: { current: null },
     scrollContainerRef: { current: null }, listRef: { current: null },
     window: { requestAnimationFrame: callback => { heightFrames.push(callback); return heightFrames.length; } },
     setHeightRevision: () => { heightCommits++; },
   };
   const commitHeight = new Function(...Object.keys(heightBindings), `${heightCode}\nreturn scheduleHeightCommit;`)(...Object.values(heightBindings));
   commitHeight();
-  scrolling = true;
+  commitHeight();
+  assert.equal(heightFrames.length, 1, '同帧测高只提交一次');
   heightFrames.shift()();
-  assert.equal(heightCommits, 0, '排队后才开始滚动，也不能提交旧测高任务');
-  assert.equal(pendingHeight.current, true);
-  scrolling = false;
+  assert.equal(heightCommits, 1, '测高与虚拟范围保持同步，不冻结真实几何');
   commitHeight();
   heightFrames.shift()();
-  assert.equal(heightCommits, 1, '停止后合并提交测高');
-  heightBindings.initialLayoutSettledRef.current = false;
-  scrolling = true;
-  commitHeight();
-  heightFrames.shift()();
-  assert.equal(heightCommits, 2, '隐藏首屏的程序定位不能延迟真实测高');
-  scrolling = false;
+  assert.equal(heightCommits, 2, '后续帧仍能提交新尺寸');
 
 
   const restoreStart = historyPageSource.indexOf('    const anchor = heightAnchorRef.current;');
-  const restoreEnd = historyPageSource.indexOf('  }, [heightRevision, scrollContainerRef]);', restoreStart);
+  const restoreEnd = historyPageSource.indexOf('  }, [heightRevision, renderRange.start, renderRange.end, scrollContainerRef]);', restoreStart);
   assert.ok(restoreStart >= 0 && restoreEnd > restoreStart);
   const { code: restoreCode } = await transformWithOxc(
     `const restoreHeightAnchor = () => {${historyPageSource.slice(restoreStart, restoreEnd)}};`, 'height-anchor.ts',
@@ -634,23 +625,21 @@ try {
   const heightScroller = { scrollTop: 100, getBoundingClientRect: () => ({ top: 0 }) };
   const restoreBindings = {
     followBottomRef: { current: false },
-    heightAnchorRef: heightAnchor, isTranscriptScrollActive: () => scrolling,
+    heightAnchorRef: heightAnchor,
     scrollContainerRef: { current: heightScroller },
     listRef: { current: { querySelectorAll: () => [{
-      dataset: { messageId: '阅读中的消息' }, getBoundingClientRect: () => ({ top: 30 }),
+      dataset: { messageId: '阅读中的消息' }, getBoundingClientRect: () => ({ top: 130 - heightScroller.scrollTop }),
     }] } },
   };
   const restoreHeight = new Function(...Object.keys(restoreBindings), `${restoreCode}\nreturn restoreHeightAnchor;`)(...Object.values(restoreBindings));
   const savedAnchor = { messageId: '阅读中的消息', viewportOffset: 10, scrollTop: 100 };
   heightAnchor.current = savedAnchor;
-  scrolling = true;
   restoreHeight();
-  assert.equal(heightScroller.scrollTop, 100, '恢复锚点前开始滚动必须放弃旧修正');
-  scrolling = false;
+  assert.equal(heightScroller.scrollTop, 120, '滚动中也必须抵消虚拟布局位移');
   heightScroller.scrollTop = 105;
   heightAnchor.current = savedAnchor;
   restoreHeight();
-  assert.equal(heightScroller.scrollTop, 105, '浏览器已经修正坐标时不能再次补偿');
+  assert.equal(heightScroller.scrollTop, 125, '布局补偿保留期间新增的五像素滚动');
   heightScroller.scrollTop = 100;
   heightAnchor.current = savedAnchor;
   restoreHeight();

@@ -734,6 +734,7 @@ class _CollapsibleMessageMarkdownBody extends StatefulWidget {
     this.showCollapseToggle = true,
     this.animateSize = true,
     this.scrollStateKey,
+    this.deferInitialParse = true,
   });
 
   final String data;
@@ -752,6 +753,7 @@ class _CollapsibleMessageMarkdownBody extends StatefulWidget {
   final bool showCollapseToggle;
   final bool animateSize;
   final String? scrollStateKey;
+  final bool deferInitialParse;
 
   @override
   State<_CollapsibleMessageMarkdownBody> createState() =>
@@ -823,6 +825,7 @@ class _CollapsibleMessageMarkdownBodyState
         inlineSyntaxes: widget.inlineSyntaxes,
         pathRoots: widget.pathRoots,
         parseKey: widget.parseKey,
+        deferInitialParse: widget.deferInitialParse,
       );
     }
 
@@ -841,6 +844,7 @@ class _CollapsibleMessageMarkdownBodyState
         parseKey: '${widget.parseKey}|message-preview',
         scrollStateKey: _scrollStateKey,
         fadeColor: widget.fadeColor,
+        deferInitialParse: widget.deferInitialParse,
       ),
     );
 
@@ -1034,9 +1038,11 @@ class _MarkdownPreviewBody extends StatefulWidget {
     required this.fadeColor,
     this.scrollStateKey,
     this.expanded = false,
+    this.deferInitialParse = true,
   });
 
   final bool expanded;
+  final bool deferInitialParse;
   final String data;
   final double maxHeight;
   final bool selectable;
@@ -1112,7 +1118,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody>
         inlineSyntaxes: widget.inlineSyntaxes,
         pathRoots: widget.pathRoots,
         parseKey: widget.parseKey,
-        deferInitialParse: !widget.expanded,
+        deferInitialParse: widget.deferInitialParse && !widget.expanded,
       ),
     );
   }
@@ -5775,6 +5781,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     this.contentMotionKey,
     this.forceMotionWhenScrolling = false,
     this.scrollStateKey,
+    this.deferInitialParse = true,
   });
 
   final String data;
@@ -5798,6 +5805,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   final Object? contentMotionKey;
   final bool forceMotionWhenScrolling;
   final String? scrollStateKey;
+  final bool deferInitialParse;
 
   Widget _wrapSelection(Widget child) {
     if (!wrapInSelectionArea) return child;
@@ -5872,6 +5880,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       onCollapsedChanged: onCollapsedChanged,
       showCollapseToggle: showCollapseToggle,
       animateSize: collapsedOverride == null,
+      deferInitialParse: deferInitialParse,
       scrollStateKey: scrollStateKey == null
           ? null
           : '$scrollStateKey|markdown',
